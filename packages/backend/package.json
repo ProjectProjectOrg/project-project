@@ -1,0 +1,20 @@
+{
+  "name": "@markmate/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/main.ts",
+    "start": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/platform": "latest",
+    "@effect/platform-bun": "latest",
+    "@markmate/shared": "workspace:*",
+    "effect": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

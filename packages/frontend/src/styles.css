@@ -1,0 +1,17 @@
+/* Minimal global styles. Chapters 1+ will introduce a real design system. */
+
+:root {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.5;
+  color: #111;
+  background: #fafafa;
+}
+
+body {
+  margin: 0;
+  padding: 2rem;
+}
+
+a {
+  color: inherit;
+}
