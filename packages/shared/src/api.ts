@@ -2,7 +2,7 @@
 //
 // THIS FILE IS THE CONTRACT.
 // ----------------------------------------------------------------------------
-// Markmate's HTTP API is defined here, once. The backend implements it; the
+// ProjectProject's HTTP API is defined here, once. The backend implements it; the
 // frontend consumes it via `HttpApiClient.make(AppApi)`; the OpenAPI spec is
 // derived from it. There is no code generation step — the *type* of `AppApi`
 // is what flows into both ends.
@@ -33,13 +33,51 @@
 // implementations live in `packages/backend/src/main.ts` (and later, the
 // `handlers/` directory).
 
-// TODO: import HttpApi, HttpApiGroup, HttpApiEndpoint from "@effect/platform"
-// TODO: import { Schema } from "effect"
+import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { Schema } from "effect"
+import { User } from "./schemas/User"
+import { Unauthorized } from "./errors"
+import { Authentication } from "./Authentication"
 
-// TODO: define a `HealthResponse` schema = Schema.Struct({ status: Schema.Literal("ok") })
+const HealthResponse = Schema.Struct({
+  status: Schema.Literal("ok")
+})
+export type HealthResponse = typeof HealthResponse.Type
 
-// TODO: declare `const HealthGroup = HttpApiGroup.make("health").add(...)`
+const HealthGroup = HttpApiGroup
+  .make("health")
+  .add(
+    HttpApiEndpoint
+      .get("get", "/health")
+      .addSuccess(HealthResponse)
+  )
 
-// TODO: export `const AppApi = HttpApi.make("markmate").add(HealthGroup)`
+const DbPingResponse = Schema.Struct({
+  projectCount: Schema.Number
+})
+export type DbPingResponse = typeof DbPingResponse.Type
 
-export {} // Remove this line once you start exporting AppApi.
+const DbGroup = HttpApiGroup
+  .make("db")
+  .add(
+    HttpApiEndpoint
+      .get("ping", "/db/ping")
+      .addSuccess(DbPingResponse)
+  )
+
+const AuthGroup = HttpApiGroup
+  .make("auth")
+  .add(
+    HttpApiEndpoint
+      .get("me", "/me")
+      .addSuccess(User)
+      .addError(Unauthorized)
+  )
+  .middleware(Authentication)
+
+const AppApi = HttpApi
+  .make("projectproject")
+  .add(HealthGroup)
+  .add(DbGroup)
+  .add(AuthGroup)
+export { AppApi }

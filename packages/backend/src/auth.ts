@@ -1,0 +1,99 @@
+// packages/backend/src/auth.ts
+//
+// THE BETTER AUTH INSTANCE.
+// ============================================================================
+// This file is the single place where the Better Auth library is configured.
+// It exports the configured `auth` instance (a plain object with `.handler`
+// and `.api` namespaces) plus the inferred `User` and `Session` types.
+//
+// Everything else in the codebase touches Better Auth through the
+// `BetterAuth` Effect service in `services/BetterAuth.ts` — *not* by
+// importing `auth` directly. The exception is the Better Auth CLI, which
+// reads this file at the command line to generate the Drizzle schema.
+//
+// WHY A SEPARATE DRIZZLE CLIENT FOR BETTER AUTH?
+// ----------------------------------------------------------------------------
+// The Effect `Db` service in `services/Db.ts` produces a Drizzle client
+// inside Effect's Layer/Scope system. That client only exists while the
+// surrounding scope is alive — it's resource-managed.
+//
+// Better Auth, being Promise-based and constructed at module load, can't
+// participate in that scope. It needs a Drizzle client *now*, synchronously,
+// at file evaluation time.
+//
+// Two choices:
+//
+//   (A) Stand up a second, simple Drizzle client here just for Better Auth.
+//       Two pools share the same `DATABASE_URL`. Trivially cheap; clean.
+//
+//   (B) Hoist the Drizzle client out of `Db` into a top-level singleton and
+//       have both this file and `Db` use it. This couples `Db`'s lifecycle to
+//       module-load and undermines the resource management we set up in
+//       Chapter 1.
+//
+// We're going with (A) — keep this file simple, pay one extra connection.
+//
+// CONFIG TO FILL IN
+// ----------------------------------------------------------------------------
+//   - database:        drizzleAdapter(db, { provider: "pg", schema: { user, session, account, verification } })
+//   - secret:          process.env.BETTER_AUTH_SECRET
+//   - baseURL:         process.env.BETTER_AUTH_URL
+//   - trustedOrigins:  ["http://localhost:5173", "http://localhost:3000"]   (dev)
+//   - socialProviders.github:
+//       clientId, clientSecret from env, scope: ["read:user", "user:email", "repo"]
+//   - session.cookieCache: { enabled: true, maxAge: 5 * 60 }
+//
+// EXPORTED TYPES
+// ----------------------------------------------------------------------------
+// After the instance is built:
+//
+//   export type User = typeof auth.$Infer.Session["user"]
+//   export type Session = typeof auth.$Infer.Session["session"]
+//
+// These flow into `services/BetterAuth.ts` so the wrapper's signatures stay
+// in sync with whatever Better Auth config we have here.
+//
+// USING `process.env` HERE IS FINE
+// ----------------------------------------------------------------------------
+// In Effect code we'd reach for `Config.redacted("FOO")` so missing env vars
+// fail with a typed `ConfigError`. Here, we're outside any Effect runtime —
+// `auth` is a top-level constant evaluated at import time. Plain `process.env`
+// reads are appropriate. If a required var is missing, throwing at boot is
+// the right behavior.
+
+// TODO: add imports
+import { betterAuth } from "better-auth"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { account, session, user, verification } from "./db/schema"
+
+// TODO: build a small Drizzle client just for Better Auth.
+const db = drizzle(process.env.DATABASE_URL!)
+
+// TODO: configure and export `auth`.
+export const auth = betterAuth({
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: { user, session, account, verification }
+  }),
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: ["http://localhost:5173", "http://localhost:3000"],
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      scope: ["read:user", "user:email", "repo"]
+    }
+  },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60
+    }
+  }
+})
+
+// TODO: export inferred types.
+export type User = typeof auth.$Infer.Session["user"]
+export type Session = typeof auth.$Infer.Session["session"]

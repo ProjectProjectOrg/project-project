@@ -1,20 +1,37 @@
 {
-  "name": "@markmate/backend",
+  "name": "@projectproject/backend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --watch src/main.ts",
-    "start": "bun run src/main.ts",
-    "typecheck": "tsc --noEmit"
+    "dev": "bun --env-file=../../.env --watch src/main.ts",
+    "start": "bun --env-file=../../.env src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@effect/platform": "latest",
     "@effect/platform-bun": "latest",
-    "@markmate/shared": "workspace:*",
-    "effect": "latest"
+    "@effect/sql": "^0.51.1",
+    "@effect/sql-drizzle": "^0.50.0",
+    "@effect/sql-pg": "^0.52.1",
+    "@projectproject/shared": "workspace:*",
+    "better-auth": "^1.6.9",
+    "drizzle-orm": "^0.45.2",
+    "effect": "latest",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@effect/vitest": "^0.29.0",
+    "@types/bun": "latest",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
+    "vitest": "^3.2.0"
   }
 }

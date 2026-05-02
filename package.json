@@ -1,23 +1,29 @@
 {
-  "name": "markmate",
+  "name": "projectproject",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev:backend": "bun --filter @markmate/backend dev",
-    "dev:frontend": "bun --filter @markmate/frontend dev",
+    "dev:backend": "bun --filter @projectproject/backend dev",
+    "dev:frontend": "bun --filter @projectproject/frontend dev",
+    "dev:chapters": "bun --filter @projectproject/chapters-viewer dev",
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "eslint",
-    "format": "prettier --write ."
+    "format": "dprint fmt",
+    "format:check": "dprint check"
   },
   "devDependencies": {
+    "@tanstack/eslint-config": "^0.4.0",
     "@types/node": "^22.10.0",
+    "dprint": "^0.54.0",
     "eslint": "^9.20.0",
-    "prettier": "^3.4.2",
+    "kysely": "0.27.6",
     "typescript": "^5.7.3"
   }
 }

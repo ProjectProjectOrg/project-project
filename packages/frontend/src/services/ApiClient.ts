@@ -8,40 +8,65 @@
 // and any errors you declared with `.addError(...)` show up in the Effect's
 // `E` channel. There is no codegen step — this is straight TypeScript.
 //
-// We wrap the client in a `Context.Tag` and a `Layer` for two reasons:
+// We expose the client as a *service*, so:
 //   1. The HTTP transport (FetchHttpClient) is itself a layer the client
-//      needs underneath it; layers express that dependency cleanly.
-//   2. In tests, we can swap `ApiClientLive` for a fake layer without
+//      needs underneath it; expressing it as a service dependency keeps that
+//      wiring explicit and testable.
+//   2. In tests, we can swap the live implementation for a fake one without
 //      touching component code. This is the entire pitch of Effect's
 //      dependency injection.
+//
+// PATTERN: `Effect.Service` (modern, Effect v3.9+)
+// ----------------------------------------------------------------------------
+// `Effect.Service` is a helper that bundles three things you'd otherwise hand-
+// write separately:
+//   - the Tag (the identity of the service in the `R` channel)
+//   - the Layer (how to construct it)
+//   - the *type* of the service (inferred from the `effect:` field — you
+//     don't have to spell it out)
+//
+// You'll also see the older `Context.Tag` + `Layer.effect` pattern in the
+// wild and in our own `Markdown`/`Projects`/`Tickets` services later. For
+// services that wrap an external library (like `HttpApiClient`), the
+// inference `Effect.Service` gives you is a real win — you'd otherwise have
+// to extract type parameters from `HttpApi` by hand.
 //
 // CHAPTER 0 STEPS
 // ----------------------------------------------------------------------------
 //   1. Imports:
-//        import { Context, Effect, Layer } from "effect"
+//        import { Effect } from "effect"
 //        import { FetchHttpClient, HttpApiClient } from "@effect/platform"
-//        import { AppApi } from "@markmate/shared"
+//        import { AppApi } from "@projectproject/shared"
 //
-//   2. Declare the Tag:
-//        export class ApiClient extends Context.Tag("ApiClient")<
-//          ApiClient,
-//          HttpApiClient.Client<typeof AppApi>
-//        >() {}
+//   2. Declare the service in one shot:
+//        export class ApiClient extends Effect.Service<ApiClient>()(
+//          "ApiClient",
+//          {
+//            effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+//            dependencies: [FetchHttpClient.layer]
+//          }
+//        ) {}
 //
-//   3. Build the live layer:
-//        export const ApiClientLive = Layer.effect(
-//          ApiClient,
-//          HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-//        ).pipe(Layer.provide(FetchHttpClient.layer))
+// WHAT YOU GET
+// ----------------------------------------------------------------------------
+// - `ApiClient` (the class itself) is the Tag — `yield* ApiClient` works.
+// - `ApiClient.Default` is the live Layer — what you provide in routes/tests.
+// - The service shape is the success type of the `effect:` Effect — i.e. the
+//   typed `client` returned by `HttpApiClient.make(AppApi, ...)`. So
+//   `client.health.get()` autocompletes with no extra type machinery.
 //
-// You are *describing* how to build an ApiClient — not building one yet.
-// The first call to `Effect.runPromise(...).pipe(Effect.provide(ApiClientLive))`
+// You are *describing* how to build an ApiClient — not building one yet. The
+// first call to `Effect.runPromise(program.pipe(Effect.provide(ApiClient.Default)))`
 // is when the layer is actually constructed.
 
-// TODO: imports
+import { Effect } from "effect"
+import { FetchHttpClient, HttpApiClient } from "@effect/platform"
+import { AppApi } from "@projectproject/shared"
 
-// TODO: export class ApiClient extends Context.Tag(...)<...>() {}
-
-// TODO: export const ApiClientLive = Layer.effect(ApiClient, ...).pipe(Layer.provide(FetchHttpClient.layer))
-
-export {}
+export class ApiClient extends Effect.Service<ApiClient>()(
+  "ApiClient",
+  {
+    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+    dependencies: [FetchHttpClient.layer]
+  }
+) {}

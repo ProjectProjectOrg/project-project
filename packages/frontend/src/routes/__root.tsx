@@ -19,10 +19,10 @@
 // You can keep the JSX trivial — no styling, no header. We are testing the
 // vertical slice (frontend → backend → response) end to end.
 
-// TODO: imports
+import { createRootRoute, Outlet } from "@tanstack/react-router"
 
-// TODO: const Route = createRootRoute({ component: RootComponent })
+export const Route = createRootRoute({ component: RootComponent })
 
-// TODO: function RootComponent() { return <Outlet /> }
-
-export {}
+function RootComponent() {
+  return <Outlet />
+}

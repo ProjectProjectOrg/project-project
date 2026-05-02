@@ -1,4 +1,4 @@
-# Markmate
+# ProjectProject
 
 A markdown-first project management tool, built as a vehicle for learning Effect deeply.
 
@@ -7,7 +7,7 @@ The full spec lives in [`docs/PROJECTPROJECT.md`](docs/PROJECTPROJECT.md). The c
 ## Layout
 
 ```
-markmate/
+projectproject/
 ├── package.json              # Bun workspaces root
 ├── tsconfig.base.json        # Shared compiler options
 ├── docs/

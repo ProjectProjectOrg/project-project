@@ -1,5 +1,5 @@
 {
-  "name": "@markmate/frontend",
+  "name": "@projectproject/frontend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@effect/platform": "latest",
-    "@markmate/shared": "workspace:*",
+    "@projectproject/shared": "workspace:*",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "effect": "latest",

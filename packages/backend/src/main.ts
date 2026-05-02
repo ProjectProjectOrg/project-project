@@ -14,58 +14,129 @@
 // implement an HttpApi (`HttpApiBuilder.api`), one to actually listen on a
 // port (`BunHttpServer.layer` from `@effect/platform-bun`).
 //
-// CHAPTER 0 GOAL
+// WHAT'S IN THIS FILE
 // ----------------------------------------------------------------------------
-// Make `curl http://localhost:3000/health` return {"status":"ok"}.
+// Three handler groups (`health`, `db`, `auth`) implementing the contract
+// from `@projectproject/shared`, plus the wiring that makes them serve over
+// HTTP. Two mounts under the shared `/api` namespace coexist on the same
+// Bun server:
 //
-// STEPS
+//   - `/api/auth/*` — handed off to Better Auth's own request handler,
+//                     mounted as a raw web app (it has its own routing,
+//                     schemas, and cookie management).
+//   - `/api/*`      — handled by the typed HttpApi pipeline (`/api/me`,
+//                     `/api/health`, `/api/db/ping`).
+//
+// Order matters: `/api/auth` is registered first so its more-specific prefix
+// wins the match; `/api/*` is the catch-all for everything else.
+//
+// The `/api` prefix is owned by the backend, not the frontend dev server.
+// Vite's proxy in `packages/frontend/vite.config.ts` is a pure forwarder —
+// no path rewriting — so a browser request to `:5173/api/me` arrives here
+// as `:3000/api/me` exactly. Direct backend curls (`curl :3000/api/me`)
+// hit the same path the frontend does.
+//
+// The interesting wiring lives at the bottom in `ServerLive`: an `HttpRouter`
+// with two `mountApp` calls, an explicit `Effect.catchTag("RouteNotFound", ...)`
+// fallback, and one shared layer chain providing every service the handlers
+// and middleware need.
+//
+// MENTAL MODEL REMINDERS
 // ----------------------------------------------------------------------------
-//   1. Import { AppApi } from "@markmate/shared".
-//   2. Import HttpApiBuilder, HttpServer from "@effect/platform".
-//   3. Import BunHttpServer, BunRuntime from "@effect/platform-bun".
-//   4. Import { Layer } from "effect".
-//
-//   5. Implement the "health" group with HttpApiBuilder.group:
-//        const HealthHandlerLive = HttpApiBuilder.group(AppApi, "health",
-//          (handlers) => handlers.handle("get", () =>
-//            Effect.succeed({ status: "ok" as const })
-//          )
-//        )
-//      (Group name "health" and endpoint name "get" must match what you
-//       declared in shared/api.ts — TypeScript will tell you if they don't.)
-//
-//   6. Compose the API implementation:
-//        const ApiLive = HttpApiBuilder.api(AppApi).pipe(
-//          Layer.provide(HealthHandlerLive)
-//        )
-//
-//   7. Build the server layer:
-//        const ServerLive = HttpApiBuilder.serve().pipe(
-//          Layer.provide(ApiLive),
-//          Layer.provide(BunHttpServer.layer({ port: 3000 }))
-//        )
-//
-//   8. Launch it:
-//        BunRuntime.runMain(Layer.launch(ServerLive))
-//
-// THINGS TO LOOK UP WHILE YOU GO
-// ----------------------------------------------------------------------------
-// - The difference between `Layer.provide` and `Layer.merge`. Provide is
-//   directional ("this layer needs that one underneath"); merge is parallel.
-// - Why `Layer.launch` rather than `Effect.runPromise`. Layers describe
-//   long-lived resources; launch keeps them alive for the lifetime of the
-//   process.
-// - `BunRuntime.runMain` vs Effect's general runtime — what does the Bun
-//   variant add? (Hint: signal handling, exit codes.)
+// - `Effect<A, E, R>` is a description; nothing runs until a runtime executes
+//   it. `Layer<ROut, E, RIn>` is a description of how to construct the `R`
+//   side. We compose layers to build the dependency graph and let the Bun
+//   runtime resolve it.
+// - `Layer.provide` is directional ("this needs that underneath"); `Layer.merge`
+//   is parallel. The chain at the bottom uses `provide` exclusively so that
+//   `BetterAuthLive` and `DbLive` are reachable from anything above them
+//   (including `AuthenticationLive`, which depends on `BetterAuth`).
+// - `Layer.launch` rather than `Effect.runPromise` because layers describe
+//   long-lived resources; launch keeps the server alive for the lifetime of
+//   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
+//   exit-code mapping.
 
-// TODO: imports
+import {
+  HttpApiBuilder,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse
+} from "@effect/platform"
+import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
+import { AppApi } from "@projectproject/shared"
+import { count } from "drizzle-orm"
+import { Effect, Layer } from "effect"
+import { projectIndex } from "./db/schema"
+import { AuthHandlerLive } from "./handlers/auth"
+import { AuthenticationLive } from "./services/Auth"
+import { BetterAuth, BetterAuthLive } from "./services/BetterAuth"
+import { Db, DbLive } from "./services/Db"
 
-// TODO: HealthHandlerLive
+// Exported so tests can compose them without booting a real Bun server.
+export const HealthHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "health",
+  (handlers) =>
+    handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
+)
 
-// TODO: ApiLive
+export const DbHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "db",
+  (handlers) =>
+    handlers.handle("ping", () =>
+      Effect
+        .gen(function*() {
+          const db = yield* Db
+          const [{ value }] = yield* db.select({ value: count() }).from(
+            projectIndex
+          )
+          return { projectCount: value }
+        })
+        .pipe(Effect.orDie))
+)
 
-// TODO: ServerLive
+const betterAuthApp = Effect
+  .gen(function*() {
+    const ba = yield* BetterAuth
+    const req = yield* HttpServerRequest.HttpServerRequest
+    const webReq = yield* HttpServerRequest.toWeb(req)
+    const webRes = yield* ba.handler(webReq)
+    return HttpServerResponse.fromWeb(webRes)
+  })
+  .pipe(
+    Effect.catchAll(() =>
+      HttpServerResponse.text("Auth error", { status: 500 })
+    )
+  )
 
-// TODO: BunRuntime.runMain(Layer.launch(ServerLive))
+export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
+  Layer.provide(HealthHandlerLive),
+  Layer.provide(DbHandlerLive),
+  Layer.provide(AuthHandlerLive),
+  Layer.provide(AuthenticationLive)
+)
 
-export {}
+const ServerLive = HttpApiBuilder
+  .serve((apiApp) =>
+    HttpRouter.empty.pipe(
+      HttpRouter.mountApp("/api/auth", betterAuthApp),
+      HttpRouter.mountApp("/api", apiApp),
+      Effect.catchTag("RouteNotFound", () =>
+        HttpServerResponse.text("Not Found", { status: 404 }))
+    )
+  )
+  .pipe(
+    Layer.provide(ApiLive),
+    Layer.provide(BetterAuthLive),
+    Layer.provide(DbLive),
+    Layer.provide(BunHttpServer.layer({ port: 3000 }))
+  )
+
+// Only boot the real server when this file is the entry point. When tests
+// import { ApiLive } from this module, `import.meta.main` is false and we
+// skip the bind. (Bun-specific — Node has no equivalent built-in, but we're
+// running on Bun.)
+if (import.meta.main) {
+  BunRuntime.runMain(Layer.launch(ServerLive))
+}

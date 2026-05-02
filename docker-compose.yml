@@ -1,0 +1,34 @@
+# Local-development docker-compose: just Postgres for now.
+#
+# Why minimal? Chapter 1 only needs the database. The full deploy compose (with
+# the app container, bind-mounted markdown directory, etc.) lives in the spec
+# at docs/PROJECTPROJECT.md and we'll grow toward it across later chapters.
+#
+# Usage:
+#   docker compose up -d           # start postgres in the background
+#   docker compose down            # stop and remove the container
+#   docker compose down -v         # stop AND wipe the volume (resets the DB)
+#
+# The DATABASE_URL the backend uses is read from `.env` (see `.env.example`).
+# It points at this container at localhost:5432.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: projectproject-postgres
+    environment:
+      POSTGRES_USER: projectproject
+      POSTGRES_PASSWORD: projectproject_dev
+      POSTGRES_DB: projectproject
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "projectproject"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

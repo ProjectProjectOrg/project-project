@@ -1,4 +1,4 @@
-# Markmate — A Markdown-First Project Management Tool
+# ProjectProject — A Markdown-First Project Management Tool
 
 A learning project for building a real full-stack TypeScript application with Effect at its core. Jira/Trello-style project and ticket management, but with markdown files as the source of truth for project and ticket data, GitHub branch automation, and a rich-text editor on top.
 
@@ -8,23 +8,23 @@ The primary goal is **learning Effect deeply by building something real**. Secon
 
 ## Tech Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Runtime | Bun | Fast, native TypeScript, native workspaces, single binary in containers |
-| Monorepo | Bun workspaces | No Turborepo/Nx — keep it minimal |
-| Backend framework | `@effect/platform` HttpApi | Schema-first API, derives OpenAPI spec, derives typed client |
-| Database | Postgres | Auth, sessions, OAuth tokens, project index |
-| ORM | Drizzle + `@effect/sql-drizzle` | Drizzle ergonomics, Effect connection/transaction layers |
-| Auth | Better Auth (GitHub OAuth only) | Cookie sessions; we get the GitHub token "for free" via the account table |
-| Markdown storage | Bind-mounted host directory | Source of truth for projects/tickets, host-accessible for grep/AI |
-| Git | Octokit, called from Effect | Branch creation against connected repos |
-| Frontend framework | TanStack Start (SPA mode) | File-based routing, devtools, no SSR |
-| State / cache | `@effect-atom/atom-react` | Atoms as cache cells, families as query keys |
-| UI primitives | BaseUI | Headless, accessible, you style it |
-| Editor | Lexical | Configured for markdown I/O |
-| Tables | TanStack Table | For the ticket list view |
-| Testing | `@effect/vitest` + React Testing Library | Effect-aware test runtime, layer mocking |
-| Container | Docker Compose | One file, runs on the homelab |
+| Layer              | Choice                                   | Why                                                                       |
+| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------- |
+| Runtime            | Bun                                      | Fast, native TypeScript, native workspaces, single binary in containers   |
+| Monorepo           | Bun workspaces                           | No Turborepo/Nx — keep it minimal                                         |
+| Backend framework  | `@effect/platform` HttpApi               | Schema-first API, derives OpenAPI spec, derives typed client              |
+| Database           | Postgres                                 | Auth, sessions, OAuth tokens, project index                               |
+| ORM                | Drizzle + `@effect/sql-drizzle`          | Drizzle ergonomics, Effect connection/transaction layers                  |
+| Auth               | Better Auth (GitHub OAuth only)          | Cookie sessions; we get the GitHub token "for free" via the account table |
+| Markdown storage   | Bind-mounted host directory              | Source of truth for projects/tickets, host-accessible for grep/AI         |
+| Git                | Octokit, called from Effect              | Branch creation against connected repos                                   |
+| Frontend framework | TanStack Start (SPA mode)                | File-based routing, devtools, no SSR                                      |
+| State / cache      | `@effect-atom/atom-react`                | Atoms as cache cells, families as query keys                              |
+| UI primitives      | BaseUI                                   | Headless, accessible, you style it                                        |
+| Editor             | Lexical                                  | Configured for markdown I/O                                               |
+| Tables             | TanStack Table                           | For the ticket list view                                                  |
+| Testing            | `@effect/vitest` + React Testing Library | Effect-aware test runtime, layer mocking                                  |
+| Container          | Docker Compose                           | One file, runs on the homelab                                             |
 
 > **Effect version:** start on **v3 stable**. The team explicitly recommends v3 for production right now; v4 is in beta and Schema lives under `effect/unstable/schema`. Migrate after v4 LTS.
 
@@ -33,7 +33,7 @@ The primary goal is **learning Effect deeply by building something real**. Secon
 ## Repository Layout
 
 ```
-markmate/
+projectproject/
 ├── bun.lockb
 ├── package.json                      # workspaces config
 ├── docker-compose.yml
@@ -49,7 +49,7 @@ markmate/
 │   ├── shared/                       # HttpApi definition, Schemas, shared types
 │   │   ├── package.json
 │   │   └── src/
-│   │       ├── api.ts                # HttpApi.make("markmate").add(...)
+│   │       ├── api.ts                # HttpApi.make("projectproject").add(...)
 │   │       ├── schemas/
 │   │       │   ├── Project.ts
 │   │       │   ├── Ticket.ts
@@ -108,16 +108,18 @@ The `shared/` package is the keystone. The HttpApi defined there is **the contra
 
 ### What lives in Postgres
 
-Postgres holds only what *has* to be in a database: identity, sessions, and a thin index for fast project lookup. Everything else is markdown.
+Postgres holds only what _has_ to be in a database: identity, sessions, and a thin index for fast project lookup. Everything else is markdown.
 
 **Better Auth tables** (managed by Better Auth migrations):
+
 - `users` — id, email, name, image, createdAt
 - `sessions` — sessionToken, userId, expires
 - `accounts` — userId, provider="github", providerAccountId, accessToken, refreshToken, etc. (this is where the GitHub OAuth token lives)
 - `verification_tokens` — for OAuth state
 
 **Our tables:**
-- `project_index` — `(slug PK, owner_id, created_at)` — used to list projects without scanning the filesystem and to enforce slug uniqueness across the system. Members are *not* in this table; they live in the markdown frontmatter (source of truth).
+
+- `project_index` — `(slug PK, owner_id, created_at)` — used to list projects without scanning the filesystem and to enforce slug uniqueness across the system. Members are _not_ in this table; they live in the markdown frontmatter (source of truth).
 
 That's it. No `tickets` table, no `members` table, no `comments` table. Adding a column to a database for new feature data is a smell in this app — markdown is the answer.
 
@@ -129,6 +131,7 @@ data/projects/<slug>/tickets/<ticket-id>.md
 ```
 
 **`project.md`:**
+
 ```markdown
 ---
 slug: design-system
@@ -152,6 +155,7 @@ This is what gets shown on the project landing page.
 ```
 
 **`tickets/T-12.md`:**
+
 ```markdown
 ---
 id: T-12
@@ -175,7 +179,7 @@ Ticket IDs are sequential per project (`T-1`, `T-2`, …). The next-ID counter l
 
 ### Why this split
 
-Source of truth is the file. The DB is for things the file *can't* answer fast: "show me all projects this user is in." We rebuild the index by scanning the filesystem on demand if it ever drifts (a rake-style command in development).
+Source of truth is the file. The DB is for things the file _can't_ answer fast: "show me all projects this user is in." We rebuild the index by scanning the filesystem on demand if it ever drifts (a rake-style command in development).
 
 This makes the future "feed it to an AI" goal trivial — point a tool at `data/projects/`, and every piece of structured project context is greppable, parseable, and self-describing.
 
@@ -187,51 +191,115 @@ The full HttpApi is defined in `packages/shared/src/api.ts`. Sketch:
 
 ```ts
 // packages/shared/src/api.ts
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform"
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  HttpApiSchema
+} from "@effect/platform"
 import { Schema as S } from "effect"
 import { Project, Ticket, User } from "./schemas"
-import { NotFound, Forbidden, Unauthorized, Conflict, ValidationError } from "./errors"
+import {
+  Conflict,
+  Forbidden,
+  NotFound,
+  Unauthorized,
+  ValidationError
+} from "./errors"
 
-const Auth = HttpApiGroup.make("auth")
+const Auth = HttpApiGroup
+  .make("auth")
   .add(HttpApiEndpoint.get("me", "/me").addSuccess(User).addError(Unauthorized))
   .add(HttpApiEndpoint.post("logout", "/logout").addSuccess(S.Void))
 
-const Projects = HttpApiGroup.make("projects")
+const Projects = HttpApiGroup
+  .make("projects")
   .add(HttpApiEndpoint.get("list", "/projects").addSuccess(S.Array(Project)))
-  .add(HttpApiEndpoint.post("create", "/projects")
-    .setPayload(S.Struct({ name: S.String, slug: S.String }))
-    .addSuccess(Project).addError(Conflict).addError(ValidationError))
-  .add(HttpApiEndpoint.get("get", "/projects/:slug")
-    .setPath(S.Struct({ slug: S.String }))
-    .addSuccess(Project).addError(NotFound).addError(Forbidden))
-  .add(HttpApiEndpoint.patch("update", "/projects/:slug")
-    .setPath(S.Struct({ slug: S.String }))
-    .setPayload(Project.pipe(S.partial))
-    .addSuccess(Project).addError(NotFound).addError(Forbidden))
-  .add(HttpApiEndpoint.del("delete", "/projects/:slug")
-    .setPath(S.Struct({ slug: S.String }))
-    .addSuccess(S.Void).addError(NotFound).addError(Forbidden))
-  .add(HttpApiEndpoint.post("addMember", "/projects/:slug/members")
-    .setPath(S.Struct({ slug: S.String }))
-    .setPayload(S.Struct({ userId: S.String, role: S.Literal("admin", "member") }))
-    .addSuccess(Project).addError(NotFound).addError(Forbidden))
+  .add(
+    HttpApiEndpoint
+      .post("create", "/projects")
+      .setPayload(S.Struct({ name: S.String, slug: S.String }))
+      .addSuccess(Project)
+      .addError(Conflict)
+      .addError(ValidationError)
+  )
+  .add(
+    HttpApiEndpoint
+      .get("get", "/projects/:slug")
+      .setPath(S.Struct({ slug: S.String }))
+      .addSuccess(Project)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .patch("update", "/projects/:slug")
+      .setPath(S.Struct({ slug: S.String }))
+      .setPayload(Project.pipe(S.partial))
+      .addSuccess(Project)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("delete", "/projects/:slug")
+      .setPath(S.Struct({ slug: S.String }))
+      .addSuccess(S.Void)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("addMember", "/projects/:slug/members")
+      .setPath(S.Struct({ slug: S.String }))
+      .setPayload(
+        S.Struct({ userId: S.String, role: S.Literal("admin", "member") })
+      )
+      .addSuccess(Project)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
 
-const Tickets = HttpApiGroup.make("tickets")
-  .add(HttpApiEndpoint.get("list", "/projects/:slug/tickets")
-    .setPath(S.Struct({ slug: S.String }))
-    .addSuccess(S.Array(Ticket)).addError(NotFound).addError(Forbidden))
-  .add(HttpApiEndpoint.post("create", "/projects/:slug/tickets")
-    .setPath(S.Struct({ slug: S.String }))
-    .setPayload(S.Struct({ title: S.String, type: S.Literal("feat", "bug", "chore", "other") }))
-    .addSuccess(Ticket).addError(NotFound).addError(Forbidden))
+const Tickets = HttpApiGroup
+  .make("tickets")
+  .add(
+    HttpApiEndpoint
+      .get("list", "/projects/:slug/tickets")
+      .setPath(S.Struct({ slug: S.String }))
+      .addSuccess(S.Array(Ticket))
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("create", "/projects/:slug/tickets")
+      .setPath(S.Struct({ slug: S.String }))
+      .setPayload(S.Struct({
+        title: S.String,
+        type: S.Literal("feat", "bug", "chore", "other")
+      }))
+      .addSuccess(Ticket)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
   // ... get, patch, delete
-  .add(HttpApiEndpoint.post("createBranch", "/projects/:slug/tickets/:id/branch")
-    .setPath(S.Struct({ slug: S.String, id: S.String }))
-    .setPayload(S.Struct({ branchName: S.String, baseBranch: S.optional(S.String) }))
-    .addSuccess(Ticket).addError(NotFound).addError(Forbidden).addError(GitHubError))
+  .add(
+    HttpApiEndpoint
+      .post("createBranch", "/projects/:slug/tickets/:id/branch")
+      .setPath(S.Struct({ slug: S.String, id: S.String }))
+      .setPayload(S
+        .Struct({ branchName: S.String, baseBranch: S.optional(S.String) }))
+      .addSuccess(Ticket)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubError)
+  )
 
-export const AppApi = HttpApi.make("markmate")
-  .add(Auth).add(Projects).add(Tickets)
+export const AppApi = HttpApi
+  .make("projectproject")
+  .add(Auth)
+  .add(Projects)
+  .add(Tickets)
 ```
 
 **Auth endpoints (login, OAuth callback) are handled by Better Auth directly**, not by HttpApi. They're mounted at `/api/auth/*` as a sibling to `/api/*` for the HttpApi. Better Auth sets the session cookie; HttpApi handlers read it via middleware.
@@ -245,19 +313,19 @@ export const AppApi = HttpApi.make("markmate")
 Each service is a `Context.Tag` with a `Layer`. The wiring graph for the backend:
 
 ```
-                ┌─────────────┐
-                │   AppLayer  │
-                └──────┬──────┘
-       ┌───────────────┼─────────────────┐
-       │               │                 │
-   ProjectsLive   TicketsLive       AuthLive
-       │               │                 │
-       ├───────────────┤                 │
-       │               │                 │
-  MarkdownLive   GitHubLive         BetterAuthLive
-       │               │                 │
-       │               │                 │
-    DbLive (Drizzle + @effect/sql-pg pool)
+              ┌─────────────┐
+              │   AppLayer  │
+              └──────┬──────┘
+     ┌───────────────┼─────────────────┐
+     │               │                 │
+ ProjectsLive   TicketsLive       AuthLive
+     │               │                 │
+     ├───────────────┤                 │
+     │               │                 │
+MarkdownLive   GitHubLive         BetterAuthLive
+     │               │                 │
+     │               │                 │
+  DbLive (Drizzle + @effect/sql-pg pool)
 ```
 
 - **`Db`** — Drizzle client wrapped in a layer. Provides typed queries and transaction support. `Effect.gen(function* () { const db = yield* Db; ... })`.
@@ -276,33 +344,33 @@ Handlers stay thin — they're plumbing. All logic is in services.
 // packages/backend/src/handlers/projects.ts
 import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
-import { AppApi } from "@markmate/shared"
+import { AppApi } from "@projectproject/shared"
 import { Projects } from "../services/Projects"
 import { Auth } from "../services/Auth"
 
-export const ProjectsHandlerLive = HttpApiBuilder.group(AppApi, "projects", (handlers) =>
-  handlers
-    .handle("list", () =>
-      Effect.gen(function* () {
-        const user = yield* Auth.currentUser
-        const projects = yield* Projects
-        return yield* projects.list(user.id)
-      }),
-    )
-    .handle("create", ({ payload }) =>
-      Effect.gen(function* () {
-        const user = yield* Auth.currentUser
-        const projects = yield* Projects
-        return yield* projects.create({ ...payload, ownerId: user.id })
-      }),
-    )
-    .handle("get", ({ path }) =>
-      Effect.gen(function* () {
-        const user = yield* Auth.currentUser
-        const projects = yield* Projects
-        return yield* projects.get(path.slug, user.id)
-      }),
-    ),
+export const ProjectsHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "projects",
+  (handlers) =>
+    handlers
+      .handle("list", () =>
+        Effect.gen(function*() {
+          const user = yield* Auth.currentUser
+          const projects = yield* Projects
+          return yield* projects.list(user.id)
+        }))
+      .handle("create", ({ payload }) =>
+        Effect.gen(function*() {
+          const user = yield* Auth.currentUser
+          const projects = yield* Projects
+          return yield* projects.create({ ...payload, ownerId: user.id })
+        }))
+      .handle("get", ({ path }) =>
+        Effect.gen(function*() {
+          const user = yield* Auth.currentUser
+          const projects = yield* Projects
+          return yield* projects.get(path.slug, user.id)
+        }))
 )
 ```
 
@@ -322,7 +390,9 @@ export class Markdown extends Context.Tag("Markdown")<Markdown, {
     schema: Schema.Schema<A>,
     data: { frontmatter: A; body: string }
   ) => Effect.Effect<void, MarkdownError>
-  readonly listDir: (path: string) => Effect.Effect<readonly string[], MarkdownError | NotFound>
+  readonly listDir: (
+    path: string
+  ) => Effect.Effect<readonly string[], MarkdownError | NotFound>
   readonly remove: (path: string) => Effect.Effect<void, MarkdownError>
 }>() {}
 ```
@@ -335,14 +405,14 @@ This is the kind of place where Effect's typed errors really earn their keep.
 
 Three roles: `owner`, `admin`, `member`. Stored in `project.md`'s `members` frontmatter.
 
-| Action | owner | admin | member |
-|---|---|---|---|
-| Read project | ✓ | ✓ | ✓ |
-| Read/write tickets | ✓ | ✓ | ✓ |
-| Add/remove members | ✓ | ✓ | – |
-| Change roles | ✓ | – | – |
-| Delete project | ✓ | – | – |
-| Connect GitHub repo | ✓ | ✓ | – |
+| Action              | owner | admin | member |
+| ------------------- | ----- | ----- | ------ |
+| Read project        | ✓     | ✓     | ✓      |
+| Read/write tickets  | ✓     | ✓     | ✓      |
+| Add/remove members  | ✓     | ✓     | –      |
+| Change roles        | ✓     | –     | –      |
+| Delete project      | ✓     | –     | –      |
+| Connect GitHub repo | ✓     | ✓     | –      |
 
 The permission check is a single function per action, called at the top of every Projects/Tickets service method. Returns `Forbidden` as a tagged error. Don't try to be clever about caching this — read the project markdown, check, done.
 
@@ -356,28 +426,28 @@ The permission check is a single function per action, called at the top of every
 // frontend/src/runtime.ts
 import { Layer } from "effect"
 import { Atom } from "@effect-atom/atom-react"
-import { ApiClientLive } from "./services/ApiClient"
+import { ApiClient } from "./services/ApiClient"
 
-export const AppLayer = Layer.mergeAll(ApiClientLive)
+export const AppLayer = Layer.mergeAll(ApiClient.Default)
 export const runtime = Atom.runtime(AppLayer)
 ```
 
 ```ts
 // frontend/src/services/ApiClient.ts
-import { HttpApiClient, FetchHttpClient } from "@effect/platform"
-import { Effect, Layer, Context } from "effect"
-import { AppApi } from "@markmate/shared"
+import { FetchHttpClient, HttpApiClient } from "@effect/platform"
+import { AppApi } from "@projectproject/shared"
+import { Effect } from "effect"
 
-export class ApiClient extends Context.Tag("ApiClient")<
-  ApiClient,
-  HttpApiClient.Client<typeof AppApi>
->() {}
-
-export const ApiClientLive = Layer.effect(
-  ApiClient,
-  HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-).pipe(Layer.provide(FetchHttpClient.layer))
+export class ApiClient extends Effect.Service<ApiClient>()(
+  "ApiClient",
+  {
+    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+    dependencies: [FetchHttpClient.layer]
+  }
+) {}
 ```
+
+> **Note (updated):** the original draft of this spec used `Context.Tag` + `Layer.effect` here with `HttpApiClient.Client<typeof AppApi>` as the service shape. That stopped compiling once `HttpApiClient.Client` started taking three type parameters. `Effect.Service` infers the shape from the `effect:` field, so the rename is the whole fix. We still use `Context.Tag` for our own services (`Markdown`, `Projects`, `Tickets`) where the shape is hand-written.
 
 That's it for the codegen story — `HttpApiClient.make(AppApi)` reads the shared definition and gives you a fully typed client. `client.projects.get({ path: { slug } })` is autocompleted, payload-checked, and returns `Effect<Project, NotFound | Forbidden | ...>`.
 
@@ -390,29 +460,33 @@ import { Effect } from "effect"
 import { runtime } from "../runtime"
 import { ApiClient } from "../services/ApiClient"
 
-export const projectsListAtom = runtime.atom(
-  Effect.gen(function* () {
-    const client = yield* ApiClient
-    return yield* client.projects.list()
-  }),
-).pipe(Atom.setIdleTTL("1 minute"))
+export const projectsListAtom = runtime
+  .atom(
+    Effect.gen(function*() {
+      const client = yield* ApiClient
+      return yield* client.projects.list()
+    })
+  )
+  .pipe(Atom.setIdleTTL("1 minute"))
 
 export const projectAtom = runtime.family((slug: string) =>
-  runtime.atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.projects.get({ path: { slug } })
-    }),
-  ).pipe(Atom.setIdleTTL("2 minutes")),
+  runtime
+    .atom(
+      Effect.gen(function*() {
+        const client = yield* ApiClient
+        return yield* client.projects.get({ path: { slug } })
+      })
+    )
+    .pipe(Atom.setIdleTTL("2 minutes"))
 )
 
 export const createProjectAtom = runtime.fn(
-  Effect.fn(function* (input: { name: string; slug: string }, get) {
+  Effect.fn(function*(input: { name: string; slug: string }, get) {
     const client = yield* ApiClient
     const project = yield* client.projects.create({ payload: input })
     get.refresh(projectsListAtom)
     return project
-  }),
+  })
 )
 ```
 
@@ -427,7 +501,7 @@ export const Route = createFileRoute("/_authed")({
     const me = await context.registry.get(meAtom)
     if (Result.isFailure(me)) throw redirect({ to: "/login" })
   },
-  component: () => <Outlet />,
+  component: () => <Outlet />
 })
 ```
 
@@ -456,6 +530,7 @@ Better Auth handles every piece of this; we just configure it.
 When the backend needs the user's GitHub token (for branch creation), it calls `BetterAuth.getAccessToken(userId, "github")`. Better Auth handles refresh-on-expiry.
 
 **Better Auth config sketch:**
+
 ```ts
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
@@ -466,10 +541,10 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      scope: ["read:user", "user:email", "repo"], // repo scope = branch creation
-    },
+      scope: ["read:user", "user:email", "repo"] // repo scope = branch creation
+    }
   },
-  session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
+  session: { cookieCache: { enabled: true, maxAge: 5 * 60 } }
 })
 ```
 
@@ -494,19 +569,22 @@ Wrapping it in an Effect layer is straightforward — `Layer.sync(BetterAuth, ()
 export class GitHub extends Context.Tag("GitHub")<GitHub, {
   readonly verifyAccess: (
     repo: { owner: string; name: string },
-    userId: string,
+    userId: string
   ) => Effect.Effect<void, RepoNotFound | InsufficientScope>
 
   readonly createBranch: (
     repo: { owner: string; name: string },
     branchName: string,
     baseBranch: string | null, // null = repo default
-    userId: string,
-  ) => Effect.Effect<{ name: string; sha: string }, BranchExists | RepoNotFound | GitHubError>
+    userId: string
+  ) => Effect.Effect<
+    { name: string; sha: string },
+    BranchExists | RepoNotFound | GitHubError
+  >
 
   readonly listBranches: (
     repo: { owner: string; name: string },
-    userId: string,
+    userId: string
   ) => Effect.Effect<readonly string[], RepoNotFound | GitHubError>
 }>() {}
 ```
@@ -536,25 +614,26 @@ One representative test per layer; AI-generated coverage on top after the patter
 `@effect/vitest` lets you `it.effect("...", () => Effect.gen(...))` and provide a test layer with mocks for unrelated services. This is the canonical "Effect testing" pattern and you should write at least three of these by hand to internalize it.
 
 ```ts
-import { it, expect } from "@effect/vitest"
+import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { Projects } from "../services/Projects"
 import { Markdown } from "../services/Markdown"
 
 const FakeMarkdown = Layer.succeed(Markdown, {
-  read: () => Effect.succeed({ frontmatter: { /* ... */ }, body: "" }),
+  read: () => Effect.succeed({ frontmatter: {/* ... */}, body: "" }),
   write: () => Effect.succeed(undefined),
   listDir: () => Effect.succeed(["design-system"]),
-  remove: () => Effect.succeed(undefined),
+  remove: () => Effect.succeed(undefined)
 })
 
 it.effect("Projects.list returns only projects user is a member of", () =>
-  Effect.gen(function* () {
-    const projects = yield* Projects
-    const result = yield* projects.list("user-1")
-    expect(result).toHaveLength(1)
-  }).pipe(Effect.provide(Layer.merge(ProjectsLive, FakeMarkdown))),
-)
+  Effect
+    .gen(function*() {
+      const projects = yield* Projects
+      const result = yield* projects.list("user-1")
+      expect(result).toHaveLength(1)
+    })
+    .pipe(Effect.provide(Layer.merge(ProjectsLive, FakeMarkdown))))
 ```
 
 ### Repository tests
@@ -589,20 +668,20 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: markmate
+      POSTGRES_USER: projectproject
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: markmate
+      POSTGRES_DB: projectproject
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "markmate"]
+      test: ["CMD", "pg_isready", "-U", "projectproject"]
 
   app:
     build:
       context: .
       dockerfile: docker/Dockerfile
     environment:
-      DATABASE_URL: postgres://markmate:${POSTGRES_PASSWORD}@postgres:5432/markmate
+      DATABASE_URL: postgres://projectproject:${POSTGRES_PASSWORD}@postgres:5432/projectproject
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
@@ -621,7 +700,7 @@ volumes:
 
 The `app` container runs Bun and serves both the backend (HttpApi at `/api`) and the built frontend static files (everything else). One container, one process. If you have Caddy or Traefik already running on the homelab, put it behind that for HTTPS; otherwise expose `:3000` directly on your LAN.
 
-The `${MARKMATE_DATA_DIR}` is set in `.env` to a host path like `/srv/markmate/data` — you can `cd` in, edit, grep, point AI tools at it.
+The `${MARKMATE_DATA_DIR}` is set in `.env` to a host path like `/srv/projectproject/data` — you can `cd` in, edit, grep, point AI tools at it.
 
 ### Dockerfile sketch
 
@@ -634,6 +713,7 @@ Multi-stage: build frontend with Bun, build backend with Bun, copy both into a s
 Build it in vertical slices, not horizontal layers. Each phase ends with something demoable.
 
 ### Phase 0 — Skeleton (1 evening)
+
 - Bun workspaces set up
 - `shared/` exports `AppApi` with one trivial endpoint (`GET /health`)
 - `backend/` runs an HttpApi server implementing it
@@ -643,6 +723,7 @@ Build it in vertical slices, not horizontal layers. Each phase ends with somethi
 - **You've now seen the full Effect ↔ TanStack Start loop work end-to-end.** This is the moment that tells you the stack is real.
 
 ### Phase 1 — Auth (1–2 evenings)
+
 - Postgres in compose, Drizzle migrations for Better Auth tables
 - Better Auth wired up, GitHub OAuth app created
 - `/me` HttpApi endpoint reading session
@@ -650,33 +731,39 @@ Build it in vertical slices, not horizontal layers. Each phase ends with somethi
 - Logout
 
 ### Phase 2 — Projects CRUD (1–2 evenings)
+
 - Markdown service with Schema-validated frontmatter
 - Projects service: list, get, create, delete
 - Project list page, create-project dialog (BaseUI), project detail page
 
 ### Phase 3 — Tickets CRUD (1–2 evenings)
+
 - Tickets service
 - Ticket list per project (TanStack Table)
 - Ticket detail page (no editor yet, just textarea)
 - Status changes, assignment
 
 ### Phase 4 — Lexical editor (1 evening)
+
 - Replace ticket description textarea with Lexical
 - Markdown read on mount, markdown serialize on change, debounced save
 - This will be its own minor rabbit hole — Lexical configuration takes some patience
 
 ### Phase 5 — GitHub branches (1 evening)
+
 - GitHub service with Octokit
 - Connect repo to project (settings page)
 - "Create branch" modal on tickets
 - Save branch name back to ticket frontmatter
 
 ### Phase 6 — Members & permissions (1 evening)
+
 - Add/remove members, role changes
 - Permission checks in services
 - Member list UI on project page
 
 ### Phase 7 — Polish (ongoing)
+
 - OpenAPI spec served at `/api/openapi.json` via `OpenApi.fromApi(AppApi)`
 - Swagger UI at `/api/docs` (Effect's `HttpApiSwagger` package or just a static Swagger UI page pointed at the JSON)
 - Better error UI (one component per tagged error)
@@ -716,7 +803,7 @@ By the time Phase 6 is done, you'll have hands-on experience with:
 
 - `Effect.gen` and the runtime model
 - `Layer` composition and dependency injection
-- Tagged errors as a discipline (you will *feel* the compiler force you to handle them)
+- Tagged errors as a discipline (you will _feel_ the compiler force you to handle them)
 - Schema as the boundary between trusted and untrusted data
 - `@effect/platform` HttpApi as the contract-first server pattern
 - Atoms as a cache model that is genuinely different from query keys

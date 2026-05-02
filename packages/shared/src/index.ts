@@ -1,7 +1,10 @@
-// Public surface of the @markmate/shared package.
+// Public surface of the @projectproject/shared package.
 //
 // Re-export every value that the backend or frontend should be able to import.
-// Right now there is nothing to re-export — Chapter 0's first job is to fill
-// in `./api.ts` with an HttpApi definition and then wire it through here.
+// As you complete Chapter 2 exercises, add the new modules here so consumers
+// can import them via `@projectproject/shared`.
 
 export * from "./api"
+export * from "./errors"
+export * from "./schemas/User"
+export * from "./Authentication"
