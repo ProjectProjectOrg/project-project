@@ -8,7 +8,7 @@
 FROM oven/bun:1.2.13-alpine AS build
 WORKDIR /app
 
-COPY package.json bun.lock* bun.lockb* ./
+COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/

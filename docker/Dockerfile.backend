@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Copy only manifests first so dep install is cache-friendly when source
 # changes but lockfile doesn't.
-COPY package.json bun.lock* bun.lockb* ./
+COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
@@ -30,7 +30,7 @@ WORKDIR /app
 # packages to the root `node_modules`, so there are no per-package
 # `node_modules` directories to copy.
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json bun.lock* bun.lockb* ./
+COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY packages/backend ./packages/backend
 
