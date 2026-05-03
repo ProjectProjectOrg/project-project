@@ -7,4 +7,5 @@
 export * from "./api"
 export * from "./errors"
 export * from "./schemas/User"
+export * from "./schemas/Project"
 export * from "./Authentication"

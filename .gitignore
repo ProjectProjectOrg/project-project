@@ -28,3 +28,4 @@ data/
 # files (project.yml, memories) are tied to a single developer's setup —
 # don't share via the repo.
 .serena/
+storage/

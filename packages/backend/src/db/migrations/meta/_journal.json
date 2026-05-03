@@ -15,6 +15,13 @@
       "when": 1777736430951,
       "tag": "0001_grey_aaron_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777813910988,
+      "tag": "0002_magenta_the_hood",
+      "breakpoints": true
     }
   ]
 }

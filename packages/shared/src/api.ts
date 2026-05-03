@@ -36,7 +36,14 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema } from "effect"
 import { User } from "./schemas/User"
-import { Unauthorized } from "./errors"
+import {
+  CreateProjectInput,
+  Project,
+  ProjectDetail,
+  Slug,
+  UpdateProjectInput
+} from "./schemas/Project"
+import { NotFound, Unauthorized } from "./errors"
 import { Authentication } from "./Authentication"
 
 const HealthResponse = Schema.Struct({
@@ -75,9 +82,51 @@ const AuthGroup = HttpApiGroup
   )
   .middleware(Authentication)
 
+const ProjectsGroup = HttpApiGroup
+  .make("projects")
+  .add(
+    HttpApiEndpoint
+      .get("list", "/projects")
+      .addSuccess(Schema.Array(Project))
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("create", "/projects")
+      .setPayload(CreateProjectInput)
+      .addSuccess(Project)
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint
+      .get("get", "/projects/:slug")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .patch("update", "/projects/:slug")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .setPayload(UpdateProjectInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("delete", "/projects/:slug")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi
   .make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
+  .add(ProjectsGroup)
 export { AppApi }

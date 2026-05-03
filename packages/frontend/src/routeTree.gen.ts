@@ -9,50 +9,154 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
+import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
+import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as AuthedProjectsIndexRouteImport } from './routes/_authed/projects/index'
+import { Route as AuthedProjectsSlugRouteImport } from './routes/_authed/projects/$slug'
 
-const IndexRoute = IndexRouteImport.update({
+const AuthedRouteRoute = AuthedRouteRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedProfileRoute = AuthedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const publicLoginRoute = publicLoginRouteImport.update({
+  id: '/(public)/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedProjectsIndexRoute = AuthedProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedProjectsSlugRoute = AuthedProjectsSlugRouteImport.update({
+  id: '/projects/$slug',
+  path: '/projects/$slug',
+  getParentRoute: () => AuthedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthedIndexRoute
+  '/login': typeof publicLoginRoute
+  '/profile': typeof AuthedProfileRoute
+  '/projects/$slug': typeof AuthedProjectsSlugRoute
+  '/projects/': typeof AuthedProjectsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/login': typeof publicLoginRoute
+  '/profile': typeof AuthedProfileRoute
+  '/': typeof AuthedIndexRoute
+  '/projects/$slug': typeof AuthedProjectsSlugRoute
+  '/projects': typeof AuthedProjectsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_authed': typeof AuthedRouteRouteWithChildren
+  '/(public)/login': typeof publicLoginRoute
+  '/_authed/profile': typeof AuthedProfileRoute
+  '/_authed/': typeof AuthedIndexRoute
+  '/_authed/projects/$slug': typeof AuthedProjectsSlugRoute
+  '/_authed/projects/': typeof AuthedProjectsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/login' | '/profile' | '/projects/$slug' | '/projects/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/login' | '/profile' | '/' | '/projects/$slug' | '/projects'
+  id:
+    | '__root__'
+    | '/_authed'
+    | '/(public)/login'
+    | '/_authed/profile'
+    | '/_authed/'
+    | '/_authed/projects/$slug'
+    | '/_authed/projects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
+  publicLoginRoute: typeof publicLoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
+    '/_authed/profile': {
+      id: '/_authed/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthedProfileRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
+    '/(public)/login': {
+      id: '/(public)/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof publicLoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/projects/': {
+      id: '/_authed/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthedProjectsIndexRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
+    '/_authed/projects/$slug': {
+      id: '/_authed/projects/$slug'
+      path: '/projects/$slug'
+      fullPath: '/projects/$slug'
+      preLoaderRoute: typeof AuthedProjectsSlugRouteImport
+      parentRoute: typeof AuthedRouteRoute
     }
   }
 }
 
+interface AuthedRouteRouteChildren {
+  AuthedProfileRoute: typeof AuthedProfileRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedProjectsSlugRoute: typeof AuthedProjectsSlugRoute
+  AuthedProjectsIndexRoute: typeof AuthedProjectsIndexRoute
+}
+
+const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
+  AuthedProfileRoute: AuthedProfileRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedProjectsSlugRoute: AuthedProjectsSlugRoute,
+  AuthedProjectsIndexRoute: AuthedProjectsIndexRoute,
+}
+
+const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
+  AuthedRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AuthedRouteRoute: AuthedRouteRouteWithChildren,
+  publicLoginRoute: publicLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

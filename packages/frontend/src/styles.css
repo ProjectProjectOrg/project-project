@@ -1,17 +1,467 @@
-/* Minimal global styles. Chapters 1+ will introduce a real design system. */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  line-height: 1.5;
-  color: #111;
-  background: #fafafa;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
 }
 
-body {
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  @keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+    }
+  }
+  @keyframes spinner-dash {
+  0%, 100% {
+    stroke-dasharray: 15 85;
+    }
+  50% {
+    stroke-dasharray: 40 60;
+    }
+  }
+}
+
+/* Theme switch: circular clip-path reveal centered on the click point. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-new(root) {
+    animation: theme-circle-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+@keyframes theme-circle-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
+  }
+  to {
+    clip-path: circle(150vmax at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
+  }
+}
+
+/* Read-only markdown body styles. Scoped to `.prose-md` so the rest of the
+   app's typography stays untouched. Tuned to ProjectProject's compact neutral
+   aesthetic — narrower line-height than typography plugins default to. */
+.prose-md {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+/* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
+   block types (.prose-md p, .lexical-paragraph, etc) because that has higher
+   specificity than this rule and would silently clobber the spacing. */
+.prose-md > * + *,
+.prose-md .lexical-content > * + * {
+  margin-top: 0.85em;
+}
+.prose-md h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.5em;
+}
+.prose-md h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.5em;
+}
+.prose-md h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.25em;
+}
+.prose-md > h1:first-child,
+.prose-md > h2:first-child,
+.prose-md > h3:first-child {
+  margin-top: 0;
+}
+/* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
+   above provides spacing between sibling blocks. No explicit `margin: 0` here
+   — that would override the spacing rule via specificity. */
+.prose-md a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.12s ease;
+}
+.prose-md a:hover {
+  text-decoration-color: var(--foreground);
+}
+.prose-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.prose-md pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+.prose-md pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Prism tokens — light palette by default, dark swap under `.dark`. The same
+   token classes are emitted by `rehype-prism-plus` (read view) and Lexical's
+   `CodeHighlightNode` (editor), so the colors stay consistent across modes. */
+.prose-md pre[class*="language-"],
+.prose-md code[class*="language-"] {
+  color: var(--foreground);
+}
+.prose-md .token.comment,
+.prose-md .token.prolog,
+.prose-md .token.cdata {
+  color: #6a737d;
+  font-style: italic;
+}
+.prose-md .token.punctuation {
+  color: #24292e;
+}
+.prose-md .token.namespace {
+  opacity: 0.7;
+}
+.prose-md .token.property,
+.prose-md .token.tag,
+.prose-md .token.boolean,
+.prose-md .token.number,
+.prose-md .token.constant,
+.prose-md .token.symbol,
+.prose-md .token.deleted {
+  color: #005cc5;
+}
+.prose-md .token.selector,
+.prose-md .token.attr-name,
+.prose-md .token.string,
+.prose-md .token.char,
+.prose-md .token.builtin,
+.prose-md .token.inserted {
+  color: #032f62;
+}
+.prose-md .token.operator,
+.prose-md .token.entity,
+.prose-md .token.url {
+  color: #d73a49;
+}
+.prose-md .token.atrule,
+.prose-md .token.attr-value,
+.prose-md .token.keyword {
+  color: #d73a49;
+}
+.prose-md .token.function,
+.prose-md .token.class-name {
+  color: #6f42c1;
+}
+.prose-md .token.regex,
+.prose-md .token.important,
+.prose-md .token.variable {
+  color: #e36209;
+}
+.prose-md .token.deleted-sign,
+.prose-md .token.deleted-arrow {
+  display: inline-block;
+  width: 100%;
+  background: rgba(217, 53, 73, 0.12);
+  color: #b31d28;
+}
+.prose-md .token.inserted-sign,
+.prose-md .token.inserted-arrow {
+  display: inline-block;
+  width: 100%;
+  background: rgba(40, 167, 69, 0.14);
+  color: #22863a;
+}
+.prose-md .token.coord {
+  color: #6f42c1;
+  font-weight: 600;
+}
+.prose-md .token.important,
+.prose-md .token.bold {
+  font-weight: 600;
+}
+.prose-md .token.italic {
+  font-style: italic;
+}
+
+html.dark .prose-md .token.comment,
+html.dark .prose-md .token.prolog,
+html.dark .prose-md .token.cdata {
+  color: #6a9955;
+}
+html.dark .prose-md .token.punctuation {
+  color: #d4d4d4;
+}
+html.dark .prose-md .token.property,
+html.dark .prose-md .token.tag,
+html.dark .prose-md .token.boolean,
+html.dark .prose-md .token.number,
+html.dark .prose-md .token.constant,
+html.dark .prose-md .token.symbol,
+html.dark .prose-md .token.deleted {
+  color: #b5cea8;
+}
+html.dark .prose-md .token.selector,
+html.dark .prose-md .token.attr-name,
+html.dark .prose-md .token.string,
+html.dark .prose-md .token.char,
+html.dark .prose-md .token.builtin,
+html.dark .prose-md .token.inserted {
+  color: #ce9178;
+}
+html.dark .prose-md .token.operator,
+html.dark .prose-md .token.entity,
+html.dark .prose-md .token.url {
+  color: #d4d4d4;
+}
+html.dark .prose-md .token.atrule,
+html.dark .prose-md .token.attr-value,
+html.dark .prose-md .token.keyword {
+  color: #c586c0;
+}
+html.dark .prose-md .token.function,
+html.dark .prose-md .token.class-name {
+  color: #dcdcaa;
+}
+html.dark .prose-md .token.regex,
+html.dark .prose-md .token.important,
+html.dark .prose-md .token.variable {
+  color: #9cdcfe;
+}
+html.dark .prose-md .token.deleted-sign,
+html.dark .prose-md .token.deleted-arrow {
+  background: rgba(248, 81, 73, 0.18);
+  color: #f85149;
+}
+html.dark .prose-md .token.inserted-sign,
+html.dark .prose-md .token.inserted-arrow {
+  background: rgba(46, 160, 67, 0.20);
+  color: #56d364;
+}
+html.dark .prose-md .token.coord {
+  color: #d2a8ff;
+}
+
+/* Lexical content surface — inherit `.prose-md` typography but with a couple
+   of editor-specific tweaks. The `.lexical-*` classes are emitted by the
+   editor's theme dictionary in components/LexicalEditor.tsx. */
+.prose-md .lexical-content {
+  caret-color: var(--foreground);
+}
+.prose-md .lexical-h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.prose-md .lexical-h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.prose-md .lexical-h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.prose-md .lexical-quote {
+  border-left: 2px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.prose-md .lexical-ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.prose-md .lexical-ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.prose-md .lexical-li {
+  margin-top: 0.25em;
+}
+.prose-md .lexical-link {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+.prose-md .lexical-bold {
+  font-weight: 600;
+}
+.prose-md .lexical-italic {
+  font-style: italic;
+}
+.prose-md .lexical-strike {
+  text-decoration: line-through;
+}
+.prose-md .lexical-underline {
+  text-decoration: underline;
+}
+.prose-md .lexical-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.prose-md .lexical-code {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+  line-height: 1.55;
+  white-space: pre;
+}
+.prose-md blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.prose-md ul,
+.prose-md ol {
+  padding-left: 1.4em;
+}
+.prose-md ul {
+  list-style: disc;
+}
+.prose-md ol {
+  list-style: decimal;
+}
+.prose-md li + li {
+  margin-top: 0.25em;
+}
+.prose-md li > p {
   margin: 0;
-  padding: 2rem;
+}
+.prose-md li > ul,
+.prose-md li > ol {
+  margin-top: 0.25em;
+}
+.prose-md hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.prose-md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+}
+.prose-md th,
+.prose-md td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.prose-md th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.prose-md input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--foreground);
 }
 
-a {
-  color: inherit;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-muted text-foreground antialiased;
+    margin: 0;
+    padding: 0;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 }

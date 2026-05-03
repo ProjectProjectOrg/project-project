@@ -46,6 +46,7 @@ export * from "./auth-schema"
 
 export const projectIndex = pgTable("project_index", {
   slug: text("slug").primaryKey(),
+  name: text("name").notNull(),
   ownerId: text("owner_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

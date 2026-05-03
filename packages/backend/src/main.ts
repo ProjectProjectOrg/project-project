@@ -68,9 +68,12 @@ import { count } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
+import { ProjectsHandlerLive } from "./handlers/projects"
 import { AuthenticationLive } from "./services/Auth"
 import { BetterAuth, BetterAuthLive } from "./services/BetterAuth"
 import { Db, DbLive } from "./services/Db"
+import { Markdown } from "./services/Markdown"
+import { Projects } from "./services/Projects"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -114,6 +117,9 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
+  Layer.provide(ProjectsHandlerLive),
+  Layer.provide(Projects.Default),
+  Layer.provide(Markdown.Default),
   Layer.provide(AuthenticationLive)
 )
 

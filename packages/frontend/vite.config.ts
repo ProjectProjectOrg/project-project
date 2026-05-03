@@ -1,6 +1,11 @@
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Why this config (not TanStack Start)?
 // ---------------------------------------------------------------------------
@@ -14,10 +19,21 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 // Start specifically, we can add it then.
 
 export default defineConfig({
+  // `@/...` resolves to `src/...`. Mirrors the `paths` entry in tsconfig.json
+  // so types and runtime agree. Reach for relative imports only when staying
+  // inside a tightly co-located module (e.g. a component pulling its sibling
+  // styles); reach for `@/` when crossing top-level concerns (atoms, services,
+  // routes).
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src")
+    }
+  },
   plugins: [
     // Generates packages/frontend/src/routeTree.gen.ts from files in src/routes/
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
-    react()
+    react(),
+    tailwindcss()
   ],
   server: {
     port: 5173,

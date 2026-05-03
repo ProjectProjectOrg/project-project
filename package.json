@@ -9,7 +9,6 @@
   "scripts": {
     "dev:backend": "bun --filter @projectproject/backend dev",
     "dev:frontend": "bun --filter @projectproject/frontend dev",
-    "dev:chapters": "bun --filter @projectproject/chapters-viewer dev",
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",

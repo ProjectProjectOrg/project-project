@@ -1,0 +1,1 @@
+ALTER TABLE "project_index" ADD COLUMN "name" text NOT NULL;
