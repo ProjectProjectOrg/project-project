@@ -9,8 +9,7 @@ import { useShape } from "@/lib/shape-context";
 
 const buttonVariants = cva(
   [
-    "group relative inline-flex items-center justify-center outline-none cursor-pointer",
-    "text-box-trim-both text-box-edge-cap-alphabetic",
+    "group relative inline-flex items-center justify-center whitespace-nowrap outline-none cursor-pointer",
     "transition-all duration-80",
     "disabled:opacity-50 disabled:pointer-events-none",
     "focus-visible:ring-1 focus-visible:ring-[#6B97FF]",
@@ -135,6 +134,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             {children}
           </span>
         ) : (
+          // Render children as direct flex items (no wrapping <span>) so the
+          // button's `gap-*` separates an inline icon from its label even
+          // when the caller passes them as sibling children rather than via
+          // the `leadingIcon` prop.
           <>
             {LeadingIcon && (
               <LeadingIcon
@@ -143,7 +146,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
               />
             )}
-            <span>{children}</span>
+            {children}
             {TrailingIcon && (
               <TrailingIcon
                 size={iconSize}

@@ -82,13 +82,20 @@
 // stub via `Layer.succeed(BetterAuth, fakeImpl)`.
 
 import { Context, Data, Effect, Layer } from "effect"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import type { Session, User } from "../auth"
+import { account } from "../db/schema"
 
 class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
 }> {}
 export type { BetterAuthError } // exported as a type for the middleware to catch
+
+// Boundary error: user has no GitHub account row, or the row has no token.
+// The Auth service maps this to `GitHubTokenExpired` for the wire.
+export class NoGithubToken extends Data.TaggedError("NoGithubToken")<{}> {}
 
 export class BetterAuth extends Context.Tag("BetterAuth")<
   BetterAuth,
@@ -99,13 +106,25 @@ export class BetterAuth extends Context.Tag("BetterAuth")<
     readonly getSession: (
       headers: Headers
     ) => Effect.Effect<{ user: User; session: Session } | null, BetterAuthError>
+    // GitHub OAuth token, read straight from the `account` table that Better
+    // Auth populates on sign-in. We don't try to refresh — if GitHub later
+    // returns 401, the GitHub service maps that to `GitHubTokenExpired` and
+    // the UI prompts a reconnect.
+    readonly getGithubAccessToken: (
+      userId: string
+    ) => Effect.Effect<string, NoGithubToken | BetterAuthError>
   }
 >() {}
 
 export const BetterAuthLive = Layer.effect(
   BetterAuth,
-  Effect.sync(() =>
-    BetterAuth.of({
+  Effect.sync(() => {
+    // Same lightweight Drizzle client pattern as `auth.ts`. Better Auth's
+    // own queries use a separate pool on the same DATABASE_URL; one extra
+    // shallow connection here is fine and keeps this service self-contained.
+    const db = drizzle(process.env.DATABASE_URL!)
+
+    return BetterAuth.of({
       handler: (request) =>
         Effect.tryPromise({
           try: () => auth.handler(request),
@@ -115,7 +134,27 @@ export const BetterAuthLive = Layer.effect(
         Effect.tryPromise({
           try: () => auth.api.getSession({ headers }),
           catch: (cause) => new BetterAuthError({ cause })
+        }),
+      getGithubAccessToken: (userId) =>
+        Effect.gen(function*() {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({ token: account.accessToken })
+                .from(account)
+                .where(
+                  and(
+                    eq(account.userId, userId),
+                    eq(account.providerId, "github")
+                  )
+                )
+                .limit(1),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          const token = rows[0]?.token
+          if (!token) return yield* Effect.fail(new NoGithubToken())
+          return token
         })
     })
-  )
+  })
 )

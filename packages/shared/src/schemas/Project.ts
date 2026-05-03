@@ -18,6 +18,45 @@ export const Slug = Schema.String.pipe(
 )
 export type Slug = typeof Slug.Type
 
+// Three-tier role model (spec §"Permission model").
+//   owner  — created the project. Sole role with delete + role-change rights.
+//   admin  — can manage members; can edit everything.
+//   member — read/write tickets and the project body.
+export const Role = Schema.Literal("owner", "admin", "member")
+export type Role = typeof Role.Type
+
+// A role assignable through the API. Owner is set on create and transferred
+// only via a future "transfer ownership" flow; we don't expose it as a value
+// the user can pick from a dropdown.
+export const AssignableRole = Schema.Literal("admin", "member")
+export type AssignableRole = typeof AssignableRole.Type
+
+// Wire shape for a project member. Includes everything the UI needs to
+// render and act on a row — `id` is the stable handle for API calls, the
+// rest are display fields. `username` and `image` are nullable because
+// users created before those fields were populated may not have them yet.
+export const Member = Schema.Struct({
+  id: Schema.String,
+  username: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  email: Schema.String,
+  // GitHub avatar URL, populated by Better Auth on first sign-in. Used by
+  // MemberAvatar to render a real photo; if missing or fails to load, the
+  // component falls back to a name-initial circle.
+  image: Schema.NullOr(Schema.String),
+  role: Role
+})
+export type Member = typeof Member.Type
+
+// GitHub connection on a project. `null` means no repo connected.
+// `defaultBaseBranch` overrides the repo's default branch when set.
+export const GithubConnection = Schema.Struct({
+  repoOwner: Schema.String,
+  repoName: Schema.String,
+  defaultBaseBranch: Schema.NullOr(Schema.String)
+})
+export type GithubConnection = typeof GithubConnection.Type
+
 export const Project = Schema.Struct({
   slug: Slug,
   name: Schema.String,
@@ -33,12 +72,30 @@ export type CreateProjectInput = typeof CreateProjectInput.Type
 
 // Returned by GET /projects/:slug. The list endpoint stays index-shaped (no
 // body); this one carries the markdown body so the detail view can render it
-// without a second round trip.
+// without a second round trip. `members` reflects the frontmatter source of
+// truth; `ownerId` is duplicated for cheap lookups but always equals the
+// owner-role member's id. `github` is the connection block from project.md;
+// null when no repo is connected.
 export const ProjectDetail = Schema.Struct({
   ...Project.fields,
-  body: Schema.String
+  github: Schema.NullOr(GithubConnection),
+  body: Schema.String,
+  members: Schema.Array(Member)
 })
 export type ProjectDetail = typeof ProjectDetail.Type
+
+// Members are added by email — the user must already exist (have signed in
+// via GitHub at least once). No invite flow yet; that's a follow-up.
+export const AddMemberInput = Schema.Struct({
+  email: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(254)),
+  role: AssignableRole
+})
+export type AddMemberInput = typeof AddMemberInput.Type
+
+export const UpdateMemberInput = Schema.Struct({
+  role: AssignableRole
+})
+export type UpdateMemberInput = typeof UpdateMemberInput.Type
 
 // Partial update payload. Both fields optional — the client sends only what
 // changed. Empty object is allowed but a no-op on the server.
@@ -49,3 +106,29 @@ export const UpdateProjectInput = Schema.Struct({
   body: Schema.optional(Schema.String)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type
+
+// --- GitHub connection inputs ----------------------------------------------
+
+export const ConnectGithubInput = Schema.Struct({
+  repoOwner: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120)),
+  repoName: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120)),
+  defaultBaseBranch: Schema.optional(Schema.NullOr(Schema.String))
+})
+export type ConnectGithubInput = typeof ConnectGithubInput.Type
+
+// What the connect-repo picker renders. `defaultBranch` lets us prefill the
+// base-branch picker on first connect, so the user almost never has to pick.
+export const GithubRepo = Schema.Struct({
+  owner: Schema.String,
+  name: Schema.String,
+  defaultBranch: Schema.String,
+  private: Schema.Boolean,
+  description: Schema.NullOr(Schema.String)
+})
+export type GithubRepo = typeof GithubRepo.Type
+
+export const GithubRepoPage = Schema.Struct({
+  repos: Schema.Array(GithubRepo),
+  hasMore: Schema.Boolean
+})
+export type GithubRepoPage = typeof GithubRepoPage.Type

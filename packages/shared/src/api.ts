@@ -37,13 +37,42 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema } from "effect"
 import { User } from "./schemas/User"
 import {
+  AddMemberInput,
+  ConnectGithubInput,
   CreateProjectInput,
+  GithubRepoPage,
   Project,
   ProjectDetail,
   Slug,
+  UpdateMemberInput,
   UpdateProjectInput
 } from "./schemas/Project"
-import { NotFound, Unauthorized } from "./errors"
+import {
+  CreateTicketInput,
+  Ticket,
+  TicketDetail,
+  TicketId,
+  UpdateTicketInput
+} from "./schemas/Ticket"
+import {
+  CreateBranchInput,
+  GitStatesResponse,
+  OpenPrInput,
+  OpenPrResult
+} from "./schemas/GitState"
+import {
+  BranchExists,
+  BranchProtected,
+  Conflict,
+  Forbidden,
+  GitHubError,
+  GitHubScopeInsufficient,
+  GitHubTokenExpired,
+  NotFound,
+  RateLimited,
+  RepoGone,
+  Unauthorized
+} from "./errors"
 import { Authentication } from "./Authentication"
 
 const HealthResponse = Schema.Struct({
@@ -113,11 +142,185 @@ const ProjectsGroup = HttpApiGroup
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Forbidden)
   )
   .add(
     HttpApiEndpoint
       .del("delete", "/projects/:slug")
       .setPath(Schema.Struct({ slug: Slug }))
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("addMember", "/projects/:slug/members")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .setPayload(AddMemberInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .patch("updateMember", "/projects/:slug/members/:userId")
+      .setPath(Schema.Struct({ slug: Slug, userId: Schema.String }))
+      .setPayload(UpdateMemberInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("removeMember", "/projects/:slug/members/:userId")
+      .setPath(Schema.Struct({ slug: Slug, userId: Schema.String }))
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  // --- GitHub connection ----------------------------------------------------
+  // Connect/disconnect a repo to a project. Connect verifies push access via
+  // Octokit before persisting, so a successful response means the user can
+  // actually create branches and open PRs.
+  .add(
+    HttpApiEndpoint
+      .post("connectGithub", "/projects/:slug/github")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .setPayload(ConnectGithubInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("disconnectGithub", "/projects/:slug/github")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  // List the user's repos for the picker. q is a free-text filter, page is
+  // 1-indexed. Returns hasMore so the picker can lazy-load.
+  .add(
+    HttpApiEndpoint
+      .get("listRepos", "/github/repos")
+      .setUrlParams(Schema.Struct({
+        q: Schema.optional(Schema.String),
+        page: Schema.optional(Schema.NumberFromString)
+      }))
+      .addSuccess(GithubRepoPage)
+      .addError(Unauthorized)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(GitHubError)
+  )
+  // Per-project git states (branch + PR) for every ticket. One batched
+  // GraphQL call backs this. UI calls this on project page load and after
+  // any branch/PR mutation; ~30s atom TTL otherwise.
+  .add(
+    HttpApiEndpoint
+      .get("gitStates", "/projects/:slug/git-states")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .addSuccess(GitStatesResponse)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .middleware(Authentication)
+
+const TicketsGroup = HttpApiGroup
+  .make("tickets")
+  .add(
+    HttpApiEndpoint
+      .get("list", "/projects/:slug/tickets")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .addSuccess(Schema.Array(Ticket))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("create", "/projects/:slug/tickets")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .setPayload(CreateTicketInput)
+      .addSuccess(Ticket)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .get("get", "/projects/:slug/tickets/:id")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .patch("update", "/projects/:slug/tickets/:id")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .setPayload(UpdateTicketInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("delete", "/projects/:slug/tickets/:id")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  // --- Branch & PR operations ----------------------------------------------
+  // Each call writes the resulting branch / PR number back to the ticket
+  // markdown. Errors map to inline UI states on the ticket detail panel.
+  .add(
+    HttpApiEndpoint
+      .post("createBranch", "/projects/:slug/tickets/:id/branch")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .setPayload(CreateBranchInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Conflict)
+      .addError(BranchExists)
+      .addError(BranchProtected)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint
+      .post("openPr", "/projects/:slug/tickets/:id/pr")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .setPayload(OpenPrInput)
+      .addSuccess(OpenPrResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Conflict)
+      .addError(BranchProtected)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint
+      .del("clearBranch", "/projects/:slug/tickets/:id/branch")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
@@ -129,4 +332,5 @@ const AppApi = HttpApi
   .add(DbGroup)
   .add(AuthGroup)
   .add(ProjectsGroup)
+  .add(TicketsGroup)
 export { AppApi }

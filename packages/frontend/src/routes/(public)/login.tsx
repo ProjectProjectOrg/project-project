@@ -3,13 +3,6 @@ import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
 import { authClient } from "@/services/AuthClient"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 
 export const Route = createFileRoute("/(public)/login")({
   component: LoginPage
@@ -27,26 +20,40 @@ function LoginPage() {
     })
   }
 
+  // No card chrome here — the auth page is its own surface, not a card on
+  // top of a dashboard. Same logo treatment as the sidebar so the user
+  // sees a continuous identity from sign-in through to first paint.
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Sign in to ProjectProject</CardTitle>
-          <CardDescription>
-            Markdown-first project management. Sign in with GitHub to continue.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={handleSignIn}
-            leadingIcon={GithubMark}
-            size="lg"
-            className="w-full"
-          >
-            Sign in with GitHub
-          </Button>
-        </CardContent>
-      </Card>
+    <main className="grid min-h-screen place-items-center bg-muted p-6">
+      <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-2xl border border-border bg-background p-8 shadow-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="grid size-10 place-items-center rounded-xl bg-foreground text-background">
+            <span className="text-base font-semibold">P</span>
+          </div>
+          <div className="text-center">
+            <h1 className="text-lg font-semibold tracking-tight">
+              ProjectProject
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Markdown-first project management.
+            </p>
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSignIn}
+          leadingIcon={GithubMark}
+          size="lg"
+          className="w-full"
+        >
+          Continue with GitHub
+        </Button>
+
+        <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+          By signing in you authorize this instance to read your GitHub
+          profile and (later) create branches on connected repos.
+        </p>
+      </div>
     </main>
   )
 }

@@ -49,3 +49,73 @@ export class NotFound extends Schema.TaggedError<NotFound>()(
   {},
   HttpApiSchema.annotations({ status: 404 })
 ) {}
+
+// 403 — caller is authenticated and the resource exists, but their role
+// doesn't permit the action. Distinct from `NotFound` (which we *also* use
+// when a non-member hits a project — see Tickets service comment) so that
+// existing-but-disallowed actions get a clear signal.
+export class Forbidden extends Schema.TaggedError<Forbidden>()(
+  "Forbidden",
+  {},
+  HttpApiSchema.annotations({ status: 403 })
+) {}
+
+// 409 — request conflicts with current state (e.g. branch already exists, repo
+// already connected). Detail in `reason` so the UI can pick the right copy.
+export class Conflict extends Schema.TaggedError<Conflict>()(
+  "Conflict",
+  { reason: Schema.String },
+  HttpApiSchema.annotations({ status: 409 })
+) {}
+
+// --- GitHub-side errors -----------------------------------------------------
+// Distinct from generic 4xx because the user-facing remedy is different
+// (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures
+// where the GitHub API misbehaved; 401/403 split tracks token vs scope.
+
+export class GitHubTokenExpired
+  extends Schema.TaggedError<GitHubTokenExpired>()(
+    "GitHubTokenExpired",
+    {},
+    HttpApiSchema.annotations({ status: 401 })
+  ) {}
+
+export class GitHubScopeInsufficient
+  extends Schema.TaggedError<GitHubScopeInsufficient>()(
+    "GitHubScopeInsufficient",
+    {},
+    HttpApiSchema.annotations({ status: 403 })
+  ) {}
+
+export class RepoGone extends Schema.TaggedError<RepoGone>()(
+  "RepoGone",
+  {},
+  HttpApiSchema.annotations({ status: 410 })
+) {}
+
+export class BranchExists extends Schema.TaggedError<BranchExists>()(
+  "BranchExists",
+  { branch: Schema.String },
+  HttpApiSchema.annotations({ status: 409 })
+) {}
+
+export class BranchProtected extends Schema.TaggedError<BranchProtected>()(
+  "BranchProtected",
+  { branch: Schema.String },
+  HttpApiSchema.annotations({ status: 422 })
+) {}
+
+// Carries the unix-seconds reset timestamp so the UI can show a countdown.
+export class RateLimited extends Schema.TaggedError<RateLimited>()(
+  "RateLimited",
+  { resetAt: Schema.Number },
+  HttpApiSchema.annotations({ status: 429 })
+) {}
+
+// Catch-all for unexpected GitHub failures. `message` is whatever GitHub
+// surfaced — fine to display verbatim, no PII.
+export class GitHubError extends Schema.TaggedError<GitHubError>()(
+  "GitHubError",
+  { message: Schema.String },
+  HttpApiSchema.annotations({ status: 502 })
+) {}

@@ -1,0 +1,28 @@
+# Frontend image — nginx serving the Vite build, proxying /api to the
+# backend container.
+#
+# Two stages: `build` runs Vite, `runtime` is plain nginx with the dist
+# folder copied in plus our nginx config that handles SPA fallback and
+# the /api/* proxy.
+
+FROM oven/bun:1.2.13-alpine AS build
+WORKDIR /app
+
+COPY package.json bun.lock* bun.lockb* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/frontend/package.json ./packages/frontend/
+RUN bun install --frozen-lockfile
+
+COPY packages/shared ./packages/shared
+COPY packages/frontend ./packages/frontend
+
+# Vite reads `import.meta.env.*` at build time. The frontend itself talks
+# to a same-origin /api, so no API-URL env is needed.
+RUN bun --cwd packages/frontend run build
+
+FROM nginx:1.27-alpine AS runtime
+COPY --from=build /app/packages/frontend/dist /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

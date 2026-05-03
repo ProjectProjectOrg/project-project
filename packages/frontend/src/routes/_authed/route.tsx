@@ -12,6 +12,7 @@ import {
   UserRound
 } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
+import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -107,7 +108,8 @@ function NavItem({
 
 function Topbar({ user }: { user: User }) {
   return (
-    <header className="flex h-14 items-center justify-end gap-2 px-4">
+    <header className="flex h-14 items-center gap-2 px-4">
+      <Breadcrumbs className="min-w-0 flex-1" />
       <UserMenu user={user} />
     </header>
   )

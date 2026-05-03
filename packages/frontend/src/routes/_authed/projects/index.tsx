@@ -5,17 +5,28 @@ import {
 } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
-import { FolderKanban, Plus } from "lucide-react"
+import { motion } from "framer-motion"
+import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
-import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupHint,
+  InputGroupInput
+} from "@/components/ui/input-group"
 import { PageContainer, PageHeader } from "@/components/page"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
+import { formatRelative } from "@/lib/relative-time"
 
-export const Route = createFileRoute("/_authed/projects/")({ component: Projects })
+export const Route = createFileRoute("/_authed/projects/")({
+  component: Projects,
+  loader: () => ({ crumb: { type: "static" as const, label: "Projects", to: "/projects" } })
+})
 
 function Projects() {
   const list = useAtomValue(projectsListAtom)
+  const [creating, setCreating] = useState(false)
 
   return (
     <PageContainer>
@@ -24,34 +35,46 @@ function Projects() {
         <p>Type a name and press Enter to create a project.</p>
       </PageHeader>
 
-      <CreateRow />
+      <CreateRow onFocusChange={setCreating} />
 
-      {Result.matchWithError(list, {
-        onInitial: () => <ListSkeleton />,
-        onError: (error) => (
-          <ListMessage>Couldn't load projects: {error._tag}</ListMessage>
-        ),
-        onDefect: (defect) => (
-          <ListMessage>Something went wrong: {String(defect)}</ListMessage>
-        ),
-        onSuccess: ({ value }) =>
-          value.length === 0 ? (
-            <ListMessage>No projects yet.</ListMessage>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {value.map((project) => (
-                <li key={project.slug}>
-                  <ProjectRow project={project} />
-                </li>
-              ))}
-            </ul>
-          )
-      })}
+      {/* Same intent-driven dim pattern as the ticket list: when the user
+          is composing a new project the existing list dims to pull focus
+          to the input. Pure visual hint — clicks below stay enabled. */}
+      <motion.div
+        animate={{ opacity: creating ? 0.35 : 1 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        {Result.matchWithError(list, {
+          onInitial: () => <ListSkeleton />,
+          onError: (error) => (
+            <ListMessage>Couldn't load projects: {error._tag}</ListMessage>
+          ),
+          onDefect: (defect) => (
+            <ListMessage>Something went wrong: {String(defect)}</ListMessage>
+          ),
+          onSuccess: ({ value }) =>
+            value.length === 0 ? (
+              <EmptyProjects />
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {value.map((project) => (
+                  <li key={project.slug}>
+                    <ProjectRow project={project} />
+                  </li>
+                ))}
+              </ul>
+            )
+        })}
+      </motion.div>
     </PageContainer>
   )
 }
 
-function CreateRow() {
+function CreateRow({
+  onFocusChange
+}: {
+  onFocusChange?: (focused: boolean) => void
+}) {
   const create = useAtomSet(createProjectAtom)
   const [name, setName] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -74,35 +97,33 @@ function CreateRow() {
     }
   }
 
+  // Uses the shared InputGroup primitive — same chrome and leading-addon
+  // column alignment as every other "create" input in the app.
   return (
-    <form
-      onSubmit={onSubmit}
-      className={cn(
-        "flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2",
-        "ring-offset-background focus-within:ring-2 focus-within:ring-ring"
-      )}
-    >
-      <Plus
-        className="size-4 shrink-0 text-muted-foreground"
-        strokeWidth={1.75}
-      />
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="New project name…"
-        aria-label="New project name"
-        disabled={submitting}
-        className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
-        maxLength={120}
-      />
-      {previewSlug && (
-        <span className="hidden shrink-0 font-mono text-xs text-muted-foreground sm:inline">
-          /{previewSlug}
-        </span>
-      )}
-      {error && (
-        <span className="shrink-0 text-xs text-destructive">{error}</span>
-      )}
+    <form onSubmit={onSubmit}>
+      <InputGroup>
+        <InputGroupAddon>
+          <Plus className="size-4" strokeWidth={1.75} />
+        </InputGroupAddon>
+        <InputGroupInput
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onFocus={() => onFocusChange?.(true)}
+          onBlur={() => onFocusChange?.(false)}
+          placeholder="New project name…"
+          aria-label="New project name"
+          disabled={submitting}
+          maxLength={120}
+        />
+        {previewSlug && (
+          <InputGroupHint className="hidden sm:inline">
+            /{previewSlug}
+          </InputGroupHint>
+        )}
+        {error && (
+          <span className="shrink-0 text-xs text-destructive">{error}</span>
+        )}
+      </InputGroup>
     </form>
   )
 }
@@ -116,9 +137,12 @@ function ProjectRow({
     <Link
       to="/projects/$slug"
       params={{ slug: project.slug }}
-      className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-colors hover:bg-accent/40 hover:border-border/80"
+      className={cn(
+        "group flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-colors",
+        "hover:bg-accent/40 hover:border-border/80"
+      )}
     >
-      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-background group-hover:text-foreground">
         <FolderKanban className="size-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
@@ -127,9 +151,13 @@ function ProjectRow({
           /{project.slug}
         </div>
       </div>
-      <div className="shrink-0 text-xs text-muted-foreground">
+      <div className="hidden shrink-0 text-xs text-muted-foreground sm:block">
         {formatRelative(project.createdAt)}
       </div>
+      <ChevronRight
+        className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+        strokeWidth={1.75}
+      />
     </Link>
   )
 }
@@ -155,22 +183,18 @@ function ListMessage({ children }: { children: React.ReactNode }) {
   )
 }
 
-const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["year", 60 * 60 * 24 * 365],
-  ["month", 60 * 60 * 24 * 30],
-  ["week", 60 * 60 * 24 * 7],
-  ["day", 60 * 60 * 24],
-  ["hour", 60 * 60],
-  ["minute", 60]
-]
-
-function formatRelative(date: Date): string {
-  const diff = (date.getTime() - Date.now()) / 1000
-  for (const [unit, secs] of UNITS) {
-    if (Math.abs(diff) >= secs) {
-      return RELATIVE.format(Math.round(diff / secs), unit)
-    }
-  }
-  return RELATIVE.format(Math.round(diff), "second")
+function EmptyProjects() {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
+      <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <FolderKanban className="size-5" strokeWidth={1.75} />
+      </div>
+      <div className="text-sm font-medium">No projects yet</div>
+      <p className="max-w-xs text-xs text-muted-foreground">
+        Type a name above and press Enter to create your first project.
+        Everything is stored as markdown on disk — yours to grep, edit, or
+        feed to an AI.
+      </p>
+    </div>
+  )
 }

@@ -4,6 +4,10 @@ import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  // GitHub login, populated via Better Auth's `mapProfileToUser` on first
+  // sign-in. Nullable because existing rows pre-feature don't have one;
+  // unique because it's the human-readable handle in markdown frontmatter.
+  username: text("username").unique(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),

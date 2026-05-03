@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "bun --env-file=../../.env --watch src/main.ts",
     "start": "bun --env-file=../../.env src/main.ts",
+    "mcp": "bun --env-file=../../.env src/mcp.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun --env-file=../../.env vitest run",
+    "test:watch": "bun --env-file=../../.env vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -20,11 +21,14 @@
     "@effect/sql": "^0.51.1",
     "@effect/sql-drizzle": "^0.50.0",
     "@effect/sql-pg": "^0.52.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@octokit/graphql": "^9.0.3",
     "@projectproject/shared": "workspace:*",
     "better-auth": "^1.6.9",
     "drizzle-orm": "^0.45.2",
     "effect": "latest",
     "gray-matter": "^4.0.3",
+    "octokit": "^5.0.5",
     "pg": "^8.20.0"
   },
   "devDependencies": {

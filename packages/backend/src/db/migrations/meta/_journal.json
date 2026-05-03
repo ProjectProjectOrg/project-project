@@ -22,6 +22,13 @@
       "when": 1777813910988,
       "tag": "0002_magenta_the_hood",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777824255433,
+      "tag": "0003_broken_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

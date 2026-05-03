@@ -1,0 +1,120 @@
+# Production docker-compose for ProjectProject.
+#
+# Runs in a Docker-on-VM setup on Proxmox. Public access is fronted by
+# nginx-proxy-manager on the host (or another VM); this compose file only
+# exposes the `web` container's port 80 to the host network so NPM can
+# forward to it.
+#
+# Lifecycle:
+#   - GitHub Actions builds and pushes `app` + `web` images to ghcr on
+#     every push to `main`.
+#   - Watchtower polls ghcr every 5 minutes; when a tag's digest changes
+#     it pulls and recreates the container.
+#   - On recreation, `migrations` runs first (apply Drizzle migrations),
+#     then `app` starts.
+#
+# Secrets live in `/srv/projectproject/.env` on the host (gitignored, see
+# `.env.production.example` for the shape). Bind-mounted into containers
+# as `/app/.env`.
+
+name: projectproject
+
+x-image-app: &image-app
+  image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER}/projectproject-app:${IMAGE_TAG:-latest}
+
+x-image-web: &image-web
+  image: ${REGISTRY:-ghcr.io}/${IMAGE_OWNER}/projectproject-web:${IMAGE_TAG:-latest}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot migration runner. Runs `drizzle-kit migrate` against the
+  # Postgres container, then exits. The `app` service depends on this
+  # completing successfully on every recreation.
+  migrations:
+    <<: *image-app
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: /srv/projectproject/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    working_dir: /app/packages/backend
+    command: ["bun", "run", "db:migrate"]
+
+  app:
+    <<: *image-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    env_file: /srv/projectproject/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PROJECTS_DIR: /data/projects
+    volumes:
+      - ${MARKMATE_DATA_DIR:-/srv/projectproject/data}:/data
+    # Exposes port internally on the compose network only — `web` reaches
+    # this via Docker DNS at `app:3000`. No host port mapping; NPM never
+    # talks to the backend directly.
+    expose:
+      - "3000"
+    labels:
+      # Watchtower picks up containers with this label and watches their
+      # image digest. Without it, postgres/migrations/web are also
+      # auto-managed by default (we want to control which ones).
+      com.centurylinklabs.watchtower.enable: "true"
+
+  web:
+    <<: *image-web
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      # NPM on the host (or wherever) reverse-proxies to this port. Bind
+      # only to localhost if NPM is on the same VM; bind to 0.0.0.0 (the
+      # default below) if NPM is elsewhere on the LAN.
+      - "${WEB_PORT:-8080}:80"
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+
+  # Watchtower polls ghcr every 5 minutes for new tags on watched
+  # containers, pulls, and recreates them. `--label-enable` makes it
+  # opt-in (only services labeled above are watched).
+  #
+  # Auth: ghcr.io public images need no auth; if you host the repo
+  # privately, mount a docker config with a PAT (see deploy.md).
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Optional: mount a docker config.json with ghcr credentials for
+      # private images. Comment out if your images are public.
+      # - /srv/projectproject/docker-config.json:/config.json
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      # Optional: post a webhook on update for visibility.
+      # WATCHTOWER_NOTIFICATION_URL: "..."
+
+volumes:
+  postgres_data:

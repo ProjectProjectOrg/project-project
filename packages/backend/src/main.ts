@@ -58,6 +58,7 @@
 
 import {
   HttpApiBuilder,
+  HttpApiSwagger,
   HttpRouter,
   HttpServerRequest,
   HttpServerResponse
@@ -69,11 +70,15 @@ import { Effect, Layer } from "effect"
 import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
 import { ProjectsHandlerLive } from "./handlers/projects"
+import { TicketsHandlerLive } from "./handlers/tickets"
 import { AuthenticationLive } from "./services/Auth"
 import { BetterAuth, BetterAuthLive } from "./services/BetterAuth"
 import { Db, DbLive } from "./services/Db"
+import { GitHub } from "./services/GitHub"
 import { Markdown } from "./services/Markdown"
 import { Projects } from "./services/Projects"
+import { Tickets } from "./services/Tickets"
+import { Users } from "./services/Users"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -118,10 +123,20 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(ProjectsHandlerLive),
+  Layer.provide(TicketsHandlerLive),
+  Layer.provide(Tickets.Default),
   Layer.provide(Projects.Default),
+  Layer.provide(GitHub.Default),
+  Layer.provide(Users.Default),
   Layer.provide(Markdown.Default),
   Layer.provide(AuthenticationLive)
 )
+
+// Swagger UI lives under /api/docs and reads /api/docs/swagger.json (the
+// derived OpenAPI spec). Both are implemented by `HttpApiSwagger.layer({...})`,
+// which we mount alongside our typed handlers in the same Layer chain — no
+// extra mountApp call needed; the layer adds routes to the api group.
+const SwaggerLive = HttpApiSwagger.layer({ path: "/docs" })
 
 const ServerLive = HttpApiBuilder
   .serve((apiApp) =>
@@ -133,6 +148,7 @@ const ServerLive = HttpApiBuilder
     )
   )
   .pipe(
+    Layer.provide(SwaggerLive),
     Layer.provide(ApiLive),
     Layer.provide(BetterAuthLive),
     Layer.provide(DbLive),

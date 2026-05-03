@@ -8,9 +8,13 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
+import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
 
-export const Route = createFileRoute("/_authed/profile")({ component: Profile })
+export const Route = createFileRoute("/_authed/profile")({
+  component: Profile,
+  loader: () => ({ crumb: { type: "static" as const, label: "Profile", to: "/profile" } })
+})
 
 function Profile() {
   const me = useAtomValue(meAtom)
@@ -29,11 +33,30 @@ function Profile() {
           <CardTitle>Account</CardTitle>
           <CardDescription>From your GitHub identity.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm">
-          <Row label="Name" value={user.name} />
-          <Row label="Email" value={user.email} />
-          <Row label="User ID" value={user.id} mono />
-          <Row label="Joined" value={user.createdAt.toLocaleDateString()} />
+        <CardContent className="flex flex-col gap-5">
+          {/* Identity hero — avatar + name + the @username/email pair, same
+              treatment as a member row in the project members tab so the
+              "this is you" view reads like the "this is them" views. */}
+          <div className="flex items-center gap-4">
+            <MemberAvatar member={user} size={64} />
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-lg font-semibold">{user.name}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {user.username && (
+                  <>
+                    <span className="font-mono">@{user.username}</span>
+                    <span className="mx-1.5">·</span>
+                  </>
+                )}
+                {user.email}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 border-t border-border pt-4 text-sm">
+            <Row label="User ID" value={user.id} mono />
+            <Row label="Joined" value={user.createdAt.toLocaleDateString()} />
+          </div>
         </CardContent>
       </Card>
 

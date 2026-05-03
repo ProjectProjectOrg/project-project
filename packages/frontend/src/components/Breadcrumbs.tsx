@@ -1,0 +1,176 @@
+// Breadcrumbs aggregated from active route matches.
+//
+// PATTERN
+// ----------------------------------------------------------------------------
+// Each route's `loader` (or `staticData`) returns a `crumb` value. We walk the
+// matches via `useMatches()` and render in order. Two crumb shapes:
+//
+//   - `static`  — a literal `{ label, to?, params? }`. For pages whose name
+//                 is fixed (Dashboard, Projects, Profile).
+//   - `project` / `ticket` — a tagged descriptor with the params we need. The
+//                 component looks up the same atom the page uses, so the label
+//                 stays reactive (renames update the crumb instantly) and we
+//                 don't double-fetch alongside the page's own data.
+//
+// Routes can return EITHER a single crumb OR an array — the ticket route
+// returns `[{project}, {ticket}]` so navigating directly to a ticket URL
+// still renders the project crumb above it.
+
+import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { Link, useMatches } from "@tanstack/react-router"
+import { ChevronRight } from "lucide-react"
+import { Fragment } from "react"
+import { projectAtom } from "@/atoms/projects"
+import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { cn } from "@/lib/utils"
+import type { TicketId } from "@projectproject/shared"
+
+export type Crumb =
+  | { type: "static"; label: string; to?: string; params?: Record<string, string> }
+  | { type: "project"; slug: string }
+  | { type: "ticket"; slug: string; id: TicketId }
+
+export type CrumbData = Crumb | ReadonlyArray<Crumb>
+
+// Loader-data shape. `loaderData` is `unknown` from the router's perspective;
+// we narrow at the read site.
+type WithCrumb = { crumb?: CrumbData }
+
+function flatten(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
+  const out: Crumb[] = []
+  for (const c of crumbs) {
+    if (!c) continue
+    if (Array.isArray(c)) out.push(...c)
+    else out.push(c as Crumb)
+  }
+  return out
+}
+
+export function Breadcrumbs({ className }: { className?: string }) {
+  const matches = useMatches()
+  const raw = matches.map(
+    (m) => (m.loaderData as WithCrumb | undefined)?.crumb
+  )
+  const crumbs = flatten(raw)
+
+  if (crumbs.length === 0) return null
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className={cn(
+        "flex min-w-0 items-center gap-1 text-sm text-muted-foreground",
+        className
+      )}
+    >
+      {crumbs.map((c, i) => {
+        const isLast = i === crumbs.length - 1
+        return (
+          <Fragment key={crumbKey(c, i)}>
+            {i > 0 && (
+              <ChevronRight
+                className="size-3.5 shrink-0 text-muted-foreground/60"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            )}
+            <CrumbItem crumb={c} isLast={isLast} />
+          </Fragment>
+        )
+      })}
+    </nav>
+  )
+}
+
+function crumbKey(c: Crumb, i: number) {
+  if (c.type === "static") return `s-${i}-${c.label}`
+  if (c.type === "project") return `p-${c.slug}`
+  return `t-${c.slug}-${c.id}`
+}
+
+function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
+  switch (crumb.type) {
+    case "static":
+      return (
+        <CrumbText to={crumb.to} params={crumb.params} isLast={isLast}>
+          {crumb.label}
+        </CrumbText>
+      )
+    case "project":
+      return <ProjectCrumb slug={crumb.slug} isLast={isLast} />
+    case "ticket":
+      return <TicketCrumb slug={crumb.slug} id={crumb.id} isLast={isLast} />
+  }
+}
+
+function ProjectCrumb({ slug, isLast }: { slug: string; isLast: boolean }) {
+  const result = useAtomValue(projectAtom(slug))
+  const label = Result.isSuccess(result) ? result.value.name : slug
+  return (
+    <CrumbText
+      to="/projects/$slug"
+      params={{ slug }}
+      isLast={isLast}
+      mono={!Result.isSuccess(result)}
+    >
+      {label}
+    </CrumbText>
+  )
+}
+
+function TicketCrumb({
+  slug,
+  id,
+  isLast
+}: {
+  slug: string
+  id: TicketId
+  isLast: boolean
+}) {
+  const result = useAtomValue(ticketAtom(ticketKey(slug, id)))
+  const label = Result.isSuccess(result) ? result.value.title : id
+  return (
+    <CrumbText
+      to="/projects/$slug_/tickets/$id"
+      params={{ slug, id }}
+      isLast={isLast}
+    >
+      <span className="font-mono text-xs">{id}</span>{" "}
+      <span className={Result.isSuccess(result) ? "" : "italic opacity-60"}>
+        {Result.isSuccess(result) ? label : "…"}
+      </span>
+    </CrumbText>
+  )
+}
+
+function CrumbText({
+  to,
+  params,
+  isLast,
+  mono,
+  children
+}: {
+  to?: string
+  params?: Record<string, string>
+  isLast: boolean
+  mono?: boolean
+  children: React.ReactNode
+}) {
+  const className = cn(
+    "max-w-[20ch] truncate",
+    mono && "font-mono text-xs",
+    isLast ? "text-foreground" : "hover:text-foreground transition-colors"
+  )
+  if (isLast || !to) {
+    return (
+      <span aria-current={isLast ? "page" : undefined} className={className}>
+        {children}
+      </span>
+    )
+  }
+  return (
+    <Link to={to} params={params as never} className={className}>
+      {children}
+    </Link>
+  )
+}

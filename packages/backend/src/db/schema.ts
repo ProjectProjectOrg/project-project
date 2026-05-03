@@ -40,9 +40,10 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
-import { pgTable, text, timestamp } from "drizzle-orm/pg-core"
+import { index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
+import { user } from "./auth-schema"
 
 export const projectIndex = pgTable("project_index", {
   slug: text("slug").primaryKey(),
@@ -52,3 +53,29 @@ export const projectIndex = pgTable("project_index", {
     .notNull()
     .defaultNow()
 })
+
+// Project ↔ user membership. The DB is authoritative for permission checks;
+// the markdown frontmatter mirrors usernames as a human/AI-readable label.
+//
+// Composite PK on (projectSlug, userId) means a user is in a project at most
+// once. The frontmatter array of usernames is rewritten after every change
+// here so the file stays in sync.
+export const projectMember = pgTable(
+  "project_member",
+  {
+    projectSlug: text("project_slug")
+      .notNull()
+      .references(() => projectIndex.slug, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["owner", "admin", "member"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectSlug, table.userId] }),
+    index("project_member_user_idx").on(table.userId)
+  ]
+)

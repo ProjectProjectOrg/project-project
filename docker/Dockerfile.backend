@@ -1,0 +1,44 @@
+# Backend image — Bun runtime serving the HttpApi on :3000.
+#
+# Multi-stage:
+#   1. `deps` installs the workspace's dependencies (cached layer).
+#   2. `runtime` copies source + `node_modules` and runs `bun src/main.ts`.
+#
+# We don't compile to a single file with `bun build` — Bun runs TS natively,
+# and the source layout is small enough that this stays fast. If startup
+# ever becomes an issue, swap to `bun build --compile` here.
+
+FROM oven/bun:1.2.13-alpine AS deps
+WORKDIR /app
+
+# Copy only manifests first so dep install is cache-friendly when source
+# changes but lockfile doesn't.
+COPY package.json bun.lock* bun.lockb* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/backend/package.json ./packages/backend/
+COPY packages/frontend/package.json ./packages/frontend/
+
+# Install only what backend + shared need at runtime. `--frozen-lockfile`
+# fails CI if the lockfile drifts from package.jsons.
+RUN bun install --frozen-lockfile
+
+FROM oven/bun:1.2.13-alpine AS runtime
+WORKDIR /app
+
+# Bring deps over and then layer in source. Frontend source is omitted since
+# this image only serves the backend HTTP API.
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/backend/node_modules ./packages/backend/node_modules
+COPY package.json bun.lock* bun.lockb* ./
+COPY packages/shared ./packages/shared
+COPY packages/backend ./packages/backend
+
+# Markdown projects directory is bind-mounted at runtime; we still create
+# the path so PROJECTS_DIR resolution finds something on first boot.
+RUN mkdir -p /data/projects
+ENV PROJECTS_DIR=/data/projects
+ENV NODE_ENV=production
+
+EXPOSE 3000
+CMD ["bun", "run", "packages/backend/src/main.ts"]

@@ -52,6 +52,50 @@ export const deleteProjectAtom = runtime.fn(
   })
 )
 
+// --- Members --------------------------------------------------------------
+// Each mutation refreshes the project detail atom so members change live in
+// the UI. The list atom doesn't yet show members so we leave it alone.
+
+export const addMemberAtom = runtime.fn(
+  Effect.fn(function*(
+    input: { slug: string; email: string; role: "admin" | "member" },
+    get
+  ) {
+    const client = yield* ApiClient
+    const updated = yield* client.projects.addMember({
+      path: { slug: input.slug },
+      payload: { email: input.email, role: input.role }
+    })
+    get.refresh(projectAtom(input.slug))
+    return updated
+  })
+)
+
+export const updateMemberAtom = runtime.fn(
+  Effect.fn(function*(
+    input: { slug: string; userId: string; role: "admin" | "member" },
+    get
+  ) {
+    const client = yield* ApiClient
+    const updated = yield* client.projects.updateMember({
+      path: { slug: input.slug, userId: input.userId },
+      payload: { role: input.role }
+    })
+    get.refresh(projectAtom(input.slug))
+    return updated
+  })
+)
+
+export const removeMemberAtom = runtime.fn(
+  Effect.fn(function*(input: { slug: string; userId: string }, get) {
+    const client = yield* ApiClient
+    yield* client.projects.removeMember({
+      path: { slug: input.slug, userId: input.userId }
+    })
+    get.refresh(projectAtom(input.slug))
+  })
+)
+
 // Inline create. Refreshes the list atom on success so the new row shows up.
 export const createProjectAtom = runtime.fn(
   Effect.fn(function*(input: { name: string }, get) {

@@ -72,10 +72,16 @@ export const AuthenticationLive = Layer.effect(
           // to host: even when the fields look identical, the codec is the
           // contract, not the source struct.
           const { id, email, name, image, createdAt } = session.user
+          // `username` was added via Better Auth's `additionalFields`; it
+          // shows up at runtime but isn't on the inferred type. Cast at the
+          // seam — the schema is what guards the wire.
+          const username = (session.user as { username?: string | null })
+            .username ?? null
           return {
             id,
             email,
             name,
+            username,
             image: image ?? null,
             createdAt
           }

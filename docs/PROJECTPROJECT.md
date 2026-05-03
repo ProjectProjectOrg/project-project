@@ -128,6 +128,7 @@ That's it. No `tickets` table, no `members` table, no `comments` table. Adding a
 ```
 data/projects/<slug>/project.md
 data/projects/<slug>/tickets/<ticket-id>.md
+data/projects/<slug>/docs/<...folders>/<doc-slug>.md
 ```
 
 **`project.md`:**
@@ -605,6 +606,183 @@ Stored in `project.md`'s `branchTemplate` so projects can override the conventio
 
 ---
 
+## Documentation
+
+A project has a **Documentation** tab alongside Tickets and Members. This is where long-form, durable knowledge about the project lives — architecture notes, runbooks, ADRs, onboarding docs, anything that isn't a ticket. Same philosophy as everywhere else in this app: **markdown files on disk, frontmatter is metadata, the filesystem is the index.**
+
+### What it is (and isn't)
+
+- It **is** a place for living docs that are scoped to a project. You write them in the same Lexical-with-markdown editor as ticket descriptions, organize them into folders, tag them, link between them.
+- It **isn't** a wiki, a CMS, or a replacement for in-repo `docs/` directories of the project's actual code. Those have their own home. This is for the *project management* artifacts — meeting notes, decisions, briefs — that belong with the tickets.
+- It **isn't** versioned beyond what git on `data/projects/` already gives you. No revision history UI in the PoC.
+
+### Storage
+
+```
+data/projects/<slug>/docs/
+├── _meta.json                     # tag definitions, optional folder ordering
+├── architecture/
+│   ├── overview.md
+│   └── auth-flow.md
+├── decisions/
+│   ├── 0001-effect-vs-fp-ts.md
+│   └── 0002-markdown-storage.md
+└── onboarding.md
+```
+
+- Folders are real filesystem folders. Nest as deep as you want.
+- File name = doc slug. URL-safe, derived from the title on create, editable later.
+- One doc per file. No multi-doc files.
+
+**Doc frontmatter:**
+
+```markdown
+---
+slug: auth-flow
+title: Auth Flow
+tags: [auth, architecture, github-oauth]
+createdBy: github_42
+createdAt: 2026-04-12T10:00:00Z
+updatedAt: 2026-04-30T14:33:00Z
+---
+
+# Auth Flow
+
+Body in markdown. Lexical reads/writes it just like ticket descriptions.
+```
+
+### Tags
+
+Tags are project-scoped strings. The set of known tags lives in `docs/_meta.json`:
+
+```json
+{
+  "tags": [
+    { "name": "architecture", "color": "#7c3aed" },
+    { "name": "auth", "color": "#0ea5e9" },
+    { "name": "github-oauth", "color": "#22c55e" }
+  ]
+}
+```
+
+Frontmatter `tags` is the source of truth for which docs carry which tag; `_meta.json` adds presentation (color) and a canonical list. A doc can carry tags that aren't in `_meta.json` — they render in a neutral color until someone defines them. No hard validation.
+
+### Permissions
+
+Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc *use* is fine).
+
+### UI
+
+- Tab on the project page: **Documentation**.
+- Left side: tree view of folders + docs. Drag-and-drop to move (no dialog — drop target is the destination folder).
+- Filter row above the tree: tag chips (multi-select), search input (full-text against titles + body, debounced).
+- Right side: the open doc, with the Lexical editor.
+- Create: inline "+ doc" / "+ folder" affordances at any folder level. New doc opens directly in the editor with title pre-focused.
+- Tag editing: inline tag chips below the doc title. Type to add (autocompletes against `_meta.json`), backspace to remove. No dialog.
+
+### Service shape
+
+`Docs` service alongside `Projects` and `Tickets`:
+
+```ts
+list(slug, userId)                     → Effect<DocTree, NotFound | Forbidden>
+get(slug, path, userId)                → Effect<Doc, NotFound | Forbidden>
+create(slug, path, input, userId)      → Effect<Doc, Conflict | Forbidden>
+update(slug, path, patch, userId)      → Effect<Doc, NotFound | Forbidden>
+move(slug, fromPath, toPath, userId)   → Effect<Doc, NotFound | Conflict | Forbidden>
+remove(slug, path, userId)             → Effect<void, NotFound | Forbidden>
+listTags(slug, userId)                 → Effect<readonly Tag[], NotFound | Forbidden>
+upsertTag(slug, tag, userId)           → Effect<Tag, Forbidden>
+removeTag(slug, name, userId)          → Effect<void, Forbidden>
+search(slug, query, userId)            → Effect<readonly DocHit[], NotFound | Forbidden>
+```
+
+Search is `grep`-grade for the PoC: walk the docs tree, match title/body/tags, return hits with snippets. SQLite FTS is the obvious upgrade once it stops being snappy.
+
+### Why this earns its keep
+
+Two reasons. First, projects accumulate context that doesn't fit on a ticket — the *why* behind the work — and Slack/Notion is where that context goes to die. Putting it next to the tickets, in the same markdown tree, makes it greppable, AI-readable (see MCP below), and survives tool churn. Second, the same markdown-on-disk pattern from tickets pays off: nothing new to learn, the data is portable, and `cd data/projects/<slug>/docs && grep -ri foo` Just Works.
+
+---
+
+## MCP Server
+
+ProjectProject exposes its project context through a built-in **MCP (Model Context Protocol) server**, so AI agents — Claude Code, Cursor, custom agents — can read project state directly without scraping the UI or writing custom integrations.
+
+This is the payoff of the markdown-first data model. Project state is already plain files; the MCP server is a thin protocol shim on top.
+
+### What the MCP server is
+
+- A second listener on the backend process, speaking MCP over stdio (for desktop agent integrations like Claude Code) and over HTTP (for hosted agents). Same Effect runtime, same services as the HTTP API.
+- Authenticated. Each MCP client carries a project-scoped token issued from the user's session. The token grants the same access the user has in the web UI — no superuser MCP path.
+- Read-mostly in v1. Write tools (create ticket, append doc) come in a second pass; the v1 surface is read tools so AI agents can gather context without unilaterally mutating state.
+
+### Transport
+
+Two modes:
+
+1. **stdio** — for users running an agent locally that can spawn the MCP server as a subprocess. The server reads a long-lived API token from `MARKMATE_MCP_TOKEN` env var, validates it against the same Better Auth session table, then serves MCP over stdin/stdout. This is how Claude Code, Cursor, and similar tools consume MCP.
+2. **HTTP / SSE** — same MCP shape served over HTTP at `/mcp/*`, for agents running off-host. Protected by the same session cookie or a bearer token.
+
+The server itself is one Effect program; the transport is a layer choice.
+
+### Tool surface (v1, read-only)
+
+Each tool is a typed Effect program returning Schema-validated output.
+
+- `list_projects()` — projects the authed user is a member of.
+- `get_project(slug)` — full `project.md` (frontmatter + body) plus members, GitHub connection state, tag list.
+- `list_tickets(slug, filter?)` — tickets in a project, optionally filtered by status, type, assignee, branch presence, has-PR.
+- `get_ticket(slug, id)` — full ticket frontmatter + body + current git state (branch, PR number, PR status).
+- `search_tickets(slug, query)` — full-text search, returns ticket IDs + snippets.
+- `list_docs(slug, folder?)` — doc tree under a folder (or root). Returns titles, paths, tags.
+- `get_doc(slug, path)` — full doc (frontmatter + body).
+- `search_docs(slug, query, tags?)` — full-text + tag search across docs.
+- `git_state(slug)` — current branch + PR state per ticket, same payload as the web `gitStates` endpoint.
+- `me()` — the authed user's identity, role per project.
+
+### Resources
+
+In addition to tools, the server exposes **resources** — addressable URIs the agent can read directly:
+
+- `markmate://projects/<slug>/project.md`
+- `markmate://projects/<slug>/tickets/<id>.md`
+- `markmate://projects/<slug>/docs/<path>.md`
+
+These are the underlying markdown files, served verbatim. Agents that prefer to "open a file" rather than "call a tool" get a natural fit. This is also the cheapest way for an agent to slurp a whole project's context (`list_resources` then bulk-read).
+
+### Architecture
+
+```
+Backend process
+├── HTTP listener  (existing, /api/*)
+├── MCP listener   (new, stdio | /mcp/*)
+└── Same service layers (Projects, Tickets, Docs, GitHub, Markdown, Db, Auth)
+```
+
+The MCP listener is a thin layer that:
+
+1. Authenticates the request → resolves a `currentUser`.
+2. Routes the MCP method to a tool implementation that calls into the existing services.
+3. Maps tagged errors (`NotFound`, `Forbidden`, etc.) to MCP error responses with the same taxonomy as the HTTP API.
+
+No duplication of business logic. The MCP tool for `list_tickets` is a one-liner that calls `Tickets.list(slug, currentUser.id)`.
+
+### Why bother
+
+Two things this unlocks:
+
+1. **Agent-driven workflows.** "Look at the open in_progress tickets in `design-system`, summarize what's blocked, and draft a status update." With MCP, an agent does this in one prompt without you copy-pasting anything into context.
+2. **Context-on-tap during coding.** When you ask Claude Code to "implement T-12", it can pull the ticket, the project's architecture docs, and the latest decisions doc into context automatically. The bridge between PM tooling and coding tooling stops being a copy-paste loop.
+
+### v1 boundaries
+
+- **Read-only tools.** No `create_ticket`, no `update_doc` yet. AI agents propose changes via the chat UI of their host; the human applies them through ProjectProject's regular UI. We add write tools after the read surface settles.
+- **No streaming.** Tools return full payloads. Streaming is meaningful for long search results; not yet.
+- **Project-scoped, not workspace-scoped.** Each MCP session targets the projects the user is a member of; there's no cross-tenant view. (Won't matter for a homelab single-user install; matters if this ever multi-tenants.)
+
+---
+
 ## Testing Strategy
 
 One representative test per layer; AI-generated coverage on top after the patterns are established.
@@ -702,6 +880,11 @@ The `app` container runs Bun and serves both the backend (HttpApi at `/api`) and
 
 The `${MARKMATE_DATA_DIR}` is set in `.env` to a host path like `/srv/projectproject/data` — you can `cd` in, edit, grep, point AI tools at it.
 
+The actual production stack ships in `docker-compose.prod.yml` and the
+`docker/Dockerfile.{backend,frontend}` images, with auto-redeploy via
+GitHub Actions → ghcr.io → Watchtower on a Proxmox VM. End-to-end setup
+steps live in `docs/deploy.md`.
+
 ### Dockerfile sketch
 
 Multi-stage: build frontend with Bun, build backend with Bun, copy both into a slim runtime image. Alpine-based bun image (`oven/bun:1-alpine`) is ~80MB.
@@ -749,12 +932,17 @@ Build it in vertical slices, not horizontal layers. Each phase ends with somethi
 - Markdown read on mount, markdown serialize on change, debounced save
 - This will be its own minor rabbit hole — Lexical configuration takes some patience
 
-### Phase 5 — GitHub branches (1 evening)
+### Phase 5 — Git connection (2–3 evenings)
 
-- GitHub service with Octokit
-- Connect repo to project (settings page)
-- "Create branch" modal on tickets
-- Save branch name back to ticket frontmatter
+- `GitHub` service with Octokit + a single GraphQL roundtrip for project-wide ticket states
+- Connect repo via picker in the project header chip (no settings page; inline)
+- Inline create-branch on tickets (no dialog), pre-filled from `branchTemplate`
+- Inline open-PR on tickets, draft toggle
+- Live branch + PR state column in the ticket list, status panel on ticket detail
+- Auto-transition ticket `status: done` on PR merge, idempotent via `lastTransitionedPr`
+- Tagged error taxonomy (`GitHubTokenExpired`, `RepoGone`, `BranchExists`, etc.) wired to inline UX
+
+Detailed design: `docs/superpowers/specs/2026-05-03-git-connection-design.md`.
 
 ### Phase 6 — Members & permissions (1 evening)
 
@@ -762,7 +950,21 @@ Build it in vertical slices, not horizontal layers. Each phase ends with somethi
 - Permission checks in services
 - Member list UI on project page
 
-### Phase 7 — Polish (ongoing)
+### Phase 7 — Documentation tab (2 evenings)
+
+- `Docs` service: list/get/create/update/move/remove + tag CRUD + search
+- Docs storage at `data/projects/<slug>/docs/**`, `_meta.json` for tag definitions
+- Tab in the project page with folder tree + tag-filtered list + Lexical editor
+- Drag-and-drop folder moves, inline tag editing, inline create
+
+### Phase 8 — MCP server (1–2 evenings)
+
+- MCP listener as a sibling transport to the HTTP API, sharing the Effect runtime and service layers
+- stdio transport (token via `MARKMATE_MCP_TOKEN`) and HTTP transport at `/mcp/*`
+- Read-only tool surface (`list_projects`, `get_project`, `list_tickets`, `get_ticket`, `search_tickets`, `list_docs`, `get_doc`, `search_docs`, `git_state`, `me`)
+- Resource URIs (`markmate://...`) mapped to the markdown files
+
+### Phase 9 — Polish (ongoing)
 
 - OpenAPI spec served at `/api/openapi.json` via `OpenApi.fromApi(AppApi)`
 - Swagger UI at `/api/docs` (Effect's `HttpApiSwagger` package or just a static Swagger UI page pointed at the JSON)
