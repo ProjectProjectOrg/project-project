@@ -18,8 +18,11 @@ COPY packages/shared ./packages/shared
 COPY packages/frontend ./packages/frontend
 
 # Vite reads `import.meta.env.*` at build time. The frontend itself talks
-# to a same-origin /api, so no API-URL env is needed.
-RUN bun --cwd packages/frontend run build
+# to a same-origin /api, so no API-URL env is needed. Note the flag order:
+# `bun run --cwd <dir> <script>` runs the script in that workspace;
+# `bun --cwd <dir> run <script>` is a different command that just lists
+# scripts. We learned this the noisy way.
+RUN bun run --cwd packages/frontend build
 
 FROM nginx:1.27-alpine AS runtime
 COPY --from=build /app/packages/frontend/dist /usr/share/nginx/html

@@ -26,10 +26,10 @@ FROM oven/bun:1.2.13-alpine AS runtime
 WORKDIR /app
 
 # Bring deps over and then layer in source. Frontend source is omitted since
-# this image only serves the backend HTTP API.
+# this image only serves the backend HTTP API. Bun workspaces hoist all
+# packages to the root `node_modules`, so there are no per-package
+# `node_modules` directories to copy.
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/packages/backend/node_modules ./packages/backend/node_modules
 COPY package.json bun.lock* bun.lockb* ./
 COPY packages/shared ./packages/shared
 COPY packages/backend ./packages/backend
