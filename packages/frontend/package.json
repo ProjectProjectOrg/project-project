@@ -24,6 +24,8 @@
     "@lexical/selection": "^0.44.0",
     "@lexical/utils": "^0.44.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@pierre/diffs": "^1.1.20",
+    "@pierre/trees": "^1.0.0-beta.3",
     "@projectproject/shared": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
     "@tabler/icons-react": "^3.41.1",
