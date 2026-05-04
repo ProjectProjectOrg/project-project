@@ -18,6 +18,7 @@ import { Route as AuthedProjectsSlugRouteRouteImport } from './routes/_authed/pr
 import { Route as AuthedProjectsSlugIndexRouteImport } from './routes/_authed/projects/$slug/index'
 import { Route as AuthedProjectsSlugMembersRouteImport } from './routes/_authed/projects/$slug/members'
 import { Route as AuthedProjectsSlugAboutRouteImport } from './routes/_authed/projects/$slug/about'
+import { Route as AuthedProjectsSlugTicketsIdReviewRouteImport } from './routes/_authed/projects/$slug/tickets/$id/review'
 
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
   id: '/_authed',
@@ -64,6 +65,12 @@ const AuthedProjectsSlugAboutRoute = AuthedProjectsSlugAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => AuthedProjectsSlugRouteRoute,
 } as any)
+const AuthedProjectsSlugTicketsIdReviewRoute =
+  AuthedProjectsSlugTicketsIdReviewRouteImport.update({
+    id: '/tickets/$id/review',
+    path: '/tickets/$id/review',
+    getParentRoute: () => AuthedProjectsSlugRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
   '/projects/$slug/': typeof AuthedProjectsSlugIndexRoute
+  '/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
@@ -83,6 +91,7 @@ export interface FileRoutesByTo {
   '/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
   '/projects/$slug': typeof AuthedProjectsSlugIndexRoute
+  '/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,6 +104,7 @@ export interface FileRoutesById {
   '/_authed/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/_authed/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
   '/_authed/projects/$slug/': typeof AuthedProjectsSlugIndexRoute
+  '/_authed/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/about'
     | '/projects/$slug/members'
     | '/projects/$slug/'
+    | '/projects/$slug/tickets/$id/review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/projects/$slug/about'
     | '/projects/$slug/members'
     | '/projects/$slug'
+    | '/projects/$slug/tickets/$id/review'
   id:
     | '__root__'
     | '/_authed'
@@ -127,6 +139,7 @@ export interface FileRouteTypes {
     | '/_authed/projects/$slug/about'
     | '/_authed/projects/$slug/members'
     | '/_authed/projects/$slug/'
+    | '/_authed/projects/$slug/tickets/$id/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProjectsSlugAboutRouteImport
       parentRoute: typeof AuthedProjectsSlugRouteRoute
     }
+    '/_authed/projects/$slug/tickets/$id/review': {
+      id: '/_authed/projects/$slug/tickets/$id/review'
+      path: '/tickets/$id/review'
+      fullPath: '/projects/$slug/tickets/$id/review'
+      preLoaderRoute: typeof AuthedProjectsSlugTicketsIdReviewRouteImport
+      parentRoute: typeof AuthedProjectsSlugRouteRoute
+    }
   }
 }
 
@@ -206,6 +226,7 @@ interface AuthedProjectsSlugRouteRouteChildren {
   AuthedProjectsSlugAboutRoute: typeof AuthedProjectsSlugAboutRoute
   AuthedProjectsSlugMembersRoute: typeof AuthedProjectsSlugMembersRoute
   AuthedProjectsSlugIndexRoute: typeof AuthedProjectsSlugIndexRoute
+  AuthedProjectsSlugTicketsIdReviewRoute: typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 
 const AuthedProjectsSlugRouteRouteChildren: AuthedProjectsSlugRouteRouteChildren =
@@ -213,6 +234,8 @@ const AuthedProjectsSlugRouteRouteChildren: AuthedProjectsSlugRouteRouteChildren
     AuthedProjectsSlugAboutRoute: AuthedProjectsSlugAboutRoute,
     AuthedProjectsSlugMembersRoute: AuthedProjectsSlugMembersRoute,
     AuthedProjectsSlugIndexRoute: AuthedProjectsSlugIndexRoute,
+    AuthedProjectsSlugTicketsIdReviewRoute:
+      AuthedProjectsSlugTicketsIdReviewRoute,
   }
 
 const AuthedProjectsSlugRouteRouteWithChildren =
