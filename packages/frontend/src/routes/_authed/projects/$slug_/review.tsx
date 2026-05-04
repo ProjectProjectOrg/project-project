@@ -271,7 +271,13 @@ function FileTree({
 }) {
   const paths = useMemo(() => files.map((f) => f.path), [files])
   const filePaths = useMemo(() => new Set(paths), [paths])
-  const { model } = useFileTree({ paths })
+  // initialVisibleRowCount drives the virtualizer's viewport height. Without
+  // it the host element renders with 0 height (display:flex, no intrinsic
+  // size). Cap so a 200-file PR doesn't paint a wall.
+  const { model } = useFileTree({
+    paths,
+    initialVisibleRowCount: Math.min(Math.max(paths.length, 6), 24)
+  })
   const selected = useFileTreeSelection(model)
   const lastFired = useRef<string | null>(null)
   useEffect(() => {
