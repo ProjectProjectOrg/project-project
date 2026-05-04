@@ -271,12 +271,14 @@ function FileTree({
 }) {
   const paths = useMemo(() => files.map((f) => f.path), [files])
   const filePaths = useMemo(() => new Set(paths), [paths])
-  // initialVisibleRowCount drives the virtualizer's viewport height. Without
-  // it the host element renders with 0 height (display:flex, no intrinsic
-  // size). Cap so a 200-file PR doesn't paint a wall.
+  // initialVisibleRowCount sizes the *internal* virtualizer; the host
+  // element still needs an explicit min-height (the lib sets display:flex
+  // and lets the host collapse to content, which is 0 until rows mount —
+  // a circular dependency the virtualizer can't break itself).
+  const visibleRows = Math.min(Math.max(paths.length, 6), 24)
   const { model } = useFileTree({
     paths,
-    initialVisibleRowCount: Math.min(Math.max(paths.length, 6), 24)
+    initialVisibleRowCount: visibleRows
   })
   const selected = useFileTreeSelection(model)
   const lastFired = useRef<string | null>(null)
@@ -287,7 +289,15 @@ function FileTree({
       onSelect(last)
     }
   }, [selected, filePaths, onSelect])
-  return <PierreFileTree model={model} />
+  // Inline min-height = visibleRows × default item height (30px). Using a
+  // concrete pixel value beats Tailwind's arbitrary-value JIT here because
+  // the lib sets `display: flex` imperatively after mount.
+  return (
+    <PierreFileTree
+      model={model}
+      style={{ minHeight: `${visibleRows * 30}px` }}
+    />
+  )
 }
 
 // ---------------------------------------------------------------------------
