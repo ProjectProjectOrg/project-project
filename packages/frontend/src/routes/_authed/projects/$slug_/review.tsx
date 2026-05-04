@@ -11,6 +11,10 @@ import {
   useFileTree,
   useFileTreeSelection
 } from "@pierre/trees/react"
+// Side-effect: registers the <file-tree> custom element. The /react entry
+// doesn't pull this in transitively (only the root `@pierre/trees` does),
+// so without this import the React component renders an unknown element.
+import "@pierre/trees/web-components"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowLeft,
@@ -82,24 +86,20 @@ function ReviewLayout({
     <div className="overflow-hidden rounded-2xl border border-border bg-background">
       <ReviewHeader bundle={bundle} slug={slug} ticketId={ticketId} />
       <div className="border-t border-border/60 p-5">
-        {bundle.files.length > 1 ? (
-          <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
-            <aside className="md:sticky md:top-2 md:self-start">
-              <FileTree
-                files={bundle.files}
-                onSelect={(path) => {
-                  const el = document.getElementById(fileAnchorId(path))
-                  el?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }}
-              />
-            </aside>
-            <div className="min-w-0">
-              <Diff patch={bundle.patch} />
-            </div>
+        <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="md:sticky md:top-2 md:self-start">
+            <FileTree
+              files={bundle.files}
+              onSelect={(path) => {
+                const el = document.getElementById(fileAnchorId(path))
+                el?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }}
+            />
+          </aside>
+          <div className="min-w-0">
+            <Diff patch={bundle.patch} />
           </div>
-        ) : (
-          <Diff patch={bundle.patch} />
-        )}
+        </div>
       </div>
     </div>
   )
@@ -252,7 +252,10 @@ function Diff({ patch }: { patch: string }) {
           id={fileAnchorId(file.name)}
           className="scroll-mt-20"
         >
-          <FileDiff fileDiff={file} options={{ theme: "pierre-dark" }} />
+          <FileDiff fileDiff={file} options={{ theme: {
+            dark: "pierre-dark", 
+            light: "pierre-light",
+          } }} />
         </div>
       ))}
     </div>
