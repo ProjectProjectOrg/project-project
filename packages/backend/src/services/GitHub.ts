@@ -694,7 +694,11 @@ export class GitHub extends Effect.Service<GitHub>()(
                   owner,
                   repo: name,
                   pull_number: prNumber,
-                  headers: { accept: "application/vnd.github.v3.patch" }
+                  // .diff returns the cumulative head↔base comparison (one
+                  // entry per file). .patch would return one entry per commit
+                  // (mailbox format), which makes the UI render each file
+                  // multiple times for multi-commit PRs.
+                  headers: { accept: "application/vnd.github.v3.diff" }
                 }
               )
               return typeof response.data === "string" ? response.data : ""
