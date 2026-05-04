@@ -787,13 +787,14 @@ In the route file, add (and import the relevant pieces):
 
 ```tsx
 import {
+  FileTree as PierreFileTree,
   useFileTree,
-  useFileTreeSelection,
-  FileTreeView
+  useFileTreeSelection
 } from "@pierre/trees/react"
 import * as React from "react"
 import type { ReviewFileSummary } from "@projectproject/shared"
 
+// Aliased on import because `FileTree` is the package's component name.
 function FileTree({
   files,
   onSelect
@@ -803,7 +804,7 @@ function FileTree({
 }) {
   const tree = useFileTree({ paths: pathsToTree(files) })
   // useFileTreeSelection returns the currently-selected paths as state.
-  // We fire the callback whenever the most-recent selection changes.
+  // Fire the callback whenever the most-recent selection changes.
   const selected = useFileTreeSelection(tree)
   const lastFired = React.useRef<string | null>(null)
   React.useEffect(() => {
@@ -813,13 +814,11 @@ function FileTree({
       onSelect(last)
     }
   }, [selected, onSelect])
-  return <FileTreeView model={tree} />
+  return <PierreFileTree model={tree} />
 }
 ```
 
-If the library's React export name for the rendering component is not `FileTreeView` (the docs may name it `FileTree`, `Tree`, etc.), use whatever the package documents. The Task 1 import sanity-check showed the actual exports — pick the one whose docs say "React component to render the model." If the right name conflicts with our own `FileTree` wrapper, alias it on import (`FileTreeView as PierreTreeView`).
-
-If `useFileTreeSelection` is not exported under that exact name, find the equivalent in `@pierre/trees/react` (the docs at `https://trees.software/docs` use `useFileTreeSelection`). Worst case, use `useFileTreeSelector(tree, (s) => s.selection.paths)` — same return shape.
+The package's component is `FileTree` (confirmed via `node_modules/@pierre/trees/dist/react/index.d.ts`). We alias it as `PierreFileTree` because we want to keep our wrapper component's name as `FileTree`. If the model prop is named differently than `model` (check the `FileTreeProps` type), pass whatever the lib expects.
 
 - [ ] **Step 2: Compose into a 2-column layout**
 
@@ -895,7 +894,8 @@ We need a stable DOM id per file so `scrollIntoView` works. The cleanest path is
 Replace the `Diff` component:
 
 ```tsx
-import { FileDiff, parsePatchFiles } from "@pierre/diffs"
+import { parsePatchFiles } from "@pierre/diffs"
+import { FileDiff } from "@pierre/diffs/react"
 
 function Diff({
   patch,
