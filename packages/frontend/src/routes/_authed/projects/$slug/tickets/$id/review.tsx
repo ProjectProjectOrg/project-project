@@ -55,7 +55,7 @@ function Diff({ patch }: { patch: string }) {
           id={fileAnchorId(file.name)}
           className="scroll-mt-20"
         >
-          <FileDiff fileDiff={file} />
+          <FileDiff fileDiff={file}/>
         </div>
       ))}
     </div>
@@ -72,18 +72,20 @@ function FileTree({
   onSelect: (path: string) => void
 }) {
   const paths = useMemo(() => files.map((f) => f.path), [files])
+  const filePaths = useMemo(() => new Set(paths), [paths])
   const { model } = useFileTree({ paths })
-  // useFileTreeSelection returns the currently-selected paths (readonly string[]).
-  // Fire the callback whenever the most-recent selection changes.
+  // useFileTreeSelection returns selection paths (readonly string[]). Fire only
+  // on file rows — directory selections pass through here too and shouldn't
+  // poison `lastFired` against a later file click.
   const selected = useFileTreeSelection(model)
   const lastFired = useRef<string | null>(null)
   useEffect(() => {
     const last = selected.at(-1)
-    if (last && last !== lastFired.current) {
+    if (last && last !== lastFired.current && filePaths.has(last)) {
       lastFired.current = last
       onSelect(last)
     }
-  }, [selected, onSelect])
+  }, [selected, filePaths, onSelect])
   return <PierreFileTree model={model} />
 }
 
@@ -119,6 +121,7 @@ function ReviewPage() {
           <div className="grid gap-4 md:grid-cols-[260px_1fr]">
             <aside className="md:sticky md:top-2 md:self-start">
               <FileTree
+                
                 files={value.files}
                 onSelect={(path) => {
                   const el = document.getElementById(fileAnchorId(path))
