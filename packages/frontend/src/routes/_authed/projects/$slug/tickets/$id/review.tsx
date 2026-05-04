@@ -31,6 +31,13 @@ import type {
   TicketId
 } from "@projectproject/shared"
 
+// Stable DOM id per file path. Used both to mark the diff blocks and to
+// look them up from selection callbacks. Replaces `/`, `.`, and other
+// CSS-id-unfriendly chars while remaining unambiguous.
+function fileAnchorId(path: string): string {
+  return `file-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`
+}
+
 // Render one <FileDiff> per parsed file from the unified patch string.
 // The patch string can carry multiple files (PR diff) and even multiple
 // commits — parsePatchFiles flattens both. Each file's `.name` is the
@@ -43,7 +50,13 @@ function Diff({ patch }: { patch: string }) {
   return (
     <div className="flex flex-col gap-4">
       {files.map((file, i) => (
-        <FileDiff key={`${file.name}-${i}`} fileDiff={file} />
+        <div
+          key={`${file.name}-${i}`}
+          id={fileAnchorId(file.name)}
+          className="scroll-mt-20"
+        >
+          <FileDiff fileDiff={file} />
+        </div>
       ))}
     </div>
   )
@@ -107,8 +120,9 @@ function ReviewPage() {
             <aside className="md:sticky md:top-2 md:self-start">
               <FileTree
                 files={value.files}
-                onSelect={() => {
-                  /* scroll wiring lands in Task 9 */
+                onSelect={(path) => {
+                  const el = document.getElementById(fileAnchorId(path))
+                  el?.scrollIntoView({ behavior: "smooth", block: "start" })
                 }}
               />
             </aside>
