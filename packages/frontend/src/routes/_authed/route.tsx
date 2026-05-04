@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { Logo, Wordmark } from "@/components/Logo"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -61,13 +62,9 @@ function Shell({ user }: { user: User }) {
 function Sidebar() {
   return (
     <aside className="row-span-2 flex flex-col">
-      <div className="flex h-14 items-center gap-2 px-4">
-        <div className="grid size-8 place-items-center rounded-lg bg-foreground text-background">
-          <span className="text-[13px] font-semibold">P</span>
-        </div>
-        <span className="text-sm font-semibold tracking-tight">
-          ProjectProject
-        </span>
+      <div className="flex h-14 items-center gap-3 px-4 text-foreground">
+        <Logo className="size-8" />
+        <Wordmark className="h-5 w-auto" />
       </div>
       <nav className="flex flex-col gap-1 px-3 py-2">
         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
