@@ -6,14 +6,13 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { parsePatchFiles } from "@pierre/diffs"
 import { FileDiff } from "@pierre/diffs/react"
-import {
-  FileTree as PierreFileTree,
-  useFileTree,
-  useFileTreeSelection
-} from "@pierre/trees/react"
-// Side-effect: registers the <file-tree> custom element. The /react entry
-// doesn't pull this in transitively (only the root `@pierre/trees` does),
-// so without this import the React component renders an unknown element.
+// We mount the tree imperatively (see FileTree below) instead of using
+// @pierre/trees/react because that package's `useFileTree` is not
+// StrictMode-safe: it creates the model during render and destroys it on
+// the simulated unmount, leaving the rendered <FileTree model={...}> with
+// a destroyed instance. Importing the class + web-components directly
+// sidesteps that.
+import { FileTree as FileTreeModel } from "@pierre/trees"
 import "@pierre/trees/web-components"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
@@ -278,32 +277,40 @@ function FileTree({
   files: ReadonlyArray<ReviewFileSummary>
   onSelect: (path: string) => void
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const onSelectRef = useRef(onSelect)
+  onSelectRef.current = onSelect
+
   const paths = useMemo(() => files.map((f) => f.path), [files])
-  const filePaths = useMemo(() => new Set(paths), [paths])
-  // initialVisibleRowCount sizes the *internal* virtualizer; the host
-  // element still needs an explicit min-height (the lib sets display:flex
-  // and lets the host collapse to content, which is 0 until rows mount —
-  // a circular dependency the virtualizer can't break itself).
   const visibleRows = Math.min(Math.max(paths.length, 6), 24)
-  const { model } = useFileTree({
-    paths,
-    initialVisibleRowCount: visibleRows
-  })
-  const selected = useFileTreeSelection(model)
-  const lastFired = useRef<string | null>(null)
+
+  // Build + render + tear down the model entirely inside an effect so
+  // StrictMode's mount→unmount→mount cycle gets a fresh model each time.
+  // The wrapperRef host has min-height (the virtualizer measures it via
+  // ResizeObserver; without an initial non-zero height it never paints).
   useEffect(() => {
-    const last = selected.at(-1)
-    if (last && last !== lastFired.current && filePaths.has(last)) {
-      lastFired.current = last
-      onSelect(last)
+    const wrapper = wrapperRef.current
+    if (wrapper == null) return
+
+    const filePathSet = new Set(paths)
+    const model = new FileTreeModel({
+      paths,
+      initialVisibleRowCount: visibleRows,
+      onSelectionChange: (selectedPaths) => {
+        const last = selectedPaths.at(-1)
+        if (last != null && filePathSet.has(last)) onSelectRef.current(last)
+      }
+    })
+    model.render({ containerWrapper: wrapper })
+
+    return () => {
+      model.cleanUp()
     }
-  }, [selected, filePaths, onSelect])
-  // Inline min-height = visibleRows × default item height (30px). Using a
-  // concrete pixel value beats Tailwind's arbitrary-value JIT here because
-  // the lib sets `display: flex` imperatively after mount.
+  }, [paths, visibleRows])
+
   return (
-    <PierreFileTree
-      model={model}
+    <div
+      ref={wrapperRef}
       style={{ minHeight: `${visibleRows * 30}px` }}
     />
   )
