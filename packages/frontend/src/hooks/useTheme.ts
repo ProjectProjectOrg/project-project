@@ -1,52 +1,44 @@
-import { useCallback, useEffect, useState } from "react"
-
-export type ThemePreference = "light" | "dark" | "system"
-export type ResolvedTheme = "light" | "dark"
-
-const STORAGE_KEY = "projectproject:theme"
-
-function readPreference(): ThemePreference {
-  if (typeof window === "undefined") return "system"
-  const stored = window.localStorage.getItem(STORAGE_KEY)
-  if (stored === "light" || stored === "dark" || stored === "system") return stored
-  return "system"
-}
-
-function systemPrefersDark(): boolean {
-  if (typeof window === "undefined") return false
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-}
-
-function resolve(pref: ThemePreference): ResolvedTheme {
-  if (pref === "system") return systemPrefersDark() ? "dark" : "light"
-  return pref
-}
-
-function applyResolved(pref: ThemePreference) {
-  const next = resolve(pref)
-  document.documentElement.classList.toggle("dark", next === "dark")
-}
+import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useCallback, useEffect } from "react"
+import {
+  applyResolvedTheme,
+  resolvedThemeAtom,
+  setThemePreferenceAtom,
+  systemThemeAtom,
+  themePreferenceAtom,
+  type ResolvedTheme,
+  type ThemePreference
+} from "@/atoms/theme"
 
 export function useTheme() {
-  const [preference, setPreferenceState] = useState<ThemePreference>(readPreference)
+  const preference = useAtomValue(themePreferenceAtom)
+  const resolvedTheme = useAtomValue(resolvedThemeAtom)
+  const setPreferenceState = useAtomSet(setThemePreferenceAtom)
+  const setSystemTheme = useAtomSet(systemThemeAtom)
+
+  useEffect(() => {
+    applyResolvedTheme(resolvedTheme)
+  }, [resolvedTheme])
 
   // Live-track OS-level theme changes when the user has chosen "system".
   useEffect(() => {
-    if (preference !== "system") return
+    if (typeof window === "undefined") return
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
-    const onChange = () => applyResolved("system")
+    const onChange = (event: MediaQueryListEvent) => {
+      const nextSystemTheme: ResolvedTheme = event.matches ? "dark" : "light"
+      setSystemTheme(nextSystemTheme)
+      if (preference === "system") applyResolvedTheme(nextSystemTheme)
+    }
     mq.addEventListener("change", onChange)
     return () => mq.removeEventListener("change", onChange)
-  }, [preference])
+  }, [preference, setSystemTheme])
 
   const setPreference = useCallback((next: ThemePreference) => {
     // The DOM mutation that drives the visual change (the `dark` class) has to
     // happen *inside* the view-transition callback so the API can snapshot
-    // before/after. The React state update can lag behind safely — only the
-    // pill highlight depends on it, and it'll commit before paint.
+    // before/after. The atom update is synchronous, so subscribers see the same
+    // resolved theme that was applied to the DOM.
     const apply = () => {
-      applyResolved(next)
-      window.localStorage.setItem(STORAGE_KEY, next)
       setPreferenceState(next)
     }
 
@@ -55,7 +47,9 @@ export function useTheme() {
     } else {
       apply()
     }
-  }, [])
+  }, [setPreferenceState])
 
-  return { preference, setPreference }
+  return { preference, resolvedTheme, setPreference }
 }
+
+export type { ResolvedTheme, ThemePreference }

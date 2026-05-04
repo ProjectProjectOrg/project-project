@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
 import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
+import { useTheme } from "@/hooks/useTheme"
 import { cn } from "@/lib/utils"
 import type {
   PullRequestReviewBundle,
@@ -240,9 +241,20 @@ function fileAnchorId(path: string): string {
 }
 
 function Diff({ patch }: { patch: string }) {
+  const { resolvedTheme } = useTheme()
   const files = useMemo(
     () => parsePatchFiles(patch).flatMap((p) => p.files),
     [patch]
+  )
+  const diffOptions = useMemo(
+    () => ({
+      theme: {
+        dark: "pierre-dark",
+        light: "pierre-light"
+      },
+      themeType: resolvedTheme
+    }),
+    [resolvedTheme]
   )
   return (
     <div className="flex flex-col gap-4">
@@ -252,10 +264,7 @@ function Diff({ patch }: { patch: string }) {
           id={fileAnchorId(file.name)}
           className="scroll-mt-20"
         >
-          <FileDiff fileDiff={file} options={{ theme: {
-            dark: "pierre-dark", 
-            light: "pierre-light",
-          } }} />
+          <FileDiff fileDiff={file} options={diffOptions} />
         </div>
       ))}
     </div>
