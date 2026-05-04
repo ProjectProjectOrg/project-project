@@ -2,6 +2,8 @@
 // linked to a ticket. Backed by /projects/:slug/tickets/:id/review.
 
 import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { parsePatchFiles } from "@pierre/diffs"
+import { FileDiff } from "@pierre/diffs/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowLeft,
@@ -10,6 +12,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed
 } from "lucide-react"
+import { useMemo } from "react"
 import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
 import {
   Card,
@@ -21,6 +24,24 @@ import type {
   PullRequestReviewBundle,
   TicketId
 } from "@projectproject/shared"
+
+// Render one <FileDiff> per parsed file from the unified patch string.
+// The patch string can carry multiple files (PR diff) and even multiple
+// commits — parsePatchFiles flattens both. Each file's `.name` is the
+// path (or new path on rename).
+function Diff({ patch }: { patch: string }) {
+  const files = useMemo(
+    () => parsePatchFiles(patch).flatMap((p) => p.files),
+    [patch]
+  )
+  return (
+    <div className="flex flex-col gap-4">
+      {files.map((file, i) => (
+        <FileDiff key={`${file.name}-${i}`} fileDiff={file} />
+      ))}
+    </div>
+  )
+}
 
 export const Route = createFileRoute(
   "/_authed/projects/$slug/tickets/$id/review"
@@ -51,9 +72,7 @@ function ReviewPage() {
           <ReviewHeader bundle={value} slug={slug} id={id as TicketId} />
         </CardHeader>
         <CardContent>
-          <pre className="max-h-[60vh] overflow-auto rounded bg-muted p-3 text-xs">
-            {value.patch}
-          </pre>
+          <Diff patch={value.patch} />
         </CardContent>
       </Card>
     )
