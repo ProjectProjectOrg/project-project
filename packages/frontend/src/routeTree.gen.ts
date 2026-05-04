@@ -16,9 +16,9 @@ import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as AuthedProjectsIndexRouteImport } from './routes/_authed/projects/index'
 import { Route as AuthedProjectsSlugRouteRouteImport } from './routes/_authed/projects/$slug/route'
 import { Route as AuthedProjectsSlugIndexRouteImport } from './routes/_authed/projects/$slug/index'
+import { Route as AuthedProjectsSlugReviewRouteImport } from './routes/_authed/projects/$slug_/review'
 import { Route as AuthedProjectsSlugMembersRouteImport } from './routes/_authed/projects/$slug/members'
 import { Route as AuthedProjectsSlugAboutRouteImport } from './routes/_authed/projects/$slug/about'
-import { Route as AuthedProjectsSlugTicketsIdReviewRouteImport } from './routes/_authed/projects/$slug/tickets/$id/review'
 
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
   id: '/_authed',
@@ -54,6 +54,12 @@ const AuthedProjectsSlugIndexRoute = AuthedProjectsSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedProjectsSlugRouteRoute,
 } as any)
+const AuthedProjectsSlugReviewRoute =
+  AuthedProjectsSlugReviewRouteImport.update({
+    id: '/projects/$slug_/review',
+    path: '/projects/$slug/review',
+    getParentRoute: () => AuthedRouteRoute,
+  } as any)
 const AuthedProjectsSlugMembersRoute =
   AuthedProjectsSlugMembersRouteImport.update({
     id: '/members',
@@ -65,12 +71,6 @@ const AuthedProjectsSlugAboutRoute = AuthedProjectsSlugAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => AuthedProjectsSlugRouteRoute,
 } as any)
-const AuthedProjectsSlugTicketsIdReviewRoute =
-  AuthedProjectsSlugTicketsIdReviewRouteImport.update({
-    id: '/tickets/$id/review',
-    path: '/tickets/$id/review',
-    getParentRoute: () => AuthedProjectsSlugRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -80,8 +80,8 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof AuthedProjectsIndexRoute
   '/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
+  '/projects/$slug/review': typeof AuthedProjectsSlugReviewRoute
   '/projects/$slug/': typeof AuthedProjectsSlugIndexRoute
-  '/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
@@ -90,8 +90,8 @@ export interface FileRoutesByTo {
   '/projects': typeof AuthedProjectsIndexRoute
   '/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
+  '/projects/$slug/review': typeof AuthedProjectsSlugReviewRoute
   '/projects/$slug': typeof AuthedProjectsSlugIndexRoute
-  '/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,8 +103,8 @@ export interface FileRoutesById {
   '/_authed/projects/': typeof AuthedProjectsIndexRoute
   '/_authed/projects/$slug/about': typeof AuthedProjectsSlugAboutRoute
   '/_authed/projects/$slug/members': typeof AuthedProjectsSlugMembersRoute
+  '/_authed/projects/$slug_/review': typeof AuthedProjectsSlugReviewRoute
   '/_authed/projects/$slug/': typeof AuthedProjectsSlugIndexRoute
-  '/_authed/projects/$slug/tickets/$id/review': typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,8 +116,8 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/projects/$slug/about'
     | '/projects/$slug/members'
+    | '/projects/$slug/review'
     | '/projects/$slug/'
-    | '/projects/$slug/tickets/$id/review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -126,8 +126,8 @@ export interface FileRouteTypes {
     | '/projects'
     | '/projects/$slug/about'
     | '/projects/$slug/members'
+    | '/projects/$slug/review'
     | '/projects/$slug'
-    | '/projects/$slug/tickets/$id/review'
   id:
     | '__root__'
     | '/_authed'
@@ -138,8 +138,8 @@ export interface FileRouteTypes {
     | '/_authed/projects/'
     | '/_authed/projects/$slug/about'
     | '/_authed/projects/$slug/members'
+    | '/_authed/projects/$slug_/review'
     | '/_authed/projects/$slug/'
-    | '/_authed/projects/$slug/tickets/$id/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -198,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProjectsSlugIndexRouteImport
       parentRoute: typeof AuthedProjectsSlugRouteRoute
     }
+    '/_authed/projects/$slug_/review': {
+      id: '/_authed/projects/$slug_/review'
+      path: '/projects/$slug/review'
+      fullPath: '/projects/$slug/review'
+      preLoaderRoute: typeof AuthedProjectsSlugReviewRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
     '/_authed/projects/$slug/members': {
       id: '/_authed/projects/$slug/members'
       path: '/members'
@@ -212,13 +219,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedProjectsSlugAboutRouteImport
       parentRoute: typeof AuthedProjectsSlugRouteRoute
     }
-    '/_authed/projects/$slug/tickets/$id/review': {
-      id: '/_authed/projects/$slug/tickets/$id/review'
-      path: '/tickets/$id/review'
-      fullPath: '/projects/$slug/tickets/$id/review'
-      preLoaderRoute: typeof AuthedProjectsSlugTicketsIdReviewRouteImport
-      parentRoute: typeof AuthedProjectsSlugRouteRoute
-    }
   }
 }
 
@@ -226,7 +226,6 @@ interface AuthedProjectsSlugRouteRouteChildren {
   AuthedProjectsSlugAboutRoute: typeof AuthedProjectsSlugAboutRoute
   AuthedProjectsSlugMembersRoute: typeof AuthedProjectsSlugMembersRoute
   AuthedProjectsSlugIndexRoute: typeof AuthedProjectsSlugIndexRoute
-  AuthedProjectsSlugTicketsIdReviewRoute: typeof AuthedProjectsSlugTicketsIdReviewRoute
 }
 
 const AuthedProjectsSlugRouteRouteChildren: AuthedProjectsSlugRouteRouteChildren =
@@ -234,8 +233,6 @@ const AuthedProjectsSlugRouteRouteChildren: AuthedProjectsSlugRouteRouteChildren
     AuthedProjectsSlugAboutRoute: AuthedProjectsSlugAboutRoute,
     AuthedProjectsSlugMembersRoute: AuthedProjectsSlugMembersRoute,
     AuthedProjectsSlugIndexRoute: AuthedProjectsSlugIndexRoute,
-    AuthedProjectsSlugTicketsIdReviewRoute:
-      AuthedProjectsSlugTicketsIdReviewRoute,
   }
 
 const AuthedProjectsSlugRouteRouteWithChildren =
@@ -248,6 +245,7 @@ interface AuthedRouteRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedProjectsSlugRouteRoute: typeof AuthedProjectsSlugRouteRouteWithChildren
   AuthedProjectsIndexRoute: typeof AuthedProjectsIndexRoute
+  AuthedProjectsSlugReviewRoute: typeof AuthedProjectsSlugReviewRoute
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
@@ -255,6 +253,7 @@ const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedProjectsSlugRouteRoute: AuthedProjectsSlugRouteRouteWithChildren,
   AuthedProjectsIndexRoute: AuthedProjectsIndexRoute,
+  AuthedProjectsSlugReviewRoute: AuthedProjectsSlugReviewRoute,
 }
 
 const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(

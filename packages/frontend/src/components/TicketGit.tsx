@@ -389,8 +389,9 @@ function PrLink({
         : GitPullRequest
   return (
     <Link
-      to="/projects/$slug/tickets/$id/review"
-      params={{ slug, id }}
+      to="/projects/$slug/review"
+      params={{ slug }}
+      search={{ ticket: id }}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
         tint
