@@ -6,6 +6,8 @@ The full spec lives in [`docs/PROJECTPROJECT.md`](docs/PROJECTPROJECT.md). The c
 
 ## Layout
 
+bababababa
+
 ```
 projectproject/
 ├── package.json              # Bun workspaces root
