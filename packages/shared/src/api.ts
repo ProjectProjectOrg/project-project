@@ -60,6 +60,7 @@ import {
   OpenPrInput,
   OpenPrResult
 } from "./schemas/GitState"
+import { PullRequestReviewBundle } from "./schemas/Review"
 import {
   BranchExists,
   BranchProtected,
@@ -326,6 +327,24 @@ const TicketsGroup = HttpApiGroup
   )
   .middleware(Authentication)
 
+const ReviewsGroup = HttpApiGroup
+  .make("reviews")
+  .add(
+    HttpApiEndpoint
+      .get("getForTicket", "/projects/:slug/tickets/:id/review")
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .addSuccess(PullRequestReviewBundle)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Conflict)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi
   .make("projectproject")
   .add(HealthGroup)
@@ -333,4 +352,5 @@ const AppApi = HttpApi
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
+  .add(ReviewsGroup)
 export { AppApi }

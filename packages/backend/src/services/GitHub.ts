@@ -14,6 +14,7 @@
 //   - openPullRequest       — POST a PR
 //   - fetchProjectStates    — single GraphQL roundtrip for branch + PR state
 //                             across N tickets in one repo
+//   - fetchPullReviewBundle — PR metadata + raw patch + files + review threads
 //
 // ERROR MAPPING
 // ----------------------------------------------------------------------------
@@ -38,10 +39,10 @@ import {
   BranchExists,
   BranchProtected,
   GitHubError,
-  GitHubScopeInsufficient,
-  GitHubTokenExpired,
   GithubRepo,
   GithubRepoPage,
+  GitHubScopeInsufficient,
+  GitHubTokenExpired,
   RateLimited,
   RepoGone
 } from "@projectproject/shared"
@@ -71,6 +72,82 @@ export interface RawProjectStates {
   readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
 }
 
+export interface RawReviewUser {
+  readonly login: string
+  readonly name: string | null
+  readonly avatarUrl: string | null
+  readonly url: string
+}
+
+export interface RawReviewFile {
+  readonly path: string
+  readonly previousPath: string | null
+  readonly status:
+    | "added"
+    | "removed"
+    | "modified"
+    | "renamed"
+    | "copied"
+    | "changed"
+    | "unchanged"
+  readonly additions: number
+  readonly deletions: number
+  readonly changes: number
+  readonly patchAvailable: boolean
+  readonly blobUrl: string | null
+  readonly rawUrl: string | null
+}
+
+export interface RawReviewThreadComment {
+  readonly id: string
+  readonly databaseId: number | null
+  readonly body: string
+  readonly author: RawReviewUser | null
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly url: string
+  readonly isDraft: boolean
+}
+
+export interface RawReviewThread {
+  readonly id: string
+  readonly path: string
+  readonly line: number | null
+  readonly side: "LEFT" | "RIGHT" | null
+  readonly startLine: number | null
+  readonly startSide: "LEFT" | "RIGHT" | null
+  readonly isResolved: boolean
+  readonly isOutdated: boolean
+  readonly comments: ReadonlyArray<RawReviewThreadComment>
+}
+
+export interface RawPullRequestReview {
+  readonly number: number
+  readonly nodeId: string
+  readonly url: string
+  readonly title: string
+  readonly body: string | null
+  readonly state: "open" | "closed"
+  readonly merged: boolean
+  readonly draft: boolean
+  readonly author: RawReviewUser | null
+  readonly baseBranch: string
+  readonly headBranch: string
+  readonly baseSha: string
+  readonly headSha: string
+  readonly mergeable: boolean | null
+  readonly additions: number
+  readonly deletions: number
+  readonly changedFiles: number
+}
+
+export interface RawPullReviewBundle {
+  readonly pr: RawPullRequestReview
+  readonly patch: string
+  readonly files: ReadonlyArray<RawReviewFile>
+  readonly threads: ReadonlyArray<RawReviewThread>
+}
+
 type GitHubFailure =
   | GitHubTokenExpired
   | GitHubScopeInsufficient
@@ -87,18 +164,22 @@ function mapHttpError(cause: unknown): GitHubFailure {
   // depend on its constructor identity, so we duck-type.
   const err = cause as Record<string, unknown> | undefined
   const status = err?.[HTTP_STATUS_KEY] as number | undefined
-  const message =
-    typeof err?.message === "string" ? (err.message as string) : "GitHub error"
-  const headers = (err?.["response"] as { headers?: Record<string, string> } | undefined)
-    ?.headers
-  const resetHeader =
-    headers?.["x-ratelimit-reset"] ?? headers?.["X-RateLimit-Reset"]
+  const message = typeof err?.message === "string"
+    ? (err.message as string)
+    : "GitHub error"
+  const headers =
+    (err?.["response"] as { headers?: Record<string, string> } | undefined)
+      ?.headers
+  const resetHeader = headers?.["x-ratelimit-reset"]
+    ?? headers?.["X-RateLimit-Reset"]
 
   if (status === 401) return new GitHubTokenExpired()
   if (status === 403) {
     if (/rate.?limit|abuse/i.test(message)) {
       return new RateLimited({
-        resetAt: resetHeader ? Number(resetHeader) : Math.floor(Date.now() / 1000) + 60
+        resetAt: resetHeader
+          ? Number(resetHeader)
+          : Math.floor(Date.now() / 1000) + 60
       })
     }
     return new GitHubScopeInsufficient()
@@ -115,7 +196,9 @@ function mapHttpError(cause: unknown): GitHubFailure {
   }
   if (status === 429) {
     return new RateLimited({
-      resetAt: resetHeader ? Number(resetHeader) : Math.floor(Date.now() / 1000) + 60
+      resetAt: resetHeader
+        ? Number(resetHeader)
+        : Math.floor(Date.now() / 1000) + 60
     })
   }
   return new GitHubError({ message })
@@ -141,9 +224,10 @@ export class GitHub extends Effect.Service<GitHub>()(
           .getGithubAccessToken(userId)
           .pipe(
             Effect.catchTag("NoGithubToken", () =>
-              Effect.fail(new GitHubTokenExpired())
-            ),
-            Effect.catchTag("BetterAuthError", (e) => Effect.die(e))
+              Effect.fail(new GitHubTokenExpired())),
+            Effect
+              .catchTag("BetterAuthError", (e) =>
+                Effect.die(e))
           )
 
       const listUserRepos = (
@@ -162,53 +246,55 @@ export class GitHub extends Effect.Service<GitHub>()(
           // Free-text search → use the Search API; otherwise list authed
           // user's repos (includes private + collaborator). Different
           // endpoints, same shape mapped to GithubRepo.
-          const result = yield* Effect.tryPromise({
-            try: async () => {
-              if (query && query.trim()) {
-                const me = await octokit.rest.users.getAuthenticated()
-                const res = await octokit.rest.search.repos({
-                  q: `${query} user:${me.data.login} fork:true`,
+          const result = yield* Effect
+            .tryPromise({
+              try: async () => {
+                if (query && query.trim()) {
+                  const me = await octokit.rest.users.getAuthenticated()
+                  const res = await octokit.rest.search.repos({
+                    q: `${query} user:${me.data.login} fork:true`,
+                    per_page: perPage,
+                    page
+                  })
+                  return {
+                    items: res.data.items.map((r) => ({
+                      owner: r.owner?.login ?? "",
+                      name: r.name,
+                      defaultBranch: r.default_branch,
+                      private: r.private,
+                      description: r.description ?? null
+                    })),
+                    hasMore: res.data.items.length === perPage
+                  }
+                }
+                const res = await octokit.rest.repos.listForAuthenticatedUser({
                   per_page: perPage,
-                  page
+                  page,
+                  sort: "pushed",
+                  affiliation: "owner,collaborator,organization_member"
                 })
                 return {
-                  items: res.data.items.map((r) => ({
-                    owner: r.owner?.login ?? "",
+                  items: res.data.map((r) => ({
+                    owner: r.owner.login,
                     name: r.name,
                     defaultBranch: r.default_branch,
                     private: r.private,
                     description: r.description ?? null
                   })),
-                  hasMore: res.data.items.length === perPage
+                  hasMore: res.data.length === perPage
                 }
-              }
-              const res = await octokit.rest.repos.listForAuthenticatedUser({
-                per_page: perPage,
-                page,
-                sort: "pushed",
-                affiliation: "owner,collaborator,organization_member"
-              })
-              return {
-                items: res.data.map((r) => ({
-                  owner: r.owner.login,
-                  name: r.name,
-                  defaultBranch: r.default_branch,
-                  private: r.private,
-                  description: r.description ?? null
-                })),
-                hasMore: res.data.length === perPage
-              }
-            },
-            catch: mapHttpError
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "GitHubTokenExpired" ||
-              e._tag === "GitHubScopeInsufficient" ||
-              e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: String(e) }))
+              },
+              catch: mapHttpError
+            })
+            .pipe(
+              Effect.catchAll((e) =>
+                e._tag === "GitHubTokenExpired"
+                  || e._tag === "GitHubScopeInsufficient"
+                  || e._tag === "GitHubError"
+                  ? Effect.fail(e)
+                  : Effect.fail(new GitHubError({ message: String(e) }))
+              )
             )
-          )
           return {
             repos: result.items.map((r) => GithubRepo.make(r)),
             hasMore: result.hasMore
@@ -229,19 +315,21 @@ export class GitHub extends Effect.Service<GitHub>()(
         Effect.gen(function*() {
           const token = yield* tokenFor(userId)
           const octokit = octokitFor(token)
-          const data = yield* Effect.tryPromise({
-            try: () => octokit.rest.repos.get({ owner, repo: name }),
-            catch: mapHttpError
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "GitHubTokenExpired" ||
-              e._tag === "GitHubScopeInsufficient" ||
-              e._tag === "RepoGone" ||
-              e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: String(e) }))
+          const data = yield* Effect
+            .tryPromise({
+              try: () => octokit.rest.repos.get({ owner, repo: name }),
+              catch: mapHttpError
+            })
+            .pipe(
+              Effect.catchAll((e) =>
+                e._tag === "GitHubTokenExpired"
+                  || e._tag === "GitHubScopeInsufficient"
+                  || e._tag === "RepoGone"
+                  || e._tag === "GitHubError"
+                  ? Effect.fail(e)
+                  : Effect.fail(new GitHubError({ message: String(e) }))
+              )
             )
-          )
           // We require push access — branch creation needs it. permissions
           // is populated when the token can see the repo at all.
           if (data.data.permissions && !data.data.permissions.push) {
@@ -272,21 +360,29 @@ export class GitHub extends Effect.Service<GitHub>()(
 
           // Fetch the base branch SHA, then create the ref. Two calls; the
           // first fails with NotFound if the base branch is wrong.
-          const base = yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.repos.getBranch({ owner, repo: name, branch: baseBranch }),
-            catch: mapHttpError
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "RepoGone"
-                // 404 here usually means base branch typo, not the whole repo.
-                // Map to GitHubError with a helpful message rather than RepoGone.
-                ? Effect.fail(
-                  new GitHubError({ message: `base branch "${baseBranch}" not found` })
-                )
-                : Effect.fail(e as GitHubFailure)
+          const base = yield* Effect
+            .tryPromise({
+              try: () =>
+                octokit.rest.repos.getBranch({
+                  owner,
+                  repo: name,
+                  branch: baseBranch
+                }),
+              catch: mapHttpError
+            })
+            .pipe(
+              Effect.catchAll((e) =>
+                e._tag === "RepoGone"
+                  // 404 here usually means base branch typo, not the whole repo.
+                  // Map to GitHubError with a helpful message rather than RepoGone.
+                  ? Effect.fail(
+                    new GitHubError({
+                      message: `base branch "${baseBranch}" not found`
+                    })
+                  )
+                  : Effect.fail(e as GitHubFailure)
+              )
             )
-          )
           const sha = base.data.commit.sha
 
           yield* Effect.tryPromise({
@@ -301,8 +397,12 @@ export class GitHub extends Effect.Service<GitHub>()(
             // need it.
             catch: (cause) => {
               const err = mapHttpError(cause)
-              if (err._tag === "BranchExists") return new BranchExists({ branch: branchName })
-              if (err._tag === "BranchProtected") return new BranchProtected({ branch: branchName })
+              if (err._tag === "BranchExists") {
+                return new BranchExists({ branch: branchName })
+              }
+              if (err._tag === "BranchProtected") {
+                return new BranchProtected({ branch: branchName })
+              }
               return err
             }
           })
@@ -348,7 +448,9 @@ export class GitHub extends Effect.Service<GitHub>()(
               const err = mapHttpError(cause)
               // No "BranchExists" mapping for PRs; treat as GitHubError.
               if (err._tag === "BranchExists") {
-                return new GitHubError({ message: "PR already exists for this branch" })
+                return new GitHubError({
+                  message: "PR already exists for this branch"
+                })
               }
               if (err._tag === "BranchProtected") {
                 return new BranchProtected({ branch: args.head })
@@ -446,12 +548,24 @@ export class GitHub extends Effect.Service<GitHub>()(
                 `,
                 { owner, name }
               ),
-            catch: (cause): GitHubTokenExpired | GitHubScopeInsufficient | RepoGone | RateLimited | GitHubError => {
+            catch: (
+              cause
+            ):
+              | GitHubTokenExpired
+              | GitHubScopeInsufficient
+              | RepoGone
+              | RateLimited
+              | GitHubError =>
+            {
               const err = mapHttpError(cause)
               // Branch-specific failures don't make sense for a read-only
               // GraphQL query — collapse them into GitHubError.
-              if (err._tag === "BranchExists" || err._tag === "BranchProtected") {
-                return new GitHubError({ message: "unexpected GitHub response" })
+              if (
+                err._tag === "BranchExists" || err._tag === "BranchProtected"
+              ) {
+                return new GitHubError({
+                  message: "unexpected GitHub response"
+                })
               }
               return err
             }
@@ -469,7 +583,9 @@ export class GitHub extends Effect.Service<GitHub>()(
           //   FAILURE | ERROR      → failing
           //   PENDING | EXPECTED   → pending
           //   anything else        → neutral
-          const mapChecks = (s: string | null | undefined): RawBranchEntry["checks"] => {
+          const mapChecks = (
+            s: string | null | undefined
+          ): RawBranchEntry["checks"] => {
             if (!s) return "none"
             if (s === "SUCCESS") return "passing"
             if (s === "FAILURE" || s === "ERROR") return "failing"
@@ -486,12 +602,11 @@ export class GitHub extends Effect.Service<GitHub>()(
             prByBranch.set(pr.headRefName, {
               headRefName: pr.headRefName,
               baseRefName: pr.baseRefName,
-              state:
-                pr.state === "MERGED"
-                  ? "merged"
-                  : pr.state === "CLOSED"
-                    ? "closed"
-                    : "open",
+              state: pr.state === "MERGED"
+                ? "merged"
+                : pr.state === "CLOSED"
+                ? "closed"
+                : "open",
               draft: pr.isDraft,
               number: pr.number,
               url: pr.url,
@@ -510,12 +625,307 @@ export class GitHub extends Effect.Service<GitHub>()(
           }
         })
 
+      const fetchPullReviewBundle = (
+        owner: string,
+        name: string,
+        prNumber: number,
+        userId: string
+      ): Effect.Effect<
+        RawPullReviewBundle,
+        | GitHubTokenExpired
+        | GitHubScopeInsufficient
+        | RepoGone
+        | RateLimited
+        | GitHubError
+      > =>
+        Effect.gen(function*() {
+          const token = yield* tokenFor(userId)
+          const octokit = octokitFor(token)
+          const gql = graphqlFor(token)
+
+          const failRead = (
+            e: GitHubFailure
+          ):
+            | GitHubTokenExpired
+            | GitHubScopeInsufficient
+            | RepoGone
+            | RateLimited
+            | GitHubError =>
+            e._tag === "BranchExists" || e._tag === "BranchProtected"
+              ? new GitHubError({ message: "unexpected GitHub response" })
+              : e
+
+          const mapUser = (
+            user:
+              | {
+                login?: string | null
+                name?: string | null
+                avatar_url?: string | null
+                avatarUrl?: string | null
+                html_url?: string | null
+                url?: string | null
+              }
+              | null
+              | undefined
+          ): RawReviewUser | null => {
+            if (!user?.login) return null
+            return {
+              login: user.login,
+              name: user.name ?? null,
+              avatarUrl: user.avatar_url ?? user.avatarUrl ?? null,
+              url: user.html_url ?? user.url ?? ""
+            }
+          }
+
+          const prResult = yield* Effect.tryPromise({
+            try: () =>
+              octokit.rest.pulls.get({
+                owner,
+                repo: name,
+                pull_number: prNumber
+              }),
+            catch: (cause) => failRead(mapHttpError(cause))
+          })
+
+          const patch = yield* Effect.tryPromise({
+            try: async () => {
+              const response = await octokit.request(
+                "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+                {
+                  owner,
+                  repo: name,
+                  pull_number: prNumber,
+                  headers: { accept: "application/vnd.github.v3.patch" }
+                }
+              )
+              return typeof response.data === "string" ? response.data : ""
+            },
+            catch: (cause) => failRead(mapHttpError(cause))
+          })
+
+          const normalizeFileStatus = (
+            status: string
+          ): RawReviewFile["status"] => {
+            if (
+              status === "added"
+              || status === "removed"
+              || status === "modified"
+              || status === "renamed"
+              || status === "copied"
+              || status === "changed"
+              || status === "unchanged"
+            ) {
+              return status
+            }
+            return "modified"
+          }
+
+          const files = yield* Effect.tryPromise({
+            try: async () => {
+              const all: RawReviewFile[] = []
+              for (let page = 1;; page++) {
+                const response = await octokit.rest.pulls.listFiles({
+                  owner,
+                  repo: name,
+                  pull_number: prNumber,
+                  per_page: 100,
+                  page
+                })
+                all.push(
+                  ...response.data.map((file) => ({
+                    path: file.filename,
+                    previousPath: file.previous_filename ?? null,
+                    status: normalizeFileStatus(file.status),
+                    additions: file.additions,
+                    deletions: file.deletions,
+                    changes: file.changes,
+                    patchAvailable: file.patch !== undefined,
+                    blobUrl: file.blob_url ?? null,
+                    rawUrl: file.raw_url ?? null
+                  }))
+                )
+                if (response.data.length < 100) break
+              }
+              return all
+            },
+            catch: (cause) => failRead(mapHttpError(cause))
+          })
+
+          interface ThreadQueryResult {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  pageInfo: {
+                    hasNextPage: boolean
+                    endCursor: string | null
+                  }
+                  nodes: ReadonlyArray<{
+                    id: string
+                    path: string
+                    line: number | null
+                    diffSide: "LEFT" | "RIGHT"
+                    startLine: number | null
+                    startDiffSide: "LEFT" | "RIGHT" | null
+                    isResolved: boolean
+                    isOutdated: boolean
+                    comments: {
+                      nodes: ReadonlyArray<{
+                        id: string
+                        databaseId: number | null
+                        body: string
+                        createdAt: string
+                        updatedAt: string
+                        url: string
+                        isDraft: boolean
+                        author: {
+                          login: string
+                          url: string
+                          avatarUrl: string
+                          name?: string | null
+                        } | null
+                      }>
+                    }
+                  }>
+                }
+              } | null
+            } | null
+          }
+          type ReviewThreadsConnection = NonNullable<
+            NonNullable<
+              NonNullable<ThreadQueryResult["repository"]>["pullRequest"]
+            >["reviewThreads"]
+          >
+          type ReviewThreadNode = ReviewThreadsConnection["nodes"][number]
+          type ReviewThreadCommentNode =
+            ReviewThreadNode["comments"]["nodes"][number]
+
+          const threads = yield* Effect.tryPromise({
+            try: async () => {
+              const all: RawReviewThread[] = []
+              let cursor: string | null = null
+              for (;;) {
+                const data: ThreadQueryResult = await gql<ThreadQueryResult>(
+                  /* GraphQL */ `
+                    query Q(
+                      $owner: String!
+                      $name: String!
+                      $number: Int!
+                      $cursor: String
+                    ) {
+                      repository(owner: $owner, name: $name) {
+                        pullRequest(number: $number) {
+                          reviewThreads(first: 100, after: $cursor) {
+                            pageInfo { hasNextPage endCursor }
+                            nodes {
+                              id
+                              path
+                              line
+                              diffSide
+                              startLine
+                              startDiffSide
+                              isResolved
+                              isOutdated
+                              comments(first: 100) {
+                                nodes {
+                                  id
+                                  databaseId
+                                  body
+                                  createdAt
+                                  updatedAt
+                                  url
+                                  isDraft
+                                  author {
+                                    login
+                                    url
+                                    avatarUrl
+                                    ... on User { name }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  `,
+                  { owner, name, number: prNumber, cursor }
+                )
+
+                const connection: ReviewThreadsConnection | undefined = data
+                  .repository
+                  ?.pullRequest
+                  ?.reviewThreads
+                if (!connection) break
+
+                all.push(
+                  ...connection.nodes.map((thread: ReviewThreadNode) => ({
+                    id: thread.id,
+                    path: thread.path,
+                    line: thread.line,
+                    side: thread.diffSide,
+                    startLine: thread.startLine,
+                    startSide: thread.startDiffSide,
+                    isResolved: thread.isResolved,
+                    isOutdated: thread.isOutdated,
+                    comments: thread.comments.nodes.map(
+                      (comment: ReviewThreadCommentNode) => ({
+                        id: comment.id,
+                        databaseId: comment.databaseId,
+                        body: comment.body,
+                        author: mapUser(comment.author),
+                        createdAt: new Date(comment.createdAt),
+                        updatedAt: new Date(comment.updatedAt),
+                        url: comment.url,
+                        isDraft: comment.isDraft
+                      })
+                    )
+                  }))
+                )
+
+                if (!connection.pageInfo.hasNextPage || all.length >= 500) {
+                  break
+                }
+                cursor = connection.pageInfo.endCursor
+              }
+              return all
+            },
+            catch: (cause) => failRead(mapHttpError(cause))
+          })
+
+          const pr = prResult.data
+          return {
+            pr: {
+              number: pr.number,
+              nodeId: pr.node_id,
+              url: pr.html_url,
+              title: pr.title,
+              body: pr.body,
+              state: pr.state === "closed" ? "closed" : "open",
+              merged: pr.merged ?? false,
+              draft: pr.draft ?? false,
+              author: mapUser(pr.user),
+              baseBranch: pr.base.ref,
+              headBranch: pr.head.ref,
+              baseSha: pr.base.sha,
+              headSha: pr.head.sha,
+              mergeable: pr.mergeable ?? null,
+              additions: pr.additions ?? 0,
+              deletions: pr.deletions ?? 0,
+              changedFiles: pr.changed_files ?? files.length
+            },
+            patch,
+            files,
+            threads
+          }
+        })
+
       return {
         listUserRepos,
         verifyAccess,
         createBranch,
         openPullRequest,
-        fetchProjectStates
+        fetchProjectStates,
+        fetchPullReviewBundle
       } as const
     }),
     dependencies: []
