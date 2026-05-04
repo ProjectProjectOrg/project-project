@@ -8,6 +8,8 @@ The project started as a structured Effect-learning curriculum (chapter-by-chapt
 
 ## Wouter
 
+hier ook nog en changeeeee
+
 TypeScript engineer, frontend background, comfortable with Effect v3 fundamentals (Layers, scopes, tagged errors, `Effect.gen`, `HttpApi`, `@effect-rx`). Works in a real engineering setting most of the time and is fine pair-programming with AI. Treat him as a peer, not a student — but he's still building Effect intuition, so flag non-obvious choices when you make them.
 
 ## How we work
