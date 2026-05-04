@@ -8,6 +8,7 @@
 // Both consume `projectGitStatesAtom` keyed by project slug.
 
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 import {
   AlertTriangle,
@@ -281,8 +282,9 @@ function StateBody({
       <Row>
         <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
         <PrLink
+          slug={slug}
+          id={ticket.id}
           number={state.number}
-          url={state.url}
           tone={state.draft ? "draft" : "open"}
           checks={state.checks}
         />
@@ -297,7 +299,7 @@ function StateBody({
     return (
       <Row>
         <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
-        <PrLink number={state.number} url={state.url} tone="merged" />
+        <PrLink slug={slug} id={ticket.id} number={state.number} tone="merged" />
         <span className="text-xs text-muted-foreground">
           merged · ticket auto-set to done
         </span>
@@ -309,7 +311,7 @@ function StateBody({
     return (
       <Row>
         <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
-        <PrLink number={state.number} url={state.url} tone="closed" />
+        <PrLink slug={slug} id={ticket.id} number={state.number} tone="closed" />
         <div className="flex-1" />
         <Button
           size="sm"
@@ -359,13 +361,15 @@ function BranchChip({ slug, name }: { slug: string; name: string }) {
 }
 
 function PrLink({
+  slug,
+  id,
   number,
-  url,
   tone,
   checks
 }: {
+  slug: string
+  id: TicketId
   number: number
-  url: string
   tone: "open" | "draft" | "merged" | "closed"
   checks?: string
 }) {
@@ -384,10 +388,9 @@ function PrLink({
         ? GitPullRequestClosed
         : GitPullRequest
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
+    <Link
+      to="/projects/$slug/tickets/$id/review"
+      params={{ slug, id }}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
         tint
@@ -401,7 +404,7 @@ function PrLink({
         />
       )}
       {tone === "draft" && <span>draft</span>}
-    </a>
+    </Link>
   )
 }
 
