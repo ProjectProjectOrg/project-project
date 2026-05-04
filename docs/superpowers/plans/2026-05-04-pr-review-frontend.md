@@ -262,7 +262,7 @@ function PrLink({
         : GitPullRequest
   return (
     <Link
-      to="/_authed/projects/$slug/tickets/$id/review"
+      to="/projects/$slug/tickets/$id/review"
       params={{ slug, id }}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
@@ -457,7 +457,7 @@ function ReviewHeader({
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
         <Link
-          to="/_authed/projects/$slug"
+          to="/projects/$slug"
           params={{ slug }}
           search={{ ticket: id }}
           className="mt-0.5 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -585,7 +585,7 @@ function ReviewError({
       </CardHeader>
       <CardContent>
         <Link
-          to="/_authed/projects/$slug"
+          to="/projects/$slug"
           params={{ slug }}
           search={{ ticket: id }}
           className="text-sm text-primary underline"
@@ -1027,7 +1027,7 @@ function ReviewError({
       </CardHeader>
       <CardContent>
         <Link
-          to="/_authed/projects/$slug"
+          to="/projects/$slug"
           params={{ slug }}
           search={{ ticket: id }}
           className="text-sm text-primary underline"
