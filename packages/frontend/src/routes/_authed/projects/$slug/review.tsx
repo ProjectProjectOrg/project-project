@@ -1,7 +1,7 @@
 // PR review page — diff + file tree for the PR linked to a ticket.
-// URL: /projects/<slug>/review?ticket=T-12. Lives outside the project
-// layout (`$slug_/`) so it doesn't inherit the tab strip — the page
-// owns its own chrome.
+// URL: /projects/<slug>/review?ticket=T-12. Renders inside the project
+// layout, so it inherits the project header + tab strip; the card fills
+// the remaining viewport via the flex chain set up in Shell + PageContainer.
 
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { parsePatchFiles } from "@pierre/diffs"
@@ -12,7 +12,7 @@ import { FileDiff } from "@pierre/diffs/react"
 // the simulated unmount, leaving the rendered <FileTree model={...}> with
 // a destroyed instance. Importing the class + web-components directly
 // sidesteps that.
-import { FileTree as FileTreeModel } from "@pierre/trees"
+import { FileTree as FileTreeModel, type GitStatusEntry } from "@pierre/trees"
 import "@pierre/trees/web-components"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
@@ -22,7 +22,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed
 } from "lucide-react"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, type CSSProperties } from "react"
 import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
 import { useTheme } from "@/hooks/useTheme"
 import { cn } from "@/lib/utils"
@@ -32,7 +32,7 @@ import type {
   TicketId
 } from "@projectproject/shared"
 
-export const Route = createFileRoute("/_authed/projects/$slug_/review")({
+export const Route = createFileRoute("/_authed/projects/$slug/review")({
   component: ReviewPage,
   validateSearch: (search: Record<string, unknown>): { ticket: string } => ({
     ticket: typeof search.ticket === "string" ? search.ticket : ""
@@ -83,12 +83,13 @@ function ReviewLayout({
   ticketId: TicketId
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-background">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-background">
       <ReviewHeader bundle={bundle} slug={slug} ticketId={ticketId} />
-      <div className="border-t border-border/60 p-5">
-        <div className="grid gap-5 md:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="md:sticky md:top-2 md:self-start">
+      <div className="min-h-0 flex-1 border-t border-border/60 p-3">
+        <div className="grid h-full min-h-0 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="min-h-0">
             <FileTree
+              className="h-full overflow-hidden rounded-md border border-border/50 bg-background"
               files={bundle.files}
               onSelect={(path) => {
                 const el = document.getElementById(fileAnchorId(path))
@@ -96,7 +97,7 @@ function ReviewLayout({
               }}
             />
           </aside>
-          <div className="min-w-0">
+          <div className="min-h-0 min-w-0 overflow-auto">
             <Diff patch={bundle.patch} />
           </div>
         </div>
@@ -272,30 +273,79 @@ function Diff({ patch }: { patch: string }) {
 
 function FileTree({
   files,
-  onSelect
+  onSelect,
+  className
 }: {
   files: ReadonlyArray<ReviewFileSummary>
   onSelect: (path: string) => void
+  className?: string
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
 
   const paths = useMemo(() => files.map((f) => f.path), [files])
-  const visibleRows = Math.min(Math.max(paths.length, 6), 24)
+  const gitStatus = useMemo(
+    () => files.flatMap((file) => toTreeGitStatus(file)),
+    [files]
+  )
+  const visibleRows = Math.min(Math.max(paths.length, 24), 40)
 
   // Build + render + tear down the model entirely inside an effect so
   // StrictMode's mount→unmount→mount cycle gets a fresh model each time.
-  // The wrapperRef host has min-height (the virtualizer measures it via
-  // ResizeObserver; without an initial non-zero height it never paints).
+  // The mount node needs an explicit height because @pierre/trees sets the
+  // shadow host to height: 100%; min-height leaves that percentage unresolved.
   useEffect(() => {
     const wrapper = wrapperRef.current
     if (wrapper == null) return
 
     const filePathSet = new Set(paths)
     const model = new FileTreeModel({
+      initialExpansion: "open",
+      itemHeight: 28,
       paths,
+      gitStatus,
       initialVisibleRowCount: visibleRows,
+      unsafeCSS: `
+        [data-file-tree-virtualized-scroll='true'] {
+          padding: 0;
+        }
+
+        [data-file-tree-virtualized-list='true'] {
+          box-sizing: border-box;
+          min-height: 100%;
+          padding: 6px;
+        }
+
+        [role='tree'] {
+          width: 100%;
+        }
+
+        [data-type='item'] {
+          background: transparent;
+          border-radius: 4px;
+          margin-inline: 0;
+        }
+
+        [data-type='item']:hover,
+        [data-type='item'][data-item-context-hover='true'] {
+          background: color-mix(in oklch, var(--trees-fg) 7%, transparent);
+        }
+
+        [data-type='item'][data-item-git-status] > [data-item-section='content'] {
+          color: var(--trees-fg);
+        }
+
+        [data-type='item'][data-item-selected='true'] {
+          background: color-mix(in oklch, var(--trees-fg) 8%, transparent);
+        }
+
+        [data-type='item'][data-item-focused='true']::before,
+        [data-type='item']:focus-visible::before {
+          border-radius: 4px;
+          outline-color: color-mix(in oklch, var(--trees-fg) 18%, transparent);
+        }
+      `,
       onSelectionChange: (selectedPaths) => {
         const last = selectedPaths.at(-1)
         if (last != null && filePathSet.has(last)) onSelectRef.current(last)
@@ -306,14 +356,52 @@ function FileTree({
     return () => {
       model.cleanUp()
     }
-  }, [paths, visibleRows])
+  }, [paths, gitStatus, visibleRows])
+
+  const treeStyle = {
+    height: "100%",
+    "--trees-bg-override": "transparent",
+    "--trees-bg-muted-override": "var(--accent)",
+    "--trees-border-color-override": "var(--border)",
+    "--trees-fg-override": "var(--foreground)",
+    "--trees-fg-muted-override": "var(--muted-foreground)",
+    "--trees-selected-bg-override": "var(--selected)",
+    "--trees-selected-fg-override": "var(--foreground)",
+    "--trees-border-radius-override": "4px",
+    "--trees-item-padding-x-override": "6px",
+    "--trees-item-row-gap-override": "4px",
+    "--trees-icon-width-override": "14px",
+    "--trees-font-family-override":
+      "ui-monospace, SFMono-Regular, Menlo, monospace",
+    "--trees-font-size-override": "12px",
+    "--trees-padding-inline-override": "6px"
+  } as CSSProperties
 
   return (
     <div
       ref={wrapperRef}
-      style={{ minHeight: `${visibleRows * 30}px` }}
+      className={className}
+      style={treeStyle}
     />
   )
+}
+
+function toTreeGitStatus(file: ReviewFileSummary): ReadonlyArray<GitStatusEntry> {
+  switch (file.status) {
+    case "added":
+      return [{ path: file.path, status: "added" }]
+    case "removed":
+      return [{ path: file.path, status: "deleted" }]
+    case "renamed":
+      return [{ path: file.path, status: "renamed" }]
+    case "copied":
+      return [{ path: file.path, status: "added" }]
+    case "changed":
+    case "modified":
+      return [{ path: file.path, status: "modified" }]
+    case "unchanged":
+      return []
+  }
 }
 
 // ---------------------------------------------------------------------------

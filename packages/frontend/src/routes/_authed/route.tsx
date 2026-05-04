@@ -49,7 +49,7 @@ function Shell({ user }: { user: User }) {
         <Sidebar />
         <Topbar user={user} />
         <main className="m-2 ml-0 mt-0 overflow-auto rounded-xl bg-muted/60">
-          <div className="p-6">
+          <div className="flex min-h-full flex-col p-6">
             <Outlet />
           </div>
         </main>

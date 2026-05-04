@@ -11,7 +11,7 @@ export function PageContainer({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("mx-auto flex w-full max-w-4xl flex-col gap-6", className)}
+      className={cn("mx-auto flex w-full flex-1 flex-col gap-6", className)}
       {...props}
     />
   )
