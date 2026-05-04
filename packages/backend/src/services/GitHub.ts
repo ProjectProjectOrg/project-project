@@ -106,7 +106,6 @@ export interface RawReviewThreadComment {
   readonly createdAt: Date
   readonly updatedAt: Date
   readonly url: string
-  readonly isDraft: boolean
 }
 
 export interface RawReviewThread {
@@ -776,7 +775,6 @@ export class GitHub extends Effect.Service<GitHub>()(
                         createdAt: string
                         updatedAt: string
                         url: string
-                        isDraft: boolean
                         author: {
                           login: string
                           url: string
@@ -833,7 +831,6 @@ export class GitHub extends Effect.Service<GitHub>()(
                                   createdAt
                                   updatedAt
                                   url
-                                  isDraft
                                   author {
                                     login
                                     url
@@ -875,8 +872,7 @@ export class GitHub extends Effect.Service<GitHub>()(
                         author: mapUser(comment.author),
                         createdAt: new Date(comment.createdAt),
                         updatedAt: new Date(comment.updatedAt),
-                        url: comment.url,
-                        isDraft: comment.isDraft
+                        url: comment.url
                       })
                     )
                   }))

@@ -49,8 +49,7 @@ export const ReviewThreadComment = Schema.Struct({
   author: Schema.NullOr(ReviewUser),
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
-  url: Schema.String,
-  isDraft: Schema.Boolean
+  url: Schema.String
 })
 export type ReviewThreadComment = typeof ReviewThreadComment.Type
 

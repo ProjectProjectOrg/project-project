@@ -33,7 +33,12 @@
 // implementations live in `packages/backend/src/main.ts` (and later, the
 // `handlers/` directory).
 
-import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  OpenApi
+} from "@effect/platform"
 import { Schema } from "effect"
 import { User } from "./schemas/User"
 import {
@@ -347,6 +352,11 @@ const ReviewsGroup = HttpApiGroup
 
 const AppApi = HttpApi
   .make("projectproject")
+  .annotateContext(
+    OpenApi.annotations({
+      servers: [{ url: "/api" }]
+    })
+  )
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
