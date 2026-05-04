@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   useRef,
@@ -8,36 +8,36 @@ import {
   useContext,
   forwardRef,
   type ReactNode,
-  type HTMLAttributes,
-} from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
-import { springs } from "@/lib/springs";
-import { useProximityHover } from "@/hooks/use-proximity-hover";
-import { useShape } from "@/lib/shape-context";
+  type HTMLAttributes
+} from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { cn } from "@/lib/utils"
+import { springs } from "@/lib/springs"
+import { useProximityHover } from "@/hooks/use-proximity-hover"
+import { useShape } from "@/lib/shape-context"
 
 interface DropdownContextValue {
-  registerItem: (index: number, element: HTMLElement | null) => void;
-  activeIndex: number | null;
-  checkedIndex?: number;
+  registerItem: (index: number, element: HTMLElement | null) => void
+  activeIndex: number | null
+  checkedIndex?: number
 }
 
-const DropdownContext = createContext<DropdownContextValue | null>(null);
+const DropdownContext = createContext<DropdownContextValue | null>(null)
 
 export function useDropdown() {
-  const ctx = useContext(DropdownContext);
-  if (!ctx) throw new Error("useDropdown must be used within a Dropdown");
-  return ctx;
+  const ctx = useContext(DropdownContext)
+  if (!ctx) throw new Error("useDropdown must be used within a Dropdown")
+  return ctx
 }
 
 interface DropdownProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode;
-  checkedIndex?: number;
+  children: ReactNode
+  checkedIndex?: number
 }
 
 const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   ({ children, checkedIndex, className, ...props }, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null)
     const {
       activeIndex,
       setActiveIndex,
@@ -45,30 +45,34 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       sessionRef,
       handlers,
       registerItem,
-      measureItems,
-    } = useProximityHover(containerRef);
+      measureItems
+    } = useProximityHover(containerRef)
 
     useEffect(() => {
-      measureItems();
-    }, [measureItems, children]);
+      measureItems()
+    }, [measureItems, children])
 
-    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+    const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
 
-    const activeRect = activeIndex !== null ? itemRects[activeIndex] : null;
-    const checkedRect =
-      checkedIndex != null ? itemRects[checkedIndex] : null;
-    const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
-    const isHoveringOther =
-      activeIndex !== null && activeIndex !== checkedIndex;
-    const shape = useShape();
+    const activeRect = activeIndex !== null ? itemRects[activeIndex] : null
+    const checkedRect = checkedIndex != null ? itemRects[checkedIndex] : null
+    const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null
+    const isHoveringOther = activeIndex !== null && activeIndex !== checkedIndex
+    const shape = useShape()
 
     return (
-      <DropdownContext.Provider value={{ registerItem, activeIndex, checkedIndex }}>
+      <DropdownContext.Provider
+        value={{ registerItem, activeIndex, checkedIndex }}
+      >
         <div
           ref={(node) => {
-            (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-            if (typeof ref === "function") ref(node);
-            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            ;(
+              containerRef as React.MutableRefObject<HTMLDivElement | null>
+            ).current = node
+            if (typeof ref === "function") ref(node)
+            else if (ref)
+              (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+                node
           }}
           onMouseEnter={handlers.onMouseEnter}
           onMouseMove={handlers.onMouseMove}
@@ -76,39 +80,45 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           onFocus={(e) => {
             const indexAttr = (e.target as HTMLElement)
               .closest("[data-proximity-index]")
-              ?.getAttribute("data-proximity-index");
+              ?.getAttribute("data-proximity-index")
             if (indexAttr != null) {
-              const idx = Number(indexAttr);
-              setActiveIndex(idx);
+              const idx = Number(indexAttr)
+              setActiveIndex(idx)
               setFocusedIndex(
                 (e.target as HTMLElement).matches(":focus-visible") ? idx : null
-              );
+              )
             }
           }}
           onBlur={(e) => {
-            if (containerRef.current?.contains(e.relatedTarget as Node)) return;
-            setFocusedIndex(null);
-            setActiveIndex(null);
+            if (containerRef.current?.contains(e.relatedTarget as Node)) return
+            setFocusedIndex(null)
+            setActiveIndex(null)
           }}
           onKeyDown={(e) => {
             const items = Array.from(
-              containerRef.current?.querySelectorAll('[role="menuitemradio"]') ?? []
-            ) as HTMLElement[];
-            const currentIdx = items.indexOf(e.target as HTMLElement);
-            if (currentIdx === -1) return;
+              containerRef.current?.querySelectorAll(
+                '[role="menuitemradio"]'
+              ) ?? []
+            ) as HTMLElement[]
+            const currentIdx = items.indexOf(e.target as HTMLElement)
+            if (currentIdx === -1) return
 
-            if (["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(e.key)) {
-              e.preventDefault();
+            if (
+              ["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(
+                e.key
+              )
+            ) {
+              e.preventDefault()
               const next = ["ArrowDown", "ArrowRight"].includes(e.key)
                 ? (currentIdx + 1) % items.length
-                : (currentIdx - 1 + items.length) % items.length;
-              items[next].focus();
+                : (currentIdx - 1 + items.length) % items.length
+              items[next].focus()
             } else if (e.key === "Home") {
-              e.preventDefault();
-              items[0]?.focus();
+              e.preventDefault()
+              items[0]?.focus()
             } else if (e.key === "End") {
-              e.preventDefault();
-              items[items.length - 1]?.focus();
+              e.preventDefault()
+              items[items.length - 1]?.focus()
             }
           }}
           role="menu"
@@ -129,12 +139,12 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
                   left: checkedRect.left,
                   width: checkedRect.width,
                   height: checkedRect.height,
-                  opacity: isHoveringOther ? 0.8 : 1,
+                  opacity: isHoveringOther ? 0.8 : 1
                 }}
                 exit={{ opacity: 0, transition: { duration: 0.12 } }}
                 transition={{
                   ...springs.moderate,
-                  opacity: { duration: 0.08 },
+                  opacity: { duration: 0.08 }
                 }}
               />
             )}
@@ -151,19 +161,19 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
                   top: checkedRect?.top ?? activeRect.top,
                   left: checkedRect?.left ?? activeRect.left,
                   width: checkedRect?.width ?? activeRect.width,
-                  height: checkedRect?.height ?? activeRect.height,
+                  height: checkedRect?.height ?? activeRect.height
                 }}
                 animate={{
                   opacity: 1,
                   top: activeRect.top,
                   left: activeRect.left,
                   width: activeRect.width,
-                  height: activeRect.height,
+                  height: activeRect.height
                 }}
                 exit={{ opacity: 0, transition: { duration: 0.06 } }}
                 transition={{
                   ...springs.fast,
-                  opacity: { duration: 0.08 },
+                  opacity: { duration: 0.08 }
                 }}
               />
             )}
@@ -179,12 +189,12 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
                   left: focusRect.left - 2,
                   top: focusRect.top - 2,
                   width: focusRect.width + 4,
-                  height: focusRect.height + 4,
+                  height: focusRect.height + 4
                 }}
                 exit={{ opacity: 0, transition: { duration: 0.06 } }}
                 transition={{
                   ...springs.fast,
-                  opacity: { duration: 0.08 },
+                  opacity: { duration: 0.08 }
                 }}
               />
             )}
@@ -193,30 +203,28 @@ const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           {children}
         </div>
       </DropdownContext.Provider>
-    );
+    )
   }
-);
+)
 
-Dropdown.displayName = "Dropdown";
+Dropdown.displayName = "Dropdown"
 
 // ---------------------------------------------------------------------------
 // DropdownLabel
 // ---------------------------------------------------------------------------
 
-const DropdownLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        "px-2 py-1.5 text-[11px] text-muted-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
-);
+const DropdownLabel = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("px-2 py-1.5 text-[11px] text-muted-foreground", className)}
+    {...props}
+  />
+))
 
-DropdownLabel.displayName = "DropdownLabel";
+DropdownLabel.displayName = "DropdownLabel"
 
 // ---------------------------------------------------------------------------
 // DropdownSeparator
@@ -232,9 +240,9 @@ const DropdownSeparator = forwardRef<
     className={cn("my-1 -mx-1 h-px bg-border/60", className)}
     {...props}
   />
-));
+))
 
-DropdownSeparator.displayName = "DropdownSeparator";
+DropdownSeparator.displayName = "DropdownSeparator"
 
-export { Dropdown, DropdownLabel, DropdownSeparator };
-export default Dropdown;
+export { Dropdown, DropdownLabel, DropdownSeparator }
+export default Dropdown

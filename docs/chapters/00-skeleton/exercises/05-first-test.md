@@ -48,7 +48,7 @@ Lock down `HealthHandlerLive`'s behavior with one integration test: when `GET /h
 `response.json()` returns `Promise<unknown>`. To stay inside the `Effect.gen` block, wrap it:
 
 ```ts
-Effect.gen(function*() {
+Effect.gen(function* () {
   // ...response already in scope from the previous yield*...
   const body = yield* Effect.promise(() => response.json())
 })
@@ -62,7 +62,7 @@ You _could_ break out of the generator and `await` it after `Effect.runPromise`,
 <summary>Hint 2 — full assertions</summary>
 
 ```ts
-Effect.gen(function*() {
+Effect.gen(function* () {
   const response = yield* Effect.promise(() =>
     handler(new Request("http://localhost/health"))
   )

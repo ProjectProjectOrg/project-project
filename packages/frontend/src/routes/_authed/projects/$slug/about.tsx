@@ -11,10 +11,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/components/LexicalEditor"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { useProject } from "./-context"
 
 export const Route = createFileRoute("/_authed/projects/$slug/about")({

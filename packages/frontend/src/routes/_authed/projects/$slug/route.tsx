@@ -6,11 +6,7 @@
 //   - each sub-view gets a real URL (deep-linkable, breadcrumb-able)
 //   - the project atom loads once for all sub-views (no waterfall)
 
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import {
   createFileRoute,
   Link,
@@ -18,11 +14,7 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
-import {
-  useEffect,
-  useState,
-  type KeyboardEvent
-} from "react"
+import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   FolderKanban,
   Info,
@@ -59,7 +51,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PageContainer } from "@/components/page"
 import { ProjectContext } from "./-context"
-import type { Ticket, ProjectDetail as ProjectDetailType } from "@projectproject/shared"
+import type {
+  Ticket,
+  ProjectDetail as ProjectDetailType
+} from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/projects/$slug")({
   component: ProjectLayout,
@@ -119,7 +114,7 @@ function ProjectHeader({
   // membership were missing).
   const me = useAtomValue(meAtom)
   const myRole: Role = Result.isSuccess(me)
-    ? project.members.find((m) => m.id === me.value.id)?.role ?? "member"
+    ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
     : "member"
 
   return (
@@ -131,11 +126,7 @@ function ProjectHeader({
         <NameField slug={slug} name={name} />
         <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
       </div>
-      <GithubChip
-        slug={slug}
-        github={project.github}
-        callerRole={myRole}
-      />
+      <GithubChip slug={slug} github={project.github} callerRole={myRole} />
       <ProjectMenu slug={slug} />
     </header>
   )
@@ -377,7 +368,6 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   }
   return `${todo} todo · ${inProgress} in progress · ${done} done`
 }
-
 
 // --- States ---------------------------------------------------------------
 

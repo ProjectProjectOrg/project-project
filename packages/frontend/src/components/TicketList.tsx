@@ -13,11 +13,7 @@
 // fits cleanly into ~40 lines of plain TS. Migrate when columns gain
 // individual sortability or virtualization is needed.
 
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { AnimatePresence, motion } from "framer-motion"
@@ -63,10 +59,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/components/LexicalEditor"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
@@ -87,7 +80,11 @@ const STATUS_META: Record<
   TicketStatus,
   { label: string; icon: typeof Check; className: string }
 > = {
-  todo: { label: "Todo", icon: CircleDashed, className: "text-muted-foreground" },
+  todo: {
+    label: "Todo",
+    icon: CircleDashed,
+    className: "text-muted-foreground"
+  },
   in_progress: {
     label: "In progress",
     icon: CircleDot,
@@ -96,7 +93,10 @@ const STATUS_META: Record<
   done: { label: "Done", icon: Check, className: "text-emerald-500" }
 }
 
-const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles; tint: string }> = {
+const TYPE_META: Record<
+  TicketType,
+  { label: string; icon: typeof Sparkles; tint: string }
+> = {
   feat: {
     label: "Feature",
     icon: Sparkles,
@@ -112,7 +112,11 @@ const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles; tint
     icon: Hammer,
     tint: "bg-amber-500/10 text-amber-700 dark:text-amber-400"
   },
-  other: { label: "Other", icon: HelpCircle, tint: "bg-muted text-muted-foreground" }
+  other: {
+    label: "Other",
+    icon: HelpCircle,
+    tint: "bg-muted text-muted-foreground"
+  }
 }
 
 const SORTS = {
@@ -191,7 +195,7 @@ export function TicketList({
   //   "mine"       — current viewer's id (or null if not signed in)
   //   "<user-id>"  — that exact user id
   const resolvedAssignee: "all" | "unassigned" | string =
-    assigneeFilter === "mine" ? myId ?? "unassigned" : assigneeFilter
+    assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
 
   return (
     <div className="flex flex-col gap-3">
@@ -311,7 +315,7 @@ function Toolbar({
   const counts = useMemo(() => {
     const q = query.trim().toLowerCase()
     const resolved =
-      assigneeFilter === "mine" ? myId ?? "unassigned" : assigneeFilter
+      assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
     const matchesOtherFilters = (t: Ticket) =>
       (typeFilter === "all" || t.type === typeFilter) &&
       (resolved === "all" ||
@@ -391,11 +395,7 @@ function Toolbar({
             compact={compact}
           />
 
-          <SortMenu
-            value={sortKey}
-            onChange={onSortChange}
-            compact={compact}
-          />
+          <SortMenu value={sortKey} onChange={onSortChange} compact={compact} />
 
           <AnimatePresence initial={false}>
             {hasActiveFilters && (
@@ -429,7 +429,6 @@ function Toolbar({
     </div>
   )
 }
-
 
 // Shared chrome for non-input toolbar controls (filters menu, sort menu).
 // Same height (`h-9`) and surface as the InputGroup and the status-chip
@@ -687,7 +686,9 @@ function SortMenu({
           aria-label={`Sort tickets (${SORTS[value].label})`}
         >
           <ArrowDownAZ className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>{SORTS[value].label}</CollapsingLabel>
+          <CollapsingLabel show={!compact}>
+            {SORTS[value].label}
+          </CollapsingLabel>
           <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
@@ -751,8 +752,7 @@ function FilteredList({
       .filter((t) => {
         if (!q) return true
         return (
-          t.title.toLowerCase().includes(q) ||
-          t.id.toLowerCase().includes(q)
+          t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)
         )
       })
       .slice()
@@ -909,11 +909,7 @@ function ExpandedDetail({
           <TitleField slug={slug} ticket={ticket} />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <TypeButton slug={slug} ticket={ticket} />
-            <AssigneePicker
-              slug={slug}
-              ticket={ticket}
-              members={members}
-            />
+            <AssigneePicker slug={slug} ticket={ticket} members={members} />
             <span>·</span>
             <span title={ticket.createdAt.toLocaleString()}>
               created {ticket.createdAt.toLocaleDateString()}

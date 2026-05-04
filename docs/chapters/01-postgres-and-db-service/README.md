@@ -72,7 +72,7 @@ You'll use Drizzle ORM at runtime; you'll use drizzle-kit at the command line.
 
 ### 4. Why use Drizzle at all instead of raw `@effect/sql`?
 
-`@effect/sql` is perfectly capable of running queries on its own — `sql\`SELECT * FROM project_index\`` returns an Effect that yields rows. So why drag in another library?
+`@effect/sql` is perfectly capable of running queries on its own — `sql\`SELECT \* FROM project_index\`` returns an Effect that yields rows. So why drag in another library?
 
 Two reasons:
 
@@ -101,7 +101,7 @@ declare module "drizzle-orm" {
 That declaration tells TypeScript that every Drizzle query (which extends `QueryPromise`) is _also_ an `Effect.Effect<T, SqlError>`. At runtime, the same query object satisfies both interfaces — under `await` it acts like a Promise, under `yield*` inside `Effect.gen` it acts like an Effect. So you write:
 
 ```ts
-Effect.gen(function*() {
+Effect.gen(function* () {
   const db = yield* Db
   const rows = yield* db.select().from(projectIndex)
   return rows

@@ -8,7 +8,8 @@ const STORAGE_KEY = "projectproject:theme"
 function readPreference(): ThemePreference {
   if (typeof window === "undefined") return "system"
   const stored = window.localStorage.getItem(STORAGE_KEY)
-  if (stored === "light" || stored === "dark" || stored === "system") return stored
+  if (stored === "light" || stored === "dark" || stored === "system")
+    return stored
   return "system"
 }
 
@@ -28,7 +29,8 @@ function applyResolved(pref: ThemePreference) {
 }
 
 export function useTheme() {
-  const [preference, setPreferenceState] = useState<ThemePreference>(readPreference)
+  const [preference, setPreferenceState] =
+    useState<ThemePreference>(readPreference)
 
   // Live-track OS-level theme changes when the user has chosen "system".
   useEffect(() => {

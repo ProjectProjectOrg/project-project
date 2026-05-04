@@ -50,8 +50,8 @@ function LoginPage() {
         </Button>
 
         <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-          By signing in you authorize this instance to read your GitHub
-          profile and (later) create branches on connected repos.
+          By signing in you authorize this instance to read your GitHub profile
+          and (later) create branches on connected repos.
         </p>
       </div>
     </main>

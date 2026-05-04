@@ -115,8 +115,7 @@ export function TicketGitChip({
         )}
         title={state.title}
       >
-        <GitPullRequest className="size-3" strokeWidth={1.75} />
-        #{state.number}
+        <GitPullRequest className="size-3" strokeWidth={1.75} />#{state.number}
         {state.checks !== "none" && (
           <Circle
             className={cn("size-2 fill-current", checkColor)}
@@ -134,8 +133,7 @@ export function TicketGitChip({
         className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400"
         title={state.title}
       >
-        <GitMerge className="size-3" strokeWidth={1.75} />
-        #{state.number}
+        <GitMerge className="size-3" strokeWidth={1.75} />#{state.number}
       </span>
     )
   }
@@ -146,8 +144,8 @@ export function TicketGitChip({
         className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
         title={state.title}
       >
-        <GitPullRequestClosed className="size-3" strokeWidth={1.75} />
-        #{state.number}
+        <GitPullRequestClosed className="size-3" strokeWidth={1.75} />#
+        {state.number}
       </span>
     )
   }
@@ -180,9 +178,7 @@ export function TicketGitPanel({
   branchTemplate: string | null
 }) {
   const state = useGitState(slug, ticket.id)
-  const [mode, setMode] = useState<"idle" | "create_branch" | "open_pr">(
-    "idle"
-  )
+  const [mode, setMode] = useState<"idle" | "create_branch" | "open_pr">("idle")
 
   if (!github) {
     return null
@@ -208,9 +204,7 @@ export function TicketGitPanel({
 }
 
 function Loading() {
-  return (
-    <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
-  )
+  return <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
 }
 
 function StateBody({
@@ -241,7 +235,10 @@ function StateBody({
       />
     )
   }
-  if (mode === "open_pr" && (state.tag === "branch_no_pr" || state.tag === "pr_closed")) {
+  if (
+    mode === "open_pr" &&
+    (state.tag === "branch_no_pr" || state.tag === "pr_closed")
+  ) {
     return (
       <OpenPrRow
         slug={slug}
@@ -256,7 +253,11 @@ function StateBody({
     return (
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">No branch yet.</span>
-        <Button size="sm" leadingIcon={Plus} onClick={() => setMode("create_branch")}>
+        <Button
+          size="sm"
+          leadingIcon={Plus}
+          onClick={() => setMode("create_branch")}
+        >
           Create branch
         </Button>
       </div>
@@ -266,9 +267,16 @@ function StateBody({
   if (state.tag === "branch_no_pr") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.name} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.name}
+        />
         <div className="flex-1" />
-        <Button size="sm" leadingIcon={GitPullRequest} onClick={() => setMode("open_pr")}>
+        <Button
+          size="sm"
+          leadingIcon={GitPullRequest}
+          onClick={() => setMode("open_pr")}
+        >
           Open PR
         </Button>
         <ClearBranchButton slug={slug} id={ticket.id} />
@@ -279,7 +287,10 @@ function StateBody({
   if (state.tag === "pr_open") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
         <PrLink
           number={state.number}
           url={state.url}
@@ -296,7 +307,10 @@ function StateBody({
   if (state.tag === "pr_merged") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
         <PrLink number={state.number} url={state.url} tone="merged" />
         <span className="text-xs text-muted-foreground">
           merged · ticket auto-set to done
@@ -308,7 +322,10 @@ function StateBody({
   if (state.tag === "pr_closed") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
         <PrLink number={state.number} url={state.url} tone="closed" />
         <div className="flex-1" />
         <Button
@@ -564,8 +581,7 @@ function OpenPrRow({
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        Open PR from{" "}
-        <span className="font-mono text-foreground">{branch}</span>
+        Open PR from <span className="font-mono text-foreground">{branch}</span>
       </p>
       <Input
         autoFocus
@@ -590,10 +606,21 @@ function OpenPrRow({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" leadingIcon={X} onClick={onClose} disabled={busy}>
+        <Button
+          size="sm"
+          variant="ghost"
+          leadingIcon={X}
+          onClick={onClose}
+          disabled={busy}
+        >
           Cancel
         </Button>
-        <Button size="sm" leadingIcon={GitPullRequest} onClick={() => void submit()} disabled={busy}>
+        <Button
+          size="sm"
+          leadingIcon={GitPullRequest}
+          onClick={() => void submit()}
+          disabled={busy}
+        >
           {busy ? "Opening…" : "Open PR"}
         </Button>
       </div>

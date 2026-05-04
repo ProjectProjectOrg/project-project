@@ -40,7 +40,7 @@ github:
   repoOwner: woutervh
   repoName: project-project
   branchTemplate: "{type}/{id}-{slug}"
-  defaultBaseBranch: main         # NEW; optional. Overrides repo default.
+  defaultBaseBranch: main # NEW; optional. Overrides repo default.
 ```
 
 ### `tickets/T-N.md` frontmatter
@@ -48,9 +48,9 @@ github:
 Two new fields:
 
 ```yaml
-branch: feat/T-12-add-button     # already exists; null until created
-pr: 42                            # NEW. PR number, null if no PR.
-lastTransitionedPr: 42            # NEW. Idempotency key for auto-status.
+branch: feat/T-12-add-button # already exists; null until created
+pr: 42 # NEW. PR number, null if no PR.
+lastTransitionedPr: 42 # NEW. Idempotency key for auto-status.
 ```
 
 `pr` is updated whenever a fetch observes a PR for the ticket's branch. `lastTransitionedPr` is written exactly once per PR — when we first observe it as merged and flip ticket status to `done`. If the user later moves the ticket back to `in_progress`, we don't reflip, because `lastTransitionedPr === currentPrNumber`.
@@ -107,15 +107,15 @@ listGitStates(slug, userId)                        → Effect<Record<ticketId, G
 
 Add a `github` group plus extensions to `projects` and `tickets`:
 
-| Endpoint                              | Method | Path                                       | Auth                  |
-| ------------------------------------- | ------ | ------------------------------------------ | --------------------- |
-| `github.listRepos`                    | GET    | `/github/repos?q&page`                     | authed user           |
-| `projects.connectGithub`              | POST   | `/projects/:slug/github`                   | owner/admin           |
-| `projects.disconnectGithub`           | DELETE | `/projects/:slug/github`                   | owner/admin           |
-| `projects.gitStates`                  | GET    | `/projects/:slug/git-states`               | member                |
-| `tickets.createBranch`                | POST   | `/projects/:slug/tickets/:id/branch`       | member                |
-| `tickets.openPr`                      | POST   | `/projects/:slug/tickets/:id/pr`           | member                |
-| `tickets.clearBranch`                 | DELETE | `/projects/:slug/tickets/:id/branch`       | member                |
+| Endpoint                    | Method | Path                                 | Auth        |
+| --------------------------- | ------ | ------------------------------------ | ----------- |
+| `github.listRepos`          | GET    | `/github/repos?q&page`               | authed user |
+| `projects.connectGithub`    | POST   | `/projects/:slug/github`             | owner/admin |
+| `projects.disconnectGithub` | DELETE | `/projects/:slug/github`             | owner/admin |
+| `projects.gitStates`        | GET    | `/projects/:slug/git-states`         | member      |
+| `tickets.createBranch`      | POST   | `/projects/:slug/tickets/:id/branch` | member      |
+| `tickets.openPr`            | POST   | `/projects/:slug/tickets/:id/pr`     | member      |
+| `tickets.clearBranch`       | DELETE | `/projects/:slug/tickets/:id/branch` | member      |
 
 `gitStates` response: `{ states: Record<ticketId, GitState>, transitioned: TransitionRecord[], tokenStatus: "ok" | "expired" | "scope_insufficient", repoStatus: "ok" | "gone" }`. The latter two let the frontend flip the header chip without making the per-ticket states carry the failure context.
 

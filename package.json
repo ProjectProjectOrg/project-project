@@ -13,16 +13,17 @@
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck",
-    "lint": "eslint",
-    "format": "dprint fmt",
-    "format:check": "dprint check"
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
   },
   "devDependencies": {
-    "@tanstack/eslint-config": "^0.4.0",
     "@types/node": "^22.10.0",
-    "dprint": "^0.54.0",
-    "eslint": "^9.20.0",
     "kysely": "0.27.6",
+    "oxfmt": "0.47.0",
+    "oxlint": "1.62.0",
+    "oxlint-tsgolint": "^0.22.1",
     "typescript": "^5.7.3"
   }
 }

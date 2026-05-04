@@ -26,7 +26,12 @@ import { cn } from "@/lib/utils"
 import type { TicketId } from "@projectproject/shared"
 
 export type Crumb =
-  | { type: "static"; label: string; to?: string; params?: Record<string, string> }
+  | {
+      type: "static"
+      label: string
+      to?: string
+      params?: Record<string, string>
+    }
   | { type: "project"; slug: string }
   | { type: "ticket"; slug: string; id: TicketId }
 
@@ -48,9 +53,7 @@ function flatten(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
 
 export function Breadcrumbs({ className }: { className?: string }) {
   const matches = useMatches()
-  const raw = matches.map(
-    (m) => (m.loaderData as WithCrumb | undefined)?.crumb
-  )
+  const raw = matches.map((m) => (m.loaderData as WithCrumb | undefined)?.crumb)
   const crumbs = flatten(raw)
 
   if (crumbs.length === 0) return null

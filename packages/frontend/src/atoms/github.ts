@@ -24,7 +24,7 @@ import { ticketAtom, ticketKey, ticketsListAtom } from "./tickets"
 export const projectGitStatesAtom = Atom.family((slug: string) =>
   runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.gitStates({ path: { slug } })
       })
@@ -37,7 +37,7 @@ export const projectGitStatesAtom = Atom.family((slug: string) =>
 export const githubReposAtom = Atom.family((query: string) =>
   runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.listRepos({
           urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
@@ -48,10 +48,7 @@ export const githubReposAtom = Atom.family((query: string) =>
 )
 
 export const connectGithubAtom = runtime.fn(
-  Effect.fn(function*(
-    input: { slug: string } & ConnectGithubInput,
-    get
-  ) {
+  Effect.fn(function* (input: { slug: string } & ConnectGithubInput, get) {
     const client = yield* ApiClient
     const { slug, ...payload } = input
     const updated = yield* client.projects.connectGithub({
@@ -65,7 +62,7 @@ export const connectGithubAtom = runtime.fn(
 )
 
 export const disconnectGithubAtom = runtime.fn(
-  Effect.fn(function*(input: { slug: string }, get) {
+  Effect.fn(function* (input: { slug: string }, get) {
     const client = yield* ApiClient
     const updated = yield* client.projects.disconnectGithub({
       path: { slug: input.slug }
@@ -77,7 +74,7 @@ export const disconnectGithubAtom = runtime.fn(
 )
 
 export const createBranchAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; id: TicketId } & CreateBranchInput,
     get
   ) {
@@ -95,7 +92,7 @@ export const createBranchAtom = runtime.fn(
 )
 
 export const openPrAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; id: TicketId } & OpenPrInput,
     get
   ) {
@@ -113,7 +110,7 @@ export const openPrAtom = runtime.fn(
 )
 
 export const clearBranchAtom = runtime.fn(
-  Effect.fn(function*(input: { slug: string; id: TicketId }, get) {
+  Effect.fn(function* (input: { slug: string; id: TicketId }, get) {
     const client = yield* ApiClient
     const updated = yield* client.tickets.clearBranch({
       path: { slug: input.slug, id: input.id }

@@ -1,16 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import {
-  createFileRoute,
-  Link,
-  Navigate,
-  Outlet
-} from "@tanstack/react-router"
-import {
-  FolderKanban,
-  LayoutDashboard,
-  LogOut,
-  UserRound
-} from "lucide-react"
+import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
+import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -95,7 +85,10 @@ function NavItem({
     <Link
       to={to}
       activeOptions={{ exact: to === "/" }}
-      className={cn(base, "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}
+      className={cn(
+        base,
+        "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      )}
       activeProps={{
         className: cn(base, "bg-accent text-foreground font-medium")
       }}

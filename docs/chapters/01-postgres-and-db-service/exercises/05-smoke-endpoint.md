@@ -27,16 +27,13 @@ Add a new endpoint `GET /db/ping` to the contract that returns `{ projectCount: 
    ```
 3. Add a new group with one endpoint:
    ```ts
-   const DbGroup = HttpApiGroup
-     .make("db")
-     .add(
-       HttpApiEndpoint.get("ping", "/db/ping").addSuccess(DbPingResponse)
-     )
+   const DbGroup = HttpApiGroup.make("db").add(
+     HttpApiEndpoint.get("ping", "/db/ping").addSuccess(DbPingResponse)
+   )
    ```
 4. Mount the group on `AppApi`:
    ```ts
-   export const AppApi = HttpApi
-     .make("projectproject")
+   export const AppApi = HttpApi.make("projectproject")
      .add(HealthGroup)
      .add(DbGroup)
    ```
@@ -53,20 +50,16 @@ Add a new endpoint `GET /db/ping` to the contract that returns `{ projectCount: 
    ```
 3. Define the new handler group, alongside `HealthHandlerLive`:
    ```ts
-   export const DbHandlerLive = HttpApiBuilder.group(
-     AppApi,
-     "db",
-     (handlers) =>
-       handlers.handle("ping", () =>
-         Effect
-           .gen(function*() {
-             const db = yield* Db
-             const [{ value }] = yield* db.select({ value: count() }).from(
-               projectIndex
-             )
-             return { projectCount: value }
-           })
-           .pipe(Effect.orDie))
+   export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
+     handlers.handle("ping", () =>
+       Effect.gen(function* () {
+         const db = yield* Db
+         const [{ value }] = yield* db
+           .select({ value: count() })
+           .from(projectIndex)
+         return { projectCount: value }
+       }).pipe(Effect.orDie)
+     )
    )
    ```
    Notice the shape:
@@ -146,18 +139,16 @@ import { projectIndex } from "./db/schema"
 import { Db, DbLive } from "./services/Db"
 
 // alongside HealthHandlerLive
-export const DbHandlerLive = HttpApiBuilder.group(
-  AppApi,
-  "db",
-  (handlers) =>
-    handlers.handle("ping", () =>
-      Effect.gen(function*() {
-        const db = yield* Db
-        const [{ value }] = yield* db.select({ value: count() }).from(
-          projectIndex
-        )
-        return { projectCount: value }
-      }))
+export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
+  handlers.handle("ping", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const [{ value }] = yield* db
+        .select({ value: count() })
+        .from(projectIndex)
+      return { projectCount: value }
+    })
+  )
 )
 
 // updated ApiLive

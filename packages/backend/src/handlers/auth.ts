@@ -32,8 +32,9 @@ export const AuthHandlerLive = HttpApiBuilder.group(
   "auth",
   (handlers) =>
     handlers.handle("me", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const user = yield* CurrentUser
         return user
-      }))
+      })
+    )
 )

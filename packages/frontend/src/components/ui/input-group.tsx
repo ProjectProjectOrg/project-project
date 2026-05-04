@@ -9,10 +9,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-function InputGroup({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="input-group"
@@ -43,10 +40,7 @@ function InputGroupInput({
   )
 }
 
-function InputGroupAddon({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function InputGroupAddon({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="input-group-addon"
@@ -59,10 +53,7 @@ function InputGroupAddon({
   )
 }
 
-function InputGroupHint({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
+function InputGroupHint({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="input-group-hint"

@@ -36,13 +36,10 @@ You'll meet two ways to declare a service in Effect:
 3. Declare the service:
 
    ```ts
-   export class ApiClient extends Effect.Service<ApiClient>()(
-     "ApiClient",
-     {
-       effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-       dependencies: [FetchHttpClient.layer]
-     }
-   ) {}
+   export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+     effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+     dependencies: [FetchHttpClient.layer]
+   }) {}
    ```
 
    What each piece does:
@@ -50,6 +47,7 @@ You'll meet two ways to declare a service in Effect:
    - `"ApiClient"` — the Tag's identifier (used in error messages, like `Context.Tag("ApiClient")` would be).
    - `effect:` — how to build the service. The success type of this Effect _is_ the service's runtime shape. Here it's `HttpApiClient.Client<...>`, which gives you `client.health.get()` autocomplete.
    - `dependencies:` — layers the `effect:` field needs. Anything in here is `Layer.provide`-d under the hood, so the resulting `ApiClient.Default` layer has a clean `RIn = never`. The `baseUrl: "/api"` lines up with the Vite proxy in `packages/frontend/vite.config.ts` — `/api/health` → `http://localhost:3000/health`.
+
 4. Save. The `editor.formatOnSave` should reformat to your dprint style.
 5. Confirm `bun run --filter @projectproject/frontend typecheck` passes.
 
@@ -76,13 +74,10 @@ import { FetchHttpClient, HttpApiClient } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
 import { Effect } from "effect"
 
-export class ApiClient extends Effect.Service<ApiClient>()(
-  "ApiClient",
-  {
-    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-    dependencies: [FetchHttpClient.layer]
-  }
-) {}
+export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+  effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+  dependencies: [FetchHttpClient.layer]
+}) {}
 ```
 
 That's the whole file (plus the teaching comments at the top).

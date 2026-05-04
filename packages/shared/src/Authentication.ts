@@ -56,9 +56,10 @@ import type { User } from "./schemas/User"
 import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { Unauthorized } from "./errors"
 
-export class CurrentUser
-  extends Context.Tag("CurrentUser")<CurrentUser, User>()
-{}
+export class CurrentUser extends Context.Tag("CurrentUser")<
+  CurrentUser,
+  User
+>() {}
 
 const sessionCookie = HttpApiSecurity.apiKey({
   in: "cookie",

@@ -73,19 +73,17 @@ export class Conflict extends Schema.TaggedError<Conflict>()(
 // (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures
 // where the GitHub API misbehaved; 401/403 split tracks token vs scope.
 
-export class GitHubTokenExpired
-  extends Schema.TaggedError<GitHubTokenExpired>()(
-    "GitHubTokenExpired",
-    {},
-    HttpApiSchema.annotations({ status: 401 })
-  ) {}
+export class GitHubTokenExpired extends Schema.TaggedError<GitHubTokenExpired>()(
+  "GitHubTokenExpired",
+  {},
+  HttpApiSchema.annotations({ status: 401 })
+) {}
 
-export class GitHubScopeInsufficient
-  extends Schema.TaggedError<GitHubScopeInsufficient>()(
-    "GitHubScopeInsufficient",
-    {},
-    HttpApiSchema.annotations({ status: 403 })
-  ) {}
+export class GitHubScopeInsufficient extends Schema.TaggedError<GitHubScopeInsufficient>()(
+  "GitHubScopeInsufficient",
+  {},
+  HttpApiSchema.annotations({ status: 403 })
+) {}
 
 export class RepoGone extends Schema.TaggedError<RepoGone>()(
   "RepoGone",

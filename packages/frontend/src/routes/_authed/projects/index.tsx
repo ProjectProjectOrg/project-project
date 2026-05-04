@@ -1,8 +1,4 @@
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
 import { motion } from "framer-motion"
@@ -21,7 +17,9 @@ import { formatRelative } from "@/lib/relative-time"
 
 export const Route = createFileRoute("/_authed/projects/")({
   component: Projects,
-  loader: () => ({ crumb: { type: "static" as const, label: "Projects", to: "/projects" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Projects", to: "/projects" }
+  })
 })
 
 function Projects() {
@@ -192,8 +190,8 @@ function EmptyProjects() {
       <div className="text-sm font-medium">No projects yet</div>
       <p className="max-w-xs text-xs text-muted-foreground">
         Type a name above and press Enter to create your first project.
-        Everything is stored as markdown on disk — yours to grep, edit, or
-        feed to an AI.
+        Everything is stored as markdown on disk — yours to grep, edit, or feed
+        to an AI.
       </p>
     </div>
   )

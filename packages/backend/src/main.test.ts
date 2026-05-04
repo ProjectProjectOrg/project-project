@@ -73,13 +73,10 @@ const { handler } = HttpApiBuilder.toWebHandler(
 // Layer that lets `HttpApiClient.make(AppApi)` reach our in-process handler
 // instead of the network. We override the `FetchHttpClient.Fetch` service —
 // the seam through which `FetchHttpClient.layer` makes its requests.
-const InProcessFetch = Layer.succeed(
-  FetchHttpClient.Fetch,
-  ((input, init) =>
-    handler(
-      input instanceof Request ? input : new Request(String(input), init)
-    )) as typeof fetch
-)
+const InProcessFetch = Layer.succeed(FetchHttpClient.Fetch, ((input, init) =>
+  handler(
+    input instanceof Request ? input : new Request(String(input), init)
+  )) as typeof fetch)
 const TestHttpClientLayer = FetchHttpClient.layer.pipe(
   Layer.provide(InProcessFetch)
 )
@@ -89,7 +86,7 @@ const TestHttpClientLayer = FetchHttpClient.layer.pipe(
 // ----------------------------------------------------------------------------
 
 it.effect("GET /health responds with { status: 'ok' } and a 200", () =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const response = yield* Effect.promise(() =>
       handler(new Request("http://localhost/health"))
     )
@@ -98,7 +95,8 @@ it.effect("GET /health responds with { status: 'ok' } and a 200", () =>
 
     const body = yield* Effect.promise(() => response.json())
     expect(body).toEqual({ status: "ok" })
-  }))
+  })
+)
 
 // ----------------------------------------------------------------------------
 // 2. Content-Type header. Cheap, but verifies the schema-driven serializer
@@ -107,7 +105,7 @@ it.effect("GET /health responds with { status: 'ok' } and a 200", () =>
 // ----------------------------------------------------------------------------
 
 it.effect("GET /health sets Content-Type to JSON", () =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const response = yield* Effect.promise(() =>
       handler(new Request("http://localhost/health"))
     )
@@ -116,7 +114,8 @@ it.effect("GET /health sets Content-Type to JSON", () =>
     // depending on version, so don't assert exact equality — just match the
     // type prefix.
     expect(response.headers.get("content-type")).toMatch(/^application\/json/)
-  }))
+  })
+)
 
 // ----------------------------------------------------------------------------
 // 3. Unknown route. Proves the router rejects what it doesn't know about,
@@ -124,13 +123,14 @@ it.effect("GET /health sets Content-Type to JSON", () =>
 // ----------------------------------------------------------------------------
 
 it.effect("GET /unknown returns 404", () =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const response = yield* Effect.promise(() =>
       handler(new Request("http://localhost/unknown"))
     )
 
     expect(response.status).toBe(404)
-  }))
+  })
+)
 
 // ----------------------------------------------------------------------------
 // 4. Same endpoint, exercised through the typed `HttpApiClient` — the pattern
@@ -147,13 +147,12 @@ it.effect("GET /unknown returns 404", () =>
 // ----------------------------------------------------------------------------
 
 it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
-  Effect
-    .gen(function*() {
-      const client = yield* HttpApiClient.make(AppApi, {
-        baseUrl: "http://localhost"
-      })
-      const result = yield* client.health.get()
-
-      expect(result).toEqual({ status: "ok" })
+  Effect.gen(function* () {
+    const client = yield* HttpApiClient.make(AppApi, {
+      baseUrl: "http://localhost"
     })
-    .pipe(Effect.provide(TestHttpClientLayer)))
+    const result = yield* client.health.get()
+
+    expect(result).toEqual({ status: "ok" })
+  }).pipe(Effect.provide(TestHttpClientLayer))
+)
