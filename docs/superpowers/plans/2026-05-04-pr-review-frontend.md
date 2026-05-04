@@ -701,85 +701,11 @@ git commit -m "feat(frontend): render PR diff via @pierre/diffs"
 
 ---
 
-## Task 7: Build the `pathsToTree` utility
+## Task 7: ~~Build the `pathsToTree` utility~~ — SKIPPED
 
-**Files:**
-- Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
+Confirmed against `node_modules/@pierre/trees/dist/model/types.d.ts`: `useFileTree` takes `FileTreeInputOptions` which expects `paths: readonly string[]` — a flat list of path strings, *not* a nested tree object. The library builds the tree internally.
 
-`@pierre/trees` accepts a nested `paths` object. We have a flat array of `bundle.files[].path`. This task adds the pure conversion function.
-
-- [ ] **Step 1: Add the utility**
-
-Add at module scope inside the route file:
-
-```tsx
-import type { ReviewFileSummary } from "@projectproject/shared"
-
-// Build a `@pierre/trees` paths object from a flat list of file summaries.
-// Folders end with "/" in the keys; files are leaves. Example:
-//   ["src/foo.ts", "src/bar/baz.ts"]
-// →
-//   { "src/": { type: "directory", children: {
-//       "foo.ts": { type: "file", meta: <summary> },
-//       "bar/":   { type: "directory", children: {
-//         "baz.ts": { type: "file", meta: <summary> } } } } } }
-type TreeNode =
-  | { type: "file"; meta: ReviewFileSummary }
-  | { type: "directory"; children: Record<string, TreeNode> }
-
-function pathsToTree(
-  files: ReadonlyArray<ReviewFileSummary>
-): Record<string, TreeNode> {
-  const root: Record<string, TreeNode> = {}
-  for (const file of files) {
-    const parts = file.path.split("/").filter(Boolean)
-    let cursor = root
-    for (let i = 0; i < parts.length - 1; i++) {
-      const segment = parts[i] + "/"
-      const existing = cursor[segment]
-      if (existing && existing.type === "directory") {
-        cursor = existing.children
-      } else {
-        const next: TreeNode = { type: "directory", children: {} }
-        cursor[segment] = next
-        cursor = next.children
-      }
-    }
-    const leaf = parts[parts.length - 1]
-    cursor[leaf] = { type: "file", meta: file }
-  }
-  return root
-}
-```
-
-- [ ] **Step 2: Typecheck**
-
-```bash
-cd packages/frontend && bun run typecheck
-```
-
-Expected: no errors.
-
-- [ ] **Step 3: Sanity-test the function in the dev console**
-
-Add a temporary `console.log(pathsToTree(value.files))` inside the `onSuccess` branch (just above the JSX) and reload the page. Inspect the dev tools console: the structure should mirror the file paths in the PR. Remove the `console.log` before committing.
-
-If the tree is wrong (e.g. files appearing as folders), trace the issue — most likely `parts.length` indexing.
-
-- [ ] **Step 4: Verify shape against `useFileTree` expectations**
-
-Open the `@pierre/trees` docs (or run `bun pm view @pierre/trees`) and confirm:
-- Folder keys end with `/`
-- Files use `{ type: "file" }` and folders use `{ type: "directory", children: {...} }`
-
-If the library expects a different shape (e.g. flat with explicit `path` fields), adjust `pathsToTree` accordingly — keep this function the only place that knows about the conversion.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add packages/frontend/src/routes/_authed/projects/\$slug/tickets/\$id/review.tsx
-git commit -m "feat(frontend): add pathsToTree util for review file tree"
-```
+No `pathsToTree` utility is needed. Task 8 passes `bundle.files.map(f => f.path)` directly to `useFileTree`. No code, no commit for this task.
 
 ---
 
@@ -795,15 +721,16 @@ Add a `FileTree` component that wraps `useFileTree`. Render it next to the diff 
 In the route file, add (and import the relevant pieces):
 
 ```tsx
+import { useEffect, useMemo, useRef } from "react"
 import {
   FileTree as PierreFileTree,
   useFileTree,
   useFileTreeSelection
 } from "@pierre/trees/react"
-import * as React from "react"
 import type { ReviewFileSummary } from "@projectproject/shared"
 
-// Aliased on import because `FileTree` is the package's component name.
+// Aliased on import because `FileTree` is the package's component name —
+// we keep our wrapper as `FileTree`.
 function FileTree({
   files,
   onSelect
@@ -811,23 +738,27 @@ function FileTree({
   files: ReadonlyArray<ReviewFileSummary>
   onSelect: (path: string) => void
 }) {
-  const tree = useFileTree({ paths: pathsToTree(files) })
-  // useFileTreeSelection returns the currently-selected paths as state.
+  const paths = useMemo(() => files.map((f) => f.path), [files])
+  const { model } = useFileTree({ paths })
+  // useFileTreeSelection returns the currently-selected paths.
   // Fire the callback whenever the most-recent selection changes.
-  const selected = useFileTreeSelection(tree)
-  const lastFired = React.useRef<string | null>(null)
-  React.useEffect(() => {
+  const selected = useFileTreeSelection(model)
+  const lastFired = useRef<string | null>(null)
+  useEffect(() => {
     const last = selected.at(-1)
     if (last && last !== lastFired.current) {
       lastFired.current = last
       onSelect(last)
     }
   }, [selected, onSelect])
-  return <PierreFileTree model={tree} />
+  return <PierreFileTree model={model} />
 }
 ```
 
-The package's component is `FileTree` (confirmed via `node_modules/@pierre/trees/dist/react/index.d.ts`). We alias it as `PierreFileTree` because we want to keep our wrapper component's name as `FileTree`. If the model prop is named differently than `model` (check the `FileTreeProps` type), pass whatever the lib expects.
+API confirmed against `node_modules/@pierre/trees/dist/react/`:
+- `useFileTree(options)` returns `{ model: FileTree }` — destructure `.model`.
+- `useFileTreeSelection(model)` returns `readonly string[]`.
+- `<FileTree>` (our `PierreFileTree`) takes a `model` prop.
 
 - [ ] **Step 2: Compose into a 2-column layout**
 
