@@ -268,6 +268,44 @@ function ReviewSkeleton() {
   )
 }
 
+const ERROR_COPY: Record<
+  string,
+  { title: string; body: string }
+> = {
+  NotFound: {
+    title: "No PR yet",
+    body: "This ticket doesn't have an open pull request to review."
+  },
+  Conflict: {
+    title: "No GitHub repo connected",
+    body: "Connect a repository to this project to review pull requests."
+  },
+  GitHubTokenExpired: {
+    title: "GitHub session expired",
+    body: "Reconnect your GitHub account to view this review."
+  },
+  GitHubScopeInsufficient: {
+    title: "Insufficient GitHub permissions",
+    body: "GitHub didn't grant the access this repo needs."
+  },
+  RepoGone: {
+    title: "Repository missing",
+    body: "The connected repo no longer exists or isn't reachable."
+  },
+  RateLimited: {
+    title: "GitHub rate-limited us",
+    body: "Try again in a minute — we've hit GitHub's request quota."
+  },
+  Unauthorized: {
+    title: "Couldn't load the review",
+    body: "Your session may have expired."
+  },
+  GitHubError: {
+    title: "Couldn't load the review",
+    body: "GitHub returned an unexpected error."
+  }
+}
+
 function ReviewError({
   slug,
   id,
@@ -277,12 +315,12 @@ function ReviewError({
   id: TicketId
   tag: string
 }) {
-  // Placeholder rendering — replaced with the full taxonomy in Task 10.
+  const copy = ERROR_COPY[tag] ?? ERROR_COPY["GitHubError"]
   return (
     <Card>
       <CardHeader>
-        <h1 className="text-lg font-semibold">Couldn't load review</h1>
-        <p className="text-sm text-muted-foreground">{tag}</p>
+        <h1 className="text-lg font-semibold">{copy.title}</h1>
+        <p className="text-sm text-muted-foreground">{copy.body}</p>
       </CardHeader>
       <CardContent>
         <Link
@@ -291,7 +329,7 @@ function ReviewError({
           search={{ ticket: id }}
           className="text-sm text-primary underline"
         >
-          Back to ticket
+          ← Back to ticket
         </Link>
       </CardContent>
     </Card>
