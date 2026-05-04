@@ -628,26 +628,35 @@ git commit -m "feat(frontend): render review header card"
 **Files:**
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
-Swap the raw `<pre>` patch dump for `<MultiFileDiff>`. Keeps everything else the same.
+Swap the raw `<pre>` patch dump for per-file `<FileDiff>` blocks. The library's `MultiFileDiff` is *not* what its name suggests — it compares two single-file versions. `PatchDiff` only handles a single-file patch (calls `getSingularPatch` internally). For our multi-file PR patch we use `parsePatchFiles(patch)` to get an array of `FileDiffMetadata`, then render one `<FileDiff>` per entry. This also positions us for per-file anchors in Task 9 with no rework.
 
 - [ ] **Step 1: Add a `Diff` component and use it**
 
-In the route file, add this component near `ReviewHeader`:
+In the route file, add the imports and component:
 
 ```tsx
-import { MultiFileDiff } from "@pierre/diffs/react"
+import { useMemo } from "react"
+import { parsePatchFiles } from "@pierre/diffs"
+import { FileDiff } from "@pierre/diffs/react"
 
-// Wrapper for @pierre/diffs MultiFileDiff. Takes the unified-patch string
-// straight from the bundle. v1: render whole patch in one component.
-// Performance migration path documented in the spec under "Performance posture".
+// Render one <FileDiff> per parsed file from the unified patch string.
+// The patch string can carry multiple files (PR diff) and even multiple
+// commits — parsePatchFiles flattens both. Each file's `.name` is the
+// path (or new path on rename).
 function Diff({ patch }: { patch: string }) {
-  return <MultiFileDiff patch={patch} />
+  const files = useMemo(
+    () => parsePatchFiles(patch).flatMap((p) => p.files),
+    [patch]
+  )
+  return (
+    <div className="flex flex-col gap-4">
+      {files.map((file, i) => (
+        <FileDiff key={`${file.name}-${i}`} fileDiff={file} />
+      ))}
+    </div>
+  )
 }
 ```
-
-If `@pierre/diffs/react` is not the correct subpath (the import sanity check from Task 1 will have shown the actual entry), use the path the package's package.json `exports` advertises (e.g. plain `"@pierre/diffs"`). Adjust the import and re-run typecheck.
-
-If the component prop is named differently (e.g. `patchContent` instead of `patch`), update the prop. Refer to the docs at `https://diffs.com/docs` and the named export the sanity check turned up.
 
 If the library ships a stylesheet (common pattern: `@pierre/diffs/dist/styles.css`), import it once at the top of the route file:
 
@@ -887,42 +896,35 @@ function fileAnchorId(path: string): string {
 }
 ```
 
-- [ ] **Step 2: Mark each file block in the diff**
+- [ ] **Step 2: Wrap each file block in an anchor div**
 
-We need a stable DOM id per file so `scrollIntoView` works. The cleanest path is to drop `MultiFileDiff` and render per-file blocks ourselves — we own the wrapping `<div id=...>`, no inspection of library internals required. Same approach prepares us for the lazy-mount migration documented in the spec.
-
-Replace the `Diff` component:
+Task 6's `Diff` already iterates per-file. Add a wrapper `<div>` carrying the stable id:
 
 ```tsx
-import { parsePatchFiles } from "@pierre/diffs"
-import { FileDiff } from "@pierre/diffs/react"
-
-function Diff({
-  patch,
-  files
-}: {
-  patch: string
-  files: ReadonlyArray<ReviewFileSummary>
-}) {
-  const parsed = React.useMemo(() => parsePatchFiles({ patchContent: patch }), [patch])
+function Diff({ patch }: { patch: string }) {
+  const files = useMemo(
+    () => parsePatchFiles(patch).flatMap((p) => p.files),
+    [patch]
+  )
   return (
     <div className="flex flex-col gap-4">
-      {parsed.map((meta, i) => {
-        const path = files[i]?.path ?? meta.newPath ?? meta.oldPath ?? `file-${i}`
-        return (
-          <div key={path} id={fileAnchorId(path)}>
-            <FileDiff metadata={meta} />
-          </div>
-        )
-      })}
+      {files.map((file, i) => (
+        <div
+          key={`${file.name}-${i}`}
+          id={fileAnchorId(file.name)}
+          className="scroll-mt-20"
+        >
+          <FileDiff fileDiff={file} />
+        </div>
+      ))}
     </div>
   )
 }
 ```
 
-`Diff` now takes `files` too — update the call site in `ReviewPage` to pass `value.files`.
+The `scroll-mt-20` (5rem) offsets the scroll target so the project layout's sticky header doesn't cover the file heading. Adjust the value if the layout's top chrome height changes.
 
-Note: `parsePatchFiles` may return entries in a different order than `bundle.files`; if so, match by path (using `meta.newPath`/`meta.oldPath`) instead of array index.
+`FileDiffMetadata.name` carries the file path (or new path on a rename). That's what we anchor on.
 
 - [ ] **Step 3: Wire the selection callback**
 
