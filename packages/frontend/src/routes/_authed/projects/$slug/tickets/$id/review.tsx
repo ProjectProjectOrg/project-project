@@ -4,6 +4,11 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { parsePatchFiles } from "@pierre/diffs"
 import { FileDiff } from "@pierre/diffs/react"
+import {
+  FileTree as PierreFileTree,
+  useFileTree,
+  useFileTreeSelection
+} from "@pierre/trees/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
   ArrowLeft,
@@ -12,7 +17,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed
 } from "lucide-react"
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
 import {
   Card,
@@ -22,6 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 import type {
   PullRequestReviewBundle,
+  ReviewFileSummary,
   TicketId
 } from "@projectproject/shared"
 
@@ -41,6 +47,31 @@ function Diff({ patch }: { patch: string }) {
       ))}
     </div>
   )
+}
+
+// Wraps @pierre/trees' FileTree with selection tracking.
+// PierreFileTree is aliased on import to avoid naming collision with this wrapper.
+function FileTree({
+  files,
+  onSelect
+}: {
+  files: ReadonlyArray<ReviewFileSummary>
+  onSelect: (path: string) => void
+}) {
+  const paths = useMemo(() => files.map((f) => f.path), [files])
+  const { model } = useFileTree({ paths })
+  // useFileTreeSelection returns the currently-selected paths (readonly string[]).
+  // Fire the callback whenever the most-recent selection changes.
+  const selected = useFileTreeSelection(model)
+  const lastFired = useRef<string | null>(null)
+  useEffect(() => {
+    const last = selected.at(-1)
+    if (last && last !== lastFired.current) {
+      lastFired.current = last
+      onSelect(last)
+    }
+  }, [selected, onSelect])
+  return <PierreFileTree model={model} />
 }
 
 export const Route = createFileRoute(
@@ -72,7 +103,19 @@ function ReviewPage() {
           <ReviewHeader bundle={value} slug={slug} id={id as TicketId} />
         </CardHeader>
         <CardContent>
-          <Diff patch={value.patch} />
+          <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+            <aside className="md:sticky md:top-2 md:self-start">
+              <FileTree
+                files={value.files}
+                onSelect={() => {
+                  /* scroll wiring lands in Task 9 */
+                }}
+              />
+            </aside>
+            <div className="min-w-0">
+              <Diff patch={value.patch} />
+            </div>
+          </div>
         </CardContent>
       </Card>
     )
