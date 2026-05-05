@@ -97,6 +97,19 @@
   }
 }
 
+/* Skeleton pulse cadence — one place to tune. Tailwind's default
+ * `animate-pulse` runs at 2s; that reads as too eager next to our 150ms
+ * micro-interactions. 1.6s feels deliberate without feeling stalled. Apply
+ * via the `.skeleton` utility instead of `animate-pulse` so future tweaks
+ * land everywhere at once. */
+.skeleton {
+  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 /* Hover/highlight feel — instant on enter, eased on exit.
  *
  * While the cursor is over an element with a color transition (or while a

@@ -63,8 +63,10 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
+import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
 import { cn } from "@/lib/utils"
+import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { meAtom } from "@/atoms/auth"
 import type {
   Member,
@@ -167,6 +169,30 @@ export function TicketList({
     })
   }
 
+  // Esc collapses the expanded row. Skipped while focus is in an editable
+  // surface — the title editor uses Esc to revert, the lexical body owns its
+  // own Esc handling, and the search bar shouldn't lose context to a collapse.
+  useEffect(() => {
+    if (!expandedId) return
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key !== "Escape") return
+      const t = e.target as HTMLElement | null
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        (t && t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      setExpanded(null)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+    // setExpanded is stable per navigate; intentionally not depending on it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedId])
+
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all")
   const [typeFilter, setTypeFilter] = useState<TicketType | "all">("all")
@@ -229,7 +255,7 @@ export function TicketList({
 
         {Result.matchWithError(list, {
           onInitial: () => (
-            <div className="h-24 animate-pulse rounded-xl border border-border bg-background" />
+            <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
             <Empty>Couldn't load tickets: {error._tag}</Empty>
@@ -242,6 +268,7 @@ export function TicketList({
               slug={slug}
               tickets={value}
               query={query}
+              onClearSearch={() => setQuery("")}
               statusFilter={statusFilter}
               typeFilter={typeFilter}
               assigneeFilter={resolvedAssignee}
@@ -292,6 +319,9 @@ function Toolbar({
   compact: boolean
   onSearchFocusChange: (focused: boolean) => void
 }) {
+  const searchRef = useRef<HTMLInputElement>(null)
+  useGlobalShortcut("/", searchRef)
+
   // Sort is intentionally NOT counted as an "active filter" — it's always
   // set to *some* value, and users don't think of "sort by Recently updated"
   // as something they need to clear. Keep the Clear button scoped to the
@@ -359,6 +389,7 @@ function Toolbar({
             <Search className="size-4" strokeWidth={1.75} />
           </InputGroupAddon>
           <InputGroupInput
+            ref={searchRef}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             onFocus={() => onSearchFocusChange(true)}
@@ -366,7 +397,7 @@ function Toolbar({
             placeholder="Search tickets by title or id…"
             aria-label="Search tickets"
           />
-          {query && (
+          {query ? (
             <button
               type="button"
               onClick={() => onQueryChange("")}
@@ -375,7 +406,12 @@ function Toolbar({
             >
               <X className="size-3.5" strokeWidth={1.75} />
             </button>
-          )}
+          ) : !compact ? (
+            // Kbd only appears in the at-rest state — empty input, no focus.
+            // While the user is engaged with the search the indicator would
+            // compete with the caret and clear-X.
+            <Kbd>/</Kbd>
+          ) : null}
         </InputGroup>
 
         <div className="flex flex-nowrap items-center gap-2">
@@ -717,6 +753,7 @@ function FilteredList({
   slug,
   tickets,
   query,
+  onClearSearch,
   statusFilter,
   typeFilter,
   assigneeFilter,
@@ -728,6 +765,7 @@ function FilteredList({
   slug: string
   tickets: ReadonlyArray<Ticket>
   query: string
+  onClearSearch: () => void
   statusFilter: TicketStatus | "all"
   typeFilter: TicketType | "all"
   // Already resolved at the parent — "mine" has been mapped to the viewer's
@@ -764,6 +802,27 @@ function FilteredList({
     return <NoTicketsYet />
   }
   if (filtered.length === 0) {
+    // Empty-search vs. empty-filtered split: when the user is searching, the
+    // most useful next action is to clear the query — and surfacing the
+    // failed query inline reassures them the search ran at all.
+    if (query.trim().length > 0) {
+      return (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+          <span>
+            No tickets match{" "}
+            <span className="font-mono text-foreground">"{query}"</span>.
+          </span>
+          <button
+            type="button"
+            onClick={onClearSearch}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground transition-colors hover:bg-accent"
+          >
+            <X className="size-3" strokeWidth={1.75} />
+            Clear search
+          </button>
+        </div>
+      )
+    }
     return <Empty>No tickets match your filters.</Empty>
   }
 
@@ -880,7 +939,7 @@ function Expanded({
     <div className="border-t border-border/60 bg-muted/30 px-4 py-4">
       {Result.matchWithError(detail, {
         onInitial: () => (
-          <div className="h-24 animate-pulse rounded-lg bg-muted/60" />
+          <div className="skeleton h-24 rounded-lg bg-muted/60" />
         ),
         onError: (error) => (
           <p className="text-sm text-muted-foreground">

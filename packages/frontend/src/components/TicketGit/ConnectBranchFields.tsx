@@ -112,9 +112,9 @@ export function ConnectBranchFields({
       >
         {Result.isInitial(result) || Result.isWaiting(result) ? (
           <div className="space-y-1 p-1">
-            <div className="h-6 animate-pulse rounded bg-muted/60" />
-            <div className="h-6 animate-pulse rounded bg-muted/60" />
-            <div className="h-6 animate-pulse rounded bg-muted/60" />
+            <div className="h-6 skeleton rounded bg-muted/60" />
+            <div className="h-6 skeleton rounded bg-muted/60" />
+            <div className="h-6 skeleton rounded bg-muted/60" />
           </div>
         ) : Result.isFailure(result) ? (
           <p className="p-2 text-xs text-destructive">

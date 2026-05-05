@@ -10,18 +10,22 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import {
   AlertTriangle,
   ArrowUpRight,
+  Check,
   Circle,
+  Copy,
   GitBranch,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
   Plus
 } from "lucide-react"
+import { useState } from "react"
 import { projectGitStatesAtom } from "@/atoms/github"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
-import { OpenPrFields } from "@/components/TicketGit/OpenPrFields"
+import { OpenPrConfirm } from "@/components/TicketGit/OpenPrFields"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { cn } from "@/lib/utils"
 import type {
@@ -178,7 +182,7 @@ export function TicketGitPanel({
   if (state === null) {
     return (
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
+        <div className="skeleton h-7 w-44 rounded bg-muted/60" />
       </div>
     )
   }
@@ -216,11 +220,29 @@ function PanelForState({
   const pulse = waiting && "animate-pulse"
 
   if (state.tag === "no_branch") {
-    const Root = InlineForm.Root<"create" | "connect">
+    type NoBranchAction = "create" | "connect"
+    const Root = InlineForm.Root<NoBranchAction>
+    const baseBranch = github.defaultBaseBranch ?? "main"
     return (
       <Root>
         <InlineForm.Idle>
-          <InlineForm.Display>
+          <InlineForm.Display<NoBranchAction>
+            previews={{
+              create: (
+                <span className="text-xs text-muted-foreground">
+                  Create a new branch from{" "}
+                  <span className="font-mono text-foreground">
+                    {baseBranch}
+                  </span>
+                </span>
+              ),
+              connect: (
+                <span className="text-xs text-muted-foreground">
+                  Attach an existing branch from this repo
+                </span>
+              )
+            }}
+          >
             <span className="text-xs text-muted-foreground">No branch yet.</span>
           </InlineForm.Display>
           <InlineForm.Actions>
@@ -253,7 +275,12 @@ function PanelForState({
   }
 
   if (state.tag === "branch_no_pr") {
-    const Root = InlineForm.Root<"open_pr" | "clear">
+    // Two actions on this state: "Open PR" (parametric — title + draft
+    // choice) and "Clear" (destructive). Open PR is a ConfirmButton because
+    // its inputs fit inline with the row; Clear stays an InlineForm body so
+    // its confirm copy ("Clear branch from this ticket?") gets its own
+    // breathing room.
+    const Root = InlineForm.Root<"clear">
     return (
       <Root>
         <InlineForm.Idle>
@@ -261,25 +288,26 @@ function PanelForState({
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
           <InlineForm.Actions>
-            <InlineForm.Trigger
-              action="open_pr"
-              size="sm"
-              leadingIcon={GitPullRequest}
-            >
-              Open PR
-            </InlineForm.Trigger>
-            <InlineForm.Trigger
-              action="clear"
-              size="sm"
-              variant="ghost"
-            >
+            <ConfirmButton.Root>
+              <ConfirmButton.Trigger
+                size="sm"
+                leadingIcon={GitPullRequest}
+              >
+                Open PR
+              </ConfirmButton.Trigger>
+              <ConfirmButton.Confirm className="flex-wrap">
+                <OpenPrConfirm
+                  slug={slug}
+                  ticket={ticket}
+                  branch={state.name}
+                />
+              </ConfirmButton.Confirm>
+            </ConfirmButton.Root>
+            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
               Clear
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
-        <InlineForm.Form action="open_pr">
-          <OpenPrFields slug={slug} ticket={ticket} branch={state.name} />
-        </InlineForm.Form>
         <InlineForm.Form action="clear">
           <ClearBranchFields slug={slug} id={ticket.id} />
         </InlineForm.Form>
@@ -325,31 +353,32 @@ function PanelForState({
   }
 
   if (state.tag === "pr_closed") {
-    const Root = InlineForm.Root<"open_pr">
+    // Single action — full ConfirmButton without a wrapping InlineForm.Root.
     return (
-      <Root>
-        <InlineForm.Idle>
-          <InlineForm.Display className={cn(pulse)}>
-            <div className="flex items-center gap-2">
-              <BranchChip slug={repoSlug} name={state.branch} />
-              <PrLink number={state.number} url={state.url} tone="closed" />
-            </div>
-          </InlineForm.Display>
-          <InlineForm.Actions>
-            <InlineForm.Trigger
-              action="open_pr"
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+        <div className={cn("flex items-center gap-2", pulse)}>
+          <BranchChip slug={repoSlug} name={state.branch} />
+          <PrLink number={state.number} url={state.url} tone="closed" />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <ConfirmButton.Root>
+            <ConfirmButton.Trigger
               size="sm"
               variant="tertiary"
               leadingIcon={GitPullRequest}
             >
               Open new PR
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
-        </InlineForm.Idle>
-        <InlineForm.Form action="open_pr">
-          <OpenPrFields slug={slug} ticket={ticket} branch={state.branch} />
-        </InlineForm.Form>
-      </Root>
+            </ConfirmButton.Trigger>
+            <ConfirmButton.Confirm className="flex-wrap">
+              <OpenPrConfirm
+                slug={slug}
+                ticket={ticket}
+                branch={state.branch}
+              />
+            </ConfirmButton.Confirm>
+          </ConfirmButton.Root>
+        </div>
+      </div>
     )
   }
 
@@ -380,18 +409,67 @@ function PanelForState({
   return null
 }
 
+// Branch chip — click the name to open GitHub, click the copy icon to grab
+// the branch name for `git checkout`. The copy button appears on hover so
+// the chip stays calm at rest. Sticking the two interactions side-by-side
+// (rather than splitting the chip) keeps the visual unit intact while
+// giving each affordance a distinct hit target.
 function BranchChip({ slug, name }: { slug: string; name: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copy(e: React.MouseEvent) {
+    // The chip is a flex row, not a wrapping link — but the copy button
+    // sits *inside* the same row. stopPropagation guards against any future
+    // wrapper (e.g. a row click handler) hijacking the copy.
+    e.stopPropagation()
+    e.preventDefault()
+    try {
+      await navigator.clipboard.writeText(name)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1200)
+    } catch {
+      // Clipboard can fail in non-secure contexts; silently no-op rather
+      // than throwing — the link still works as a fallback.
+    }
+  }
+
   return (
-    <a
-      href={`https://github.com/${slug}/tree/${name}`}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-    >
-      <GitBranch className="size-3" strokeWidth={1.75} />
-      {name}
-      <ArrowUpRight className="size-3" strokeWidth={1.75} />
-    </a>
+    <span className="group/branch-chip inline-flex items-center gap-0.5 rounded-md bg-muted pr-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+      <a
+        href={`https://github.com/${slug}/tree/${name}`}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 rounded-md py-0.5 pl-1.5 transition-colors hover:text-foreground"
+      >
+        <GitBranch className="size-3" strokeWidth={1.75} />
+        {name}
+        <ArrowUpRight className="size-3" strokeWidth={1.75} />
+      </a>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? "Copied" : "Copy branch name"}
+        title={copied ? "Copied" : "Copy branch name"}
+        className={cn(
+          "grid size-5 shrink-0 place-items-center rounded transition-colors hover:bg-background hover:text-foreground",
+          // Stay hidden until the row is hovered — avoids clutter at rest.
+          // Always-visible while in the "copied" state so the user catches
+          // the confirmation even if their cursor has drifted.
+          copied
+            ? "opacity-100"
+            : "opacity-0 group-hover/branch-chip:opacity-100 focus-visible:opacity-100"
+        )}
+      >
+        {copied ? (
+          <Check
+            className="size-3 text-emerald-500"
+            strokeWidth={2}
+          />
+        ) : (
+          <Copy className="size-3" strokeWidth={1.75} />
+        )}
+      </button>
+    </span>
   )
 }
 

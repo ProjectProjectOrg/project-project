@@ -34,6 +34,11 @@ export type SegmentedItem<K extends string> = {
   iconClassName?: string
   // Numeric or text badge rendered next to the label. Hidden when undefined.
   badge?: number | string | null
+  // Raw badge content. Bypasses the chromed badge wrapper so callsites can
+  // render arbitrary nodes (e.g. a hover-reactive count breakdown) without
+  // forcing them through the small-pill style. When set, takes precedence
+  // over `badge`.
+  badgeNode?: ReactNode
   // Used as the button/link `aria-label` when `compact` is true and the
   // visible label is collapsed away.
   compactAriaLabel?: string
@@ -129,18 +134,19 @@ export function SegmentedTabs<K extends string>({
                   />
                 )}
                 <CollapsingLabel show={!compact}>{it.label}</CollapsingLabel>
-                {it.badge !== undefined && it.badge !== null && (
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {it.badge}
-                  </span>
-                )}
+                {it.badgeNode ??
+                  (it.badge !== undefined && it.badge !== null && (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                        active
+                          ? "bg-foreground/10 text-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {it.badge}
+                    </span>
+                  ))}
               </span>
             </>
           )
@@ -202,7 +208,9 @@ export const SEGMENTED_ITEM_CLASS = (
   variant: SegmentedVariant = "default"
 ) =>
   cn(
-    "relative inline-flex items-center transition-colors",
+    // `group/seg-item` lets badge nodes react to the parent's hover state
+    // (e.g. a count badge that splits into per-status counts on hover).
+    "group/seg-item relative inline-flex items-center transition-colors",
     VARIANTS[variant].itemBase,
     VARIANTS[variant].innerGap,
     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"

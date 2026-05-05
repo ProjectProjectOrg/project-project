@@ -1,15 +1,17 @@
-// Inline form body for "open PR". Mounted by InlineForm.Form action="open_pr".
+// Inline confirm content for "open PR". Mounted inside ConfirmButton.Confirm.
+// The confirm row exposes both submit paths (Open + As draft) as siblings
+// rather than a checkbox — same interaction depth, clearer parallel.
 
 import { useAtomSet } from "@effect-atom/atom-react"
 import { GitPullRequest } from "lucide-react"
 import { useState } from "react"
 import { openPrAtom } from "@/atoms/github"
 import { Button } from "@/components/ui/button"
-import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
 import type { TicketDetail } from "@projectproject/shared"
 
-export function OpenPrFields({
+export function OpenPrConfirm({
   slug,
   ticket,
   branch
@@ -18,13 +20,12 @@ export function OpenPrFields({
   ticket: TicketDetail
   branch: string
 }) {
-  const { busy, setBusy, close } = useInlineForm()
+  const { busy, setBusy, close } = useConfirmButton()
   const [title, setTitle] = useState(ticket.title)
-  const [draft, setDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const open = useAtomSet(openPrAtom(slug))
 
-  async function submit() {
+  async function submit(draft: boolean) {
     setError(null)
     setBusy(true)
     try {
@@ -54,42 +55,39 @@ export function OpenPrFields({
 
   return (
     <>
-      <p className="text-xs text-muted-foreground">
-        Open PR from <span className="font-mono text-foreground">{branch}</span>
-      </p>
+      <span className="text-xs text-muted-foreground">
+        from <span className="font-mono text-foreground">{branch}</span>
+      </span>
       <Input
         autoFocus
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="h-8"
+        className="h-8 w-56"
         placeholder="PR title"
         disabled={busy}
       />
-      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={draft}
-          onChange={(e) => setDraft(e.target.checked)}
-          disabled={busy}
-        />
-        Open as draft
-      </label>
+      <Button
+        size="sm"
+        leadingIcon={GitPullRequest}
+        onClick={() => void submit(false)}
+        disabled={busy}
+      >
+        {busy ? "Opening…" : "Open"}
+      </Button>
+      <Button
+        size="sm"
+        variant="tertiary"
+        onClick={() => void submit(true)}
+        disabled={busy}
+      >
+        As draft
+      </Button>
+      <ConfirmButton.Cancel />
       {error && (
-        <p className="text-xs text-destructive" role="alert">
+        <span className="text-xs text-destructive" role="alert">
           {error}
-        </p>
+        </span>
       )}
-      <div className="flex justify-end gap-2">
-        <InlineForm.Cancel />
-        <Button
-          size="sm"
-          leadingIcon={GitPullRequest}
-          onClick={() => void submit()}
-          disabled={busy}
-        >
-          {busy ? "Opening…" : "Open PR"}
-        </Button>
-      </div>
     </>
   )
 }

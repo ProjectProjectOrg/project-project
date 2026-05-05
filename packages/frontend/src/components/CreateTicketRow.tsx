@@ -5,10 +5,21 @@
 // Type defaults to "other"; the user can switch via the leading icon menu
 // before pressing Enter. Once submitted, the ticket exists with that type
 // (changeable later from the detail page).
+//
+// Affordances layered on:
+//   - When the user picks a type from the dropdown, focus jumps to the title
+//     input so they can start typing immediately.
+//   - The type button reveals its label inline while the input is focused
+//     (CollapsingLabel) — calmer than a static label, clearer than icon-only
+//     once the user is in the row's intent.
+//   - A `c` Kbd hint sits at the trailing edge of the input. The matching
+//     global shortcut focuses the input from anywhere. Hidden while focused
+//     so it doesn't compete with the caret.
 
 import { useAtomSet } from "@effect-atom/atom-react"
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { Bug, Hammer, HelpCircle, Sparkles } from "lucide-react"
+import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +31,9 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Kbd } from "@/components/ui/kbd"
 import { createTicketAtom } from "@/atoms/tickets"
+import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import type { TicketType } from "@projectproject/shared"
 
 const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles }> =
@@ -36,7 +49,10 @@ export function CreateTicketRow({ slug }: { slug: string }) {
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [submitting, setSubmitting] = useState(false)
+  const [focused, setFocused] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useGlobalShortcut("c", inputRef)
   const trimmed = title.trim()
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -54,22 +70,37 @@ export function CreateTicketRow({ slug }: { slug: string }) {
     }
   }
 
+  // After the dropdown closes, push focus into the title input so the user
+  // can keep typing without a stray click. requestAnimationFrame waits for
+  // Radix's focus-restore on close — focusing inside `onSelect` would lose
+  // the race and Radix would yank focus back to the menu trigger.
+  function selectType(next: TicketType) {
+    setType(next)
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
   const Icon = TYPE_META[type].icon
   return (
     <form onSubmit={onSubmit}>
       <InputGroup>
         {/* Leading addon — same size-6 slot every input across the app uses,
             so the type button column-aligns with the search icon, the
-            create-project Plus, and ticket-row status circles. */}
-        <InputGroupAddon className="hover:text-foreground">
+            create-project Plus, and ticket-row status circles. The addon
+            itself widens to fit the inline label when revealed. */}
+        <InputGroupAddon
+          className={focused ? "w-auto" : undefined}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label={`Type: ${TYPE_META[type].label}. Click to change.`}
-                className="grid size-6 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground"
+                className="inline-flex h-6 items-center gap-1.5 rounded-md px-1 transition-colors hover:bg-accent hover:text-foreground"
               >
-                <Icon className="size-4" strokeWidth={1.75} />
+                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                <CollapsingLabel show={focused}>
+                  <span className="text-xs">{TYPE_META[type].label}</span>
+                </CollapsingLabel>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={6} className="w-40">
@@ -78,7 +109,7 @@ export function CreateTicketRow({ slug }: { slug: string }) {
                 return (
                   <DropdownMenuItem
                     key={t}
-                    onSelect={() => setType(t)}
+                    onSelect={() => selectType(t)}
                     className="cursor-pointer"
                   >
                     <TIcon className="size-4" strokeWidth={1.75} />
@@ -90,8 +121,11 @@ export function CreateTicketRow({ slug }: { slug: string }) {
           </DropdownMenu>
         </InputGroupAddon>
         <InputGroupInput
+          ref={inputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder="New ticket title…"
           aria-label="New ticket title"
           disabled={submitting}
@@ -100,6 +134,7 @@ export function CreateTicketRow({ slug }: { slug: string }) {
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
+        {!focused && !error && <Kbd>c</Kbd>}
       </InputGroup>
     </form>
   )

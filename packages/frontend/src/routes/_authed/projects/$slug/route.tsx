@@ -16,6 +16,9 @@ import {
 } from "@tanstack/react-router"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
+  Check,
+  CircleDashed,
+  CircleDot,
   FolderKanban,
   Info,
   ListChecks,
@@ -314,18 +317,27 @@ function TabsNav({
   }
 
   // Counts come from atoms here, not from the static config — the tab strip
-  // doubles as a live readout of project state.
-  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
-    key: t.key,
-    label: t.label,
-    icon: t.icon,
-    badge:
-      t.countFor === "tickets"
-        ? ticketsCount
-        : t.countFor === "members"
-          ? project.members.length
-          : null
-  }))
+  // doubles as a live readout of project state. The tickets tab gets a
+  // hover-reveal breakdown via badgeNode; the others use the plain badge.
+  const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => {
+    if (t.key === "tickets") {
+      return {
+        key: t.key,
+        label: t.label,
+        icon: t.icon,
+        badgeNode:
+          ticketsCount === null ? null : <TicketsBadge tickets={tickets} />
+      }
+    }
+    return {
+      key: t.key,
+      label: t.label,
+      icon: t.icon,
+      badge:
+        t.countFor === "members" ? project.members.length : null
+    }
+  })
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -354,6 +366,88 @@ function TabsNav({
   )
 }
 
+// Hover-reveal count badge for the Tickets tab. At rest, a single "12"
+// pill (chrome'd like other tabs' badges). On parent-tab hover, fades to a
+// per-status breakdown — todo / in_progress / done — using the same icons
+// and colors as the StatusButton in TicketList. Width is reserved at rest
+// by rendering the breakdown invisibly underneath, so sibling tabs don't
+// shift when the user mouses over.
+//
+// When custom statuses land we'll iterate over a status registry instead
+// of hardcoding the three defaults; for now three is the universe.
+function TicketsBadge({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
+  const total = tickets.length
+  let todo = 0
+  let inProgress = 0
+  let done = 0
+  for (const t of tickets) {
+    if (t.status === "todo") todo++
+    else if (t.status === "in_progress") inProgress++
+    else done++
+  }
+
+  return (
+    <span className="relative inline-grid place-items-center">
+      {/* Reserve width with an invisible breakdown so the tab strip doesn't
+          reflow on hover. The visible variants overlay this in the same
+          grid cell. */}
+      <span className="invisible col-start-1 row-start-1 inline-flex items-center gap-1 px-1">
+        <BadgeStat
+          count={todo}
+          icon={CircleDashed}
+          className="text-muted-foreground"
+        />
+        <BadgeStat
+          count={inProgress}
+          icon={CircleDot}
+          className="text-blue-500"
+        />
+        <BadgeStat count={done} icon={Check} className="text-emerald-500" />
+      </span>
+
+      {/* At-rest total — small pill, matches other tabs' chrome. */}
+      <span className="col-start-1 row-start-1 transition-opacity duration-150 group-hover/seg-item:opacity-0">
+        <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
+          {total}
+        </span>
+      </span>
+
+      {/* Hover breakdown — bare counts with status icons, no pill chrome
+          so the detail reads as informational rather than another control. */}
+      <span className="col-start-1 row-start-1 inline-flex items-center gap-1 px-1 opacity-0 transition-opacity duration-150 group-hover/seg-item:opacity-100">
+        <BadgeStat
+          count={todo}
+          icon={CircleDashed}
+          className="text-muted-foreground"
+        />
+        <BadgeStat
+          count={inProgress}
+          icon={CircleDot}
+          className="text-blue-500"
+        />
+        <BadgeStat count={done} icon={Check} className="text-emerald-500" />
+      </span>
+    </span>
+  )
+}
+
+function BadgeStat({
+  count,
+  icon: Icon,
+  className
+}: {
+  count: number
+  icon: typeof Check
+  className: string
+}) {
+  return (
+    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-foreground">
+      <Icon className={`size-3 ${className}`} strokeWidth={1.75} />
+      {count}
+    </span>
+  )
+}
+
 // "5 todo · 4 in progress · 3 done" — quick at-a-glance state. Shows next to
 // the tab strip so the project header doubles as a dashboard.
 function summarize(tickets: ReadonlyArray<Ticket>): string | null {
@@ -374,9 +468,9 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="h-12 animate-pulse rounded-lg bg-muted/60" />
-      <div className="h-9 animate-pulse rounded-lg bg-muted/60" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted/60" />
+      <div className="h-12 skeleton rounded-lg bg-muted/60" />
+      <div className="h-9 skeleton rounded-lg bg-muted/60" />
+      <div className="h-40 skeleton rounded-xl bg-muted/60" />
     </div>
   )
 }
