@@ -16,7 +16,6 @@ import type {
   ConnectGithubInput,
   CreateBranchInput,
   GitState,
-  OpenPrInput,
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
@@ -188,33 +187,6 @@ export const attachBranchAtom = Atom.family((slug: string) =>
         get.refresh(ticketAtom(ticketKey(slug, input.id)))
         get.refresh(ticketsListAtom(slug))
         return updated
-      })
-    )
-  })
-)
-
-// Pulse-only optimistic: a PR's number / url can't be predicted client-side,
-// so the reducer leaves the visible state untouched and only flips
-// `waiting: true`. The chip's animate-pulse fires while the server resolves;
-// when the base refresh lands, the actual `pr_open` state appears.
-export const openPrAtom = Atom.family((slug: string) =>
-  Atom.optimisticFn(projectGitStatesAtom(slug), {
-    reducer: (current, _input: { id: TicketId } & OpenPrInput) => {
-      if (!Result.isSuccess(current)) return current
-      return Result.success(current.value, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: { id: TicketId } & OpenPrInput, get) {
-        const client = yield* ApiClient
-        const { id, ...payload } = input
-        const result = yield* client.tickets.openPr({
-          path: { slug, id },
-          payload
-        })
-        get.refresh(ticketAtom(ticketKey(slug, id)))
-        get.refresh(ticketsListAtom(slug))
-        get.refresh(projectGitStatesBaseAtom(slug))
-        return result
       })
     )
   })

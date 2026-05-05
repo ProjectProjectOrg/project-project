@@ -33,7 +33,10 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom } from "@/atoms/tickets"
+import { motion } from "framer-motion"
 import { GithubChip } from "@/components/GithubChip"
+import { cn } from "@/lib/utils"
+import { springs } from "@/lib/springs"
 import type { Role } from "@projectproject/shared"
 import {
   SEGMENTED_ITEM_CLASS,
@@ -201,6 +204,7 @@ function NameField({ slug, name }: { slug: string; name: string }) {
 function ProjectMenu({ slug }: { slug: string }) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function onDelete() {
@@ -214,7 +218,11 @@ function ProjectMenu({ slug }: { slug: string }) {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setConfirming(false)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -224,18 +232,43 @@ function ProjectMenu({ slug }: { slug: string }) {
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="w-48">
-        <DropdownMenuItem
-          disabled={deleting}
-          onSelect={(e) => {
-            e.preventDefault()
-            void onDelete()
-          }}
-          className="cursor-pointer text-destructive focus:text-destructive"
-        >
-          <Trash2 className="size-4" strokeWidth={1.75} />
-          {deleting ? "Deleting…" : "Delete project"}
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+        {!confirming ? (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setConfirming(true)
+            }}
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} />
+            Delete project
+          </DropdownMenuItem>
+        ) : (
+          <div className="flex flex-col gap-2 p-1">
+            <p className="px-2 pt-1 text-xs text-muted-foreground">
+              Delete this project? This can't be undone.
+            </p>
+            <div className="flex gap-1 px-1 pb-1">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void onDelete()}
+                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -317,27 +350,19 @@ function TabsNav({
   }
 
   // Counts come from atoms here, not from the static config — the tab strip
-  // doubles as a live readout of project state. The tickets tab gets a
-  // hover-reveal breakdown via badgeNode; the others use the plain badge.
+  // doubles as a live readout of project state.
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
-  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => {
-    if (t.key === "tickets") {
-      return {
-        key: t.key,
-        label: t.label,
-        icon: t.icon,
-        badgeNode:
-          ticketsCount === null ? null : <TicketsBadge tickets={tickets} />
-      }
-    }
-    return {
-      key: t.key,
-      label: t.label,
-      icon: t.icon,
-      badge:
-        t.countFor === "members" ? project.members.length : null
-    }
-  })
+  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
+    key: t.key,
+    label: t.label,
+    icon: t.icon,
+    badge:
+      t.countFor === "tickets"
+        ? ticketsCount
+        : t.countFor === "members"
+          ? project.members.length
+          : null
+  }))
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -347,6 +372,46 @@ function TabsNav({
         isActive={isActive}
         renderItem={(item, content, { active }) => {
           const def = TABS.find((t) => t.key === item.key)!
+          // Tickets tab gets a hover-reveal breakdown overlaid absolutely
+          // so the tab width stays stable. Other tabs render the default
+          // SegmentedTabs content unchanged.
+          if (item.key === "tickets" && ticketsCount !== null) {
+            // Render the inner content manually so the active pill stays
+            // visible on hover — wrapping the whole content fragment would
+            // fade the pill out along with the icon/label/badge.
+            return (
+              <Link
+                to={def.to}
+                params={{ slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {active && (
+                  <motion.span
+                    layoutId={`project-tabs-${slug}-active`}
+                    transition={springs.moderate}
+                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  />
+                )}
+                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
+                  <ListChecks className="size-3.5" strokeWidth={1.75} />
+                  <span>Tickets</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                      active
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {ticketsCount}
+                  </span>
+                </span>
+                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <TicketsBreakdown tickets={tickets} />
+                </span>
+              </Link>
+            )
+          }
           return (
             <Link
               to={def.to}
@@ -366,17 +431,10 @@ function TabsNav({
   )
 }
 
-// Hover-reveal count badge for the Tickets tab. At rest, a single "12"
-// pill (chrome'd like other tabs' badges). On parent-tab hover, fades to a
-// per-status breakdown — todo / in_progress / done — using the same icons
-// and colors as the StatusButton in TicketList. Width is reserved at rest
-// by rendering the breakdown invisibly underneath, so sibling tabs don't
-// shift when the user mouses over.
-//
-// When custom statuses land we'll iterate over a status registry instead
-// of hardcoding the three defaults; for now three is the universe.
-function TicketsBadge({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
-  const total = tickets.length
+// Per-status breakdown overlay for the Tickets tab on hover. Rendered
+// absolute-positioned over the tab's default content so the tab width
+// stays consistent — siblings don't shift on hover.
+function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
   let todo = 0
   let inProgress = 0
   let done = 0
@@ -385,49 +443,20 @@ function TicketsBadge({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
     else if (t.status === "in_progress") inProgress++
     else done++
   }
-
   return (
-    <span className="relative inline-grid place-items-center">
-      {/* Reserve width with an invisible breakdown so the tab strip doesn't
-          reflow on hover. The visible variants overlay this in the same
-          grid cell. */}
-      <span className="invisible col-start-1 row-start-1 inline-flex items-center gap-1 px-1">
-        <BadgeStat
-          count={todo}
-          icon={CircleDashed}
-          className="text-muted-foreground"
-        />
-        <BadgeStat
-          count={inProgress}
-          icon={CircleDot}
-          className="text-blue-500"
-        />
-        <BadgeStat count={done} icon={Check} className="text-emerald-500" />
-      </span>
-
-      {/* At-rest total — small pill, matches other tabs' chrome. */}
-      <span className="col-start-1 row-start-1 transition-opacity duration-150 group-hover/seg-item:opacity-0">
-        <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
-          {total}
-        </span>
-      </span>
-
-      {/* Hover breakdown — bare counts with status icons, no pill chrome
-          so the detail reads as informational rather than another control. */}
-      <span className="col-start-1 row-start-1 inline-flex items-center gap-1 px-1 opacity-0 transition-opacity duration-150 group-hover/seg-item:opacity-100">
-        <BadgeStat
-          count={todo}
-          icon={CircleDashed}
-          className="text-muted-foreground"
-        />
-        <BadgeStat
-          count={inProgress}
-          icon={CircleDot}
-          className="text-blue-500"
-        />
-        <BadgeStat count={done} icon={Check} className="text-emerald-500" />
-      </span>
-    </span>
+    <>
+      <BadgeStat
+        count={todo}
+        icon={CircleDashed}
+        className="text-muted-foreground"
+      />
+      <BadgeStat
+        count={inProgress}
+        icon={CircleDot}
+        className="text-blue-500"
+      />
+      <BadgeStat count={done} icon={Check} className="text-emerald-500" />
+    </>
   )
 }
 
@@ -441,7 +470,7 @@ function BadgeStat({
   className: string
 }) {
   return (
-    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] tabular-nums text-foreground">
+    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums text-foreground">
       <Icon className={`size-3 ${className}`} strokeWidth={1.75} />
       {count}
     </span>

@@ -43,7 +43,6 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
-  Trash2,
   UserRound,
   X
 } from "lucide-react"
@@ -63,6 +62,8 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
+import { Badge, type BadgeTone } from "@/components/ui/badge"
+import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
 import { cn } from "@/lib/utils"
@@ -98,28 +99,12 @@ const STATUS_META: Record<
 
 const TYPE_META: Record<
   TicketType,
-  { label: string; icon: typeof Sparkles; tint: string }
+  { label: string; icon: typeof Sparkles; tone: BadgeTone }
 > = {
-  feat: {
-    label: "Feature",
-    icon: Sparkles,
-    tint: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  },
-  bug: {
-    label: "Bug",
-    icon: Bug,
-    tint: "bg-red-500/10 text-red-700 dark:text-red-400"
-  },
-  chore: {
-    label: "Chore",
-    icon: Hammer,
-    tint: "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-  },
-  other: {
-    label: "Other",
-    icon: HelpCircle,
-    tint: "bg-muted text-muted-foreground"
-  }
+  feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
+  bug: { label: "Bug", icon: Bug, tone: "red" },
+  chore: { label: "Chore", icon: Hammer, tone: "amber" },
+  other: { label: "Other", icon: HelpCircle, tone: "muted" }
 }
 
 const SORTS = {
@@ -232,7 +217,7 @@ export function TicketList({
     <div className="group/list flex flex-col gap-3">
       <CreateTicketRow slug={slug} />
 
-      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form:focus-within]/list:opacity-35">
+      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {Result.isSuccess(list) && list.value.length > 0 && (
           <Toolbar
             query={query}
@@ -839,7 +824,7 @@ function FilteredList({
           <li
             key={t.id}
             data-expanded={isExpanded || undefined}
-            className="transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40"
+            className="transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40 [ul:has(>li[data-expanded])>&:not([data-expanded]):hover]:opacity-100"
           >
             <Row
               slug={slug}
@@ -901,14 +886,13 @@ function Row({
           />
         )}
         <TicketGitChip slug={slug} ticketId={ticket.id} />
-        <span
-          className={cn(
-            "hidden shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] sm:inline",
-            TYPE_META[ticket.type].tint
-          )}
+        <Badge
+          tone={TYPE_META[ticket.type].tone}
+          size="xs"
+          className="hidden font-mono sm:inline-flex"
         >
           {TYPE_META[ticket.type].label.toLowerCase()}
-        </span>
+        </Badge>
         <ChevronDown
           className={cn(
             "size-4 shrink-0 text-muted-foreground transition-transform",
@@ -993,10 +977,11 @@ function ExpandedDetail({
           </div>
         </div>
         <SaveIndicator status={bodyStatus} />
-        <button
-          type="button"
+        <ConfirmDeleteIcon
+          ariaLabel="Delete ticket"
+          message="Delete this ticket?"
           disabled={deleting}
-          onClick={async () => {
+          onConfirm={async () => {
             setDeleting(true)
             try {
               await remove({ slug, id: ticket.id })
@@ -1005,15 +990,12 @@ function ExpandedDetail({
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
                 replace: true
               })
-            } catch {
+            } catch (e) {
               setDeleting(false)
+              throw e
             }
           }}
-          aria-label="Delete ticket"
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring outline-none"
-        >
-          <Trash2 className="size-4" strokeWidth={1.75} />
-        </button>
+        />
       </div>
 
       <ExpandedGitPanel slug={slug} ticket={ticket} />

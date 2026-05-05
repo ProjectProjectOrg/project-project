@@ -39,29 +39,17 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
-import { cn } from "@/lib/utils"
 import type { AssignableRole, Member, Role } from "@projectproject/shared"
 
 const ROLE_META: Record<
   Role,
-  { label: string; icon: typeof Crown; tint: string }
+  { label: string; icon: typeof Crown; tone: BadgeTone }
 > = {
-  owner: {
-    label: "Owner",
-    icon: Crown,
-    tint: "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-  },
-  admin: {
-    label: "Admin",
-    icon: ShieldCheck,
-    tint: "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-  },
-  member: {
-    label: "Member",
-    icon: UserRound,
-    tint: "bg-muted text-muted-foreground"
-  }
+  owner: { label: "Owner", icon: Crown, tone: "amber" },
+  admin: { label: "Admin", icon: ShieldCheck, tone: "blue" },
+  member: { label: "Member", icon: UserRound, tone: "muted" }
 }
 
 export function MembersSection({
@@ -184,17 +172,20 @@ function RoleSelect({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent",
-            meta.tint
-          )}
-          aria-label={`Role: ${meta.label}. Click to change.`}
+        <Badge
+          asChild
+          tone={meta.tone}
+          size="sm"
+          className="cursor-pointer hover:bg-accent"
         >
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          {meta.label}
-        </button>
+          <button
+            type="button"
+            aria-label={`Role: ${meta.label}. Click to change.`}
+          >
+            <Icon strokeWidth={1.75} />
+            {meta.label}
+          </button>
+        </Badge>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
         {(["admin", "member"] as AssignableRole[]).map((r) => {
@@ -257,15 +248,10 @@ function MemberRow({
           {member.email}
         </div>
       </div>
-      <span
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs",
-          meta.tint
-        )}
-      >
-        <Icon className="size-3.5" strokeWidth={1.75} />
+      <Badge tone={meta.tone} size="sm">
+        <Icon strokeWidth={1.75} />
         {meta.label}
-      </span>
+      </Badge>
       <MemberMenu slug={slug} member={member} callerRole={callerRole} />
     </div>
   )
@@ -282,6 +268,8 @@ function MemberMenu({
 }) {
   const update = useAtomSet(updateMemberAtom)
   const remove = useAtomSet(removeMemberAtom)
+  const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   // Only owner can change roles. Admins can remove non-admin members.
   // Owner row has no actionable menu — ownership transfer isn't modeled.
@@ -293,8 +281,21 @@ function MemberMenu({
 
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 
+  async function onRemove() {
+    setRemoving(true)
+    try {
+      await remove({ slug, userId: member.id })
+    } catch {
+      setRemoving(false)
+    }
+  }
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setConfirming(false)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -304,38 +305,69 @@ function MemberMenu({
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-        {canChangeRole && (
+      <DropdownMenuContent align="end" sideOffset={6} className="w-52">
+        {confirming ? (
+          <div className="flex flex-col gap-2 p-1">
+            <p className="px-2 pt-1 text-xs text-muted-foreground">
+              Remove {member.name} from this project?
+            </p>
+            <div className="flex gap-1 px-1 pb-1">
+              <button
+                type="button"
+                disabled={removing}
+                onClick={() => void onRemove()}
+                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {removing ? "Removing…" : "Remove"}
+              </button>
+              <button
+                type="button"
+                disabled={removing}
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
           <>
-            {(["admin", "member"] as AssignableRole[])
-              .filter((r) => r !== member.role)
-              .map((r) => {
-                const m = ROLE_META[r]
-                const RIcon = m.icon
-                return (
-                  <DropdownMenuItem
-                    key={r}
-                    onSelect={() =>
-                      update({ slug, userId: member.id, role: r })
-                    }
-                    className="cursor-pointer"
-                  >
-                    <RIcon className="size-4" strokeWidth={1.75} />
-                    Make {m.label.toLowerCase()}
-                  </DropdownMenuItem>
-                )
-              })}
+            {canChangeRole && (
+              <>
+                {(["admin", "member"] as AssignableRole[])
+                  .filter((r) => r !== member.role)
+                  .map((r) => {
+                    const m = ROLE_META[r]
+                    const RIcon = m.icon
+                    return (
+                      <DropdownMenuItem
+                        key={r}
+                        onSelect={() =>
+                          update({ slug, userId: member.id, role: r })
+                        }
+                        className="cursor-pointer"
+                      >
+                        <RIcon className="size-4" strokeWidth={1.75} />
+                        Make {m.label.toLowerCase()}
+                      </DropdownMenuItem>
+                    )
+                  })}
+              </>
+            )}
+            {canChangeRole && canRemove && <DropdownMenuSeparator />}
+            {canRemove && (
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault()
+                  setConfirming(true)
+                }}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="size-4" strokeWidth={1.75} />
+                Remove
+              </DropdownMenuItem>
+            )}
           </>
-        )}
-        {canChangeRole && canRemove && <DropdownMenuSeparator />}
-        {canRemove && (
-          <DropdownMenuItem
-            onSelect={() => remove({ slug, userId: member.id })}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            Remove
-          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

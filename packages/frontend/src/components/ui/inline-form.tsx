@@ -100,12 +100,11 @@ function Root<A extends string = string>({
   )
 }
 
-// Shared transition tuning so Idle and Form crossfade with the same cadence.
-// Height + opacity together — opacity alone leaves the box height stuck on
-// the larger of the two, which reads as a stutter; height alone leaves the
-// outgoing content visible while it shrinks. 160ms easeOut sits just above
-// the eye's snap threshold without dragging.
-const FORM_TRANSITION = { duration: 0.16, ease: "easeOut" } as const
+// Plain opacity crossfade between idle and form modes. Height changes snap
+// — interpolating them adds layout edge cases (focus rings clipped by
+// overflow-hidden, popLayout overhang) that aren't worth the polish payoff.
+// A 150ms crossfade reads as smooth enough on its own.
+const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Idle({
   className,
@@ -120,13 +119,10 @@ function Idle({
       {mode === "idle" && (
         <motion.div
           key="idle"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={FORM_TRANSITION}
-          // overflow-hidden keeps content clipped during the height
-          // animation so it doesn't poke outside the collapsing box.
-          className="overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
         >
           <div className={cn("flex items-center gap-2", className)}>
             {children}
@@ -241,11 +237,10 @@ function Form<A extends string>({
       {mode === action && (
         <motion.div
           key={`form-${action}`}
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={FORM_TRANSITION}
-          className="overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
           onKeyDown={(e) => {
             if (e.key === "Escape" && !busy && !e.defaultPrevented) {
               e.preventDefault()

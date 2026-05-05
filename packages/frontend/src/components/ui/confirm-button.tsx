@@ -46,7 +46,10 @@ export function useConfirmButton() {
   return ctx
 }
 
-const TRANSITION = { duration: 0.16, ease: "easeOut" } as const
+// Plain opacity crossfade — width snaps when the trigger swaps for the
+// confirm row. Same simplification as InlineForm: not worth interpolating
+// layout when the content fade already reads as smooth.
+const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Root({
   className,
@@ -68,7 +71,7 @@ function Root({
   )
   return (
     <ConfirmButtonContext value={value}>
-      <div className={cn("inline-flex", className)}>{children}</div>
+      <span className={cn("inline-flex", className)}>{children}</span>
     </ConfirmButtonContext>
   )
 }
@@ -84,11 +87,10 @@ function Trigger({
       {state === "idle" && (
         <motion.div
           key="trigger"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={TRANSITION}
-          className="overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
         >
           <Button
             {...rest}
@@ -116,11 +118,10 @@ function Confirm({
       {state === "confirming" && (
         <motion.div
           key="confirm"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={TRANSITION}
-          className="overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
           onKeyDown={(e) => {
             // Esc cancels — same behavior as InlineForm. Children can claim
             // Esc by preventDefault'ing first.

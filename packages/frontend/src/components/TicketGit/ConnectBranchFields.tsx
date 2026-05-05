@@ -139,9 +139,10 @@ export function ConnectBranchFields({
                     void submit(b.name)
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between px-2 py-1 text-left font-mono text-xs",
-                    activeIdx === i && "bg-muted",
-                    selected === b.name && "bg-emerald-500/10"
+                    "flex w-full items-center justify-between px-2 py-1 text-left font-mono text-xs transition-colors",
+                    selected === b.name
+                      ? "bg-selected text-foreground font-medium"
+                      : activeIdx === i && "bg-muted"
                   )}
                   disabled={busy}
                 >

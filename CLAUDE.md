@@ -45,6 +45,18 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+### Comments stay terse
+
+Default to no comments. When you do add one, keep it to a single line — at most two — and only on the **why**, never the what. If the code reads cleanly, no comment. If a token / class / value would surprise a future reader (e.g. picking `bg-selected` instead of `bg-accent` because they collide in light mode), one short line is enough; multi-paragraph blocks restating the visible logic are out.
+
+Same rule for design-rationale, layout reasoning, and "this used to be X" notes — leave those for the commit message, not the file. If you catch yourself writing four lines explaining a ternary, delete it; the ternary speaks for itself.
+
+### Press feel — buttons scale down on active
+
+Buttons should scale to **97%** on `:active` with a **100–150ms** transform transition, so the user feels the press land. Use `active:scale-[0.97]` (or `active:[&>span]:scale-[0.97]` when the button's content is what should compress, e.g. an icon button) paired with `transition-transform duration-100`.
+
+This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
+
 ### Hover feel — instant in, eased out
 
 Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.

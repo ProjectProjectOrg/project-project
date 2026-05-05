@@ -10,22 +10,20 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import {
   AlertTriangle,
   ArrowUpRight,
-  Check,
   Circle,
-  Copy,
   GitBranch,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
   Plus
 } from "lucide-react"
-import { useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { CopyButton } from "@/components/ui/copy-button"
 import { projectGitStatesAtom } from "@/atoms/github"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
-import { OpenPrConfirm } from "@/components/TicketGit/OpenPrFields"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { Button } from "@/components/ui/button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { cn } from "@/lib/utils"
 import type {
@@ -57,6 +55,10 @@ function truncate(name: string, max = 18) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
 }
 
+function compareUrl(repoSlug: string, base: string, branch: string): string {
+  return `https://github.com/${repoSlug}/compare/${base}...${branch}?quick_pull=1`
+}
+
 function checksColor(s: string): string {
   if (s === "passing") return "text-emerald-500"
   if (s === "failing") return "text-red-500"
@@ -79,48 +81,42 @@ export function TicketGitChip({
 
   if (state.tag === "stale_branch") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400",
-          pulse
-        )}
+      <Badge
+        tone="amber"
+        size="xs"
+        className={cn(pulse)}
         title={`Branch "${state.name}" not on remote`}
       >
-        <AlertTriangle className="size-3" strokeWidth={1.75} />
+        <AlertTriangle strokeWidth={1.75} />
         stale
-      </span>
+      </Badge>
     )
   }
 
   if (state.tag === "branch_no_pr") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground",
-          pulse
-        )}
+      <Badge
+        tone="muted"
+        size="xs"
+        className={cn("font-mono", pulse)}
         title={state.name}
       >
-        <GitBranch className="size-3" strokeWidth={1.75} />
+        <GitBranch strokeWidth={1.75} />
         {truncate(state.name)}
-      </span>
+      </Badge>
     )
   }
 
   if (state.tag === "pr_open") {
     const checkColor = checksColor(state.checks)
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-          state.draft
-            ? "bg-muted text-muted-foreground"
-            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          pulse
-        )}
+      <Badge
+        tone={state.draft ? "muted" : "emerald"}
+        size="xs"
+        className={cn(pulse)}
         title={state.title}
       >
-        <GitPullRequest className="size-3" strokeWidth={1.75} />#{state.number}
+        <GitPullRequest strokeWidth={1.75} />#{state.number}
         {state.checks !== "none" && (
           <Circle
             className={cn("size-2 fill-current", checkColor)}
@@ -128,36 +124,33 @@ export function TicketGitChip({
           />
         )}
         {state.draft && <span>draft</span>}
-      </span>
+      </Badge>
     )
   }
 
   if (state.tag === "pr_merged") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400",
-          pulse
-        )}
+      <Badge
+        tone="violet"
+        size="xs"
+        className={cn(pulse)}
         title={state.title}
       >
-        <GitMerge className="size-3" strokeWidth={1.75} />#{state.number}
-      </span>
+        <GitMerge strokeWidth={1.75} />#{state.number}
+      </Badge>
     )
   }
 
   if (state.tag === "pr_closed") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground",
-          pulse
-        )}
+      <Badge
+        tone="muted"
+        size="xs"
+        className={cn(pulse)}
         title={state.title}
       >
-        <GitPullRequestClosed className="size-3" strokeWidth={1.75} />#
-        {state.number}
-      </span>
+        <GitPullRequestClosed strokeWidth={1.75} />#{state.number}
+      </Badge>
     )
   }
 
@@ -275,11 +268,11 @@ function PanelForState({
   }
 
   if (state.tag === "branch_no_pr") {
-    // Two actions on this state: "Open PR" (parametric — title + draft
-    // choice) and "Clear" (destructive). Open PR is a ConfirmButton because
-    // its inputs fit inline with the row; Clear stays an InlineForm body so
-    // its confirm copy ("Clear branch from this ticket?") gets its own
-    // breathing room.
+    // Open PR delegates to GitHub's compare page — keeps the back-end out
+    // of GitHub's PR modeling (title, draft, reviewers) and lets the user
+    // configure everything in the place they're going to live in anyway.
+    // Our git_states polling will pick the new PR up on next refresh.
+    const baseBranch = github.defaultBaseBranch ?? "main"
     const Root = InlineForm.Root<"clear">
     return (
       <Root>
@@ -288,21 +281,15 @@ function PanelForState({
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
           <InlineForm.Actions>
-            <ConfirmButton.Root>
-              <ConfirmButton.Trigger
-                size="sm"
-                leadingIcon={GitPullRequest}
+            <Button asChild size="sm" leadingIcon={GitPullRequest}>
+              <a
+                href={compareUrl(repoSlug, baseBranch, state.name)}
+                target="_blank"
+                rel="noreferrer"
               >
                 Open PR
-              </ConfirmButton.Trigger>
-              <ConfirmButton.Confirm className="flex-wrap">
-                <OpenPrConfirm
-                  slug={slug}
-                  ticket={ticket}
-                  branch={state.name}
-                />
-              </ConfirmButton.Confirm>
-            </ConfirmButton.Root>
+              </a>
+            </Button>
             <InlineForm.Trigger action="clear" size="sm" variant="ghost">
               Clear
             </InlineForm.Trigger>
@@ -353,30 +340,28 @@ function PanelForState({
   }
 
   if (state.tag === "pr_closed") {
-    // Single action — full ConfirmButton without a wrapping InlineForm.Root.
+    const baseBranch = github.defaultBaseBranch ?? "main"
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
         <div className={cn("flex items-center gap-2", pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="closed" />
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <ConfirmButton.Root>
-            <ConfirmButton.Trigger
-              size="sm"
-              variant="tertiary"
-              leadingIcon={GitPullRequest}
+        <div className="ml-auto">
+          <Button
+            asChild
+            size="sm"
+            variant="tertiary"
+            leadingIcon={GitPullRequest}
+          >
+            <a
+              href={compareUrl(repoSlug, baseBranch, state.branch)}
+              target="_blank"
+              rel="noreferrer"
             >
               Open new PR
-            </ConfirmButton.Trigger>
-            <ConfirmButton.Confirm className="flex-wrap">
-              <OpenPrConfirm
-                slug={slug}
-                ticket={ticket}
-                branch={state.branch}
-              />
-            </ConfirmButton.Confirm>
-          </ConfirmButton.Root>
+            </a>
+          </Button>
         </div>
       </div>
     )
@@ -409,32 +394,9 @@ function PanelForState({
   return null
 }
 
-// Branch chip — click the name to open GitHub, click the copy icon to grab
-// the branch name for `git checkout`. The copy button appears on hover so
-// the chip stays calm at rest. Sticking the two interactions side-by-side
-// (rather than splitting the chip) keeps the visual unit intact while
-// giving each affordance a distinct hit target.
 function BranchChip({ slug, name }: { slug: string; name: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function copy(e: React.MouseEvent) {
-    // The chip is a flex row, not a wrapping link — but the copy button
-    // sits *inside* the same row. stopPropagation guards against any future
-    // wrapper (e.g. a row click handler) hijacking the copy.
-    e.stopPropagation()
-    e.preventDefault()
-    try {
-      await navigator.clipboard.writeText(name)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1200)
-    } catch {
-      // Clipboard can fail in non-secure contexts; silently no-op rather
-      // than throwing — the link still works as a fallback.
-    }
-  }
-
   return (
-    <span className="group/branch-chip inline-flex items-center gap-0.5 rounded-md bg-muted pr-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted pr-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
       <a
         href={`https://github.com/${slug}/tree/${name}`}
         target="_blank"
@@ -445,30 +407,7 @@ function BranchChip({ slug, name }: { slug: string; name: string }) {
         {name}
         <ArrowUpRight className="size-3" strokeWidth={1.75} />
       </a>
-      <button
-        type="button"
-        onClick={copy}
-        aria-label={copied ? "Copied" : "Copy branch name"}
-        title={copied ? "Copied" : "Copy branch name"}
-        className={cn(
-          "grid size-5 shrink-0 place-items-center rounded transition-colors hover:bg-background hover:text-foreground",
-          // Stay hidden until the row is hovered — avoids clutter at rest.
-          // Always-visible while in the "copied" state so the user catches
-          // the confirmation even if their cursor has drifted.
-          copied
-            ? "opacity-100"
-            : "opacity-0 group-hover/branch-chip:opacity-100 focus-visible:opacity-100"
-        )}
-      >
-        {copied ? (
-          <Check
-            className="size-3 text-emerald-500"
-            strokeWidth={2}
-          />
-        ) : (
-          <Copy className="size-3" strokeWidth={1.75} />
-        )}
-      </button>
+      <CopyButton value={name} copyLabel="Copy branch name" />
     </span>
   )
 }
@@ -484,14 +423,12 @@ function PrLink({
   tone: "open" | "draft" | "merged" | "closed"
   checks?: string
 }) {
-  const tint =
+  const badgeTone =
     tone === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : tone === "closed"
-        ? "bg-muted text-muted-foreground"
-        : tone === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      ? "violet"
+      : tone === "closed" || tone === "draft"
+        ? "muted"
+        : "emerald"
   const Icon =
     tone === "merged"
       ? GitMerge
@@ -499,23 +436,17 @@ function PrLink({
         ? GitPullRequestClosed
         : GitPullRequest
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
-        tint
-      )}
-    >
-      <Icon className="size-3" strokeWidth={1.75} />#{number}
-      {checks && checks !== "none" && (
-        <Circle
-          className={cn("size-2 fill-current", checksColor(checks))}
-          strokeWidth={0}
-        />
-      )}
-      {tone === "draft" && <span>draft</span>}
-    </a>
+    <Badge asChild tone={badgeTone} size="xs">
+      <a href={url} target="_blank" rel="noreferrer">
+        <Icon strokeWidth={1.75} />#{number}
+        {checks && checks !== "none" && (
+          <Circle
+            className={cn("size-2 fill-current", checksColor(checks))}
+            strokeWidth={0}
+          />
+        )}
+        {tone === "draft" && <span>draft</span>}
+      </a>
+    </Badge>
   )
 }
