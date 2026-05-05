@@ -109,6 +109,11 @@ services:
       # private images. Comment out if your images are public.
       # - /srv/projectproject/docker-config.json:/config.json
     environment:
+      # Pin the Docker API version Watchtower's client negotiates with.
+      # Without this, Watchtower 1.7.1 falls back to API 1.25, which Docker
+      # Engine 27+ rejects ("client version 1.25 is too old"). 1.45 is well
+      # inside the range Engine 27 advertises.
+      DOCKER_API_VERSION: "1.45"
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_POLL_INTERVAL: "300"
