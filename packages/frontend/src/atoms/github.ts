@@ -10,6 +10,7 @@ import { Effect } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import type {
+  AttachBranchInput,
   ConnectGithubInput,
   CreateBranchInput,
   OpenPrInput,
@@ -47,6 +48,23 @@ export const githubReposAtom = Atom.family((query: string) =>
     .pipe(Atom.setIdleTTL("2 minutes"))
 )
 
+// Branch picker for the connect-branch form. Keyed on slug + query so each
+// search produces its own cache cell (mirrors githubReposAtom). Empty query
+// is its own key — ranks the recently updated branches.
+export const branchesAtom = Atom.family((args: { slug: string; q: string }) =>
+  runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.projects.listBranches({
+          path: { slug: args.slug },
+          urlParams: { q: args.q.trim() ? args.q.trim() : undefined }
+        })
+      })
+    )
+    .pipe(Atom.setIdleTTL("1 minute"))
+)
+
 export const connectGithubAtom = runtime.fn(
   Effect.fn(function* (input: { slug: string } & ConnectGithubInput, get) {
     const client = yield* ApiClient
@@ -81,6 +99,24 @@ export const createBranchAtom = runtime.fn(
     const client = yield* ApiClient
     const { slug, id, ...payload } = input
     const updated = yield* client.tickets.createBranch({
+      path: { slug, id },
+      payload
+    })
+    get.refresh(ticketAtom(ticketKey(slug, id)))
+    get.refresh(ticketsListAtom(slug))
+    get.refresh(projectGitStatesAtom(slug))
+    return updated
+  })
+)
+
+export const attachBranchAtom = runtime.fn(
+  Effect.fn(function* (
+    input: { slug: string; id: TicketId } & AttachBranchInput,
+    get
+  ) {
+    const client = yield* ApiClient
+    const { slug, id, ...payload } = input
+    const updated = yield* client.tickets.attachBranch({
       path: { slug, id },
       payload
     })
