@@ -277,6 +277,18 @@ function Toolbar({
   const searchRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("/", searchRef)
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const hasActiveFilters =
     statusFilter !== "all" ||
     typeFilter !== "all" ||
@@ -317,79 +329,101 @@ function Toolbar({
     return c
   }, [tickets, typeFilter, assigneeFilter, myId, query])
 
+  const FULL_FITS_ROW = 1040
+  const STATUS_COMPACT_FITS_ROW = 760
+  const ALL_COMPACT_FITS_ROW = 600
+  const STATUS_COMPACT_FITS_WRAPPED = 540
+  const measured = width > 0
+  const onSameRow = measured && width >= ALL_COMPACT_FITS_ROW
+  const statusCompact = measured
+    ? onSameRow
+      ? compact || width < FULL_FITS_ROW
+      : true
+    : false
+  const controlsCompact = measured
+    ? onSameRow
+      ? compact || width < STATUS_COMPACT_FITS_ROW
+      : width < STATUS_COMPACT_FITS_WRAPPED
+    : false
+
   return (
-    <div className="@container">
-      <div className="flex flex-col gap-2 @3xl:flex-row @3xl:items-center">
-        <InputGroup className="flex-1">
-          <InputGroupAddon>
-            <Search className="size-4" strokeWidth={1.75} />
-          </InputGroupAddon>
-          <InputGroupInput
-            ref={searchRef}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={() => onSearchFocusChange(true)}
-            onBlur={() => onSearchFocusChange(false)}
-            placeholder="Search tickets by title or id…"
-            aria-label="Search tickets"
-          />
-          {query ? (
-            <button
+    <div
+      ref={containerRef}
+      className="flex flex-wrap items-center gap-x-2 gap-y-2"
+    >
+      <InputGroup className="min-w-0 flex-1 basis-[220px]">
+        <InputGroupAddon>
+          <Search className="size-4" strokeWidth={1.75} />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={searchRef}
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={() => onSearchFocusChange(true)}
+          onBlur={() => onSearchFocusChange(false)}
+          placeholder="Search tickets by title or id…"
+          aria-label="Search tickets"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => onQueryChange("")}
+            aria-label="Clear search"
+            className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-3.5" strokeWidth={1.75} />
+          </button>
+        ) : !compact ? (
+          <Kbd>/</Kbd>
+        ) : null}
+      </InputGroup>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChips
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          counts={counts}
+          compact={statusCompact}
+        />
+
+        <FiltersMenu
+          typeFilter={typeFilter}
+          onTypeFilterChange={onTypeFilterChange}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={onAssigneeFilterChange}
+          members={members}
+          myId={myId}
+          compact={controlsCompact}
+        />
+
+        <SortMenu
+          value={sortKey}
+          onChange={onSortChange}
+          compact={controlsCompact}
+        />
+
+        <AnimatePresence initial={false}>
+          {hasActiveFilters && (
+            <motion.button
+              key="clear"
               type="button"
-              onClick={() => onQueryChange("")}
-              aria-label="Clear search"
-              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={clearAll}
+              initial={{ opacity: 0, width: 0, marginLeft: -8 }}
+              animate={{ opacity: 1, width: 36, marginLeft: 0 }}
+              exit={{ opacity: 0, width: 0, marginLeft: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className={cn(
+                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
+                "hover:bg-destructive/15 hover:border-destructive/60",
+                "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
+              )}
+              title="Clear all filters"
+              aria-label="Clear all filters"
             >
-              <X className="size-3.5" strokeWidth={1.75} />
-            </button>
-          ) : !compact ? (
-            <Kbd>/</Kbd>
-          ) : null}
-        </InputGroup>
-
-        <div className="flex flex-nowrap items-center gap-2">
-          <StatusChips
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-            counts={counts}
-            compact={compact}
-          />
-
-          <FiltersMenu
-            typeFilter={typeFilter}
-            onTypeFilterChange={onTypeFilterChange}
-            assigneeFilter={assigneeFilter}
-            onAssigneeFilterChange={onAssigneeFilterChange}
-            members={members}
-            myId={myId}
-            compact={compact}
-          />
-
-          <SortMenu value={sortKey} onChange={onSortChange} compact={compact} />
-
-          <AnimatePresence initial={false}>
-            {hasActiveFilters && (
-              <motion.button
-                key="clear"
-                type="button"
-                onClick={clearAll}
-                initial={{ opacity: 0, width: 0, marginLeft: -8 }}
-                animate={{ opacity: 1, width: 36, marginLeft: 0 }}
-                exit={{ opacity: 0, width: 0, marginLeft: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className={cn(
-                  "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
-                  "hover:bg-destructive/15 hover:border-destructive/60",
-                  "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                )}
-                title="Clear all filters"
-                aria-label="Clear all filters"
-              >
-                <X className="size-4 shrink-0" strokeWidth={1.75} />
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
+              <X className="size-4 shrink-0" strokeWidth={1.75} />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
