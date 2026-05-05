@@ -39,6 +39,39 @@ export type SegmentedItem<K extends string> = {
   compactAriaLabel?: string
 }
 
+// Visual variants. `default` is the toolbar/tab-strip chrome (bordered
+// container, h-7 items). `inline` is a chrome-less pill row that reads as
+// part of a sentence — meant for cases like "Update status to: [Todo] [In
+// progress] [Done]" where a labeled segmented control would feel like a
+// separate control instead of a continuation of the surrounding text.
+export type SegmentedVariant = "default" | "inline"
+
+type VariantTokens = {
+  container: string
+  innerGap: string
+  iconSize: string
+  pillRounding: string
+  itemBase: string
+}
+
+const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
+  default: {
+    container:
+      "inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1",
+    innerGap: "gap-1.5",
+    iconSize: "size-3.5",
+    pillRounding: "rounded-lg",
+    itemBase: "h-7 rounded-lg px-2.5 text-sm"
+  },
+  inline: {
+    container: "inline-flex items-center gap-0.5",
+    innerGap: "gap-1",
+    iconSize: "size-3",
+    pillRounding: "rounded-md",
+    itemBase: "h-6 rounded-md px-1.5 text-xs"
+  }
+}
+
 export interface SegmentedTabsProps<K extends string> {
   items: ReadonlyArray<SegmentedItem<K>>
   // Distinct id per usage so LayoutGroups don't bleed into each other (the
@@ -54,6 +87,7 @@ export interface SegmentedTabsProps<K extends string> {
     args: { active: boolean }
   ) => ReactNode
   compact?: boolean
+  variant?: SegmentedVariant
   className?: string
 }
 
@@ -63,16 +97,13 @@ export function SegmentedTabs<K extends string>({
   isActive,
   renderItem,
   compact = false,
+  variant = "default",
   className
 }: SegmentedTabsProps<K>) {
+  const v = VARIANTS[variant]
   return (
     <LayoutGroup id={layoutId}>
-      <div
-        className={cn(
-          "inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1",
-          className
-        )}
-      >
+      <div className={cn(v.container, className)}>
         {items.map((it) => {
           const active = isActive(it.key)
           const Icon = it.icon
@@ -82,13 +113,18 @@ export function SegmentedTabs<K extends string>({
                 <motion.span
                   layoutId={`${layoutId}-active`}
                   transition={springs.moderate}
-                  className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  className={cn("absolute inset-0 -z-0 bg-accent", v.pillRounding)}
                 />
               )}
-              <span className="relative z-10 inline-flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "relative z-10 inline-flex items-center",
+                  v.innerGap
+                )}
+              >
                 {Icon && (
                   <Icon
-                    className={cn("size-3.5", it.iconClassName)}
+                    className={cn(v.iconSize, it.iconClassName)}
                     strokeWidth={1.75}
                   />
                 )}
@@ -159,9 +195,15 @@ export function CollapsingLabel({
 
 // Shared item button styling. Exported so callsites that render plain
 // buttons get the exact same hit-target sizing and active/inactive text
-// treatment as the URL-driven tabs.
-export const SEGMENTED_ITEM_CLASS = (active: boolean) =>
+// treatment as the URL-driven tabs. Pass the same `variant` you passed to
+// SegmentedTabs so chrome and item sizing stay in sync.
+export const SEGMENTED_ITEM_CLASS = (
+  active: boolean,
+  variant: SegmentedVariant = "default"
+) =>
   cn(
-    "relative inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-sm transition-colors",
+    "relative inline-flex items-center transition-colors",
+    VARIANTS[variant].itemBase,
+    VARIANTS[variant].innerGap,
     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
   )

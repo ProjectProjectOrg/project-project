@@ -45,6 +45,24 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+### Hover feel — instant in, eased out
+
+Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
+
+Implementation lives as a single global rule in `packages/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
+
+For this to work, hover-affected elements must have a transition class set up — typically `transition-colors` (Tailwind default 150ms). If a hover-driven color change has no `transition-*` class, both directions snap and the rule has nothing to override. Add `transition-colors` (or `transition-opacity` / `transition-all` as appropriate) when introducing a new hover state.
+
+When you write a new component with hover behavior, always pair the hover class with the matching transition utility — e.g. `transition-colors hover:bg-accent`, not bare `hover:bg-accent`.
+
+### Prefer component variants over local styling
+
+When you find yourself writing a one-off styled version of an existing component (different size, chrome, spacing, etc.), **add a variant to the component instead of rolling local Tailwind in the callsite**. Local styles compound: the second time we want the same look we have to copy classes; the third time they drift. A typed variant prop on the primitive keeps the design language singular and reusable.
+
+Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update status to: …") lives as `variant="inline"` on the primitive, not as a hand-rolled set of classes inside `CreateBranchFields`. Same rule applies to buttons, inputs, badges, etc. — extend the primitive, don't reskin it locally.
+
+If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
+
 ## Mutations and optimistic updates
 
 **Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.

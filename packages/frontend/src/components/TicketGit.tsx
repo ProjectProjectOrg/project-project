@@ -386,7 +386,7 @@ function BranchChip({ slug, name }: { slug: string; name: string }) {
       href={`https://github.com/${slug}/tree/${name}`}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:text-foreground"
+      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
     >
       <GitBranch className="size-3" strokeWidth={1.75} />
       {name}

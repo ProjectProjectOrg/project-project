@@ -77,7 +77,7 @@ function DropdownMenuItem({
       className={cn(
         // Fluid item look: bg-accent/40 highlight, text-muted-foreground →
         // text-foreground on highlight, icon stroke 1.5 → 2 on highlight.
-        "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-[13px] text-muted-foreground outline-hidden transition-colors duration-80",
+        "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-[13px] text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:bg-accent/40 dark:data-[highlighted]:bg-accent/25 data-[highlighted]:text-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "data-[inset]:pl-8",
@@ -101,7 +101,7 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md py-2 pr-2 pl-8 text-[13px] text-muted-foreground outline-hidden transition-colors duration-80",
+        "relative flex cursor-pointer items-center gap-2 rounded-md py-2 pr-2 pl-8 text-[13px] text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:bg-accent/40 dark:data-[highlighted]:bg-accent/25 data-[highlighted]:text-foreground",
         "data-[state=checked]:text-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
@@ -141,7 +141,7 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md py-2 pr-2 pl-8 text-[13px] text-muted-foreground outline-hidden transition-colors duration-80",
+        "relative flex cursor-pointer items-center gap-2 rounded-md py-2 pr-2 pl-8 text-[13px] text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:bg-accent/40 dark:data-[highlighted]:bg-accent/25 data-[highlighted]:text-foreground",
         "data-[state=checked]:text-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
@@ -228,7 +228,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-[13px] text-muted-foreground outline-hidden transition-colors duration-80",
+        "flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-[13px] text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:bg-accent/40 dark:data-[highlighted]:bg-accent/25 data-[highlighted]:text-foreground",
         "data-[state=open]:bg-accent/40 data-[state=open]:text-foreground",
         "data-[inset]:pl-8",

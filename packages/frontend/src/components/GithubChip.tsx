@@ -133,7 +133,7 @@ function ConnectedChip({
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 hover:text-foreground"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground"
       >
         <GithubIcon className="size-3.5" strokeWidth={1.75} />
         <span className="font-mono text-xs">

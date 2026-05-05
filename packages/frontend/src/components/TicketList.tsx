@@ -17,6 +17,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+// `motion` is still used by the toolbar's clear-filters button below.
 import {
   CollapsingLabel,
   SEGMENTED_ITEM_CLASS,
@@ -175,18 +176,19 @@ export function TicketList({
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
   const [sortKey, setSortKey] = useState<SortKey>("id")
   const [searchFocused, setSearchFocused] = useState(false)
-  const [creating, setCreating] = useState(false)
 
-  // Two intent signals shape the rest of the UI:
+  // `compactFilters` collapses filter/sort labels so the search bar can
+  // breathe. Stays compact while the search has focus OR carries a query —
+  // clicking a filter mid-search shouldn't make labels pop back in and shift
+  // target positions under the cursor.
   //
-  //   - `compactFilters` collapses filter/sort labels so the search bar can
-  //     breathe. Stays compact while the search has focus OR carries a
-  //     query — clicking a filter mid-search shouldn't make labels pop back
-  //     in and shift target positions under the cursor.
-  //
-  //   - `creating` (CreateTicketRow has focus) dims the rest of the surface
-  //     below the input. Pure visual hint — clicks still work, but the dim
-  //     pulls attention to the new ticket the user is composing.
+  // The "creating" intent (CreateTicketRow has focus → dim surface below) and
+  // the "expanded" intent (one ticket open → dim siblings) used to live in
+  // React state. They're now pure CSS: `:has(form:focus-within)` on the
+  // wrapper handles the first; `data-expanded` on each ticket li drives the
+  // second via an arbitrary variant. This keeps the dim correctly tied to
+  // *current* focus/expand state — closing the input via Enter clears it
+  // immediately without a stale React flag, which the old version got wrong.
   const compactFilters = searchFocused || query.length > 0
 
   // Resolve the assignee filter to the actual id that should match a ticket.
@@ -198,14 +200,13 @@ export function TicketList({
     assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
 
   return (
-    <div className="flex flex-col gap-3">
-      <CreateTicketRow slug={slug} onFocusChange={setCreating} />
+    // `group/list` lets the content below react to focus inside CreateTicketRow
+    // via CSS only. When the form has focus-within, the lower block fades —
+    // no `creating` boolean shuttled through React.
+    <div className="group/list flex flex-col gap-3">
+      <CreateTicketRow slug={slug} />
 
-      <motion.div
-        animate={{ opacity: creating ? 0.35 : 1 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-        className="flex flex-col gap-3"
-      >
+      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form:focus-within]/list:opacity-35">
         {Result.isSuccess(list) && list.value.length > 0 && (
           <Toolbar
             query={query}
@@ -251,7 +252,7 @@ export function TicketList({
             />
           )
         })}
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -370,7 +371,7 @@ function Toolbar({
               type="button"
               onClick={() => onQueryChange("")}
               aria-label="Clear search"
-              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <X className="size-3.5" strokeWidth={1.75} />
             </button>
@@ -767,18 +768,30 @@ function FilteredList({
   }
 
   return (
+    // Sibling-fade for non-expanded rows is pure CSS: the ul's `:has` checks
+    // whether any direct child li carries `data-expanded`, and the arbitrary
+    // variant on each li dims the rest. Tying it to a data attribute (rather
+    // than React state) keeps focus/expand transitions snappy and means the
+    // mute can never be left "stuck" if state and DOM disagree.
     <ul className="divide-y divide-border rounded-xl border border-border bg-background">
-      {filtered.map((t) => (
-        <li key={t.id}>
-          <Row
-            slug={slug}
-            ticket={t}
-            members={members}
-            isExpanded={expandedId === t.id}
-            onToggle={() => onExpand(expandedId === t.id ? null : t.id)}
-          />
-        </li>
-      ))}
+      {filtered.map((t) => {
+        const isExpanded = expandedId === t.id
+        return (
+          <li
+            key={t.id}
+            data-expanded={isExpanded || undefined}
+            className="transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40"
+          >
+            <Row
+              slug={slug}
+              ticket={t}
+              members={members}
+              isExpanded={isExpanded}
+              onToggle={() => onExpand(isExpanded ? null : t.id)}
+            />
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -1020,7 +1033,7 @@ function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="-mx-1 truncate rounded px-1 text-left text-base font-semibold tracking-tight hover:bg-accent/40"
+        className="-mx-1 truncate rounded px-1 text-left text-base font-semibold tracking-tight transition-colors hover:bg-accent/40"
       >
         {ticket.title}
       </button>

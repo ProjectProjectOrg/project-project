@@ -31,13 +31,7 @@ const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles }> =
     other: { label: "Other", icon: HelpCircle }
   }
 
-export function CreateTicketRow({
-  slug,
-  onFocusChange
-}: {
-  slug: string
-  onFocusChange?: (focused: boolean) => void
-}) {
+export function CreateTicketRow({ slug }: { slug: string }) {
   const create = useAtomSet(createTicketAtom)
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -98,8 +92,6 @@ export function CreateTicketRow({
         <InputGroupInput
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => onFocusChange?.(false)}
           placeholder="New ticket title…"
           aria-label="New ticket title"
           disabled={submitting}

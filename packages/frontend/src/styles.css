@@ -28,7 +28,7 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --radius: 1rem;
 }
 
 .dark {
@@ -95,6 +95,33 @@
       stroke-dasharray: 40 60;
     }
   }
+}
+
+/* Hover/highlight feel — instant on enter, eased on exit.
+ *
+ * While the cursor is over an element with a color transition (or while a
+ * Radix item carries `data-highlighted`), drop the transition-duration to 0
+ * so the entry style lands immediately. When the cursor leaves (or the
+ * highlight clears), neither selector matches anymore, the override is gone,
+ * and the element's underlying transition-duration takes over for the exit.
+ *
+ * Net effect: hover/highlight states snap *into* place on enter and ease
+ * back out at the element's normal duration. Use `transition-colors` (default
+ * 150ms) on hover-affected elements to get a 150ms exit. The `transition-all`
+ * / catch-all `transition` selectors cover button-style elements that
+ * transition multiple properties at once. The `[data-highlighted]` selector
+ * covers Radix items where the highlight is driven by mouse + keyboard via
+ * a data attribute rather than the `:hover` pseudo-class.
+ */
+.transition-colors:hover,
+.transition-opacity:hover,
+.transition-all:hover,
+.transition:hover,
+.transition-colors[data-highlighted],
+.transition-all[data-highlighted],
+.transition-colors[data-selected="true"],
+.transition-all[data-selected="true"] {
+  transition-duration: 0ms;
 }
 
 /* Theme switch: circular clip-path reveal centered on the click point. */
