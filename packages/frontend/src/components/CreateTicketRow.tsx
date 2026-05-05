@@ -1,7 +1,6 @@
 import { useAtomRefresh, useAtomSet } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import { useRef, useState, type FormEvent } from "react"
-import { Bug, Hammer, HelpCircle, Sparkles } from "lucide-react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
   DropdownMenu,
@@ -14,23 +13,14 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
-import { BADGE_TONES, type BadgeTone } from "@/components/ui/badge"
+import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { createTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
+import { TYPE_META } from "@/lib/ticket-meta"
 import type { TicketType } from "@projectproject/shared"
-
-const TYPE_META: Record<
-  TicketType,
-  { label: string; icon: typeof Sparkles; tone: BadgeTone }
-> = {
-  feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
-  bug: { label: "Bug", icon: Bug, tone: "red" },
-  chore: { label: "Chore", icon: Hammer, tone: "amber" },
-  other: { label: "Other", icon: HelpCircle, tone: "muted" }
-}
 
 export function CreateTicketRow({ slug }: { slug: string }) {
   const create = useAtomSet(createTicketAtom, { mode: "promise" })

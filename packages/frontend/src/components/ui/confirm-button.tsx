@@ -1,25 +1,3 @@
-// ConfirmButton — compound primitive for "click → reveal a small inline
-// confirm row → submit or cancel". Lighter than InlineForm: there's no
-// Idle/Actions/Display split, no multiple form modes; just one button that
-// crossfades into one confirm UI. Use it when the action needs a moment of
-// "are you sure?" or a quick parameter (e.g. draft vs ready PR) without
-// pulling out the full InlineForm shape.
-//
-// Compound API:
-//
-//   <ConfirmButton.Root>
-//     <ConfirmButton.Trigger leadingIcon={GitPullRequest} size="sm">
-//       Open PR
-//     </ConfirmButton.Trigger>
-//     <ConfirmButton.Confirm>
-//       <PrConfirmContent />   // calls useConfirmButton() for close/busy
-//     </ConfirmButton.Confirm>
-//   </ConfirmButton.Root>
-//
-// The transition between states is the same 160ms easeOut height+opacity
-// crossfade InlineForm uses, so the two primitives feel like one design
-// language.
-
 import { createContext, useCallback, useMemo, useState, use } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { X } from "lucide-react"
@@ -46,9 +24,6 @@ export function useConfirmButton() {
   return ctx
 }
 
-// Plain opacity crossfade — width snaps when the trigger swaps for the
-// confirm row. Same simplification as InlineForm: not worth interpolating
-// layout when the content fade already reads as smooth.
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Root({
@@ -123,8 +98,6 @@ function Confirm({
           exit={{ opacity: 0 }}
           transition={FADE_TRANSITION}
           onKeyDown={(e) => {
-            // Esc cancels — same behavior as InlineForm. Children can claim
-            // Esc by preventDefault'ing first.
             if (e.key === "Escape" && !busy && !e.defaultPrevented) {
               e.preventDefault()
               close()

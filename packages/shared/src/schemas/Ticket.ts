@@ -34,9 +34,6 @@ export const Ticket = Schema.Struct({
   // last auto-flipped to `done`. If the user manually moves status back to
   // `in_progress`, we won't reflip because `pr === lastTransitionedPr`.
   lastTransitionedPr: Schema.NullOr(Schema.Number),
-  // Multiple assignees per ticket. Empty array = unassigned. Wire shape is
-  // always an array; legacy single-assignee tickets are normalized at read
-  // time on the backend.
   assignees: Schema.Array(Schema.String),
   createdBy: Schema.String,
   createdAt: Schema.Date,
@@ -62,7 +59,6 @@ export const UpdateTicketInput = Schema.Struct({
   ),
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
-  // Replaces the entire assignee set. Pass [] to unassign.
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String)
 })

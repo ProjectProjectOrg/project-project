@@ -1,6 +1,3 @@
-// Click-to-copy icon button. Crossfades between Copy and Check on success
-// with a tiny blur so the swap reads as a soft morph rather than a snap.
-
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Check, Copy } from "lucide-react"
 import { useState } from "react"
@@ -35,9 +32,7 @@ export function CopyButton({
       await navigator.clipboard.writeText(value)
       setCopied(true)
       window.setTimeout(() => setCopied(false), CONFIRM_DURATION_MS)
-    } catch {
-      // Clipboard can fail in non-secure contexts; silently no-op.
-    }
+    } catch {}
   }
 
   return (

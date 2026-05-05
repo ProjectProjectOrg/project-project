@@ -109,10 +109,6 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
 function ProjectCrumb({ slug, isLast }: { slug: string; isLast: boolean }) {
   const result = useAtomValue(projectAtom(slug))
   if (!Result.isSuccess(result)) {
-    // Skeleton sized roughly to the slug — the project name and slug usually
-    // share length within a few chars. Keeps layout stable across the
-    // loaded/loading transition. `inline-block` so it sits inline with the
-    // chevron separators.
     return (
       <span
         className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"

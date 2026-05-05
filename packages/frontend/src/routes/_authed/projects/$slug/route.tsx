@@ -1,11 +1,3 @@
-// Project layout. Owns the header (name, slug, project menu) and the tab
-// strip; the active sub-route renders inside <Outlet />.
-//
-// Why a layout, not one big page:
-//   - tickets are the main view; description/members are secondary
-//   - each sub-view gets a real URL (deep-linkable, breadcrumb-able)
-//   - the project atom loads once for all sub-views (no waterfall)
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import {
   createFileRoute,
@@ -16,16 +8,15 @@ import {
 } from "@tanstack/react-router"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
-  Check,
-  CircleDashed,
-  CircleDot,
   FolderKanban,
   Info,
   ListChecks,
   MoreHorizontal,
   Trash2,
-  Users as UsersIcon
+  Users as UsersIcon,
+  type LucideIcon
 } from "lucide-react"
+import { STATUS_META } from "@/lib/ticket-meta"
 import { meAtom } from "@/atoms/auth"
 import {
   deleteProjectAtom,
@@ -114,10 +105,6 @@ function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  // Caller's role on this project — drives whether the GitHub chip shows the
-  // "connect" affordance and the manage panel. `member` is the safe default
-  // if we somehow can't resolve `me` (the page wouldn't have rendered if
-  // membership were missing).
   const me = useAtomValue(meAtom)
   const myRole: Role = Result.isSuccess(me)
     ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
@@ -274,12 +261,6 @@ function ProjectMenu({ slug }: { slug: string }) {
   )
 }
 
-// --- Tab nav ---------------------------------------------------------------
-// Uses the shared `SegmentedTabs` primitive (`components/SegmentedTabs.tsx`)
-// — same component the status chips inside the Tickets tab render with, so
-// the two strips read as one design language. Each tab is a `<Link>`; the
-// shared component owns chrome, animation, and count badges.
-
 type TabKey = "tickets" | "about" | "members"
 type TabDef = {
   key: TabKey
@@ -330,9 +311,6 @@ function TabsNav({
     ? ticketsResult.value.length
     : null
 
-  // The "open ticket" subtitle — when a ticket is expanded, surface its id
-  // and a quick status summary right next to the Tickets tab. Keeps the
-  // header informative even after deep-linking.
   const summary = Result.isSuccess(ticketsResult)
     ? summarize(ticketsResult.value)
     : null
@@ -349,8 +327,6 @@ function TabsNav({
           location.pathname.startsWith(target + "/")
   }
 
-  // Counts come from atoms here, not from the static config — the tab strip
-  // doubles as a live readout of project state.
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
@@ -372,13 +348,7 @@ function TabsNav({
         isActive={isActive}
         renderItem={(item, content, { active }) => {
           const def = TABS.find((t) => t.key === item.key)!
-          // Tickets tab gets a hover-reveal breakdown overlaid absolutely
-          // so the tab width stays stable. Other tabs render the default
-          // SegmentedTabs content unchanged.
           if (item.key === "tickets" && ticketsCount !== null) {
-            // Render the inner content manually so the active pill stays
-            // visible on hover — wrapping the whole content fragment would
-            // fade the pill out along with the icon/label/badge.
             return (
               <Link
                 to={def.to}
@@ -431,31 +401,19 @@ function TabsNav({
   )
 }
 
-// Per-status breakdown overlay for the Tickets tab on hover. Rendered
-// absolute-positioned over the tab's default content so the tab width
-// stays consistent — siblings don't shift on hover.
 function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
-  let todo = 0
-  let inProgress = 0
-  let done = 0
-  for (const t of tickets) {
-    if (t.status === "todo") todo++
-    else if (t.status === "in_progress") inProgress++
-    else done++
-  }
+  const counts = { todo: 0, in_progress: 0, done: 0 }
+  for (const t of tickets) counts[t.status]++
   return (
     <>
-      <BadgeStat
-        count={todo}
-        icon={CircleDashed}
-        className="text-muted-foreground"
-      />
-      <BadgeStat
-        count={inProgress}
-        icon={CircleDot}
-        className="text-blue-500"
-      />
-      <BadgeStat count={done} icon={Check} className="text-emerald-500" />
+      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map((s) => (
+        <BadgeStat
+          key={s}
+          count={counts[s]}
+          icon={STATUS_META[s].icon}
+          className={STATUS_META[s].className}
+        />
+      ))}
     </>
   )
 }
@@ -466,7 +424,7 @@ function BadgeStat({
   className
 }: {
   count: number
-  icon: typeof Check
+  icon: LucideIcon
   className: string
 }) {
   return (
@@ -477,8 +435,6 @@ function BadgeStat({
   )
 }
 
-// "5 todo · 4 in progress · 3 done" — quick at-a-glance state. Shows next to
-// the tab strip so the project header doubles as a dashboard.
 function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   if (tickets.length === 0) return null
   let todo = 0
@@ -491,8 +447,6 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   }
   return `${todo} todo · ${inProgress} in progress · ${done} done`
 }
-
-// --- States ---------------------------------------------------------------
 
 function Skeleton() {
   return (

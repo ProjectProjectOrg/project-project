@@ -1,8 +1,3 @@
-// Lightweight single-key global shortcut. Focuses the referenced input when
-// `key` is pressed outside an editable target. Used for the `/` (search) and
-// `c` (create ticket) affordances; small enough that each consumer wires its
-// own listener rather than going through a central registry.
-
 import { useEffect, type RefObject } from "react"
 
 export function useGlobalShortcut(

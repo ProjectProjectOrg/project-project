@@ -1,17 +1,11 @@
-// Inline form body for "create branch". Mounted by InlineForm.Form action="create".
-// Owns its own submit/error state; uses useInlineForm() for busy/close.
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import {
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronsUpDown,
-  CircleDashed,
-  CircleDot,
   GitBranch
 } from "lucide-react"
-import type { ComponentType } from "react"
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { updateTicketAtom } from "@/atoms/tickets"
@@ -43,50 +37,16 @@ import {
   type SegmentedItem
 } from "@/components/SegmentedTabs"
 import { cn } from "@/lib/utils"
+import { slugify } from "@/lib/slug"
+import { STATUS_META } from "@/lib/ticket-meta"
 import type {
   GithubConnection,
   TicketDetail,
   TicketStatus
 } from "@projectproject/shared"
 
-// Status options the user can flip the ticket to when creating a branch.
-// Source-of-truth duplicated from TicketList's STATUS_META — small enough that
-// extracting a shared module isn't worth the import churn yet. When custom
-// statuses arrive we'll likely move to a project-scoped atom anyway.
-type StatusOption = {
-  key: TicketStatus
-  label: string
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
-  className: string
-}
-const STATUS_OPTIONS: ReadonlyArray<StatusOption> = [
-  {
-    key: "todo",
-    label: "Todo",
-    icon: CircleDashed,
-    className: "text-muted-foreground"
-  },
-  {
-    key: "in_progress",
-    label: "In progress",
-    icon: CircleDot,
-    className: "text-blue-500"
-  },
-  { key: "done", label: "Done", icon: Check, className: "text-emerald-500" }
-]
-
-// Up to this many statuses fit comfortably as inline pills. Past that we
-// switch to a dropdown so the row doesn't wrap and the create button stays
-// reachable. Threshold is 4 because once custom statuses land 5+ becomes
-// likely.
+const STATUS_KEYS = Object.keys(STATUS_META) as ReadonlyArray<TicketStatus>
 const STATUS_SEGMENTED_THRESHOLD = 4
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-}
 
 function defaultBranchName(
   template: string | null,
@@ -117,8 +77,6 @@ export function CreateBranchFields({
     defaultBranchName(branchTemplate, ticket.type, ticket.id, ticket.title)
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
-  // Default new-branch flow to "in progress" — that's why the user is making a
-  // branch. They can flip to anything else before submitting.
   const [status, setStatus] = useState<TicketStatus>("in_progress")
   const [error, setError] = useState<string | null>(null)
   const create = useAtomSet(createBranchAtom(slug))
@@ -129,8 +87,6 @@ export function CreateBranchFields({
     setError(null)
     setBusy(true)
     try {
-      // Fire status update + branch creation in parallel. Each refreshes its
-      // own bases independently. If status is unchanged we skip the call.
       await Promise.all([
         create({
           id: ticket.id,
@@ -210,11 +166,6 @@ export function CreateBranchFields({
   )
 }
 
-// Status switch shown in the create-branch action row. The leading "Update
-// status to:" label tells the user what the pills do — without it the picker
-// reads as ambient state rather than an action. Renders as inline pills while
-// there are few enough statuses to fit; flips to a labeled dropdown once the
-// count crosses STATUS_SEGMENTED_THRESHOLD.
 function StatusPicker({
   value,
   onChange,
@@ -224,7 +175,7 @@ function StatusPicker({
   onChange: (next: TicketStatus) => void
   disabled?: boolean
 }) {
-  const segmented = STATUS_OPTIONS.length <= STATUS_SEGMENTED_THRESHOLD
+  const segmented = STATUS_KEYS.length <= STATUS_SEGMENTED_THRESHOLD
   return (
     <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span>Update status to:</span>
@@ -245,9 +196,6 @@ function StatusPicker({
   )
 }
 
-// Compact inline pills — chrome-less, reads as part of the surrounding
-// "Update status to:" sentence. Uses the shared SegmentedTabs primitive's
-// `inline` variant rather than rolling local styles.
 function StatusInlinePills({
   value,
   onChange,
@@ -257,12 +205,12 @@ function StatusInlinePills({
   onChange: (next: TicketStatus) => void
   disabled?: boolean
 }) {
-  const items: ReadonlyArray<SegmentedItem<TicketStatus>> = STATUS_OPTIONS.map(
-    (s) => ({
-      key: s.key,
-      label: s.label,
-      icon: s.icon,
-      iconClassName: s.className
+  const items: ReadonlyArray<SegmentedItem<TicketStatus>> = STATUS_KEYS.map(
+    (key) => ({
+      key,
+      label: STATUS_META[key].label,
+      icon: STATUS_META[key].icon,
+      iconClassName: STATUS_META[key].className
     })
   )
   return (
@@ -298,7 +246,7 @@ function StatusDropdown({
   onChange: (next: TicketStatus) => void
   disabled?: boolean
 }) {
-  const current = STATUS_OPTIONS.find((s) => s.key === value) ?? STATUS_OPTIONS[0]
+  const current = STATUS_META[value] ?? STATUS_META.todo
   const Icon = current.icon
   return (
     <DropdownMenu>
@@ -308,8 +256,6 @@ function StatusDropdown({
           disabled={disabled}
           aria-label={`Status: ${current.label}. Click to change.`}
           className={cn(
-            // Compact to match the inline-pills scale — reads as part of the
-            // "Update status to:" sentence rather than a separate control.
             "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
             "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50"
@@ -324,20 +270,21 @@ function StatusDropdown({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {STATUS_OPTIONS.map((s) => {
-          const SIcon = s.icon
+        {STATUS_KEYS.map((key) => {
+          const meta = STATUS_META[key]
+          const SIcon = meta.icon
           return (
             <DropdownMenuItem
-              key={s.key}
-              onSelect={() => onChange(s.key)}
+              key={key}
+              onSelect={() => onChange(key)}
               className="cursor-pointer"
             >
               <SIcon
-                className={cn("size-4", s.className)}
+                className={cn("size-4", meta.className)}
                 strokeWidth={1.75}
               />
-              {s.label}
-              {value === s.key && (
+              {meta.label}
+              {value === key && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
             </DropdownMenuItem>
@@ -348,9 +295,6 @@ function StatusDropdown({
   )
 }
 
-// Server-driven combobox: cmdk's built-in filter is disabled (`shouldFilter={false}`);
-// the search input feeds `q` into branchesAtom which calls GitHub's GraphQL
-// refs(query:) for fuzzy match. 200ms debounce mirrors ConnectBranchFields.
 function BaseBranchCombobox({
   slug,
   value,
@@ -386,9 +330,6 @@ function BaseBranchCombobox({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            // Match the sibling Input's chrome — rounded-xl + h-9 + px-3.
-            // The combobox previously sat at rounded-md/h-8, which read as a
-            // mismatched control next to the branch-name input.
             "mt-0.5 flex h-9 w-full items-center justify-between rounded-xl border border-border bg-background px-3 font-mono text-xs",
             "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",

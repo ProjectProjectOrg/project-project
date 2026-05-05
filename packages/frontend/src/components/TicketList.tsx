@@ -17,20 +17,15 @@ import {
 } from "@/components/ui/input-group"
 import {
   ArrowDownAZ,
-  Bug,
   Check,
   ChevronDown,
-  CircleDashed,
-  CircleDot,
-  Hammer,
-  HelpCircle,
   ListChecks,
   Search,
   SlidersHorizontal,
-  Sparkles,
   UserRound,
   X
 } from "lucide-react"
+import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
 import {
   deleteTicketAtom,
   ticketAtom,
@@ -47,7 +42,7 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
-import { Badge, type BadgeTone } from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
@@ -62,33 +57,6 @@ import type {
   TicketStatus,
   TicketType
 } from "@projectproject/shared"
-
-const STATUS_META: Record<
-  TicketStatus,
-  { label: string; icon: typeof Check; className: string }
-> = {
-  todo: {
-    label: "Todo",
-    icon: CircleDashed,
-    className: "text-muted-foreground"
-  },
-  in_progress: {
-    label: "In progress",
-    icon: CircleDot,
-    className: "text-blue-500"
-  },
-  done: { label: "Done", icon: Check, className: "text-emerald-500" }
-}
-
-const TYPE_META: Record<
-  TicketType,
-  { label: string; icon: typeof Sparkles; tone: BadgeTone }
-> = {
-  feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
-  bug: { label: "Bug", icon: Bug, tone: "red" },
-  chore: { label: "Chore", icon: Hammer, tone: "amber" },
-  other: { label: "Other", icon: HelpCircle, tone: "muted" }
-}
 
 const SORTS = {
   id: { label: "ID", compare: (a: Ticket, b: Ticket) => idNum(a) - idNum(b) },
@@ -283,7 +251,9 @@ function Toolbar({
     const el = containerRef.current
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
-      setWidth(entry.contentRect.width)
+      if (!entry) return
+      const next = Math.round(entry.contentRect.width)
+      setWidth((w) => (w === next ? w : next))
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -448,27 +418,13 @@ function StatusChips({
 }) {
   const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
     { key: "all", label: "All", badge: counts.all },
-    {
-      key: "todo",
-      label: "Todo",
-      icon: CircleDashed,
-      iconClassName: STATUS_META.todo.className,
-      badge: counts.todo
-    },
-    {
-      key: "in_progress",
-      label: "In progress",
-      icon: CircleDot,
-      iconClassName: STATUS_META.in_progress.className,
-      badge: counts.in_progress
-    },
-    {
-      key: "done",
-      label: "Done",
-      icon: Check,
-      iconClassName: STATUS_META.done.className,
-      badge: counts.done
-    }
+    ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
+      key: s,
+      label: STATUS_META[s].label,
+      icon: STATUS_META[s].icon,
+      iconClassName: STATUS_META[s].className,
+      badge: counts[s]
+    }))
   ]
   return (
     <SegmentedTabs

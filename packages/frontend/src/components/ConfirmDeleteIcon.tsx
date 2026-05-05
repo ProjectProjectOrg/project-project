@@ -1,7 +1,3 @@
-// Trash-icon button that requires a confirm before firing the delete.
-// Wraps the ConfirmButton primitive so consumers don't have to reach for
-// useConfirmButton themselves.
-
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {

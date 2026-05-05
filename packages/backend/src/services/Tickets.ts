@@ -63,9 +63,6 @@ const TicketFrontmatter = Schema.Struct({
   lastTransitionedPr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
     default: () => null
   }),
-  // New canonical field. Tickets created before multi-assignee landed have
-  // a `assignee: id | null` instead — handled in `decodeFrontmatterCompat`
-  // below, which migrates the legacy field into this array on read.
   assignees: Schema.optionalWith(Schema.Array(Schema.String), {
     default: () => []
   }),
@@ -77,10 +74,6 @@ type TicketFrontmatter = typeof TicketFrontmatter.Type
 
 const decodeFrontmatter = Schema.decodeUnknown(TicketFrontmatter)
 
-// Backwards-compatible decode: legacy tickets store `assignee: id | null`.
-// Lift that into `assignees: [id]` (or `[]` for null) before validation so
-// the schema doesn't see two competing fields. Once a ticket is rewritten,
-// only `assignees` is persisted.
 function decodeFrontmatterCompat(raw: unknown) {
   if (raw && typeof raw === "object") {
     const r = raw as Record<string, unknown>
@@ -265,10 +258,6 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         yield* ensureAccess(ownerId, slug)
         const existing = yield* readTicket(slug, id)
 
-        // Verify each newly-added assignee is a project member. Collapses to
-        // NotFound on miss — wire intentionally doesn't distinguish "no such
-        // user" from "user not on this project". Existing assignees aren't
-        // re-checked (they were validated when first added).
         if (input.assignees !== undefined) {
           const existingSet = new Set(existing.assignees)
           for (const id of input.assignees) {

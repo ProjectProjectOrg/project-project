@@ -28,27 +28,12 @@ export type SegmentedItem<K extends string> = {
   key: K
   label: string
   icon?: IconCmp
-  // Tailwind class applied to the icon — lets each callsite tint its own
-  // status/type icons (e.g. todo grey, done green) without dropping into a
-  // bespoke item shape.
   iconClassName?: string
-  // Numeric or text badge rendered next to the label. Hidden when undefined.
   badge?: number | string | null
-  // Raw badge content. Bypasses the chromed badge wrapper so callsites can
-  // render arbitrary nodes (e.g. a hover-reactive count breakdown) without
-  // forcing them through the small-pill style. When set, takes precedence
-  // over `badge`.
   badgeNode?: ReactNode
-  // Used as the button/link `aria-label` when `compact` is true and the
-  // visible label is collapsed away.
   compactAriaLabel?: string
 }
 
-// Visual variants. `default` is the toolbar/tab-strip chrome (bordered
-// container, h-7 items). `inline` is a chrome-less pill row that reads as
-// part of a sentence — meant for cases like "Update status to: [Todo] [In
-// progress] [Done]" where a labeled segmented control would feel like a
-// separate control instead of a continuation of the surrounding text.
 export type SegmentedVariant = "default" | "inline"
 
 type VariantTokens = {
@@ -79,13 +64,8 @@ const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
 
 export interface SegmentedTabsProps<K extends string> {
   items: ReadonlyArray<SegmentedItem<K>>
-  // Distinct id per usage so LayoutGroups don't bleed into each other (the
-  // project-tab pill should never animate to a status chip's position).
   layoutId: string
   isActive: (key: K) => boolean
-  // The wrapper element for each item — typically `<button onClick=...>` or
-  // `<Link to=...>`. Receives the inner content (already animated/styled)
-  // and the per-item context. `key` is handled by the parent.
   renderItem: (
     item: SegmentedItem<K>,
     content: ReactNode,
@@ -208,8 +188,6 @@ export const SEGMENTED_ITEM_CLASS = (
   variant: SegmentedVariant = "default"
 ) =>
   cn(
-    // `group/seg-item` lets badge nodes react to the parent's hover state
-    // (e.g. a count badge that splits into per-status counts on hover).
     "group/seg-item relative inline-flex items-center transition-colors",
     VARIANTS[variant].itemBase,
     VARIANTS[variant].innerGap,

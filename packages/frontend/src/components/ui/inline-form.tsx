@@ -1,12 +1,3 @@
-// InlineForm — compound-component primitive for "display + actions + forms"
-// surfaces. The Root holds a small mode/busy context. Idle and Form children
-// render conditionally based on `mode`. Triggers wire themselves to open(action).
-//
-// Forms own their submit semantics (the primitive does NOT provide a Submit
-// component) but call into useInlineForm() for setBusy / close. While busy,
-// triggers and the convenience Cancel button are disabled — the form's own
-// submit button is responsible for its own disabled state.
-
 import { createContext, useCallback, useMemo, useState, use } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { X } from "lucide-react"
@@ -19,15 +10,10 @@ interface InlineFormContextValue<A extends string = string> {
   close: () => void
   busy: boolean
   setBusy: (b: boolean) => void
-  // The action whose Trigger is currently hovered, or null. Display reads
-  // this to show a per-action preview message — letting the user see what
-  // a button will do before they commit.
   hoveredAction: A | null
   setHoveredAction: (a: A | null) => void
 }
 
-// Generic-erased shape lives in the runtime context. Components annotate the
-// generic at the call site for type-narrowing; the runtime is permissive.
 const InlineFormContext = createContext<InlineFormContextValue | null>(null)
 
 export function useInlineForm<A extends string = string>() {
@@ -100,10 +86,6 @@ function Root<A extends string = string>({
   )
 }
 
-// Plain opacity crossfade between idle and form modes. Height changes snap
-// — interpolating them adds layout edge cases (focus rings clipped by
-// overflow-hidden, popLayout overhang) that aren't worth the polish payoff.
-// A 150ms crossfade reads as smooth enough on its own.
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Idle({
@@ -140,10 +122,6 @@ function Display<A extends string = string>({
 }: {
   className?: string
   children: React.ReactNode
-  // Per-action preview content. When a Trigger is hovered, the matching
-  // entry takes over the Display surface so the user sees what the action
-  // will do before they click. Crossfade keeps the swap calm — this is a
-  // hint, not a flash. Omit `previews` to opt out.
   previews?: Partial<Record<A, React.ReactNode>>
 }) {
   const { hoveredAction } = useInlineForm<A>()
@@ -228,10 +206,6 @@ function Form<A extends string>({
   children: React.ReactNode
 }) {
   const { mode, close, busy } = useInlineForm<A>()
-  // Escape cancels the form. Children can still preventDefault + stopPropagation
-  // to keep Esc for their own use (e.g. an inline editor reverting a draft) —
-  // we only act when the event bubbles all the way up. Skipped while busy so
-  // an in-flight submit can't be silently dropped.
   return (
     <AnimatePresence initial={false} mode="popLayout">
       {mode === action && (

@@ -3,11 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Geist (sans) + Geist Mono variables, plus Geist Pixel (Square) registered
- * for future fun/display use. The geist npm package's `geist/font/sans` API
- * uses next/font/local and only works in Next.js; we're on Vite, so we point
- * @font-face directly at the package's woff2 files. Vite resolves the
- * relative paths through its asset graph and fingerprints/bundles them. */
 @font-face {
   font-family: "Geist";
   font-style: normal;
@@ -26,8 +21,6 @@
     url("../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
     format("woff2-variations");
 }
-/* Registered but unused — reach for `font-family: 'Geist Pixel'` directly
- * (no token yet) when you want display flair on a hero/empty-state. */
 @font-face {
   font-family: "Geist Pixel";
   font-style: normal;
@@ -116,9 +109,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  /* `font-sans` → Geist, `font-mono` → Geist Mono. System fonts stay as
-   * fallbacks while the variable fonts load. Geist Pixel is intentionally
-   * not bound to a token — opt in per element when you want display flair. */
   --font-sans:
     "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Helvetica, Arial, sans-serif;
@@ -140,11 +130,6 @@
   }
 }
 
-/* Skeleton pulse cadence — one place to tune. Tailwind's default
- * `animate-pulse` runs at 2s; that reads as too eager next to our 150ms
- * micro-interactions. 1.6s feels deliberate without feeling stalled. Apply
- * via the `.skeleton` utility instead of `animate-pulse` so future tweaks
- * land everywhere at once. */
 .skeleton {
   animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -153,22 +138,6 @@
   50% { opacity: 0.55; }
 }
 
-/* Hover/highlight feel — instant on enter, eased on exit.
- *
- * While the cursor is over an element with a color transition (or while a
- * Radix item carries `data-highlighted`), drop the transition-duration to 0
- * so the entry style lands immediately. When the cursor leaves (or the
- * highlight clears), neither selector matches anymore, the override is gone,
- * and the element's underlying transition-duration takes over for the exit.
- *
- * Net effect: hover/highlight states snap *into* place on enter and ease
- * back out at the element's normal duration. Use `transition-colors` (default
- * 150ms) on hover-affected elements to get a 150ms exit. The `transition-all`
- * / catch-all `transition` selectors cover button-style elements that
- * transition multiple properties at once. The `[data-highlighted]` selector
- * covers Radix items where the highlight is driven by mouse + keyboard via
- * a data attribute rather than the `:hover` pseudo-class.
- */
 .transition-expand {
   transition-property: padding, background-color, color;
   transition-duration: 200ms;
