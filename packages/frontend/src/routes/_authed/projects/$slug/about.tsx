@@ -11,10 +11,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/components/LexicalEditor"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { useProject } from "./-context"
 
 export const Route = createFileRoute("/_authed/projects/$slug/about")({
@@ -53,14 +50,13 @@ function AboutTab() {
 }
 
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? "Saving…"
-      : status === "dirty"
-        ? "Unsaved changes"
-        : status === "saved"
-          ? "Saved"
-          : null
+  const label = status === "saving"
+    ? "Saving…"
+    : status === "dirty"
+    ? "Unsaved changes"
+    : status === "saved"
+    ? "Saved"
+    : null
   if (!label) return null
   return (
     <span className="text-xs text-muted-foreground tabular-nums">{label}</span>

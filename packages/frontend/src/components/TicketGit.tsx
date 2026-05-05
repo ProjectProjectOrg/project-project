@@ -32,8 +32,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type {
-  GitState,
   GithubConnection,
+  GitState,
   TicketDetail,
   TicketId
 } from "@projectproject/shared"
@@ -191,9 +191,7 @@ export function TicketGitPanel({
 
   return (
     <div className="rounded-lg border border-border bg-background px-3 py-2">
-      {state === null ? (
-        <Loading />
-      ) : (
+      {state === null ? <Loading /> : (
         <StateBody
           slug={slug}
           ticket={ticket}
@@ -209,9 +207,7 @@ export function TicketGitPanel({
 }
 
 function Loading() {
-  return (
-    <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
-  )
+  return <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
 }
 
 function StateBody({
@@ -242,7 +238,10 @@ function StateBody({
       />
     )
   }
-  if (mode === "open_pr" && (state.tag === "branch_no_pr" || state.tag === "pr_closed")) {
+  if (
+    mode === "open_pr"
+    && (state.tag === "branch_no_pr" || state.tag === "pr_closed")
+  ) {
     return (
       <OpenPrRow
         slug={slug}
@@ -257,7 +256,11 @@ function StateBody({
     return (
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="text-muted-foreground">No branch yet.</span>
-        <Button size="sm" leadingIcon={Plus} onClick={() => setMode("create_branch")}>
+        <Button
+          size="sm"
+          leadingIcon={Plus}
+          onClick={() => setMode("create_branch")}
+        >
           Create branch
         </Button>
       </div>
@@ -267,9 +270,16 @@ function StateBody({
   if (state.tag === "branch_no_pr") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.name} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.name}
+        />
         <div className="flex-1" />
-        <Button size="sm" leadingIcon={GitPullRequest} onClick={() => setMode("open_pr")}>
+        <Button
+          size="sm"
+          leadingIcon={GitPullRequest}
+          onClick={() => setMode("open_pr")}
+        >
           Open PR
         </Button>
         <ClearBranchButton slug={slug} id={ticket.id} />
@@ -280,7 +290,10 @@ function StateBody({
   if (state.tag === "pr_open") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
         <PrLink
           slug={slug}
           id={ticket.id}
@@ -298,8 +311,16 @@ function StateBody({
   if (state.tag === "pr_merged") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
-        <PrLink slug={slug} id={ticket.id} number={state.number} tone="merged" />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
+        <PrLink
+          slug={slug}
+          id={ticket.id}
+          number={state.number}
+          tone="merged"
+        />
         <span className="text-xs text-muted-foreground">
           merged · ticket auto-set to done
         </span>
@@ -310,8 +331,16 @@ function StateBody({
   if (state.tag === "pr_closed") {
     return (
       <Row>
-        <BranchChip slug={`${github.repoOwner}/${github.repoName}`} name={state.branch} />
-        <PrLink slug={slug} id={ticket.id} number={state.number} tone="closed" />
+        <BranchChip
+          slug={`${github.repoOwner}/${github.repoName}`}
+          name={state.branch}
+        />
+        <PrLink
+          slug={slug}
+          id={ticket.id}
+          number={state.number}
+          tone="closed"
+        />
         <div className="flex-1" />
         <Button
           size="sm"
@@ -373,20 +402,18 @@ function PrLink({
   tone: "open" | "draft" | "merged" | "closed"
   checks?: string
 }) {
-  const tint =
-    tone === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : tone === "closed"
-        ? "bg-muted text-muted-foreground"
-        : tone === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  const Icon =
-    tone === "merged"
-      ? GitMerge
-      : tone === "closed"
-        ? GitPullRequestClosed
-        : GitPullRequest
+  const tint = tone === "merged"
+    ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+    : tone === "closed"
+    ? "bg-muted text-muted-foreground"
+    : tone === "draft"
+    ? "bg-muted text-muted-foreground"
+    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+  const Icon = tone === "merged"
+    ? GitMerge
+    : tone === "closed"
+    ? GitPullRequestClosed
+    : GitPullRequest
   return (
     <Link
       to="/projects/$slug/review"
@@ -445,20 +472,21 @@ function CreateBranchRow({
       })
       onClose()
     } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
+      const tag = typeof e === "object" && e && "_tag" in e
+        ? String(e._tag)
+        : ""
       setError(
         tag === "BranchExists"
           ? `Branch "${name.trim()}" already exists.`
           : tag === "BranchProtected"
-            ? "Branch name is protected."
-            : tag === "GitHubTokenExpired"
-              ? "GitHub token expired."
-              : tag === "GitHubScopeInsufficient"
-                ? "GitHub scope insufficient."
-                : tag === "RepoGone"
-                  ? "Repo not accessible."
-                  : "Couldn't create branch."
+          ? "Branch name is protected."
+          : tag === "GitHubTokenExpired"
+          ? "GitHub token expired."
+          : tag === "GitHubScopeInsufficient"
+          ? "GitHub scope insufficient."
+          : tag === "RepoGone"
+          ? "Repo not accessible."
+          : "Couldn't create branch."
       )
       setBusy(false)
     }
@@ -548,18 +576,19 @@ function OpenPrRow({
       })
       onClose()
     } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
+      const tag = typeof e === "object" && e && "_tag" in e
+        ? String(e._tag)
+        : ""
       setError(
         tag === "BranchProtected"
           ? "Target branch is protected."
           : tag === "GitHubTokenExpired"
-            ? "GitHub token expired."
-            : tag === "GitHubScopeInsufficient"
-              ? "GitHub scope insufficient."
-              : tag === "RepoGone"
-                ? "Repo not accessible."
-                : "Couldn't open PR — make sure the branch has commits."
+          ? "GitHub token expired."
+          : tag === "GitHubScopeInsufficient"
+          ? "GitHub scope insufficient."
+          : tag === "RepoGone"
+          ? "Repo not accessible."
+          : "Couldn't open PR — make sure the branch has commits."
       )
       setBusy(false)
     }
@@ -568,8 +597,7 @@ function OpenPrRow({
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        Open PR from{" "}
-        <span className="font-mono text-foreground">{branch}</span>
+        Open PR from <span className="font-mono text-foreground">{branch}</span>
       </p>
       <Input
         autoFocus
@@ -594,10 +622,21 @@ function OpenPrRow({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" leadingIcon={X} onClick={onClose} disabled={busy}>
+        <Button
+          size="sm"
+          variant="ghost"
+          leadingIcon={X}
+          onClick={onClose}
+          disabled={busy}
+        >
           Cancel
         </Button>
-        <Button size="sm" leadingIcon={GitPullRequest} onClick={() => void submit()} disabled={busy}>
+        <Button
+          size="sm"
+          leadingIcon={GitPullRequest}
+          onClick={() => void submit()}
+          disabled={busy}
+        >
           {busy ? "Opening…" : "Open PR"}
         </Button>
       </div>

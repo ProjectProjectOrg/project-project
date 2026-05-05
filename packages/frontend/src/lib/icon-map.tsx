@@ -1,221 +1,268 @@
-"use client";
+"use client"
 
-import type { ComponentType } from "react";
+import type { ComponentType } from "react"
 
 // ── Lucide ──────────────────────────────────────────────────
 import {
-  ChevronRight,
-  X,
-  Copy,
-  Menu,
-  Dot,
-  Monitor,
-  Sun,
-  Moon,
-  RectangleHorizontal,
-  Circle,
-  SquareLibrary,
-  Clock,
-  Star,
-  Settings,
-  Plus,
   ArrowRight,
-  Search,
+  Bell,
+  Brain,
+  Check,
+  ChevronRight,
+  Circle,
+  Clock,
+  Copy,
+  Dot,
+  Globe,
+  Heart,
+  ImageIcon,
+  Lightbulb,
+  Link,
   Loader,
-  Users,
   Lock,
   Mail,
-  Bell,
-  Shield,
-  Palette,
-  Lightbulb,
-  Rocket,
-  Heart,
+  Menu,
+  Monitor,
+  Moon,
   Paintbrush,
-  Brain,
-  Globe,
-  User,
-  ImageIcon,
-  Link,
-  Check,
-  RotateCcw,
-  Play,
+  Palette,
   Pause,
-} from "lucide-react";
+  Play,
+  Plus,
+  RectangleHorizontal,
+  Rocket,
+  RotateCcw,
+  Search,
+  Settings,
+  Shield,
+  SquareLibrary,
+  Star,
+  Sun,
+  User,
+  Users,
+  X
+} from "lucide-react"
 
 // ── Tabler ──────────────────────────────────────────────────
 import {
-  IconChevronRight,
-  IconX,
-  IconCopy,
-  IconMenu2,
-  IconPoint,
-  IconDeviceDesktop,
-  IconSun,
-  IconMoon,
-  IconSquare,
-  IconCircle,
-  IconLibrary,
-  IconClock,
-  IconStar,
-  IconSettings,
-  IconPlus,
   IconArrowRight,
-  IconSearch,
+  IconBell,
+  IconBrain,
+  IconBrush,
+  IconBulb,
+  IconCheck,
+  IconChevronRight,
+  IconCircle,
+  IconClock,
+  IconCopy,
+  IconDeviceDesktop,
+  IconGlobe,
+  IconHeart,
+  IconLibrary,
+  IconLink,
   IconLoader2,
-  IconUsers,
   IconLock,
   IconMail,
-  IconBell,
-  IconShield,
+  IconMenu2,
+  IconMoon,
   IconPalette,
-  IconBulb,
-  IconRocket,
-  IconHeart,
-  IconBrush,
-  IconBrain,
-  IconGlobe,
-  IconUser,
   IconPhoto,
-  IconLink,
-  IconCheck,
-  IconRotate2,
-  IconPlayerPlay,
   IconPlayerPause,
-} from "@tabler/icons-react";
+  IconPlayerPlay,
+  IconPlus,
+  IconPoint,
+  IconRocket,
+  IconRotate2,
+  IconSearch,
+  IconSettings,
+  IconShield,
+  IconSquare,
+  IconStar,
+  IconSun,
+  IconUser,
+  IconUsers,
+  IconX
+} from "@tabler/icons-react"
 
 // ── Phosphor ────────────────────────────────────────────────
 import {
-  CaretRight as PhCaretRight,
-  X as PhX,
-  Copy as PhCopy,
-  List as PhList,
-  DotOutline as PhDotOutline,
-  Monitor as PhMonitor,
-  Sun as PhSun,
-  Moon as PhMoon,
-  Rectangle as PhRectangle,
-  Circle as PhCircle,
-  Books as PhBooks,
-  Clock as PhClock,
-  Star as PhStar,
-  Gear as PhGear,
-  Plus as PhPlus,
-  ArrowRight as PhArrowRight,
-  MagnifyingGlass as PhMagnifyingGlass,
-  Spinner as PhSpinner,
-  Users as PhUsers,
-  Lock as PhLock,
-  Envelope as PhEnvelope,
-  Bell as PhBell,
-  Shield as PhShield,
-  Palette as PhPalette,
-  Lightbulb as PhLightbulb,
-  Rocket as PhRocket,
-  Heart as PhHeart,
-  PaintBrush as PhPaintBrush,
-  Brain as PhBrain,
-  Globe as PhGlobe,
-  User as PhUser,
-  Image as PhImage,
-  Link as PhLink,
-  Check as PhCheck,
   ArrowCounterClockwise as PhRotateCcw,
-  Play as PhPlay,
+  ArrowRight as PhArrowRight,
+  Bell as PhBell,
+  Books as PhBooks,
+  Brain as PhBrain,
+  CaretRight as PhCaretRight,
+  Check as PhCheck,
+  Circle as PhCircle,
+  Clock as PhClock,
+  Copy as PhCopy,
+  DotOutline as PhDotOutline,
+  Envelope as PhEnvelope,
+  Gear as PhGear,
+  Globe as PhGlobe,
+  Heart as PhHeart,
+  Image as PhImage,
+  Lightbulb as PhLightbulb,
+  Link as PhLink,
+  List as PhList,
+  Lock as PhLock,
+  MagnifyingGlass as PhMagnifyingGlass,
+  Monitor as PhMonitor,
+  Moon as PhMoon,
+  PaintBrush as PhPaintBrush,
+  Palette as PhPalette,
   Pause as PhPause,
-} from "@phosphor-icons/react";
+  Play as PhPlay,
+  Plus as PhPlus,
+  Rectangle as PhRectangle,
+  Rocket as PhRocket,
+  Shield as PhShield,
+  Spinner as PhSpinner,
+  Star as PhStar,
+  Sun as PhSun,
+  User as PhUser,
+  Users as PhUsers,
+  X as PhX
+} from "@phosphor-icons/react"
 
 // ── HugeIcons ───────────────────────────────────────────────
-import { HugeiconsIcon } from "@hugeicons/react";
-import HiChevronRight from "@hugeicons/core-free-icons/ArrowRight01Icon";
-import HiX from "@hugeicons/core-free-icons/Cancel01Icon";
-import HiCopy from "@hugeicons/core-free-icons/Copy01Icon";
-import HiMenu from "@hugeicons/core-free-icons/Menu01Icon";
-import HiDot from "@hugeicons/core-free-icons/CircleIcon";
-import HiMonitor from "@hugeicons/core-free-icons/ComputerIcon";
-import HiSun from "@hugeicons/core-free-icons/Sun01Icon";
-import HiMoon from "@hugeicons/core-free-icons/Moon01Icon";
-import HiRectangle from "@hugeicons/core-free-icons/DashboardCircleIcon";
-import HiLibrary from "@hugeicons/core-free-icons/LibraryIcon";
-import HiClock from "@hugeicons/core-free-icons/Clock01Icon";
-import HiStar from "@hugeicons/core-free-icons/StarIcon";
-import HiSettings from "@hugeicons/core-free-icons/Settings01Icon";
-import HiPlus from "@hugeicons/core-free-icons/PlusSignIcon";
-import HiArrowRight from "@hugeicons/core-free-icons/ArrowRight01Icon";
-import HiSearch from "@hugeicons/core-free-icons/Search01Icon";
-import HiLoader from "@hugeicons/core-free-icons/Loading01Icon";
-import HiUsers from "@hugeicons/core-free-icons/UserGroupIcon";
-import HiLock from "@hugeicons/core-free-icons/LockIcon";
-import HiMail from "@hugeicons/core-free-icons/Mail01Icon";
-import HiBell from "@hugeicons/core-free-icons/Notification01Icon";
-import HiShield from "@hugeicons/core-free-icons/Shield01Icon";
-import HiPalette from "@hugeicons/core-free-icons/PaintBrush01Icon";
-import HiLightbulb from "@hugeicons/core-free-icons/BulbIcon";
-import HiRocket from "@hugeicons/core-free-icons/Rocket01Icon";
-import HiHeart from "@hugeicons/core-free-icons/FavouriteIcon";
-import HiPaintbrush from "@hugeicons/core-free-icons/PaintBrush02Icon";
-import HiBrain from "@hugeicons/core-free-icons/BrainIcon";
-import HiGlobe from "@hugeicons/core-free-icons/GlobeIcon";
-import HiUser from "@hugeicons/core-free-icons/UserIcon";
-import HiImage from "@hugeicons/core-free-icons/Image01Icon";
-import HiLink from "@hugeicons/core-free-icons/Link01Icon";
-import HiCheck from "@hugeicons/core-free-icons/Tick02Icon";
-import HiRotateCcw from "@hugeicons/core-free-icons/ArrowReloadHorizontalIcon";
+import { HugeiconsIcon } from "@hugeicons/react"
+import HiChevronRight from "@hugeicons/core-free-icons/ArrowRight01Icon"
+import HiX from "@hugeicons/core-free-icons/Cancel01Icon"
+import HiCopy from "@hugeicons/core-free-icons/Copy01Icon"
+import HiMenu from "@hugeicons/core-free-icons/Menu01Icon"
+import HiDot from "@hugeicons/core-free-icons/CircleIcon"
+import HiMonitor from "@hugeicons/core-free-icons/ComputerIcon"
+import HiSun from "@hugeicons/core-free-icons/Sun01Icon"
+import HiMoon from "@hugeicons/core-free-icons/Moon01Icon"
+import HiRectangle from "@hugeicons/core-free-icons/DashboardCircleIcon"
+import HiLibrary from "@hugeicons/core-free-icons/LibraryIcon"
+import HiClock from "@hugeicons/core-free-icons/Clock01Icon"
+import HiStar from "@hugeicons/core-free-icons/StarIcon"
+import HiSettings from "@hugeicons/core-free-icons/Settings01Icon"
+import HiPlus from "@hugeicons/core-free-icons/PlusSignIcon"
+import HiArrowRight from "@hugeicons/core-free-icons/ArrowRight01Icon"
+import HiSearch from "@hugeicons/core-free-icons/Search01Icon"
+import HiLoader from "@hugeicons/core-free-icons/Loading01Icon"
+import HiUsers from "@hugeicons/core-free-icons/UserGroupIcon"
+import HiLock from "@hugeicons/core-free-icons/LockIcon"
+import HiMail from "@hugeicons/core-free-icons/Mail01Icon"
+import HiBell from "@hugeicons/core-free-icons/Notification01Icon"
+import HiShield from "@hugeicons/core-free-icons/Shield01Icon"
+import HiPalette from "@hugeicons/core-free-icons/PaintBrush01Icon"
+import HiLightbulb from "@hugeicons/core-free-icons/BulbIcon"
+import HiRocket from "@hugeicons/core-free-icons/Rocket01Icon"
+import HiHeart from "@hugeicons/core-free-icons/FavouriteIcon"
+import HiPaintbrush from "@hugeicons/core-free-icons/PaintBrush02Icon"
+import HiBrain from "@hugeicons/core-free-icons/BrainIcon"
+import HiGlobe from "@hugeicons/core-free-icons/GlobeIcon"
+import HiUser from "@hugeicons/core-free-icons/UserIcon"
+import HiImage from "@hugeicons/core-free-icons/Image01Icon"
+import HiLink from "@hugeicons/core-free-icons/Link01Icon"
+import HiCheck from "@hugeicons/core-free-icons/Tick02Icon"
+import HiRotateCcw from "@hugeicons/core-free-icons/ArrowReloadHorizontalIcon"
 
 // ── Types ───────────────────────────────────────────────────
 
 export interface IconComponentProps {
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
+  size?: number
+  strokeWidth?: number
+  className?: string
 }
 
-export type IconComponent = ComponentType<IconComponentProps>;
+export type IconComponent = ComponentType<IconComponentProps>
 
-export type IconLibrary = "lucide" | "tabler" | "phosphor" | "hugeicons";
+export type IconLibrary = "lucide" | "tabler" | "phosphor" | "hugeicons"
 
 export type IconName =
-  | "chevron-right" | "x" | "copy" | "menu" | "dot"
-  | "monitor" | "sun" | "moon" | "rectangle-horizontal" | "circle"
-  | "square-library" | "clock" | "star" | "settings"
-  | "plus" | "arrow-right" | "search" | "loader"
-  | "users" | "lock" | "mail" | "bell" | "shield" | "palette"
-  | "lightbulb" | "rocket" | "heart" | "paintbrush" | "brain"
-  | "globe" | "user"
-  | "image" | "link" | "check" | "rotate-ccw"
-  | "play" | "pause";
+  | "chevron-right"
+  | "x"
+  | "copy"
+  | "menu"
+  | "dot"
+  | "monitor"
+  | "sun"
+  | "moon"
+  | "rectangle-horizontal"
+  | "circle"
+  | "square-library"
+  | "clock"
+  | "star"
+  | "settings"
+  | "plus"
+  | "arrow-right"
+  | "search"
+  | "loader"
+  | "users"
+  | "lock"
+  | "mail"
+  | "bell"
+  | "shield"
+  | "palette"
+  | "lightbulb"
+  | "rocket"
+  | "heart"
+  | "paintbrush"
+  | "brain"
+  | "globe"
+  | "user"
+  | "image"
+  | "link"
+  | "check"
+  | "rotate-ccw"
+  | "play"
+  | "pause"
 
-export const iconLibraryOrder: IconLibrary[] = ["lucide", "tabler", "phosphor", "hugeicons"];
+export const iconLibraryOrder: IconLibrary[] = [
+  "lucide",
+  "tabler",
+  "phosphor",
+  "hugeicons"
+]
 
 export const iconLibraryLabels: Record<IconLibrary, string> = {
   lucide: "Lucide",
   tabler: "Tabler",
   phosphor: "Phosphor",
-  hugeicons: "HugeIcons",
-};
+  hugeicons: "HugeIcons"
+}
 
 // ── Adapter Factories ───────────────────────────────────────
 
 // Tabler: `strokeWidth` → `stroke` prop
-function tabler(Icon: ComponentType<{ size?: number; stroke?: number; className?: string }>): IconComponent {
-  return function TablerAdapter({ size, strokeWidth, className }: IconComponentProps) {
-    return <Icon size={size} stroke={strokeWidth} className={className} />;
-  };
+function tabler(
+  Icon: ComponentType<{ size?: number; stroke?: number; className?: string }>
+): IconComponent {
+  return function TablerAdapter(
+    { size, strokeWidth, className }: IconComponentProps
+  ) {
+    return <Icon size={size} stroke={strokeWidth} className={className} />
+  }
 }
 
 // Phosphor: uses filled paths per weight variant, not CSS stroke.
 // Map numeric strokeWidth → discrete weight prop.
-type PhosphorWeight = "thin" | "light" | "regular" | "bold";
-function phosphor(Icon: ComponentType<{ size?: number; weight?: PhosphorWeight; className?: string }>): IconComponent {
-  return function PhosphorAdapter({ size, strokeWidth, className }: IconComponentProps) {
-    const weight: PhosphorWeight = strokeWidth != null && strokeWidth >= 1.75 ? "regular" : "light";
-    return <Icon size={size} weight={weight} className={className} />;
-  };
+type PhosphorWeight = "thin" | "light" | "regular" | "bold"
+function phosphor(
+  Icon: ComponentType<
+    { size?: number; weight?: PhosphorWeight; className?: string }
+  >
+): IconComponent {
+  return function PhosphorAdapter(
+    { size, strokeWidth, className }: IconComponentProps
+  ) {
+    const weight: PhosphorWeight = strokeWidth != null && strokeWidth >= 1.75
+      ? "regular"
+      : "light"
+    return <Icon size={size} weight={weight} className={className} />
+  }
 }
 
 // HugeIcons: wraps icon definition in HugeiconsIcon renderer
 function hugeicons(iconDef: unknown): IconComponent {
-  return function HugeIconsAdapter({ size, strokeWidth, className }: IconComponentProps) {
+  return function HugeIconsAdapter(
+    { size, strokeWidth, className }: IconComponentProps
+  ) {
     return (
       <HugeiconsIcon
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,8 +271,8 @@ function hugeicons(iconDef: unknown): IconComponent {
         strokeWidth={strokeWidth}
         className={className}
       />
-    );
-  };
+    )
+  }
 }
 
 // ── Icon Maps ───────────────────────────────────────────────
@@ -267,8 +314,8 @@ const lucideMap: Record<IconName, IconComponent> = {
   "check": Check,
   "rotate-ccw": RotateCcw,
   "play": Play,
-  "pause": Pause,
-};
+  "pause": Pause
+}
 
 const tablerMap: Record<IconName, IconComponent> = {
   "chevron-right": tabler(IconChevronRight),
@@ -307,8 +354,8 @@ const tablerMap: Record<IconName, IconComponent> = {
   "check": tabler(IconCheck),
   "rotate-ccw": tabler(IconRotate2),
   "play": tabler(IconPlayerPlay),
-  "pause": tabler(IconPlayerPause),
-};
+  "pause": tabler(IconPlayerPause)
+}
 
 const phosphorMap: Record<IconName, IconComponent> = {
   "chevron-right": phosphor(PhCaretRight),
@@ -347,8 +394,8 @@ const phosphorMap: Record<IconName, IconComponent> = {
   "check": phosphor(PhCheck),
   "rotate-ccw": phosphor(PhRotateCcw),
   "play": phosphor(PhPlay),
-  "pause": phosphor(PhPause),
-};
+  "pause": phosphor(PhPause)
+}
 
 const hugeiconsMap: Record<IconName, IconComponent> = {
   "chevron-right": hugeicons(HiChevronRight),
@@ -387,8 +434,8 @@ const hugeiconsMap: Record<IconName, IconComponent> = {
   "check": hugeicons(HiCheck),
   "rotate-ccw": hugeicons(HiRotateCcw),
   "play": Play,
-  "pause": Pause,
-};
+  "pause": Pause
+}
 
 // ── Unified Map ─────────────────────────────────────────────
 
@@ -396,5 +443,5 @@ export const iconMap: Record<IconLibrary, Record<IconName, IconComponent>> = {
   lucide: lucideMap,
   tabler: tablerMap,
   phosphor: phosphorMap,
-  hugeicons: hugeiconsMap,
-};
+  hugeicons: hugeiconsMap
+}

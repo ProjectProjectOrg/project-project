@@ -22,8 +22,8 @@ import {
   GitPullRequest,
   GitPullRequestClosed
 } from "lucide-react"
-import { useEffect, useMemo, useRef, type CSSProperties } from "react"
-import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
+import { type CSSProperties, useEffect, useMemo, useRef } from "react"
+import { reviewKey, ticketReviewAtom } from "@/atoms/reviews"
 import { useTheme } from "@/hooks/useTheme"
 import { cn } from "@/lib/utils"
 import type {
@@ -62,7 +62,11 @@ function ReviewBody({ slug, ticketId }: { slug: string; ticketId: TicketId }) {
   return Result.matchWithError(result, {
     onInitial: () => <ReviewSkeleton />,
     onError: (error) => (
-      <ReviewError slug={slug} ticketId={ticketId} tag={error._tag} />
+      <ReviewError
+        slug={slug}
+        ticketId={ticketId}
+        tag={error._tag}
+      />
     ),
     onDefect: () => (
       <ReviewError slug={slug} ticketId={ticketId} tag="GitHubError" />
@@ -119,14 +123,13 @@ function ReviewHeader({
   slug: string
   ticketId: TicketId
 }) {
-  const status: PrStatus =
-    bundle.state === "merged"
-      ? "merged"
-      : bundle.state === "closed"
-        ? "closed"
-        : bundle.draft
-          ? "draft"
-          : "open"
+  const status: PrStatus = bundle.state === "merged"
+    ? "merged"
+    : bundle.state === "closed"
+    ? "closed"
+    : bundle.draft
+    ? "draft"
+    : "open"
 
   return (
     <div className="px-5 py-4">
@@ -205,20 +208,18 @@ function Dot() {
 type PrStatus = "open" | "draft" | "merged" | "closed"
 
 function PrStatusChip({ status }: { status: PrStatus }) {
-  const tint =
-    status === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : status === "closed"
-        ? "bg-muted text-muted-foreground"
-        : status === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  const Icon =
-    status === "merged"
-      ? GitMerge
-      : status === "closed"
-        ? GitPullRequestClosed
-        : GitPullRequest
+  const tint = status === "merged"
+    ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+    : status === "closed"
+    ? "bg-muted text-muted-foreground"
+    : status === "draft"
+    ? "bg-muted text-muted-foreground"
+    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+  const Icon = status === "merged"
+    ? GitMerge
+    : status === "closed"
+    ? GitPullRequestClosed
+    : GitPullRequest
   return (
     <span
       className={cn(
@@ -386,7 +387,9 @@ function FileTree({
   )
 }
 
-function toTreeGitStatus(file: ReviewFileSummary): ReadonlyArray<GitStatusEntry> {
+function toTreeGitStatus(
+  file: ReviewFileSummary
+): ReadonlyArray<GitStatusEntry> {
   switch (file.status) {
     case "added":
       return [{ path: file.path, status: "added" }]

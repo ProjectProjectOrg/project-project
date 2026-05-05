@@ -30,11 +30,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import type {
-  GithubConnection,
-  GithubRepo,
-  Role
-} from "@projectproject/shared"
+import type { GithubConnection, GithubRepo, Role } from "@projectproject/shared"
 
 type Props = {
   slug: string
@@ -98,14 +94,13 @@ function ConnectedChip({
   canManage: boolean
 }) {
   const url = `https://github.com/${github.repoOwner}/${github.repoName}`
-  const warning =
-    flag === "token_expired"
-      ? "GitHub token expired"
-      : flag === "scope"
-        ? "GitHub scope insufficient"
-        : flag === "repo_gone"
-          ? "Repo not accessible"
-          : null
+  const warning = flag === "token_expired"
+    ? "GitHub token expired"
+    : flag === "scope"
+    ? "GitHub scope insufficient"
+    : flag === "repo_gone"
+    ? "Repo not accessible"
+    : null
 
   if (warning) {
     return (
@@ -194,16 +189,17 @@ function ConnectPanel({ slug }: { slug: string }) {
         defaultBaseBranch: null
       })
     } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
+      const tag = typeof e === "object" && e && "_tag" in e
+        ? String(e._tag)
+        : ""
       setError(
         tag === "GitHubTokenExpired" || tag === "NoGithubToken"
           ? "GitHub token expired — re-authenticate."
           : tag === "GitHubScopeInsufficient"
-            ? "Insufficient scope on GitHub token."
-            : tag === "RepoGone"
-              ? "Repo not accessible."
-              : "Couldn't connect repo."
+          ? "Insufficient scope on GitHub token."
+          : tag === "RepoGone"
+          ? "Repo not accessible."
+          : "Couldn't connect repo."
       )
       setBusyKey(null)
     }
@@ -245,33 +241,35 @@ function ConnectPanel({ slug }: { slug: string }) {
           ),
           onSuccess: ({ value }) => (
             <>
-              {value.repos.length === 0 ? (
-                <li className="px-2 py-3 text-sm text-muted-foreground">
-                  No repos.
-                </li>
-              ) : (
-                value.repos.map((repo) => {
-                  const key = `${repo.owner}/${repo.name}`
-                  const busy = busyKey === key
-                  return (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        disabled={busy || busyKey !== null}
-                        onClick={() => void pick(repo)}
-                        className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
-                      >
-                        <span className="min-w-0 flex-1 truncate font-mono">
-                          {repo.owner}/{repo.name}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {repo.private ? "private" : "public"}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })
-              )}
+              {value.repos.length === 0
+                ? (
+                  <li className="px-2 py-3 text-sm text-muted-foreground">
+                    No repos.
+                  </li>
+                )
+                : (
+                  value.repos.map((repo) => {
+                    const key = `${repo.owner}/${repo.name}`
+                    const busy = busyKey === key
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          disabled={busy || busyKey !== null}
+                          onClick={() => void pick(repo)}
+                          className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
+                        >
+                          <span className="min-w-0 flex-1 truncate font-mono">
+                            {repo.owner}/{repo.name}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {repo.private ? "private" : "public"}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })
+                )}
             </>
           )
         })}
@@ -340,44 +338,45 @@ function ManagePanel({
         </p>
       </div>
       <div className="border-t border-border pt-3">
-        {!confirmDisconnect ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDisconnect(true)}
-            className="text-xs text-destructive hover:underline"
-          >
-            Disconnect repo
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              Disconnect{" "}
-              <span className="font-mono">
-                {github.repoOwner}/{github.repoName}
+        {!confirmDisconnect
+          ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDisconnect(true)}
+              className="text-xs text-destructive hover:underline"
+            >
+              Disconnect repo
+            </button>
+          )
+          : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Disconnect{" "}
+                <span className="font-mono">
+                  {github.repoOwner}/{github.repoName}
+                </span>
+                ?
               </span>
-              ?
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              onClick={() => void disconnect({ slug })}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Disconnect
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirmDisconnect(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={() => void disconnect({ slug })}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Disconnect
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmDisconnect(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
       </div>
     </div>
   )
 }
-

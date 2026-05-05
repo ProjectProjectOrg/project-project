@@ -1,10 +1,6 @@
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, type FormEvent } from "react"
+import { type FormEvent, useState } from "react"
 import { motion } from "framer-motion"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
@@ -21,7 +17,9 @@ import { formatRelative } from "@/lib/relative-time"
 
 export const Route = createFileRoute("/_authed/projects/")({
   component: Projects,
-  loader: () => ({ crumb: { type: "static" as const, label: "Projects", to: "/projects" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Projects", to: "/projects" }
+  })
 })
 
 function Projects() {
@@ -37,9 +35,11 @@ function Projects() {
 
       <CreateRow onFocusChange={setCreating} />
 
-      {/* Same intent-driven dim pattern as the ticket list: when the user
+      {
+        /* Same intent-driven dim pattern as the ticket list: when the user
           is composing a new project the existing list dims to pull focus
-          to the input. Pure visual hint — clicks below stay enabled. */}
+          to the input. Pure visual hint — clicks below stay enabled. */
+      }
       <motion.div
         animate={{ opacity: creating ? 0.35 : 1 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
@@ -53,17 +53,17 @@ function Projects() {
             <ListMessage>Something went wrong: {String(defect)}</ListMessage>
           ),
           onSuccess: ({ value }) =>
-            value.length === 0 ? (
-              <EmptyProjects />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {value.map((project) => (
-                  <li key={project.slug}>
-                    <ProjectRow project={project} />
-                  </li>
-                ))}
-              </ul>
-            )
+            value.length === 0
+              ? <EmptyProjects />
+              : (
+                <ul className="flex flex-col gap-2">
+                  {value.map((project) => (
+                    <li key={project.slug}>
+                      <ProjectRow project={project} />
+                    </li>
+                  ))}
+                </ul>
+              )
         })}
       </motion.div>
     </PageContainer>
@@ -192,8 +192,8 @@ function EmptyProjects() {
       <div className="text-sm font-medium">No projects yet</div>
       <p className="max-w-xs text-xs text-muted-foreground">
         Type a name above and press Enter to create your first project.
-        Everything is stored as markdown on disk — yours to grep, edit, or
-        feed to an AI.
+        Everything is stored as markdown on disk — yours to grep, edit, or feed
+        to an AI.
       </p>
     </div>
   )

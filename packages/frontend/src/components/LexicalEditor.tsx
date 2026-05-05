@@ -14,7 +14,11 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS
 } from "@lexical/markdown"
-import { CodeHighlightNode, CodeNode, registerCodeHighlighting } from "@lexical/code"
+import {
+  CodeHighlightNode,
+  CodeNode,
+  registerCodeHighlighting
+} from "@lexical/code"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { ListItemNode, ListNode } from "@lexical/list"
 import { LinkNode } from "@lexical/link"
@@ -159,7 +163,8 @@ export function LexicalEditor({
     editorState: () => {
       $convertFromMarkdownString(markdown, TRANSFORMERS)
     }
-  }).current
+  })
+    .current
 
   // The editor's current serialized markdown — updated on every change. Used
   // to suppress no-op fires of OnChangePlugin.
@@ -187,7 +192,8 @@ export function LexicalEditor({
     pending.current = null
     inflight.current = true
     setStatus("saving")
-    Promise.resolve(onChange(next))
+    Promise
+      .resolve(onChange(next))
       .then(() => setStatus("saved"))
       .catch((err) => {
         console.error("[LexicalEditor] save failed", err)

@@ -43,18 +43,18 @@ export function MemberAvatar({
       }}
       aria-hidden
     >
-      {showImage ? (
-        <img
-          src={member.image!}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onError={() => setErrored(true)}
-          className="size-full object-cover"
-        />
-      ) : (
-        initial
-      )}
+      {showImage
+        ? (
+          <img
+            src={member.image!}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setErrored(true)}
+            className="size-full object-cover"
+          />
+        )
+        : initial}
     </span>
   )
 }

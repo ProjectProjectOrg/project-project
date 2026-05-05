@@ -15,14 +15,17 @@
 ## File Map
 
 **Create:**
+
 - `packages/frontend/src/atoms/reviews.ts` — atom family for fetching review bundles, mirrors `atoms/tickets.ts`.
 - `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx` — the route component, plus colocated `ReviewHeader`, `FileTree`, `Diff`, `pathsToTree`, error/skeleton renderers.
 
 **Modify:**
+
 - `packages/frontend/package.json` — add `@pierre/diffs` and `@pierre/trees` dependencies.
 - `packages/frontend/src/components/TicketGit.tsx` — `PrLink` (lines 361–406) accepts `slug`/`id`, renders `<Link>` instead of `<a>`. Three call sites at lines 283, 300, 312 forward the new props.
 
 **Generated (don't edit by hand):**
+
 - `packages/frontend/src/routeTree.gen.ts` — TanStack Router plugin regenerates this on dev/build.
 
 ---
@@ -38,6 +41,7 @@ If the test environment lacks a PR-bearing ticket, set one up manually via the e
 ## Task 1: Add `@pierre/diffs` and `@pierre/trees` dependencies
 
 **Files:**
+
 - Modify: `packages/frontend/package.json`
 
 The user has already approved these libraries in the design spec, so this task installs them.
@@ -87,6 +91,7 @@ git commit -m "feat(frontend): add @pierre/diffs and @pierre/trees deps"
 ## Task 2: Create the review atom family
 
 **Files:**
+
 - Create: `packages/frontend/src/atoms/reviews.ts`
 
 Mirrors `ticketAtom` from `atoms/tickets.ts:25-37` exactly: family keyed by `${slug}/${id}`, splits on the first `/`, calls `client.reviews.getForTicket`, 30-second TTL.
@@ -142,6 +147,7 @@ git commit -m "feat(frontend): add ticketReviewAtom family"
 ## Task 3: Scaffold the review route with raw bundle rendering
 
 **Files:**
+
 - Create: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
 Goal: minimal route that loads the atom and dumps the bundle as JSON. Confirms wiring (route registration, params, atom resolution) end-to-end before we layer UI on top.
@@ -156,7 +162,7 @@ Create the file (TanStack Router will create `routeTree.gen.ts` entries automati
 
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
-import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
+import { reviewKey, ticketReviewAtom } from "@/atoms/reviews"
 import type { TicketId } from "@projectproject/shared"
 
 export const Route = createFileRoute(
@@ -224,6 +230,7 @@ git commit -m "feat(frontend): scaffold PR review route"
 ## Task 4: Update `PrLink` to navigate internally
 
 **Files:**
+
 - Modify: `packages/frontend/src/components/TicketGit.tsx` (lines 283–315 call sites and 361–406 component definition)
 
 Replace the `<a href={...github.com}>` with a TanStack `<Link>` to the new route. Add `slug` and `id` props to the component. Update the three call sites in `StateBody` to forward them.
@@ -246,20 +253,18 @@ function PrLink({
   tone: "open" | "draft" | "merged" | "closed"
   checks?: string
 }) {
-  const tint =
-    tone === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : tone === "closed"
-        ? "bg-muted text-muted-foreground"
-        : tone === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  const Icon =
-    tone === "merged"
-      ? GitMerge
-      : tone === "closed"
-        ? GitPullRequestClosed
-        : GitPullRequest
+  const tint = tone === "merged"
+    ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+    : tone === "closed"
+    ? "bg-muted text-muted-foreground"
+    : tone === "draft"
+    ? "bg-muted text-muted-foreground"
+    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+  const Icon = tone === "merged"
+    ? GitMerge
+    : tone === "closed"
+    ? GitPullRequestClosed
+    : GitPullRequest
   return (
     <Link
       to="/projects/$slug/tickets/$id/review"
@@ -283,6 +288,7 @@ function PrLink({
 ```
 
 Notes:
+
 - `url` prop is removed (the GitHub URL stays in the bundle and gets surfaced as a header link in Task 5).
 - `Link` import comes from `@tanstack/react-router` — add it to the existing import block at the top of the file.
 
@@ -364,6 +370,7 @@ git commit -m "feat(frontend): swap PrLink to internal review route"
 ## Task 5: Build `ReviewHeader`
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
 Replace the JSON dump with a real header: title, status chip, branches, stats, author, "Open in GitHub", back-to-ticket link.
@@ -385,17 +392,10 @@ import {
   GitPullRequest,
   GitPullRequestClosed
 } from "lucide-react"
-import { ticketReviewAtom, reviewKey } from "@/atoms/reviews"
-import {
-  Card,
-  CardContent,
-  CardHeader
-} from "@/components/ui/card"
+import { reviewKey, ticketReviewAtom } from "@/atoms/reviews"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import type {
-  PullRequestReviewBundle,
-  TicketId
-} from "@projectproject/shared"
+import type { PullRequestReviewBundle, TicketId } from "@projectproject/shared"
 
 export const Route = createFileRoute(
   "/_authed/projects/$slug/tickets/$id/review"
@@ -415,7 +415,11 @@ function ReviewPage() {
   return Result.matchWithError(result, {
     onInitial: () => <ReviewSkeleton />,
     onError: (error) => (
-      <ReviewError slug={slug} id={id as TicketId} tag={error._tag} />
+      <ReviewError
+        slug={slug}
+        id={id as TicketId}
+        tag={error._tag}
+      />
     ),
     onDefect: () => (
       <ReviewError slug={slug} id={id as TicketId} tag="GitHubError" />
@@ -448,10 +452,10 @@ function ReviewHeader({
     bundle.state === "merged"
       ? "merged"
       : bundle.state === "closed"
-        ? "closed"
-        : bundle.draft
-          ? "draft"
-          : "open"
+      ? "closed"
+      : bundle.draft
+      ? "draft"
+      : "open"
 
   return (
     <div className="flex flex-col gap-3">
@@ -524,20 +528,18 @@ function PrStatusChip({
 }: {
   status: "open" | "draft" | "merged" | "closed"
 }) {
-  const tint =
-    status === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : status === "closed"
-        ? "bg-muted text-muted-foreground"
-        : status === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  const Icon =
-    status === "merged"
-      ? GitMerge
-      : status === "closed"
-        ? GitPullRequestClosed
-        : GitPullRequest
+  const tint = status === "merged"
+    ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+    : status === "closed"
+    ? "bg-muted text-muted-foreground"
+    : status === "draft"
+    ? "bg-muted text-muted-foreground"
+    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+  const Icon = status === "merged"
+    ? GitMerge
+    : status === "closed"
+    ? GitPullRequestClosed
+    : GitPullRequest
   return (
     <span
       className={cn(
@@ -626,9 +628,10 @@ git commit -m "feat(frontend): render review header card"
 ## Task 6: Render the diff with `@pierre/diffs`
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
-Swap the raw `<pre>` patch dump for per-file `<FileDiff>` blocks. The library's `MultiFileDiff` is *not* what its name suggests — it compares two single-file versions. `PatchDiff` only handles a single-file patch (calls `getSingularPatch` internally). For our multi-file PR patch we use `parsePatchFiles(patch)` to get an array of `FileDiffMetadata`, then render one `<FileDiff>` per entry. This also positions us for per-file anchors in Task 9 with no rework.
+Swap the raw `<pre>` patch dump for per-file `<FileDiff>` blocks. The library's `MultiFileDiff` is _not_ what its name suggests — it compares two single-file versions. `PatchDiff` only handles a single-file patch (calls `getSingularPatch` internally). For our multi-file PR patch we use `parsePatchFiles(patch)` to get an array of `FileDiffMetadata`, then render one `<FileDiff>` per entry. This also positions us for per-file anchors in Task 9 with no rework.
 
 - [ ] **Step 1: Add a `Diff` component and use it**
 
@@ -703,7 +706,7 @@ git commit -m "feat(frontend): render PR diff via @pierre/diffs"
 
 ## Task 7: ~~Build the `pathsToTree` utility~~ — SKIPPED
 
-Confirmed against `node_modules/@pierre/trees/dist/model/types.d.ts`: `useFileTree` takes `FileTreeInputOptions` which expects `paths: readonly string[]` — a flat list of path strings, *not* a nested tree object. The library builds the tree internally.
+Confirmed against `node_modules/@pierre/trees/dist/model/types.d.ts`: `useFileTree` takes `FileTreeInputOptions` which expects `paths: readonly string[]` — a flat list of path strings, _not_ a nested tree object. The library builds the tree internally.
 
 No `pathsToTree` utility is needed. Task 8 passes `bundle.files.map(f => f.path)` directly to `useFileTree`. No code, no commit for this task.
 
@@ -712,6 +715,7 @@ No `pathsToTree` utility is needed. Task 8 passes `bundle.files.map(f => f.path)
 ## Task 8: Render the file tree with `@pierre/trees`
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
 Add a `FileTree` component that wraps `useFileTree`. Render it next to the diff in a 2-column layout.
@@ -756,6 +760,7 @@ function FileTree({
 ```
 
 API confirmed against `node_modules/@pierre/trees/dist/react/`:
+
 - `useFileTree(options)` returns `{ model: FileTree }` — destructure `.model`.
 - `useFileTreeSelection(model)` returns `readonly string[]`.
 - `<FileTree>` (our `PierreFileTree`) takes a `model` prop.
@@ -810,6 +815,7 @@ git commit -m "feat(frontend): render review file tree alongside diff"
 ## Task 9: Wire tree selection to scroll the diff
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
 When a path is selected in the tree, scroll the diff to that file's anchor.
@@ -897,6 +903,7 @@ git commit -m "feat(frontend): scroll diff to selected file from review tree"
 ## Task 10: Build the full error-state taxonomy
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/projects/$slug/tickets/$id/review.tsx`
 
 Replace the placeholder `ReviewError` component with the full per-tag mapping from the spec.
@@ -982,6 +989,7 @@ cd packages/frontend && bun run typecheck
 - [ ] **Step 3: Browser check**
 
 Hit at least one error path manually:
+
 - Navigate to a ticket with no PR (`NotFound`).
 - (Optional, harder to reproduce locally) navigate to a ticket whose project has no repo connection (`Conflict`).
 
@@ -999,6 +1007,7 @@ git commit -m "feat(frontend): full error taxonomy for review page"
 ## Task 11: Final cross-flow check
 
 **Files:**
+
 - None — verification only.
 
 End-to-end browser walk-through to make sure no regressions slipped in.
@@ -1014,6 +1023,7 @@ Expected: zero errors.
 - [ ] **Step 2: Walk the happy path**
 
 In the dev server, with a project that has at least one ticket with an open PR:
+
 1. Navigate to the project, expand the ticket panel.
 2. Click the green PR badge in the panel.
 3. Land on the review page. Verify: header, status chip, base/head, +/−/files, author all match the GitHub PR.
@@ -1036,6 +1046,7 @@ On the project page (without entering the review), expand any ticket with an ope
 - [ ] **Step 6: Tag-check the design spec checklist**
 
 Open `docs/superpowers/specs/2026-05-04-pr-review-frontend-design.md` and tick off each goal:
+
 - Open the PR diff inside the app instead of bouncing to GitHub. ✓
 - PR context shown (title, status, branches, stats, author). ✓
 - File tree on the left, diff on the right; selection scrolls. ✓

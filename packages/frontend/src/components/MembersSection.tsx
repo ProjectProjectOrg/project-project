@@ -11,7 +11,7 @@
 //     The server still enforces; this just keeps the UI honest.
 
 import { useAtomSet } from "@effect-atom/atom-react"
-import { useState, type FormEvent } from "react"
+import { type FormEvent, useState } from "react"
 import { motion } from "framer-motion"
 import {
   Check,
@@ -41,13 +41,12 @@ import {
 } from "@/components/ui/input-group"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { cn } from "@/lib/utils"
-import type {
-  AssignableRole,
-  Member,
-  Role
-} from "@projectproject/shared"
+import type { AssignableRole, Member, Role } from "@projectproject/shared"
 
-const ROLE_META: Record<Role, { label: string; icon: typeof Crown; tint: string }> = {
+const ROLE_META: Record<
+  Role,
+  { label: string; icon: typeof Crown; tint: string }
+> = {
   owner: {
     label: "Owner",
     icon: Crown,
@@ -90,9 +89,11 @@ export function MembersSection({
 
       {canManage && <AddMemberRow slug={slug} onFocusChange={setAdding} />}
 
-      {/* Same intent-driven dim used elsewhere — when the user is composing
+      {
+        /* Same intent-driven dim used elsewhere — when the user is composing
           a new member, the existing list quiets down to pull focus to the
-          add row. Pure visual hint, clicks below stay enabled. */}
+          add row. Pure visual hint, clicks below stay enabled. */
+      }
       <motion.ul
         animate={{ opacity: adding ? 0.35 : 1 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
@@ -249,12 +250,14 @@ function MemberRow({
           )}
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          {member.username ? (
-            <>
-              <span className="font-mono">@{member.username}</span>
-              <span className="mx-1.5">·</span>
-            </>
-          ) : null}
+          {member.username
+            ? (
+              <>
+                <span className="font-mono">@{member.username}</span>
+                <span className="mx-1.5">·</span>
+              </>
+            )
+            : null}
           {member.email}
         </div>
       </div>
@@ -287,9 +290,9 @@ function MemberMenu({
   // Only owner can change roles. Admins can remove non-admin members.
   // Owner row has no actionable menu — ownership transfer isn't modeled.
   const canChangeRole = callerRole === "owner" && member.role !== "owner"
-  const canRemove =
-    member.role !== "owner" &&
-    (callerRole === "owner" || (callerRole === "admin" && member.role !== "admin"))
+  const canRemove = member.role !== "owner"
+    && (callerRole === "owner"
+      || (callerRole === "admin" && member.role !== "admin"))
 
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 
@@ -316,8 +319,7 @@ function MemberMenu({
                   <DropdownMenuItem
                     key={r}
                     onSelect={() =>
-                      update({ slug, userId: member.id, role: r })
-                    }
+                      update({ slug, userId: member.id, role: r })}
                     className="cursor-pointer"
                   >
                     <RIcon className="size-4" strokeWidth={1.75} />

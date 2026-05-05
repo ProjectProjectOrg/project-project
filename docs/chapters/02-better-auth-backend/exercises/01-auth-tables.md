@@ -59,7 +59,7 @@ Generate the Better Auth tables as a Drizzle schema file, re-export them from yo
 6. Wire the generated tables into your existing `schema.ts`. The cleanest pattern is a re-export bag:
    ```ts
    // packages/backend/src/db/schema.ts
-   export { projectIndex } from "./schema-app"  // or just leave it inline here
+   export { projectIndex } from "./schema-app" // or just leave it inline here
    export * from "./auth-schema"
    ```
    How you split is your call. The constraint: drizzle-kit's config (we'll set this in step 7) points at one file or one glob, and that source must export every table.
@@ -132,7 +132,7 @@ If you split `projectIndex` and the auth tables across two files, drizzle-kit's 
 ```ts
 // packages/backend/drizzle.config.ts
 export default defineConfig({
-  schema: "./src/db/*.ts",   // glob — picks up both files
+  schema: "./src/db/*.ts" // glob — picks up both files
   // ...
 })
 ```

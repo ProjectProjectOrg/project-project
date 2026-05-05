@@ -2,12 +2,12 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useCallback, useEffect } from "react"
 import {
   applyResolvedTheme,
+  type ResolvedTheme,
   resolvedThemeAtom,
   setThemePreferenceAtom,
   systemThemeAtom,
-  themePreferenceAtom,
-  type ResolvedTheme,
-  type ThemePreference
+  type ThemePreference,
+  themePreferenceAtom
 } from "@/atoms/theme"
 
 export function useTheme() {

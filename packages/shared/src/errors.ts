@@ -78,14 +78,16 @@ export class GitHubTokenExpired
     "GitHubTokenExpired",
     {},
     HttpApiSchema.annotations({ status: 401 })
-  ) {}
+  )
+{}
 
 export class GitHubScopeInsufficient
   extends Schema.TaggedError<GitHubScopeInsufficient>()(
     "GitHubScopeInsufficient",
     {},
     HttpApiSchema.annotations({ status: 403 })
-  ) {}
+  )
+{}
 
 export class RepoGone extends Schema.TaggedError<RepoGone>()(
   "RepoGone",

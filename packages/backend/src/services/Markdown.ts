@@ -71,11 +71,17 @@ export class Markdown extends Effect.Service<Markdown>()(
             catch: (cause): NotFound | MarkdownError => {
               const code = (cause as NodeJS.ErrnoException | undefined)?.code
               if (code === "ENOENT") return new NotFound()
-              return new MarkdownError({ cause, message: `read failed: ${file}` })
+              return new MarkdownError({
+                cause,
+                message: `read failed: ${file}`
+              })
             }
           })
           const parsed = matter(raw)
-          return { data: parsed.data as Record<string, unknown>, body: parsed.content }
+          return {
+            data: parsed.data as Record<string, unknown>,
+            body: parsed.content
+          }
         })
 
       const writeProjectFile = (
@@ -146,7 +152,10 @@ export class Markdown extends Effect.Service<Markdown>()(
             catch: (cause): NotFound | MarkdownError => {
               const code = (cause as NodeJS.ErrnoException | undefined)?.code
               if (code === "ENOENT") return new NotFound()
-              return new MarkdownError({ cause, message: `read failed: ${file}` })
+              return new MarkdownError({
+                cause,
+                message: `read failed: ${file}`
+              })
             }
           })
           const parsed = matter(raw)
@@ -174,12 +183,18 @@ export class Markdown extends Effect.Service<Markdown>()(
           yield* Effect.tryPromise({
             try: async () => {
               await fs.mkdir(dir, { recursive: true })
-              await fs.writeFile(file, content, { encoding: "utf8", flag: "wx" })
+              await fs.writeFile(file, content, {
+                encoding: "utf8",
+                flag: "wx"
+              })
             },
             catch: (cause): MarkdownError | TicketIdTaken => {
               const code = (cause as NodeJS.ErrnoException | undefined)?.code
               if (code === "EEXIST") return new TicketIdTaken()
-              return new MarkdownError({ cause, message: `create failed: ${file}` })
+              return new MarkdownError({
+                cause,
+                message: `create failed: ${file}`
+              })
             }
           })
         })
@@ -215,7 +230,10 @@ export class Markdown extends Effect.Service<Markdown>()(
             catch: (cause): NotFound | MarkdownError => {
               const code = (cause as NodeJS.ErrnoException | undefined)?.code
               if (code === "ENOENT") return new NotFound()
-              return new MarkdownError({ cause, message: `remove failed: ${file}` })
+              return new MarkdownError({
+                cause,
+                message: `remove failed: ${file}`
+              })
             }
           })
         })

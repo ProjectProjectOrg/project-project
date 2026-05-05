@@ -18,10 +18,10 @@ import wordmarkSvg from "../public/logo/wordmark.svg?raw"
 
 function themeSvg(raw: string) {
   return raw
-    .replace(/fill="#FEFEFE"/g, 'fill="var(--foreground)"')
-    .replace(/fill="white"/gi, 'fill="var(--foreground)"')
-    .replace(/fill="#807F7F"/g, 'fill="var(--muted-foreground)"')
-    .replace(/fill="black"/gi, 'fill="var(--background)"')
+    .replace(/fill="#FEFEFE"/g, "fill=\"var(--foreground)\"")
+    .replace(/fill="white"/gi, "fill=\"var(--foreground)\"")
+    .replace(/fill="#807F7F"/g, "fill=\"var(--muted-foreground)\"")
+    .replace(/fill="black"/gi, "fill=\"var(--background)\"")
     .replace(/<svg([^>]*?)\swidth="[^"]*"/, "<svg$1")
     .replace(/<svg([^>]*?)\sheight="[^"]*"/, "<svg$1")
 }
@@ -43,7 +43,9 @@ export function Logo({ className }: Props) {
 export function Wordmark({ className }: Props) {
   return (
     <span
-      className={`inline-block [&>svg]:h-full [&>svg]:w-auto ${className ?? ""}`}
+      className={`inline-block [&>svg]:h-full [&>svg]:w-auto ${
+        className ?? ""
+      }`}
       dangerouslySetInnerHTML={{ __html: wordmarkMarkup }}
     />
   )

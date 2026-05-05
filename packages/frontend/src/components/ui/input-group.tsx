@@ -72,4 +72,4 @@ function InputGroupHint({
   )
 }
 
-export { InputGroup, InputGroupAddon, InputGroupInput, InputGroupHint }
+export { InputGroup, InputGroupAddon, InputGroupHint, InputGroupInput }

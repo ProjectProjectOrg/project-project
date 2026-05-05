@@ -107,15 +107,15 @@ listGitStates(slug, userId)                        → Effect<Record<ticketId, G
 
 Add a `github` group plus extensions to `projects` and `tickets`:
 
-| Endpoint                              | Method | Path                                       | Auth                  |
-| ------------------------------------- | ------ | ------------------------------------------ | --------------------- |
-| `github.listRepos`                    | GET    | `/github/repos?q&page`                     | authed user           |
-| `projects.connectGithub`              | POST   | `/projects/:slug/github`                   | owner/admin           |
-| `projects.disconnectGithub`           | DELETE | `/projects/:slug/github`                   | owner/admin           |
-| `projects.gitStates`                  | GET    | `/projects/:slug/git-states`               | member                |
-| `tickets.createBranch`                | POST   | `/projects/:slug/tickets/:id/branch`       | member                |
-| `tickets.openPr`                      | POST   | `/projects/:slug/tickets/:id/pr`           | member                |
-| `tickets.clearBranch`                 | DELETE | `/projects/:slug/tickets/:id/branch`       | member                |
+| Endpoint                    | Method | Path                                 | Auth        |
+| --------------------------- | ------ | ------------------------------------ | ----------- |
+| `github.listRepos`          | GET    | `/github/repos?q&page`               | authed user |
+| `projects.connectGithub`    | POST   | `/projects/:slug/github`             | owner/admin |
+| `projects.disconnectGithub` | DELETE | `/projects/:slug/github`             | owner/admin |
+| `projects.gitStates`        | GET    | `/projects/:slug/git-states`         | member      |
+| `tickets.createBranch`      | POST   | `/projects/:slug/tickets/:id/branch` | member      |
+| `tickets.openPr`            | POST   | `/projects/:slug/tickets/:id/pr`     | member      |
+| `tickets.clearBranch`       | DELETE | `/projects/:slug/tickets/:id/branch` | member      |
 
 `gitStates` response: `{ states: Record<ticketId, GitState>, transitioned: TransitionRecord[], tokenStatus: "ok" | "expired" | "scope_insufficient", repoStatus: "ok" | "gone" }`. The latter two let the frontend flip the header chip without making the per-ticket states carry the failure context.
 

@@ -17,7 +17,9 @@ import type { Project } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/")({
   component: Dashboard,
-  loader: () => ({ crumb: { type: "static" as const, label: "Dashboard", to: "/" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Dashboard", to: "/" }
+  })
 })
 
 function Dashboard() {
@@ -40,11 +42,9 @@ function Dashboard() {
         onError: () => <NewProjectCTA />,
         onDefect: () => <NewProjectCTA />,
         onSuccess: ({ value }) =>
-          value.length === 0 ? (
-            <NewProjectCTA />
-          ) : (
-            <RecentProjects projects={value} />
-          )
+          value.length === 0
+            ? <NewProjectCTA />
+            : <RecentProjects projects={value} />
       })}
     </PageContainer>
   )
@@ -72,7 +72,9 @@ function RecentProjects({ projects }: { projects: ReadonlyArray<Project> }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Recent projects</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Recent projects
+        </h2>
         <Link
           to="/projects"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -83,9 +85,7 @@ function RecentProjects({ projects }: { projects: ReadonlyArray<Project> }) {
       </div>
 
       <div className="grid gap-2 @container sm:grid-cols-2 lg:grid-cols-3">
-        {top.map((p) => (
-          <ProjectTile key={p.slug} project={p} />
-        ))}
+        {top.map((p) => <ProjectTile key={p.slug} project={p} />)}
         <NewProjectTile compact={top.length > 0} />
       </div>
 
@@ -176,8 +176,8 @@ function NewProjectCTA() {
         <div className="text-sm font-medium">Create your first project</div>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
           Markdown-first project management. Tickets, members, and project
-          context all live as files on disk — yours to grep, edit, or feed
-          to an AI.
+          context all live as files on disk — yours to grep, edit, or feed to an
+          AI.
         </p>
       </div>
     </Link>

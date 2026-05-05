@@ -6,11 +6,7 @@
 //   - each sub-view gets a real URL (deep-linkable, breadcrumb-able)
 //   - the project atom loads once for all sub-views (no waterfall)
 
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import {
   createFileRoute,
   Link,
@@ -18,11 +14,7 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
-import {
-  useEffect,
-  useState,
-  type KeyboardEvent
-} from "react"
+import { type KeyboardEvent, useEffect, useState } from "react"
 import {
   FolderKanban,
   Info,
@@ -42,8 +34,8 @@ import { GithubChip } from "@/components/GithubChip"
 import type { Role } from "@projectproject/shared"
 import {
   SEGMENTED_ITEM_CLASS,
-  SegmentedTabs,
-  type SegmentedItem
+  type SegmentedItem,
+  SegmentedTabs
 } from "@/components/SegmentedTabs"
 import {
   Card,
@@ -59,7 +51,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PageContainer } from "@/components/page"
 import { ProjectContext } from "./-context"
-import type { Ticket, ProjectDetail as ProjectDetailType } from "@projectproject/shared"
+import type {
+  ProjectDetail as ProjectDetailType,
+  Ticket
+} from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/projects/$slug")({
   component: ProjectLayout,
@@ -80,11 +75,9 @@ function ProjectLayout() {
       {Result.matchWithError(project, {
         onInitial: () => <Skeleton />,
         onError: (error) =>
-          error._tag === "NotFound" ? (
-            <NotFoundCard slug={slug} />
-          ) : (
-            <ErrorCard message={`Couldn't load project: ${error._tag}`} />
-          ),
+          error._tag === "NotFound"
+            ? <NotFoundCard slug={slug} />
+            : <ErrorCard message={`Couldn't load project: ${error._tag}`} />,
         onDefect: (defect) => (
           <ErrorCard message={`Something went wrong: ${String(defect)}`} />
         ),
@@ -314,12 +307,12 @@ function TabsNav({
     const t = TABS.find((x) => x.key === key)!
     const target = t.to.replace("$slug", slug)
     return t.exact
-      ? location.pathname === target ||
-          location.pathname === target + "/" ||
-          location.pathname === base ||
-          location.pathname === base + "/"
-      : location.pathname === target ||
-          location.pathname.startsWith(target + "/")
+      ? location.pathname === target
+        || location.pathname === target + "/"
+        || location.pathname === base
+        || location.pathname === base + "/"
+      : location.pathname === target
+        || location.pathname.startsWith(target + "/")
   }
 
   // Counts come from atoms here, not from the static config — the tab strip
@@ -328,12 +321,11 @@ function TabsNav({
     key: t.key,
     label: t.label,
     icon: t.icon,
-    badge:
-      t.countFor === "tickets"
-        ? ticketsCount
-        : t.countFor === "members"
-          ? project.members.length
-          : null
+    badge: t.countFor === "tickets"
+      ? ticketsCount
+      : t.countFor === "members"
+      ? project.members.length
+      : null
   }))
 
   return (
@@ -378,7 +370,6 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   return `${todo} todo · ${inProgress} in progress · ${done} done`
 }
 
-
 // --- States ---------------------------------------------------------------
 
 function Skeleton() {
@@ -397,8 +388,9 @@ function NotFoundCard({ slug }: { slug: string }) {
       <CardHeader>
         <CardTitle>Project not found</CardTitle>
         <CardDescription>
-          No project at <span className="font-mono">/{slug}</span>. It may have
-          been removed, or you may not have access.
+          No project at{" "}
+          <span className="font-mono">/{slug}</span>. It may have been removed,
+          or you may not have access.
         </CardDescription>
       </CardHeader>
     </Card>

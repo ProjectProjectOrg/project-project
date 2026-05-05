@@ -131,15 +131,15 @@ The "switch to per-file lazy" path is purely internal to the `Diff` component �
 - **Loading**: skeleton matching the layout — header bar, tree column placeholders, three diff-block placeholders. Roughly mirrors the project layout's `Skeleton` (animated `bg-muted/60` rectangles).
 - **Errors**: tagged-error renderer at the page level. The endpoint can fail with `Unauthorized | NotFound | Conflict | GitHubTokenExpired | GitHubScopeInsufficient | RepoGone | RateLimited | GitHubError`.
 
-| Tag                         | Message                                                       | CTA                          |
-| --------------------------- | ------------------------------------------------------------- | ---------------------------- |
-| `NotFound`                  | "No PR is open for this ticket yet."                          | Back to ticket               |
-| `Conflict`                  | "This project isn't connected to a GitHub repo."              | Back to ticket               |
-| `GitHubTokenExpired`        | "Your GitHub session expired. Reconnect to view this review." | Back to ticket               |
-| `GitHubScopeInsufficient`   | "GitHub didn't grant the access this repo needs."             | Back to ticket               |
-| `RepoGone`                  | "The connected repo no longer exists."                        | Back to ticket               |
-| `RateLimited`               | "GitHub rate-limited us. Try again in a minute."              | Back to ticket               |
-| `GitHubError` / `Unauthorized` / defect | "Couldn't load the review."                       | Back to ticket               |
+| Tag                                     | Message                                                       | CTA            |
+| --------------------------------------- | ------------------------------------------------------------- | -------------- |
+| `NotFound`                              | "No PR is open for this ticket yet."                          | Back to ticket |
+| `Conflict`                              | "This project isn't connected to a GitHub repo."              | Back to ticket |
+| `GitHubTokenExpired`                    | "Your GitHub session expired. Reconnect to view this review." | Back to ticket |
+| `GitHubScopeInsufficient`               | "GitHub didn't grant the access this repo needs."             | Back to ticket |
+| `RepoGone`                              | "The connected repo no longer exists."                        | Back to ticket |
+| `RateLimited`                           | "GitHub rate-limited us. Try again in a minute."              | Back to ticket |
+| `GitHubError` / `Unauthorized` / defect | "Couldn't load the review."                                   | Back to ticket |
 
 - The "Reconnect GitHub" deeper CTA can land in a follow-up — for v1 the back-link is enough.
 - "Back to ticket" routes to `/projects/$slug?ticket=$id` (the inline-detail deep link the ticket list already supports).

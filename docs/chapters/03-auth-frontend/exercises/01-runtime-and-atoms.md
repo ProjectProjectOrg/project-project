@@ -35,7 +35,7 @@ Two questions to ask yourself as you write it:
 
 Open `packages/frontend/src/services/AuthClient.ts`. The file is one import + one export. Fill it in.
 
-Worth pausing on: this is *not* an `Effect.Service`. The walk-through in `runtime.ts`'s comment block explains why; the short version is "wrapping it in Effect doesn't pay for itself."
+Worth pausing on: this is _not_ an `Effect.Service`. The walk-through in `runtime.ts`'s comment block explains why; the short version is "wrapping it in Effect doesn't pay for itself."
 
 ### 3. Define `meAtom`
 
@@ -56,7 +56,7 @@ If you see `unknown` instead of `Unauthorized`, that's a hint: the `R` channel o
 The existing `routes/index.tsx` is a smoke test we'll replace in Section 03. For now, modify just the `Show /me` button to read `meAtom` instead of running an Effect by hand. This is a 5-line change and proves the atom round-trips:
 
 ```tsx
-import { useAtomValue, Result } from "@effect-atom/atom-react"
+import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { meAtom } from "../atoms/auth"
 
 // ... inside the component:
@@ -88,7 +88,7 @@ Replace the `<pre>{me ? JSON.stringify(...) : "..."}</pre>` block with `<pre>{me
 - With the backend running, opening `http://localhost:5173/` shows either:
   - `error: Unauthorized` (you're not signed in), or
   - the user JSON (you signed in via Section 00 / Chapter 2's smoke test).
-- The atom only fires *one* `GET /me` per page load — check the Network tab.
+- The atom only fires _one_ `GET /me` per page load — check the Network tab.
 
 ## Acceptance criteria
 

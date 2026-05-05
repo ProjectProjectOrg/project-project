@@ -7,7 +7,7 @@
 // (changeable later from the detail page).
 
 import { useAtomSet } from "@effect-atom/atom-react"
-import { useState, type FormEvent } from "react"
+import { type FormEvent, useState } from "react"
 import { Bug, Hammer, HelpCircle, Sparkles } from "lucide-react"
 import {
   DropdownMenu,
@@ -66,9 +66,11 @@ export function CreateTicketRow({
   return (
     <form onSubmit={onSubmit}>
       <InputGroup>
-        {/* Leading addon — same size-6 slot every input across the app uses,
+        {
+          /* Leading addon — same size-6 slot every input across the app uses,
             so the type button column-aligns with the search icon, the
-            create-project Plus, and ticket-row status circles. */}
+            create-project Plus, and ticket-row status circles. */
+        }
         <InputGroupAddon className="hover:text-foreground">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

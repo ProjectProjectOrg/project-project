@@ -1,79 +1,80 @@
-"use client";
+"use client"
 
 import {
-  useRef,
-  useState,
-  useCallback,
-  useEffect,
   createContext,
-  useContext,
   forwardRef,
-  type ReactNode,
   type HTMLAttributes,
   type InputHTMLAttributes,
-} from "react";
-import type { IconComponent } from "@/lib/icon-context";
-import { cn } from "@/lib/utils";
-import { fontWeights } from "@/lib/font-weight";
-import { useShape } from "@/lib/shape-context";
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from "react"
+import type { IconComponent } from "@/lib/icon-context"
+import { cn } from "@/lib/utils"
+import { fontWeights } from "@/lib/font-weight"
+import { useShape } from "@/lib/shape-context"
 
 interface InputGroupContextValue {
-  registerItem: (index: number, element: HTMLLabelElement | null) => void;
-  activeIndex: number | null;
+  registerItem: (index: number, element: HTMLLabelElement | null) => void
+  activeIndex: number | null
 }
 
-const InputGroupContext = createContext<InputGroupContextValue | null>(null);
+const InputGroupContext = createContext<InputGroupContextValue | null>(null)
 
 function useInputGroup() {
-  const ctx = useContext(InputGroupContext);
-  if (!ctx)
-    throw new Error("useInputGroup must be used within an InputGroup");
-  return ctx;
+  const ctx = useContext(InputGroupContext)
+  if (!ctx) {
+    throw new Error("useInputGroup must be used within an InputGroup")
+  }
+  return ctx
 }
 
 interface InputGroupProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode;
+  children: ReactNode
 }
 
 const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
   ({ children, className, ...props }, ref) => {
-    const itemsRef = useRef(new Map<number, HTMLLabelElement>());
-    const [activeIndex, setActiveIndex] = useState<number | null>(null);
+    const itemsRef = useRef(new Map<number, HTMLLabelElement>())
+    const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
     const registerItem = useCallback(
       (index: number, element: HTMLLabelElement | null) => {
         if (element) {
-          itemsRef.current.set(index, element);
+          itemsRef.current.set(index, element)
         } else {
-          itemsRef.current.delete(index);
+          itemsRef.current.delete(index)
         }
       },
       []
-    );
+    )
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
-      const mouseY = e.clientY;
+      const mouseY = e.clientY
 
-      let closestIndex: number | null = null;
-      let closestDistance = Infinity;
+      let closestIndex: number | null = null
+      let closestDistance = Infinity
 
       itemsRef.current.forEach((element, index) => {
-        const rect = element.getBoundingClientRect();
-        const itemCenterY = rect.top + rect.height / 2;
-        const distance = Math.abs(mouseY - itemCenterY);
+        const rect = element.getBoundingClientRect()
+        const itemCenterY = rect.top + rect.height / 2
+        const distance = Math.abs(mouseY - itemCenterY)
 
         if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
+          closestDistance = distance
+          closestIndex = index
         }
-      });
+      })
 
-      setActiveIndex(closestIndex);
-    }, []);
+      setActiveIndex(closestIndex)
+    }, [])
 
     const handleMouseLeave = useCallback(() => {
-      setActiveIndex(null);
-    }, []);
+      setActiveIndex(null)
+    }, [])
 
     return (
       <InputGroupContext.Provider
@@ -89,23 +90,24 @@ const InputGroup = forwardRef<HTMLDivElement, InputGroupProps>(
           {children}
         </div>
       </InputGroupContext.Provider>
-    );
+    )
   }
-);
+)
 
-InputGroup.displayName = "InputGroup";
+InputGroup.displayName = "InputGroup"
 
 interface InputFieldProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "index"> {
-  label: string;
-  placeholder?: string;
-  icon?: IconComponent;
-  index: number;
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-  disabled?: boolean;
-  className?: string;
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "index">
+{
+  label: string
+  placeholder?: string
+  icon?: IconComponent
+  index: number
+  value: string
+  onChange: (value: string) => void
+  error?: string
+  disabled?: boolean
+  className?: string
 }
 
 const InputField = forwardRef<HTMLLabelElement, InputFieldProps>(
@@ -124,56 +126,66 @@ const InputField = forwardRef<HTMLLabelElement, InputFieldProps>(
     },
     ref
   ) => {
-    const internalRef = useRef<HTMLLabelElement>(null);
-    const { registerItem, activeIndex } = useInputGroup();
-    const [isFocused, setIsFocused] = useState(false);
-    const shape = useShape();
+    const internalRef = useRef<HTMLLabelElement>(null)
+    const { registerItem, activeIndex } = useInputGroup()
+    const [isFocused, setIsFocused] = useState(false)
+    const shape = useShape()
 
     useEffect(() => {
-      registerItem(index, internalRef.current);
-      return () => registerItem(index, null);
-    }, [index, registerItem]);
+      registerItem(index, internalRef.current)
+      return () => registerItem(index, null)
+    }, [index, registerItem])
 
-    const isActive = activeIndex === index;
-    const labelActive = isActive || isFocused;
+    const isActive = activeIndex === index
+    const labelActive = isActive || isFocused
 
-    const errorId = error ? `input-error-${index}` : undefined;
+    const errorId = error ? `input-error-${index}` : undefined
 
     const handleFocus = () => {
-      setIsFocused(true);
-    };
+      setIsFocused(true)
+    }
 
     const handleBlur = () => {
-      setIsFocused(false);
-    };
+      setIsFocused(false)
+    }
 
     // Input container classes
-    let bgClass: string;
-    let ringClass: string;
+    let bgClass: string
+    let ringClass: string
 
     if (disabled) {
-      bgClass = "bg-transparent";
-      ringClass = "ring-border";
+      bgClass = "bg-transparent"
+      ringClass = "ring-border"
     } else if (error) {
-      bgClass = isFocused ? "bg-card" : isActive ? "bg-destructive-light/60" : "bg-transparent";
-      ringClass = isFocused || isActive ? "ring-destructive/50" : "ring-transparent";
+      bgClass = isFocused
+        ? "bg-card"
+        : isActive
+        ? "bg-destructive-light/60"
+        : "bg-transparent"
+      ringClass = isFocused || isActive
+        ? "ring-destructive/50"
+        : "ring-transparent"
     } else if (isFocused) {
-      bgClass = "bg-card";
-      ringClass = "ring-border";
+      bgClass = "bg-card"
+      ringClass = "ring-border"
     } else if (isActive) {
-      bgClass = "bg-muted/50";
-      ringClass = "ring-border";
+      bgClass = "bg-muted/50"
+      ringClass = "ring-border"
     } else {
-      bgClass = "bg-transparent";
-      ringClass = "ring-transparent";
+      bgClass = "bg-transparent"
+      ringClass = "ring-transparent"
     }
 
     return (
       <label
         ref={(node) => {
-          (internalRef as React.MutableRefObject<HTMLLabelElement | null>).current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLLabelElement | null>).current = node;
+          ;(internalRef as React.MutableRefObject<HTMLLabelElement | null>)
+            .current = node
+          if (typeof ref === "function") ref(node)
+          else if (ref) {
+            ;(ref as React.MutableRefObject<HTMLLabelElement | null>).current =
+              node
+          }
         }}
         className={cn(
           "flex flex-col gap-1 cursor-text",
@@ -196,7 +208,7 @@ const InputField = forwardRef<HTMLLabelElement, InputFieldProps>(
               error ? "text-destructive" : "text-muted-foreground"
             )}
             style={{
-              fontVariationSettings: fontWeights.normal,
+              fontVariationSettings: fontWeights.normal
             }}
           >
             {label}
@@ -250,11 +262,11 @@ const InputField = forwardRef<HTMLLabelElement, InputFieldProps>(
           </span>
         )}
       </label>
-    );
+    )
   }
-);
+)
 
-InputField.displayName = "InputField";
+InputField.displayName = "InputField"
 
-export { InputGroup, InputField };
-export default InputGroup;
+export { InputField, InputGroup }
+export default InputGroup

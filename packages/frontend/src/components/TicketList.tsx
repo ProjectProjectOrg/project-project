@@ -13,19 +13,15 @@
 // fits cleanly into ~40 lines of plain TS. Migrate when columns gain
 // individual sortability or virtualization is needed.
 
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   CollapsingLabel,
   SEGMENTED_ITEM_CLASS,
-  SegmentedTabs,
-  type SegmentedItem
+  type SegmentedItem,
+  SegmentedTabs
 } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import {
@@ -63,10 +59,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import {
-  LexicalEditor,
-  type SaveStatus
-} from "@/components/LexicalEditor"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
@@ -87,7 +80,11 @@ const STATUS_META: Record<
   TicketStatus,
   { label: string; icon: typeof Check; className: string }
 > = {
-  todo: { label: "Todo", icon: CircleDashed, className: "text-muted-foreground" },
+  todo: {
+    label: "Todo",
+    icon: CircleDashed,
+    className: "text-muted-foreground"
+  },
   in_progress: {
     label: "In progress",
     icon: CircleDot,
@@ -96,7 +93,10 @@ const STATUS_META: Record<
   done: { label: "Done", icon: Check, className: "text-emerald-500" }
 }
 
-const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles; tint: string }> = {
+const TYPE_META: Record<
+  TicketType,
+  { label: string; icon: typeof Sparkles; tint: string }
+> = {
   feat: {
     label: "Feature",
     icon: Sparkles,
@@ -112,7 +112,11 @@ const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles; tint
     icon: Hammer,
     tint: "bg-amber-500/10 text-amber-700 dark:text-amber-400"
   },
-  other: { label: "Other", icon: HelpCircle, tint: "bg-muted text-muted-foreground" }
+  other: {
+    label: "Other",
+    icon: HelpCircle,
+    tint: "bg-muted text-muted-foreground"
+  }
 }
 
 const SORTS = {
@@ -291,11 +295,10 @@ function Toolbar({
   // set to *some* value, and users don't think of "sort by Recently updated"
   // as something they need to clear. Keep the Clear button scoped to the
   // four things that actually narrow the visible set.
-  const hasActiveFilters =
-    statusFilter !== "all" ||
-    typeFilter !== "all" ||
-    assigneeFilter !== "all" ||
-    query.length > 0
+  const hasActiveFilters = statusFilter !== "all"
+    || typeFilter !== "all"
+    || assigneeFilter !== "all"
+    || query.length > 0
 
   const clearAll = () => {
     onQueryChange("")
@@ -310,17 +313,18 @@ function Toolbar({
   // chip read 0, which is circular and useless).
   const counts = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const resolved =
-      assigneeFilter === "mine" ? myId ?? "unassigned" : assigneeFilter
+    const resolved = assigneeFilter === "mine"
+      ? myId ?? "unassigned"
+      : assigneeFilter
     const matchesOtherFilters = (t: Ticket) =>
-      (typeFilter === "all" || t.type === typeFilter) &&
-      (resolved === "all" ||
-        (resolved === "unassigned"
+      (typeFilter === "all" || t.type === typeFilter)
+      && (resolved === "all"
+        || (resolved === "unassigned"
           ? t.assignee === null
-          : t.assignee === resolved)) &&
-      (q === "" ||
-        t.title.toLowerCase().includes(q) ||
-        t.id.toLowerCase().includes(q))
+          : t.assignee === resolved))
+      && (q === ""
+        || t.title.toLowerCase().includes(q)
+        || t.id.toLowerCase().includes(q))
 
     const c: Record<TicketStatus | "all", number> = {
       all: 0,
@@ -430,7 +434,6 @@ function Toolbar({
   )
 }
 
-
 // Shared chrome for non-input toolbar controls (filters menu, sort menu).
 // Same height (`h-9`) and surface as the InputGroup and the status-chip
 // strip outer container, so the toolbar reads as one continuous band.
@@ -486,9 +489,9 @@ function StatusChips({
           type="button"
           onClick={() => onChange(item.key)}
           aria-pressed={active}
-          aria-label={
-            compact ? `${item.label} (${counts[item.key]})` : undefined
-          }
+          aria-label={compact
+            ? `${item.label} (${counts[item.key]})`
+            : undefined}
           className={SEGMENTED_ITEM_CLASS(active)}
         >
           {content}
@@ -525,8 +528,8 @@ function FiltersMenu({
   myId: string | null
   compact: boolean
 }) {
-  const activeCount =
-    (typeFilter !== "all" ? 1 : 0) + (assigneeFilter !== "all" ? 1 : 0)
+  const activeCount = (typeFilter !== "all" ? 1 : 0)
+    + (assigneeFilter !== "all" ? 1 : 0)
   const active = activeCount > 0
   return (
     <DropdownMenu>
@@ -537,11 +540,9 @@ function FiltersMenu({
             TOOLBAR_BUTTON_CLASS,
             active && "bg-accent text-foreground hover:text-foreground"
           )}
-          aria-label={
-            compact && activeCount > 0
-              ? `Filters (${activeCount} active)`
-              : "Filters"
-          }
+          aria-label={compact && activeCount > 0
+            ? `Filters (${activeCount} active)`
+            : "Filters"}
           aria-pressed={active}
         >
           <SlidersHorizontal className="size-4" strokeWidth={1.75} />
@@ -687,7 +688,9 @@ function SortMenu({
           aria-label={`Sort tickets (${SORTS[value].label})`}
         >
           <ArrowDownAZ className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>{SORTS[value].label}</CollapsingLabel>
+          <CollapsingLabel show={!compact}>
+            {SORTS[value].label}
+          </CollapsingLabel>
           <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
@@ -745,14 +748,14 @@ function FilteredList({
         assigneeFilter === "all"
           ? true
           : assigneeFilter === "unassigned"
-            ? t.assignee === null
-            : t.assignee === assigneeFilter
+          ? t.assignee === null
+          : t.assignee === assigneeFilter
       )
       .filter((t) => {
         if (!q) return true
         return (
-          t.title.toLowerCase().includes(q) ||
-          t.id.toLowerCase().includes(q)
+          t.title.toLowerCase().includes(q)
+          || t.id.toLowerCase().includes(q)
         )
       })
       .slice()
@@ -774,8 +777,10 @@ function FilteredList({
             slug={slug}
             ticket={t}
             members={members}
-            isExpanded={expandedId === t.id}
-            onToggle={() => onExpand(expandedId === t.id ? null : t.id)}
+            isExpanded={expandedId === t
+              .id}
+            onToggle={() =>
+              onExpand(expandedId === t.id ? null : t.id)}
           />
         </li>
       ))}
@@ -1111,24 +1116,24 @@ function AssigneePicker({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={
-            assignee
-              ? `Assigned to ${assignee.name}. Click to change.`
-              : "Unassigned. Click to assign."
-          }
+          aria-label={assignee
+            ? `Assigned to ${assignee.name}. Click to change.`
+            : "Unassigned. Click to assign."}
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
         >
-          {assignee ? (
-            <>
-              <MemberAvatar member={assignee} size={18} />
-              <span>{assignee.name}</span>
-            </>
-          ) : (
-            <>
-              <UserRound className="size-3.5" strokeWidth={1.75} />
-              <span>Unassigned</span>
-            </>
-          )}
+          {assignee
+            ? (
+              <>
+                <MemberAvatar member={assignee} size={18} />
+                <span>{assignee.name}</span>
+              </>
+            )
+            : (
+              <>
+                <UserRound className="size-3.5" strokeWidth={1.75} />
+                <span>Unassigned</span>
+              </>
+            )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-56">
@@ -1231,14 +1236,13 @@ function StatusButton({
 }
 
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? "Saving…"
-      : status === "dirty"
-        ? "Unsaved changes"
-        : status === "saved"
-          ? "Saved"
-          : null
+  const label = status === "saving"
+    ? "Saving…"
+    : status === "dirty"
+    ? "Unsaved changes"
+    : status === "saved"
+    ? "Saved"
+    : null
   if (!label) return null
   return (
     <span className="self-center text-xs text-muted-foreground tabular-nums">

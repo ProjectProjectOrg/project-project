@@ -13,7 +13,9 @@ import { PageContainer, PageHeader } from "@/components/page"
 
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
-  loader: () => ({ crumb: { type: "static" as const, label: "Profile", to: "/profile" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Profile", to: "/profile" }
+  })
 })
 
 function Profile() {
@@ -34,9 +36,11 @@ function Profile() {
           <CardDescription>From your GitHub identity.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {/* Identity hero — avatar + name + the @username/email pair, same
+          {
+            /* Identity hero — avatar + name + the @username/email pair, same
               treatment as a member row in the project members tab so the
-              "this is you" view reads like the "this is them" views. */}
+              "this is you" view reads like the "this is them" views. */
+          }
           <div className="flex items-center gap-4">
             <MemberAvatar member={user} size={64} />
             <div className="min-w-0 leading-tight">

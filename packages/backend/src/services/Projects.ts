@@ -66,8 +66,9 @@ function parseGithubFrontmatter(
   const repoOwner = typeof obj.repoOwner === "string" ? obj.repoOwner : null
   const repoName = typeof obj.repoName === "string" ? obj.repoName : null
   if (!repoOwner || !repoName) return null
-  const defaultBaseBranch =
-    typeof obj.defaultBaseBranch === "string" ? obj.defaultBaseBranch : null
+  const defaultBaseBranch = typeof obj.defaultBaseBranch === "string"
+    ? obj.defaultBaseBranch
+    : null
   return { repoOwner, repoName, defaultBaseBranch }
 }
 
@@ -305,11 +306,12 @@ export class Projects extends Effect.Service<Projects>()(
             `# ${input.name}\n`,
             members,
             null
-          ).pipe(
-            Effect.catchAll((cause) =>
-              rollback.pipe(Effect.zipRight(Effect.die(cause)))
-            )
           )
+            .pipe(
+              Effect.catchAll((cause) =>
+                rollback.pipe(Effect.zipRight(Effect.die(cause)))
+              )
+            )
 
           return {
             slug: row.slug,
@@ -608,10 +610,9 @@ export class Projects extends Effect.Service<Projects>()(
           const next: GithubConnection = {
             repoOwner: input.repoOwner,
             repoName: input.repoName,
-            defaultBaseBranch:
-              input.defaultBaseBranch === undefined
-                ? null
-                : input.defaultBaseBranch
+            defaultBaseBranch: input.defaultBaseBranch === undefined
+              ? null
+              : input.defaultBaseBranch
           }
 
           const members = yield* loadMembers(slug)

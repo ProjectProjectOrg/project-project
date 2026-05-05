@@ -97,9 +97,8 @@ export const auth = betterAuth({
       // to a slugified `name` if the profile is missing it (shouldn't happen
       // with the read:user scope, but defensive).
       mapProfileToUser: (profile: { login?: string; name?: string }) => ({
-        username:
-          profile.login?.toLowerCase() ??
-          profile.name?.toLowerCase().replace(/\s+/g, "-")
+        username: profile.login?.toLowerCase()
+          ?? profile.name?.toLowerCase().replace(/\s+/g, "-")
       })
     }
   },

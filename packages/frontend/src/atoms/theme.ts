@@ -33,7 +33,10 @@ export function applyResolvedTheme(resolvedTheme: ResolvedTheme) {
   document.documentElement.classList.toggle("dark", resolvedTheme === "dark")
 }
 
-export const themePreferenceAtom = Atom.writable<ThemePreference, ThemePreference>(
+export const themePreferenceAtom = Atom.writable<
+  ThemePreference,
+  ThemePreference
+>(
   () => readPreference(),
   (ctx, preference) => {
     ctx.setSelf(preference)

@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
-import { useTheme, type ThemePreference } from "@/hooks/useTheme"
+import { type ThemePreference, useTheme } from "@/hooks/useTheme"
 
 const options: ReadonlyArray<{
   value: ThemePreference

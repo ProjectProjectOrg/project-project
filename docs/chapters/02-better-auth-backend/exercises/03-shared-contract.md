@@ -90,15 +90,18 @@ Things to double-check while you write this:
 Open `packages/shared/src/api.ts`. Add a new `auth` group with one endpoint, then add it to `AppApi`:
 
 ```ts
-const Auth = HttpApiGroup.make("auth")
+const Auth = HttpApiGroup
+  .make("auth")
   .add(
-    HttpApiEndpoint.get("me", "/me")
+    HttpApiEndpoint
+      .get("me", "/me")
       .addSuccess(User)
       .addError(Unauthorized)
   )
   .middleware(Authentication)
 
-const AppApi = HttpApi.make("projectproject")
+const AppApi = HttpApi
+  .make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(Auth)

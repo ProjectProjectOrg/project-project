@@ -26,7 +26,12 @@ import { cn } from "@/lib/utils"
 import type { TicketId } from "@projectproject/shared"
 
 export type Crumb =
-  | { type: "static"; label: string; to?: string; params?: Record<string, string> }
+  | {
+    type: "static"
+    label: string
+    to?: string
+    params?: Record<string, string>
+  }
   | { type: "project"; slug: string }
   | { type: "ticket"; slug: string; id: TicketId }
 

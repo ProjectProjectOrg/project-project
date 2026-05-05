@@ -30,58 +30,74 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           return yield* projects.create(user.id, payload)
         }))
       .handle("get", ({ path }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.get(user.id, path.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.get(user.id, path.slug)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("update", ({ path, payload }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.update(user.id, path.slug, payload)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.update(user.id, path.slug, payload)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("delete", ({ path }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          yield* projects.remove(user.id, path.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            yield* projects.remove(user.id, path.slug)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("addMember", ({ path, payload }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.addMember(user.id, path.slug, payload)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.addMember(user.id, path.slug, payload)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("updateMember", ({ path, payload }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.updateMember(
-            user.id,
-            path.slug,
-            path.userId,
-            payload.role
-          )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.updateMember(
+              user.id,
+              path.slug,
+              path.userId,
+              payload.role
+            )
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("removeMember", ({ path }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.removeMember(user.id, path.slug, path.userId)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.removeMember(user.id, path.slug, path.userId)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("connectGithub", ({ path, payload }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.connectGithub(user.id, path.slug, payload)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.connectGithub(user.id, path.slug, payload)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("disconnectGithub", ({ path }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const projects = yield* Projects
-          return yield* projects.disconnectGithub(user.id, path.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const projects = yield* Projects
+            return yield* projects.disconnectGithub(user.id, path.slug)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
       .handle("listRepos", ({ urlParams }) =>
         Effect.gen(function*() {
           const user = yield* CurrentUser
@@ -96,9 +112,11 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       // transition writes ticket markdown. The handler is in this group
       // because the URL is project-scoped.
       .handle("gitStates", ({ path }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const tickets = yield* Tickets
-          return yield* tickets.listGitStates(user.id, path.slug)
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
+        Effect
+          .gen(function*() {
+            const user = yield* CurrentUser
+            const tickets = yield* Tickets
+            return yield* tickets.listGitStates(user.id, path.slug)
+          })
+          .pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause))))
 )

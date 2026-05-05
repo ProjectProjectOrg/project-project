@@ -142,7 +142,10 @@ export class Tickets extends Effect.Service<Tickets>()(
       const readTicket = (
         slug: string,
         id: string
-      ): Effect.Effect<TicketFrontmatter & { body: string }, NotFound | MarkdownError> =>
+      ): Effect.Effect<
+        TicketFrontmatter & { body: string },
+        NotFound | MarkdownError
+      > =>
         Effect.gen(function*() {
           const file = yield* md.readTicketFile(slug, id)
           const fm = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
@@ -218,7 +221,10 @@ export class Tickets extends Effect.Service<Tickets>()(
               )
               .pipe(
                 Effect.map(() => "ok" as const),
-                Effect.catchTag("TicketIdTaken", () => Effect.succeed("retry" as const))
+                Effect.catchTag(
+                  "TicketIdTaken",
+                  () => Effect.succeed("retry" as const)
+                )
               )
             if (result === "ok") {
               return frontmatterToWire({ ...fm, id: candidate as TicketId })
@@ -246,9 +252,9 @@ export class Tickets extends Effect.Service<Tickets>()(
           // taxonomy needed. Wire intentionally doesn't distinguish "no such
           // user" from "user not on this project".
           if (
-            input.assignee !== undefined &&
-            input.assignee !== null &&
-            input.assignee !== existing.assignee
+            input.assignee !== undefined
+            && input.assignee !== null
+            && input.assignee !== existing.assignee
           ) {
             yield* projects.requireMember(input.assignee, slug)
           }
@@ -262,8 +268,9 @@ export class Tickets extends Effect.Service<Tickets>()(
             pr: existing.pr,
             lastTransitionedPr: existing.lastTransitionedPr,
             // assignee can be explicitly nulled; check for `undefined` not falsy
-            assignee:
-              input.assignee !== undefined ? input.assignee : existing.assignee,
+            assignee: input.assignee !== undefined
+              ? input.assignee
+              : existing.assignee,
             createdBy: existing.createdBy,
             createdAt: existing.createdAt,
             updatedAt: new Date()
@@ -310,14 +317,18 @@ export class Tickets extends Effect.Service<Tickets>()(
             ...existing,
             branch: patch.branch !== undefined ? patch.branch : existing.branch,
             pr: patch.pr !== undefined ? patch.pr : existing.pr,
-            lastTransitionedPr:
-              patch.lastTransitionedPr !== undefined
-                ? patch.lastTransitionedPr
-                : existing.lastTransitionedPr,
+            lastTransitionedPr: patch.lastTransitionedPr !== undefined
+              ? patch.lastTransitionedPr
+              : existing.lastTransitionedPr,
             status: patch.status ?? existing.status,
             updatedAt: new Date()
           }
-          yield* md.writeTicketFile(slug, id, frontmatterToDisk(next), existing.body)
+          yield* md.writeTicketFile(
+            slug,
+            id,
+            frontmatterToDisk(next),
+            existing.body
+          )
           return next
         })
 
@@ -350,8 +361,10 @@ export class Tickets extends Effect.Service<Tickets>()(
             )
           }
           const ticket = yield* readTicket(slug, id)
-          const baseBranch =
-            input.baseBranch ?? project.github.defaultBaseBranch ?? "main"
+          const baseBranch = input.baseBranch ?? project
+            .github
+            .defaultBaseBranch
+            ?? "main"
 
           yield* github.createBranch(
             project.github.repoOwner,
@@ -411,10 +424,9 @@ export class Tickets extends Effect.Service<Tickets>()(
               head: ticket.branch,
               base,
               title: input.title ?? ticket.title,
-              body:
-                input.body ??
-                `Resolves ticket ${ticket.id}: ${ticket.title}\n\n` +
-                  `_Tracked in ProjectProject._`,
+              body: input.body
+                ?? `Resolves ticket ${ticket.id}: ${ticket.title}\n\n`
+                  + `_Tracked in ProjectProject._`,
               draft: input.draft ?? false
             },
             userId
@@ -487,20 +499,50 @@ export class Tickets extends Effect.Service<Tickets>()(
             )
             .pipe(
               Effect.map((raw) => ({ ok: true as const, raw })),
-              Effect.catchTag("GitHubTokenExpired", () =>
-                Effect.succeed({ ok: false as const, tokenStatus: "expired" as const, repoStatus: "ok" as const })
+              Effect.catchTag(
+                "GitHubTokenExpired",
+                () =>
+                  Effect.succeed({
+                    ok: false as const,
+                    tokenStatus: "expired" as const,
+                    repoStatus: "ok" as const
+                  })
               ),
-              Effect.catchTag("GitHubScopeInsufficient", () =>
-                Effect.succeed({ ok: false as const, tokenStatus: "scope_insufficient" as const, repoStatus: "ok" as const })
+              Effect.catchTag(
+                "GitHubScopeInsufficient",
+                () =>
+                  Effect.succeed({
+                    ok: false as const,
+                    tokenStatus: "scope_insufficient" as const,
+                    repoStatus: "ok" as const
+                  })
               ),
-              Effect.catchTag("RepoGone", () =>
-                Effect.succeed({ ok: false as const, tokenStatus: "ok" as const, repoStatus: "gone" as const })
+              Effect.catchTag(
+                "RepoGone",
+                () =>
+                  Effect.succeed({
+                    ok: false as const,
+                    tokenStatus: "ok" as const,
+                    repoStatus: "gone" as const
+                  })
               ),
-              Effect.catchTag("RateLimited", () =>
-                Effect.succeed({ ok: false as const, tokenStatus: "ok" as const, repoStatus: "ok" as const })
+              Effect.catchTag(
+                "RateLimited",
+                () =>
+                  Effect.succeed({
+                    ok: false as const,
+                    tokenStatus: "ok" as const,
+                    repoStatus: "ok" as const
+                  })
               ),
-              Effect.catchTag("GitHubError", () =>
-                Effect.succeed({ ok: false as const, tokenStatus: "ok" as const, repoStatus: "ok" as const })
+              Effect.catchTag(
+                "GitHubError",
+                () =>
+                  Effect.succeed({
+                    ok: false as const,
+                    tokenStatus: "ok" as const,
+                    repoStatus: "ok" as const
+                  })
               )
             )
 
@@ -551,8 +593,8 @@ export class Tickets extends Effect.Service<Tickets>()(
             if (pr.state === "merged") {
               // Auto-transition: idempotent on lastTransitionedPr.
               if (
-                ticket.status !== "done" &&
-                ticket.lastTransitionedPr !== pr.number
+                ticket.status !== "done"
+                && ticket.lastTransitionedPr !== pr.number
               ) {
                 yield* writeGitFields(slug, ticket.id, ticket, {
                   status: "done",

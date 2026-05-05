@@ -613,7 +613,7 @@ A project has a **Documentation** tab alongside Tickets and Members. This is whe
 ### What it is (and isn't)
 
 - It **is** a place for living docs that are scoped to a project. You write them in the same Lexical-with-markdown editor as ticket descriptions, organize them into folders, tag them, link between them.
-- It **isn't** a wiki, a CMS, or a replacement for in-repo `docs/` directories of the project's actual code. Those have their own home. This is for the *project management* artifacts — meeting notes, decisions, briefs — that belong with the tickets.
+- It **isn't** a wiki, a CMS, or a replacement for in-repo `docs/` directories of the project's actual code. Those have their own home. This is for the _project management_ artifacts — meeting notes, decisions, briefs — that belong with the tickets.
 - It **isn't** versioned beyond what git on `data/projects/` already gives you. No revision history UI in the PoC.
 
 ### Storage
@@ -669,7 +669,7 @@ Frontmatter `tags` is the source of truth for which docs carry which tag; `_meta
 
 ### Permissions
 
-Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc *use* is fine).
+Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc _use_ is fine).
 
 ### UI
 
@@ -701,7 +701,7 @@ Search is `grep`-grade for the PoC: walk the docs tree, match title/body/tags, r
 
 ### Why this earns its keep
 
-Two reasons. First, projects accumulate context that doesn't fit on a ticket — the *why* behind the work — and Slack/Notion is where that context goes to die. Putting it next to the tickets, in the same markdown tree, makes it greppable, AI-readable (see MCP below), and survives tool churn. Second, the same markdown-on-disk pattern from tickets pays off: nothing new to learn, the data is portable, and `cd data/projects/<slug>/docs && grep -ri foo` Just Works.
+Two reasons. First, projects accumulate context that doesn't fit on a ticket — the _why_ behind the work — and Slack/Notion is where that context goes to die. Putting it next to the tickets, in the same markdown tree, makes it greppable, AI-readable (see MCP below), and survives tool churn. Second, the same markdown-on-disk pattern from tickets pays off: nothing new to learn, the data is portable, and `cd data/projects/<slug>/docs && grep -ri foo` Just Works.
 
 ---
 

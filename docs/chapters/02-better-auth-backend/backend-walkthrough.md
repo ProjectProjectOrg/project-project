@@ -24,11 +24,12 @@ Every Promise-based library you wrap in Effect follows the same pattern:
 - A **Layer** using `Layer.effect` (no resource lifecycle here — Better Auth is a plain object) and `Effect.tryPromise({ try, catch })` to bridge each method.
 
 ```ts
-handler: (request) =>
+handler: ;
+;((request) =>
   Effect.tryPromise({
     try: () => auth.handler(request),
     catch: (cause) => new BetterAuthError({ cause })
-  })
+  }))
 ```
 
 This contrasts directly with Chapter 1's `Db` service: Drizzle's `QueryPromise` extends `Effect.Effect` via TypeScript module augmentation, so `yield* db.select()...` works without any wrapping. Better Auth ships no such helper, so we do the wrapping ourselves — once, in this file. From the rest of the app, both look the same: a yieldable Effect.

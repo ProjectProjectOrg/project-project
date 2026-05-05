@@ -64,7 +64,10 @@ async function main() {
   // Rasterize the master icon to each target size.
   async function renderPng(size: number) {
     return await sharp(Buffer.from(masterSvg))
-      .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(size, size, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      })
       .png()
       .toBuffer()
   }

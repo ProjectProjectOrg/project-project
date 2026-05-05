@@ -55,8 +55,8 @@ async function resolveUserId(token: string): Promise<string> {
     .limit(1)
   if (rows.length === 0) {
     throw new Error(
-      "MARKMATE_MCP_TOKEN is invalid or expired. Sign in via the web UI " +
-        "and copy a fresh session token."
+      "MARKMATE_MCP_TOKEN is invalid or expired. Sign in via the web UI "
+        + "and copy a fresh session token."
     )
   }
   return rows[0].userId
@@ -113,8 +113,8 @@ async function main(): Promise<void> {
   const token = process.env.MARKMATE_MCP_TOKEN
   if (!token) {
     console.error(
-      "MARKMATE_MCP_TOKEN is not set. The MCP server needs a Better Auth " +
-        "session token to scope reads to one user."
+      "MARKMATE_MCP_TOKEN is not set. The MCP server needs a Better Auth "
+        + "session token to scope reads to one user."
     )
     process.exit(1)
   }
@@ -130,8 +130,8 @@ async function main(): Promise<void> {
     {
       capabilities: { tools: {} },
       instructions:
-        "Read-only access to the user's ProjectProject projects and tickets. " +
-        "Use these tools to gather context before suggesting code or writing tickets."
+        "Read-only access to the user's ProjectProject projects and tickets. "
+        + "Use these tools to gather context before suggesting code or writing tickets."
     }
   )
 
@@ -152,8 +152,8 @@ async function main(): Promise<void> {
     {
       title: "List projects",
       description:
-        "Lists every project the authed user is a member of. Returns " +
-        "slug, name, ownerId, createdAt for each.",
+        "Lists every project the authed user is a member of. Returns "
+        + "slug, name, ownerId, createdAt for each.",
       inputSchema: {}
     },
     async () => {
@@ -177,9 +177,9 @@ async function main(): Promise<void> {
     {
       title: "Get project",
       description:
-        "Returns the full project: name, body (markdown), members, and " +
-        "the GitHub connection if any. Errors with NotFound if the user " +
-        "isn't a member.",
+        "Returns the full project: name, body (markdown), members, and "
+        + "the GitHub connection if any. Errors with NotFound if the user "
+        + "isn't a member.",
       inputSchema: { slug: z.string() }
     },
     async ({ slug }) => {
@@ -205,8 +205,8 @@ async function main(): Promise<void> {
     {
       title: "List tickets",
       description:
-        "Lists tickets in a project. Optional filters: status, type, " +
-        "assignee, has_branch, has_pr.",
+        "Lists tickets in a project. Optional filters: status, type, "
+        + "assignee, has_branch, has_pr.",
       inputSchema: {
         slug: z.string(),
         status: z
@@ -258,8 +258,7 @@ async function main(): Promise<void> {
     "get_ticket",
     {
       title: "Get ticket",
-      description:
-        "Returns the full ticket: frontmatter + body (markdown).",
+      description: "Returns the full ticket: frontmatter + body (markdown).",
       inputSchema: { slug: z.string(), id: z.string() }
     },
     async ({ slug, id }) => {
