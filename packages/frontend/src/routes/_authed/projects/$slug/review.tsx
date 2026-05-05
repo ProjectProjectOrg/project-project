@@ -6,7 +6,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { parsePatchFiles } from "@pierre/diffs"
 import { FileDiff } from "@pierre/diffs/react"
-// We mount the tree imperatively (see FileTree below) instead of using
+// We mount the tree imperatively (see Review.FileTree below) instead of using
 // @pierre/trees/react because that package's `useFileTree` is not
 // StrictMode-safe: it creates the model during render and destroys it on
 // the simulated unmount, leaving the rendered <FileTree model={...}> with
@@ -20,9 +20,18 @@ import {
   ArrowUpRight,
   GitMerge,
   GitPullRequest,
-  GitPullRequestClosed
+  GitPullRequestClosed,
+  type LucideIcon
 } from "lucide-react"
-import { type CSSProperties, useEffect, useMemo, useRef } from "react"
+import {
+  createContext,
+  type CSSProperties,
+  type ReactNode,
+  use,
+  useEffect,
+  useMemo,
+  useRef
+} from "react"
 import { reviewKey, ticketReviewAtom } from "@/atoms/reviews"
 import { useTheme } from "@/hooks/useTheme"
 import { cn } from "@/lib/utils"
@@ -72,40 +81,86 @@ function ReviewBody({ slug, ticketId }: { slug: string; ticketId: TicketId }) {
       <ReviewError slug={slug} ticketId={ticketId} tag="GitHubError" />
     ),
     onSuccess: ({ value }) => (
-      <ReviewLayout bundle={value} slug={slug} ticketId={ticketId} />
+      <Review.Provider bundle={value} slug={slug} ticketId={ticketId}>
+        <Review.Frame>
+          <Review.Header />
+          <Review.Body>
+            <Review.Sidebar>
+              <Review.FileTree />
+            </Review.Sidebar>
+            <Review.Main>
+              <Review.Diff />
+            </Review.Main>
+          </Review.Body>
+        </Review.Frame>
+      </Review.Provider>
     )
   })
 }
 
-function ReviewLayout({
-  bundle,
-  slug,
-  ticketId
-}: {
+// ---------------------------------------------------------------------------
+// Compound context — bundle + route params shared by every Review.* piece.
+// Lifting these into a provider lets sibling subcomponents (Header, FileTree,
+// Diff) read what they need without prop drilling through layout wrappers.
+// ---------------------------------------------------------------------------
+
+interface ReviewContextValue {
   bundle: PullRequestReviewBundle
   slug: string
   ticketId: TicketId
-}) {
+}
+
+const ReviewContext = createContext<ReviewContextValue | null>(null)
+
+function useReview(): ReviewContextValue {
+  const ctx = use(ReviewContext)
+  if (ctx == null) {
+    throw new Error("Review.* components must render inside <Review.Provider>")
+  }
+  return ctx
+}
+
+function ReviewProvider({
+  bundle,
+  slug,
+  ticketId,
+  children
+}: ReviewContextValue & { children: ReactNode }) {
+  return (
+    <ReviewContext value={{ bundle, slug, ticketId }}>{children}</ReviewContext>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Layout primitives
+// ---------------------------------------------------------------------------
+
+function ReviewFrame({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-background">
-      <ReviewHeader bundle={bundle} slug={slug} ticketId={ticketId} />
-      <div className="min-h-0 flex-1 border-t border-border/60 p-3">
-        <div className="grid h-full min-h-0 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="min-h-0">
-            <FileTree
-              className="h-full overflow-hidden rounded-md border border-border/50 bg-background"
-              files={bundle.files}
-              onSelect={(path) => {
-                const el = document.getElementById(fileAnchorId(path))
-                el?.scrollIntoView({ behavior: "smooth", block: "start" })
-              }}
-            />
-          </aside>
-          <div className="min-h-0 min-w-0 overflow-auto">
-            <Diff patch={bundle.patch} />
-          </div>
-        </div>
+      {children}
+    </div>
+  )
+}
+
+function ReviewBodyGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-0 flex-1 border-t border-border/60 p-3">
+      <div className="grid h-full min-h-0 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+        {children}
       </div>
+    </div>
+  )
+}
+
+function ReviewSidebar({ children }: { children: ReactNode }) {
+  return <aside className="min-h-0">{children}</aside>
+}
+
+function ReviewMain({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-0 min-w-0 overflow-auto overscroll-x-contain">
+      {children}
     </div>
   )
 }
@@ -114,22 +169,9 @@ function ReviewLayout({
 // Header
 // ---------------------------------------------------------------------------
 
-function ReviewHeader({
-  bundle,
-  slug,
-  ticketId
-}: {
-  bundle: PullRequestReviewBundle
-  slug: string
-  ticketId: TicketId
-}) {
-  const status: PrStatus = bundle.state === "merged"
-    ? "merged"
-    : bundle.state === "closed"
-    ? "closed"
-    : bundle.draft
-    ? "draft"
-    : "open"
+function ReviewHeader() {
+  const { bundle, slug, ticketId } = useReview()
+  const status = prStatusOf(bundle)
 
   return (
     <div className="px-5 py-4">
@@ -207,19 +249,34 @@ function Dot() {
 
 type PrStatus = "open" | "draft" | "merged" | "closed"
 
+function prStatusOf(bundle: PullRequestReviewBundle): PrStatus {
+  if (bundle.state === "merged") return "merged"
+  if (bundle.state === "closed") return "closed"
+  if (bundle.draft) return "draft"
+  return "open"
+}
+
+const PR_STATUS_CHIP: Record<PrStatus, { tint: string; Icon: LucideIcon }> = {
+  open: {
+    tint: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    Icon: GitPullRequest
+  },
+  draft: {
+    tint: "bg-muted text-muted-foreground",
+    Icon: GitPullRequest
+  },
+  merged: {
+    tint: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+    Icon: GitMerge
+  },
+  closed: {
+    tint: "bg-muted text-muted-foreground",
+    Icon: GitPullRequestClosed
+  }
+}
+
 function PrStatusChip({ status }: { status: PrStatus }) {
-  const tint = status === "merged"
-    ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-    : status === "closed"
-    ? "bg-muted text-muted-foreground"
-    : status === "draft"
-    ? "bg-muted text-muted-foreground"
-    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  const Icon = status === "merged"
-    ? GitMerge
-    : status === "closed"
-    ? GitPullRequestClosed
-    : GitPullRequest
+  const { tint, Icon } = PR_STATUS_CHIP[status]
   return (
     <span
       className={cn(
@@ -234,25 +291,23 @@ function PrStatusChip({ status }: { status: PrStatus }) {
 }
 
 // ---------------------------------------------------------------------------
-// Diff + file tree
+// Diff
 // ---------------------------------------------------------------------------
 
 function fileAnchorId(path: string): string {
   return `file-${path.replace(/[^a-zA-Z0-9_-]/g, "_")}`
 }
 
-function Diff({ patch }: { patch: string }) {
+function ReviewDiff() {
+  const { bundle } = useReview()
   const { resolvedTheme } = useTheme()
   const files = useMemo(
-    () => parsePatchFiles(patch).flatMap((p) => p.files),
-    [patch]
+    () => parsePatchFiles(bundle.patch).flatMap((p) => p.files),
+    [bundle.patch]
   )
   const diffOptions = useMemo(
     () => ({
-      theme: {
-        dark: "pierre-dark",
-        light: "pierre-light"
-      },
+      theme: { dark: "pierre-dark", light: "pierre-light" },
       themeType: resolvedTheme
     }),
     [resolvedTheme]
@@ -272,23 +327,18 @@ function Diff({ patch }: { patch: string }) {
   )
 }
 
-function FileTree({
-  files,
-  onSelect,
-  className
-}: {
-  files: ReadonlyArray<ReviewFileSummary>
-  onSelect: (path: string) => void
-  className?: string
-}) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
+// ---------------------------------------------------------------------------
+// File tree
+// ---------------------------------------------------------------------------
 
-  const paths = useMemo(() => files.map((f) => f.path), [files])
+function ReviewFileTree() {
+  const { bundle } = useReview()
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  const paths = useMemo(() => bundle.files.map((f) => f.path), [bundle.files])
   const gitStatus = useMemo(
-    () => files.flatMap((file) => toTreeGitStatus(file)),
-    [files]
+    () => bundle.files.flatMap((file) => toTreeGitStatus(file)),
+    [bundle.files]
   )
   const visibleRows = Math.min(Math.max(paths.length, 24), 40)
 
@@ -349,7 +399,9 @@ function FileTree({
       `,
       onSelectionChange: (selectedPaths) => {
         const last = selectedPaths.at(-1)
-        if (last != null && filePathSet.has(last)) onSelectRef.current(last)
+        if (last == null || !filePathSet.has(last)) return
+        const el = document.getElementById(fileAnchorId(last))
+        el?.scrollIntoView({ behavior: "smooth", block: "start" })
       }
     })
     model.render({ containerWrapper: wrapper })
@@ -359,33 +411,33 @@ function FileTree({
     }
   }, [paths, gitStatus, visibleRows])
 
-  const treeStyle = {
-    height: "100%",
-    "--trees-bg-override": "transparent",
-    "--trees-bg-muted-override": "var(--accent)",
-    "--trees-border-color-override": "var(--border)",
-    "--trees-fg-override": "var(--foreground)",
-    "--trees-fg-muted-override": "var(--muted-foreground)",
-    "--trees-selected-bg-override": "var(--selected)",
-    "--trees-selected-fg-override": "var(--foreground)",
-    "--trees-border-radius-override": "4px",
-    "--trees-item-padding-x-override": "6px",
-    "--trees-item-row-gap-override": "4px",
-    "--trees-icon-width-override": "14px",
-    "--trees-font-family-override":
-      "ui-monospace, SFMono-Regular, Menlo, monospace",
-    "--trees-font-size-override": "12px",
-    "--trees-padding-inline-override": "6px"
-  } as CSSProperties
-
   return (
     <div
       ref={wrapperRef}
-      className={className}
-      style={treeStyle}
+      className="h-full overflow-hidden rounded-md border border-border/50 bg-background"
+      style={TREE_STYLE}
     />
   )
 }
+
+const TREE_STYLE = {
+  height: "100%",
+  "--trees-bg-override": "transparent",
+  "--trees-bg-muted-override": "var(--accent)",
+  "--trees-border-color-override": "var(--border)",
+  "--trees-fg-override": "var(--foreground)",
+  "--trees-fg-muted-override": "var(--muted-foreground)",
+  "--trees-selected-bg-override": "var(--selected)",
+  "--trees-selected-fg-override": "var(--foreground)",
+  "--trees-border-radius-override": "4px",
+  "--trees-item-padding-x-override": "6px",
+  "--trees-item-row-gap-override": "4px",
+  "--trees-icon-width-override": "14px",
+  "--trees-font-family-override":
+    "ui-monospace, SFMono-Regular, Menlo, monospace",
+  "--trees-font-size-override": "12px",
+  "--trees-padding-inline-override": "6px"
+} as CSSProperties
 
 function toTreeGitStatus(
   file: ReviewFileSummary
@@ -405,6 +457,21 @@ function toTreeGitStatus(
     case "unchanged":
       return []
   }
+}
+
+// ---------------------------------------------------------------------------
+// Compound namespace — consumers compose <Review.Frame>, <Review.Header>, etc.
+// ---------------------------------------------------------------------------
+
+const Review = {
+  Provider: ReviewProvider,
+  Frame: ReviewFrame,
+  Header: ReviewHeader,
+  Body: ReviewBodyGrid,
+  Sidebar: ReviewSidebar,
+  Main: ReviewMain,
+  FileTree: ReviewFileTree,
+  Diff: ReviewDiff
 }
 
 // ---------------------------------------------------------------------------
