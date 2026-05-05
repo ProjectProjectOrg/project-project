@@ -36,6 +36,7 @@ import { Octokit } from "octokit"
 import { graphql as graphqlRequest } from "@octokit/graphql"
 import {
   BranchExists,
+  BranchListResponse,
   BranchProtected,
   GitHubError,
   GitHubScopeInsufficient,
@@ -533,12 +534,171 @@ export class GitHub extends Effect.Service<GitHub>()("GitHub", {
         }
       })
 
+    // List branches via GraphQL refs(query:). Server-side fuzzy match means
+    // a typing user gets results without us paging through hundreds of refs.
+    // Caller passes `first` to cap page size.
+    const listBranches = (
+      owner: string,
+      name: string,
+      query: string | undefined,
+      first: number,
+      userId: string
+    ): Effect.Effect<
+      BranchListResponse,
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | RepoGone
+      | RateLimited
+      | GitHubError
+    > =>
+      Effect.gen(function* () {
+        const token = yield* tokenFor(userId)
+        const gql = graphqlFor(token)
+
+        interface QResult {
+          repository: {
+            refs: {
+              nodes: ReadonlyArray<{
+                name: string
+                branchProtectionRule: { id: string } | null
+              }>
+              pageInfo: { hasNextPage: boolean }
+            }
+          } | null
+        }
+
+        const data = yield* Effect.tryPromise({
+          try: () =>
+            gql<QResult>(
+              /* GraphQL */ `
+                query Q(
+                  $owner: String!
+                  $name: String!
+                  $q: String
+                  $first: Int!
+                ) {
+                  repository(owner: $owner, name: $name) {
+                    refs(
+                      refPrefix: "refs/heads/"
+                      query: $q
+                      first: $first
+                      orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
+                    ) {
+                      nodes {
+                        name
+                        branchProtectionRule {
+                          id
+                        }
+                      }
+                      pageInfo {
+                        hasNextPage
+                      }
+                    }
+                  }
+                }
+              `,
+              { owner, name, q: query ?? null, first }
+            ),
+          catch: (
+            cause
+          ):
+            | GitHubTokenExpired
+            | GitHubScopeInsufficient
+            | RepoGone
+            | RateLimited
+            | GitHubError => {
+            const err = mapHttpError(cause)
+            if (
+              err._tag === "BranchExists" ||
+              err._tag === "BranchProtected"
+            ) {
+              return new GitHubError({ message: "unexpected GitHub response" })
+            }
+            return err
+          }
+        })
+
+        if (!data.repository) return yield* Effect.fail(new RepoGone())
+
+        return {
+          items: data.repository.refs.nodes.map((n) => ({
+            name: n.name,
+            isProtected: n.branchProtectionRule !== null
+          })),
+          hasMore: data.repository.refs.pageInfo.hasNextPage
+        }
+      })
+
+    // Single GraphQL ref lookup. Returns true when the branch exists on
+    // remote, false when it doesn't. RepoGone bubbles for unknown repos.
+    const branchExists = (
+      owner: string,
+      name: string,
+      branch: string,
+      userId: string
+    ): Effect.Effect<
+      boolean,
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | RepoGone
+      | RateLimited
+      | GitHubError
+    > =>
+      Effect.gen(function* () {
+        const token = yield* tokenFor(userId)
+        const gql = graphqlFor(token)
+
+        interface QResult {
+          repository: {
+            ref: { name: string } | null
+          } | null
+        }
+
+        const data = yield* Effect.tryPromise({
+          try: () =>
+            gql<QResult>(
+              /* GraphQL */ `
+                query Q($owner: String!, $name: String!, $ref: String!) {
+                  repository(owner: $owner, name: $name) {
+                    ref(qualifiedName: $ref) {
+                      name
+                    }
+                  }
+                }
+              `,
+              { owner, name, ref: `refs/heads/${branch}` }
+            ),
+          catch: (
+            cause
+          ):
+            | GitHubTokenExpired
+            | GitHubScopeInsufficient
+            | RepoGone
+            | RateLimited
+            | GitHubError => {
+            const err = mapHttpError(cause)
+            if (
+              err._tag === "BranchExists" ||
+              err._tag === "BranchProtected"
+            ) {
+              return new GitHubError({ message: "unexpected GitHub response" })
+            }
+            return err
+          }
+        })
+
+        if (!data.repository) return yield* Effect.fail(new RepoGone())
+        return data.repository.ref !== null
+      })
+
     return {
       listUserRepos,
       verifyAccess,
       createBranch,
       openPullRequest,
-      fetchProjectStates
+      fetchProjectStates,
+      listBranches,
+      branchExists
     } as const
   }),
   dependencies: []
