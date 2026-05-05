@@ -1,11 +1,3 @@
-// TicketGit — UI surfaces for a ticket's GitHub state.
-//
-// Two exports:
-//   TicketGitChip  — tiny badge for collapsed list rows (unchanged)
-//   TicketGitPanel — full inline panel for the expanded ticket view, built
-//                    on top of <InlineForm> with three to four actions per
-//                    state (create / connect / open_pr / clear).
-
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import {
   AlertTriangle,
@@ -17,11 +9,14 @@ import {
   GitPullRequestClosed,
   Plus
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { CopyButton } from "@/components/ui/copy-button"
+import { useProject } from "@/routes/_authed/projects/$slug/-context"
 import { projectGitStatesAtom } from "@/atoms/github"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
-import { OpenPrFields } from "@/components/TicketGit/OpenPrFields"
+import { Button } from "@/components/ui/button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { cn } from "@/lib/utils"
 import type {
@@ -31,12 +26,6 @@ import type {
   TicketId
 } from "@projectproject/shared"
 
-// --- Helpers --------------------------------------------------------------
-
-// Returns the per-ticket GitState plus a `waiting` flag reflecting whether
-// any in-flight optimistic mutation is touching this project's git states.
-// The flag drives the pulse animation on the chip + branch displays so the
-// user sees their action land instantly while the server roundtrip resolves.
 function useGitState(
   slug: string,
   ticketId: string
@@ -53,14 +42,16 @@ function truncate(name: string, max = 18) {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name
 }
 
+function compareUrl(repoSlug: string, base: string, branch: string): string {
+  return `https://github.com/${repoSlug}/compare/${base}...${branch}?quick_pull=1`
+}
+
 function checksColor(s: string): string {
   if (s === "passing") return "text-emerald-500"
   if (s === "failing") return "text-red-500"
   if (s === "pending") return "text-amber-500"
   return "text-muted-foreground"
 }
-
-// --- TicketGitChip --------------------------------------------------------
 
 export function TicketGitChip({
   slug,
@@ -70,97 +61,84 @@ export function TicketGitChip({
   ticketId: TicketId
 }) {
   const { state, waiting } = useGitState(slug, ticketId)
-  if (!state || state.tag === "no_branch") return null
+  const project = useProject()
+  if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pulse = waiting && "animate-pulse"
+  const repoSlug = project.github
+    ? `${project.github.repoOwner}/${project.github.repoName}`
+    : null
 
   if (state.tag === "stale_branch") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400",
-          pulse
-        )}
+      <Badge
+        tone="amber"
+        size="xs"
+        className={cn(pulse)}
         title={`Branch "${state.name}" not on remote`}
       >
-        <AlertTriangle className="size-3" strokeWidth={1.75} />
+        <AlertTriangle strokeWidth={1.75} />
         stale
-      </span>
+      </Badge>
     )
   }
 
   if (state.tag === "branch_no_pr") {
+    if (!repoSlug) {
+      return (
+        <Badge
+          tone="muted"
+          size="xs"
+          className={cn("font-mono", pulse)}
+          title={state.name}
+        >
+          <GitBranch strokeWidth={1.75} />
+          {truncate(state.name)}
+        </Badge>
+      )
+    }
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground",
-          pulse
-        )}
-        title={state.name}
-      >
-        <GitBranch className="size-3" strokeWidth={1.75} />
-        {truncate(state.name)}
+      <span className={cn(pulse)}>
+        <BranchChip
+          slug={repoSlug}
+          name={state.name}
+          displayName={truncate(state.name)}
+          variant="ghost"
+        />
       </span>
     )
   }
 
   if (state.tag === "pr_open") {
-    const checkColor = checksColor(state.checks)
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-          state.draft
-            ? "bg-muted text-muted-foreground"
-            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-          pulse
-        )}
-        title={state.title}
-      >
-        <GitPullRequest className="size-3" strokeWidth={1.75} />#{state.number}
-        {state.checks !== "none" && (
-          <Circle
-            className={cn("size-2 fill-current", checkColor)}
-            strokeWidth={0}
-          />
-        )}
-        {state.draft && <span>draft</span>}
+      <span className={cn(pulse)}>
+        <PrLink
+          number={state.number}
+          url={state.url}
+          tone={state.draft ? "draft" : "open"}
+          checks={state.checks}
+        />
       </span>
     )
   }
 
   if (state.tag === "pr_merged") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400",
-          pulse
-        )}
-        title={state.title}
-      >
-        <GitMerge className="size-3" strokeWidth={1.75} />#{state.number}
+      <span className={cn(pulse)}>
+        <PrLink number={state.number} url={state.url} tone="merged" />
       </span>
     )
   }
 
   if (state.tag === "pr_closed") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground",
-          pulse
-        )}
-        title={state.title}
-      >
-        <GitPullRequestClosed className="size-3" strokeWidth={1.75} />#
-        {state.number}
+      <span className={cn(pulse)}>
+        <PrLink number={state.number} url={state.url} tone="closed" />
       </span>
     )
   }
 
   return null
 }
-
-// --- TicketGitPanel -------------------------------------------------------
 
 export function TicketGitPanel({
   slug,
@@ -178,7 +156,7 @@ export function TicketGitPanel({
   if (state === null) {
     return (
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
+        <div className="skeleton h-7 w-44 rounded bg-muted/60" />
       </div>
     )
   }
@@ -210,17 +188,32 @@ function PanelForState({
   branchTemplate: string | null
 }) {
   const repoSlug = `${github.repoOwner}/${github.repoName}`
-  // Pulse the optimistic-state indicators (chip + branch + PR link) while the
-  // server-truth roundtrip is in flight. Idle controls (triggers, buttons)
-  // are NOT pulsed — only the data display is uncertain.
   const pulse = waiting && "animate-pulse"
 
   if (state.tag === "no_branch") {
-    const Root = InlineForm.Root<"create" | "connect">
+    type NoBranchAction = "create" | "connect"
+    const Root = InlineForm.Root<NoBranchAction>
+    const baseBranch = github.defaultBaseBranch ?? "main"
     return (
       <Root>
         <InlineForm.Idle>
-          <InlineForm.Display>
+          <InlineForm.Display<NoBranchAction>
+            previews={{
+              create: (
+                <span className="text-xs text-muted-foreground">
+                  Create a new branch from{" "}
+                  <span className="font-mono text-foreground">
+                    {baseBranch}
+                  </span>
+                </span>
+              ),
+              connect: (
+                <span className="text-xs text-muted-foreground">
+                  Attach an existing branch from this repo
+                </span>
+              )
+            }}
+          >
             <span className="text-xs text-muted-foreground">No branch yet.</span>
           </InlineForm.Display>
           <InlineForm.Actions>
@@ -253,7 +246,8 @@ function PanelForState({
   }
 
   if (state.tag === "branch_no_pr") {
-    const Root = InlineForm.Root<"open_pr" | "clear">
+    const baseBranch = github.defaultBaseBranch ?? "main"
+    const Root = InlineForm.Root<"clear">
     return (
       <Root>
         <InlineForm.Idle>
@@ -261,25 +255,20 @@ function PanelForState({
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
           <InlineForm.Actions>
-            <InlineForm.Trigger
-              action="open_pr"
-              size="sm"
-              leadingIcon={GitPullRequest}
-            >
-              Open PR
-            </InlineForm.Trigger>
-            <InlineForm.Trigger
-              action="clear"
-              size="sm"
-              variant="ghost"
-            >
+            <Button asChild size="sm" leadingIcon={GitPullRequest}>
+              <a
+                href={compareUrl(repoSlug, baseBranch, state.name)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open PR
+              </a>
+            </Button>
+            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
               Clear
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
-        <InlineForm.Form action="open_pr">
-          <OpenPrFields slug={slug} ticket={ticket} branch={state.name} />
-        </InlineForm.Form>
         <InlineForm.Form action="clear">
           <ClearBranchFields slug={slug} id={ticket.id} />
         </InlineForm.Form>
@@ -325,31 +314,30 @@ function PanelForState({
   }
 
   if (state.tag === "pr_closed") {
-    const Root = InlineForm.Root<"open_pr">
+    const baseBranch = github.defaultBaseBranch ?? "main"
     return (
-      <Root>
-        <InlineForm.Idle>
-          <InlineForm.Display className={cn(pulse)}>
-            <div className="flex items-center gap-2">
-              <BranchChip slug={repoSlug} name={state.branch} />
-              <PrLink number={state.number} url={state.url} tone="closed" />
-            </div>
-          </InlineForm.Display>
-          <InlineForm.Actions>
-            <InlineForm.Trigger
-              action="open_pr"
-              size="sm"
-              variant="tertiary"
-              leadingIcon={GitPullRequest}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+        <div className={cn("flex items-center gap-2", pulse)}>
+          <BranchChip slug={repoSlug} name={state.branch} />
+          <PrLink number={state.number} url={state.url} tone="closed" />
+        </div>
+        <div className="ml-auto">
+          <Button
+            asChild
+            size="sm"
+            variant="tertiary"
+            leadingIcon={GitPullRequest}
+          >
+            <a
+              href={compareUrl(repoSlug, baseBranch, state.branch)}
+              target="_blank"
+              rel="noreferrer"
             >
               Open new PR
-            </InlineForm.Trigger>
-          </InlineForm.Actions>
-        </InlineForm.Idle>
-        <InlineForm.Form action="open_pr">
-          <OpenPrFields slug={slug} ticket={ticket} branch={state.branch} />
-        </InlineForm.Form>
-      </Root>
+            </a>
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -380,22 +368,60 @@ function PanelForState({
   return null
 }
 
-function BranchChip({ slug, name }: { slug: string; name: string }) {
+export function BranchChip({
+  slug,
+  name,
+  displayName,
+  variant = "muted"
+}: {
+  slug: string
+  name: string
+  displayName?: string
+  variant?: "muted" | "ghost"
+}) {
+  if (variant === "ghost") {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 font-mono text-xs text-muted-foreground"
+        title={name}
+      >
+        <a
+          href={`https://github.com/${slug}/tree/${name}`}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors duration-100 hover:bg-accent hover:text-foreground"
+        >
+          <GitBranch className="size-3" strokeWidth={1.75} />
+          {displayName ?? name}
+          <ArrowUpRight className="size-3" strokeWidth={1.75} />
+        </a>
+        <CopyButton value={name} copyLabel="Copy branch name" />
+      </span>
+    )
+  }
   return (
-    <a
-      href={`https://github.com/${slug}/tree/${name}`}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:text-foreground"
+    <span
+      className="inline-flex items-center gap-0.5 rounded-md bg-muted pr-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:text-foreground"
+      title={name}
     >
-      <GitBranch className="size-3" strokeWidth={1.75} />
-      {name}
-      <ArrowUpRight className="size-3" strokeWidth={1.75} />
-    </a>
+      <a
+        href={`https://github.com/${slug}/tree/${name}`}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 rounded-md py-0.5 pl-1.5 transition-colors duration-100 hover:text-foreground"
+      >
+        <GitBranch className="size-3" strokeWidth={1.75} />
+        {displayName ?? name}
+        <ArrowUpRight className="size-3" strokeWidth={1.75} />
+      </a>
+      <CopyButton value={name} copyLabel="Copy branch name" />
+    </span>
   )
 }
 
-function PrLink({
+export function PrLink({
   number,
   url,
   tone,
@@ -406,14 +432,12 @@ function PrLink({
   tone: "open" | "draft" | "merged" | "closed"
   checks?: string
 }) {
-  const tint =
+  const badgeTone =
     tone === "merged"
-      ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
-      : tone === "closed"
-        ? "bg-muted text-muted-foreground"
-        : tone === "draft"
-          ? "bg-muted text-muted-foreground"
-          : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      ? "violet"
+      : tone === "closed" || tone === "draft"
+        ? "muted"
+        : "emerald"
   const Icon =
     tone === "merged"
       ? GitMerge
@@ -421,23 +445,22 @@ function PrLink({
         ? GitPullRequestClosed
         : GitPullRequest
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
-        tint
-      )}
-    >
-      <Icon className="size-3" strokeWidth={1.75} />#{number}
-      {checks && checks !== "none" && (
-        <Circle
-          className={cn("size-2 fill-current", checksColor(checks))}
-          strokeWidth={0}
-        />
-      )}
-      {tone === "draft" && <span>draft</span>}
-    </a>
+    <Badge asChild tone={badgeTone} size="xs">
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Icon strokeWidth={1.75} />#{number}
+        {checks && checks !== "none" && (
+          <Circle
+            className={cn("size-2 fill-current", checksColor(checks))}
+            strokeWidth={0}
+          />
+        )}
+        {tone === "draft" && <span>draft</span>}
+      </a>
+    </Badge>
   )
 }

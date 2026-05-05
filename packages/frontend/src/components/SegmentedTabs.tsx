@@ -28,32 +28,51 @@ export type SegmentedItem<K extends string> = {
   key: K
   label: string
   icon?: IconCmp
-  // Tailwind class applied to the icon — lets each callsite tint its own
-  // status/type icons (e.g. todo grey, done green) without dropping into a
-  // bespoke item shape.
   iconClassName?: string
-  // Numeric or text badge rendered next to the label. Hidden when undefined.
   badge?: number | string | null
-  // Used as the button/link `aria-label` when `compact` is true and the
-  // visible label is collapsed away.
+  badgeNode?: ReactNode
   compactAriaLabel?: string
+}
+
+export type SegmentedVariant = "default" | "inline"
+
+type VariantTokens = {
+  container: string
+  innerGap: string
+  iconSize: string
+  pillRounding: string
+  itemBase: string
+}
+
+const VARIANTS: Record<SegmentedVariant, VariantTokens> = {
+  default: {
+    container:
+      "inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1",
+    innerGap: "gap-1.5",
+    iconSize: "size-3.5",
+    pillRounding: "rounded-lg",
+    itemBase: "h-7 rounded-lg px-2.5 text-sm"
+  },
+  inline: {
+    container: "inline-flex items-center gap-0.5",
+    innerGap: "gap-1",
+    iconSize: "size-3",
+    pillRounding: "rounded-md",
+    itemBase: "h-6 rounded-md px-1.5 text-xs"
+  }
 }
 
 export interface SegmentedTabsProps<K extends string> {
   items: ReadonlyArray<SegmentedItem<K>>
-  // Distinct id per usage so LayoutGroups don't bleed into each other (the
-  // project-tab pill should never animate to a status chip's position).
   layoutId: string
   isActive: (key: K) => boolean
-  // The wrapper element for each item — typically `<button onClick=...>` or
-  // `<Link to=...>`. Receives the inner content (already animated/styled)
-  // and the per-item context. `key` is handled by the parent.
   renderItem: (
     item: SegmentedItem<K>,
     content: ReactNode,
     args: { active: boolean }
   ) => ReactNode
   compact?: boolean
+  variant?: SegmentedVariant
   className?: string
 }
 
@@ -63,16 +82,13 @@ export function SegmentedTabs<K extends string>({
   isActive,
   renderItem,
   compact = false,
+  variant = "default",
   className
 }: SegmentedTabsProps<K>) {
+  const v = VARIANTS[variant]
   return (
     <LayoutGroup id={layoutId}>
-      <div
-        className={cn(
-          "inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1",
-          className
-        )}
-      >
+      <div className={cn(v.container, className)}>
         {items.map((it) => {
           const active = isActive(it.key)
           const Icon = it.icon
@@ -82,29 +98,35 @@ export function SegmentedTabs<K extends string>({
                 <motion.span
                   layoutId={`${layoutId}-active`}
                   transition={springs.moderate}
-                  className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  className={cn("absolute inset-0 -z-0 bg-accent", v.pillRounding)}
                 />
               )}
-              <span className="relative z-10 inline-flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "relative z-10 inline-flex items-center",
+                  v.innerGap
+                )}
+              >
                 {Icon && (
                   <Icon
-                    className={cn("size-3.5", it.iconClassName)}
+                    className={cn(v.iconSize, it.iconClassName)}
                     strokeWidth={1.75}
                   />
                 )}
                 <CollapsingLabel show={!compact}>{it.label}</CollapsingLabel>
-                {it.badge !== undefined && it.badge !== null && (
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
-                      active
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {it.badge}
-                  </span>
-                )}
+                {it.badgeNode ??
+                  (it.badge !== undefined && it.badge !== null && (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                        active
+                          ? "bg-foreground/10 text-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {it.badge}
+                    </span>
+                  ))}
               </span>
             </>
           )
@@ -148,7 +170,7 @@ export function CollapsingLabel({
           animate={{ width: "auto", opacity: 1, marginLeft: 0 }}
           exit={{ width: 0, opacity: 0, marginLeft: -8 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
-          className="overflow-hidden whitespace-nowrap"
+          className="inline-flex items-center overflow-hidden whitespace-nowrap"
         >
           {children}
         </motion.span>
@@ -159,9 +181,15 @@ export function CollapsingLabel({
 
 // Shared item button styling. Exported so callsites that render plain
 // buttons get the exact same hit-target sizing and active/inactive text
-// treatment as the URL-driven tabs.
-export const SEGMENTED_ITEM_CLASS = (active: boolean) =>
+// treatment as the URL-driven tabs. Pass the same `variant` you passed to
+// SegmentedTabs so chrome and item sizing stay in sync.
+export const SEGMENTED_ITEM_CLASS = (
+  active: boolean,
+  variant: SegmentedVariant = "default"
+) =>
   cn(
-    "relative inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-sm transition-colors",
+    "group/seg-item relative inline-flex items-center transition-colors",
+    VARIANTS[variant].itemBase,
+    VARIANTS[variant].innerGap,
     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
   )

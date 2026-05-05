@@ -10,8 +10,11 @@ import { useProject } from "./-context"
 // reloads and is shareable. `ticket` holds the currently expanded id.
 export const Route = createFileRoute("/_authed/projects/$slug/")({
   component: TicketsTab,
-  validateSearch: (search: Record<string, unknown>): { ticket?: string } => ({
-    ticket: typeof search.ticket === "string" ? search.ticket : undefined
+  validateSearch: (
+    search: Record<string, unknown>
+  ): { ticket?: string; focusBody?: number } => ({
+    ticket: typeof search.ticket === "string" ? search.ticket : undefined,
+    focusBody: search.focusBody === 1 ? 1 : undefined
   })
 })
 

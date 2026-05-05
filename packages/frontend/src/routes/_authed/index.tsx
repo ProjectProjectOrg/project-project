@@ -191,12 +191,12 @@ function NewProjectCTA() {
 function TilesSkeleton() {
   return (
     <section className="flex flex-col gap-3">
-      <div className="h-6 w-40 animate-pulse rounded-md bg-muted/60" />
+      <div className="h-6 w-40 skeleton rounded-md bg-muted/60" />
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="h-32 animate-pulse rounded-xl border border-border bg-background"
+            className="h-32 skeleton rounded-xl border border-border bg-background"
           />
         ))}
       </div>

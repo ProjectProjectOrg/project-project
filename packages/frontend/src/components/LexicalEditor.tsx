@@ -14,6 +14,7 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS
 } from "@lexical/markdown"
+import { $createParagraphNode, $getRoot } from "lexical"
 import {
   CodeHighlightNode,
   CodeNode,
@@ -116,6 +117,21 @@ function CodeHighlightPlugin() {
   return null
 }
 
+function AutoFocusPlugin() {
+  const [editor] = useLexicalComposerContext()
+  useEffect(() => {
+    editor.update(() => {
+      const root = $getRoot()
+      const last = root.getLastChild()
+      if (!last || last.getType() !== "paragraph") {
+        root.append($createParagraphNode())
+      }
+    })
+    editor.focus(undefined, { defaultSelection: "rootEnd" })
+  }, [editor])
+  return null
+}
+
 // We deliberately do NOT have an external-sync plugin. Once the editor
 // mounts, it owns the markdown until unmount — the autosave round-trip
 // (parent re-renders with the same body we typed) would otherwise re-apply
@@ -135,6 +151,8 @@ export interface LexicalEditorProps {
   debounceMs?: number
   className?: string
   placeholder?: string
+  /** Focus the editor on mount. */
+  autoFocus?: boolean
 }
 
 export function LexicalEditor({
@@ -143,7 +161,8 @@ export function LexicalEditor({
   onStatusChange,
   debounceMs = 600,
   className,
-  placeholder = "Write a description in markdown…"
+  placeholder = "Write a description in markdown…",
+  autoFocus = false
 }: LexicalEditorProps) {
   const initialConfig = useRef({
     namespace: "ProjectBody",
@@ -239,6 +258,7 @@ export function LexicalEditor({
         <ListPlugin />
         <LinkPlugin />
         <CodeHighlightPlugin />
+        {autoFocus && <AutoFocusPlugin />}
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
         <OnChangePlugin
           onChange={(editorState) => {

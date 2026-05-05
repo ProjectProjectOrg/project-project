@@ -221,7 +221,9 @@ async function main(): Promise<void> {
           .string()
           .nullable()
           .optional()
-          .describe("Filter by assignee user id, or null for unassigned."),
+          .describe(
+            "Filter by assignee user id (matches if assigned), or null for unassigned tickets."
+          ),
         has_branch: z.boolean().optional(),
         has_pr: z.boolean().optional()
       }
@@ -239,7 +241,13 @@ async function main(): Promise<void> {
         const filtered = tickets.filter((t) => {
           if (status && t.status !== status) return false
           if (type && t.type !== type) return false
-          if (assignee !== undefined && t.assignee !== assignee) return false
+          if (assignee !== undefined) {
+            if (assignee === null) {
+              if (t.assignees.length > 0) return false
+            } else if (!t.assignees.includes(assignee)) {
+              return false
+            }
+          }
           if (has_branch !== undefined && (t.branch !== null) !== has_branch) {
             return false
           }

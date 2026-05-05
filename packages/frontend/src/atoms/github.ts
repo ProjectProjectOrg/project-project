@@ -16,16 +16,17 @@ import type {
   ConnectGithubInput,
   CreateBranchInput,
   GitState,
-  OpenPrInput,
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
 import { ticketAtom, ticketKey, ticketsListAtom } from "./tickets"
 
-// Private — server-truthy fetch. Wrapped by `projectGitStatesAtom` below.
+// Server-truthy fetch. Wrapped by `projectGitStatesAtom` below.
 // 30s TTL: short enough that the chip feels alive across a normal flow,
-// long enough that focus-driven refreshes don't hammer GraphQL.
-const projectGitStatesBaseAtom = Atom.family((slug: string) =>
+// long enough that focus-driven refreshes don't hammer GraphQL. Exported
+// so non-mutation code paths (e.g. ticket creation) can ask for a fresh
+// pull when they know server state has shifted.
+export const projectGitStatesBaseAtom = Atom.family((slug: string) =>
   runtime
     .atom(
       Effect.gen(function* () {
@@ -188,33 +189,6 @@ export const attachBranchAtom = Atom.family((slug: string) =>
         get.refresh(ticketAtom(ticketKey(slug, input.id)))
         get.refresh(ticketsListAtom(slug))
         return updated
-      })
-    )
-  })
-)
-
-// Pulse-only optimistic: a PR's number / url can't be predicted client-side,
-// so the reducer leaves the visible state untouched and only flips
-// `waiting: true`. The chip's animate-pulse fires while the server resolves;
-// when the base refresh lands, the actual `pr_open` state appears.
-export const openPrAtom = Atom.family((slug: string) =>
-  Atom.optimisticFn(projectGitStatesAtom(slug), {
-    reducer: (current, _input: { id: TicketId } & OpenPrInput) => {
-      if (!Result.isSuccess(current)) return current
-      return Result.success(current.value, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: { id: TicketId } & OpenPrInput, get) {
-        const client = yield* ApiClient
-        const { id, ...payload } = input
-        const result = yield* client.tickets.openPr({
-          path: { slug, id },
-          payload
-        })
-        get.refresh(ticketAtom(ticketKey(slug, id)))
-        get.refresh(ticketsListAtom(slug))
-        get.refresh(projectGitStatesBaseAtom(slug))
-        return result
       })
     )
   })

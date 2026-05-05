@@ -1,18 +1,3 @@
-// Inline-expanding ticket list.
-//
-// Each row collapses to a one-liner; clicking expands it in place to a full
-// editor + metadata panel — same content the old separate page had, but
-// without losing list context. The URL carries `?ticket=T-N` so the
-// expansion is deep-linkable.
-//
-// Search / filter / sort live above the list. All client-side: the full list
-// is already in memory via `ticketsListAtom`. The search bar is local state
-// (no need to persist), the expanded id is URL state (worth deep-linking).
-//
-// Why no TanStack Table yet: one search + one status filter + one sort key
-// fits cleanly into ~40 lines of plain TS. Migrate when columns gain
-// individual sortability or virtualization is needed.
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
@@ -23,7 +8,8 @@ import {
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/SegmentedTabs"
-import { MemberAvatar } from "@/components/MemberAvatar"
+import { AvatarStack, MemberAvatar } from "@/components/MemberAvatar"
+import { Hitbox } from "@/components/ui/hitbox"
 import {
   InputGroup,
   InputGroupAddon,
@@ -31,21 +17,15 @@ import {
 } from "@/components/ui/input-group"
 import {
   ArrowDownAZ,
-  Bug,
   Check,
   ChevronDown,
-  CircleDashed,
-  CircleDot,
-  Hammer,
-  HelpCircle,
   ListChecks,
   Search,
   SlidersHorizontal,
-  Sparkles,
-  Trash2,
   UserRound,
   X
 } from "lucide-react"
+import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
 import {
   deleteTicketAtom,
   ticketAtom,
@@ -62,8 +42,12 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
+import { Badge } from "@/components/ui/badge"
+import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
+import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "@/routes/_authed/projects/$slug/-context"
 import { cn } from "@/lib/utils"
+import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { meAtom } from "@/atoms/auth"
 import type {
   Member,
@@ -73,51 +57,6 @@ import type {
   TicketStatus,
   TicketType
 } from "@projectproject/shared"
-
-// --- Tokens ---------------------------------------------------------------
-
-const STATUS_META: Record<
-  TicketStatus,
-  { label: string; icon: typeof Check; className: string }
-> = {
-  todo: {
-    label: "Todo",
-    icon: CircleDashed,
-    className: "text-muted-foreground"
-  },
-  in_progress: {
-    label: "In progress",
-    icon: CircleDot,
-    className: "text-blue-500"
-  },
-  done: { label: "Done", icon: Check, className: "text-emerald-500" }
-}
-
-const TYPE_META: Record<
-  TicketType,
-  { label: string; icon: typeof Sparkles; tint: string }
-> = {
-  feat: {
-    label: "Feature",
-    icon: Sparkles,
-    tint: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-  },
-  bug: {
-    label: "Bug",
-    icon: Bug,
-    tint: "bg-red-500/10 text-red-700 dark:text-red-400"
-  },
-  chore: {
-    label: "Chore",
-    icon: Hammer,
-    tint: "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-  },
-  other: {
-    label: "Other",
-    icon: HelpCircle,
-    tint: "bg-muted text-muted-foreground"
-  }
-}
 
 const SORTS = {
   id: { label: "ID", compare: (a: Ticket, b: Ticket) => idNum(a) - idNum(b) },
@@ -142,8 +81,6 @@ function idNum(t: Ticket): number {
   return Number(t.id.slice(2))
 }
 
-// --- Public API ------------------------------------------------------------
-
 export function TicketList({
   slug,
   members
@@ -155,57 +92,70 @@ export function TicketList({
   const me = useAtomValue(meAtom)
   const myId = Result.isSuccess(me) ? me.value.id : null
   const navigate = useNavigate()
-  const search = useSearch({ strict: false }) as { ticket?: string }
+  const search = useSearch({ strict: false }) as {
+    ticket?: string
+    focusBody?: number
+  }
   const expandedId = (search.ticket ?? null) as TicketId | null
+  const focusBody = search.focusBody === 1
 
   const setExpanded = (id: TicketId | null) => {
     navigate({
       to: ".",
-      search: (prev) => ({ ...prev, ticket: id ?? undefined }),
+      search: (prev) => ({
+        ...prev,
+        ticket: id ?? undefined,
+        focusBody: undefined
+      }),
       replace: true
     })
   }
 
+  const consumeFocusBody = () => {
+    navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, focusBody: undefined }),
+      replace: true
+    })
+  }
+
+  useEffect(() => {
+    if (!expandedId) return
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key !== "Escape") return
+      const t = e.target as HTMLElement | null
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        (t && t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      setExpanded(null)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedId])
+
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all")
   const [typeFilter, setTypeFilter] = useState<TicketType | "all">("all")
-  // Assignee filter values: "all" | "unassigned" | "mine" | <user-id>.
-  // "mine" is a shortcut that resolves to the current viewer's id at filter
-  // time; cheaper UX than making the user pick themselves out of the list.
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
   const [sortKey, setSortKey] = useState<SortKey>("id")
   const [searchFocused, setSearchFocused] = useState(false)
-  const [creating, setCreating] = useState(false)
 
-  // Two intent signals shape the rest of the UI:
-  //
-  //   - `compactFilters` collapses filter/sort labels so the search bar can
-  //     breathe. Stays compact while the search has focus OR carries a
-  //     query — clicking a filter mid-search shouldn't make labels pop back
-  //     in and shift target positions under the cursor.
-  //
-  //   - `creating` (CreateTicketRow has focus) dims the rest of the surface
-  //     below the input. Pure visual hint — clicks still work, but the dim
-  //     pulls attention to the new ticket the user is composing.
   const compactFilters = searchFocused || query.length > 0
 
-  // Resolve the assignee filter to the actual id that should match a ticket.
-  //   "all"        — no filter
-  //   "unassigned" — sentinel string for "no assignee"
-  //   "mine"       — current viewer's id (or null if not signed in)
-  //   "<user-id>"  — that exact user id
   const resolvedAssignee: "all" | "unassigned" | string =
     assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
 
   return (
-    <div className="flex flex-col gap-3">
-      <CreateTicketRow slug={slug} onFocusChange={setCreating} />
+    <div className="group/list flex flex-col gap-3">
+      <CreateTicketRow slug={slug} />
 
-      <motion.div
-        animate={{ opacity: creating ? 0.35 : 1 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-        className="flex flex-col gap-3"
-      >
+      <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {Result.isSuccess(list) && list.value.length > 0 && (
           <Toolbar
             query={query}
@@ -228,7 +178,7 @@ export function TicketList({
 
         {Result.matchWithError(list, {
           onInitial: () => (
-            <div className="h-24 animate-pulse rounded-xl border border-border bg-background" />
+            <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
             <Empty>Couldn't load tickets: {error._tag}</Empty>
@@ -241,22 +191,23 @@ export function TicketList({
               slug={slug}
               tickets={value}
               query={query}
+              onClearSearch={() => setQuery("")}
               statusFilter={statusFilter}
               typeFilter={typeFilter}
               assigneeFilter={resolvedAssignee}
               sortKey={sortKey}
               expandedId={expandedId}
               onExpand={setExpanded}
+              focusBody={focusBody}
+              onConsumeFocusBody={consumeFocusBody}
               members={members}
             />
           )
         })}
-      </motion.div>
+      </div>
     </div>
   )
 }
-
-// --- Toolbar ---------------------------------------------------------------
 
 function Toolbar({
   query,
@@ -291,10 +242,23 @@ function Toolbar({
   compact: boolean
   onSearchFocusChange: (focused: boolean) => void
 }) {
-  // Sort is intentionally NOT counted as an "active filter" — it's always
-  // set to *some* value, and users don't think of "sort by Recently updated"
-  // as something they need to clear. Keep the Clear button scoped to the
-  // four things that actually narrow the visible set.
+  const searchRef = useRef<HTMLInputElement>(null)
+  useGlobalShortcut("/", searchRef)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const next = Math.round(entry.contentRect.width)
+      setWidth((w) => (w === next ? w : next))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const hasActiveFilters =
     statusFilter !== "all" ||
     typeFilter !== "all" ||
@@ -307,11 +271,6 @@ function Toolbar({
     onTypeFilterChange("all")
     onAssigneeFilterChange("all")
   }
-  // Per-status counts. Each chip's number should answer "if I clicked this
-  // chip, how many tickets would I see?" — so we apply every *other* active
-  // filter (type + assignee + search query) when counting, but NOT the
-  // status filter itself (otherwise picking Todo would make every other
-  // chip read 0, which is circular and useless).
   const counts = useMemo(() => {
     const q = query.trim().toLowerCase()
     const resolved =
@@ -320,8 +279,8 @@ function Toolbar({
       (typeFilter === "all" || t.type === typeFilter) &&
       (resolved === "all" ||
         (resolved === "unassigned"
-          ? t.assignee === null
-          : t.assignee === resolved)) &&
+          ? t.assignees.length === 0
+          : t.assignees.includes(resolved))) &&
       (q === "" ||
         t.title.toLowerCase().includes(q) ||
         t.id.toLowerCase().includes(q))
@@ -340,99 +299,106 @@ function Toolbar({
     return c
   }, [tickets, typeFilter, assigneeFilter, myId, query])
 
-  // Every toolbar control wears the same chrome: `rounded-xl border bg-background
-  // px-3 py-2`, mirroring the CreateTicketRow above. Inputs render with no
-  // border of their own; auxiliary controls (status chips, type, sort) match
-  // height and rounding so the row reads as a single visual band.
-  //
-  // Layout: `@container` on the wrapper drives a two-stage layout. Below the
-  // breakpoint the search bar stacks above the filter group on its own row;
-  // above it everything sits inline. The filter group is its own flex
-  // container so chips/sort/clear stay together — Clear in particular never
-  // gets orphaned onto a third row.
+  const FULL_FITS_ROW = 1040
+  const STATUS_COMPACT_FITS_ROW = 760
+  const ALL_COMPACT_FITS_ROW = 600
+  const STATUS_COMPACT_FITS_WRAPPED = 540
+  const measured = width > 0
+  const onSameRow = measured && width >= ALL_COMPACT_FITS_ROW
+  const statusCompact = measured
+    ? onSameRow
+      ? compact || width < FULL_FITS_ROW
+      : true
+    : false
+  const controlsCompact = measured
+    ? onSameRow
+      ? compact || width < STATUS_COMPACT_FITS_ROW
+      : width < STATUS_COMPACT_FITS_WRAPPED
+    : false
+
   return (
-    <div className="@container">
-      <div className="flex flex-col gap-2 @3xl:flex-row @3xl:items-center">
-        <InputGroup className="flex-1">
-          <InputGroupAddon>
-            <Search className="size-4" strokeWidth={1.75} />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={() => onSearchFocusChange(true)}
-            onBlur={() => onSearchFocusChange(false)}
-            placeholder="Search tickets by title or id…"
-            aria-label="Search tickets"
-          />
-          {query && (
-            <button
+    <div
+      ref={containerRef}
+      className="flex flex-wrap items-center gap-x-2 gap-y-2"
+    >
+      <InputGroup className="min-w-0 flex-1 basis-[220px]">
+        <InputGroupAddon>
+          <Search className="size-4" strokeWidth={1.75} />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={searchRef}
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={() => onSearchFocusChange(true)}
+          onBlur={() => onSearchFocusChange(false)}
+          placeholder="Search tickets by title or id…"
+          aria-label="Search tickets"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => onQueryChange("")}
+            aria-label="Clear search"
+            className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-3.5" strokeWidth={1.75} />
+          </button>
+        ) : !compact ? (
+          <Kbd>/</Kbd>
+        ) : null}
+      </InputGroup>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChips
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          counts={counts}
+          compact={statusCompact}
+        />
+
+        <FiltersMenu
+          typeFilter={typeFilter}
+          onTypeFilterChange={onTypeFilterChange}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={onAssigneeFilterChange}
+          members={members}
+          myId={myId}
+          compact={controlsCompact}
+        />
+
+        <SortMenu
+          value={sortKey}
+          onChange={onSortChange}
+          compact={controlsCompact}
+        />
+
+        <AnimatePresence initial={false}>
+          {hasActiveFilters && (
+            <motion.button
+              key="clear"
               type="button"
-              onClick={() => onQueryChange("")}
-              aria-label="Clear search"
-              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={clearAll}
+              initial={{ opacity: 0, width: 0, marginLeft: -8 }}
+              animate={{ opacity: 1, width: 36, marginLeft: 0 }}
+              exit={{ opacity: 0, width: 0, marginLeft: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className={cn(
+                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
+                "hover:bg-destructive/15 hover:border-destructive/60",
+                "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
+              )}
+              title="Clear all filters"
+              aria-label="Clear all filters"
             >
-              <X className="size-3.5" strokeWidth={1.75} />
-            </button>
+              <X className="size-4 shrink-0" strokeWidth={1.75} />
+            </motion.button>
           )}
-        </InputGroup>
-
-        <div className="flex flex-nowrap items-center gap-2">
-          <StatusChips
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-            counts={counts}
-            compact={compact}
-          />
-
-          <FiltersMenu
-            typeFilter={typeFilter}
-            onTypeFilterChange={onTypeFilterChange}
-            assigneeFilter={assigneeFilter}
-            onAssigneeFilterChange={onAssigneeFilterChange}
-            members={members}
-            myId={myId}
-            compact={compact}
-          />
-
-          <SortMenu value={sortKey} onChange={onSortChange} compact={compact} />
-
-          <AnimatePresence initial={false}>
-            {hasActiveFilters && (
-              <motion.button
-                key="clear"
-                type="button"
-                onClick={clearAll}
-                initial={{ opacity: 0, width: 0, marginLeft: -8 }}
-                animate={{ opacity: 1, width: 36, marginLeft: 0 }}
-                exit={{ opacity: 0, width: 0, marginLeft: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                // Icon-only: matches every other toolbar control's height
-                // (h-9 = 36px) and stays narrow enough that it doesn't push
-                // the status-chip strip to a new row at typical widths.
-                // Square footprint (36×36) reads as a single utility
-                // affordance rather than another labeled filter button.
-                className={cn(
-                  "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
-                  "hover:bg-destructive/15 hover:border-destructive/60",
-                  "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                )}
-                title="Clear all filters"
-                aria-label="Clear all filters"
-              >
-                <X className="size-4 shrink-0" strokeWidth={1.75} />
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   )
 }
 
-// Shared chrome for non-input toolbar controls (filters menu, sort menu).
-// Same height (`h-9`) and surface as the InputGroup and the status-chip
-// strip outer container, so the toolbar reads as one continuous band.
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
   "text-muted-foreground transition-colors hover:text-foreground",
@@ -452,27 +418,13 @@ function StatusChips({
 }) {
   const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
     { key: "all", label: "All", badge: counts.all },
-    {
-      key: "todo",
-      label: "Todo",
-      icon: CircleDashed,
-      iconClassName: STATUS_META.todo.className,
-      badge: counts.todo
-    },
-    {
-      key: "in_progress",
-      label: "In progress",
-      icon: CircleDot,
-      iconClassName: STATUS_META.in_progress.className,
-      badge: counts.in_progress
-    },
-    {
-      key: "done",
-      label: "Done",
-      icon: Check,
-      iconClassName: STATUS_META.done.className,
-      badge: counts.done
-    }
+    ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
+      key: s,
+      label: STATUS_META[s].label,
+      icon: STATUS_META[s].icon,
+      iconClassName: STATUS_META[s].className,
+      badge: counts[s]
+    }))
   ]
   return (
     <SegmentedTabs
@@ -497,16 +449,6 @@ function StatusChips({
   )
 }
 
-// Combined Type + Assignee filter. The toolbar used to render two separate
-// dropdowns; combining them keeps the search bar wide enough to render its
-// full placeholder, and reduces visual noise. The button shows a count badge
-// when any sub-filter is active so the user can see at a glance whether
-// they have something narrowing the list.
-//
-// Layout inside the menu: small uppercase section labels (TYPE / ASSIGNEE)
-// separate the groups. Each item is a single-select within its group;
-// selecting an item updates that one filter and leaves the menu open so the
-// user can also adjust the other group in one trip.
 function FiltersMenu({
   typeFilter,
   onTypeFilterChange,
@@ -557,8 +499,6 @@ function FiltersMenu({
         align="end"
         sideOffset={6}
         className="w-56"
-        // Keep the menu open after selection so users can configure both
-        // sections in a single trip — common when "show me my open bugs".
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <SectionLabel>Type</SectionLabel>
@@ -658,8 +598,6 @@ function FiltersMenu({
   )
 }
 
-// Tiny uppercase header used inside the Filters menu to delimit Type and
-// Assignee sections. Pulled out so both groups read identically.
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="px-2 pt-1 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -710,31 +648,33 @@ function SortMenu({
   )
 }
 
-// --- List + rows -----------------------------------------------------------
-
 function FilteredList({
   slug,
   tickets,
   query,
+  onClearSearch,
   statusFilter,
   typeFilter,
   assigneeFilter,
   sortKey,
   expandedId,
   onExpand,
+  focusBody,
+  onConsumeFocusBody,
   members
 }: {
   slug: string
   tickets: ReadonlyArray<Ticket>
   query: string
+  onClearSearch: () => void
   statusFilter: TicketStatus | "all"
   typeFilter: TicketType | "all"
-  // Already resolved at the parent — "mine" has been mapped to the viewer's
-  // id (or "unassigned" if not signed in). Keeps the filter loop dumb.
   assigneeFilter: "all" | "unassigned" | string
   sortKey: SortKey
   expandedId: TicketId | null
   onExpand: (id: TicketId | null) => void
+  focusBody: boolean
+  onConsumeFocusBody: () => void
   members: ReadonlyArray<Member>
 }) {
   const filtered = useMemo(() => {
@@ -746,8 +686,8 @@ function FilteredList({
         assigneeFilter === "all"
           ? true
           : assigneeFilter === "unassigned"
-            ? t.assignee === null
-            : t.assignee === assigneeFilter
+            ? t.assignees.length === 0
+            : t.assignees.includes(assigneeFilter)
       )
       .filter((t) => {
         if (!q) return true
@@ -763,22 +703,49 @@ function FilteredList({
     return <NoTicketsYet />
   }
   if (filtered.length === 0) {
+    if (query.trim().length > 0) {
+      return (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+          <span>
+            No tickets match{" "}
+            <span className="font-mono text-foreground">"{query}"</span>.
+          </span>
+          <button
+            type="button"
+            onClick={onClearSearch}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground transition-colors hover:bg-accent"
+          >
+            <X className="size-3" strokeWidth={1.75} />
+            Clear search
+          </button>
+        </div>
+      )
+    }
     return <Empty>No tickets match your filters.</Empty>
   }
 
   return (
-    <ul className="divide-y divide-border rounded-xl border border-border bg-background">
-      {filtered.map((t) => (
-        <li key={t.id}>
-          <Row
-            slug={slug}
-            ticket={t}
-            members={members}
-            isExpanded={expandedId === t.id}
-            onToggle={() => onExpand(expandedId === t.id ? null : t.id)}
-          />
-        </li>
-      ))}
+    <ul className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
+      {filtered.map((t) => {
+        const isExpanded = expandedId === t.id
+        return (
+          <li
+            key={t.id}
+            data-expanded={isExpanded || undefined}
+            className="col-span-full grid grid-cols-subgrid transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40 [ul:has(>li[data-expanded])>&:not([data-expanded]):hover]:opacity-100"
+          >
+            <Row
+              slug={slug}
+              ticket={t}
+              members={members}
+              isExpanded={isExpanded}
+              onToggle={() => onExpand(isExpanded ? null : t.id)}
+              focusBody={focusBody && isExpanded}
+              onConsumeFocusBody={onConsumeFocusBody}
+            />
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -788,29 +755,31 @@ function Row({
   ticket,
   members,
   isExpanded,
-  onToggle
+  onToggle,
+  focusBody,
+  onConsumeFocusBody
 }: {
   slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
   isExpanded: boolean
   onToggle: () => void
+  focusBody: boolean
+  onConsumeFocusBody: () => void
 }) {
-  const assignee = ticket.assignee
-    ? (members.find((m) => m.id === ticket.assignee) ?? null)
-    : null
+  const rowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!focusBody || !isExpanded) return
+    rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+  }, [focusBody, isExpanded])
   return (
-    <div>
+    <div ref={rowRef} className="col-span-full grid grid-cols-subgrid">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
         className={cn(
-          // px-3 + size-6 status button → leading icon center sits in the
-          // same column as the create row's type button and the search bar's
-          // Search icon. py-2.5 keeps the row a touch taller than an input
-          // so the list reads as list rows, not as more form inputs.
-          "flex w-full items-center gap-3 pl-3 pr-3 py-2.5 text-left transition-colors",
+          "col-span-full grid grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left transition-colors",
           isExpanded ? "bg-accent/40" : "hover:bg-accent/30"
         )}
       >
@@ -818,25 +787,21 @@ function Row({
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <span className="min-w-0 truncate text-sm font-medium">
           {ticket.title}
         </span>
-        {assignee && (
-          <MemberAvatar
-            member={assignee}
-            size={20}
-            className="hidden sm:inline-grid"
-          />
-        )}
+        <AssigneeRowTrigger
+          slug={slug}
+          ticket={ticket}
+          members={members}
+          className="hidden sm:inline-flex"
+        />
         <TicketGitChip slug={slug} ticketId={ticket.id} />
-        <span
-          className={cn(
-            "hidden shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] sm:inline",
-            TYPE_META[ticket.type].tint
-          )}
-        >
-          {TYPE_META[ticket.type].label.toLowerCase()}
-        </span>
+        <TypeButton
+          slug={slug}
+          ticket={ticket}
+          className="hidden sm:inline-flex"
+        />
         <ChevronDown
           className={cn(
             "size-4 shrink-0 text-muted-foreground transition-transform",
@@ -845,29 +810,40 @@ function Row({
           strokeWidth={1.75}
         />
       </button>
-      {isExpanded && <Expanded slug={slug} id={ticket.id} members={members} />}
+      {isExpanded && (
+        <div className="col-span-full">
+          <Expanded
+            slug={slug}
+            id={ticket.id}
+            members={members}
+            focusBody={focusBody}
+            onConsumeFocusBody={onConsumeFocusBody}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
-// --- Expanded body --------------------------------------------------------
-// Loaded lazily — the row only fetches the body when it's actually opened.
-
 function Expanded({
   slug,
   id,
-  members
+  members,
+  focusBody,
+  onConsumeFocusBody
 }: {
   slug: string
   id: TicketId
   members: ReadonlyArray<Member>
+  focusBody: boolean
+  onConsumeFocusBody: () => void
 }) {
   const detail = useAtomValue(ticketAtom(ticketKey(slug, id)))
   return (
     <div className="border-t border-border/60 bg-muted/30 px-4 py-4">
       {Result.matchWithError(detail, {
         onInitial: () => (
-          <div className="h-24 animate-pulse rounded-lg bg-muted/60" />
+          <div className="skeleton h-24 rounded-lg bg-muted/60" />
         ),
         onError: (error) => (
           <p className="text-sm text-muted-foreground">
@@ -880,7 +856,13 @@ function Expanded({
           </p>
         ),
         onSuccess: ({ value }) => (
-          <ExpandedDetail slug={slug} ticket={value} members={members} />
+          <ExpandedDetail
+            slug={slug}
+            ticket={value}
+            members={members}
+            focusBody={focusBody}
+            onConsumeFocusBody={onConsumeFocusBody}
+          />
         )
       })}
     </div>
@@ -890,17 +872,25 @@ function Expanded({
 function ExpandedDetail({
   slug,
   ticket,
-  members
+  members,
+  focusBody,
+  onConsumeFocusBody
 }: {
   slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
+  focusBody: boolean
+  onConsumeFocusBody: () => void
 }) {
   const update = useAtomSet(updateTicketAtom)
   const remove = useAtomSet(deleteTicketAtom)
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
+  const autoFocusBody = useRef(focusBody).current
+  useEffect(() => {
+    if (focusBody) onConsumeFocusBody()
+  }, [focusBody, onConsumeFocusBody])
 
   return (
     <div className="flex flex-col gap-3">
@@ -908,7 +898,7 @@ function ExpandedDetail({
         <div className="min-w-0 flex-1">
           <TitleField slug={slug} ticket={ticket} />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <TypeButton slug={slug} ticket={ticket} />
+            <TypeBadgeTrigger slug={slug} ticket={ticket} />
             <AssigneePicker slug={slug} ticket={ticket} members={members} />
             <span>·</span>
             <span title={ticket.createdAt.toLocaleString()}>
@@ -921,10 +911,11 @@ function ExpandedDetail({
           </div>
         </div>
         <SaveIndicator status={bodyStatus} />
-        <button
-          type="button"
+        <ConfirmDeleteIcon
+          ariaLabel="Delete ticket"
+          message="Delete this ticket?"
           disabled={deleting}
-          onClick={async () => {
+          onConfirm={async () => {
             setDeleting(true)
             try {
               await remove({ slug, id: ticket.id })
@@ -933,15 +924,12 @@ function ExpandedDetail({
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
                 replace: true
               })
-            } catch {
+            } catch (e) {
               setDeleting(false)
+              throw e
             }
           }}
-          aria-label="Delete ticket"
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring outline-none"
-        >
-          <Trash2 className="size-4" strokeWidth={1.75} />
-        </button>
+        />
       </div>
 
       <ExpandedGitPanel slug={slug} ticket={ticket} />
@@ -952,14 +940,13 @@ function ExpandedDetail({
           markdown={ticket.body}
           onChange={(next) => update({ slug, id: ticket.id, body: next })}
           onStatusChange={setBodyStatus}
+          autoFocus={autoFocusBody}
         />
       </div>
     </div>
   )
 }
 
-// Reads project context for the github connection — only renders when a repo
-// is connected, so unconnected projects don't see the panel at all.
 function ExpandedGitPanel({
   slug,
   ticket
@@ -978,8 +965,6 @@ function ExpandedGitPanel({
     />
   )
 }
-
-// --- Inline-edit pieces (extracted from the old detail page) --------------
 
 function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
   const update = useAtomSet(updateTicketAtom)
@@ -1020,7 +1005,7 @@ function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="-mx-1 truncate rounded px-1 text-left text-base font-semibold tracking-tight hover:bg-accent/40"
+        className="-mx-1 truncate rounded px-1 text-left text-base font-semibold tracking-tight transition-colors hover:bg-accent/40"
       >
         {ticket.title}
       </button>
@@ -1041,12 +1026,14 @@ function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
   )
 }
 
-function TypeButton({
+function TypeBadgeTrigger({
   slug,
-  ticket
+  ticket,
+  className
 }: {
   slug: string
   ticket: { id: TicketId; type: TicketType }
+  className?: string
 }) {
   const update = useAtomSet(updateTicketAtom)
   const meta = TYPE_META[ticket.type]
@@ -1054,16 +1041,29 @@ function TypeButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Type: ${meta.label}. Click to change.`}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
+        <Badge
+          asChild
+          tone={meta.tone}
+          size="xs"
+          className={cn("cursor-pointer font-mono", className)}
         >
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{meta.label}</span>
-        </button>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Type: ${meta.label}. Click to change.`}
+          >
+            <Icon strokeWidth={1.75} />
+            {meta.label.toLowerCase()}
+          </button>
+        </Badge>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-40">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="w-40"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+      >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const m = TYPE_META[t]
           const TIcon = m.icon
@@ -1089,67 +1089,116 @@ function TypeButton({
   )
 }
 
-function AssigneePicker({
+function TypeButton({
+  slug,
+  ticket,
+  className
+}: {
+  slug: string
+  ticket: { id: TicketId; type: TicketType }
+  className?: string
+}) {
+  const update = useAtomSet(updateTicketAtom)
+  const meta = TYPE_META[ticket.type]
+  const Icon = meta.icon
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Hitbox
+          mode="inline"
+          margin="2"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Type: ${meta.label}. Click to change.`}
+          className={className}
+        >
+          <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+            <Icon className="size-3.5" strokeWidth={1.75} />
+            <span>{meta.label}</span>
+          </span>
+        </Hitbox>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-40"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          const m = TYPE_META[t]
+          const TIcon = m.icon
+          return (
+            <DropdownMenuItem
+              key={t}
+              onSelect={() => {
+                if (t === ticket.type) return
+                update({ slug, id: ticket.id, type: t })
+              }}
+              className="cursor-pointer"
+            >
+              <TIcon className="size-4" strokeWidth={1.75} />
+              {m.label}
+              {t === ticket.type && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function AssigneeMenuContent({
   slug,
   ticket,
   members
 }: {
   slug: string
-  ticket: { id: TicketId; assignee: string | null }
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
   const update = useAtomSet(updateTicketAtom)
-  const assignee = ticket.assignee
-    ? (members.find((m) => m.id === ticket.assignee) ?? null)
-    : null
+  const assignees = ticket.assignees
+  const setAssignees = (next: ReadonlyArray<string>) => {
+    update({ slug, id: ticket.id, assignees: next })
+  }
+  const toggle = (id: string) => {
+    setAssignees(
+      assignees.includes(id)
+        ? assignees.filter((a) => a !== id)
+        : [...assignees, id]
+    )
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={
-            assignee
-              ? `Assigned to ${assignee.name}. Click to change.`
-              : "Unassigned. Click to assign."
-          }
-          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
-        >
-          {assignee ? (
-            <>
-              <MemberAvatar member={assignee} size={18} />
-              <span>{assignee.name}</span>
-            </>
-          ) : (
-            <>
-              <UserRound className="size-3.5" strokeWidth={1.75} />
-              <span>Unassigned</span>
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-56">
-        <DropdownMenuItem
-          onSelect={() => {
-            if (ticket.assignee !== null) {
-              update({ slug, id: ticket.id, assignee: null })
-            }
-          }}
-          className="cursor-pointer"
-        >
-          <UserRound className="size-4" strokeWidth={1.75} />
-          Unassigned
-          {ticket.assignee === null && (
-            <Check className="ml-auto size-3.5 text-muted-foreground" />
-          )}
-        </DropdownMenuItem>
-        {members.length > 0 && <div className="my-1 h-px bg-border" />}
-        {members.map((m) => (
+    <DropdownMenuContent
+      align="start"
+      sideOffset={6}
+      className="w-56"
+      onClick={(e) => e.stopPropagation()}
+      onCloseAutoFocus={(e) => e.preventDefault()}
+    >
+      <DropdownMenuItem
+        onSelect={(e) => {
+          e.preventDefault()
+          if (assignees.length > 0) setAssignees([])
+        }}
+        className="cursor-pointer"
+      >
+        <UserRound className="size-4" strokeWidth={1.75} />
+        Unassigned
+        {assignees.length === 0 && (
+          <Check className="ml-auto size-3.5 text-muted-foreground" />
+        )}
+      </DropdownMenuItem>
+      {members.length > 0 && <div className="my-1 h-px bg-border" />}
+      {members.map((m) => {
+        const selected = assignees.includes(m.id)
+        return (
           <DropdownMenuItem
             key={m.id}
-            onSelect={() => {
-              if (ticket.assignee !== m.id) {
-                update({ slug, id: ticket.id, assignee: m.id })
-              }
+            onSelect={(e) => {
+              e.preventDefault()
+              toggle(m.id)
             }}
             className="cursor-pointer"
           >
@@ -1162,12 +1211,101 @@ function AssigneePicker({
                 </div>
               )}
             </div>
-            {ticket.assignee === m.id && (
+            {selected && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
           </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
+        )
+      })}
+    </DropdownMenuContent>
+  )
+}
+
+function AssigneePicker({
+  slug,
+  ticket,
+  members
+}: {
+  slug: string
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  members: ReadonlyArray<Member>
+}) {
+  const resolved = ticket.assignees
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => !!m)
+  const label =
+    resolved.length === 0
+      ? "Unassigned"
+      : resolved.length === 1
+        ? resolved[0].name
+        : `${resolved.length} people`
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Assignees: ${label}. Click to change.`}
+          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {resolved.length === 0 ? (
+            <UserRound className="size-3.5" strokeWidth={1.75} />
+          ) : resolved.length === 1 ? (
+            <MemberAvatar member={resolved[0]} size={18} />
+          ) : (
+            <AvatarStack subjects={resolved} size={18} max={3} />
+          )}
+          <span>{label}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <AssigneeMenuContent slug={slug} ticket={ticket} members={members} />
+    </DropdownMenu>
+  )
+}
+
+function AssigneeRowTrigger({
+  slug,
+  ticket,
+  members,
+  className
+}: {
+  slug: string
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  members: ReadonlyArray<Member>
+  className?: string
+}) {
+  const resolved = ticket.assignees
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => !!m)
+  const label =
+    resolved.length === 0
+      ? "Unassigned. Click to assign."
+      : resolved.length === 1
+        ? `Assigned to ${resolved[0].name}. Click to change.`
+        : `${resolved.length} people assigned. Click to change.`
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Hitbox
+          mode="inline"
+          margin="2"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={label}
+          className={className}
+        >
+          <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
+            {resolved.length === 0 ? (
+              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted">
+                <UserRound className="size-3" strokeWidth={1.75} />
+              </span>
+            ) : resolved.length === 1 ? (
+              <MemberAvatar member={resolved[0]} size={20} />
+            ) : (
+              <AvatarStack subjects={resolved} size={20} max={3} />
+            )}
+          </span>
+        </Hitbox>
+      </DropdownMenuTrigger>
+      <AssigneeMenuContent slug={slug} ticket={ticket} members={members} />
     </DropdownMenu>
   )
 }
@@ -1187,20 +1325,29 @@ function StatusButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
+        <Hitbox
+          mode="inline"
+          margin="2"
           onClick={(e) => stopPropagation && e.stopPropagation()}
-          className={cn(
-            "grid size-6 shrink-0 place-items-center rounded-full transition-colors hover:bg-accent",
-            meta.className
-          )}
           aria-label={`Status: ${meta.label}. Click to change.`}
           title={meta.label}
         >
-          <Icon className="size-4" strokeWidth={1.75} />
-        </button>
+          <span
+            className={cn(
+              "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
+              meta.className
+            )}
+          >
+            <Icon className="size-4" strokeWidth={1.75} />
+          </span>
+        </Hitbox>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-44">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        onClick={(e) => e.stopPropagation()}
+      >
         {(Object.keys(STATUS_META) as TicketStatus[]).map((status) => {
           const m = STATUS_META[status]
           const SIcon = m.icon
@@ -1243,8 +1390,6 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
   )
 }
 
-// Friendlier first-time empty state — matches the projects-list "no projects
-// yet" treatment so empty surfaces across the app speak with one voice.
 function NoTicketsYet() {
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
@@ -1268,6 +1413,4 @@ function Empty({ children }: { children: React.ReactNode }) {
   )
 }
 
-// `useRef` re-export silences an unused-import warning on platforms where the
-// linter doesn't track JSX hook usage; safe to remove if it complains.
 void useRef

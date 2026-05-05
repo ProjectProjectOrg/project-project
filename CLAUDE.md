@@ -16,7 +16,6 @@ We implement the app together. You can write working code anywhere in the repo (
 
 - **You implement** — services, handlers, atoms, components, schemas. Working code is the norm.
 - **Wouter reviews and steers** — he decides direction; you propose and execute.
-- **Comment where it teaches** — when a file uses an Effect pattern that isn't immediately obvious (a tricky Layer composition, a scope decision, a non-trivial HttpApi shape), drop a short comment explaining why. Skip the comment when the code speaks for itself. No multi-paragraph docstrings.
 
 ### No architectural decisions without asking
 
@@ -34,7 +33,6 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 
 - Short, direct, peer-level. No teaching voice unless he asks for one.
 - Show the why before the what when something is non-obvious.
-- Name gotchas inline (the spec lists several — `Schema.TaggedError` vs `Data.TaggedError`, the `@effect-rx` rename, gray-matter date quirks).
 - No emoji unless asked.
 
 ## Frontend stack
@@ -44,6 +42,38 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **shadcn/ui (Radix-backed)** as the component foundation. Install via the shadcn CLI.
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
+
+### No comments
+
+Default: write zero comments. Self-explanatory names, clean structure, and small functions carry the meaning. Inline comments are noise — they distract during review, rot independently of the code, and signal a missing abstraction.
+
+Exception: a single short line is acceptable only when a value would actively mislead a future reader (a workaround for a documented bug, a non-obvious browser quirk, a load-bearing token name). Even then, ask yourself whether the comment is hiding a rename or refactor that would remove the need.
+
+Forbidden, regardless: multi-line comment blocks, design-rationale prose, layout reasoning, "this used to be X" notes, restatements of what the code obviously does, before/after explanations, and "we picked this because" passages. Those go in the commit message. If you catch yourself writing more than one line, delete the whole comment.
+
+### Press feel — buttons scale down on active
+
+Buttons should scale to **97%** on `:active` with a **100–150ms** transform transition, so the user feels the press land. Use `active:scale-[0.97]` (or `active:[&>span]:scale-[0.97]` when the button's content is what should compress, e.g. an icon button) paired with `transition-transform duration-100`.
+
+This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
+
+### Hover feel — instant in, eased out
+
+Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should land **instantly on enter** and **ease out at ~150ms on exit**. That asymmetry is what makes the app feel responsive without feeling twitchy.
+
+Implementation lives as a single global rule in `packages/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
+
+For this to work, hover-affected elements must have a transition class set up — typically `transition-colors` (Tailwind default 150ms). If a hover-driven color change has no `transition-*` class, both directions snap and the rule has nothing to override. Add `transition-colors` (or `transition-opacity` / `transition-all` as appropriate) when introducing a new hover state.
+
+When you write a new component with hover behavior, always pair the hover class with the matching transition utility — e.g. `transition-colors hover:bg-accent`, not bare `hover:bg-accent`.
+
+### Prefer component variants over local styling
+
+When you find yourself writing a one-off styled version of an existing component (different size, chrome, spacing, etc.), **add a variant to the component instead of rolling local Tailwind in the callsite**. Local styles compound: the second time we want the same look we have to copy classes; the third time they drift. A typed variant prop on the primitive keeps the design language singular and reusable.
+
+Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update status to: …") lives as `variant="inline"` on the primitive, not as a hand-rolled set of classes inside `CreateBranchFields`. Same rule applies to buttons, inputs, badges, etc. — extend the primitive, don't reskin it locally.
+
+If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
 
 ## Mutations and optimistic updates
 
@@ -120,7 +150,6 @@ The `packages/chapters-viewer` workspace has been removed.
 - Run `git status` / `git diff` / `git log`.
 - Run `bun install`, `bun test`, type-checks, lint, format.
 - Write working code in any package.
-- Add small implementation comments where they earn their keep.
 
 ## What requires asking first
 

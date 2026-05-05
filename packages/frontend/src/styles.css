@@ -3,6 +3,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url("../../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
+    format("woff2-variations");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url("../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
+    format("woff2-variations");
+}
+@font-face {
+  font-family: "Geist Pixel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("../../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2")
+    format("woff2");
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -28,7 +56,7 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --radius: 1rem;
 }
 
 .dark {
@@ -81,6 +109,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --font-sans:
+    "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono:
+    "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   @keyframes spinner-move {
     to {
       stroke-dashoffset: -100;
@@ -95,6 +128,38 @@
       stroke-dasharray: 40 60;
     }
   }
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.transition-expand {
+  transition-property: padding, background-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+.transition-expand:hover {
+  transition-duration: 200ms, 0ms, 0ms;
+}
+
+.transition-colors:hover,
+.transition-opacity:hover,
+.transition-all:hover,
+.transition:hover,
+.transition-colors[data-highlighted],
+.transition-all[data-highlighted],
+.transition-colors[data-selected="true"],
+.transition-all[data-selected="true"],
+.group\/hitbox:hover .transition-colors,
+.group\/hitbox:hover .transition-opacity,
+.group\/hitbox:hover .transition-all,
+.group\/hitbox:hover .transition {
+  transition-duration: 0ms;
 }
 
 /* Theme switch: circular clip-path reveal centered on the click point. */
@@ -144,23 +209,15 @@
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin-top: 1.5em;
 }
 .prose-md h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin-top: 1.5em;
 }
 .prose-md h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin-top: 1.25em;
-}
-.prose-md > h1:first-child,
-.prose-md > h2:first-child,
-.prose-md > h3:first-child {
-  margin-top: 0;
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
@@ -176,14 +233,14 @@
   text-decoration-color: var(--foreground);
 }
 .prose-md code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
   background: var(--muted);
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
 .prose-md pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
   background: var(--muted);
   border: 1px solid var(--border);
@@ -393,7 +450,7 @@ html.dark .prose-md .token.coord {
   text-decoration: underline;
 }
 .prose-md .lexical-inline-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
   background: var(--muted);
   padding: 0.1em 0.35em;
@@ -401,7 +458,7 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-code {
   display: block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
   background: var(--muted);
   border: 1px solid var(--border);

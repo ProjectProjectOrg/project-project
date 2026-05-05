@@ -1,13 +1,5 @@
-// InlineForm — compound-component primitive for "display + actions + forms"
-// surfaces. The Root holds a small mode/busy context. Idle and Form children
-// render conditionally based on `mode`. Triggers wire themselves to open(action).
-//
-// Forms own their submit semantics (the primitive does NOT provide a Submit
-// component) but call into useInlineForm() for setBusy / close. While busy,
-// triggers and the convenience Cancel button are disabled — the form's own
-// submit button is responsible for its own disabled state.
-
 import { createContext, useCallback, useMemo, useState, use } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { X } from "lucide-react"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -18,10 +10,10 @@ interface InlineFormContextValue<A extends string = string> {
   close: () => void
   busy: boolean
   setBusy: (b: boolean) => void
+  hoveredAction: A | null
+  setHoveredAction: (a: A | null) => void
 }
 
-// Generic-erased shape lives in the runtime context. Components annotate the
-// generic at the call site for type-narrowing; the runtime is permissive.
 const InlineFormContext = createContext<InlineFormContextValue | null>(null)
 
 export function useInlineForm<A extends string = string>() {
@@ -49,6 +41,7 @@ function Root<A extends string = string>({
 }: RootProps<A>) {
   const [uncontrolled, setUncontrolled] = useState<"idle" | A>(defaultMode)
   const [busy, setBusy] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<A | null>(null)
   const isControlled = controlledMode !== undefined
   const mode = isControlled ? controlledMode : uncontrolled
 
@@ -67,8 +60,16 @@ function Root<A extends string = string>({
   }, [setMode])
 
   const value = useMemo<InlineFormContextValue<A>>(
-    () => ({ mode, open, close, busy, setBusy }),
-    [mode, open, close, busy]
+    () => ({
+      mode,
+      open,
+      close,
+      busy,
+      setBusy,
+      hoveredAction,
+      setHoveredAction
+    }),
+    [mode, open, close, busy, hoveredAction]
   )
 
   return (
@@ -85,6 +86,8 @@ function Root<A extends string = string>({
   )
 }
 
+const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
+
 function Idle({
   className,
   children
@@ -93,20 +96,63 @@ function Idle({
   children: React.ReactNode
 }) {
   const { mode } = useInlineForm()
-  if (mode !== "idle") return null
   return (
-    <div className={cn("flex items-center gap-2", className)}>{children}</div>
+    <AnimatePresence initial={false} mode="popLayout">
+      {mode === "idle" && (
+        <motion.div
+          key="idle"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
+        >
+          <div className={cn("flex items-center gap-2", className)}>
+            {children}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
-function Display({
+function Display<A extends string = string>({
   className,
-  children
+  children,
+  previews
 }: {
   className?: string
   children: React.ReactNode
+  previews?: Partial<Record<A, React.ReactNode>>
 }) {
-  return <div className={cn("min-w-0", className)}>{children}</div>
+  const { hoveredAction } = useInlineForm<A>()
+  const preview = previews && hoveredAction ? previews[hoveredAction] : undefined
+  return (
+    <div className={cn("relative min-w-0", className)}>
+      <AnimatePresence initial={false} mode="wait">
+        {preview !== undefined ? (
+          <motion.div
+            key={`preview-${hoveredAction}`}
+            initial={{ opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 2 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+          >
+            {preview}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="default"
+            initial={{ opacity: 0, y: 2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -2 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }
 
 function Actions({
@@ -134,12 +180,16 @@ function Trigger<A extends string>({
   children,
   ...rest
 }: TriggerProps<A>) {
-  const { open, busy } = useInlineForm<A>()
+  const { open, busy, setHoveredAction } = useInlineForm<A>()
   return (
     <Button
       {...rest}
       disabled={disabled || busy}
       onClick={() => open(action)}
+      onMouseEnter={() => setHoveredAction(action)}
+      onMouseLeave={() => setHoveredAction(null)}
+      onFocus={() => setHoveredAction(action)}
+      onBlur={() => setHoveredAction(null)}
     >
       {children}
     </Button>
@@ -155,9 +205,28 @@ function Form<A extends string>({
   className?: string
   children: React.ReactNode
 }) {
-  const { mode } = useInlineForm<A>()
-  if (mode !== action) return null
-  return <div className={cn("space-y-2", className)}>{children}</div>
+  const { mode, close, busy } = useInlineForm<A>()
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      {mode === action && (
+        <motion.div
+          key={`form-${action}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={FADE_TRANSITION}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy && !e.defaultPrevented) {
+              e.preventDefault()
+              close()
+            }
+          }}
+        >
+          <div className={cn("space-y-2", className)}>{children}</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }
 
 function Cancel({

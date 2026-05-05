@@ -63,7 +63,9 @@ const TicketFrontmatter = Schema.Struct({
   lastTransitionedPr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
     default: () => null
   }),
-  assignee: Schema.NullOr(Schema.String),
+  assignees: Schema.optionalWith(Schema.Array(Schema.String), {
+    default: () => []
+  }),
   createdBy: Schema.String,
   createdAt: Schema.Date,
   updatedAt: Schema.Date
@@ -71,6 +73,17 @@ const TicketFrontmatter = Schema.Struct({
 type TicketFrontmatter = typeof TicketFrontmatter.Type
 
 const decodeFrontmatter = Schema.decodeUnknown(TicketFrontmatter)
+
+function decodeFrontmatterCompat(raw: unknown) {
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>
+    if (r.assignees === undefined && "assignee" in r) {
+      const legacy = r.assignee
+      r.assignees = typeof legacy === "string" ? [legacy] : []
+    }
+  }
+  return decodeFrontmatter(raw)
+}
 
 function nextIdFrom(ids: ReadonlyArray<string>): string {
   let max = 0
@@ -95,7 +108,7 @@ function frontmatterToWire(fm: TicketFrontmatter): Ticket {
     branch: fm.branch,
     pr: fm.pr,
     lastTransitionedPr: fm.lastTransitionedPr,
-    assignee: fm.assignee,
+    assignees: fm.assignees,
     createdBy: fm.createdBy,
     createdAt: fm.createdAt,
     updatedAt: fm.updatedAt
@@ -111,7 +124,7 @@ function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
     branch: fm.branch,
     pr: fm.pr,
     lastTransitionedPr: fm.lastTransitionedPr,
-    assignee: fm.assignee,
+    assignees: fm.assignees,
     createdBy: fm.createdBy,
     createdAt: fm.createdAt.toISOString(),
     updatedAt: fm.updatedAt.toISOString()
@@ -148,7 +161,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     > =>
       Effect.gen(function* () {
         const file = yield* md.readTicketFile(slug, id)
-        const fm = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
+        const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
         return { ...fm, body: file.body }
       })
 
@@ -205,7 +218,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           branch: null,
           pr: null,
           lastTransitionedPr: null,
-          assignee: null,
+          assignees: [],
           createdBy: ownerId,
           createdAt: now,
           updatedAt: now
@@ -245,17 +258,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         yield* ensureAccess(ownerId, slug)
         const existing = yield* readTicket(slug, id)
 
-        // If an assignee is being set (and not cleared), verify the target
-        // is a project member. `requireMember` returns NotFound if not —
-        // collapse that response with our own NotFound, no separate error
-        // taxonomy needed. Wire intentionally doesn't distinguish "no such
-        // user" from "user not on this project".
-        if (
-          input.assignee !== undefined &&
-          input.assignee !== null &&
-          input.assignee !== existing.assignee
-        ) {
-          yield* projects.requireMember(input.assignee, slug)
+        if (input.assignees !== undefined) {
+          const existingSet = new Set(existing.assignees)
+          for (const id of input.assignees) {
+            if (!existingSet.has(id)) {
+              yield* projects.requireMember(id, slug)
+            }
+          }
         }
 
         const next: TicketFrontmatter = {
@@ -266,9 +275,10 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           branch: existing.branch,
           pr: existing.pr,
           lastTransitionedPr: existing.lastTransitionedPr,
-          // assignee can be explicitly nulled; check for `undefined` not falsy
-          assignee:
-            input.assignee !== undefined ? input.assignee : existing.assignee,
+          assignees:
+            input.assignees !== undefined
+              ? input.assignees
+              : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
           updatedAt: new Date()

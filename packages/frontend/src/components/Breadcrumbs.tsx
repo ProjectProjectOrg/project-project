@@ -108,15 +108,18 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
 
 function ProjectCrumb({ slug, isLast }: { slug: string; isLast: boolean }) {
   const result = useAtomValue(projectAtom(slug))
-  const label = Result.isSuccess(result) ? result.value.name : slug
+  if (!Result.isSuccess(result)) {
+    return (
+      <span
+        className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"
+        style={{ width: `${Math.max(slug.length, 4)}ch` }}
+        aria-label={`Loading ${slug}`}
+      />
+    )
+  }
   return (
-    <CrumbText
-      to="/projects/$slug"
-      params={{ slug }}
-      isLast={isLast}
-      mono={!Result.isSuccess(result)}
-    >
-      {label}
+    <CrumbText to="/projects/$slug" params={{ slug }} isLast={isLast}>
+      {result.value.name}
     </CrumbText>
   )
 }
@@ -150,18 +153,15 @@ function CrumbText({
   to,
   params,
   isLast,
-  mono,
   children
 }: {
   to?: string
   params?: Record<string, string>
   isLast: boolean
-  mono?: boolean
   children: React.ReactNode
 }) {
   const className = cn(
     "max-w-[20ch] truncate",
-    mono && "font-mono text-xs",
     isLast ? "text-foreground" : "hover:text-foreground transition-colors"
   )
   if (isLast || !to) {

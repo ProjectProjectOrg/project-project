@@ -22,6 +22,7 @@ import {
   githubReposAtom,
   projectGitStatesAtom
 } from "@/atoms/github"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -105,8 +106,8 @@ function ConnectedChip({
 
   if (warning) {
     return (
-      <div className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-        <AlertTriangle className="size-3.5" strokeWidth={1.75} />
+      <Badge tone="amber" size="md" className="border border-amber-500/40">
+        <AlertTriangle strokeWidth={1.75} />
         <span>{warning}</span>
         {canManage && (
           <Popover>
@@ -123,7 +124,7 @@ function ConnectedChip({
             </PopoverContent>
           </Popover>
         )}
-      </div>
+      </Badge>
     )
   }
 
@@ -133,7 +134,7 @@ function ConnectedChip({
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 hover:text-foreground"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground"
       >
         <GithubIcon className="size-3.5" strokeWidth={1.75} />
         <span className="font-mono text-xs">

@@ -34,7 +34,7 @@ export const Ticket = Schema.Struct({
   // last auto-flipped to `done`. If the user manually moves status back to
   // `in_progress`, we won't reflip because `pr === lastTransitionedPr`.
   lastTransitionedPr: Schema.NullOr(Schema.Number),
-  assignee: Schema.NullOr(Schema.String),
+  assignees: Schema.Array(Schema.String),
   createdBy: Schema.String,
   createdAt: Schema.Date,
   updatedAt: Schema.Date
@@ -59,7 +59,7 @@ export const UpdateTicketInput = Schema.Struct({
   ),
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
-  assignee: Schema.optional(Schema.NullOr(Schema.String)),
+  assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String)
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

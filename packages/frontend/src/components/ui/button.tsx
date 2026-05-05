@@ -1,7 +1,7 @@
 "use client"
 
 import { forwardRef, type ButtonHTMLAttributes } from "react"
-import { Slot } from "@radix-ui/react-slot"
+import { Slot, Slottable } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
@@ -10,8 +10,8 @@ import { useShape } from "@/lib/shape-context"
 const buttonVariants = cva(
   [
     "group relative inline-flex items-center justify-center whitespace-nowrap outline-none cursor-pointer",
-    "transition-all duration-80",
-    "disabled:opacity-50 disabled:pointer-events-none",
+    "transition-all duration-100 active:scale-[0.97]",
+    "disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100",
     "focus-visible:ring-1 focus-visible:ring-[#6B97FF]"
   ],
   {
@@ -30,6 +30,7 @@ const buttonVariants = cva(
         sm: "h-7 px-3 text-[12px] gap-1",
         md: "h-8 px-4 text-[13px] gap-1.5",
         lg: "h-9 px-5 text-[14px] gap-1.5",
+        "icon-xs": "h-5 w-5 p-0 [&_svg]:h-3 [&_svg]:w-3",
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
         "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5"
@@ -81,82 +82,103 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const Comp = asChild ? Slot : "button"
     const isIconOnly =
-      size === "icon" || size === "icon-sm" || size === "icon-lg"
+      size === "icon" ||
+      size === "icon-xs" ||
+      size === "icon-sm" ||
+      size === "icon-lg"
     const iconSize = size === "sm" ? 14 : size === "lg" ? 20 : 16
     const shape = useShape()
+
+    const compClassName = cn(
+      buttonVariants({
+        variant,
+        size,
+        iconLeft: !isIconOnly && !!LeadingIcon,
+        iconRight: !isIconOnly && !!TrailingIcon
+      }),
+      shape.button,
+      className
+    )
+    const leadingIconNode = LeadingIcon && (
+      <LeadingIcon
+        size={iconSize}
+        strokeWidth={1.5}
+        className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+      />
+    )
+    const trailingIconNode = TrailingIcon && (
+      <TrailingIcon
+        size={iconSize}
+        strokeWidth={1.5}
+        className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
+      />
+    )
+
+    if (loading) {
+      return (
+        <Comp
+          ref={ref}
+          className={compClassName}
+          disabled={disabled || loading}
+          style={style}
+          {...props}
+        >
+          <span className="flex items-center justify-center gap-[inherit] opacity-0">
+            {LeadingIcon && !isIconOnly && (
+              <LeadingIcon size={iconSize} strokeWidth={2} />
+            )}
+            {children}
+            {TrailingIcon && !isIconOnly && (
+              <TrailingIcon size={iconSize} strokeWidth={2} />
+            )}
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center">
+            <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
+                stroke="currentColor"
+                strokeWidth="1.125"
+                strokeLinecap="round"
+                pathLength="100"
+                style={{
+                  strokeDasharray: "15 85",
+                  animation:
+                    "spinner-move 2s linear infinite, spinner-dash 4s ease-in-out infinite"
+                }}
+              />
+            </svg>
+          </span>
+        </Comp>
+      )
+    }
+
+    if (isIconOnly) {
+      return (
+        <Comp
+          ref={ref}
+          className={compClassName}
+          disabled={disabled}
+          style={style}
+          {...props}
+        >
+          <span className="[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
+            {children}
+          </span>
+        </Comp>
+      )
+    }
 
     return (
       <Comp
         ref={ref}
-        className={cn(
-          buttonVariants({
-            variant,
-            size,
-            iconLeft: !isIconOnly && !!LeadingIcon,
-            iconRight: !isIconOnly && !!TrailingIcon
-          }),
-          shape.button,
-          className
-        )}
-        disabled={disabled || loading}
+        className={compClassName}
+        disabled={disabled}
         style={style}
         {...props}
       >
-        {loading ? (
-          <>
-            <span className="flex items-center justify-center gap-[inherit] opacity-0">
-              {LeadingIcon && !isIconOnly && (
-                <LeadingIcon size={iconSize} strokeWidth={2} />
-              )}
-              {children}
-              {TrailingIcon && !isIconOnly && (
-                <TrailingIcon size={iconSize} strokeWidth={2} />
-              )}
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center">
-              <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
-                  stroke="currentColor"
-                  strokeWidth="1.125"
-                  strokeLinecap="round"
-                  pathLength="100"
-                  style={{
-                    strokeDasharray: "15 85",
-                    animation:
-                      "spinner-move 2s linear infinite, spinner-dash 4s ease-in-out infinite"
-                  }}
-                />
-              </svg>
-            </span>
-          </>
-        ) : isIconOnly ? (
-          <span className="[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
-            {children}
-          </span>
-        ) : (
-          // Render children as direct flex items (no wrapping <span>) so the
-          // button's `gap-*` separates an inline icon from its label even
-          // when the caller passes them as sibling children rather than via
-          // the `leadingIcon` prop.
-          <>
-            {LeadingIcon && (
-              <LeadingIcon
-                size={iconSize}
-                strokeWidth={1.5}
-                className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
-              />
-            )}
-            {children}
-            {TrailingIcon && (
-              <TrailingIcon
-                size={iconSize}
-                strokeWidth={1.5}
-                className="transition-[stroke-width] duration-80 group-hover:stroke-[2]"
-              />
-            )}
-          </>
-        )}
+        {leadingIconNode}
+        <Slottable>{children}</Slottable>
+        {trailingIconNode}
       </Comp>
     )
   }

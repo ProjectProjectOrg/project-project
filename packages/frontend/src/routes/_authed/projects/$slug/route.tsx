@@ -1,11 +1,3 @@
-// Project layout. Owns the header (name, slug, project menu) and the tab
-// strip; the active sub-route renders inside <Outlet />.
-//
-// Why a layout, not one big page:
-//   - tickets are the main view; description/members are secondary
-//   - each sub-view gets a real URL (deep-linkable, breadcrumb-able)
-//   - the project atom loads once for all sub-views (no waterfall)
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import {
   createFileRoute,
@@ -21,8 +13,10 @@ import {
   ListChecks,
   MoreHorizontal,
   Trash2,
-  Users as UsersIcon
+  Users as UsersIcon,
+  type LucideIcon
 } from "lucide-react"
+import { STATUS_META } from "@/lib/ticket-meta"
 import { meAtom } from "@/atoms/auth"
 import {
   deleteProjectAtom,
@@ -30,7 +24,10 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom } from "@/atoms/tickets"
+import { motion } from "framer-motion"
 import { GithubChip } from "@/components/GithubChip"
+import { cn } from "@/lib/utils"
+import { springs } from "@/lib/springs"
 import type { Role } from "@projectproject/shared"
 import {
   SEGMENTED_ITEM_CLASS,
@@ -108,10 +105,6 @@ function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  // Caller's role on this project — drives whether the GitHub chip shows the
-  // "connect" affordance and the manage panel. `member` is the safe default
-  // if we somehow can't resolve `me` (the page wouldn't have rendered if
-  // membership were missing).
   const me = useAtomValue(meAtom)
   const myRole: Role = Result.isSuccess(me)
     ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
@@ -198,6 +191,7 @@ function NameField({ slug, name }: { slug: string; name: string }) {
 function ProjectMenu({ slug }: { slug: string }) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function onDelete() {
@@ -211,7 +205,11 @@ function ProjectMenu({ slug }: { slug: string }) {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setConfirming(false)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -221,28 +219,47 @@ function ProjectMenu({ slug }: { slug: string }) {
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="w-48">
-        <DropdownMenuItem
-          disabled={deleting}
-          onSelect={(e) => {
-            e.preventDefault()
-            void onDelete()
-          }}
-          className="cursor-pointer text-destructive focus:text-destructive"
-        >
-          <Trash2 className="size-4" strokeWidth={1.75} />
-          {deleting ? "Deleting…" : "Delete project"}
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+        {!confirming ? (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setConfirming(true)
+            }}
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} />
+            Delete project
+          </DropdownMenuItem>
+        ) : (
+          <div className="flex flex-col gap-2 p-1">
+            <p className="px-2 pt-1 text-xs text-muted-foreground">
+              Delete this project? This can't be undone.
+            </p>
+            <div className="flex gap-1 px-1 pb-1">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void onDelete()}
+                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
-
-// --- Tab nav ---------------------------------------------------------------
-// Uses the shared `SegmentedTabs` primitive (`components/SegmentedTabs.tsx`)
-// — same component the status chips inside the Tickets tab render with, so
-// the two strips read as one design language. Each tab is a `<Link>`; the
-// shared component owns chrome, animation, and count badges.
 
 type TabKey = "tickets" | "about" | "members"
 type TabDef = {
@@ -294,9 +311,6 @@ function TabsNav({
     ? ticketsResult.value.length
     : null
 
-  // The "open ticket" subtitle — when a ticket is expanded, surface its id
-  // and a quick status summary right next to the Tickets tab. Keeps the
-  // header informative even after deep-linking.
   const summary = Result.isSuccess(ticketsResult)
     ? summarize(ticketsResult.value)
     : null
@@ -313,8 +327,7 @@ function TabsNav({
           location.pathname.startsWith(target + "/")
   }
 
-  // Counts come from atoms here, not from the static config — the tab strip
-  // doubles as a live readout of project state.
+  const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label,
@@ -335,6 +348,40 @@ function TabsNav({
         isActive={isActive}
         renderItem={(item, content, { active }) => {
           const def = TABS.find((t) => t.key === item.key)!
+          if (item.key === "tickets" && ticketsCount !== null) {
+            return (
+              <Link
+                to={def.to}
+                params={{ slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {active && (
+                  <motion.span
+                    layoutId={`project-tabs-${slug}-active`}
+                    transition={springs.moderate}
+                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  />
+                )}
+                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
+                  <ListChecks className="size-3.5" strokeWidth={1.75} />
+                  <span>Tickets</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                      active
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {ticketsCount}
+                  </span>
+                </span>
+                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <TicketsBreakdown tickets={tickets} />
+                </span>
+              </Link>
+            )
+          }
           return (
             <Link
               to={def.to}
@@ -354,8 +401,40 @@ function TabsNav({
   )
 }
 
-// "5 todo · 4 in progress · 3 done" — quick at-a-glance state. Shows next to
-// the tab strip so the project header doubles as a dashboard.
+function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
+  const counts = { todo: 0, in_progress: 0, done: 0 }
+  for (const t of tickets) counts[t.status]++
+  return (
+    <>
+      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map((s) => (
+        <BadgeStat
+          key={s}
+          count={counts[s]}
+          icon={STATUS_META[s].icon}
+          className={STATUS_META[s].className}
+        />
+      ))}
+    </>
+  )
+}
+
+function BadgeStat({
+  count,
+  icon: Icon,
+  className
+}: {
+  count: number
+  icon: LucideIcon
+  className: string
+}) {
+  return (
+    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums text-foreground">
+      <Icon className={`size-3 ${className}`} strokeWidth={1.75} />
+      {count}
+    </span>
+  )
+}
+
 function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   if (tickets.length === 0) return null
   let todo = 0
@@ -369,14 +448,12 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
   return `${todo} todo · ${inProgress} in progress · ${done} done`
 }
 
-// --- States ---------------------------------------------------------------
-
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="h-12 animate-pulse rounded-lg bg-muted/60" />
-      <div className="h-9 animate-pulse rounded-lg bg-muted/60" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted/60" />
+      <div className="h-12 skeleton rounded-lg bg-muted/60" />
+      <div className="h-9 skeleton rounded-lg bg-muted/60" />
+      <div className="h-40 skeleton rounded-xl bg-muted/60" />
     </div>
   )
 }
