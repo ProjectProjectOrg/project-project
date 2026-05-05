@@ -17,7 +17,6 @@ Promote the bare-minimum `auth.ts` from Exercise 1 into the real, configured Bet
 1. Re-read the comment block at the top of `packages/backend/src/auth.ts`. It walks through the trade-off about the Drizzle client.
 
 2. Decide how Better Auth gets its Drizzle client. Two acceptable approaches:
-
    - **(Simple, recommended for this chapter)** A second `drizzle()` instantiation just for Better Auth, sharing the same `DATABASE_URL`. Two pools, both small. Costs a handful of extra connections; saves you from threading the Effect runtime into module-load code.
    - **(Advanced)** Build the Drizzle client once (e.g. in a separate `db.ts` module that exports a singleton), and have both `auth.ts` and `services/Db.ts` consume it. The Effect layer then becomes `Layer.succeed(Db, sharedDb)`. This works but couples `Db` to a non-Effect lifecycle, defeating part of why we made it a Layer.
 

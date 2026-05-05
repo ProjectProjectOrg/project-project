@@ -48,11 +48,8 @@ import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 import { AppApi } from "@projectproject/shared"
 
-const HealthHandlerLive = HttpApiBuilder.group(
-  AppApi,
-  "health",
-  (handlers) =>
-    handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
+const HealthHandlerLive = HttpApiBuilder.group(AppApi, "health", (handlers) =>
+  handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
 )
 
 const ApiLive = HttpApiBuilder.api(AppApi).pipe(

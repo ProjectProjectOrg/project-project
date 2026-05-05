@@ -148,7 +148,7 @@ Public visibility is per-package:
 
 1. After the first successful CI run, go to your GitHub profile → Packages.
 2. For each of `projectproject-app` and `projectproject-web`, open
-   *Package settings → Change visibility → Public*.
+   _Package settings → Change visibility → Public_.
 
 If you'd rather keep them private, create a Personal Access Token
 (`read:packages` scope), and set up Docker auth on the VM:
@@ -178,7 +178,7 @@ are watched (we set this on `app` and `web`). `WATCHTOWER_LABEL_ENABLE`
 must be `"true"`. Verify with `docker compose logs watchtower`.
 
 **OAuth callback fails after deploy.**
-`BETTER_AUTH_URL` in `.env` must match the public HTTPS hostname *exactly*,
+`BETTER_AUTH_URL` in `.env` must match the public HTTPS hostname _exactly_,
 including the scheme (`https://`). The GitHub OAuth app's callback URL must
 be `<BETTER_AUTH_URL>/api/auth/callback/github`.
 

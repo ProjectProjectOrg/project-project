@@ -102,13 +102,10 @@ You hand-write the service _shape_ (the second type argument), then separately w
 **`Effect.Service`** — the bundled version, when the shape comes from an existing Effect:
 
 ```ts
-export class ApiClient extends Effect.Service<ApiClient>()(
-  "ApiClient",
-  {
-    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-    dependencies: [FetchHttpClient.layer]
-  }
-) {}
+export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+  effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+  dependencies: [FetchHttpClient.layer]
+}) {}
 ```
 
 Here you don't spell out the service shape — `Effect.Service` infers it from the success type of the `effect:` field. You also get `ApiClient.Default` (the Layer) for free, with `dependencies:` already provided into it. This is the right tool when the shape is whatever a library function returns to you (`HttpApiClient.make` here), and writing it out by hand would mean fighting TypeScript generics for no teaching value.
@@ -133,12 +130,10 @@ In the route component you'll write something like:
 
 ```tsx
 useEffect(() => {
-  const program = Effect
-    .gen(function*() {
-      const client = yield* ApiClient
-      return yield* client.health.get()
-    })
-    .pipe(Effect.provide(ApiClient.Default))
+  const program = Effect.gen(function* () {
+    const client = yield* ApiClient
+    return yield* client.health.get()
+  }).pipe(Effect.provide(ApiClient.Default))
   Effect.runPromise(program).then(setData)
 }, [])
 ```

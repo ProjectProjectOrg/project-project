@@ -14,51 +14,64 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("list", ({ path }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.list(user.id, path.slug)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("create", ({ path, payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.create(user.id, path.slug, payload)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("get", ({ path }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.get(user.id, path.slug, path.id)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("update", ({ path, payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.update(user.id, path.slug, path.id, payload)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("delete", ({ path }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           yield* tickets.remove(user.id, path.slug, path.id)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("createBranch", ({ path, payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.createBranch(user.id, path.slug, path.id, payload)
-        }).pipe(dieOnMarkdown))
+          return yield* tickets.createBranch(
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("openPr", ({ path, payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.openPr(user.id, path.slug, path.id, payload)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
       .handle("clearBranch", ({ path }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.clearBranch(user.id, path.slug, path.id)
-        }).pipe(dieOnMarkdown))
+        }).pipe(dieOnMarkdown)
+      )
 )

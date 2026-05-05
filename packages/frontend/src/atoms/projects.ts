@@ -5,7 +5,7 @@ import { ApiClient } from "@/services/ApiClient"
 
 export const projectsListAtom = runtime
   .atom(
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* ApiClient
       return yield* client.projects.list()
     })
@@ -17,7 +17,7 @@ export const projectsListAtom = runtime
 export const projectAtom = Atom.family((slug: string) =>
   runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.get({ path: { slug } })
       })
@@ -26,7 +26,7 @@ export const projectAtom = Atom.family((slug: string) =>
 )
 
 export const updateProjectAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; name?: string; body?: string },
     get
   ) {
@@ -45,7 +45,7 @@ export const updateProjectAtom = runtime.fn(
 )
 
 export const deleteProjectAtom = runtime.fn(
-  Effect.fn(function*(input: { slug: string }, get) {
+  Effect.fn(function* (input: { slug: string }, get) {
     const client = yield* ApiClient
     yield* client.projects.delete({ path: { slug: input.slug } })
     get.refresh(projectsListAtom)
@@ -57,7 +57,7 @@ export const deleteProjectAtom = runtime.fn(
 // the UI. The list atom doesn't yet show members so we leave it alone.
 
 export const addMemberAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; email: string; role: "admin" | "member" },
     get
   ) {
@@ -72,7 +72,7 @@ export const addMemberAtom = runtime.fn(
 )
 
 export const updateMemberAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; userId: string; role: "admin" | "member" },
     get
   ) {
@@ -87,7 +87,7 @@ export const updateMemberAtom = runtime.fn(
 )
 
 export const removeMemberAtom = runtime.fn(
-  Effect.fn(function*(input: { slug: string; userId: string }, get) {
+  Effect.fn(function* (input: { slug: string; userId: string }, get) {
     const client = yield* ApiClient
     yield* client.projects.removeMember({
       path: { slug: input.slug, userId: input.userId }
@@ -98,7 +98,7 @@ export const removeMemberAtom = runtime.fn(
 
 // Inline create. Refreshes the list atom on success so the new row shows up.
 export const createProjectAtom = runtime.fn(
-  Effect.fn(function*(input: { name: string }, get) {
+  Effect.fn(function* (input: { name: string }, get) {
     const client = yield* ApiClient
     const project = yield* client.projects.create({ payload: input })
     get.refresh(projectsListAtom)

@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   createContext,
@@ -7,36 +7,37 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  type ReactNode,
-} from "react";
+  type ReactNode
+} from "react"
 
 import {
   iconMap,
   iconLibraryOrder,
   type IconLibrary,
   type IconName,
-  type IconComponent,
-} from "@/lib/icon-map";
+  type IconComponent
+} from "@/lib/icon-map"
 
 // Re-export types for consumers
-export type { IconComponent, IconName, IconLibrary } from "@/lib/icon-map";
-export { iconLibraryOrder, iconLibraryLabels } from "@/lib/icon-map";
+export type { IconComponent, IconName, IconLibrary } from "@/lib/icon-map"
+export { iconLibraryOrder, iconLibraryLabels } from "@/lib/icon-map"
 
 interface IconContextValue {
-  iconLibrary: IconLibrary;
-  setIconLibrary: (lib: IconLibrary) => void;
+  iconLibrary: IconLibrary
+  setIconLibrary: (lib: IconLibrary) => void
 }
 
-const IconContext = createContext<IconContextValue | null>(null);
+const IconContext = createContext<IconContextValue | null>(null)
 
 /**
  * Returns the current icon library and setter.
  * Throws if used outside IconProvider.
  */
 function useIconLibrary() {
-  const ctx = useContext(IconContext);
-  if (!ctx) throw new Error("useIconLibrary must be used within an IconProvider");
-  return ctx;
+  const ctx = useContext(IconContext)
+  if (!ctx)
+    throw new Error("useIconLibrary must be used within an IconProvider")
+  return ctx
 }
 
 /**
@@ -44,9 +45,9 @@ function useIconLibrary() {
  * Falls back to Lucide if no provider is present.
  */
 function useIcon(name: IconName): IconComponent {
-  const ctx = useContext(IconContext);
-  if (!ctx) return iconMap.lucide[name];
-  return iconMap[ctx.iconLibrary][name];
+  const ctx = useContext(IconContext)
+  if (!ctx) return iconMap.lucide[name]
+  return iconMap[ctx.iconLibrary][name]
 }
 
 /**
@@ -54,46 +55,52 @@ function useIcon(name: IconName): IconComponent {
  * Falls back to Lucide if no provider is present.
  */
 function useIcons(): Record<IconName, IconComponent> {
-  const ctx = useContext(IconContext);
-  const lib = ctx?.iconLibrary ?? "lucide";
-  return useMemo(() => iconMap[lib], [lib]);
+  const ctx = useContext(IconContext)
+  const lib = ctx?.iconLibrary ?? "lucide"
+  return useMemo(() => iconMap[lib], [lib])
 }
 
 function IconProvider({
   children,
-  defaultLibrary = "lucide",
+  defaultLibrary = "lucide"
 }: {
-  children: ReactNode;
-  defaultLibrary?: IconLibrary;
+  children: ReactNode
+  defaultLibrary?: IconLibrary
 }) {
-  const [iconLibrary, setIconLibraryState] = useState<IconLibrary>(defaultLibrary);
+  const [iconLibrary, setIconLibraryState] =
+    useState<IconLibrary>(defaultLibrary)
 
   const setIconLibrary = useCallback((next: IconLibrary) => {
-    setIconLibraryState(next);
-  }, []);
+    setIconLibraryState(next)
+  }, [])
 
   // Global keyboard shortcut: I to cycle icon library
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "i" && e.key !== "I") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
-      e.preventDefault();
+      if (e.key !== "i" && e.key !== "I") return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement)?.isContentEditable
+      )
+        return
+      e.preventDefault()
       setIconLibraryState((prev) => {
-        const idx = iconLibraryOrder.indexOf(prev);
-        return iconLibraryOrder[(idx + 1) % iconLibraryOrder.length];
-      });
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+        const idx = iconLibraryOrder.indexOf(prev)
+        return iconLibraryOrder[(idx + 1) % iconLibraryOrder.length]
+      })
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   return (
     <IconContext.Provider value={{ iconLibrary, setIconLibrary }}>
       {children}
     </IconContext.Provider>
-  );
+  )
 }
 
-export { IconProvider, useIcon, useIcons, useIconLibrary };
+export { IconProvider, useIcon, useIcons, useIconLibrary }

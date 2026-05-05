@@ -112,5 +112,5 @@ export const auth = betterAuth({
 })
 
 // TODO: export inferred types.
-export type User = typeof auth.$Infer.Session["user"]
-export type Session = typeof auth.$Infer.Session["session"]
+export type User = (typeof auth.$Infer.Session)["user"]
+export type Session = (typeof auth.$Infer.Session)["session"]

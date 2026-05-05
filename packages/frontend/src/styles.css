@@ -82,16 +82,17 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   @keyframes spinner-move {
-  to {
-    stroke-dashoffset: -100;
+    to {
+      stroke-dashoffset: -100;
     }
   }
   @keyframes spinner-dash {
-  0%, 100% {
-    stroke-dasharray: 15 85;
+    0%,
+    100% {
+      stroke-dasharray: 15 85;
     }
-  50% {
-    stroke-dasharray: 40 60;
+    50% {
+      stroke-dasharray: 40 60;
     }
   }
 }
@@ -118,7 +119,9 @@
     clip-path: circle(0 at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
   }
   to {
-    clip-path: circle(150vmax at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
+    clip-path: circle(
+      150vmax at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%)
+    );
   }
 }
 
@@ -327,7 +330,7 @@ html.dark .prose-md .token.deleted-arrow {
 }
 html.dark .prose-md .token.inserted-sign,
 html.dark .prose-md .token.inserted-arrow {
-  background: rgba(46, 160, 67, 0.20);
+  background: rgba(46, 160, 67, 0.2);
   color: #56d364;
 }
 html.dark .prose-md .token.coord {

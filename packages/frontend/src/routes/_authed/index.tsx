@@ -17,7 +17,9 @@ import type { Project } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/")({
   component: Dashboard,
-  loader: () => ({ crumb: { type: "static" as const, label: "Dashboard", to: "/" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Dashboard", to: "/" }
+  })
 })
 
 function Dashboard() {
@@ -72,7 +74,9 @@ function RecentProjects({ projects }: { projects: ReadonlyArray<Project> }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Recent projects</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Recent projects
+        </h2>
         <Link
           to="/projects"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -176,8 +180,8 @@ function NewProjectCTA() {
         <div className="text-sm font-medium">Create your first project</div>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
           Markdown-first project management. Tickets, members, and project
-          context all live as files on disk — yours to grep, edit, or feed
-          to an AI.
+          context all live as files on disk — yours to grep, edit, or feed to an
+          AI.
         </p>
       </div>
     </Link>

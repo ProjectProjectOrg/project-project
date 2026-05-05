@@ -49,12 +49,12 @@ import { BetterAuth } from "./BetterAuth"
 
 export const AuthenticationLive = Layer.effect(
   Authentication,
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ba = yield* BetterAuth
 
     return Authentication.of({
       sessionCookie: (_token) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const req = yield* HttpServerRequest.HttpServerRequest
           const session = yield* ba
             .getSession(req.headers as unknown as Headers)
@@ -75,8 +75,8 @@ export const AuthenticationLive = Layer.effect(
           // `username` was added via Better Auth's `additionalFields`; it
           // shows up at runtime but isn't on the inferred type. Cast at the
           // seam — the schema is what guards the wire.
-          const username = (session.user as { username?: string | null })
-            .username ?? null
+          const username =
+            (session.user as { username?: string | null }).username ?? null
           return {
             id,
             email,

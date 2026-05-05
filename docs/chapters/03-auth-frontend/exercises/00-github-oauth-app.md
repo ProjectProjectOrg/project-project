@@ -13,7 +13,7 @@ Have a GitHub OAuth app whose callback URL matches what Better Auth will redirec
    - **Application name:** anything (e.g. "ProjectProject dev").
    - **Homepage URL:** `http://localhost:5173`.
    - **Authorization callback URL:** `http://localhost:3000/api/auth/callback/github`.
-     - Important: this is the *backend* origin, not the Vite origin. Better Auth sets the callback to `BETTER_AUTH_URL` + `/api/auth/callback/github`. `BETTER_AUTH_URL` should be `http://localhost:3000` for dev.
+     - Important: this is the _backend_ origin, not the Vite origin. Better Auth sets the callback to `BETTER_AUTH_URL` + `/api/auth/callback/github`. `BETTER_AUTH_URL` should be `http://localhost:3000` for dev.
 3. Click **Register application**, then **Generate a new client secret**.
 4. Copy the client ID and the secret into your project's `.env` (next to the existing `DATABASE_URL` and `BETTER_AUTH_SECRET`):
 
@@ -31,7 +31,7 @@ Have a GitHub OAuth app whose callback URL matches what Better Auth will redirec
 In a browser tab pointed at `http://localhost:5173/`, click "Sign in with GitHub" on the existing smoke-test home. You should:
 
 - Be redirected to GitHub.
-- See the OAuth consent screen for *your* OAuth app, including the `read:user`, `user:email`, and `repo` scopes (configured in `packages/backend/src/auth.ts`).
+- See the OAuth consent screen for _your_ OAuth app, including the `read:user`, `user:email`, and `repo` scopes (configured in `packages/backend/src/auth.ts`).
 - After consent, land back on `http://localhost:5173/` with a session cookie.
 - Clicking "Show /me" should now return your user JSON.
 

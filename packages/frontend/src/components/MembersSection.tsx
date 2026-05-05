@@ -41,13 +41,12 @@ import {
 } from "@/components/ui/input-group"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { cn } from "@/lib/utils"
-import type {
-  AssignableRole,
-  Member,
-  Role
-} from "@projectproject/shared"
+import type { AssignableRole, Member, Role } from "@projectproject/shared"
 
-const ROLE_META: Record<Role, { label: string; icon: typeof Crown; tint: string }> = {
+const ROLE_META: Record<
+  Role,
+  { label: string; icon: typeof Crown; tint: string }
+> = {
   owner: {
     label: "Owner",
     icon: Crown,
@@ -289,7 +288,8 @@ function MemberMenu({
   const canChangeRole = callerRole === "owner" && member.role !== "owner"
   const canRemove =
     member.role !== "owner" &&
-    (callerRole === "owner" || (callerRole === "admin" && member.role !== "admin"))
+    (callerRole === "owner" ||
+      (callerRole === "admin" && member.role !== "admin"))
 
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 

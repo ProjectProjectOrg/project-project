@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "jsPlugins": [
+    {
+      "name": "workspace",
+      "specifier": "./tools/oxlint-plugin-workspace.js"
+    }
+  ],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "import/no-cycle": "off",
+    "sort-imports": "off",
+    "no-underscore-dangle": "off",
+    "typescript/await-thenable": "off",
+    "typescript/array-type": "off",
+    "typescript/consistent-return": "off",
+    "typescript/no-floating-promises": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unnecessary-type-arguments": "off",
+    "typescript/no-unnecessary-type-assertion": "off",
+    "typescript/require-await": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-useless-spread": "off",
+    "unicorn/prefer-add-event-listener": "off",
+    "workspace/no-relative-packages": "error"
+  },
+  "ignorePatterns": [
+    "eslint.config.js",
+    "prettier.config.js",
+    "oxlint.config.ts",
+    "**/routeTree.gen.ts"
+  ]
+}

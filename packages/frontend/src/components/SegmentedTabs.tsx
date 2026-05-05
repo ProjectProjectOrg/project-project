@@ -108,7 +108,11 @@ export function SegmentedTabs<K extends string>({
               </span>
             </>
           )
-          return <Fragment key={it.key}>{renderItem(it, content, { active })}</Fragment>
+          return (
+            <Fragment key={it.key}>
+              {renderItem(it, content, { active })}
+            </Fragment>
+          )
         })}
       </div>
     </LayoutGroup>

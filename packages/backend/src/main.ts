@@ -88,35 +88,27 @@ export const HealthHandlerLive = HttpApiBuilder.group(
     handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
 )
 
-export const DbHandlerLive = HttpApiBuilder.group(
-  AppApi,
-  "db",
-  (handlers) =>
-    handlers.handle("ping", () =>
-      Effect
-        .gen(function*() {
-          const db = yield* Db
-          const [{ value }] = yield* db.select({ value: count() }).from(
-            projectIndex
-          )
-          return { projectCount: value }
-        })
-        .pipe(Effect.orDie))
+export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
+  handlers.handle("ping", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const [{ value }] = yield* db
+        .select({ value: count() })
+        .from(projectIndex)
+      return { projectCount: value }
+    }).pipe(Effect.orDie)
+  )
 )
 
-const betterAuthApp = Effect
-  .gen(function*() {
-    const ba = yield* BetterAuth
-    const req = yield* HttpServerRequest.HttpServerRequest
-    const webReq = yield* HttpServerRequest.toWeb(req)
-    const webRes = yield* ba.handler(webReq)
-    return HttpServerResponse.fromWeb(webRes)
-  })
-  .pipe(
-    Effect.catchAll(() =>
-      HttpServerResponse.text("Auth error", { status: 500 })
-    )
-  )
+const betterAuthApp = Effect.gen(function* () {
+  const ba = yield* BetterAuth
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const webRes = yield* ba.handler(webReq)
+  return HttpServerResponse.fromWeb(webRes)
+}).pipe(
+  Effect.catchAll(() => HttpServerResponse.text("Auth error", { status: 500 }))
+)
 
 export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(HealthHandlerLive),
@@ -138,22 +130,21 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
 // extra mountApp call needed; the layer adds routes to the api group.
 const SwaggerLive = HttpApiSwagger.layer({ path: "/docs" })
 
-const ServerLive = HttpApiBuilder
-  .serve((apiApp) =>
-    HttpRouter.empty.pipe(
-      HttpRouter.mountApp("/api/auth", betterAuthApp),
-      HttpRouter.mountApp("/api", apiApp),
-      Effect.catchTag("RouteNotFound", () =>
-        HttpServerResponse.text("Not Found", { status: 404 }))
+const ServerLive = HttpApiBuilder.serve((apiApp) =>
+  HttpRouter.empty.pipe(
+    HttpRouter.mountApp("/api/auth", betterAuthApp),
+    HttpRouter.mountApp("/api", apiApp),
+    Effect.catchTag("RouteNotFound", () =>
+      HttpServerResponse.text("Not Found", { status: 404 })
     )
   )
-  .pipe(
-    Layer.provide(SwaggerLive),
-    Layer.provide(ApiLive),
-    Layer.provide(BetterAuthLive),
-    Layer.provide(DbLive),
-    Layer.provide(BunHttpServer.layer({ port: 3000 }))
-  )
+).pipe(
+  Layer.provide(SwaggerLive),
+  Layer.provide(ApiLive),
+  Layer.provide(BetterAuthLive),
+  Layer.provide(DbLive),
+  Layer.provide(BunHttpServer.layer({ port: 3000 }))
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

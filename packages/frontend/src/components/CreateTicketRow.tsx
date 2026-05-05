@@ -23,15 +23,13 @@ import {
 import { createTicketAtom } from "@/atoms/tickets"
 import type { TicketType } from "@projectproject/shared"
 
-const TYPE_META: Record<
-  TicketType,
-  { label: string; icon: typeof Sparkles }
-> = {
-  feat: { label: "Feature", icon: Sparkles },
-  bug: { label: "Bug", icon: Bug },
-  chore: { label: "Chore", icon: Hammer },
-  other: { label: "Other", icon: HelpCircle }
-}
+const TYPE_META: Record<TicketType, { label: string; icon: typeof Sparkles }> =
+  {
+    feat: { label: "Feature", icon: Sparkles },
+    bug: { label: "Bug", icon: Bug },
+    chore: { label: "Chore", icon: Hammer },
+    other: { label: "Other", icon: HelpCircle }
+  }
 
 export function CreateTicketRow({
   slug,

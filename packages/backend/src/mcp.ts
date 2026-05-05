@@ -159,7 +159,7 @@ async function main(): Promise<void> {
     async () => {
       try {
         const projects = await run(
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const svc = yield* Projects
             return yield* svc.list(userId)
           })
@@ -185,7 +185,7 @@ async function main(): Promise<void> {
     async ({ slug }) => {
       try {
         const detail = await run(
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const svc = yield* Projects
             return yield* svc
               .get(userId, slug)
@@ -229,7 +229,7 @@ async function main(): Promise<void> {
     async ({ slug, status, type, assignee, has_branch, has_pr }) => {
       try {
         const tickets = await run(
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const svc = yield* Tickets
             return yield* svc
               .list(userId, slug)
@@ -258,14 +258,13 @@ async function main(): Promise<void> {
     "get_ticket",
     {
       title: "Get ticket",
-      description:
-        "Returns the full ticket: frontmatter + body (markdown).",
+      description: "Returns the full ticket: frontmatter + body (markdown).",
       inputSchema: { slug: z.string(), id: z.string() }
     },
     async ({ slug, id }) => {
       try {
         const ticket = await run(
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const svc = yield* Tickets
             return yield* svc
               .get(userId, slug, id)

@@ -91,11 +91,7 @@ Open `packages/shared/src/api.ts`. Add a new `auth` group with one endpoint, the
 
 ```ts
 const Auth = HttpApiGroup.make("auth")
-  .add(
-    HttpApiEndpoint.get("me", "/me")
-      .addSuccess(User)
-      .addError(Unauthorized)
-  )
+  .add(HttpApiEndpoint.get("me", "/me").addSuccess(User).addError(Unauthorized))
   .middleware(Authentication)
 
 const AppApi = HttpApi.make("projectproject")

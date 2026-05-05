@@ -136,7 +136,7 @@ export const BetterAuthLive = Layer.effect(
           catch: (cause) => new BetterAuthError({ cause })
         }),
       getGithubAccessToken: (userId) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const rows = yield* Effect.tryPromise({
             try: () =>
               db

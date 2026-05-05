@@ -13,7 +13,9 @@ import { PageContainer, PageHeader } from "@/components/page"
 
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
-  loader: () => ({ crumb: { type: "static" as const, label: "Profile", to: "/profile" } })
+  loader: () => ({
+    crumb: { type: "static" as const, label: "Profile", to: "/profile" }
+  })
 })
 
 function Profile() {

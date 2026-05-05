@@ -137,7 +137,7 @@ data/projects/<slug>/docs/<...folders>/<doc-slug>.md
 ---
 slug: design-system
 name: Design System Rewrite
-owner: github_42                         # users.id from postgres
+owner: github_42 # users.id from postgres
 members:
   - { id: github_42, role: owner }
   - { id: github_88, role: admin }
@@ -145,7 +145,7 @@ members:
 github:
   repoOwner: woutervh
   repoName: design-system
-branchTemplate: "{type}/{id}-{slug}"     # default: feat/T-12-add-button
+branchTemplate: "{type}/{id}-{slug}" # default: feat/T-12-add-button
 createdAt: 2025-11-04T10:00:00Z
 ---
 
@@ -161,10 +161,10 @@ This is what gets shown on the project landing page.
 ---
 id: T-12
 title: Add primary button component
-status: in_progress                      # todo | in_progress | done
-type: feat                               # feat | bug | chore | other
-branch: feat/T-12-add-primary-button     # null until branch is created
-assignee: github_88                      # nullable
+status: in_progress # todo | in_progress | done
+type: feat # feat | bug | chore | other
+branch: feat/T-12-add-primary-button # null until branch is created
+assignee: github_88 # nullable
 createdBy: github_42
 createdAt: 2025-11-04T11:30:00Z
 updatedAt: 2025-11-04T15:12:00Z
@@ -208,33 +208,28 @@ import {
   ValidationError
 } from "./errors"
 
-const Auth = HttpApiGroup
-  .make("auth")
+const Auth = HttpApiGroup.make("auth")
   .add(HttpApiEndpoint.get("me", "/me").addSuccess(User).addError(Unauthorized))
   .add(HttpApiEndpoint.post("logout", "/logout").addSuccess(S.Void))
 
-const Projects = HttpApiGroup
-  .make("projects")
+const Projects = HttpApiGroup.make("projects")
   .add(HttpApiEndpoint.get("list", "/projects").addSuccess(S.Array(Project)))
   .add(
-    HttpApiEndpoint
-      .post("create", "/projects")
+    HttpApiEndpoint.post("create", "/projects")
       .setPayload(S.Struct({ name: S.String, slug: S.String }))
       .addSuccess(Project)
       .addError(Conflict)
       .addError(ValidationError)
   )
   .add(
-    HttpApiEndpoint
-      .get("get", "/projects/:slug")
+    HttpApiEndpoint.get("get", "/projects/:slug")
       .setPath(S.Struct({ slug: S.String }))
       .addSuccess(Project)
       .addError(NotFound)
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint
-      .patch("update", "/projects/:slug")
+    HttpApiEndpoint.patch("update", "/projects/:slug")
       .setPath(S.Struct({ slug: S.String }))
       .setPayload(Project.pipe(S.partial))
       .addSuccess(Project)
@@ -242,16 +237,14 @@ const Projects = HttpApiGroup
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint
-      .del("delete", "/projects/:slug")
+    HttpApiEndpoint.del("delete", "/projects/:slug")
       .setPath(S.Struct({ slug: S.String }))
       .addSuccess(S.Void)
       .addError(NotFound)
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint
-      .post("addMember", "/projects/:slug/members")
+    HttpApiEndpoint.post("addMember", "/projects/:slug/members")
       .setPath(S.Struct({ slug: S.String }))
       .setPayload(
         S.Struct({ userId: S.String, role: S.Literal("admin", "member") })
@@ -261,43 +254,41 @@ const Projects = HttpApiGroup
       .addError(Forbidden)
   )
 
-const Tickets = HttpApiGroup
-  .make("tickets")
+const Tickets = HttpApiGroup.make("tickets")
   .add(
-    HttpApiEndpoint
-      .get("list", "/projects/:slug/tickets")
+    HttpApiEndpoint.get("list", "/projects/:slug/tickets")
       .setPath(S.Struct({ slug: S.String }))
       .addSuccess(S.Array(Ticket))
       .addError(NotFound)
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint
-      .post("create", "/projects/:slug/tickets")
+    HttpApiEndpoint.post("create", "/projects/:slug/tickets")
       .setPath(S.Struct({ slug: S.String }))
-      .setPayload(S.Struct({
-        title: S.String,
-        type: S.Literal("feat", "bug", "chore", "other")
-      }))
+      .setPayload(
+        S.Struct({
+          title: S.String,
+          type: S.Literal("feat", "bug", "chore", "other")
+        })
+      )
       .addSuccess(Ticket)
       .addError(NotFound)
       .addError(Forbidden)
   )
   // ... get, patch, delete
   .add(
-    HttpApiEndpoint
-      .post("createBranch", "/projects/:slug/tickets/:id/branch")
+    HttpApiEndpoint.post("createBranch", "/projects/:slug/tickets/:id/branch")
       .setPath(S.Struct({ slug: S.String, id: S.String }))
-      .setPayload(S
-        .Struct({ branchName: S.String, baseBranch: S.optional(S.String) }))
+      .setPayload(
+        S.Struct({ branchName: S.String, baseBranch: S.optional(S.String) })
+      )
       .addSuccess(Ticket)
       .addError(NotFound)
       .addError(Forbidden)
       .addError(GitHubError)
   )
 
-export const AppApi = HttpApi
-  .make("projectproject")
+export const AppApi = HttpApi.make("projectproject")
   .add(Auth)
   .add(Projects)
   .add(Tickets)
@@ -355,23 +346,26 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("list", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* Auth.currentUser
           const projects = yield* Projects
           return yield* projects.list(user.id)
-        }))
+        })
+      )
       .handle("create", ({ payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* Auth.currentUser
           const projects = yield* Projects
           return yield* projects.create({ ...payload, ownerId: user.id })
-        }))
+        })
+      )
       .handle("get", ({ path }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* Auth.currentUser
           const projects = yield* Projects
           return yield* projects.get(path.slug, user.id)
-        }))
+        })
+      )
 )
 ```
 
@@ -381,21 +375,27 @@ The handler has no idea whether the data lives in markdown, postgres, or a sandw
 
 ```ts
 // packages/backend/src/services/Markdown.ts
-export class Markdown extends Context.Tag("Markdown")<Markdown, {
-  readonly read: <A>(
-    path: string,
-    schema: Schema.Schema<A>
-  ) => Effect.Effect<{ frontmatter: A; body: string }, MarkdownError | NotFound>
-  readonly write: <A>(
-    path: string,
-    schema: Schema.Schema<A>,
-    data: { frontmatter: A; body: string }
-  ) => Effect.Effect<void, MarkdownError>
-  readonly listDir: (
-    path: string
-  ) => Effect.Effect<readonly string[], MarkdownError | NotFound>
-  readonly remove: (path: string) => Effect.Effect<void, MarkdownError>
-}>() {}
+export class Markdown extends Context.Tag("Markdown")<
+  Markdown,
+  {
+    readonly read: <A>(
+      path: string,
+      schema: Schema.Schema<A>
+    ) => Effect.Effect<
+      { frontmatter: A; body: string },
+      MarkdownError | NotFound
+    >
+    readonly write: <A>(
+      path: string,
+      schema: Schema.Schema<A>,
+      data: { frontmatter: A; body: string }
+    ) => Effect.Effect<void, MarkdownError>
+    readonly listDir: (
+      path: string
+    ) => Effect.Effect<readonly string[], MarkdownError | NotFound>
+    readonly remove: (path: string) => Effect.Effect<void, MarkdownError>
+  }
+>() {}
 ```
 
 Crucially, `read`/`write` take a Schema for the frontmatter. The frontmatter is parsed YAML, then run through `Schema.decodeUnknown(schema)`. So if a markdown file is malformed or missing required fields, you get a typed `MarkdownError` you can recover from — not a runtime crash deep in the handler.
@@ -439,13 +439,10 @@ import { FetchHttpClient, HttpApiClient } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
 import { Effect } from "effect"
 
-export class ApiClient extends Effect.Service<ApiClient>()(
-  "ApiClient",
-  {
-    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-    dependencies: [FetchHttpClient.layer]
-  }
-) {}
+export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+  effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+  dependencies: [FetchHttpClient.layer]
+}) {}
 ```
 
 > **Note (updated):** the original draft of this spec used `Context.Tag` + `Layer.effect` here with `HttpApiClient.Client<typeof AppApi>` as the service shape. That stopped compiling once `HttpApiClient.Client` started taking three type parameters. `Effect.Service` infers the shape from the `effect:` field, so the rename is the whole fix. We still use `Context.Tag` for our own services (`Markdown`, `Projects`, `Tickets`) where the shape is hand-written.
@@ -463,7 +460,7 @@ import { ApiClient } from "../services/ApiClient"
 
 export const projectsListAtom = runtime
   .atom(
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* ApiClient
       return yield* client.projects.list()
     })
@@ -473,7 +470,7 @@ export const projectsListAtom = runtime
 export const projectAtom = runtime.family((slug: string) =>
   runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.get({ path: { slug } })
       })
@@ -482,7 +479,7 @@ export const projectAtom = runtime.family((slug: string) =>
 )
 
 export const createProjectAtom = runtime.fn(
-  Effect.fn(function*(input: { name: string; slug: string }, get) {
+  Effect.fn(function* (input: { name: string; slug: string }, get) {
     const client = yield* ApiClient
     const project = yield* client.projects.create({ payload: input })
     get.refresh(projectsListAtom)
@@ -567,27 +564,30 @@ Wrapping it in an Effect layer is straightforward — `Layer.sync(BetterAuth, ()
 ### Service shape
 
 ```ts
-export class GitHub extends Context.Tag("GitHub")<GitHub, {
-  readonly verifyAccess: (
-    repo: { owner: string; name: string },
-    userId: string
-  ) => Effect.Effect<void, RepoNotFound | InsufficientScope>
+export class GitHub extends Context.Tag("GitHub")<
+  GitHub,
+  {
+    readonly verifyAccess: (
+      repo: { owner: string; name: string },
+      userId: string
+    ) => Effect.Effect<void, RepoNotFound | InsufficientScope>
 
-  readonly createBranch: (
-    repo: { owner: string; name: string },
-    branchName: string,
-    baseBranch: string | null, // null = repo default
-    userId: string
-  ) => Effect.Effect<
-    { name: string; sha: string },
-    BranchExists | RepoNotFound | GitHubError
-  >
+    readonly createBranch: (
+      repo: { owner: string; name: string },
+      branchName: string,
+      baseBranch: string | null, // null = repo default
+      userId: string
+    ) => Effect.Effect<
+      { name: string; sha: string },
+      BranchExists | RepoNotFound | GitHubError
+    >
 
-  readonly listBranches: (
-    repo: { owner: string; name: string },
-    userId: string
-  ) => Effect.Effect<readonly string[], RepoNotFound | GitHubError>
-}>() {}
+    readonly listBranches: (
+      repo: { owner: string; name: string },
+      userId: string
+    ) => Effect.Effect<readonly string[], RepoNotFound | GitHubError>
+  }
+>() {}
 ```
 
 Internally each method fetches the user's token from Better Auth, constructs an Octokit instance, calls the API, maps errors to tagged classes.
@@ -613,7 +613,7 @@ A project has a **Documentation** tab alongside Tickets and Members. This is whe
 ### What it is (and isn't)
 
 - It **is** a place for living docs that are scoped to a project. You write them in the same Lexical-with-markdown editor as ticket descriptions, organize them into folders, tag them, link between them.
-- It **isn't** a wiki, a CMS, or a replacement for in-repo `docs/` directories of the project's actual code. Those have their own home. This is for the *project management* artifacts — meeting notes, decisions, briefs — that belong with the tickets.
+- It **isn't** a wiki, a CMS, or a replacement for in-repo `docs/` directories of the project's actual code. Those have their own home. This is for the _project management_ artifacts — meeting notes, decisions, briefs — that belong with the tickets.
 - It **isn't** versioned beyond what git on `data/projects/` already gives you. No revision history UI in the PoC.
 
 ### Storage
@@ -669,7 +669,7 @@ Frontmatter `tags` is the source of truth for which docs carry which tag; `_meta
 
 ### Permissions
 
-Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc *use* is fine).
+Same model as the rest of the project. Read: any member. Write/create/delete/move: any member. Tag definitions in `_meta.json`: owner/admin only (so ad-hoc tag spam doesn't pollute the canonical list, but ad-hoc _use_ is fine).
 
 ### UI
 
@@ -701,7 +701,7 @@ Search is `grep`-grade for the PoC: walk the docs tree, match title/body/tags, r
 
 ### Why this earns its keep
 
-Two reasons. First, projects accumulate context that doesn't fit on a ticket — the *why* behind the work — and Slack/Notion is where that context goes to die. Putting it next to the tickets, in the same markdown tree, makes it greppable, AI-readable (see MCP below), and survives tool churn. Second, the same markdown-on-disk pattern from tickets pays off: nothing new to learn, the data is portable, and `cd data/projects/<slug>/docs && grep -ri foo` Just Works.
+Two reasons. First, projects accumulate context that doesn't fit on a ticket — the _why_ behind the work — and Slack/Notion is where that context goes to die. Putting it next to the tickets, in the same markdown tree, makes it greppable, AI-readable (see MCP below), and survives tool churn. Second, the same markdown-on-disk pattern from tickets pays off: nothing new to learn, the data is portable, and `cd data/projects/<slug>/docs && grep -ri foo` Just Works.
 
 ---
 
@@ -798,20 +798,25 @@ import { Projects } from "../services/Projects"
 import { Markdown } from "../services/Markdown"
 
 const FakeMarkdown = Layer.succeed(Markdown, {
-  read: () => Effect.succeed({ frontmatter: {/* ... */}, body: "" }),
+  read: () =>
+    Effect.succeed({
+      frontmatter: {
+        /* ... */
+      },
+      body: ""
+    }),
   write: () => Effect.succeed(undefined),
   listDir: () => Effect.succeed(["design-system"]),
   remove: () => Effect.succeed(undefined)
 })
 
 it.effect("Projects.list returns only projects user is a member of", () =>
-  Effect
-    .gen(function*() {
-      const projects = yield* Projects
-      const result = yield* projects.list("user-1")
-      expect(result).toHaveLength(1)
-    })
-    .pipe(Effect.provide(Layer.merge(ProjectsLive, FakeMarkdown))))
+  Effect.gen(function* () {
+    const projects = yield* Projects
+    const result = yield* projects.list("user-1")
+    expect(result).toHaveLength(1)
+  }).pipe(Effect.provide(Layer.merge(ProjectsLive, FakeMarkdown)))
+)
 ```
 
 ### Repository tests
@@ -865,7 +870,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BASE_URL: ${BASE_URL}
     volumes:
-      - ${MARKMATE_DATA_DIR}:/app/data    # bind mount, host-accessible
+      - ${MARKMATE_DATA_DIR}:/app/data # bind mount, host-accessible
     ports:
       - "3000:3000"
     depends_on:

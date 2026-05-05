@@ -1,19 +1,19 @@
-"use client";
+"use client"
 
-import { useRef, useEffect, forwardRef, type HTMLAttributes } from "react";
-import type { IconComponent } from "@/lib/icon-context";
-import { motion, AnimatePresence } from "framer-motion";
-import { useDropdown } from "@/components/ui/dropdown";
-import { cn } from "@/lib/utils";
-import { fontWeights } from "@/lib/font-weight";
-import { useShape } from "@/lib/shape-context";
+import { useRef, useEffect, forwardRef, type HTMLAttributes } from "react"
+import type { IconComponent } from "@/lib/icon-context"
+import { motion, AnimatePresence } from "framer-motion"
+import { useDropdown } from "@/components/ui/dropdown"
+import { cn } from "@/lib/utils"
+import { fontWeights } from "@/lib/font-weight"
+import { useShape } from "@/lib/shape-context"
 
 interface MenuItemProps extends HTMLAttributes<HTMLDivElement> {
-  icon: IconComponent;
-  label: string;
-  index: number;
-  checked?: boolean;
-  onSelect?: () => void;
+  icon: IconComponent
+  label: string
+  index: number
+  checked?: boolean
+  onSelect?: () => void
 }
 
 const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
@@ -21,29 +21,33 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
     { icon: Icon, label, index, checked, onSelect, className, ...props },
     ref
   ) => {
-    const internalRef = useRef<HTMLDivElement>(null);
-    const hasMounted = useRef(false);
-    const { registerItem, activeIndex, checkedIndex } = useDropdown();
+    const internalRef = useRef<HTMLDivElement>(null)
+    const hasMounted = useRef(false)
+    const { registerItem, activeIndex, checkedIndex } = useDropdown()
 
     useEffect(() => {
-      registerItem(index, internalRef.current);
-      return () => registerItem(index, null);
-    }, [index, registerItem]);
+      registerItem(index, internalRef.current)
+      return () => registerItem(index, null)
+    }, [index, registerItem])
 
     useEffect(() => {
-      hasMounted.current = true;
-    }, []);
+      hasMounted.current = true
+    }, [])
 
-    const isActive = activeIndex === index;
-    const skipAnimation = !hasMounted.current;
-    const shape = useShape();
+    const isActive = activeIndex === index
+    const skipAnimation = !hasMounted.current
+    const shape = useShape()
 
     return (
       <div
         ref={(node) => {
-          (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          ;(
+            internalRef as React.MutableRefObject<HTMLDivElement | null>
+          ).current = node
+          if (typeof ref === "function") ref(node)
+          else if (ref)
+            (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+              node
         }}
         data-proximity-index={index}
         tabIndex={index === (checkedIndex ?? 0) ? 0 : -1}
@@ -53,8 +57,8 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         onClick={onSelect}
         onKeyDown={(e) => {
           if (e.key === " " || e.key === "Enter") {
-            e.preventDefault();
-            onSelect?.();
+            e.preventDefault()
+            onSelect?.()
           }
         }}
         className={cn(
@@ -72,9 +76,7 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
             strokeWidth={isActive || checked ? 2 : 1.5}
             className={cn(
               "col-start-1 row-start-1 transition-[color,stroke-width] duration-80",
-              isActive || checked
-                ? "text-foreground"
-                : "text-muted-foreground"
+              isActive || checked ? "text-foreground" : "text-muted-foreground"
             )}
           />
         </span>
@@ -89,14 +91,12 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
           <span
             className={cn(
               "col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80",
-              isActive || checked
-                ? "text-foreground"
-                : "text-muted-foreground"
+              isActive || checked ? "text-foreground" : "text-muted-foreground"
             )}
             style={{
               fontVariationSettings: checked
                 ? fontWeights.semibold
-                : fontWeights.normal,
+                : fontWeights.normal
             }}
           >
             {label}
@@ -124,22 +124,22 @@ const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
                 initial={{ pathLength: skipAnimation ? 1 : 0 }}
                 animate={{
                   pathLength: 1,
-                  transition: { duration: 0.08, ease: "easeOut" },
+                  transition: { duration: 0.08, ease: "easeOut" }
                 }}
                 exit={{
                   pathLength: 0,
-                  transition: { duration: 0.04, ease: "easeIn" },
+                  transition: { duration: 0.04, ease: "easeIn" }
                 }}
               />
             </motion.svg>
           )}
         </AnimatePresence>
       </div>
-    );
+    )
   }
-);
+)
 
-MenuItem.displayName = "MenuItem";
+MenuItem.displayName = "MenuItem"
 
-export { MenuItem };
-export default MenuItem;
+export { MenuItem }
+export default MenuItem

@@ -12,7 +12,7 @@ import type {
 export const ticketsListAtom = Atom.family((slug: string) =>
   runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.tickets.list({ path: { slug } })
       })
@@ -28,7 +28,7 @@ export const ticketAtom = Atom.family((key: string) => {
   const id = key.slice(idx + 1) as TicketId
   return runtime
     .atom(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.tickets.get({ path: { slug, id } })
       })
@@ -39,10 +39,7 @@ export const ticketAtom = Atom.family((key: string) => {
 export const ticketKey = (slug: string, id: TicketId) => `${slug}/${id}`
 
 export const createTicketAtom = runtime.fn(
-  Effect.fn(function*(
-    input: { slug: string } & CreateTicketInput,
-    get
-  ) {
+  Effect.fn(function* (input: { slug: string } & CreateTicketInput, get) {
     const client = yield* ApiClient
     const { slug, ...payload } = input
     const ticket = yield* client.tickets.create({
@@ -55,7 +52,7 @@ export const createTicketAtom = runtime.fn(
 )
 
 export const updateTicketAtom = runtime.fn(
-  Effect.fn(function*(
+  Effect.fn(function* (
     input: { slug: string; id: TicketId } & UpdateTicketInput,
     get
   ) {
@@ -72,7 +69,7 @@ export const updateTicketAtom = runtime.fn(
 )
 
 export const deleteTicketAtom = runtime.fn(
-  Effect.fn(function*(input: { slug: string; id: TicketId }, get) {
+  Effect.fn(function* (input: { slug: string; id: TicketId }, get) {
     const client = yield* ApiClient
     yield* client.tickets.delete({
       path: { slug: input.slug, id: input.id }

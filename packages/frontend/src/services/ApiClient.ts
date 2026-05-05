@@ -63,10 +63,7 @@ import { Effect } from "effect"
 import { FetchHttpClient, HttpApiClient } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
 
-export class ApiClient extends Effect.Service<ApiClient>()(
-  "ApiClient",
-  {
-    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-    dependencies: [FetchHttpClient.layer]
-  }
-) {}
+export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
+  effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+  dependencies: [FetchHttpClient.layer]
+}) {}

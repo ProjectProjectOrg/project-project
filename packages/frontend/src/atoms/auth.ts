@@ -103,7 +103,7 @@ import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
 
 export const meAtom = runtime.atom(
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* ApiClient
     return yield* client.auth.me()
   })
@@ -111,7 +111,7 @@ export const meAtom = runtime.atom(
 
 // Sign out, then refresh meAtom so the gate flips to redirect on the next render.
 export const logoutAtom = runtime.fn(
-  Effect.fn(function*(_: void, get) {
+  Effect.fn(function* (_: void, get) {
     yield* Effect.tryPromise(() => authClient.signOut())
     get.refresh(meAtom)
   })

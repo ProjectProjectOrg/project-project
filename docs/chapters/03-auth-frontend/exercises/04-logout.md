@@ -23,7 +23,7 @@ Add a `logoutAtom` that calls Better Auth's `signOut()` and refreshes `meAtom`, 
 Open `packages/frontend/src/atoms/auth.ts`. The comment block in that file has the shape. The body is:
 
 ```ts
-yield* Effect.tryPromise(() => authClient.signOut())
+yield * Effect.tryPromise(() => authClient.signOut())
 get.refresh(meAtom)
 ```
 
@@ -55,7 +55,7 @@ You can keep this in the existing "Auth" section of the smoke-test page. Don't b
 - Click "Sign out".
 - You should be redirected to `/login` after a brief moment (the time it takes Better Auth to clear the cookie + `/me` to re-fire).
 - The Network tab should show: POST `/api/auth/sign-out` → GET `/api/me` (returns 401) → URL changes to `/login`.
-- Hard-refresh `/login`. You should *stay* on `/login` — the cookie is gone.
+- Hard-refresh `/login`. You should _stay_ on `/login` — the cookie is gone.
 
 ## Acceptance criteria
 
@@ -66,7 +66,7 @@ You can keep this in the existing "Auth" section of the smoke-test page. Don't b
 ## Hints
 
 - `useAtomSet` returns a callable; you invoke it with the input the atom expects (here, `void`).
-- If clicking the button does nothing, check that `logoutAtom` is exported and that you're calling the *return value* of `useAtomSet`, not `useAtomSet` itself.
+- If clicking the button does nothing, check that `logoutAtom` is exported and that you're calling the _return value_ of `useAtomSet`, not `useAtomSet` itself.
 - If the redirect doesn't happen but the cookie is cleared (verify in DevTools), `get.refresh(meAtom)` is missing — without it, `meAtom`'s old `Success` result is still cached and the gate stays open.
 - If you see `/me` fire many times after logout, you've likely got two components both refreshing the atom. The cleanest setup has the refresh happen exactly once, inside `logoutAtom`.
 

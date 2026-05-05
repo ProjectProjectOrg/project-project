@@ -30,11 +30,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import type {
-  GithubConnection,
-  GithubRepo,
-  Role
-} from "@projectproject/shared"
+import type { GithubConnection, GithubRepo, Role } from "@projectproject/shared"
 
 type Props = {
   slug: string
@@ -380,4 +376,3 @@ function ManagePanel({
     </div>
   )
 }
-

@@ -15,22 +15,28 @@ Generate the Better Auth tables as a Drizzle schema file, re-export them from yo
 ## Steps
 
 1. Install Better Auth in the backend workspace. Bun's `add` doesn't take `--filter` (that's a `bun run` thing), so use one of:
+
    ```
    cd packages/backend && bun add better-auth
    ```
+
    or, from the repo root:
+
    ```
    bun add better-auth --cwd packages/backend
    ```
+
    (Better Auth has zero peer dependencies you need to think about for this chapter. Drizzle is already there.)
 
 2. Add new env vars to `.env.example`:
+
    ```
    GITHUB_CLIENT_ID=
    GITHUB_CLIENT_SECRET=
    BETTER_AUTH_SECRET=
    BETTER_AUTH_URL=http://localhost:3000
    ```
+
    Then copy them into your real `.env`. For `BETTER_AUTH_SECRET`, run `openssl rand -base64 32` (or anything similarly random — Better Auth uses it to sign cookies). The GitHub client id/secret come from creating a GitHub OAuth App next step.
 
 3. Create a GitHub OAuth App at <https://github.com/settings/developers>:
@@ -47,32 +53,39 @@ Generate the Better Auth tables as a Drizzle schema file, re-export them from yo
    You don't need to import this file from anywhere yet. The CLI runs it standalone.
 
 5. Generate the Better Auth Drizzle schema. From the repo root:
+
    ```
    bunx @better-auth/cli generate \
      --config ./packages/backend/src/auth.ts \
      --output ./packages/backend/src/db/auth-schema.ts
    ```
+
    - On Windows, replace the line continuations with one line, or run from PowerShell with backticks.
    - The CLI may ask whether to overwrite — answer yes.
    - The output file should declare four `pgTable`s: `user`, `session`, `account`, `verification`. Skim it to see what columns each one has; it'll save you confusion later.
 
 6. Wire the generated tables into your existing `schema.ts`. The cleanest pattern is a re-export bag:
+
    ```ts
    // packages/backend/src/db/schema.ts
-   export { projectIndex } from "./schema-app"  // or just leave it inline here
+   export { projectIndex } from "./schema-app" // or just leave it inline here
    export * from "./auth-schema"
    ```
+
    How you split is your call. The constraint: drizzle-kit's config (we'll set this in step 7) points at one file or one glob, and that source must export every table.
 
 7. Open `packages/backend/drizzle.config.ts` and confirm the `schema` field still points at the file (or files) that re-export everything. If you split into two files, change it to a glob like `./src/db/*.ts`.
 
 8. Generate the new migration:
+
    ```
    bun run --filter @projectproject/backend db:generate
    ```
+
    You should see a fresh `NNNN_*.sql` file in `src/db/migrations/` containing only `CREATE TABLE` statements for `user`, `session`, `account`, `verification` (and any related indexes / FK constraints). The first migration's `project_index` should _not_ appear here — drizzle-kit diffs against the previous migration's snapshot.
 
 9. Apply it:
+
    ```
    bun run --filter @projectproject/backend db:migrate
    ```
@@ -132,7 +145,7 @@ If you split `projectIndex` and the auth tables across two files, drizzle-kit's 
 ```ts
 // packages/backend/drizzle.config.ts
 export default defineConfig({
-  schema: "./src/db/*.ts",   // glob — picks up both files
+  schema: "./src/db/*.ts" // glob — picks up both files
   // ...
 })
 ```

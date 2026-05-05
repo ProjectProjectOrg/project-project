@@ -43,12 +43,10 @@ function Home() {
   const [data, setData] = useState<{ status: "ok" } | null>(null)
 
   useEffect(() => {
-    const program = Effect
-      .gen(function*() {
-        const client = yield* ApiClient
-        return yield* client.health.get()
-      })
-      .pipe(Effect.provide(ApiClient.Default))
+    const program = Effect.gen(function* () {
+      const client = yield* ApiClient
+      return yield* client.health.get()
+    }).pipe(Effect.provide(ApiClient.Default))
 
     Effect.runPromise(program).then(setData).catch(console.error)
   }, [])

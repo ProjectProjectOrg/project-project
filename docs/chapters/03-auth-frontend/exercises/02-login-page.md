@@ -9,7 +9,7 @@ Build a `/login` route that hosts a "Sign in with GitHub" button, using the Bett
 - File-based routing in TanStack Router (a new file = a new route, no manual registration).
 - Calling Better Auth's React client from a component event handler.
 - Using `meAtom` as a "should I redirect?" check inside a component.
-- Why this page lives *outside* `_authed` — and why that matters.
+- Why this page lives _outside_ `_authed` — and why that matters.
 
 ## Files you'll touch
 
@@ -44,7 +44,7 @@ bun run --filter @projectproject/frontend dev
 - Visit `http://localhost:5173/login` — see the button.
 - Click it. You should be redirected to GitHub.
 - After consent, you land back on `http://localhost:5173/` with a session cookie. The smoke-test home should now render your user JSON via `meAtom`.
-- Visit `/login` *while signed in* — you should be redirected to `/` immediately (the `Result.isSuccess` branch).
+- Visit `/login` _while signed in_ — you should be redirected to `/` immediately (the `Result.isSuccess` branch).
 
 ## Acceptance criteria
 

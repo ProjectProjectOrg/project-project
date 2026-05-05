@@ -38,14 +38,14 @@ That's three problems wearing a trenchcoat: it's untyped state, it re-runs on ev
 
 ```ts
 const meAtom = runtime.atom(
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* ApiClient
     return yield* client.auth.me()
   })
 )
 ```
 
-The atom is a *cache cell*. Any component that reads it gets the same `Result<User, Unauthorized>`. The Effect runs once on first read and is garbage-collected after a configurable idle TTL (`Atom.setIdleTTL("1 minute")`).
+The atom is a _cache cell_. Any component that reads it gets the same `Result<User, Unauthorized>`. The Effect runs once on first read and is garbage-collected after a configurable idle TTL (`Atom.setIdleTTL("1 minute")`).
 
 ### `Result` is the loading/success/failure shape
 
@@ -63,7 +63,7 @@ return Result.matchWithError(me, {
 
 This is the place `Schema.TaggedError` from Chapter 2 starts paying off: `error._tag` is `"Unauthorized"` because that's what we declared on the endpoint. The compiler knows it. So does the runtime — Effect deserialized the JSON error response into a real `Unauthorized` instance using the schema in `packages/shared/src/errors.ts`.
 
-> A subtlety worth knowing now: `Result.match` exists too, but its `onFailure` callback receives the *Failure variant* (with `cause: Cause<E>`), not the raw error. `matchWithError` splits the failure path into `onError(error: E, ...)` and `onDefect(defect: unknown, ...)` — that's the helper you want when you have typed errors to narrow on.
+> A subtlety worth knowing now: `Result.match` exists too, but its `onFailure` callback receives the _Failure variant_ (with `cause: Cause<E>`), not the raw error. `matchWithError` splits the failure path into `onError(error: E, ...)` and `onDefect(defect: unknown, ...)` — that's the helper you want when you have typed errors to narrow on.
 
 ### `runtime.fn` for mutations
 
@@ -71,7 +71,7 @@ Reads use `runtime.atom`; one-shot mutations use `runtime.fn`. A "logout" button
 
 ```ts
 const logoutFn = runtime.fn(
-  Effect.fn(function*(_: void, get) {
+  Effect.fn(function* (_: void, get) {
     yield* /* call /api/auth/sign-out */
     get.refresh(meAtom)
   })
@@ -84,18 +84,18 @@ The `get.refresh(meAtom)` call is the cache-invalidation seam. Atoms are query k
 
 There are two clients in the frontend, and they own different parts of the auth surface:
 
-- **`HttpApiClient.make(AppApi)`** — *our* typed client, used for everything in `AppApi`. After login, every protected endpoint goes through this. The `Unauthorized` error in the `E` channel is what the `_authed` gate watches.
+- **`HttpApiClient.make(AppApi)`** — _our_ typed client, used for everything in `AppApi`. After login, every protected endpoint goes through this. The `Unauthorized` error in the `E` channel is what the `_authed` gate watches.
 - **`createAuthClient` from `better-auth/react`** — Better Auth's own client, used for the OAuth dance: `signIn.social({ provider: "github" })`, `signOut()`, etc. It hits `/api/auth/*` directly. This is the same family of routes Better Auth's server-side handler implements; we don't reproduce them in `AppApi`.
 
 Don't try to fold the Better Auth client into Effect. It's promise-based; calling it from a handler with `await` is fine. The seam is clean: Better Auth owns sessions and OAuth; we own the typed app API.
 
 ### Pathless layouts and route gating
 
-TanStack Router's file-based routing treats a file starting with `_` as a **pathless layout**. `routes/_authed.tsx` does *not* contribute a `/_authed` segment to the URL — its children render at the URL their own filename implies. So `routes/_authed.index.tsx` renders at `/`, not `/_authed/`.
+TanStack Router's file-based routing treats a file starting with `_` as a **pathless layout**. `routes/_authed.tsx` does _not_ contribute a `/_authed` segment to the URL — its children render at the URL their own filename implies. So `routes/_authed.index.tsx` renders at `/`, not `/_authed/`.
 
 This is exactly what the spec described: every authenticated route nests under `_authed`, the login route stays outside. The gate's only job is "if `meAtom` failed, redirect; otherwise render `<Outlet />`."
 
-We use the *component-level* gate (read the atom, render either `<Navigate />` or `<Outlet />`) rather than the `beforeLoad` registry pattern from the spec. The component approach is simpler, integrates naturally with `Result.match`, and works without us having to teach TanStack Router about the atom registry. We may revisit `beforeLoad` in a later chapter once the registry pattern earns its keep.
+We use the _component-level_ gate (read the atom, render either `<Navigate />` or `<Outlet />`) rather than the `beforeLoad` registry pattern from the spec. The component approach is simpler, integrates naturally with `Result.match`, and works without us having to teach TanStack Router about the atom registry. We may revisit `beforeLoad` in a later chapter once the registry pattern earns its keep.
 
 ## Further reading
 

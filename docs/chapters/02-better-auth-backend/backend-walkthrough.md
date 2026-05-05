@@ -42,7 +42,7 @@ The service surface stays narrow on purpose. Better Auth's `auth.api` namespace 
 ```ts
 return Authentication.of({
   sessionCookie: (_token) =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest
       const session = yield* ba
         .getSession(req.headers as unknown as Headers)
@@ -67,10 +67,11 @@ Two subtleties:
 
 ```ts
 handlers.handle("me", () =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const user = yield* CurrentUser
     return user
-  }))
+  })
+)
 ```
 
 The middleware did all the work before this ran. The handler is just plumbing. This is the rule throughout the app: handlers stay thin, all logic lives in services. When `/projects/:slug` shows up later, its handler will be the same shape — yield `CurrentUser`, yield the `Projects` service, call a method, return the result.
@@ -86,19 +87,15 @@ Two pieces needed gluing in `main.ts`:
 Better Auth speaks plain web Fetch — it expects a `Request`, returns a `Promise<Response>`. The Effect HTTP server speaks `HttpServerRequest` / `HttpServerResponse`. We need to convert each direction:
 
 ```ts
-const betterAuthApp = Effect
-  .gen(function*() {
-    const ba = yield* BetterAuth
-    const req = yield* HttpServerRequest.HttpServerRequest
-    const webReq = yield* HttpServerRequest.toWeb(req)
-    const webRes = yield* ba.handler(webReq)
-    return HttpServerResponse.fromWeb(webRes)
-  })
-  .pipe(
-    Effect.catchAll(() =>
-      HttpServerResponse.text("Auth error", { status: 500 })
-    )
-  )
+const betterAuthApp = Effect.gen(function* () {
+  const ba = yield* BetterAuth
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const webRes = yield* ba.handler(webReq)
+  return HttpServerResponse.fromWeb(webRes)
+}).pipe(
+  Effect.catchAll(() => HttpServerResponse.text("Auth error", { status: 500 }))
+)
 ```
 
 `HttpServerRequest.toWeb` is a top-level function (not a method) returning `Effect<Request, RequestError>` — it reads the body stream and constructs a standard web `Request`. `HttpServerResponse.fromWeb` does the reverse, synchronously.
@@ -113,7 +110,8 @@ HttpApiBuilder.serve((apiApp) =>
     HttpRouter.mountApp("/api/auth", betterAuthApp),
     HttpRouter.mountApp("/", apiApp),
     Effect.catchTag("RouteNotFound", () =>
-      HttpServerResponse.text("Not Found", { status: 404 }))
+      HttpServerResponse.text("Not Found", { status: 404 })
+    )
   )
 )
 ```

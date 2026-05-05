@@ -14,7 +14,11 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS
 } from "@lexical/markdown"
-import { CodeHighlightNode, CodeNode, registerCodeHighlighting } from "@lexical/code"
+import {
+  CodeHighlightNode,
+  CodeNode,
+  registerCodeHighlighting
+} from "@lexical/code"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { ListItemNode, ListNode } from "@lexical/list"
 import { LinkNode } from "@lexical/link"
