@@ -9,7 +9,7 @@
 import { Result, useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { attachBranchAtom, branchesAtom } from "@/atoms/github"
+import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
@@ -37,8 +37,9 @@ export function ConnectBranchFields({
     return () => clearTimeout(t)
   }, [input])
 
-  const result = useAtomValue(branchesAtom({ slug, q }))
-  const refreshBranches = useAtomRefresh(branchesAtom({ slug, q }))
+  const key = branchesKey(slug, q)
+  const result = useAtomValue(branchesAtom(key))
+  const refreshBranches = useAtomRefresh(branchesAtom(key))
   const attach = useAtomSet(attachBranchAtom)
 
   const items = Result.isSuccess(result) ? result.value.items : []
