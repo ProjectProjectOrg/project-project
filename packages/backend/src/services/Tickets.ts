@@ -16,7 +16,9 @@
 
 import { Effect, Schema } from "effect"
 import {
+  AttachBranchInput,
   BranchExists,
+  BranchNotFound,
   BranchProtected,
   Conflict,
   CreateBranchInput,
@@ -372,6 +374,53 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         return { ...frontmatterToWire(next), body: ticket.body }
       })
 
+    const attachBranch = (
+      userId: string,
+      slug: string,
+      id: string,
+      input: AttachBranchInput
+    ): Effect.Effect<
+      TicketDetail,
+      | NotFound
+      | Conflict
+      | BranchNotFound
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | RepoGone
+      | RateLimited
+      | GitHubError
+      | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(userId, slug)
+        const project = yield* projects
+          .get(userId, slug)
+          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+        if (!project.github) {
+          return yield* Effect.fail(
+            new Conflict({ reason: "no_github_connection" })
+          )
+        }
+        const ticket = yield* readTicket(slug, id)
+
+        const exists = yield* github.branchExists(
+          project.github.repoOwner,
+          project.github.repoName,
+          input.name,
+          userId
+        )
+        if (!exists) {
+          return yield* Effect.fail(new BranchNotFound({ name: input.name }))
+        }
+
+        const next = yield* writeGitFields(slug, id, ticket, {
+          branch: input.name,
+          pr: null,
+          lastTransitionedPr: null
+        })
+        return { ...frontmatterToWire(next), body: ticket.body }
+      })
+
     const openPr = (
       userId: string,
       slug: string,
@@ -647,6 +696,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       update,
       remove,
       createBranch,
+      attachBranch,
       openPr,
       clearBranch,
       listGitStates
