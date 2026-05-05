@@ -362,5 +362,6 @@ const AppApi = HttpApi
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
+  .add(ReviewsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
