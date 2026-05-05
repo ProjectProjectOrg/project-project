@@ -29,6 +29,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src")
     }
   },
+  // Static assets live alongside the rest of the app under src/public/. Vite
+  // copies their contents to the build root, so `src/public/icon/favicon.ico`
+  // is served at `/icon/favicon.ico` in dev and prod.
+  publicDir: path.resolve(__dirname, "src/public"),
   plugins: [
     // Generates packages/frontend/src/routeTree.gen.ts from files in src/routes/
     tanstackRouter({ target: "react", autoCodeSplitting: true }),

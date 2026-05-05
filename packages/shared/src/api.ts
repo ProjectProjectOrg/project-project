@@ -350,17 +350,17 @@ const ReviewsGroup = HttpApiGroup
   )
   .middleware(Authentication)
 
+// Swagger UI's "Try it out" prepends `servers[0].url` to each operation's
+// path. Without it, requests go to `/projects/...` instead of `/api/projects/...`
+// (the actual mount in packages/backend/src/main.ts). Only affects the
+// generated OpenAPI spec — HttpApiClient ignores this annotation and uses
+// its own `baseUrl` option.
 const AppApi = HttpApi
   .make("projectproject")
-  .annotateContext(
-    OpenApi.annotations({
-      servers: [{ url: "/api" }]
-    })
-  )
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
-  .add(ReviewsGroup)
+  .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
