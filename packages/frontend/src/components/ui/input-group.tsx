@@ -1,20 +1,32 @@
-// Hand-rolled InputGroup primitive — single horizontal row with leading/
-// trailing addons. Distinct from @fluid/input-group (vertical multi-field
-// form with proximity hover); see ui/fluid-input-group.tsx for that one.
-//
-// Used by the search bar, create-ticket row, create-project row, and the
-// invite-member row. One container styled like an Input, with explicit
-// slots for inline addons on either side.
-
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
+function InputGroup({
+  className,
+  onMouseDown,
+  ...props
+}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="input-group"
+      onMouseDown={(e) => {
+        onMouseDown?.(e)
+        if (e.defaultPrevented) return
+        const target = e.target as HTMLElement
+        if (
+          target.closest(
+            "button, [role='button'], a, input, textarea, select, [contenteditable='true']"
+          )
+        ) {
+          return
+        }
+        const input = e.currentTarget.querySelector<HTMLInputElement>("input")
+        if (!input || input === document.activeElement) return
+        e.preventDefault()
+        input.focus()
+      }}
       className={cn(
-        "group/input-group relative flex w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-1.5 transition-[color,box-shadow]",
+        "group/input-group relative flex w-full cursor-text items-center gap-2 rounded-xl border border-border bg-background px-3 py-1.5 transition-[color,box-shadow]",
         "ring-offset-background focus-within:ring-2 focus-within:ring-ring",
         "has-[input:disabled]:opacity-50",
         className

@@ -1,22 +1,5 @@
-// Inline ticket creation row. Same UX shape as the "create project" row on
-// the projects index — type a title, press Enter, the row clears and the new
-// ticket appears in the list above. No modal dialog.
-//
-// Type defaults to "other"; the user can switch via the leading icon menu
-// before pressing Enter. Once submitted, the ticket exists with that type
-// (changeable later from the detail page).
-//
-// Affordances layered on:
-//   - When the user picks a type from the dropdown, focus jumps to the title
-//     input so they can start typing immediately.
-//   - The type button reveals its label inline while the input is focused
-//     (CollapsingLabel) — calmer than a static label, clearer than icon-only
-//     once the user is in the row's intent.
-//   - A `c` Kbd hint sits at the trailing edge of the input. The matching
-//     global shortcut focuses the input from anywhere. Hidden while focused
-//     so it doesn't compete with the caret.
-
-import { useAtomSet } from "@effect-atom/atom-react"
+import { useAtomRefresh, useAtomSet } from "@effect-atom/atom-react"
+import { useNavigate } from "@tanstack/react-router"
 import { useRef, useState, type FormEvent } from "react"
 import { Bug, Hammer, HelpCircle, Sparkles } from "lucide-react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
@@ -31,53 +14,33 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { BADGE_TONES, type BadgeTone } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
+import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { createTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import type { TicketType } from "@projectproject/shared"
 
-// `focusedClass` mirrors the role-trigger tints from MembersSection — when
-// the title input has focus, the type button picks up its type-tone bg so
-// the user sees it as a clickable affordance, not just an icon.
 const TYPE_META: Record<
   TicketType,
-  { label: string; icon: typeof Sparkles; focusedClass: string }
+  { label: string; icon: typeof Sparkles; tone: BadgeTone }
 > = {
-  feat: {
-    label: "Feature",
-    icon: Sparkles,
-    focusedClass:
-      "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15"
-  },
-  bug: {
-    label: "Bug",
-    icon: Bug,
-    focusedClass:
-      "bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/15"
-  },
-  chore: {
-    label: "Chore",
-    icon: Hammer,
-    focusedClass:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15"
-  },
-  other: {
-    label: "Other",
-    icon: HelpCircle,
-    focusedClass: "bg-muted text-muted-foreground hover:bg-accent"
-  }
+  feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
+  bug: { label: "Bug", icon: Bug, tone: "red" },
+  chore: { label: "Chore", icon: Hammer, tone: "amber" },
+  other: { label: "Other", icon: HelpCircle, tone: "muted" }
 }
 
 export function CreateTicketRow({ slug }: { slug: string }) {
-  const create = useAtomSet(createTicketAtom)
+  const create = useAtomSet(createTicketAtom, { mode: "promise" })
+  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(slug))
+  const navigate = useNavigate()
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [submitting, setSubmitting] = useState(false)
   const [focused, setFocused] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  // Bridges the gap between menu close and focus-restore so `expanded`
-  // stays true through the handoff.
   const [closingMenu, setClosingMenu] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,11 +51,23 @@ export function CreateTicketRow({ slug }: { slug: string }) {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
+    inputRef.current?.blur()
+    setFocused(false)
     setSubmitting(true)
     setError(null)
     try {
-      await create({ slug, title: trimmed, type })
+      const ticket = await create({ slug, title: trimmed, type })
       setTitle("")
+      refreshGitStates()
+      navigate({
+        to: ".",
+        search: (prev) => ({
+          ...(prev as object),
+          ticket: ticket.id,
+          focusBody: 1
+        }),
+        replace: true
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create ticket")
     } finally {
@@ -125,9 +100,10 @@ export function CreateTicketRow({ slug }: { slug: string }) {
                 type="button"
                 aria-label={`Type: ${TYPE_META[type].label}. Click to change.`}
                 className={cn(
-                  "inline-flex h-6 items-center gap-1.5 rounded-md transition-[padding,background-color,color] duration-200 ease-out hover:bg-accent hover:text-foreground",
-                  expanded ? "px-2" : "px-1",
-                  expanded && TYPE_META[type].focusedClass
+                  "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
+                  expanded
+                    ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
+                    : "px-1 hover:bg-accent hover:text-foreground"
                 )}
               >
                 <Icon className="size-4 shrink-0" strokeWidth={1.75} />
@@ -140,10 +116,6 @@ export function CreateTicketRow({ slug }: { slug: string }) {
               align="start"
               sideOffset={6}
               className="w-40"
-              // Redirect Radix's default focus-restore (which goes back to
-              // the trigger button) to the title input — the dropdown is a
-              // sub-task of "writing a ticket" so focus belongs there next.
-              // Covers selection, escape, and outside-click closes alike.
               onCloseAutoFocus={(e) => {
                 e.preventDefault()
                 inputRef.current?.focus()

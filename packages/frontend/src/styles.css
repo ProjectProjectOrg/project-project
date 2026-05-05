@@ -169,6 +169,15 @@
  * covers Radix items where the highlight is driven by mouse + keyboard via
  * a data attribute rather than the `:hover` pseudo-class.
  */
+.transition-expand {
+  transition-property: padding, background-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+.transition-expand:hover {
+  transition-duration: 200ms, 0ms, 0ms;
+}
+
 .transition-colors:hover,
 .transition-opacity:hover,
 .transition-all:hover,
@@ -176,7 +185,11 @@
 .transition-colors[data-highlighted],
 .transition-all[data-highlighted],
 .transition-colors[data-selected="true"],
-.transition-all[data-selected="true"] {
+.transition-all[data-selected="true"],
+.group\/hitbox:hover .transition-colors,
+.group\/hitbox:hover .transition-opacity,
+.group\/hitbox:hover .transition-all,
+.group\/hitbox:hover .transition {
   transition-duration: 0ms;
 }
 
@@ -227,23 +240,15 @@
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin-top: 1.5em;
 }
 .prose-md h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin-top: 1.5em;
 }
 .prose-md h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin-top: 1.25em;
-}
-.prose-md > h1:first-child,
-.prose-md > h2:first-child,
-.prose-md > h3:first-child {
-  margin-top: 0;
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here

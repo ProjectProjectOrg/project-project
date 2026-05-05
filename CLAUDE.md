@@ -16,7 +16,6 @@ We implement the app together. You can write working code anywhere in the repo (
 
 - **You implement** — services, handlers, atoms, components, schemas. Working code is the norm.
 - **Wouter reviews and steers** — he decides direction; you propose and execute.
-- **Comment where it teaches** — when a file uses an Effect pattern that isn't immediately obvious (a tricky Layer composition, a scope decision, a non-trivial HttpApi shape), drop a short comment explaining why. Skip the comment when the code speaks for itself. No multi-paragraph docstrings.
 
 ### No architectural decisions without asking
 
@@ -34,7 +33,6 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 
 - Short, direct, peer-level. No teaching voice unless he asks for one.
 - Show the why before the what when something is non-obvious.
-- Name gotchas inline (the spec lists several — `Schema.TaggedError` vs `Data.TaggedError`, the `@effect-rx` rename, gray-matter date quirks).
 - No emoji unless asked.
 
 ## Frontend stack
@@ -45,11 +43,13 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
-### Comments stay terse
+### No comments
 
-Default to no comments. When you do add one, keep it to a single line — at most two — and only on the **why**, never the what. If the code reads cleanly, no comment. If a token / class / value would surprise a future reader (e.g. picking `bg-selected` instead of `bg-accent` because they collide in light mode), one short line is enough; multi-paragraph blocks restating the visible logic are out.
+Default: write zero comments. Self-explanatory names, clean structure, and small functions carry the meaning. Inline comments are noise — they distract during review, rot independently of the code, and signal a missing abstraction.
 
-Same rule for design-rationale, layout reasoning, and "this used to be X" notes — leave those for the commit message, not the file. If you catch yourself writing four lines explaining a ternary, delete it; the ternary speaks for itself.
+Exception: a single short line is acceptable only when a value would actively mislead a future reader (a workaround for a documented bug, a non-obvious browser quirk, a load-bearing token name). Even then, ask yourself whether the comment is hiding a rename or refactor that would remove the need.
+
+Forbidden, regardless: multi-line comment blocks, design-rationale prose, layout reasoning, "this used to be X" notes, restatements of what the code obviously does, before/after explanations, and "we picked this because" passages. Those go in the commit message. If you catch yourself writing more than one line, delete the whole comment.
 
 ### Press feel — buttons scale down on active
 
@@ -150,7 +150,6 @@ The `packages/chapters-viewer` workspace has been removed.
 - Run `git status` / `git diff` / `git log`.
 - Run `bun install`, `bun test`, type-checks, lint, format.
 - Write working code in any package.
-- Add small implementation comments where they earn their keep.
 
 ## What requires asking first
 

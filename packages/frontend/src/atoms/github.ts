@@ -21,10 +21,12 @@ import type {
 import { projectAtom } from "./projects"
 import { ticketAtom, ticketKey, ticketsListAtom } from "./tickets"
 
-// Private — server-truthy fetch. Wrapped by `projectGitStatesAtom` below.
+// Server-truthy fetch. Wrapped by `projectGitStatesAtom` below.
 // 30s TTL: short enough that the chip feels alive across a normal flow,
-// long enough that focus-driven refreshes don't hammer GraphQL.
-const projectGitStatesBaseAtom = Atom.family((slug: string) =>
+// long enough that focus-driven refreshes don't hammer GraphQL. Exported
+// so non-mutation code paths (e.g. ticket creation) can ask for a fresh
+// pull when they know server state has shifted.
+export const projectGitStatesBaseAtom = Atom.family((slug: string) =>
   runtime
     .atom(
       Effect.gen(function* () {

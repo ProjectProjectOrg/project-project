@@ -190,7 +190,7 @@ export function CollapsingLabel({
           animate={{ width: "auto", opacity: 1, marginLeft: 0 }}
           exit={{ width: 0, opacity: 0, marginLeft: -8 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
-          className="overflow-hidden whitespace-nowrap"
+          className="inline-flex items-center overflow-hidden whitespace-nowrap"
         >
           {children}
         </motion.span>
