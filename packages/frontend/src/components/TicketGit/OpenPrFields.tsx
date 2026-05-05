@@ -22,14 +22,13 @@ export function OpenPrFields({
   const [title, setTitle] = useState(ticket.title)
   const [draft, setDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const open = useAtomSet(openPrAtom)
+  const open = useAtomSet(openPrAtom(slug))
 
   async function submit() {
     setError(null)
     setBusy(true)
     try {
       await open({
-        slug,
         id: ticket.id,
         title: title.trim() || undefined,
         draft

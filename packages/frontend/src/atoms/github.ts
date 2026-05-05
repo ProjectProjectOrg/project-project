@@ -193,33 +193,59 @@ export const attachBranchAtom = Atom.family((slug: string) =>
   })
 )
 
-export const openPrAtom = runtime.fn(
-  Effect.fn(function* (
-    input: { slug: string; id: TicketId } & OpenPrInput,
-    get
-  ) {
-    const client = yield* ApiClient
-    const { slug, id, ...payload } = input
-    const result = yield* client.tickets.openPr({
-      path: { slug, id },
-      payload
-    })
-    get.refresh(ticketAtom(ticketKey(slug, id)))
-    get.refresh(ticketsListAtom(slug))
-    get.refresh(projectGitStatesBaseAtom(slug))
-    return result
+// Pulse-only optimistic: a PR's number / url can't be predicted client-side,
+// so the reducer leaves the visible state untouched and only flips
+// `waiting: true`. The chip's animate-pulse fires while the server resolves;
+// when the base refresh lands, the actual `pr_open` state appears.
+export const openPrAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (current, _input: { id: TicketId } & OpenPrInput) => {
+      if (!Result.isSuccess(current)) return current
+      return Result.success(current.value, { waiting: true })
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: { id: TicketId } & OpenPrInput, get) {
+        const client = yield* ApiClient
+        const { id, ...payload } = input
+        const result = yield* client.tickets.openPr({
+          path: { slug, id },
+          payload
+        })
+        get.refresh(ticketAtom(ticketKey(slug, id)))
+        get.refresh(ticketsListAtom(slug))
+        get.refresh(projectGitStatesBaseAtom(slug))
+        return result
+      })
+    )
   })
 )
 
-export const clearBranchAtom = runtime.fn(
-  Effect.fn(function* (input: { slug: string; id: TicketId }, get) {
-    const client = yield* ApiClient
-    const updated = yield* client.tickets.clearBranch({
-      path: { slug: input.slug, id: input.id }
-    })
-    get.refresh(ticketAtom(ticketKey(input.slug, input.id)))
-    get.refresh(ticketsListAtom(input.slug))
-    get.refresh(projectGitStatesBaseAtom(input.slug))
-    return updated
+// Optimistic: clearing a branch sends the ticket back to `no_branch`. Cheap
+// to model client-side; reducer flips the entry, base refresh confirms.
+export const clearBranchAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (current, input: { id: TicketId }) => {
+      if (!Result.isSuccess(current)) return current
+      const optimistic: GitState = { tag: "no_branch" }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: { id: TicketId }, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.clearBranch({
+          path: { slug, id: input.id }
+        })
+        get.refresh(ticketAtom(ticketKey(slug, input.id)))
+        get.refresh(ticketsListAtom(slug))
+        get.refresh(projectGitStatesBaseAtom(slug))
+        return updated
+      })
+    )
   })
 )

@@ -83,7 +83,15 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 
 3. **Always refresh the *base* atom**, never the optimistic wrapper, after the mutation lands. Refreshing the wrapper would loop.
 
-4. **The reducer's job is the synthetic next state.** It must match what the server will return well enough that the brief moment before the refresh isn't visibly wrong. If the synthetic state is hard to model (e.g. inventing a PR number client-side), skip the optimistic layer and use a plain `runtime.fn` mutation.
+4. **The reducer's job is the synthetic next state.** It must match what the server will return well enough that the brief moment before the refresh isn't visibly wrong. When the result is hard to model (e.g. a PR number assigned by GitHub), use a **pulse-only reducer** instead — return the current value with `{ waiting: true }` so the UI flips its pulse animation without inventing fake data:
+
+   ```ts
+   reducer: (current, _input) => Result.isSuccess(current)
+     ? Result.success(current.value, { waiting: true })
+     : current
+   ```
+
+   This keeps the data display honest and still gives the user a "syncing" affordance. See `openPrAtom` for an example.
 
 5. **Surface `waiting` in the UI.** The optimistic atom carries `result.waiting: true` while the mutation is in flight. Apply `animate-pulse` (or equivalent) on the elements that just changed so the user sees their action land but knows it's not confirmed yet. Don't pulse idle controls, only the data display.
 

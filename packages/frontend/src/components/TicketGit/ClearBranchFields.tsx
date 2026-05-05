@@ -14,12 +14,12 @@ export function ClearBranchFields({
   id: TicketId
 }) {
   const { busy, setBusy, close } = useInlineForm()
-  const clear = useAtomSet(clearBranchAtom)
+  const clear = useAtomSet(clearBranchAtom(slug))
 
   async function submit() {
     setBusy(true)
     try {
-      await clear({ slug, id })
+      await clear({ id })
       close()
     } catch {
       setBusy(false)
