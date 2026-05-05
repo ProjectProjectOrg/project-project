@@ -134,6 +134,10 @@ export function ConnectBranchFields({
                   aria-selected={selected === b.name}
                   onMouseEnter={() => setActiveIdx(i)}
                   onClick={() => setSelected(b.name)}
+                  onDoubleClick={() => {
+                    setSelected(b.name)
+                    void submit(b.name)
+                  }}
                   className={cn(
                     "flex w-full items-center justify-between px-2 py-1 text-left font-mono text-xs",
                     activeIdx === i && "bg-muted",
