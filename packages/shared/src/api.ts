@@ -60,6 +60,8 @@ import {
   UpdateTicketInput
 } from "./schemas/Ticket"
 import {
+  AttachBranchInput,
+  BranchListResponse,
   CreateBranchInput,
   GitStatesResponse,
   OpenPrInput,
@@ -67,6 +69,7 @@ import {
 } from "./schemas/GitState"
 import {
   BranchExists,
+  BranchNotFound,
   BranchProtected,
   Conflict,
   Forbidden,
@@ -215,6 +218,26 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Unauthorized)
       .addError(NotFound)
   )
+  // Lists branches on the connected repo. q is a free-text filter passed to
+  // GitHub's `refs(query:...)` GraphQL — server-side fuzzy match. first caps
+  // the page size; default 30 keeps the combobox snappy.
+  .add(
+    HttpApiEndpoint.get("listBranches", "/projects/:slug/github/branches")
+      .setPath(Schema.Struct({ slug: Slug }))
+      .setUrlParams(
+        Schema.Struct({
+          q: Schema.optional(Schema.String),
+          first: Schema.optional(Schema.NumberFromString)
+        })
+      )
+      .addSuccess(BranchListResponse)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(GitHubError)
+  )
   .middleware(Authentication)
 
 const TicketsGroup = HttpApiGroup.make("tickets")
@@ -294,6 +317,28 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
+  )
+  // Attach an existing remote branch to a ticket. Verifies the branch exists
+  // on remote before persisting, so a successful response means the branch
+  // is live. BranchNotFound surfaces when the branch was deleted between
+  // listing and submitting (the UI refreshes the list and keeps the form open).
+  .add(
+    HttpApiEndpoint.post(
+      "attachBranch",
+      "/projects/:slug/tickets/:id/attach-branch"
+    )
+      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .setPayload(AttachBranchInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+      .addError(BranchNotFound)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(GitHubError)
   )
   .middleware(Authentication)
 

@@ -131,3 +131,21 @@ export const OpenPrResult = Schema.Struct({
   url: Schema.String
 })
 export type OpenPrResult = typeof OpenPrResult.Type
+
+// Inputs/outputs for the connect-branch flow.
+export const AttachBranchInput = Schema.Struct({
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(255))
+})
+export type AttachBranchInput = typeof AttachBranchInput.Type
+
+export const BranchListItem = Schema.Struct({
+  name: Schema.String,
+  isProtected: Schema.Boolean
+})
+export type BranchListItem = typeof BranchListItem.Type
+
+export const BranchListResponse = Schema.Struct({
+  items: Schema.Array(BranchListItem),
+  hasMore: Schema.Boolean
+})
+export type BranchListResponse = typeof BranchListResponse.Type
