@@ -117,3 +117,12 @@ export class GitHubError extends Schema.TaggedError<GitHubError>()(
   { message: Schema.String },
   HttpApiSchema.annotations({ status: 502 })
 ) {}
+
+// 404 — caller asked us to attach an existing branch but it isn't on the
+// remote (deleted between list and submit, or typo). The UI should refresh
+// the branch list and keep the form open.
+export class BranchNotFound extends Schema.TaggedError<BranchNotFound>()(
+  "BranchNotFound",
+  { name: Schema.String },
+  HttpApiSchema.annotations({ status: 404 })
+) {}
