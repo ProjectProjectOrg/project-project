@@ -3,6 +3,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
 import { authClient } from "@/services/AuthClient"
 import { Button } from "@/components/ui/button"
+import { Logo, Wordmark } from "@/components/Logo"
 
 export const Route = createFileRoute("/(public)/login")({
   component: LoginPage
@@ -26,15 +27,11 @@ function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-muted p-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-2xl border border-border bg-background p-8 shadow-sm">
-        <div className="flex flex-col items-center gap-3">
-          <div className="grid size-10 place-items-center rounded-xl bg-foreground text-background">
-            <span className="text-base font-semibold">P</span>
-          </div>
-          <div className="text-center">
-            <h1 className="text-lg font-semibold tracking-tight">
-              ProjectProject
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-4 text-foreground">
+          <Logo className="size-12" />
+          <div className="flex flex-col items-center gap-4">
+            <Wordmark className="h-5 w-auto" />
+            <p className="text-sm text-muted-foreground">
               Markdown-first project management.
             </p>
           </div>

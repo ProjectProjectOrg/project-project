@@ -33,7 +33,12 @@
 // implementations live in `packages/backend/src/main.ts` (and later, the
 // `handlers/` directory).
 
-import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  OpenApi
+} from "@effect/platform"
 import { Schema } from "effect"
 import { User } from "./schemas/User"
 import {
@@ -292,10 +297,16 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .middleware(Authentication)
 
+// Swagger UI's "Try it out" prepends `servers[0].url` to each operation's
+// path. Without it, requests go to `/projects/...` instead of `/api/projects/...`
+// (the actual mount in packages/backend/src/main.ts). Only affects the
+// generated OpenAPI spec — HttpApiClient ignores this annotation and uses
+// its own `baseUrl` option.
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
+  .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
