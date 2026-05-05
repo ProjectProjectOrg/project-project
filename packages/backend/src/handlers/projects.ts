@@ -113,4 +113,26 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           return yield* tickets.listGitStates(user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
+      .handle("listBranches", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const projects = yield* Projects
+          const github = yield* GitHub
+          const project = yield* projects
+            .get(user.id, path.slug)
+            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+          if (!project.github) {
+            // No connected repo → empty result (avoids inventing a Conflict
+            // here; the UI shouldn't be able to open this form anyway).
+            return { items: [], hasMore: false }
+          }
+          return yield* github.listBranches(
+            project.github.repoOwner,
+            project.github.repoName,
+            urlParams.q,
+            urlParams.first ?? 30,
+            user.id
+          )
+        })
+      )
 )

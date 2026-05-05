@@ -74,4 +74,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           return yield* tickets.clearBranch(user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )
+      .handle("attachBranch", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const tickets = yield* Tickets
+          return yield* tickets.attachBranch(
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
 )
