@@ -45,6 +45,60 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+## Mutations and optimistic updates
+
+**Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.
+
+**The shape:**
+
+1. Split the read into a private base + public optimistic wrapper:
+
+   ```ts
+   const xBaseAtom = Atom.family((key: string) =>
+     runtime.atom(Effect.gen(function* () { ... })).pipe(Atom.setIdleTTL("..."))
+   )
+   export const xAtom = Atom.family((key: string) => Atom.optimistic(xBaseAtom(key)))
+   ```
+
+   Consumers read `xAtom`. The base stays unexported (or near-unexported — only mutation atoms in the same module reference it).
+
+2. Mutations that affect `x` are family-keyed `Atom.optimisticFn`:
+
+   ```ts
+   export const mutateAtom = Atom.family((key: string) =>
+     Atom.optimisticFn(xAtom(key), {
+       reducer: (current, input) => {
+         if (!Result.isSuccess(current)) return current
+         return Result.success(applyOptimistically(current.value, input), { waiting: true })
+       },
+       fn: runtime.fn(Effect.fn(function* (input, get) {
+         const updated = yield* api.mutate(input)
+         get.refresh(xBaseAtom(key))   // pull server truth — optimistic mirror auto-updates
+         get.refresh(otherAffectedAtoms)
+         return updated
+       }))
+     })
+   )
+   ```
+
+3. **Always refresh the *base* atom**, never the optimistic wrapper, after the mutation lands. Refreshing the wrapper would loop.
+
+4. **The reducer's job is the synthetic next state.** It must match what the server will return well enough that the brief moment before the refresh isn't visibly wrong. When the result is hard to model (e.g. a PR number assigned by GitHub), use a **pulse-only reducer** instead — return the current value with `{ waiting: true }` so the UI flips its pulse animation without inventing fake data:
+
+   ```ts
+   reducer: (current, _input) => Result.isSuccess(current)
+     ? Result.success(current.value, { waiting: true })
+     : current
+   ```
+
+   This keeps the data display honest and still gives the user a "syncing" affordance. See `openPrAtom` for an example.
+
+5. **Surface `waiting` in the UI.** The optimistic atom carries `result.waiting: true` while the mutation is in flight. Apply `animate-pulse` (or equivalent) on the elements that just changed so the user sees their action land but knows it's not confirmed yet. Don't pulse idle controls, only the data display.
+
+6. **Forms that drive optimistic mutations** keep their `setBusy` / `setError` plumbing as-is — those still gate the form's submit button and surface errors when the optimistic state reverts.
+
+Reference: `packages/frontend/src/atoms/github.ts` (`createBranchAtom`, `attachBranchAtom`).
+
 ## Backend stack
 
 Effect HttpApi + Drizzle + Better Auth + Postgres, as set up in chapters 0–2. Extend within those choices unless we explicitly revisit them.

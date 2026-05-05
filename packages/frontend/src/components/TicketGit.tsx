@@ -1,34 +1,28 @@
 // TicketGit — UI surfaces for a ticket's GitHub state.
 //
 // Two exports:
-//   TicketGitChip  — tiny badge for collapsed list rows
-//   TicketGitPanel — full inline panel for the expanded ticket view, with
-//                    inline create-branch and open-PR flows (no dialogs).
-//
-// Both consume `projectGitStatesAtom` keyed by project slug.
+//   TicketGitChip  — tiny badge for collapsed list rows (unchanged)
+//   TicketGitPanel — full inline panel for the expanded ticket view, built
+//                    on top of <InlineForm> with three to four actions per
+//                    state (create / connect / open_pr / clear).
 
-import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { useState } from "react"
+import { Result, useAtomValue } from "@effect-atom/atom-react"
 import {
   AlertTriangle,
   ArrowUpRight,
-  CheckCircle2,
   Circle,
   GitBranch,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
-  Plus,
-  X
+  Plus
 } from "lucide-react"
-import {
-  clearBranchAtom,
-  createBranchAtom,
-  openPrAtom,
-  projectGitStatesAtom
-} from "@/atoms/github"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { projectGitStatesAtom } from "@/atoms/github"
+import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
+import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
+import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
+import { OpenPrFields } from "@/components/TicketGit/OpenPrFields"
+import { InlineForm } from "@/components/ui/inline-form"
 import { cn } from "@/lib/utils"
 import type {
   GitState,
@@ -39,32 +33,31 @@ import type {
 
 // --- Helpers --------------------------------------------------------------
 
-function useGitState(slug: string, ticketId: string): GitState | null {
+// Returns the per-ticket GitState plus a `waiting` flag reflecting whether
+// any in-flight optimistic mutation is touching this project's git states.
+// The flag drives the pulse animation on the chip + branch displays so the
+// user sees their action land instantly while the server roundtrip resolves.
+function useGitState(
+  slug: string,
+  ticketId: string
+): { state: GitState | null; waiting: boolean } {
   const states = useAtomValue(projectGitStatesAtom(slug))
-  if (!Result.isSuccess(states)) return null
-  return states.value.states[ticketId] ?? null
+  if (!Result.isSuccess(states)) return { state: null, waiting: false }
+  return {
+    state: states.value.states[ticketId] ?? null,
+    waiting: states.waiting
+  }
 }
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 30)
+function truncate(name: string, max = 18) {
+  return name.length > max ? `${name.slice(0, max - 1)}…` : name
 }
 
-// Build a default branch name from `branchTemplate` placeholders.
-function defaultBranchName(
-  template: string | null,
-  type: string,
-  id: string,
-  title: string
-): string {
-  const tpl = template ?? "{type}/{id}-{slug}"
-  return tpl
-    .replace("{type}", type)
-    .replace("{id}", id)
-    .replace("{slug}", slugify(title))
+function checksColor(s: string): string {
+  if (s === "passing") return "text-emerald-500"
+  if (s === "failing") return "text-red-500"
+  if (s === "pending") return "text-amber-500"
+  return "text-muted-foreground"
 }
 
 // --- TicketGitChip --------------------------------------------------------
@@ -76,13 +69,17 @@ export function TicketGitChip({
   slug: string
   ticketId: TicketId
 }) {
-  const state = useGitState(slug, ticketId)
+  const { state, waiting } = useGitState(slug, ticketId)
   if (!state || state.tag === "no_branch") return null
+  const pulse = waiting && "animate-pulse"
 
   if (state.tag === "stale_branch") {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400",
+          pulse
+        )}
         title={`Branch "${state.name}" not on remote`}
       >
         <AlertTriangle className="size-3" strokeWidth={1.75} />
@@ -94,7 +91,10 @@ export function TicketGitChip({
   if (state.tag === "branch_no_pr") {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground",
+          pulse
+        )}
         title={state.name}
       >
         <GitBranch className="size-3" strokeWidth={1.75} />
@@ -111,7 +111,8 @@ export function TicketGitChip({
           "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
           state.draft
             ? "bg-muted text-muted-foreground"
-            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          pulse
         )}
         title={state.title}
       >
@@ -130,7 +131,10 @@ export function TicketGitChip({
   if (state.tag === "pr_merged") {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-700 dark:text-violet-400",
+          pulse
+        )}
         title={state.title}
       >
         <GitMerge className="size-3" strokeWidth={1.75} />#{state.number}
@@ -141,7 +145,10 @@ export function TicketGitChip({
   if (state.tag === "pr_closed") {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground",
+          pulse
+        )}
         title={state.title}
       >
         <GitPullRequestClosed className="size-3" strokeWidth={1.75} />#
@@ -151,17 +158,6 @@ export function TicketGitChip({
   }
 
   return null
-}
-
-function truncate(name: string, max = 18) {
-  return name.length > max ? `${name.slice(0, max - 1)}…` : name
-}
-
-function checksColor(s: string): string {
-  if (s === "passing") return "text-emerald-500"
-  if (s === "failing") return "text-red-500"
-  if (s === "pending") return "text-amber-500"
-  return "text-muted-foreground"
 }
 
 // --- TicketGitPanel -------------------------------------------------------
@@ -177,187 +173,211 @@ export function TicketGitPanel({
   github: GithubConnection | null
   branchTemplate: string | null
 }) {
-  const state = useGitState(slug, ticket.id)
-  const [mode, setMode] = useState<"idle" | "create_branch" | "open_pr">("idle")
-
-  if (!github) {
-    return null
+  const { state, waiting } = useGitState(slug, ticket.id)
+  if (!github) return null
+  if (state === null) {
+    return (
+      <div className="rounded-lg border border-border bg-background px-3 py-2">
+        <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
+      </div>
+    )
   }
-
   return (
-    <div className="rounded-lg border border-border bg-background px-3 py-2">
-      {state === null ? (
-        <Loading />
-      ) : (
-        <StateBody
-          slug={slug}
-          ticket={ticket}
-          state={state}
-          github={github}
-          branchTemplate={branchTemplate}
-          mode={mode}
-          setMode={setMode}
-        />
-      )}
-    </div>
+    <PanelForState
+      slug={slug}
+      ticket={ticket}
+      state={state}
+      waiting={waiting}
+      github={github}
+      branchTemplate={branchTemplate}
+    />
   )
 }
 
-function Loading() {
-  return <div className="h-7 w-44 animate-pulse rounded bg-muted/60" />
-}
-
-function StateBody({
+function PanelForState({
   slug,
   ticket,
   state,
+  waiting,
   github,
-  branchTemplate,
-  mode,
-  setMode
+  branchTemplate
 }: {
   slug: string
   ticket: TicketDetail
   state: GitState
+  waiting: boolean
   github: GithubConnection
   branchTemplate: string | null
-  mode: "idle" | "create_branch" | "open_pr"
-  setMode: (m: "idle" | "create_branch" | "open_pr") => void
 }) {
-  if (mode === "create_branch") {
-    return (
-      <CreateBranchRow
-        slug={slug}
-        ticket={ticket}
-        github={github}
-        branchTemplate={branchTemplate}
-        onClose={() => setMode("idle")}
-      />
-    )
-  }
-  if (
-    mode === "open_pr" &&
-    (state.tag === "branch_no_pr" || state.tag === "pr_closed")
-  ) {
-    return (
-      <OpenPrRow
-        slug={slug}
-        ticket={ticket}
-        branch={state.tag === "branch_no_pr" ? state.name : state.branch}
-        onClose={() => setMode("idle")}
-      />
-    )
-  }
+  const repoSlug = `${github.repoOwner}/${github.repoName}`
+  // Pulse the optimistic-state indicators (chip + branch + PR link) while the
+  // server-truth roundtrip is in flight. Idle controls (triggers, buttons)
+  // are NOT pulsed — only the data display is uncertain.
+  const pulse = waiting && "animate-pulse"
 
   if (state.tag === "no_branch") {
+    const Root = InlineForm.Root<"create" | "connect">
     return (
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="text-muted-foreground">No branch yet.</span>
-        <Button
-          size="sm"
-          leadingIcon={Plus}
-          onClick={() => setMode("create_branch")}
-        >
-          Create branch
-        </Button>
-      </div>
+      <Root>
+        <InlineForm.Idle>
+          <InlineForm.Display>
+            <span className="text-xs text-muted-foreground">No branch yet.</span>
+          </InlineForm.Display>
+          <InlineForm.Actions>
+            <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
+              Create branch
+            </InlineForm.Trigger>
+            <InlineForm.Trigger
+              action="connect"
+              size="sm"
+              variant="tertiary"
+              leadingIcon={GitBranch}
+            >
+              Connect branch
+            </InlineForm.Trigger>
+          </InlineForm.Actions>
+        </InlineForm.Idle>
+        <InlineForm.Form action="create">
+          <CreateBranchFields
+            slug={slug}
+            ticket={ticket}
+            github={github}
+            branchTemplate={branchTemplate}
+          />
+        </InlineForm.Form>
+        <InlineForm.Form action="connect">
+          <ConnectBranchFields slug={slug} ticket={ticket} />
+        </InlineForm.Form>
+      </Root>
     )
   }
 
   if (state.tag === "branch_no_pr") {
+    const Root = InlineForm.Root<"open_pr" | "clear">
     return (
-      <Row>
-        <BranchChip
-          slug={`${github.repoOwner}/${github.repoName}`}
-          name={state.name}
-        />
-        <div className="flex-1" />
-        <Button
-          size="sm"
-          leadingIcon={GitPullRequest}
-          onClick={() => setMode("open_pr")}
-        >
-          Open PR
-        </Button>
-        <ClearBranchButton slug={slug} id={ticket.id} />
-      </Row>
+      <Root>
+        <InlineForm.Idle>
+          <InlineForm.Display className={cn(pulse)}>
+            <BranchChip slug={repoSlug} name={state.name} />
+          </InlineForm.Display>
+          <InlineForm.Actions>
+            <InlineForm.Trigger
+              action="open_pr"
+              size="sm"
+              leadingIcon={GitPullRequest}
+            >
+              Open PR
+            </InlineForm.Trigger>
+            <InlineForm.Trigger
+              action="clear"
+              size="sm"
+              variant="ghost"
+            >
+              Clear
+            </InlineForm.Trigger>
+          </InlineForm.Actions>
+        </InlineForm.Idle>
+        <InlineForm.Form action="open_pr">
+          <OpenPrFields slug={slug} ticket={ticket} branch={state.name} />
+        </InlineForm.Form>
+        <InlineForm.Form action="clear">
+          <ClearBranchFields slug={slug} id={ticket.id} />
+        </InlineForm.Form>
+      </Root>
     )
   }
 
   if (state.tag === "pr_open") {
     return (
-      <Row>
-        <BranchChip
-          slug={`${github.repoOwner}/${github.repoName}`}
-          name={state.branch}
-        />
-        <PrLink
-          number={state.number}
-          url={state.url}
-          tone={state.draft ? "draft" : "open"}
-          checks={state.checks}
-        />
-        <span className="text-xs text-muted-foreground truncate">
-          {state.title}
-        </span>
-      </Row>
+      <div className="rounded-lg border border-border bg-background px-3 py-2">
+        <div
+          className={cn("flex flex-wrap items-center gap-2", pulse)}
+        >
+          <BranchChip slug={repoSlug} name={state.branch} />
+          <PrLink
+            number={state.number}
+            url={state.url}
+            tone={state.draft ? "draft" : "open"}
+            checks={state.checks}
+          />
+          <span className="text-xs text-muted-foreground truncate">
+            {state.title}
+          </span>
+        </div>
+      </div>
     )
   }
 
   if (state.tag === "pr_merged") {
     return (
-      <Row>
-        <BranchChip
-          slug={`${github.repoOwner}/${github.repoName}`}
-          name={state.branch}
-        />
-        <PrLink number={state.number} url={state.url} tone="merged" />
-        <span className="text-xs text-muted-foreground">
-          merged · ticket auto-set to done
-        </span>
-      </Row>
+      <div className="rounded-lg border border-border bg-background px-3 py-2">
+        <div
+          className={cn("flex flex-wrap items-center gap-2", pulse)}
+        >
+          <BranchChip slug={repoSlug} name={state.branch} />
+          <PrLink number={state.number} url={state.url} tone="merged" />
+          <span className="text-xs text-muted-foreground">
+            merged · ticket auto-set to done
+          </span>
+        </div>
+      </div>
     )
   }
 
   if (state.tag === "pr_closed") {
+    const Root = InlineForm.Root<"open_pr">
     return (
-      <Row>
-        <BranchChip
-          slug={`${github.repoOwner}/${github.repoName}`}
-          name={state.branch}
-        />
-        <PrLink number={state.number} url={state.url} tone="closed" />
-        <div className="flex-1" />
-        <Button
-          size="sm"
-          variant="tertiary"
-          leadingIcon={GitPullRequest}
-          onClick={() => setMode("open_pr")}
-        >
-          Open new PR
-        </Button>
-      </Row>
+      <Root>
+        <InlineForm.Idle>
+          <InlineForm.Display className={cn(pulse)}>
+            <div className="flex items-center gap-2">
+              <BranchChip slug={repoSlug} name={state.branch} />
+              <PrLink number={state.number} url={state.url} tone="closed" />
+            </div>
+          </InlineForm.Display>
+          <InlineForm.Actions>
+            <InlineForm.Trigger
+              action="open_pr"
+              size="sm"
+              variant="tertiary"
+              leadingIcon={GitPullRequest}
+            >
+              Open new PR
+            </InlineForm.Trigger>
+          </InlineForm.Actions>
+        </InlineForm.Idle>
+        <InlineForm.Form action="open_pr">
+          <OpenPrFields slug={slug} ticket={ticket} branch={state.branch} />
+        </InlineForm.Form>
+      </Root>
     )
   }
 
   if (state.tag === "stale_branch") {
+    const Root = InlineForm.Root<"clear">
     return (
-      <Row>
-        <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-          <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-          Branch <span className="font-mono">{state.name}</span> not on remote.
-        </span>
-        <div className="flex-1" />
-        <ClearBranchButton slug={slug} id={ticket.id} label="Clear" />
-      </Row>
+      <Root>
+        <InlineForm.Idle>
+          <InlineForm.Display className={cn(pulse)}>
+            <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="size-3.5" strokeWidth={1.75} />
+              Branch <span className="font-mono">{state.name}</span> not on remote.
+            </span>
+          </InlineForm.Display>
+          <InlineForm.Actions>
+            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
+              Clear
+            </InlineForm.Trigger>
+          </InlineForm.Actions>
+        </InlineForm.Idle>
+        <InlineForm.Form action="clear">
+          <ClearBranchFields slug={slug} id={ticket.id} />
+        </InlineForm.Form>
+      </Root>
     )
   }
 
   return null
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2">{children}</div>
 }
 
 function BranchChip({ slug, name }: { slug: string; name: string }) {
@@ -419,265 +439,5 @@ function PrLink({
       )}
       {tone === "draft" && <span>draft</span>}
     </a>
-  )
-}
-
-// --- Inline create-branch row --------------------------------------------
-
-function CreateBranchRow({
-  slug,
-  ticket,
-  github,
-  branchTemplate,
-  onClose
-}: {
-  slug: string
-  ticket: TicketDetail
-  github: GithubConnection
-  branchTemplate: string | null
-  onClose: () => void
-}) {
-  const [name, setName] = useState(() =>
-    defaultBranchName(branchTemplate, ticket.type, ticket.id, ticket.title)
-  )
-  const [base, setBase] = useState(github.defaultBaseBranch ?? "")
-  const create = useAtomSet(createBranchAtom)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function submit() {
-    if (!name.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      await create({
-        slug,
-        id: ticket.id,
-        name: name.trim(),
-        baseBranch: base.trim() || undefined
-      })
-      onClose()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      setError(
-        tag === "BranchExists"
-          ? `Branch "${name.trim()}" already exists.`
-          : tag === "BranchProtected"
-            ? "Branch name is protected."
-            : tag === "GitHubTokenExpired"
-              ? "GitHub token expired."
-              : tag === "GitHubScopeInsufficient"
-                ? "GitHub scope insufficient."
-                : tag === "RepoGone"
-                  ? "Repo not accessible."
-                  : "Couldn't create branch."
-      )
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
-        <label className="block text-xs">
-          <span className="text-muted-foreground">Branch name</span>
-          <Input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-0.5 h-8 font-mono"
-            placeholder="feat/T-12-add-button"
-            disabled={busy}
-          />
-        </label>
-        <label className="block text-xs">
-          <span className="text-muted-foreground">Base branch</span>
-          <Input
-            value={base}
-            onChange={(e) => setBase(e.target.value)}
-            className="mt-0.5 h-8 font-mono"
-            placeholder={github.defaultBaseBranch ?? "main"}
-            disabled={busy}
-          />
-        </label>
-      </div>
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          leadingIcon={X}
-          onClick={onClose}
-          disabled={busy}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          leadingIcon={CheckCircle2}
-          onClick={() => void submit()}
-          disabled={busy || !name.trim()}
-        >
-          {busy ? "Creating…" : "Create branch"}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-// --- Inline open-PR row ---------------------------------------------------
-
-function OpenPrRow({
-  slug,
-  ticket,
-  branch,
-  onClose
-}: {
-  slug: string
-  ticket: TicketDetail
-  branch: string
-  onClose: () => void
-}) {
-  const [title, setTitle] = useState(ticket.title)
-  const [draft, setDraft] = useState(false)
-  const open = useAtomSet(openPrAtom)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function submit() {
-    setBusy(true)
-    setError(null)
-    try {
-      await open({
-        slug,
-        id: ticket.id,
-        title: title.trim() || undefined,
-        draft
-      })
-      onClose()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      setError(
-        tag === "BranchProtected"
-          ? "Target branch is protected."
-          : tag === "GitHubTokenExpired"
-            ? "GitHub token expired."
-            : tag === "GitHubScopeInsufficient"
-              ? "GitHub scope insufficient."
-              : tag === "RepoGone"
-                ? "Repo not accessible."
-                : "Couldn't open PR — make sure the branch has commits."
-      )
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Open PR from <span className="font-mono text-foreground">{branch}</span>
-      </p>
-      <Input
-        autoFocus
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="h-8"
-        placeholder="PR title"
-        disabled={busy}
-      />
-      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={draft}
-          onChange={(e) => setDraft(e.target.checked)}
-          disabled={busy}
-        />
-        Open as draft
-      </label>
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          leadingIcon={X}
-          onClick={onClose}
-          disabled={busy}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          leadingIcon={GitPullRequest}
-          onClick={() => void submit()}
-          disabled={busy}
-        >
-          {busy ? "Opening…" : "Open PR"}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function ClearBranchButton({
-  slug,
-  id,
-  label = "Clear branch"
-}: {
-  slug: string
-  id: TicketId
-  label?: string
-}) {
-  const clear = useAtomSet(clearBranchAtom)
-  const [confirming, setConfirming] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  if (!confirming) {
-    return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="text-xs text-muted-foreground transition-colors hover:text-destructive"
-      >
-        {label}
-      </button>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs">
-      <button
-        type="button"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          try {
-            await clear({ slug, id })
-          } finally {
-            setBusy(false)
-            setConfirming(false)
-          }
-        }}
-        className="text-destructive hover:underline"
-      >
-        Confirm
-      </button>
-      <span className="text-muted-foreground">·</span>
-      <button
-        type="button"
-        onClick={() => setConfirming(false)}
-        className="text-muted-foreground hover:underline"
-      >
-        Cancel
-      </button>
-    </span>
   )
 }

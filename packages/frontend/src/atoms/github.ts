@@ -1,27 +1,31 @@
 // GitHub-related atoms.
 //
-// Two reads (gitStates per project, repos per query) and five mutations
-// (connect/disconnect repo, createBranch/openPr/clearBranch on tickets).
-// Mutations refresh the affected project + ticket atoms; gitStates has a
-// short TTL because branch/PR state can change behind our back.
+// The mutation atoms here use the project's optimistic-update pattern (see
+// CLAUDE.md "Mutations and optimistic updates"): split the read into a
+// private `xBaseAtom` + a public `xAtom = Atom.optimistic(xBase)`, then write
+// mutations as `Atom.optimisticFn(xAtom, { reducer, fn })`. The reducer
+// synthesises the post-mutation state synchronously so the UI flips before the
+// roundtrip; on failure Atom.optimistic auto-reverts.
 
-import { Atom } from "@effect-atom/atom-react"
+import { Atom, Result } from "@effect-atom/atom-react"
 import { Effect } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import type {
+  AttachBranchInput,
   ConnectGithubInput,
   CreateBranchInput,
+  GitState,
   OpenPrInput,
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
 import { ticketAtom, ticketKey, ticketsListAtom } from "./tickets"
 
-// 30s TTL: short enough that the chip feels alive across a normal flow
-// (create branch → switch tab → come back), long enough that focus-driven
-// refreshes don't hammer the GraphQL endpoint.
-export const projectGitStatesAtom = Atom.family((slug: string) =>
+// Private — server-truthy fetch. Wrapped by `projectGitStatesAtom` below.
+// 30s TTL: short enough that the chip feels alive across a normal flow,
+// long enough that focus-driven refreshes don't hammer GraphQL.
+const projectGitStatesBaseAtom = Atom.family((slug: string) =>
   runtime
     .atom(
       Effect.gen(function* () {
@@ -30,6 +34,13 @@ export const projectGitStatesAtom = Atom.family((slug: string) =>
       })
     )
     .pipe(Atom.setIdleTTL("30 seconds"))
+)
+
+// Public — mirrors the base, accepts optimistic writes from mutation atoms.
+// Reverts to the base value on mutation failure; carries `waiting: true` on
+// the Result while a mutation is in flight.
+export const projectGitStatesAtom = Atom.family((slug: string) =>
+  Atom.optimistic(projectGitStatesBaseAtom(slug))
 )
 
 // Repo picker. Re-keyed on every search query change so each query gets its
@@ -47,6 +58,31 @@ export const githubReposAtom = Atom.family((query: string) =>
     .pipe(Atom.setIdleTTL("2 minutes"))
 )
 
+// Branch picker for the connect-branch form. Keyed on a "slug q" string —
+// Atom.family compares keys by reference / value, so an object key produces
+// a fresh family member on every render and triggers an infinite refetch.
+// Slugs are URL-safe (no spaces), so the first space is an unambiguous seam.
+export const branchesKey = (slug: string, q: string) => `${slug} ${q}`
+
+export const branchesAtom = Atom.family((key: string) =>
+  runtime
+    .atom(
+      Effect.gen(function* () {
+        const sep = key.indexOf(" ")
+        const slug = key.slice(0, sep)
+        const q = key.slice(sep + 1)
+        const client = yield* ApiClient
+        return yield* client.projects.listBranches({
+          path: { slug },
+          urlParams: { q: q.trim() ? q.trim() : undefined }
+        })
+      })
+    )
+    .pipe(Atom.setIdleTTL("1 minute"))
+)
+
+// --- Mutations -----------------------------------------------------------
+
 export const connectGithubAtom = runtime.fn(
   Effect.fn(function* (input: { slug: string } & ConnectGithubInput, get) {
     const client = yield* ApiClient
@@ -56,7 +92,7 @@ export const connectGithubAtom = runtime.fn(
       payload
     })
     get.refresh(projectAtom(slug))
-    get.refresh(projectGitStatesAtom(slug))
+    get.refresh(projectGitStatesBaseAtom(slug))
     return updated
   })
 )
@@ -68,56 +104,148 @@ export const disconnectGithubAtom = runtime.fn(
       path: { slug: input.slug }
     })
     get.refresh(projectAtom(input.slug))
-    get.refresh(projectGitStatesAtom(input.slug))
+    get.refresh(projectGitStatesBaseAtom(input.slug))
     return updated
   })
 )
 
-export const createBranchAtom = runtime.fn(
-  Effect.fn(function* (
-    input: { slug: string; id: TicketId } & CreateBranchInput,
-    get
-  ) {
-    const client = yield* ApiClient
-    const { slug, id, ...payload } = input
-    const updated = yield* client.tickets.createBranch({
-      path: { slug, id },
-      payload
-    })
-    get.refresh(ticketAtom(ticketKey(slug, id)))
-    get.refresh(ticketsListAtom(slug))
-    get.refresh(projectGitStatesAtom(slug))
-    return updated
+// Optimistic: synthesises a `branch_no_pr` entry for the ticket, then resolves
+// against server truth via a base refresh. Family-keyed on slug because
+// `Atom.optimisticFn` is bound at construction to a specific atom instance.
+export const createBranchAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (
+      current,
+      input: { id: TicketId } & CreateBranchInput
+    ) => {
+      if (!Result.isSuccess(current)) return current
+      const optimistic: GitState = {
+        tag: "branch_no_pr",
+        name: input.name,
+        baseBranch: input.baseBranch ?? "main"
+      }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (
+        input: { id: TicketId } & CreateBranchInput,
+        get
+      ) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.createBranch({
+          path: { slug, id: input.id },
+          payload: { name: input.name, baseBranch: input.baseBranch }
+        })
+        get.refresh(projectGitStatesBaseAtom(slug))
+        get.refresh(ticketAtom(ticketKey(slug, input.id)))
+        get.refresh(ticketsListAtom(slug))
+        return updated
+      })
+    )
   })
 )
 
-export const openPrAtom = runtime.fn(
-  Effect.fn(function* (
-    input: { slug: string; id: TicketId } & OpenPrInput,
-    get
-  ) {
-    const client = yield* ApiClient
-    const { slug, id, ...payload } = input
-    const result = yield* client.tickets.openPr({
-      path: { slug, id },
-      payload
-    })
-    get.refresh(ticketAtom(ticketKey(slug, id)))
-    get.refresh(ticketsListAtom(slug))
-    get.refresh(projectGitStatesAtom(slug))
-    return result
+// Optimistic: same shape as createBranch — attaching an existing branch lands
+// in the same `branch_no_pr` state. We don't know the actual base branch
+// client-side; the base refresh corrects it.
+export const attachBranchAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (
+      current,
+      input: { id: TicketId } & AttachBranchInput
+    ) => {
+      if (!Result.isSuccess(current)) return current
+      const optimistic: GitState = {
+        tag: "branch_no_pr",
+        name: input.name,
+        baseBranch: "main"
+      }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (
+        input: { id: TicketId } & AttachBranchInput,
+        get
+      ) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.attachBranch({
+          path: { slug, id: input.id },
+          payload: { name: input.name }
+        })
+        get.refresh(projectGitStatesBaseAtom(slug))
+        get.refresh(ticketAtom(ticketKey(slug, input.id)))
+        get.refresh(ticketsListAtom(slug))
+        return updated
+      })
+    )
   })
 )
 
-export const clearBranchAtom = runtime.fn(
-  Effect.fn(function* (input: { slug: string; id: TicketId }, get) {
-    const client = yield* ApiClient
-    const updated = yield* client.tickets.clearBranch({
-      path: { slug: input.slug, id: input.id }
-    })
-    get.refresh(ticketAtom(ticketKey(input.slug, input.id)))
-    get.refresh(ticketsListAtom(input.slug))
-    get.refresh(projectGitStatesAtom(input.slug))
-    return updated
+// Pulse-only optimistic: a PR's number / url can't be predicted client-side,
+// so the reducer leaves the visible state untouched and only flips
+// `waiting: true`. The chip's animate-pulse fires while the server resolves;
+// when the base refresh lands, the actual `pr_open` state appears.
+export const openPrAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (current, _input: { id: TicketId } & OpenPrInput) => {
+      if (!Result.isSuccess(current)) return current
+      return Result.success(current.value, { waiting: true })
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: { id: TicketId } & OpenPrInput, get) {
+        const client = yield* ApiClient
+        const { id, ...payload } = input
+        const result = yield* client.tickets.openPr({
+          path: { slug, id },
+          payload
+        })
+        get.refresh(ticketAtom(ticketKey(slug, id)))
+        get.refresh(ticketsListAtom(slug))
+        get.refresh(projectGitStatesBaseAtom(slug))
+        return result
+      })
+    )
+  })
+)
+
+// Optimistic: clearing a branch sends the ticket back to `no_branch`. Cheap
+// to model client-side; reducer flips the entry, base refresh confirms.
+export const clearBranchAtom = Atom.family((slug: string) =>
+  Atom.optimisticFn(projectGitStatesAtom(slug), {
+    reducer: (current, input: { id: TicketId }) => {
+      if (!Result.isSuccess(current)) return current
+      const optimistic: GitState = { tag: "no_branch" }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: { id: TicketId }, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.clearBranch({
+          path: { slug, id: input.id }
+        })
+        get.refresh(ticketAtom(ticketKey(slug, input.id)))
+        get.refresh(ticketsListAtom(slug))
+        get.refresh(projectGitStatesBaseAtom(slug))
+        return updated
+      })
+    )
   })
 )
