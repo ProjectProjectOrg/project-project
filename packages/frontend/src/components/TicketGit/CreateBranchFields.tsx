@@ -61,7 +61,7 @@ export function CreateBranchFields({
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [error, setError] = useState<string | null>(null)
-  const create = useAtomSet(createBranchAtom)
+  const create = useAtomSet(createBranchAtom(slug))
 
   async function submit() {
     if (!name.trim()) return
@@ -69,7 +69,6 @@ export function CreateBranchFields({
     setBusy(true)
     try {
       await create({
-        slug,
         id: ticket.id,
         name: name.trim(),
         baseBranch: base.trim() || undefined

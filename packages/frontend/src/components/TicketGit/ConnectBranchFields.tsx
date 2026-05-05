@@ -40,7 +40,7 @@ export function ConnectBranchFields({
   const key = branchesKey(slug, q)
   const result = useAtomValue(branchesAtom(key))
   const refreshBranches = useAtomRefresh(branchesAtom(key))
-  const attach = useAtomSet(attachBranchAtom)
+  const attach = useAtomSet(attachBranchAtom(slug))
 
   const items = Result.isSuccess(result) ? result.value.items : []
   const listRef = useRef<HTMLDivElement>(null)
@@ -54,7 +54,7 @@ export function ConnectBranchFields({
     setError(null)
     setBusy(true)
     try {
-      await attach({ slug, id: ticket.id, name: branchName })
+      await attach({ id: ticket.id, name: branchName })
       close()
     } catch (e) {
       const tag =
