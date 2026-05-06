@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
+import { TagEditor } from "@/components/TagEditor"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
@@ -922,6 +923,13 @@ function ExpandedDetail({
     if (focusBody) onConsumeFocusBody()
   }, [focusBody, onConsumeFocusBody])
 
+  const project = useProject()
+  const me = useAtomValue(meAtom)
+  const myRole = Result.isSuccess(me)
+    ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
+    : "member"
+  const canManageTags = myRole === "owner" || myRole === "admin"
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
@@ -968,6 +976,13 @@ function ExpandedDetail({
       </div>
 
       <PriorityPicker orgSlug={orgSlug} slug={slug} ticket={ticket} />
+
+      <TagEditor
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        canManageTags={canManageTags}
+      />
 
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
