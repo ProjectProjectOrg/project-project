@@ -1,6 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { useEffect, useRef, useState } from "react"
-import { INNER_RING, OUTER_RING, type ColorSwatch } from "@projectproject/shared"
+import {
+  INNER_RING,
+  OUTER_RING,
+  type ColorSwatch
+} from "@projectproject/shared"
 import { springs } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
@@ -12,9 +16,9 @@ type Props = {
 }
 
 const SWATCH = 18
-const CENTER = 28
-const INNER_RADIUS = 46
-const OUTER_RADIUS = 64
+const CENTER = 24
+const INNER_RADIUS = 28
+const OUTER_RADIUS = 40
 const EXIT_RATIO = 0.55
 const SVG = (OUTER_RADIUS + SWATCH / 2 + 2) * 2
 
@@ -47,7 +51,10 @@ export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
   return (
     <div
       ref={rootRef}
-      className={cn("relative inline-flex items-center justify-center", className)}
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        className
+      )}
       style={{ width: CENTER, height: CENTER }}
     >
       <button
@@ -124,15 +131,13 @@ function Ring({
               scale: 0.3,
               opacity: 0
             }}
-            transition={{ ...springs.slow, delay: delay + i * 0.01 }}
+            transition={{ ...springs.slow, delay, scale: { duration: 0.15 } }}
             whileHover={{ scale: 1.18 }}
             onClick={() => onSelect(c.hex)}
             aria-label={`Color ${c.hex}`}
             className={cn(
               "pointer-events-auto absolute rounded-full border",
-              isActive
-                ? "border-foreground shadow-[0_0_0_2px_var(--background),0_0_0_3px_var(--foreground)]"
-                : "border-black/10 hover:border-foreground/60"
+              isActive && "border-foreground border-2"
             )}
             style={{
               width: SWATCH,

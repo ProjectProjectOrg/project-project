@@ -6,8 +6,8 @@ export type ColorSwatch = {
   readonly hex: string
 }
 
-const INNER_HUES = Array.from({ length: 12 }, (_, i) => 30 + i * 30)
-const OUTER_HUES = Array.from({ length: 18 }, (_, i) => 20 + i * 20)
+const INNER_HUES = Array.from({ length: 8 }, (_, i) => 22.5 + i * 45)
+const OUTER_HUES = Array.from({ length: 12 }, (_, i) => 15 + i * 30)
 
 const INNER = { L: 0.78, C: 0.07 }
 const OUTER = { L: 0.7, C: 0.16 }
