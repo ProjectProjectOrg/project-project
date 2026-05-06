@@ -24,7 +24,7 @@
 // not just owned ones. Sorted by createdAt ascending to match the previous
 // behavior.
 
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import {
   Forbidden,
@@ -32,7 +32,9 @@ import {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
-  RepoGone
+  RepoGone,
+  Role,
+  Slug
 } from "@projectproject/shared"
 import type {
   AddMemberInput,
@@ -43,7 +45,6 @@ import type {
   Member,
   Project,
   ProjectDetail,
-  Role,
   UpdateProjectInput
 } from "@projectproject/shared"
 import { projectIndex, projectMember, user } from "../db/schema"
@@ -54,22 +55,39 @@ import { Users } from "./Users"
 
 const MAX_SLUG_ATTEMPTS = 100
 
-// Parse the `github` block from raw frontmatter data. Defensive: if any
-// field is missing or wrong-typed we return null rather than crash, since
-// the on-disk frontmatter could be hand-edited.
-function parseGithubFrontmatter(
-  data: Record<string, unknown>
-): GithubConnection | null {
-  const raw = data["github"]
-  if (!raw || typeof raw !== "object") return null
-  const obj = raw as Record<string, unknown>
-  const repoOwner = typeof obj.repoOwner === "string" ? obj.repoOwner : null
-  const repoName = typeof obj.repoName === "string" ? obj.repoName : null
-  if (!repoOwner || !repoName) return null
-  const defaultBaseBranch =
-    typeof obj.defaultBaseBranch === "string" ? obj.defaultBaseBranch : null
-  return { repoOwner, repoName, defaultBaseBranch }
-}
+// On-disk `project.md` frontmatter shape. Decoded at every read site so
+// hand-edits or partial writes surface as a defect rather than as silently
+// wrong data downstream. `members` and `github` use disk-flavored shapes
+// (just the fields the file carries — the wire `Member` schema is fuller,
+// and the wire `GithubConnection` matches the disk shape exactly here).
+const FrontmatterMember = Schema.Struct({
+  username: Schema.String,
+  role: Role
+})
+
+const FrontmatterGithub = Schema.Struct({
+  repoOwner: Schema.String,
+  repoName: Schema.String,
+  defaultBaseBranch: Schema.optionalWith(Schema.NullOr(Schema.String), {
+    default: () => null
+  })
+})
+
+const ProjectFrontmatter = Schema.Struct({
+  slug: Slug,
+  name: Schema.String,
+  ownerId: Schema.String,
+  createdAt: Schema.Date,
+  members: Schema.optionalWith(Schema.Array(FrontmatterMember), {
+    default: () => []
+  }),
+  github: Schema.optionalWith(Schema.NullOr(FrontmatterGithub), {
+    default: () => null
+  })
+})
+type ProjectFrontmatter = typeof ProjectFrontmatter.Type
+
+const decodeProjectFrontmatter = Schema.decodeUnknown(ProjectFrontmatter)
 
 function slugify(name: string): string {
   return name
@@ -86,6 +104,23 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     const md = yield* Markdown
     const users = yield* Users
     const github = yield* GitHub
+
+    // --- Markdown read with frontmatter validation --------------------
+    // Decoded shape failures die — frontmatter corruption is not a wire
+    // outcome, same as how the Tickets service treats decode errors.
+    const readProject = (
+      slug: string
+    ): Effect.Effect<
+      ProjectFrontmatter & { body: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        const file = yield* md.readProjectFile(slug)
+        const fm = yield* decodeProjectFrontmatter(file.data).pipe(
+          Effect.orDie
+        )
+        return { ...fm, body: file.body }
+      })
 
     // --- DB helpers ----------------------------------------------------
 
@@ -220,8 +255,8 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       slug: string
     ): Effect.Effect<GithubConnection | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        const file = yield* md.readProjectFile(slug)
-        return parseGithubFrontmatter(file.data)
+        const fm = yield* readProject(slug)
+        return fm.github
       })
 
     // Rewrite `members:` in project.md to mirror the current DB membership.
@@ -322,14 +357,14 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireMember(userId, slug)
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* readProject(slug)
         const members = yield* loadMembers(slug)
         return {
           slug: indexRow.slug,
           name: indexRow.name,
           ownerId: indexRow.ownerId,
           createdAt: indexRow.createdAt,
-          github: parseGithubFrontmatter(file.data),
+          github: file.github,
           body: file.body,
           members
         }
@@ -344,7 +379,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* readProject(slug)
 
         const nextName = input.name ?? indexRow.name
         const nextBody = input.body ?? file.body
@@ -358,7 +393,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         }
 
         const members = yield* loadMembers(slug)
-        const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
           slug,
           nextName,
@@ -366,7 +400,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           indexRow.createdAt,
           nextBody,
           members,
-          connection
+          file.github
         )
 
         return {
@@ -374,7 +408,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           name: nextName,
           ownerId: indexRow.ownerId,
           createdAt: indexRow.createdAt,
-          github: connection,
+          github: file.github,
           body: nextBody,
           members
         }
@@ -407,9 +441,8 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* readProject(slug)
         const members = yield* loadMembers(slug)
-        const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
           slug,
           indexRow.name,
@@ -417,14 +450,14 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           indexRow.createdAt,
           file.body,
           members,
-          connection
+          file.github
         )
         return {
           slug: indexRow.slug,
           name: indexRow.name,
           ownerId: indexRow.ownerId,
           createdAt: indexRow.createdAt,
-          github: connection,
+          github: file.github,
           body: file.body,
           members
         }
@@ -584,7 +617,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* readProject(slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
 
@@ -627,7 +660,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* readProject(slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
           slug,
