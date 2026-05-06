@@ -66,7 +66,7 @@ import { betterAuth } from "better-auth"
 import { admin, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import {
   account,
   invitation,
@@ -132,24 +132,58 @@ export const auth = betterAuth({
       maxAge: 5 * 60
     }
   },
-  // On every session create (sign-in), seed `activeOrganizationId` with
-  // the user's first org so the frontend's meAtom always has an active
-  // org to navigate from. Subsequent changes flow through the org switcher
-  // (T-08) — never via URL navigation.
+  // On sign-in, return the user to the org they were last in. We persist
+  // that on `user.lastActiveOrganizationId` (a column on the user table)
+  // and capture it at sign-out time via the `session.delete.before` hook.
+  // First-ever sign-in falls back to the user's first org membership.
+  // Subsequent in-app org changes flow through the switcher (T-08) — never
+  // via URL navigation.
   databaseHooks: {
     session: {
       create: {
         before: async (sessionData) => {
-          const memberships = await db
-            .select({ orgId: member.organizationId })
-            .from(member)
-            .where(eq(member.userId, sessionData.userId))
+          const userRows = await db
+            .select({ last: user.lastActiveOrganizationId })
+            .from(user)
+            .where(eq(user.id, sessionData.userId))
             .limit(1)
-          const orgId = memberships[0]?.orgId
+          let orgId = userRows[0]?.last ?? null
+          if (orgId) {
+            const stillMember = await db
+              .select({ orgId: member.organizationId })
+              .from(member)
+              .where(
+                and(
+                  eq(member.userId, sessionData.userId),
+                  eq(member.organizationId, orgId)
+                )
+              )
+              .limit(1)
+            if (stillMember.length === 0) orgId = null
+          }
+          if (!orgId) {
+            const memberships = await db
+              .select({ orgId: member.organizationId })
+              .from(member)
+              .where(eq(member.userId, sessionData.userId))
+              .limit(1)
+            orgId = memberships[0]?.orgId ?? null
+          }
           if (!orgId) return { data: sessionData }
           return {
             data: { ...sessionData, activeOrganizationId: orgId }
           }
+        }
+      },
+      delete: {
+        before: async (sessionData) => {
+          const orgId = (sessionData as { activeOrganizationId?: string | null })
+            .activeOrganizationId
+          if (!orgId) return
+          await db
+            .update(user)
+            .set({ lastActiveOrganizationId: orgId })
+            .where(eq(user.id, sessionData.userId))
         }
       }
     }

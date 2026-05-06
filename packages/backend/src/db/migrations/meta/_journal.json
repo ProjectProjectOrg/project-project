@@ -36,6 +36,13 @@
       "when": 1778063817474,
       "tag": "0004_silly_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778077687532,
+      "tag": "0005_narrow_champions",
+      "breakpoints": true
     }
   ]
 }
