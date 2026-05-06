@@ -36,6 +36,7 @@ import { and, eq, gt } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { z } from "zod"
 import { session } from "./db/schema"
+import { TRANSITIONAL_ORG_SLUG as org } from "./lib/transitionalOrg"
 import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
 import { BetterAuthLive } from "./services/BetterAuth"
@@ -161,7 +162,7 @@ async function main(): Promise<void> {
         const projects = await run(
           Effect.gen(function* () {
             const svc = yield* Projects
-            return yield* svc.list(userId)
+            return yield* svc.list(org, userId)
           })
         )
         return asJson(projects)
@@ -188,7 +189,7 @@ async function main(): Promise<void> {
           Effect.gen(function* () {
             const svc = yield* Projects
             return yield* svc
-              .get(userId, slug)
+              .get(org, userId, slug)
               .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
           })
         )
@@ -234,7 +235,7 @@ async function main(): Promise<void> {
           Effect.gen(function* () {
             const svc = yield* Tickets
             return yield* svc
-              .list(userId, slug)
+              .list(org, userId, slug)
               .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
           })
         )
@@ -275,7 +276,7 @@ async function main(): Promise<void> {
           Effect.gen(function* () {
             const svc = yield* Tickets
             return yield* svc
-              .get(userId, slug, id)
+              .get(org, userId, slug, id)
               .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
           })
         )

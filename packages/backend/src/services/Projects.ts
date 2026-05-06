@@ -1,6 +1,15 @@
 // Projects service — domain logic combining the DB index, the project_member
 // table, and the markdown store.
 //
+// ORG DIMENSION (T-02)
+// ----------------------------------------------------------------------------
+// Every public method takes `orgSlug` as its first parameter — projects are
+// scoped under an org. The slug is plumbed in by handlers; this layer doesn't
+// resolve it. `create` looks up the org's UUID from the slug to populate
+// `projectIndex.organizationId`. Existing DB queries on `projectIndex.slug`
+// stay slug-only (T-01 schema state); switching them to `(orgId, slug)`
+// happens once T-03's migration tightens `organizationId` to NOT NULL.
+//
 // AUTHORITY MODEL
 // ----------------------------------------------------------------------------
 // `project_member` is the source of truth for permission checks. The markdown
@@ -17,12 +26,6 @@
 //   delete project      ✓      –      –
 //   add/remove member   ✓      ✓      –   (admin can't touch admins)
 //   change role         ✓      –      –
-//
-// LIST SCOPE
-// ----------------------------------------------------------------------------
-// `list` joins `project_member` so members see every project they belong to,
-// not just owned ones. Sorted by createdAt ascending to match the previous
-// behavior.
 
 import { Effect } from "effect"
 import { and, asc, eq, inArray } from "drizzle-orm"
@@ -46,7 +49,12 @@ import type {
   Role,
   UpdateProjectInput
 } from "@projectproject/shared"
-import { projectIndex, projectMember, user } from "../db/schema"
+import {
+  organization,
+  projectIndex,
+  projectMember,
+  user
+} from "../db/schema"
 import { Db } from "./Db"
 import { GitHub } from "./GitHub"
 import { Markdown, type MarkdownError } from "./Markdown"
@@ -54,9 +62,30 @@ import { Users } from "./Users"
 
 const MAX_SLUG_ATTEMPTS = 100
 
-// Parse the `github` block from raw frontmatter data. Defensive: if any
-// field is missing or wrong-typed we return null rather than crash, since
-// the on-disk frontmatter could be hand-edited.
+// Defensive: project.md should carry an `org:` field after T-02 writes,
+// but pre-migration files won't have it. Log a warning so we notice drift,
+// but don't crash — the handler's `orgSlug` parameter is authoritative.
+function checkOrgFrontmatter(
+  expected: string,
+  data: Record<string, unknown>,
+  slug: string
+): void {
+  const onDisk = data["org"]
+  if (onDisk === undefined) {
+    console.warn(
+      `[markdown] project '${slug}' has no 'org' frontmatter (expected '${expected}'). Run migrate:orgs.`
+    )
+    return
+  }
+  if (onDisk !== expected) {
+    const onDiskSafe =
+      typeof onDisk === "string" ? onDisk : JSON.stringify(onDisk)
+    console.warn(
+      `[markdown] project '${slug}' frontmatter org='${onDiskSafe}' does not match request org='${expected}'.`
+    )
+  }
+}
+
 function parseGithubFrontmatter(
   data: Record<string, unknown>
 ): GithubConnection | null {
@@ -89,7 +118,24 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
     // --- DB helpers ----------------------------------------------------
 
-    const getIndexRow = (slug: string): Effect.Effect<Project | null> =>
+    const orgIdFromSlug = (
+      orgSlug: string
+    ): Effect.Effect<string, NotFound> =>
+      db
+        .select({ id: organization.id })
+        .from(organization)
+        .where(eq(organization.slug, orgSlug))
+        .limit(1)
+        .pipe(
+          Effect.orDie,
+          Effect.flatMap((rows) =>
+            rows[0]
+              ? Effect.succeed(rows[0].id)
+              : Effect.fail(new NotFound())
+          )
+        )
+
+    const getIndexRow = (slug: string) =>
       db
         .select()
         .from(projectIndex)
@@ -118,9 +164,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
       })
 
-    // Materialise the wire-shape `Member[]` for a project by joining
-    // `project_member` with `user`. Keeps the DB the source of truth for
-    // both role and identity fields (no relying on stale frontmatter).
     const loadMembers = (slug: string): Effect.Effect<ReadonlyArray<Member>> =>
       db
         .select({
@@ -150,7 +193,10 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
     // --- List (member-scoped) ------------------------------------------
 
-    const list = (userId: string): Effect.Effect<ReadonlyArray<Project>> =>
+    const list = (
+      orgSlug: string,
+      userId: string
+    ): Effect.Effect<ReadonlyArray<Project>> =>
       db
         .select({
           slug: projectIndex.slug,
@@ -167,14 +213,15 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           )
         )
         .orderBy(asc(projectIndex.createdAt))
-        .pipe(Effect.orDie)
+        .pipe(
+          Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
+          Effect.orDie
+        )
 
     // --- Permission gates ----------------------------------------------
 
-    // Resolves the caller's role on this project. NotFound covers both
-    // "no such project" and "project exists but you're not a member" —
-    // the wire doesn't distinguish, no info leak.
     const requireMember = (
+      _orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<{ role: Role }, NotFound> =>
@@ -189,21 +236,22 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
         .limit(1)
         .pipe(
+          Effect.orDie,
           Effect.flatMap((rows) =>
             rows[0]
               ? Effect.succeed({ role: rows[0].role as Role })
               : Effect.fail(new NotFound())
-          ),
-          Effect.orDie
-        ) as Effect.Effect<{ role: Role }, NotFound>
+          )
+        )
 
     const requireRole = (
+      orgSlug: string,
       userId: string,
       slug: string,
       allowed: ReadonlyArray<Role>
     ): Effect.Effect<{ role: Role }, NotFound | Forbidden> =>
       Effect.gen(function* () {
-        const ctx = yield* requireMember(userId, slug)
+        const ctx = yield* requireMember(orgSlug, userId, slug)
         if (!allowed.includes(ctx.role)) {
           return yield* Effect.fail(new Forbidden())
         }
@@ -212,28 +260,17 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
     // --- Frontmatter sync ----------------------------------------------
 
-    // Read the current `github` block straight from project.md. The block
-    // is owned by the file (frontmatter is the source of truth for it),
-    // so we preserve it across rewrites unless a caller is explicitly
-    // changing it (`connectGithub` / `disconnectGithub`).
     const readGithubFromFile = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<GithubConnection | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
         return parseGithubFrontmatter(file.data)
       })
 
-    // Rewrite `members:` in project.md to mirror the current DB membership.
-    // We render `{ username, role }` so the file is grep/AI-friendly even
-    // without a DB. If a user has no username yet (legacy account), we
-    // fall back to their email so the row still resolves.
-    //
-    // `github` is passed explicitly so that membership-only changes
-    // preserve whatever connection currently lives on disk. Callers that
-    // are *changing* the connection pass the new value (or null to
-    // disconnect).
     const syncFrontmatter = (
+      orgSlug: string,
       slug: string,
       name: string,
       createdBy: string,
@@ -243,6 +280,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       connection: GithubConnection | null
     ): Effect.Effect<void, MarkdownError> => {
       const fm: Record<string, unknown> = {
+        org: orgSlug,
         slug,
         name,
         createdBy,
@@ -259,28 +297,33 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           defaultBaseBranch: connection.defaultBaseBranch
         }
       }
-      return md.writeProjectFile(slug, fm, body)
+      return md.writeProjectFile(orgSlug, slug, fm, body)
     }
 
     // --- CRUD ----------------------------------------------------------
 
     const create = (
+      orgSlug: string,
       createdBy: string,
       input: CreateProjectInput
-    ): Effect.Effect<Project> =>
+    ): Effect.Effect<Project, NotFound> =>
       Effect.gen(function* () {
+        const organizationId = yield* orgIdFromSlug(orgSlug)
         const slug = yield* findFreeSlug(slugify(input.name))
         const createdAt = new Date()
 
         const [row] = yield* db
           .insert(projectIndex)
-          .values({ slug, name: input.name, createdBy, createdAt })
+          .values({
+            slug,
+            name: input.name,
+            createdBy,
+            createdAt,
+            organizationId
+          })
           .returning()
           .pipe(Effect.orDie)
 
-        // Owner membership row goes in DB first; the frontmatter mirror
-        // happens immediately after. If anything below fails we roll the
-        // DB back so we don't leave a half-created project.
         yield* db
           .insert(projectMember)
           .values({ projectSlug: slug, userId: createdBy, role: "owner" })
@@ -293,6 +336,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
+          orgSlug,
           slug,
           input.name,
           createdBy,
@@ -307,6 +351,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
 
         return {
+          org: orgSlug,
           slug: row.slug,
           name: row.name,
           createdBy: row.createdBy,
@@ -315,16 +360,19 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const get = (
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireMember(userId, slug)
+        yield* requireMember(orgSlug, userId, slug)
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
         const members = yield* loadMembers(slug)
         return {
+          org: orgSlug,
           slug: indexRow.slug,
           name: indexRow.name,
           createdBy: indexRow.createdBy,
@@ -336,15 +384,17 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const update = (
+      orgSlug: string,
       userId: string,
       slug: string,
       input: UpdateProjectInput
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner", "admin"])
+        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
 
         const nextName = input.name ?? indexRow.name
         const nextBody = input.body ?? file.body
@@ -360,6 +410,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         const members = yield* loadMembers(slug)
         const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
+          orgSlug,
           slug,
           nextName,
           indexRow.createdBy,
@@ -370,6 +421,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
 
         return {
+          org: orgSlug,
           slug,
           name: nextName,
           createdBy: indexRow.createdBy,
@@ -381,13 +433,13 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const remove = (
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner"])
-        // FS first; DB cascades will drop project_member rows on row delete.
-        yield* md.removeProjectDir(slug)
+        yield* requireRole(orgSlug, userId, slug, ["owner"])
+        yield* md.removeProjectDir(orgSlug, slug)
         yield* db
           .delete(projectIndex)
           .where(eq(projectIndex.slug, slug))
@@ -396,21 +448,19 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
     // --- Member management ---------------------------------------------
 
-    // After every membership change we re-render the frontmatter so the
-    // file mirrors the new DB state. `replayDetail` returns the post-write
-    // ProjectDetail in the same shape as `get`. The github block is read
-    // straight from the file and passed through unchanged — membership
-    // edits don't touch the connection.
     const replayDetail = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
         const members = yield* loadMembers(slug)
         const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
+          orgSlug,
           slug,
           indexRow.name,
           indexRow.createdBy,
@@ -420,6 +470,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           connection
         )
         return {
+          org: orgSlug,
           slug: indexRow.slug,
           name: indexRow.name,
           createdBy: indexRow.createdBy,
@@ -431,17 +482,16 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const addMember = (
+      orgSlug: string,
       userId: string,
       slug: string,
       input: AddMemberInput
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner", "admin"])
+        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const target = yield* users.findByEmail(input.email)
         if (target === null) return yield* Effect.fail(new NotFound())
 
-        // Idempotent: re-adding upserts the role only if the caller is
-        // owner (admins can't change roles). On exact match we no-op.
         const existing = yield* db
           .select({ role: projectMember.role })
           .from(projectMember)
@@ -457,7 +507,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         if (existing.length > 0) {
           const currentRole = existing[0].role as Role
           if (currentRole !== input.role) {
-            const callerCtx = yield* requireMember(userId, slug)
+            const callerCtx = yield* requireMember(orgSlug, userId, slug)
             if (callerCtx.role !== "owner") {
               return yield* Effect.fail(new Forbidden())
             }
@@ -483,17 +533,18 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
             .pipe(Effect.orDie)
         }
 
-        return yield* replayDetail(slug)
+        return yield* replayDetail(orgSlug, slug)
       })
 
     const updateMember = (
+      orgSlug: string,
       userId: string,
       slug: string,
       targetUserId: string,
       nextRole: AssignableRole
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner"])
+        yield* requireRole(orgSlug, userId, slug, ["owner"])
         const existing = yield* db
           .select({ role: projectMember.role })
           .from(projectMember)
@@ -506,8 +557,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           .limit(1)
           .pipe(Effect.orDie)
         if (existing.length === 0) return yield* Effect.fail(new NotFound())
-        // Owner role can't be reassigned via updateMember — that's a
-        // future "transfer ownership" flow.
         if ((existing[0].role as Role) === "owner") {
           return yield* Effect.fail(new Forbidden())
         }
@@ -521,16 +570,20 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
             )
           )
           .pipe(Effect.orDie)
-        return yield* replayDetail(slug)
+        return yield* replayDetail(orgSlug, slug)
       })
 
     const removeMember = (
+      orgSlug: string,
       userId: string,
       slug: string,
       targetUserId: string
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        const callerCtx = yield* requireRole(userId, slug, ["owner", "admin"])
+        const callerCtx = yield* requireRole(orgSlug, userId, slug, [
+          "owner",
+          "admin"
+        ])
         const existing = yield* db
           .select({ role: projectMember.role })
           .from(projectMember)
@@ -545,7 +598,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         if (existing.length === 0) return yield* Effect.fail(new NotFound())
         const targetRole = existing[0].role as Role
         if (targetRole === "owner") return yield* Effect.fail(new Forbidden())
-        // Admin can't remove another admin; only owner can.
         if (targetRole === "admin" && callerCtx.role !== "owner") {
           return yield* Effect.fail(new Forbidden())
         }
@@ -558,15 +610,13 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
             )
           )
           .pipe(Effect.orDie)
-        return yield* replayDetail(slug)
+        return yield* replayDetail(orgSlug, slug)
       })
 
     // --- GitHub connection ------------------------------------------
 
-    // Verifies the user can push to the repo before persisting. We don't
-    // duplicate the connection in Postgres — project.md frontmatter is
-    // the source of truth, same as members.
     const connectGithub = (
+      orgSlug: string,
       userId: string,
       slug: string,
       input: ConnectGithubInput
@@ -581,10 +631,11 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner", "admin"])
+        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
 
@@ -599,6 +650,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
+          orgSlug,
           slug,
           indexRow.name,
           indexRow.createdBy,
@@ -609,6 +661,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
 
         return {
+          org: orgSlug,
           slug: indexRow.slug,
           name: indexRow.name,
           createdBy: indexRow.createdBy,
@@ -620,16 +673,19 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const disconnectGithub = (
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
-        yield* requireRole(userId, slug, ["owner", "admin"])
+        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(slug)
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
+          orgSlug,
           slug,
           indexRow.name,
           indexRow.createdBy,
@@ -639,6 +695,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           null
         )
         return {
+          org: orgSlug,
           slug: indexRow.slug,
           name: indexRow.name,
           createdBy: indexRow.createdBy,
@@ -649,12 +706,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         }
       })
 
-    // Suppress unused-import warning for `inArray` — kept for the next
-    // callsite that batches user lookups.
     void inArray
-    // Same for `readGithubFromFile` — kept for callers in the Tickets
-    // service that prefer to read the connection without `get`'s
-    // permission check overhead.
     void readGithubFromFile
 
     return {

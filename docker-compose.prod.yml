@@ -67,7 +67,7 @@ services:
     env_file: /srv/projectproject/.env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      PROJECTS_DIR: /data/projects
+      PROJECTS_DIR: /data
     volumes:
       - ${MARKMATE_DATA_DIR:-/srv/projectproject/data}:/data
     # Exposes port internally on the compose network only — `web` reaches
