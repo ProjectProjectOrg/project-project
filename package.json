@@ -19,6 +19,7 @@
     "format:check": "oxfmt --check"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.85.1",
     "@types/node": "^22.10.0",
     "kysely": "0.27.6",
     "oxfmt": "0.47.0",
