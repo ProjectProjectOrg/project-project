@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { ColorPicker } from "@/components/ColorPicker"
+import { cn } from "@/lib/utils"
 import {
   Popover,
   PopoverContent,
@@ -14,7 +15,9 @@ import {
 import { Button } from "@/components/ui/button"
 import type { Tag, TagName } from "@projectproject/shared"
 
-const VALID = /^[a-z0-9][a-z0-9-]{0,30}$/
+const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
+const VALIDATION_HINT =
+  "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters."
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 type Props = {
@@ -125,9 +128,11 @@ function Editor({
   const { open: openConfirm } = useConfirmButton()
   const [draftName, setDraftName] = useState<string>(tag.name)
 
+  const trimmed = draftName.trim()
+  const invalid = trimmed.length > 0 && !VALID.test(trimmed)
+
   const commit = () => {
-    const trimmed = draftName.trim()
-    if (trimmed === tag.name || !VALID.test(trimmed)) return
+    if (trimmed === tag.name || invalid || trimmed.length === 0) return
     onPatch({ nextName: trimmed as TagName })
   }
 
@@ -154,7 +159,14 @@ function Editor({
             }
           }}
           aria-label="Tag name"
-          className="h-7 min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 text-xs outline-none focus-visible:border-foreground/40"
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? "tag-rename-error" : undefined}
+          className={cn(
+            "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-xs outline-none transition-colors",
+            invalid
+              ? "border-destructive/60 focus-visible:border-destructive"
+              : "border-border focus-visible:border-foreground/40"
+          )}
         />
         <button
           type="button"
@@ -165,9 +177,18 @@ function Editor({
           <Trash2 className="size-3.5" strokeWidth={1.75} />
         </button>
       </div>
-      <p className="px-0.5 text-[11px] text-muted-foreground">
-        Applied to {usageCount} ticket{usageCount === 1 ? "" : "s"}
-      </p>
+      {invalid ? (
+        <p
+          id="tag-rename-error"
+          className="px-0.5 text-[11px] leading-tight text-destructive"
+        >
+          {VALIDATION_HINT}
+        </p>
+      ) : (
+        <p className="px-0.5 text-[11px] text-muted-foreground">
+          Applied to {usageCount} ticket{usageCount === 1 ? "" : "s"}
+        </p>
+      )}
     </div>
   )
 }

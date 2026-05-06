@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
 export const TagName = Schema.String.pipe(
-  Schema.pattern(/^[a-z0-9][a-z0-9-]{0,30}$/),
+  Schema.pattern(/^[a-z0-9][a-z0-9 -]{0,30}$/),
   Schema.brand("TagName")
 )
 export type TagName = typeof TagName.Type

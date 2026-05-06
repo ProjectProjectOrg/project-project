@@ -1,6 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { TagChip } from "@/components/TagChip"
 import { TagAdminPopover } from "@/components/TagAdminPopover"
 import { useTagRenames } from "@/components/TagRenamesProvider"
@@ -28,7 +29,9 @@ type Props = {
   canManageTags: boolean
 }
 
-const VALID = /^[a-z0-9][a-z0-9-]{0,30}$/
+const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
+const VALIDATION_HINT =
+  "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters."
 const NEUTRAL = "#94a3b8"
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
@@ -78,6 +81,8 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const lowered = draft.trim().toLowerCase()
   const exactRegistered = registry.find((t) => t.name === lowered)
   const isValidNewName = VALID.test(lowered)
+  const showValidationError =
+    canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
   const filtered = lowered
     ? registry.filter((t) => t.name.includes(lowered))
     : registry
@@ -166,14 +171,20 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       })}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
+          <Button
             type="button"
+            variant="tertiary"
+            size={displayed.length === 0 ? "xs" : "icon-xs"}
+            leadingIcon={displayed.length === 0 ? Plus : undefined}
             aria-label="Add tag"
-            className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-border px-1.5 text-[11px] text-muted-foreground transition-colors duration-100 hover:border-foreground/40 hover:text-foreground active:scale-[0.97]"
+            className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
           >
-            <Plus className="size-3" strokeWidth={2} />
-            {displayed.length === 0 ? "Add tag" : null}
-          </button>
+            {displayed.length === 0 ? (
+              "Add tag"
+            ) : (
+              <Plus strokeWidth={2} />
+            )}
+          </Button>
         </PopoverTrigger>
         <PopoverContent
           align="start"
@@ -197,9 +208,26 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                   setOpen(false)
                 }
               }}
+              aria-invalid={showValidationError || undefined}
+              aria-describedby={
+                showValidationError ? "tag-name-error" : undefined
+              }
               placeholder="Search or create..."
-              className="h-7 rounded-md border border-border bg-transparent px-2 text-xs outline-none focus-visible:border-foreground/40"
+              className={cn(
+                "h-7 rounded-md border bg-transparent px-2 text-xs outline-none transition-colors",
+                showValidationError
+                  ? "border-destructive/60 focus-visible:border-destructive"
+                  : "border-border focus-visible:border-foreground/40"
+              )}
             />
+            {showValidationError ? (
+              <p
+                id="tag-name-error"
+                className="px-1 text-[11px] leading-tight text-destructive"
+              >
+                {VALIDATION_HINT}
+              </p>
+            ) : null}
             <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
               {filtered.length === 0 && !canManageTags ? (
                 <p className="px-2 py-1 text-[11px] text-muted-foreground">
@@ -270,7 +298,7 @@ function AppliedTagChip({
 }) {
   const hex = color ?? NEUTRAL
   const wrapperClass = cn(
-    "inline-flex h-6 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-xs transition-colors",
+    "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-[11px] transition-colors",
     waiting && "animate-pulse"
   )
   const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
@@ -282,9 +310,9 @@ function AppliedTagChip({
         e.stopPropagation()
         onRemove()
       }}
-      className="inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
+      className="inline-grid size-3.5 place-items-center rounded-full bg-transparent transition-colors duration-100 hover:bg-black/15 active:scale-[0.9] dark:hover:bg-white/20"
     >
-      <X className="size-3" />
+      <X className="size-2.5" strokeWidth={2.25} />
     </button>
   )
 
@@ -292,7 +320,7 @@ function AppliedTagChip({
     return (
       <span
         data-slot="tag-chip"
-        className={cn(wrapperClass, "px-2 py-0.5 pr-1.5")}
+        className={cn(wrapperClass, "pl-1.5 pr-1")}
         style={wrapperStyle}
       >
         {name}
@@ -304,7 +332,7 @@ function AppliedTagChip({
   return (
     <span
       data-slot="tag-chip"
-      className={cn(wrapperClass, "pl-2 pr-1.5 py-0.5")}
+      className={cn(wrapperClass, "pl-1.5 pr-1")}
       style={wrapperStyle}
     >
       <TagAdminPopover

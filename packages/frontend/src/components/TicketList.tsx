@@ -47,7 +47,7 @@ import { TagChip } from "@/components/TagChip"
 import { TagEditor } from "@/components/TagEditor"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { Kbd } from "@/components/ui/kbd"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
@@ -809,14 +809,15 @@ function FilteredList({
             No tickets match{" "}
             <span className="font-mono text-foreground">"{query}"</span>.
           </span>
-          <button
+          <Button
             type="button"
+            variant="tertiary"
+            size="xs"
+            leadingIcon={X}
             onClick={onClearSearch}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground transition-colors hover:bg-accent"
           >
-            <X className="size-3" strokeWidth={1.75} />
             Clear search
-          </button>
+          </Button>
         </div>
       )
     }
@@ -824,7 +825,7 @@ function FilteredList({
   }
 
   return (
-    <ul className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
+    <ul className="grid grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
       {filtered.map((t) => {
         const isExpanded = expandedId === t.id
         return (
@@ -1025,28 +1026,6 @@ function ExpandedDetail({
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <PriorityBadgeTrigger
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-            />
-            <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
-            <AssigneePicker
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-              members={members}
-            />
-            <span>·</span>
-            <span title={ticket.createdAt.toLocaleString()}>
-              created {ticket.createdAt.toLocaleDateString()}
-            </span>
-            <span>·</span>
-            <span title={ticket.updatedAt.toLocaleString()}>
-              updated {ticket.updatedAt.toLocaleDateString()}
-            </span>
-          </div>
         </div>
         <SaveIndicator status={bodyStatus} />
         <ConfirmDeleteIcon
@@ -1068,6 +1047,30 @@ function ExpandedDetail({
             }
           }}
         />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <PriorityBadgeTrigger
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+        />
+        <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
+        <AssigneePicker
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          members={members}
+        />
+        <span className="ml-auto flex items-center gap-2">
+          <span title={ticket.createdAt.toLocaleString()}>
+            created {ticket.createdAt.toLocaleDateString()}
+          </span>
+          <span>·</span>
+          <span title={ticket.updatedAt.toLocaleString()}>
+            updated {ticket.updatedAt.toLocaleDateString()}
+          </span>
+        </span>
       </div>
 
       <TagEditor
@@ -1201,21 +1204,18 @@ function TypeBadgeTrigger({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Badge
-          asChild
-          tone={meta.tone}
-          size="xs"
-          className={cn("cursor-pointer font-mono", className)}
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Type: ${meta.label}. Click to change.`}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
+            className
+          )}
         >
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={`Type: ${meta.label}. Click to change.`}
-          >
-            <Icon strokeWidth={1.75} />
-            {meta.label.toLowerCase()}
-          </button>
-        </Badge>
+          <Icon className="size-3.5" strokeWidth={1.75} />
+          <span>{meta.label}</span>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -1635,21 +1635,18 @@ function PriorityBadgeTrigger({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Badge
-          asChild
-          tone={meta.tone}
-          size="xs"
-          className={cn("cursor-pointer font-mono", className)}
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Priority: ${meta.label}. Click to change.`}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
+            className
+          )}
         >
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={`Priority: ${meta.label}. Click to change.`}
-          >
-            <Icon strokeWidth={1.75} />
-            {meta.label.toLowerCase()}
-          </button>
-        </Badge>
+          <Icon className="size-3.5" strokeWidth={1.75} />
+          <span>{meta.label}</span>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"

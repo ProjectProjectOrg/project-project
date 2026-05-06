@@ -36,7 +36,7 @@ export const PRIORITY_META: Record<
 }
 
 export const PRIORITY_ORDER: ReadonlyArray<TicketPriority> = [
-  "low",
+  "high",
   "med",
-  "high"
+  "low"
 ]
