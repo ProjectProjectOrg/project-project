@@ -48,6 +48,12 @@ const TicketFrontmatter = Schema.Struct({
   title: Schema.String,
   status: Schema.Literal("todo", "in_progress", "done"),
   type: Schema.Literal("feat", "bug", "chore", "other"),
+  priority: Schema.optionalWith(Schema.Literal("low", "med", "high"), {
+    default: () => "med" as const
+  }),
+  tags: Schema.optionalWith(Schema.Array(Schema.String), {
+    default: () => []
+  }),
   branch: Schema.NullOr(Schema.String),
   pr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
     default: () => null
@@ -97,6 +103,8 @@ function frontmatterToWire(fm: TicketFrontmatter): Ticket {
     title: fm.title,
     status: fm.status,
     type: fm.type,
+    priority: fm.priority,
+    tags: fm.tags as Ticket["tags"],
     branch: fm.branch,
     pr: fm.pr,
     lastTransitionedPr: fm.lastTransitionedPr,
@@ -113,6 +121,8 @@ function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
     title: fm.title,
     status: fm.status,
     type: fm.type,
+    priority: fm.priority,
+    tags: fm.tags,
     branch: fm.branch,
     pr: fm.pr,
     lastTransitionedPr: fm.lastTransitionedPr,
@@ -199,6 +209,8 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
+          priority: "med",
+          tags: [],
           branch: null,
           pr: null,
           lastTransitionedPr: null,
@@ -258,6 +270,8 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           title: input.title ?? existing.title,
           status: input.status ?? existing.status,
           type: input.type ?? existing.type,
+          priority: input.priority ?? existing.priority,
+          tags: input.tags !== undefined ? [...input.tags] : existing.tags,
           branch: existing.branch,
           pr: existing.pr,
           lastTransitionedPr: existing.lastTransitionedPr,
