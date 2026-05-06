@@ -66,6 +66,7 @@ import { betterAuth } from "better-auth"
 import { admin, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
+import { eq } from "drizzle-orm"
 import {
   account,
   invitation,
@@ -129,6 +130,28 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60
+    }
+  },
+  // On every session create (sign-in), seed `activeOrganizationId` with
+  // the user's first org so the frontend's meAtom always has an active
+  // org to navigate from. Subsequent changes flow through the org switcher
+  // (T-08) — never via URL navigation.
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (sessionData) => {
+          const memberships = await db
+            .select({ orgId: member.organizationId })
+            .from(member)
+            .where(eq(member.userId, sessionData.userId))
+            .limit(1)
+          const orgId = memberships[0]?.orgId
+          if (!orgId) return { data: sessionData }
+          return {
+            data: { ...sessionData, activeOrganizationId: orgId }
+          }
+        }
+      }
     }
   },
   plugins: [
