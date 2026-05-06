@@ -8,72 +8,92 @@ import type {
   UpdateTicketInput
 } from "@projectproject/shared"
 
-// One list atom per project slug. Refreshed by create/update/delete fns.
-export const ticketsListAtom = Atom.family((slug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.tickets.list({ path: { slug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("1 minute"))
-)
+// Family keys are primitive strings. Slugs and ticket ids are URL-safe
+// (no `/`), so a slash is an unambiguous separator.
 
-// One detail atom per (slug, id). Family keys are primitive — encode the
-// pair as `${slug}/${id}` and split on the first slash inside.
-export const ticketAtom = Atom.family((key: string) => {
+export const ticketsListKey = (orgSlug: string, slug: string) =>
+  `${orgSlug}/${slug}`
+
+export const ticketsListAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
-  const slug = key.slice(0, idx)
-  const id = key.slice(idx + 1) as TicketId
+  const orgSlug = key.slice(0, idx)
+  const slug = key.slice(idx + 1)
   return runtime
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.tickets.get({ path: { slug, id } })
+        return yield* client.tickets.list({ path: { orgSlug, slug } })
+      })
+    )
+    .pipe(Atom.setIdleTTL("1 minute"))
+})
+
+export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>
+  `${orgSlug}/${slug}/${id}`
+
+export const ticketAtom = Atom.family((key: string) => {
+  const parts = key.split("/")
+  const orgSlug = parts[0]
+  const slug = parts[1]
+  const id = parts.slice(2).join("/") as TicketId
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.tickets.get({ path: { orgSlug, slug, id } })
       })
     )
     .pipe(Atom.setIdleTTL("2 minutes"))
 })
 
-export const ticketKey = (slug: string, id: TicketId) => `${slug}/${id}`
-
 export const createTicketAtom = runtime.fn(
-  Effect.fn(function* (input: { slug: string } & CreateTicketInput, get) {
+  Effect.fn(function* (
+    input: { orgSlug: string; slug: string } & CreateTicketInput,
+    get
+  ) {
     const client = yield* ApiClient
-    const { slug, ...payload } = input
+    const { orgSlug, slug, ...payload } = input
     const ticket = yield* client.tickets.create({
-      path: { slug },
+      path: { orgSlug, slug },
       payload
     })
-    get.refresh(ticketsListAtom(slug))
+    get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
     return ticket
   })
 )
 
 export const updateTicketAtom = runtime.fn(
   Effect.fn(function* (
-    input: { slug: string; id: TicketId } & UpdateTicketInput,
+    input: {
+      orgSlug: string
+      slug: string
+      id: TicketId
+    } & UpdateTicketInput,
     get
   ) {
     const client = yield* ApiClient
-    const { slug, id, ...payload } = input
+    const { orgSlug, slug, id, ...payload } = input
     const updated = yield* client.tickets.update({
-      path: { slug, id },
+      path: { orgSlug, slug, id },
       payload
     })
-    get.refresh(ticketAtom(ticketKey(slug, id)))
-    get.refresh(ticketsListAtom(slug))
+    get.refresh(ticketAtom(ticketKey(orgSlug, slug, id)))
+    get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
     return updated
   })
 )
 
 export const deleteTicketAtom = runtime.fn(
-  Effect.fn(function* (input: { slug: string; id: TicketId }, get) {
+  Effect.fn(function* (
+    input: { orgSlug: string; slug: string; id: TicketId },
+    get
+  ) {
     const client = yield* ApiClient
     yield* client.tickets.delete({
-      path: { slug: input.slug, id: input.id }
+      path: { orgSlug: input.orgSlug, slug: input.slug, id: input.id }
     })
-    get.refresh(ticketsListAtom(input.slug))
+    get.refresh(
+      ticketsListAtom(ticketsListKey(input.orgSlug, input.slug))
+    )
   })
 )
