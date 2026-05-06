@@ -34,10 +34,11 @@ COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY packages/backend ./packages/backend
 
-# Markdown projects directory is bind-mounted at runtime; we still create
+# Markdown data root is bind-mounted at runtime; org-scoped projects live
+# at <PROJECTS_DIR>/orgs/<orgSlug>/projects/<projectSlug>/. We still create
 # the path so PROJECTS_DIR resolution finds something on first boot.
-RUN mkdir -p /data/projects
-ENV PROJECTS_DIR=/data/projects
+RUN mkdir -p /data
+ENV PROJECTS_DIR=/data
 ENV NODE_ENV=production
 
 EXPOSE 3000
