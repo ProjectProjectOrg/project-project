@@ -1,6 +1,12 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
-import { LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import {
+  createFileRoute,
+  Link,
+  Navigate,
+  Outlet,
+  useParams
+} from "@tanstack/react-router"
+import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
@@ -50,6 +56,9 @@ function Shell({ user }: { user: User }) {
 }
 
 function Sidebar() {
+  const params = useParams({ strict: false }) as { orgSlug?: string }
+  const orgSlug = params.orgSlug
+
   return (
     <aside className="row-span-2 flex flex-col">
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
@@ -57,7 +66,15 @@ function Sidebar() {
         <Wordmark className="h-5 w-auto" />
       </div>
       <nav className="flex flex-col gap-1 px-3 py-2">
-        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" exact />
+        {orgSlug && (
+          <NavItem
+            to="/orgs/$orgSlug/projects"
+            params={{ orgSlug }}
+            icon={FolderKanban}
+            label="Projects"
+          />
+        )}
       </nav>
       <div className="mt-auto p-3">
         <ThemeSwitcher />
@@ -66,21 +83,30 @@ function Sidebar() {
   )
 }
 
-function NavItem({
-  to,
-  icon: Icon,
-  label
-}: {
-  to: string
-  icon: LucideIcon
-  label: string
-}) {
+type NavItemProps =
+  | {
+      to: "/"
+      icon: LucideIcon
+      label: string
+      exact?: boolean
+      params?: undefined
+    }
+  | {
+      to: "/orgs/$orgSlug/projects"
+      params: { orgSlug: string }
+      icon: LucideIcon
+      label: string
+      exact?: boolean
+    }
+
+function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
   const base =
     "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors"
   return (
     <Link
       to={to}
-      activeOptions={{ exact: to === "/" }}
+      params={params as never}
+      activeOptions={{ exact: exact ?? false }}
       className={cn(
         base,
         "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
