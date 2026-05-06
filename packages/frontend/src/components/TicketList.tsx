@@ -43,7 +43,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
+import { TagChip } from "@/components/TagChip"
 import { TagEditor } from "@/components/TagEditor"
+import { tagsAtom, tagsKey } from "@/atoms/tags"
 import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
@@ -59,7 +61,8 @@ import type {
   TicketId,
   TicketPriority,
   TicketStatus,
-  TicketType
+  TicketType,
+  TagName
 } from "@projectproject/shared"
 
 const SORTS = {
@@ -154,6 +157,7 @@ export function TicketList({
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all")
   const [typeFilter, setTypeFilter] = useState<TicketType | "all">("all")
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
+  const [selectedTags, setSelectedTags] = useState<ReadonlyArray<TagName>>([])
   const [sortKey, setSortKey] = useState<SortKey>("id")
   const [searchFocused, setSearchFocused] = useState(false)
 
@@ -177,11 +181,15 @@ export function TicketList({
             onTypeFilterChange={setTypeFilter}
             assigneeFilter={assigneeFilter}
             onAssigneeFilterChange={setAssigneeFilter}
+            selectedTags={selectedTags}
+            onSelectedTagsChange={setSelectedTags}
             sortKey={sortKey}
             onSortChange={setSortKey}
             tickets={list.value}
             members={members}
             myId={myId}
+            orgSlug={orgSlug}
+            slug={slug}
             compact={compactFilters}
             onSearchFocusChange={setSearchFocused}
           />
@@ -207,6 +215,7 @@ export function TicketList({
               statusFilter={statusFilter}
               typeFilter={typeFilter}
               assigneeFilter={resolvedAssignee}
+              selectedTags={selectedTags}
               sortKey={sortKey}
               expandedId={expandedId}
               onExpand={setExpanded}
@@ -230,11 +239,15 @@ function Toolbar({
   onTypeFilterChange,
   assigneeFilter,
   onAssigneeFilterChange,
+  selectedTags,
+  onSelectedTagsChange,
   sortKey,
   onSortChange,
   tickets,
   members,
   myId,
+  orgSlug,
+  slug,
   compact,
   onSearchFocusChange
 }: {
@@ -246,11 +259,15 @@ function Toolbar({
   onTypeFilterChange: (t: TicketType | "all") => void
   assigneeFilter: string
   onAssigneeFilterChange: (a: string) => void
+  selectedTags: ReadonlyArray<TagName>
+  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
   sortKey: SortKey
   onSortChange: (k: SortKey) => void
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
   myId: string | null
+  orgSlug: string
+  slug: string
   compact: boolean
   onSearchFocusChange: (focused: boolean) => void
 }) {
@@ -275,6 +292,7 @@ function Toolbar({
     statusFilter !== "all" ||
     typeFilter !== "all" ||
     assigneeFilter !== "all" ||
+    selectedTags.length > 0 ||
     query.length > 0
 
   const clearAll = () => {
@@ -282,6 +300,7 @@ function Toolbar({
     onStatusFilterChange("all")
     onTypeFilterChange("all")
     onAssigneeFilterChange("all")
+    onSelectedTagsChange([])
   }
   const counts = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -373,8 +392,12 @@ function Toolbar({
           onTypeFilterChange={onTypeFilterChange}
           assigneeFilter={assigneeFilter}
           onAssigneeFilterChange={onAssigneeFilterChange}
+          selectedTags={selectedTags}
+          onSelectedTagsChange={onSelectedTagsChange}
           members={members}
           myId={myId}
+          orgSlug={orgSlug}
+          slug={slug}
           compact={controlsCompact}
         />
 
@@ -466,20 +489,39 @@ function FiltersMenu({
   onTypeFilterChange,
   assigneeFilter,
   onAssigneeFilterChange,
+  selectedTags,
+  onSelectedTagsChange,
   members,
   myId,
+  orgSlug,
+  slug,
   compact
 }: {
   typeFilter: TicketType | "all"
   onTypeFilterChange: (v: TicketType | "all") => void
   assigneeFilter: string
   onAssigneeFilterChange: (v: string) => void
+  selectedTags: ReadonlyArray<TagName>
+  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
   members: ReadonlyArray<Member>
   myId: string | null
+  orgSlug: string
+  slug: string
   compact: boolean
 }) {
+  const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
+  const tagList = Result.isSuccess(tags) ? tags.value : []
+  const toggleTag = (name: TagName) => {
+    onSelectedTagsChange(
+      selectedTags.includes(name)
+        ? selectedTags.filter((t) => t !== name)
+        : [...selectedTags, name]
+    )
+  }
   const activeCount =
-    (typeFilter !== "all" ? 1 : 0) + (assigneeFilter !== "all" ? 1 : 0)
+    (typeFilter !== "all" ? 1 : 0) +
+    (assigneeFilter !== "all" ? 1 : 0) +
+    (selectedTags.length > 0 ? 1 : 0)
   const active = activeCount > 0
   return (
     <DropdownMenu>
@@ -605,6 +647,41 @@ function FiltersMenu({
             )}
           </DropdownMenuItem>
         ))}
+
+        {tagList.length > 0 && (
+          <>
+            <div className="my-1 h-px bg-border" />
+            <SectionLabel>Tags</SectionLabel>
+            <div className="flex flex-wrap gap-1 px-2 pb-1.5 pt-0.5">
+              {tagList.map((tag) => {
+                const selected = selectedTags.includes(tag.name)
+                return (
+                  <button
+                    key={tag.name}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toggleTag(tag.name)
+                    }}
+                    aria-pressed={selected}
+                    className={cn(
+                      "rounded-md outline-none transition-transform duration-100 active:scale-[0.97]",
+                      "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+                      selected && "ring-2 ring-foreground/60"
+                    )}
+                  >
+                    <TagChip
+                      name={tag.name}
+                      color={tag.color ?? null}
+                      size="xs"
+                      className={cn(!selected && "opacity-60")}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -669,6 +746,7 @@ function FilteredList({
   statusFilter,
   typeFilter,
   assigneeFilter,
+  selectedTags,
   sortKey,
   expandedId,
   onExpand,
@@ -684,6 +762,7 @@ function FilteredList({
   statusFilter: TicketStatus | "all"
   typeFilter: TicketType | "all"
   assigneeFilter: "all" | "unassigned" | string
+  selectedTags: ReadonlyArray<TagName>
   sortKey: SortKey
   expandedId: TicketId | null
   onExpand: (id: TicketId | null) => void
@@ -703,6 +782,11 @@ function FilteredList({
             ? t.assignees.length === 0
             : t.assignees.includes(assigneeFilter)
       )
+      .filter(
+        (t) =>
+          selectedTags.length === 0 ||
+          selectedTags.every((sel) => t.tags.includes(sel))
+      )
       .filter((t) => {
         if (!q) return true
         return (
@@ -711,7 +795,15 @@ function FilteredList({
       })
       .slice()
       .sort(SORTS[sortKey].compare)
-  }, [tickets, query, statusFilter, typeFilter, assigneeFilter, sortKey])
+  }, [
+    tickets,
+    query,
+    statusFilter,
+    typeFilter,
+    assigneeFilter,
+    selectedTags,
+    sortKey
+  ])
 
   if (tickets.length === 0) {
     return <NoTicketsYet />
