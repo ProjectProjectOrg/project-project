@@ -1,5 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  Navigate,
+  Outlet,
+  useParams
+} from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { authClient } from "@/services/AuthClient"
@@ -51,8 +57,7 @@ function Shell({ user }: { user: User }) {
 }
 
 function Sidebar() {
-  const { data: activeOrg } = authClient.useActiveOrganization()
-  const orgSlug = activeOrg?.slug
+  const orgSlug = useCurrentOrgSlug()
 
   return (
     <aside className="row-span-2 flex flex-col">
@@ -174,6 +179,15 @@ function UserMenu({ user }: { user: User }) {
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+function useCurrentOrgSlug(): string | undefined {
+  const params = useParams({
+    from: "/_authed/orgs/$orgSlug",
+    shouldThrow: false
+  })
+  const { data: activeOrg } = authClient.useActiveOrganization()
+  return params?.orgSlug ?? activeOrg?.slug
 }
 
 function FullPageStatus({ children }: { children: React.ReactNode }) {
