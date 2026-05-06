@@ -192,9 +192,7 @@ async function main() {
   if (legacyExists) {
     await fs.mkdir(newProjectsParent, { recursive: true })
     await fs.rename(legacyProjectsDir, newProjectsDir)
-    console.log(
-      `[migrate-orgs] moved ${legacyProjectsDir} → ${newProjectsDir}`
-    )
+    console.log(`[migrate-orgs] moved ${legacyProjectsDir} → ${newProjectsDir}`)
   } else {
     await fs.mkdir(newProjectsDir, { recursive: true })
     console.log(
@@ -255,11 +253,18 @@ async function main() {
     const parsed = matter(raw)
     const data = parsed.data as Record<string, unknown>
     if (data.org !== ORG_SLUG) {
-      throw new Error(`verification failed: ${file} has org=${String(data.org)}`)
+      throw new Error(
+        `verification failed: ${file} has org=${String(data.org)}`
+      )
     }
     if ("ownerId" in data) {
       throw new Error(
         `verification failed: ${file} still has 'ownerId' frontmatter`
+      )
+    }
+    if (!("createdBy" in data)) {
+      throw new Error(
+        `verification failed: ${file} is missing 'createdBy' frontmatter`
       )
     }
   }

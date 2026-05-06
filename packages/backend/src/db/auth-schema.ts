@@ -1,12 +1,12 @@
-import { relations } from "drizzle-orm";
+import { relations } from "drizzle-orm"
 import {
   pgTable,
   text,
   timestamp,
   boolean,
   index,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+  uniqueIndex
+} from "drizzle-orm/pg-core"
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -24,8 +24,8 @@ export const user = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
   username: text("username").unique(),
-  lastActiveOrganizationId: text("last_active_organization_id"),
-});
+  lastActiveOrganizationId: text("last_active_organization_id")
+})
 
 export const session = pgTable(
   "session",
@@ -43,10 +43,10 @@ export const session = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     activeOrganizationId: text("active_organization_id"),
-    impersonatedBy: text("impersonated_by"),
+    impersonatedBy: text("impersonated_by")
   },
-  (table) => [index("session_userId_idx").on(table.userId)],
-);
+  (table) => [index("session_userId_idx").on(table.userId)]
+)
 
 export const account = pgTable(
   "account",
@@ -67,10 +67,10 @@ export const account = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
+      .notNull()
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
-);
+  (table) => [index("account_userId_idx").on(table.userId)]
+)
 
 export const verification = pgTable(
   "verification",
@@ -83,10 +83,10 @@ export const verification = pgTable(
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
+      .notNull()
   },
-  (table) => [index("verification_identifier_idx").on(table.identifier)],
-);
+  (table) => [index("verification_identifier_idx").on(table.identifier)]
+)
 
 export const organization = pgTable(
   "organization",
@@ -99,10 +99,10 @@ export const organization = pgTable(
     metadata: text("metadata"),
     billingCustomerId: text("billing_customer_id"),
     subscriptionStatus: text("subscription_status"),
-    deletedAt: timestamp("deleted_at"),
+    deletedAt: timestamp("deleted_at")
   },
-  (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
-);
+  (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)]
+)
 
 export const member = pgTable(
   "member",
@@ -115,13 +115,13 @@ export const member = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").default("member").notNull(),
-    createdAt: timestamp("created_at").notNull(),
+    createdAt: timestamp("created_at").notNull()
   },
   (table) => [
     index("member_organizationId_idx").on(table.organizationId),
-    index("member_userId_idx").on(table.userId),
-  ],
-);
+    index("member_userId_idx").on(table.userId)
+  ]
+)
 
 export const invitation = pgTable(
   "invitation",
@@ -137,58 +137,58 @@ export const invitation = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     inviterId: text("inviter_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" })
   },
   (table) => [
     index("invitation_organizationId_idx").on(table.organizationId),
-    index("invitation_email_idx").on(table.email),
-  ],
-);
+    index("invitation_email_idx").on(table.email)
+  ]
+)
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   members: many(member),
-  invitations: many(invitation),
-}));
+  invitations: many(invitation)
+}))
 
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
     fields: [session.userId],
-    references: [user.id],
-  }),
-}));
+    references: [user.id]
+  })
+}))
 
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
-    references: [user.id],
-  }),
-}));
+    references: [user.id]
+  })
+}))
 
 export const organizationRelations = relations(organization, ({ many }) => ({
   members: many(member),
-  invitations: many(invitation),
-}));
+  invitations: many(invitation)
+}))
 
 export const memberRelations = relations(member, ({ one }) => ({
   organization: one(organization, {
     fields: [member.organizationId],
-    references: [organization.id],
+    references: [organization.id]
   }),
   user: one(user, {
     fields: [member.userId],
-    references: [user.id],
-  }),
-}));
+    references: [user.id]
+  })
+}))
 
 export const invitationRelations = relations(invitation, ({ one }) => ({
   organization: one(organization, {
     fields: [invitation.organizationId],
-    references: [organization.id],
+    references: [organization.id]
   }),
   user: one(user, {
     fields: [invitation.inviterId],
-    references: [user.id],
-  }),
-}));
+    references: [user.id]
+  })
+}))

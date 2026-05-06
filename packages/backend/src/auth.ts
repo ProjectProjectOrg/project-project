@@ -177,8 +177,9 @@ export const auth = betterAuth({
       },
       delete: {
         before: async (sessionData) => {
-          const orgId = (sessionData as { activeOrganizationId?: string | null })
-            .activeOrganizationId
+          const orgId = (
+            sessionData as { activeOrganizationId?: string | null }
+          ).activeOrganizationId
           if (!orgId) return
           await db
             .update(user)
@@ -193,8 +194,16 @@ export const auth = betterAuth({
       schema: {
         organization: {
           additionalFields: {
-            billingCustomerId: { type: "string", required: false, input: false },
-            subscriptionStatus: { type: "string", required: false, input: false },
+            billingCustomerId: {
+              type: "string",
+              required: false,
+              input: false
+            },
+            subscriptionStatus: {
+              type: "string",
+              required: false,
+              input: false
+            },
             deletedAt: { type: "date", required: false, input: false }
           }
         }

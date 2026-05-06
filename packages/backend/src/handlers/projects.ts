@@ -37,7 +37,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const projects = yield* Projects
           return yield* projects.create(org.orgSlug, user.id, payload)
-        })
+        }).pipe(Effect.catchTag("NotFound", (cause) => Effect.die(cause)))
       )
       .handle("get", ({ path }) =>
         Effect.gen(function* () {

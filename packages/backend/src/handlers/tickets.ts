@@ -29,12 +29,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.create(
-            org.orgSlug,
-            user.id,
-            path.slug,
-            payload
-          )
+          return yield* tickets.create(org.orgSlug, user.id, path.slug, payload)
         }).pipe(dieOnMarkdown)
       )
       .handle("get", ({ path }) =>
