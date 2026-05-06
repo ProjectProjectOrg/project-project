@@ -46,6 +46,12 @@ export const User = Schema.Struct({
   // up everywhere, every active user will have one.
   username: Schema.NullOr(Schema.String),
   image: Schema.NullOr(Schema.String),
-  createdAt: Schema.Date
+  createdAt: Schema.Date,
+  // The slug of the org this user is currently acting in (mirrors
+  // session.activeOrganizationId, joined to organization.slug). Null when
+  // the user has no active org (fresh signup, pre-onboarding). Frontend
+  // reads this off `meAtom` so "current org" is available everywhere
+  // without a second fetch.
+  activeOrgSlug: Schema.NullOr(Schema.String)
 })
 export type User = typeof User.Type

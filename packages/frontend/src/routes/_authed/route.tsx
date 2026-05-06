@@ -1,14 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import {
-  createFileRoute,
-  Link,
-  Navigate,
-  Outlet,
-  useParams
-} from "@tanstack/react-router"
+import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
-import { authClient } from "@/services/AuthClient"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -44,7 +37,7 @@ function Shell({ user }: { user: User }) {
   return (
     <div className="h-full p-3">
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
-        <Sidebar />
+        <Sidebar user={user} />
         <Topbar user={user} />
         <main className="m-2 ml-0 mt-0 overflow-auto rounded-xl bg-muted/60">
           <div className="p-6">
@@ -56,8 +49,8 @@ function Shell({ user }: { user: User }) {
   )
 }
 
-function Sidebar() {
-  const orgSlug = useCurrentOrgSlug()
+function Sidebar({ user }: { user: User }) {
+  const orgSlug = user.activeOrgSlug
 
   return (
     <aside className="row-span-2 flex flex-col">
@@ -179,15 +172,6 @@ function UserMenu({ user }: { user: User }) {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-function useCurrentOrgSlug(): string | undefined {
-  const params = useParams({
-    from: "/_authed/orgs/$orgSlug",
-    shouldThrow: false
-  })
-  const { data: activeOrg } = authClient.useActiveOrganization()
-  return params?.orgSlug ?? activeOrg?.slug
 }
 
 function FullPageStatus({ children }: { children: React.ReactNode }) {

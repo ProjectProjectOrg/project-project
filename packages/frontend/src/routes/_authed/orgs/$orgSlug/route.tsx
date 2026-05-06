@@ -1,6 +1,7 @@
+import { useAtomSet } from "@effect-atom/atom-react"
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { useEffect } from "react"
-import { authClient } from "@/services/AuthClient"
+import { setActiveOrgAtom } from "@/atoms/auth"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
   component: OrgLayout
@@ -8,10 +9,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
 
 function OrgLayout() {
   const { orgSlug } = Route.useParams()
+  const setActive = useAtomSet(setActiveOrgAtom)
 
   useEffect(() => {
-    void authClient.organization.setActive({ organizationSlug: orgSlug })
-  }, [orgSlug])
+    void setActive(orgSlug)
+  }, [orgSlug, setActive])
 
   return <Outlet />
 }
