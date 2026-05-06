@@ -14,6 +14,7 @@ import { projectIndex, projectTag } from "../db/schema"
 import { Db } from "./Db"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
+import { Tickets } from "./Tickets"
 
 const PALETTE = [
   "#7c3aed",
@@ -47,6 +48,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
     const db = yield* Db
     const md = yield* Markdown
     const projects = yield* Projects
+    const tickets = yield* Tickets
 
     const projectIdFromSlug = (
       slug: string
@@ -72,25 +74,9 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       Effect.gen(function* () {
         const ids = yield* md.listTicketIds(orgSlug, slug)
         for (const id of ids) {
-          const file = yield* md
-            .readTicketFile(orgSlug, slug, id)
-            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
-          if (!file) continue
-          const fm = file.data as Record<string, unknown>
-          const tagsRaw = fm.tags
-          if (!Array.isArray(tagsRaw)) continue
-          if (!tagsRaw.some((t) => t === oldName)) continue
-
-          const nextTags =
-            newName === null
-              ? tagsRaw.filter((t) => t !== oldName)
-              : tagsRaw.map((t) => (t === oldName ? newName : t))
-          const nextFm = {
-            ...fm,
-            tags: nextTags,
-            updatedAt: new Date().toISOString()
-          }
-          yield* md.writeTicketFile(orgSlug, slug, id, nextFm, file.body)
+          yield* tickets
+            .replaceTag(orgSlug, slug, id, oldName, newName)
+            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
         }
       })
 
@@ -111,9 +97,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
             .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
           if (!file) continue
           const decoded = yield* decodeTagFrontmatter(file.data).pipe(
-            Effect.catchAll(() => Effect.succeed(null))
+            Effect.orDie
           )
-          if (!decoded) continue
           if (decoded.tags.includes(name)) {
             usages.push({ ticketId: decoded.id, title: decoded.title })
           }
@@ -164,6 +149,20 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           input.color ??
           (pickColor(existing.map((e) => e.color)) as Tag["color"])
 
+        const existingRow = yield* db
+          .select({ name: projectTag.name })
+          .from(projectTag)
+          .where(
+            and(
+              eq(projectTag.projectId, projectId),
+              eq(projectTag.name, input.name)
+            )
+          )
+          .limit(1)
+          .pipe(Effect.orDie)
+        if (existingRow.length > 0)
+          return yield* Effect.fail(new Conflict({ reason: "tag_exists" }))
+
         const inserted = yield* db
           .insert(projectTag)
           .values({
@@ -173,18 +172,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
             createdBy: userId
           })
           .returning()
-          .pipe(
-            Effect.catchAll((cause) => {
-              const msg = String((cause as { message?: string }).message ?? "")
-              if (
-                msg.includes("duplicate key") ||
-                msg.includes("project_tag_pkey")
-              ) {
-                return Effect.fail(new Conflict({ reason: "tag_exists" }))
-              }
-              return Effect.die(cause)
-            })
-          )
+          .pipe(Effect.orDie)
         const row = inserted[0]
         return {
           name: row.name as Tag["name"],

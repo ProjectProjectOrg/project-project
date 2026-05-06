@@ -307,6 +307,36 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         yield* md.removeTicketFile(orgSlug, slug, id)
       })
 
+    const replaceTag = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      oldName: string,
+      newName: string | null
+    ): Effect.Effect<boolean, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        const existing = yield* readTicket(orgSlug, slug, id)
+        if (!existing.tags.includes(oldName)) return false
+        const nextTags =
+          newName === null
+            ? existing.tags.filter((t) => t !== oldName)
+            : existing.tags.map((t) => (t === oldName ? newName : t))
+        const { body, ...fm } = existing
+        const next: TicketFrontmatter = {
+          ...fm,
+          tags: nextTags,
+          updatedAt: new Date()
+        }
+        yield* md.writeTicketFile(
+          orgSlug,
+          slug,
+          id,
+          frontmatterToDisk(next),
+          body
+        )
+        return true
+      })
+
     // --- Git operations -------------------------------------------------
 
     const writeGitFields = (
@@ -701,6 +731,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       create,
       update,
       remove,
+      replaceTag,
       createBranch,
       attachBranch,
       openPr,
