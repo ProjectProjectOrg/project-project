@@ -87,3 +87,24 @@ export const projectMember = pgTable(
     index("project_member_user_idx").on(table.userId)
   ]
 )
+
+export const projectTag = pgTable(
+  "project_tag",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.name] }),
+    index("project_tag_project_idx").on(t.projectId)
+  ]
+)
