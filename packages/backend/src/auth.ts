@@ -63,6 +63,7 @@
 
 // TODO: add imports
 import { betterAuth } from "better-auth"
+import { admin, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { account, session, user, verification } from "./db/schema"
@@ -85,7 +86,12 @@ export const auth = betterAuth({
   // the field, and `mapProfileToUser` populates it from GitHub on sign-in.
   user: {
     additionalFields: {
-      username: { type: "string", required: false, input: false }
+      username: {
+        type: "string",
+        required: false,
+        input: false,
+        unique: true
+      }
     }
   },
   socialProviders: {
@@ -108,7 +114,27 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60
     }
-  }
+  },
+  plugins: [
+    organization({
+      schema: {
+        organization: {
+          additionalFields: {
+            billingCustomerId: { type: "string", required: false, input: false },
+            subscriptionStatus: { type: "string", required: false, input: false },
+            deletedAt: { type: "date", required: false, input: false }
+          }
+        }
+      },
+      sendInvitationEmail: async (data) => {
+        const acceptUrl = `${process.env.BETTER_AUTH_URL}/invite/${data.invitation.id}`
+        console.log(
+          `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}`
+        )
+      }
+    }),
+    admin()
+  ]
 })
 
 // TODO: export inferred types.

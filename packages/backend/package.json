@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun --env-file=../../.env vitest run",
     "test:watch": "bun --env-file=../../.env vitest",
+    "auth:generate": "better-auth generate --config src/auth.ts --output src/db/auth-schema.ts --yes",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -32,6 +33,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
     "@effect/vitest": "^0.29.0",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
