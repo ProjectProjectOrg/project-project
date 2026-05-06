@@ -6,16 +6,17 @@ export type ColorSwatch = {
   readonly hex: string
 }
 
-const WHEEL_HUES = Array.from({ length: 12 }, (_, i) => 30 + i * 30)
+const INNER_HUES = Array.from({ length: 12 }, (_, i) => 30 + i * 30)
+const OUTER_HUES = Array.from({ length: 18 }, (_, i) => 20 + i * 20)
 
 const INNER = { L: 0.78, C: 0.07 }
 const OUTER = { L: 0.7, C: 0.16 }
 
-export const INNER_RING: ReadonlyArray<ColorSwatch> = WHEEL_HUES.map((h) =>
+export const INNER_RING: ReadonlyArray<ColorSwatch> = INNER_HUES.map((h) =>
   swatch(h, INNER.L, INNER.C)
 )
 
-export const OUTER_RING: ReadonlyArray<ColorSwatch> = WHEEL_HUES.map((h) =>
+export const OUTER_RING: ReadonlyArray<ColorSwatch> = OUTER_HUES.map((h) =>
   swatch(h, OUTER.L, OUTER.C)
 )
 

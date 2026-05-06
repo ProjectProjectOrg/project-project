@@ -11,10 +11,11 @@ type Props = {
   ariaLabel?: string
 }
 
-const SWATCH = 22
-const CENTER = 30
-const INNER_RADIUS = 44
-const OUTER_RADIUS = 70
+const SWATCH = 18
+const CENTER = 28
+const INNER_RADIUS = 46
+const OUTER_RADIUS = 64
+const EXIT_RATIO = 0.55
 const SVG = (OUTER_RADIUS + SWATCH / 2 + 2) * 2
 
 export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
@@ -54,17 +55,13 @@ export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
         aria-label={ariaLabel ?? "Pick color"}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.05] active:scale-[0.97]"
+        className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.06] active:scale-[0.94]"
         style={{ width: CENTER, height: CENTER, backgroundColor: value }}
       />
       <AnimatePresence>
         {open ? (
           <motion.div
             key="ring"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
             className="pointer-events-none absolute"
             style={{
               width: SVG,
@@ -74,8 +71,20 @@ export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
               transform: "translate(-50%, -50%)"
             }}
           >
-            <Ring ring={INNER_RING} radius={INNER_RADIUS} value={value} onSelect={select} delay={0} />
-            <Ring ring={OUTER_RING} radius={OUTER_RADIUS} value={value} onSelect={select} delay={0.04} />
+            <Ring
+              ring={INNER_RING}
+              radius={INNER_RADIUS}
+              value={value}
+              onSelect={select}
+              delay={0}
+            />
+            <Ring
+              ring={OUTER_RING}
+              radius={OUTER_RADIUS}
+              value={value}
+              onSelect={select}
+              delay={0.05}
+            />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -109,15 +118,21 @@ function Ring({
             key={`${radius}-${c.hue}`}
             initial={{ x: 0, y: 0, scale: 0.4, opacity: 0 }}
             animate={{ x, y, scale: 1, opacity: 1 }}
-            exit={{ x: 0, y: 0, scale: 0.4, opacity: 0 }}
-            transition={{ ...springs.slow, delay: delay + i * 0.012 }}
+            exit={{
+              x: x * EXIT_RATIO,
+              y: y * EXIT_RATIO,
+              scale: 0.3,
+              opacity: 0
+            }}
+            transition={{ ...springs.slow, delay: delay + i * 0.01 }}
+            whileHover={{ scale: 1.18 }}
             onClick={() => onSelect(c.hex)}
             aria-label={`Color ${c.hex}`}
             className={cn(
-              "pointer-events-auto absolute rounded-full border transition-shadow",
+              "pointer-events-auto absolute rounded-full border",
               isActive
                 ? "border-foreground shadow-[0_0_0_2px_var(--background),0_0_0_3px_var(--foreground)]"
-                : "border-border/40 hover:scale-[1.15] hover:border-foreground/60"
+                : "border-black/10 hover:border-foreground/60"
             )}
             style={{
               width: SWATCH,
