@@ -45,33 +45,35 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp
+  timestamp,
+  uuid
 } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
-import { user } from "./auth-schema"
+import { organization, user } from "./auth-schema"
 
 export const projectIndex = pgTable("project_index", {
+  id: uuid("id").defaultRandom().notNull().unique(),
   slug: text("slug").primaryKey(),
+  organizationId: text("organization_id").references(() => organization.id, {
+    onDelete: "cascade"
+  }),
   name: text("name").notNull(),
-  ownerId: text("owner_id").notNull(),
+  createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow()
 })
 
-// Project ↔ user membership. The DB is authoritative for permission checks;
-// the markdown frontmatter mirrors usernames as a human/AI-readable label.
-//
-// Composite PK on (projectSlug, userId) means a user is in a project at most
-// once. The frontmatter array of usernames is rewritten after every change
-// here so the file stays in sync.
 export const projectMember = pgTable(
   "project_member",
   {
     projectSlug: text("project_slug")
       .notNull()
       .references(() => projectIndex.slug, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projectIndex.id, {
+      onDelete: "cascade"
+    }),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),

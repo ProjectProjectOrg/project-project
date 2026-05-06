@@ -155,7 +155,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         .select({
           slug: projectIndex.slug,
           name: projectIndex.name,
-          ownerId: projectIndex.ownerId,
+          createdBy: projectIndex.createdBy,
           createdAt: projectIndex.createdAt
         })
         .from(projectIndex)
@@ -236,7 +236,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     const syncFrontmatter = (
       slug: string,
       name: string,
-      ownerId: string,
+      createdBy: string,
       createdAt: Date,
       body: string,
       members: ReadonlyArray<Member>,
@@ -245,7 +245,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       const fm: Record<string, unknown> = {
         slug,
         name,
-        ownerId,
+        createdBy,
         createdAt: createdAt.toISOString(),
         members: members.map((m) => ({
           username: m.username ?? m.email,
@@ -265,7 +265,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     // --- CRUD ----------------------------------------------------------
 
     const create = (
-      ownerId: string,
+      createdBy: string,
       input: CreateProjectInput
     ): Effect.Effect<Project> =>
       Effect.gen(function* () {
@@ -274,7 +274,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
 
         const [row] = yield* db
           .insert(projectIndex)
-          .values({ slug, name: input.name, ownerId, createdAt })
+          .values({ slug, name: input.name, createdBy, createdAt })
           .returning()
           .pipe(Effect.orDie)
 
@@ -283,7 +283,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         // DB back so we don't leave a half-created project.
         yield* db
           .insert(projectMember)
-          .values({ projectSlug: slug, userId: ownerId, role: "owner" })
+          .values({ projectSlug: slug, userId: createdBy, role: "owner" })
           .pipe(Effect.orDie)
 
         const rollback = db
@@ -295,7 +295,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* syncFrontmatter(
           slug,
           input.name,
-          ownerId,
+          createdBy,
           createdAt,
           `# ${input.name}\n`,
           members,
@@ -309,7 +309,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug: row.slug,
           name: row.name,
-          ownerId: row.ownerId,
+          createdBy: row.createdBy,
           createdAt: row.createdAt
         }
       })
@@ -327,7 +327,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug: indexRow.slug,
           name: indexRow.name,
-          ownerId: indexRow.ownerId,
+          createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: parseGithubFrontmatter(file.data),
           body: file.body,
@@ -362,7 +362,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* syncFrontmatter(
           slug,
           nextName,
-          indexRow.ownerId,
+          indexRow.createdBy,
           indexRow.createdAt,
           nextBody,
           members,
@@ -372,7 +372,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug,
           name: nextName,
-          ownerId: indexRow.ownerId,
+          createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
           body: nextBody,
@@ -413,7 +413,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* syncFrontmatter(
           slug,
           indexRow.name,
-          indexRow.ownerId,
+          indexRow.createdBy,
           indexRow.createdAt,
           file.body,
           members,
@@ -422,7 +422,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug: indexRow.slug,
           name: indexRow.name,
-          ownerId: indexRow.ownerId,
+          createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
           body: file.body,
@@ -601,7 +601,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* syncFrontmatter(
           slug,
           indexRow.name,
-          indexRow.ownerId,
+          indexRow.createdBy,
           indexRow.createdAt,
           file.body,
           members,
@@ -611,7 +611,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug: indexRow.slug,
           name: indexRow.name,
-          ownerId: indexRow.ownerId,
+          createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: next,
           body: file.body,
@@ -632,7 +632,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* syncFrontmatter(
           slug,
           indexRow.name,
-          indexRow.ownerId,
+          indexRow.createdBy,
           indexRow.createdAt,
           file.body,
           members,
@@ -641,7 +641,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         return {
           slug: indexRow.slug,
           name: indexRow.name,
-          ownerId: indexRow.ownerId,
+          createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: null,
           body: file.body,

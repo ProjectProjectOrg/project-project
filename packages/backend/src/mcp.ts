@@ -153,7 +153,7 @@ async function main(): Promise<void> {
       title: "List projects",
       description:
         "Lists every project the authed user is a member of. Returns " +
-        "slug, name, ownerId, createdAt for each.",
+        "slug, name, createdBy, createdAt for each.",
       inputSchema: {}
     },
     async () => {
