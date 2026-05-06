@@ -39,6 +39,5 @@ Wire up Better Auth's `organization` and `admin` plugins, generate the auth sche
 
 ## Notes
 
-- Reserved-words list for org slug validation lives in a shared module `packages/shared/src/orgSlug.ts` so the onboarding form (T-04) and the API can both use it.
-- Slug regex: `/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/`. Reserved: `www`, `api`, `app`, `admin`, `auth`, `mail`, `static`, `cdn`, `_admin`, `onboarding`, `login`, `mcp`, `orgs`, `projects`.
+- Slug validation (regex + reserved-words list) lands in T-04 alongside the onboarding form that consumes it — no point introducing dead code earlier.
 - Better Auth's `organizationCreation.afterCreate` hook is the right place to plumb anything we want to run on every org creation (e.g. seeding default project? not in v1).

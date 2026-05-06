@@ -11,7 +11,8 @@ When a freshly-signed-up user lands in the app with zero orgs, route them to an 
 ## Scope
 
 - New route `/onboarding` in `packages/frontend/src/routes/`.
-- Form fields: `name` (display), `slug` (auto-suggested from name as user types; user can edit). Client-side validation against `orgSlug.ts` shared rules. Stripe placeholder fields: `companyName`, `billingEmail` — store on `organization.metadata`, no Stripe integration yet.
+- Add `packages/shared/src/orgSlug.ts` with the DNS-safe regex `/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/`, reserved-words list (`www`, `api`, `app`, `admin`, `auth`, `mail`, `static`, `cdn`, `_admin`, `onboarding`, `login`, `mcp`, `orgs`, `projects`, `invite`, `invitations`, `settings`, etc.), and a `suggestOrgSlugFromName` helper. Also add an `OrgSlug` Effect Schema (branded) for HttpApi payload validation, plus a `validateOrgSlug` discriminated-union helper for inline UI errors (Schema for the wire, helper for the form — different problems).
+- Form fields: `name` (display), `slug` (auto-suggested from name as user types; user can edit). Client-side validation against `validateOrgSlug`. Stripe placeholder fields: `companyName`, `billingEmail` — store on `organization.metadata`, no Stripe integration yet.
 - Backend endpoint to create an org (or call Better Auth's directly from frontend via `auth.client.organization.create`). Pick whichever is smoother:
   - Option A: thin HttpApi endpoint `POST /orgs` that wraps `auth.api.createOrganization`. Lets us add server-side rules (slug reservation, etc.) cleanly.
   - Option B: client-side `auth.client.organization.create` directly. Lighter, less typed.
