@@ -50,12 +50,7 @@ import type {
   ProjectDetail,
   UpdateProjectInput
 } from "@projectproject/shared"
-import {
-  organization,
-  projectIndex,
-  projectMember,
-  user
-} from "../db/schema"
+import { organization, projectIndex, projectMember, user } from "../db/schema"
 import { Db } from "./Db"
 import { GitHub } from "./GitHub"
 import { Markdown, type MarkdownError } from "./Markdown"
@@ -151,17 +146,13 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         const file = yield* md.readProjectFile(orgSlug, slug)
         checkOrgFrontmatter(orgSlug, file.data, slug)
-        const fm = yield* decodeProjectFrontmatter(file.data).pipe(
-          Effect.orDie
-        )
+        const fm = yield* decodeProjectFrontmatter(file.data).pipe(Effect.orDie)
         return { ...fm, body: file.body }
       })
 
     // --- DB helpers ----------------------------------------------------
 
-    const orgIdFromSlug = (
-      orgSlug: string
-    ): Effect.Effect<string, NotFound> =>
+    const orgIdFromSlug = (orgSlug: string): Effect.Effect<string, NotFound> =>
       db
         .select({ id: organization.id })
         .from(organization)
@@ -170,9 +161,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         .pipe(
           Effect.orDie,
           Effect.flatMap((rows) =>
-            rows[0]
-              ? Effect.succeed(rows[0].id)
-              : Effect.fail(new NotFound())
+            rows[0] ? Effect.succeed(rows[0].id) : Effect.fail(new NotFound())
           )
         )
 
