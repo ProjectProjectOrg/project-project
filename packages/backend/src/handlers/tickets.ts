@@ -3,6 +3,7 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import { Effect } from "effect"
+import { TRANSITIONAL_ORG_SLUG as org } from "../lib/transitionalOrg"
 import { Tickets } from "../services/Tickets"
 
 const dieOnMarkdown = <A, R>(eff: Effect.Effect<A, any, R>) =>
@@ -17,35 +18,41 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.list(user.id, path.slug)
+          return yield* tickets.list(org, user.id, path.slug)
         }).pipe(dieOnMarkdown)
       )
       .handle("create", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.create(user.id, path.slug, payload)
+          return yield* tickets.create(org, user.id, path.slug, payload)
         }).pipe(dieOnMarkdown)
       )
       .handle("get", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.get(user.id, path.slug, path.id)
+          return yield* tickets.get(org, user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )
       .handle("update", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.update(user.id, path.slug, path.id, payload)
+          return yield* tickets.update(
+            org,
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          yield* tickets.remove(user.id, path.slug, path.id)
+          yield* tickets.remove(org, user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )
       .handle("createBranch", ({ path, payload }) =>
@@ -53,6 +60,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.createBranch(
+            org,
             user.id,
             path.slug,
             path.id,
@@ -64,14 +72,20 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.openPr(user.id, path.slug, path.id, payload)
+          return yield* tickets.openPr(
+            org,
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("clearBranch", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.clearBranch(user.id, path.slug, path.id)
+          return yield* tickets.clearBranch(org, user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )
       .handle("attachBranch", ({ path, payload }) =>
@@ -79,6 +93,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const user = yield* CurrentUser
           const tickets = yield* Tickets
           return yield* tickets.attachBranch(
+            org,
             user.id,
             path.slug,
             path.id,
