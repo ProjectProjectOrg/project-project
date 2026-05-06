@@ -15,10 +15,10 @@ type Props = {
   ariaLabel?: string
 }
 
-const SWATCH = 18
+const SWATCH = 24
 const CENTER = 24
 const INNER_RADIUS = 28
-const OUTER_RADIUS = 40
+const OUTER_RADIUS = 42
 const EXIT_RATIO = 0.55
 const SVG = (OUTER_RADIUS + SWATCH / 2 + 2) * 2
 

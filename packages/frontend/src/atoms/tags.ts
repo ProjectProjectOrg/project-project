@@ -69,10 +69,19 @@ export const renameTagAtom = Atom.family((key: string) => {
   const orgSlug = key.slice(0, idx)
   const slug = key.slice(idx + 1)
   return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, _input: RenameInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
+    reducer: (current, input: RenameInput) => {
+      if (!Result.isSuccess(current)) return current
+      const isColorOnly =
+        input.color !== undefined && input.nextName === undefined
+      if (isColorOnly) {
+        const nextColor = input.color!
+        const next = current.value.map((t) =>
+          t.name === input.oldName ? { ...t, color: nextColor } : t
+        )
+        return Result.success(next, { waiting: true })
+      }
+      return Result.success(current.value, { waiting: true })
+    },
     fn: runtime.fn(
       Effect.fn(function* (input: RenameInput, get) {
         const client = yield* ApiClient
@@ -85,7 +94,9 @@ export const renameTagAtom = Atom.family((key: string) => {
           payload: patch
         })
         get.refresh(tagsBaseAtom(key))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        if (input.nextName) {
+          get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        }
         return tag
       })
     )

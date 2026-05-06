@@ -40,14 +40,13 @@ export function TagAdminPopover({ orgSlug, slug, tagName, children }: Props) {
 
   const [open, setOpen] = useState(false)
 
-  if (!tag) return <>{children}</>
-
-  const usageCount = Result.isSuccess(tickets)
-    ? tickets.value.reduce(
-        (n, t) => n + (t.tags.includes(tag.name) ? 1 : 0),
-        0
-      )
-    : 0
+  const usageCount =
+    tag && Result.isSuccess(tickets)
+      ? tickets.value.reduce(
+          (n, t) => n + (t.tags.includes(tag.name) ? 1 : 0),
+          0
+        )
+      : 0
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,18 +57,24 @@ export function TagAdminPopover({ orgSlug, slug, tagName, children }: Props) {
         className="w-64 p-2"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <ConfirmButton.Root className="w-full">
-          <Body
-            tag={tag}
-            usageCount={usageCount}
-            onRename={(patch) => rename({ oldName: tag.name, ...patch })}
-            onConfirmDelete={async () => {
-              await remove({ name: tag.name, force: true })
-              setOpen(false)
-            }}
-            onDismiss={() => setOpen(false)}
-          />
-        </ConfirmButton.Root>
+        {tag ? (
+          <ConfirmButton.Root className="w-full">
+            <Body
+              tag={tag}
+              usageCount={usageCount}
+              onRename={(patch) => rename({ oldName: tag.name, ...patch })}
+              onConfirmDelete={async () => {
+                await remove({ name: tag.name, force: true })
+                setOpen(false)
+              }}
+              onDismiss={() => setOpen(false)}
+            />
+          </ConfirmButton.Root>
+        ) : (
+          <p className="animate-pulse px-1 py-0.5 text-xs text-muted-foreground">
+            Updating tag…
+          </p>
+        )}
       </PopoverContent>
     </Popover>
   )

@@ -32,6 +32,8 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const [draft, setDraft] = useState("")
 
   const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
+  const registryWaiting =
+    Result.isSuccess(tagsResult) && tagsResult.waiting
   const colorByName = useMemo(() => {
     const map = new Map<string, string>()
     for (const t of registry) map.set(t.name, t.color)
@@ -74,14 +76,15 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {applied.map((name) => (
+      {applied.map((name, i) => (
         <AppliedTagChip
-          key={name}
+          key={i}
           orgSlug={orgSlug}
           slug={slug}
           name={name}
           color={colorByName.get(name) ?? null}
           canManage={canManageTags}
+          waiting={registryWaiting}
           onRemove={() => removeTag(name)}
         />
       ))}
@@ -174,6 +177,7 @@ function AppliedTagChip({
   name,
   color,
   canManage,
+  waiting,
   onRemove
 }: {
   orgSlug: string
@@ -181,11 +185,14 @@ function AppliedTagChip({
   name: string
   color: string | null
   canManage: boolean
+  waiting: boolean
   onRemove: () => void
 }) {
   const hex = color ?? NEUTRAL
-  const wrapperClass =
-    "inline-flex h-6 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-xs transition-colors"
+  const wrapperClass = cn(
+    "inline-flex h-6 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-xs transition-colors",
+    waiting && "animate-pulse"
+  )
   const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
   const removeButton = (
     <button
