@@ -103,7 +103,7 @@ export const renameTagAtom = Atom.family((key: string) => {
   })
 })
 
-type DeleteInput = { name: TagName; force: boolean }
+type DeleteInput = { name: TagName }
 export const deleteTagAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
   const orgSlug = key.slice(0, idx)
@@ -117,8 +117,7 @@ export const deleteTagAtom = Atom.family((key: string) => {
       Effect.fn(function* (input: DeleteInput, get) {
         const client = yield* ApiClient
         yield* client.tags.delete({
-          path: { orgSlug, slug, name: input.name },
-          urlParams: input.force ? { force: true } : {}
+          path: { orgSlug, slug, name: input.name }
         })
         get.refresh(tagsBaseAtom(key))
         get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))

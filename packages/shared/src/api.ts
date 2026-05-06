@@ -66,7 +66,6 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
-  TagInUse,
   Unauthorized
 } from "./errors"
 import { Authentication } from "./Authentication"
@@ -407,12 +406,10 @@ const TagsGroup = HttpApiGroup.make("tags")
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tags/:name")
       .setPath(ProjectTagPath)
-      .setUrlParams(Schema.Struct({ force: Schema.optional(Schema.BooleanFromString) }))
       .addSuccess(Schema.Void)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
-      .addError(TagInUse)
   )
   .middleware(Authentication)
 

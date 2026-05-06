@@ -133,7 +133,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const handleDelete = async (name: string) => {
     registerRemove(name)
     try {
-      await deleteTag({ name: name as TagName, force: true })
+      await deleteTag({ name: name as TagName })
     } catch (e) {
       unregisterRemove(name)
       throw e

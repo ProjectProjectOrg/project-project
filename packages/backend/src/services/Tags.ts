@@ -1,13 +1,11 @@
-import { Effect, Schema } from "effect"
+import { Effect } from "effect"
 import { and, eq } from "drizzle-orm"
 import {
   Conflict,
   Forbidden,
   NotFound,
   Tag,
-  TagInUse,
   TAG_DEFAULT_PALETTE,
-  TicketId,
   type CreateTagInput,
   type UpdateTagInput
 } from "@projectproject/shared"
@@ -16,15 +14,6 @@ import { Db } from "./Db"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
 import { Tickets } from "./Tickets"
-
-const TagFrontmatter = Schema.Struct({
-  id: TicketId,
-  title: Schema.String,
-  tags: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => []
-  })
-})
-const decodeTagFrontmatter = Schema.decodeUnknown(TagFrontmatter)
 
 function pickColor(used: ReadonlyArray<string>): string {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
@@ -66,32 +55,6 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
             .replaceTag(orgSlug, slug, id, oldName, newName)
             .pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
         }
-      })
-
-    const scanTagUsages = (
-      orgSlug: string,
-      slug: string,
-      name: string
-    ): Effect.Effect<
-      ReadonlyArray<{ ticketId: TicketId; title: string }>,
-      MarkdownError
-    > =>
-      Effect.gen(function* () {
-        const ids = yield* md.listTicketIds(orgSlug, slug)
-        const usages: { ticketId: TicketId; title: string }[] = []
-        for (const id of ids) {
-          const file = yield* md
-            .readTicketFile(orgSlug, slug, id)
-            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
-          if (!file) continue
-          const decoded = yield* decodeTagFrontmatter(file.data).pipe(
-            Effect.orDie
-          )
-          if (decoded.tags.includes(name)) {
-            usages.push({ ticketId: decoded.id, title: decoded.title })
-          }
-        }
-        return usages
       })
 
     const list = (
@@ -246,9 +209,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       orgSlug: string,
       userId: string,
       slug: string,
-      name: string,
-      force: boolean
-    ): Effect.Effect<void, NotFound | Forbidden | TagInUse | MarkdownError> =>
+      name: string
+    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
@@ -267,14 +229,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         if (existingRows.length === 0)
           return yield* Effect.fail(new NotFound())
 
-        const usages = yield* scanTagUsages(orgSlug, slug, name)
-        if (usages.length > 0 && !force) {
-          return yield* Effect.fail(new TagInUse({ tagName: name, usages }))
-        }
-
-        if (usages.length > 0) {
-          yield* rewriteTagInTickets(orgSlug, slug, name, null)
-        }
+        yield* rewriteTagInTickets(orgSlug, slug, name, null)
         yield* db
           .delete(projectTag)
           .where(

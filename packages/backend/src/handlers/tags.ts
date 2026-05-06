@@ -45,19 +45,13 @@ export const TagsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
-      .handle("delete", ({ path, urlParams }) =>
+      .handle("delete", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tags = yield* Tags
-          yield* tags.remove(
-            org.orgSlug,
-            user.id,
-            path.slug,
-            path.name,
-            urlParams.force ?? false
-          )
+          yield* tags.remove(org.orgSlug, user.id, path.slug, path.name)
         }).pipe(dieOnMarkdown)
       )
 )

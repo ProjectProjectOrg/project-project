@@ -37,7 +37,6 @@
 
 import { HttpApiSchema } from "@effect/platform"
 import { Schema } from "effect"
-import { TicketId } from "./schemas/Ticket"
 
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",
@@ -128,13 +127,3 @@ export class BranchNotFound extends Schema.TaggedError<BranchNotFound>()(
   HttpApiSchema.annotations({ status: 404 })
 ) {}
 
-export class TagInUse extends Schema.TaggedError<TagInUse>()(
-  "TagInUse",
-  {
-    tagName: Schema.String,
-    usages: Schema.Array(
-      Schema.Struct({ ticketId: TicketId, title: Schema.String })
-    )
-  },
-  HttpApiSchema.annotations({ status: 409 })
-) {}
