@@ -27,7 +27,7 @@
 //   add/remove member   ✓      ✓      –   (admin can't touch admins)
 //   change role         ✓      –      –
 
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import {
   Forbidden,
@@ -35,7 +35,9 @@ import {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
-  RepoGone
+  RepoGone,
+  Role,
+  Slug
 } from "@projectproject/shared"
 import type {
   AddMemberInput,
@@ -46,7 +48,6 @@ import type {
   Member,
   Project,
   ProjectDetail,
-  Role,
   UpdateProjectInput
 } from "@projectproject/shared"
 import {
@@ -86,19 +87,40 @@ function checkOrgFrontmatter(
   }
 }
 
-function parseGithubFrontmatter(
-  data: Record<string, unknown>
-): GithubConnection | null {
-  const raw = data["github"]
-  if (!raw || typeof raw !== "object") return null
-  const obj = raw as Record<string, unknown>
-  const repoOwner = typeof obj.repoOwner === "string" ? obj.repoOwner : null
-  const repoName = typeof obj.repoName === "string" ? obj.repoName : null
-  if (!repoOwner || !repoName) return null
-  const defaultBaseBranch =
-    typeof obj.defaultBaseBranch === "string" ? obj.defaultBaseBranch : null
-  return { repoOwner, repoName, defaultBaseBranch }
-}
+// On-disk `project.md` frontmatter shape. Decoded at every read site so
+// hand-edits or partial writes surface as a defect rather than as silently
+// wrong data downstream. `members` and `github` use disk-flavored shapes
+// (just the fields the file carries — the wire `Member` schema is fuller,
+// and the wire `GithubConnection` matches the disk shape exactly here).
+const FrontmatterMember = Schema.Struct({
+  username: Schema.String,
+  role: Role
+})
+
+const FrontmatterGithub = Schema.Struct({
+  repoOwner: Schema.String,
+  repoName: Schema.String,
+  defaultBaseBranch: Schema.optionalWith(Schema.NullOr(Schema.String), {
+    default: () => null
+  })
+})
+
+const ProjectFrontmatter = Schema.Struct({
+  org: Schema.optional(Slug),
+  slug: Slug,
+  name: Schema.String,
+  createdBy: Schema.optional(Schema.String),
+  createdAt: Schema.Date,
+  members: Schema.optionalWith(Schema.Array(FrontmatterMember), {
+    default: () => []
+  }),
+  github: Schema.optionalWith(Schema.NullOr(FrontmatterGithub), {
+    default: () => null
+  })
+})
+type ProjectFrontmatter = typeof ProjectFrontmatter.Type
+
+const decodeProjectFrontmatter = Schema.decodeUnknown(ProjectFrontmatter)
 
 function slugify(name: string): string {
   return name
@@ -115,6 +137,25 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     const md = yield* Markdown
     const users = yield* Users
     const github = yield* GitHub
+
+    // --- Markdown read with frontmatter validation --------------------
+    // Decoded shape failures die — frontmatter corruption is not a wire
+    // outcome, same as how the Tickets service treats decode errors.
+    const readProject = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<
+      ProjectFrontmatter & { body: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        const file = yield* md.readProjectFile(orgSlug, slug)
+        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const fm = yield* decodeProjectFrontmatter(file.data).pipe(
+          Effect.orDie
+        )
+        return { ...fm, body: file.body }
+      })
 
     // --- DB helpers ----------------------------------------------------
 
@@ -265,8 +306,8 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       slug: string
     ): Effect.Effect<GithubConnection | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        return parseGithubFrontmatter(file.data)
+        const fm = yield* readProject(orgSlug, slug)
+        return fm.github
       })
 
     const syncFrontmatter = (
@@ -368,8 +409,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireMember(orgSlug, userId, slug)
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
         return {
           org: orgSlug,
@@ -377,7 +417,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           name: indexRow.name,
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
-          github: parseGithubFrontmatter(file.data),
+          github: file.github,
           body: file.body,
           members
         }
@@ -393,8 +433,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const file = yield* readProject(orgSlug, slug)
 
         const nextName = input.name ?? indexRow.name
         const nextBody = input.body ?? file.body
@@ -408,7 +447,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         }
 
         const members = yield* loadMembers(slug)
-        const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
           orgSlug,
           slug,
@@ -417,7 +455,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           indexRow.createdAt,
           nextBody,
           members,
-          connection
+          file.github
         )
 
         return {
@@ -426,7 +464,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           name: nextName,
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
-          github: connection,
+          github: file.github,
           body: nextBody,
           members
         }
@@ -455,10 +493,8 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
-        const connection = parseGithubFrontmatter(file.data)
         yield* syncFrontmatter(
           orgSlug,
           slug,
@@ -467,7 +503,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           indexRow.createdAt,
           file.body,
           members,
-          connection
+          file.github
         )
         return {
           org: orgSlug,
@@ -475,7 +511,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           name: indexRow.name,
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
-          github: connection,
+          github: file.github,
           body: file.body,
           members
         }
@@ -634,8 +670,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const file = yield* readProject(orgSlug, slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
 
@@ -681,8 +716,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
+        const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
           orgSlug,
