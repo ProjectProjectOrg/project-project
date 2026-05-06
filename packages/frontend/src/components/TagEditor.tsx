@@ -1,8 +1,9 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Check, Plus, X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { TagChip } from "@/components/TagChip"
 import { TagAdminPopover } from "@/components/TagAdminPopover"
+import { useTagRenames } from "@/components/TagRenamesProvider"
 import {
   Popover,
   PopoverContent,
@@ -40,51 +41,22 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const createTag = useAtomSet(createTagAtom(key))
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key))
+  const { renameMap, removed, registerRename, registerRemove, unregisterRemove } =
+    useTagRenames(orgSlug, slug)
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
-  const [renameMap, setRenameMap] = useState<ReadonlyMap<string, string>>(
-    new Map()
-  )
-  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set())
 
   const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
   const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
 
+  const mapName = (name: string) => renameMap.get(name) ?? name
+
   const displayed = useMemo(
     () =>
-      ticket.tags
-        .map((name) => renameMap.get(name) ?? name)
-        .filter((name) => !removed.has(name)),
+      ticket.tags.map(mapName).filter((name) => !removed.has(name)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [ticket.tags, renameMap, removed]
   )
-
-  useEffect(() => {
-    if (renameMap.size === 0 && removed.size === 0) return
-    const ticketTags = new Set<string>(ticket.tags)
-    const registryNames = new Set<string>(registry.map((t) => t.name))
-    setRenameMap((prev) => {
-      let next: Map<string, string> | null = null
-      for (const [oldName, newName] of prev) {
-        const reflected =
-          ticketTags.has(newName) && !ticketTags.has(oldName)
-        if (reflected) {
-          if (!next) next = new Map(prev)
-          next.delete(oldName)
-        }
-      }
-      return next ?? prev
-    })
-    setRemoved((prev) => {
-      let next: Set<string> | null = null
-      for (const name of prev) {
-        if (!registryNames.has(name) && !ticketTags.has(name)) {
-          if (!next) next = new Set(prev)
-          next.delete(name)
-        }
-      }
-      return next ?? prev
-    })
-  }, [ticket.tags, registry, renameMap.size, removed.size])
 
   const tagByName = useMemo(() => {
     const map = new Map<string, Tag>()
@@ -133,12 +105,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     patch: { nextName?: TagName; color?: Tag["color"] }
   ) => {
     if (patch.nextName && patch.nextName !== oldName) {
-      const newName = patch.nextName as string
-      setRenameMap((prev) => {
-        const next = new Map(prev)
-        next.set(oldName, newName)
-        return next
-      })
+      registerRename(oldName, patch.nextName)
     }
     void renameTag({
       oldName: oldName as TagName,
@@ -148,27 +115,22 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   }
 
   const handleDelete = async (name: string) => {
-    setRemoved((prev) => new Set(prev).add(name))
+    registerRemove(name)
     try {
       await deleteTag({ name: name as TagName, force: true })
     } catch (e) {
-      setRemoved((prev) => {
-        const next = new Set(prev)
-        next.delete(name)
-        return next
-      })
+      unregisterRemove(name)
       throw e
     }
   }
 
-  const usageCountFor = (name: string) =>
+  const usageCountFor = (currentName: string) =>
     Result.isSuccess(ticketsResult)
-      ? ticketsResult.value.reduce(
-          (n, t) =>
-            n + ((t.tags as ReadonlyArray<string>).includes(name) ? 1 : 0),
-          0
-        )
-      : ticketHasTag(name)
+      ? ticketsResult.value.reduce((n, t) => {
+          const mapped = (t.tags as ReadonlyArray<string>).map(mapName)
+          return n + (mapped.includes(currentName) ? 1 : 0)
+        }, 0)
+      : ticketHasTag(currentName)
         ? 1
         : 0
 
