@@ -8,6 +8,7 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import { Effect } from "effect"
+import { TRANSITIONAL_ORG_SLUG as org } from "../lib/transitionalOrg"
 import { GitHub } from "../services/GitHub"
 import { Projects } from "../services/Projects"
 import { Tickets } from "../services/Tickets"
@@ -21,42 +22,42 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.list(user.id)
+          return yield* projects.list(org, user.id)
         })
       )
       .handle("create", ({ payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.create(user.id, payload)
-        })
+          return yield* projects.create(org, user.id, payload)
+        }).pipe(Effect.catchTag("NotFound", (cause) => Effect.die(cause)))
       )
       .handle("get", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.get(user.id, path.slug)
+          return yield* projects.get(org, user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("update", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.update(user.id, path.slug, payload)
+          return yield* projects.update(org, user.id, path.slug, payload)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("delete", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          yield* projects.remove(user.id, path.slug)
+          yield* projects.remove(org, user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("addMember", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.addMember(user.id, path.slug, payload)
+          return yield* projects.addMember(org, user.id, path.slug, payload)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("updateMember", ({ path, payload }) =>
@@ -64,6 +65,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const user = yield* CurrentUser
           const projects = yield* Projects
           return yield* projects.updateMember(
+            org,
             user.id,
             path.slug,
             path.userId,
@@ -75,21 +77,31 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.removeMember(user.id, path.slug, path.userId)
+          return yield* projects.removeMember(
+            org,
+            user.id,
+            path.slug,
+            path.userId
+          )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("connectGithub", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.connectGithub(user.id, path.slug, payload)
+          return yield* projects.connectGithub(
+            org,
+            user.id,
+            path.slug,
+            payload
+          )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("disconnectGithub", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const projects = yield* Projects
-          return yield* projects.disconnectGithub(user.id, path.slug)
+          return yield* projects.disconnectGithub(org, user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("listRepos", ({ urlParams }) =>
@@ -103,14 +115,11 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         })
       )
-      // gitStates lives on the Tickets service because the auto-status
-      // transition writes ticket markdown. The handler is in this group
-      // because the URL is project-scoped.
       .handle("gitStates", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const tickets = yield* Tickets
-          return yield* tickets.listGitStates(user.id, path.slug)
+          return yield* tickets.listGitStates(org, user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("listBranches", ({ path, urlParams }) =>
@@ -119,11 +128,9 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const projects = yield* Projects
           const github = yield* GitHub
           const project = yield* projects
-            .get(user.id, path.slug)
+            .get(org, user.id, path.slug)
             .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
           if (!project.github) {
-            // No connected repo → empty result (avoids inventing a Conflict
-            // here; the UI shouldn't be able to open this form anyway).
             return { items: [], hasMore: false }
           }
           return yield* github.listBranches(
