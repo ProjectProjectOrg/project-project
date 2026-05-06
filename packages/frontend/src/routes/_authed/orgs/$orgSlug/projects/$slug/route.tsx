@@ -12,7 +12,7 @@ import {
   Info,
   ListChecks,
   MoreHorizontal,
-  Tags as TagsIcon,
+  Settings as SettingsIcon,
   Trash2,
   Users as UsersIcon,
   type LucideIcon
@@ -139,7 +139,7 @@ function ProjectHeader({
         github={project.github}
         callerRole={myRole}
       />
-      <ProjectMenu orgSlug={orgSlug} slug={slug} />
+      <ProjectMenu orgSlug={orgSlug} slug={slug} role={myRole} />
     </header>
   )
 }
@@ -217,15 +217,18 @@ function NameField({
 
 function ProjectMenu({
   orgSlug,
-  slug
+  slug,
+  role
 }: {
   orgSlug: string
   slug: string
+  role: Role
 }) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const isAdmin = role === "owner" || role === "admin"
 
   async function onDelete() {
     setDeleting(true)
@@ -254,16 +257,32 @@ function ProjectMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!confirming ? (
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setConfirming(true)
-            }}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            Delete project
-          </DropdownMenuItem>
+          <>
+            {isAdmin ? (
+              <DropdownMenuItem
+                onSelect={() =>
+                  navigate({
+                    to: "/orgs/$orgSlug/projects/$slug/settings",
+                    params: { orgSlug, slug }
+                  })
+                }
+                className="cursor-pointer"
+              >
+                <SettingsIcon className="size-4" strokeWidth={1.75} />
+                Project settings
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                setConfirming(true)
+              }}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <Trash2 className="size-4" strokeWidth={1.75} />
+              Delete project
+            </DropdownMenuItem>
+          </>
         ) : (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
@@ -294,19 +313,17 @@ function ProjectMenu({
   )
 }
 
-type TabKey = "tickets" | "about" | "members" | "tags"
+type TabKey = "tickets" | "about" | "members"
 type TabDef = {
   key: TabKey
   to:
     | "/orgs/$orgSlug/projects/$slug"
     | "/orgs/$orgSlug/projects/$slug/about"
     | "/orgs/$orgSlug/projects/$slug/members"
-    | "/orgs/$orgSlug/projects/$slug/tags"
   label: string
   icon: typeof ListChecks
   exact: boolean
   countFor?: "tickets" | "members"
-  adminOnly?: boolean
 }
 
 const TABS: ReadonlyArray<TabDef> = [
@@ -332,14 +349,6 @@ const TABS: ReadonlyArray<TabDef> = [
     icon: UsersIcon,
     exact: false,
     countFor: "members"
-  },
-  {
-    key: "tags",
-    to: "/orgs/$orgSlug/projects/$slug/tags",
-    label: "Tags",
-    icon: TagsIcon,
-    exact: false,
-    adminOnly: true
   }
 ]
 
@@ -353,12 +362,6 @@ function TabsNav({
   project: ProjectDetailType
 }) {
   const location = useLocation()
-  const me = useAtomValue(meAtom)
-  const myRole: Role | null = Result.isSuccess(me)
-    ? (project.members.find((m) => m.id === me.value.id)?.role ?? null)
-    : null
-  const isAdmin = myRole === "owner" || myRole === "admin"
-  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin)
   const base = `/orgs/${orgSlug}/projects/${slug}`
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
@@ -372,7 +375,7 @@ function TabsNav({
     : null
 
   const isActive = (key: TabKey): boolean => {
-    const t = visibleTabs.find((x) => x.key === key)!
+    const t = TABS.find((x) => x.key === key)!
     const target = t.to
       .replace("$orgSlug", orgSlug)
       .replace("$slug", slug)
@@ -386,7 +389,7 @@ function TabsNav({
   }
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
-  const items: ReadonlyArray<SegmentedItem<TabKey>> = visibleTabs.map((t) => ({
+  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label,
     icon: t.icon,
@@ -405,7 +408,7 @@ function TabsNav({
         layoutId={`project-tabs-${slug}`}
         isActive={isActive}
         renderItem={(item, content, { active }) => {
-          const def = visibleTabs.find((t) => t.key === item.key)!
+          const def = TABS.find((t) => t.key === item.key)!
           if (item.key === "tickets" && ticketsCount !== null) {
             return (
               <Link

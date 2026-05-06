@@ -664,16 +664,13 @@ function FiltersMenu({
                       toggleTag(tag.name)
                     }}
                     aria-pressed={selected}
-                    className={cn(
-                      "rounded-md outline-none transition-transform duration-100 active:scale-[0.97]",
-                      "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
-                      selected && "ring-2 ring-foreground/60"
-                    )}
+                    className="rounded-md outline-none transition-transform duration-100 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
                   >
                     <TagChip
                       name={tag.name}
                       color={tag.color ?? null}
                       size="xs"
+                      intensity={selected ? "strong" : "soft"}
                       className={cn(!selected && "opacity-60")}
                     />
                   </button>
@@ -894,6 +891,12 @@ function Row({
           ticket={ticket}
           stopPropagation
         />
+        <PriorityButton
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          stopPropagation
+        />
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
@@ -908,7 +911,6 @@ function Row({
           className="hidden sm:inline-flex"
         />
         <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
-        <PriorityChip priority={ticket.priority} className="hidden sm:inline-flex" />
         <TypeButton
           orgSlug={orgSlug}
           slug={slug}
@@ -1024,6 +1026,11 @@ function ExpandedDetail({
         <div className="min-w-0 flex-1">
           <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <PriorityBadgeTrigger
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={ticket}
+            />
             <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
             <AssigneePicker
               orgSlug={orgSlug}
@@ -1063,8 +1070,6 @@ function ExpandedDetail({
         />
       </div>
 
-      <PriorityPicker orgSlug={orgSlug} slug={slug} ticket={ticket} />
-
       <TagEditor
         orgSlug={orgSlug}
         slug={slug}
@@ -1085,49 +1090,6 @@ function ExpandedDetail({
           autoFocus={autoFocusBody}
         />
       </div>
-    </div>
-  )
-}
-
-function PriorityPicker({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: { id: TicketId; priority: TicketPriority }
-}) {
-  const update = useAtomSet(updateTicketAtom)
-  const items: ReadonlyArray<SegmentedItem<TicketPriority>> = PRIORITY_ORDER.map(
-    (key) => ({
-      key,
-      label: PRIORITY_META[key].label,
-      icon: PRIORITY_META[key].icon
-    })
-  )
-  return (
-    <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span>Update priority to:</span>
-      <SegmentedTabs
-        items={items}
-        layoutId={`ticket-${ticket.id}-priority`}
-        variant="inline"
-        isActive={(k) => k === ticket.priority}
-        renderItem={(item, content, { active }) => (
-          <button
-            type="button"
-            onClick={() => {
-              if (item.key === ticket.priority) return
-              update({ orgSlug, slug, id: ticket.id, priority: item.key })
-            }}
-            aria-pressed={active}
-            className={SEGMENTED_ITEM_CLASS(active, "inline")}
-          >
-            {content}
-          </button>
-        )}
-      />
     </div>
   )
 }
@@ -1591,25 +1553,133 @@ function StatusButton({
   )
 }
 
-function PriorityChip({
-  priority,
-  className
+function PriorityButton({
+  orgSlug,
+  slug,
+  ticket,
+  stopPropagation
 }: {
-  priority: TicketPriority
-  className?: string
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; priority: TicketPriority }
+  stopPropagation?: boolean
 }) {
-  const meta = PRIORITY_META[priority]
+  const update = useAtomSet(updateTicketAtom)
+  const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   return (
-    <Badge
-      tone={meta.tone}
-      size="xs"
-      className={cn("font-mono", className)}
-      aria-label={`Priority: ${meta.label}`}
-    >
-      <Icon className="size-3" strokeWidth={1.75} />
-      {meta.label}
-    </Badge>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Hitbox
+          mode="inline"
+          margin="2"
+          onClick={(e) => stopPropagation && e.stopPropagation()}
+          aria-label={`Priority: ${meta.label}. Click to change.`}
+          title={meta.label}
+        >
+          <span
+            className={cn(
+              "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
+              meta.className
+            )}
+          >
+            <Icon className="size-4" strokeWidth={1.75} />
+          </span>
+        </Hitbox>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {PRIORITY_ORDER.map((p) => {
+          const m = PRIORITY_META[p]
+          const PIcon = m.icon
+          return (
+            <DropdownMenuItem
+              key={p}
+              onSelect={() => {
+                if (p === ticket.priority) return
+                update({ orgSlug, slug, id: ticket.id, priority: p })
+              }}
+              className="cursor-pointer"
+            >
+              <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
+              {m.label}
+              {p === ticket.priority && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function PriorityBadgeTrigger({
+  orgSlug,
+  slug,
+  ticket,
+  className
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; priority: TicketPriority }
+  className?: string
+}) {
+  const update = useAtomSet(updateTicketAtom)
+  const meta = PRIORITY_META[ticket.priority]
+  const Icon = meta.icon
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Badge
+          asChild
+          tone={meta.tone}
+          size="xs"
+          className={cn("cursor-pointer font-mono", className)}
+        >
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Priority: ${meta.label}. Click to change.`}
+          >
+            <Icon strokeWidth={1.75} />
+            {meta.label.toLowerCase()}
+          </button>
+        </Badge>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-40"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {PRIORITY_ORDER.map((p) => {
+          const m = PRIORITY_META[p]
+          const PIcon = m.icon
+          return (
+            <DropdownMenuItem
+              key={p}
+              onSelect={() => {
+                if (p === ticket.priority) return
+                update({ orgSlug, slug, id: ticket.id, priority: p })
+              }}
+              className="cursor-pointer"
+            >
+              <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
+              {m.label}
+              {p === ticket.priority && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
