@@ -78,8 +78,10 @@ function checkOrgFrontmatter(
     return
   }
   if (onDisk !== expected) {
+    const onDiskSafe =
+      typeof onDisk === "string" ? onDisk : JSON.stringify(onDisk)
     console.warn(
-      `[markdown] project '${slug}' frontmatter org='${String(onDisk)}' does not match request org='${expected}'.`
+      `[markdown] project '${slug}' frontmatter org='${onDiskSafe}' does not match request org='${expected}'.`
     )
   }
 }

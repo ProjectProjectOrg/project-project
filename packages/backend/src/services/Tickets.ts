@@ -246,9 +246,9 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
 
         if (input.assignees !== undefined) {
           const existingSet = new Set(existing.assignees)
-          for (const id of input.assignees) {
-            if (!existingSet.has(id)) {
-              yield* projects.requireMember(orgSlug, id, slug)
+          for (const assigneeId of input.assignees) {
+            if (!existingSet.has(assigneeId)) {
+              yield* projects.requireMember(orgSlug, assigneeId, slug)
             }
           }
         }
