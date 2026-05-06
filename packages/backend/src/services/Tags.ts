@@ -110,7 +110,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       orgSlug: string,
       userId: string,
       slug: string
-    ): Effect.Effect<ReadonlyArray<Tag>, NotFound | Forbidden> =>
+    ): Effect.Effect<ReadonlyArray<Tag>, NotFound> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const projectId = yield* projectIdFromSlug(slug)

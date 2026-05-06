@@ -383,7 +383,6 @@ const TagsGroup = HttpApiGroup.make("tags")
       .addSuccess(Schema.Array(Tag))
       .addError(Unauthorized)
       .addError(NotFound)
-      .addError(Forbidden)
   )
   .add(
     HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tags")
