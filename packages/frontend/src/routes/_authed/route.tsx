@@ -1,13 +1,8 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import {
-  createFileRoute,
-  Link,
-  Navigate,
-  Outlet,
-  useParams
-} from "@tanstack/react-router"
+import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
+import { authClient } from "@/services/AuthClient"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -56,8 +51,8 @@ function Shell({ user }: { user: User }) {
 }
 
 function Sidebar() {
-  const params = useParams({ strict: false }) as { orgSlug?: string }
-  const orgSlug = params.orgSlug
+  const { data: activeOrg } = authClient.useActiveOrganization()
+  const orgSlug = activeOrg?.slug
 
   return (
     <aside className="row-span-2 flex flex-col">
