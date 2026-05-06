@@ -14,6 +14,7 @@ import { PageContainer, PageHeader } from "@/components/page"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
+import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
   component: Projects,
@@ -35,8 +36,8 @@ function Projects() {
   return (
     <PageContainer>
       <PageHeader>
-        <h1>Projects</h1>
-        <p>Type a name and press Enter to create a project.</p>
+        <h1>{m.projects_page_title()}</h1>
+        <p>{m.projects_page_subtitle()}</p>
       </PageHeader>
 
       <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
@@ -51,10 +52,14 @@ function Projects() {
         {Result.matchWithError(list, {
           onInitial: () => <ListSkeleton />,
           onError: (error) => (
-            <ListMessage>Couldn't load projects: {error._tag}</ListMessage>
+            <ListMessage>
+              {m.projects_list_load_error({ tag: error._tag })}
+            </ListMessage>
           ),
           onDefect: (defect) => (
-            <ListMessage>Something went wrong: {String(defect)}</ListMessage>
+            <ListMessage>
+              {m.projects_list_defect({ defect: String(defect) })}
+            </ListMessage>
           ),
           onSuccess: ({ value }) =>
             value.length === 0 ? (
@@ -97,7 +102,9 @@ function CreateRow({
       await create({ orgSlug, name: trimmed })
       setName("")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project")
+      setError(
+        err instanceof Error ? err.message : m.projects_create_error_fallback()
+      )
     } finally {
       setSubmitting(false)
     }
@@ -114,8 +121,8 @@ function CreateRow({
           onChange={(e) => setName(e.target.value)}
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
-          placeholder="New project name…"
-          aria-label="New project name"
+          placeholder={m.projects_create_name_placeholder()}
+          aria-label={m.projects_create_name_aria_label()}
           disabled={submitting}
           maxLength={120}
         />
@@ -195,11 +202,9 @@ function EmptyProjects() {
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="text-sm font-medium">No projects yet</div>
+      <div className="text-sm font-medium">{m.projects_list_empty()}</div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        Type a name above and press Enter to create your first project.
-        Everything is stored as markdown on disk — yours to grep, edit, or feed
-        to an AI.
+        {m.projects_list_empty_body()}
       </p>
     </div>
   )

@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils"
 import { slugify } from "@/lib/slug"
 import { STATUS_META } from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
 import type {
   GithubConnection,
   TicketDetail,
@@ -106,16 +107,16 @@ export function CreateBranchFields({
         typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
       setError(
         tag === "BranchExists"
-          ? `Branch "${name.trim()}" already exists.`
+          ? m.git_branch_exists_error({ name: name.trim() })
           : tag === "BranchProtected"
-            ? "Branch name is protected."
+            ? m.git_branch_protected_error()
             : tag === "GitHubTokenExpired"
-              ? "GitHub token expired."
+              ? m.git_github_token_expired_error()
               : tag === "GitHubScopeInsufficient"
-                ? "GitHub scope insufficient."
+                ? m.git_github_scope_insufficient_error()
                 : tag === "RepoGone"
-                  ? "Repo not accessible."
-                  : "Couldn't create branch."
+                  ? m.git_repo_gone_error()
+                  : m.git_create_branch_error()
       )
       setBusy(false)
     }
@@ -125,7 +126,7 @@ export function CreateBranchFields({
     <>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <label className="block text-xs">
-          <span className="text-muted-foreground">Branch name</span>
+          <span className="text-muted-foreground">{m.git_branch_name_label()}</span>
           <Input
             autoFocus
             value={name}
@@ -136,7 +137,7 @@ export function CreateBranchFields({
           />
         </label>
         <label className="block text-xs">
-          <span className="text-muted-foreground">Base branch</span>
+          <span className="text-muted-foreground">{m.git_base_branch_label()}</span>
           <BaseBranchCombobox
             orgSlug={orgSlug}
             slug={slug}
@@ -162,7 +163,7 @@ export function CreateBranchFields({
             onClick={() => void submit()}
             disabled={busy || !name.trim()}
           >
-            {busy ? "Creating…" : "Create branch"}
+            {busy ? m.git_create_branch_in_progress() : m.git_create_branch_button()}
           </Button>
         </div>
       </div>
@@ -182,7 +183,7 @@ function StatusPicker({
   const segmented = STATUS_KEYS.length <= STATUS_SEGMENTED_THRESHOLD
   return (
     <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span>Update status to:</span>
+      <span>{m.git_update_status_label()}</span>
       {segmented ? (
         <StatusInlinePills
           value={value}
@@ -258,7 +259,7 @@ function StatusDropdown({
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Status: ${current.label}. Click to change.`}
+          aria-label={m.git_status_select_aria_label({ status: current.label })}
           className={cn(
             "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
             "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
@@ -352,16 +353,16 @@ function BaseBranchCombobox({
       >
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search branches…"
+            placeholder={m.git_search_branches_placeholder()}
             value={search}
             onValueChange={setSearch}
             className="h-8"
           />
           <CommandList>
             {loading ? (
-              <CommandEmpty>Loading…</CommandEmpty>
+              <CommandEmpty>{m.git_branches_loading()}</CommandEmpty>
             ) : items.length === 0 ? (
-              <CommandEmpty>No branches found.</CommandEmpty>
+              <CommandEmpty>{m.git_no_branches_found()}</CommandEmpty>
             ) : (
               <CommandGroup>
                 {items.map((b) => (
@@ -384,7 +385,7 @@ function BaseBranchCombobox({
                     <span className="truncate">{b.name}</span>
                     {b.isProtected && (
                       <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                        protected
+                        {m.git_branch_protected_pill()}
                       </span>
                     )}
                   </CommandItem>

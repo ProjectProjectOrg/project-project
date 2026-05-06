@@ -1,6 +1,8 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
+import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   Card,
   CardContent,
@@ -14,7 +16,7 @@ import { PageContainer, PageHeader } from "@/components/page"
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
   loader: () => ({
-    crumb: { type: "static" as const, label: "Profile", to: "/profile" }
+    crumb: { type: "static" as const, label: m.profile_crumb_label(), to: "/profile" }
   })
 })
 
@@ -26,14 +28,14 @@ function Profile() {
   return (
     <PageContainer>
       <PageHeader>
-        <h1>Profile</h1>
-        <p>Account details and security settings.</p>
+        <h1>{m.profile_page_title()}</h1>
+        <p>{m.profile_page_subtitle()}</p>
       </PageHeader>
 
       <Card>
         <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>From your GitHub identity.</CardDescription>
+          <CardTitle>{m.profile_section_account_title()}</CardTitle>
+          <CardDescription>{m.profile_section_account_description()}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {/* Identity hero — avatar + name + the @username/email pair, same
@@ -56,22 +58,24 @@ function Profile() {
           </div>
 
           <div className="grid gap-3 border-t border-border pt-4 text-sm">
-            <Row label="User ID" value={user.id} mono />
-            <Row label="Joined" value={user.createdAt.toLocaleDateString()} />
+            <Row label={m.profile_user_id_label()} value={user.id} mono />
+            <Row
+              label={m.profile_joined_label()}
+              value={user.createdAt.toLocaleDateString(getLocale())}
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Security</CardTitle>
+          <CardTitle>{m.profile_section_security_title()}</CardTitle>
           <CardDescription>
-            Passkeys and two-factor will live here once Better Auth's plugins
-            are wired up.
+            {m.profile_section_security_description()}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Nothing to configure yet.
+          {m.profile_section_security_empty()}
         </CardContent>
       </Card>
     </PageContainer>

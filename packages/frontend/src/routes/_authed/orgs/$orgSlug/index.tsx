@@ -6,6 +6,7 @@ import { projectsListAtom } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type { Project } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
@@ -19,16 +20,16 @@ function Dashboard() {
   const { orgSlug } = Route.useParams()
   const me = useAtomValue(meAtom)
   const list = useAtomValue(projectsListAtom(orgSlug))
-  const name = Result.isSuccess(me) ? me.value.name.split(" ")[0] : "there"
+  const name = Result.isSuccess(me)
+    ? me.value.name.split(" ")[0]
+    : m.org_dashboard_greeting_fallback_name()
   const greeting = greet()
 
   return (
     <PageContainer>
       <PageHeader>
-        <h1>
-          {greeting}, {name}.
-        </h1>
-        <p>Pick up where you left off, or start something new.</p>
+        <h1>{m.org_dashboard_greeting_line({ greeting, name })}</h1>
+        <p>{m.org_dashboard_subtitle()}</p>
       </PageHeader>
 
       {Result.matchWithError(list, {
@@ -48,10 +49,10 @@ function Dashboard() {
 
 function greet(): string {
   const h = new Date().getHours()
-  if (h < 5) return "Working late"
-  if (h < 12) return "Good morning"
-  if (h < 18) return "Good afternoon"
-  return "Good evening"
+  if (h < 5) return m.org_dashboard_greeting_late()
+  if (h < 12) return m.org_dashboard_greeting_morning()
+  if (h < 18) return m.org_dashboard_greeting_afternoon()
+  return m.org_dashboard_greeting_evening()
 }
 
 function RecentProjects({
@@ -71,14 +72,14 @@ function RecentProjects({
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold tracking-tight">
-          Recent projects
+          {m.org_dashboard_recent_projects_heading()}
         </h2>
         <Link
           to="/orgs/$orgSlug/projects"
           params={{ orgSlug }}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          All projects
+          {m.org_dashboard_all_projects_link()}
           <ArrowRight className="size-3.5" strokeWidth={1.75} />
         </Link>
       </div>
@@ -92,15 +93,17 @@ function RecentProjects({
 
       {hasMore && (
         <p className="text-xs text-muted-foreground">
-          {sorted.length - top.length} more — see{" "}
+          {m.org_dashboard_more_projects_prefix({
+            count: sorted.length - top.length
+          })}{" "}
           <Link
             to="/orgs/$orgSlug/projects"
             params={{ orgSlug }}
             className="underline-offset-2 hover:underline"
           >
-            all projects
+            {m.org_dashboard_more_projects_link()}
           </Link>
-          .
+          {m.org_dashboard_more_projects_suffix()}
         </p>
       )}
     </section>
@@ -139,7 +142,9 @@ function ProjectTile({
         </div>
       </div>
       <div className="text-xs text-muted-foreground">
-        Created {formatRelative(project.createdAt)}
+        {m.org_dashboard_project_created_label({
+          when: formatRelative(project.createdAt)
+        })}
       </div>
     </Link>
   )
@@ -166,9 +171,11 @@ function NewProjectTile({
         <Plus className="size-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">New project</div>
+        <div className="truncate text-sm font-medium">
+          {m.org_dashboard_new_project_tile_title()}
+        </div>
         <div className="truncate text-xs text-muted-foreground">
-          Spin up a fresh markdown workspace
+          {m.org_dashboard_new_project_tile_subtitle()}
         </div>
       </div>
     </Link>
@@ -189,11 +196,11 @@ function NewProjectCTA({ orgSlug }: { orgSlug: string }) {
         <Plus className="size-5" strokeWidth={1.75} />
       </div>
       <div>
-        <div className="text-sm font-medium">Create your first project</div>
+        <div className="text-sm font-medium">
+          {m.org_dashboard_first_project_cta_title()}
+        </div>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-          Markdown-first project management. Tickets, members, and project
-          context all live as files on disk — yours to grep, edit, or feed to an
-          AI.
+          {m.org_dashboard_first_project_cta_body()}
         </p>
       </div>
     </Link>

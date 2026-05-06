@@ -20,6 +20,7 @@ import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
 import { Button } from "@/components/ui/button"
 import { InlineForm } from "@/components/ui/inline-form"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type {
   GitState,
   GithubConnection,
@@ -80,10 +81,10 @@ export function TicketGitChip({
         tone="amber"
         size="xs"
         className={cn(pulse)}
-        title={`Branch "${state.name}" not on remote`}
+        title={m.git_stale_branch_title({ name: state.name })}
       >
         <AlertTriangle strokeWidth={1.75} />
-        stale
+        {m.git_stale_branch_pill()}
       </Badge>
     )
   }
@@ -212,7 +213,7 @@ function PanelForState({
             previews={{
               create: (
                 <span className="text-xs text-muted-foreground">
-                  Create a new branch from{" "}
+                  {m.git_create_branch_preview_prefix()}{" "}
                   <span className="font-mono text-foreground">
                     {baseBranch}
                   </span>
@@ -220,16 +221,16 @@ function PanelForState({
               ),
               connect: (
                 <span className="text-xs text-muted-foreground">
-                  Attach an existing branch from this repo
+                  {m.git_connect_branch_preview()}
                 </span>
               )
             }}
           >
-            <span className="text-xs text-muted-foreground">No branch yet.</span>
+            <span className="text-xs text-muted-foreground">{m.git_no_branch_yet()}</span>
           </InlineForm.Display>
           <InlineForm.Actions>
             <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
-              Create branch
+              {m.git_create_branch_button()}
             </InlineForm.Trigger>
             <InlineForm.Trigger
               action="connect"
@@ -237,7 +238,7 @@ function PanelForState({
               variant="tertiary"
               leadingIcon={GitBranch}
             >
-              Connect branch
+              {m.git_connect_branch_button()}
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
@@ -277,11 +278,11 @@ function PanelForState({
                 target="_blank"
                 rel="noreferrer"
               >
-                Open PR
+                {m.git_open_pr_button()}
               </a>
             </Button>
             <InlineForm.Trigger action="clear" size="sm" variant="ghost">
-              Clear
+              {m.git_clear_branch_button()}
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
@@ -326,7 +327,7 @@ function PanelForState({
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="merged" />
           <span className="text-xs text-muted-foreground">
-            merged · ticket auto-set to done
+            {m.git_pr_merged_status_note()}
           </span>
         </div>
       </div>
@@ -353,7 +354,7 @@ function PanelForState({
               target="_blank"
               rel="noreferrer"
             >
-              Open new PR
+              {m.git_open_new_pr_button()}
             </a>
           </Button>
         </div>
@@ -369,12 +370,12 @@ function PanelForState({
           <InlineForm.Display className={cn(pulse)}>
             <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
               <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-              Branch <span className="font-mono">{state.name}</span> not on remote.
+              {m.git_stale_branch_prefix()} <span className="font-mono">{state.name}</span> {m.git_stale_branch_suffix()}
             </span>
           </InlineForm.Display>
           <InlineForm.Actions>
             <InlineForm.Trigger action="clear" size="sm" variant="ghost">
-              Clear
+              {m.git_clear_branch_button()}
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
@@ -420,7 +421,7 @@ export function BranchChip({
           {displayName ?? name}
           <ArrowUpRight className="size-3" strokeWidth={1.75} />
         </a>
-        <CopyButton value={name} copyLabel="Copy branch name" />
+        <CopyButton value={name} copyLabel={m.git_copy_branch_name_label()} />
       </span>
     )
   }
@@ -440,7 +441,7 @@ export function BranchChip({
         {displayName ?? name}
         <ArrowUpRight className="size-3" strokeWidth={1.75} />
       </a>
-      <CopyButton value={name} copyLabel="Copy branch name" />
+      <CopyButton value={name} copyLabel={m.git_copy_branch_name_label()} />
     </span>
   )
 }
@@ -483,7 +484,7 @@ export function PrLink({
             strokeWidth={0}
           />
         )}
-        {tone === "draft" && <span>draft</span>}
+        {tone === "draft" && <span>{m.git_pr_draft_label()}</span>}
       </a>
     </Badge>
   )

@@ -21,6 +21,7 @@ import { createTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_META } from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
 import type { TicketType } from "@projectproject/shared"
 
 export function CreateTicketRow({
@@ -68,7 +69,7 @@ export function CreateTicketRow({
         replace: true
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create ticket")
+      setError(err instanceof Error ? err.message : m.tickets_create_error_fallback())
     } finally {
       setSubmitting(false)
     }
@@ -97,7 +98,7 @@ export function CreateTicketRow({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={`Type: ${TYPE_META[type].label}. Click to change.`}
+                aria-label={m.tickets_create_type_aria_label({ type: TYPE_META[type].label })}
                 className={cn(
                   "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
                   expanded
@@ -143,8 +144,8 @@ export function CreateTicketRow({
           onChange={(e) => setTitle(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder="New ticket title…"
-          aria-label="New ticket title"
+          placeholder={m.tickets_create_title_placeholder()}
+          aria-label={m.tickets_create_title_aria_label()}
           disabled={submitting}
           maxLength={200}
         />

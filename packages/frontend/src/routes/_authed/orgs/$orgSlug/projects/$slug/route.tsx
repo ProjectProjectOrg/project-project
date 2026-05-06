@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { PageContainer } from "@/components/page"
+import { m } from "@/paraglide/messages"
 import { ProjectContext } from "./-context"
 import type {
   Ticket,
@@ -60,7 +61,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     crumb: [
       {
         type: "static" as const,
-        label: "Projects",
+        label: m.chrome_sidebar_projects(),
         to: "/orgs/$orgSlug/projects",
         params: { orgSlug: params.orgSlug }
       },
@@ -85,10 +86,12 @@ function ProjectLayout() {
           error._tag === "NotFound" ? (
             <NotFoundCard slug={slug} />
           ) : (
-            <ErrorCard message={`Couldn't load project: ${error._tag}`} />
+            <ErrorCard
+              message={m.project_detail_load_error({ tag: error._tag })}
+            />
           ),
         onDefect: (defect) => (
-          <ErrorCard message={`Something went wrong: ${String(defect)}`} />
+          <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
         ),
         onSuccess: ({ value }) => (
           <ProjectContext.Provider value={value}>
@@ -209,7 +212,7 @@ function NameField({
       onKeyDown={handleKey}
       className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
       maxLength={120}
-      aria-label="Project name"
+      aria-label={m.project_detail_name_aria_label()}
     />
   )
 }
@@ -245,7 +248,7 @@ function ProjectMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Project actions"
+          aria-label={m.project_detail_actions_aria_label()}
           className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
         >
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
@@ -261,12 +264,12 @@ function ProjectMenu({
             className="cursor-pointer text-destructive focus:text-destructive"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />
-            Delete project
+            {m.project_detail_delete_button()}
           </DropdownMenuItem>
         ) : (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
-              Delete this project? This can't be undone.
+              {m.project_detail_delete_confirm_prompt()}
             </p>
             <div className="flex gap-1 px-1 pb-1">
               <button
@@ -275,7 +278,9 @@ function ProjectMenu({
                 onClick={() => void onDelete()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting
+                  ? m.project_detail_delete_in_progress()
+                  : m.project_detail_delete_confirm_button()}
               </button>
               <button
                 type="button"
@@ -283,7 +288,7 @@ function ProjectMenu({
                 onClick={() => setConfirming(false)}
                 className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                Cancel
+                {m.common_cancel_button()}
               </button>
             </div>
           </div>
@@ -300,7 +305,7 @@ type TabDef = {
     | "/orgs/$orgSlug/projects/$slug"
     | "/orgs/$orgSlug/projects/$slug/about"
     | "/orgs/$orgSlug/projects/$slug/members"
-  label: string
+  label: () => string
   icon: typeof ListChecks
   exact: boolean
   countFor?: "tickets" | "members"
@@ -310,7 +315,7 @@ const TABS: ReadonlyArray<TabDef> = [
   {
     key: "tickets",
     to: "/orgs/$orgSlug/projects/$slug",
-    label: "Tickets",
+    label: () => m.project_detail_tab_tickets(),
     icon: ListChecks,
     exact: true,
     countFor: "tickets"
@@ -318,14 +323,14 @@ const TABS: ReadonlyArray<TabDef> = [
   {
     key: "about",
     to: "/orgs/$orgSlug/projects/$slug/about",
-    label: "About",
+    label: () => m.project_detail_tab_about(),
     icon: Info,
     exact: false
   },
   {
     key: "members",
     to: "/orgs/$orgSlug/projects/$slug/members",
-    label: "Members",
+    label: () => m.project_detail_tab_members(),
     icon: UsersIcon,
     exact: false,
     countFor: "members"
@@ -371,7 +376,7 @@ function TabsNav({
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
-    label: t.label,
+    label: t.label(),
     icon: t.icon,
     badge:
       t.countFor === "tickets"
@@ -405,7 +410,7 @@ function TabsNav({
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
                   <ListChecks className="size-3.5" strokeWidth={1.75} />
-                  <span>Tickets</span>
+                  <span>{m.project_detail_tab_tickets()}</span>
                   <span
                     className={cn(
                       "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
@@ -486,7 +491,7 @@ function summarize(tickets: ReadonlyArray<Ticket>): string | null {
     else if (t.status === "in_progress") inProgress++
     else done++
   }
-  return `${todo} todo · ${inProgress} in progress · ${done} done`
+  return m.project_detail_tickets_summary({ todo, inProgress, done })
 }
 
 function Skeleton() {
@@ -503,10 +508,11 @@ function NotFoundCard({ slug }: { slug: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Project not found</CardTitle>
+        <CardTitle>{m.project_detail_not_found_title()}</CardTitle>
         <CardDescription>
-          No project at <span className="font-mono">/{slug}</span>. It may have
-          been removed, or you may not have access.
+          {m.project_detail_not_found_prefix()}{" "}
+          <span className="font-mono">/{slug}</span>
+          {m.project_detail_not_found_suffix()}
         </CardDescription>
       </CardHeader>
     </Card>
@@ -517,7 +523,7 @@ function ErrorCard({ message }: { message: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Couldn't load project</CardTitle>
+        <CardTitle>{m.project_detail_load_error_title()}</CardTitle>
         <CardDescription>{message}</CardDescription>
       </CardHeader>
     </Card>

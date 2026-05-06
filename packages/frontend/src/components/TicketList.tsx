@@ -26,6 +26,8 @@ import {
   X
 } from "lucide-react"
 import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   deleteTicketAtom,
   ticketAtom,
@@ -60,23 +62,39 @@ import type {
 } from "@projectproject/shared"
 
 const SORTS = {
-  id: { label: "ID", compare: (a: Ticket, b: Ticket) => idNum(a) - idNum(b) },
+  id: {
+    label: () => m.tickets_sort_id(),
+    compare: (a: Ticket, b: Ticket) => idNum(a) - idNum(b)
+  },
   updated: {
-    label: "Recently updated",
+    label: () => m.tickets_sort_updated(),
     compare: (a: Ticket, b: Ticket) =>
       b.updatedAt.getTime() - a.updatedAt.getTime()
   },
   created: {
-    label: "Recently created",
+    label: () => m.tickets_sort_created(),
     compare: (a: Ticket, b: Ticket) =>
       b.createdAt.getTime() - a.createdAt.getTime()
   },
   title: {
-    label: "Title",
+    label: () => m.tickets_sort_title(),
     compare: (a: Ticket, b: Ticket) => a.title.localeCompare(b.title)
   }
 } as const
 type SortKey = keyof typeof SORTS
+
+const STATUS_LABELS: Record<TicketStatus, () => string> = {
+  todo: () => m.tickets_status_todo(),
+  in_progress: () => m.tickets_status_in_progress(),
+  done: () => m.tickets_status_done()
+}
+
+const TYPE_LABELS: Record<TicketType, () => string> = {
+  feat: () => m.tickets_type_feat(),
+  bug: () => m.tickets_type_bug(),
+  chore: () => m.tickets_type_chore(),
+  other: () => m.tickets_type_other()
+}
 
 function idNum(t: Ticket): number {
   return Number(t.id.slice(2))
@@ -184,10 +202,10 @@ export function TicketList({
             <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
-            <Empty>Couldn't load tickets: {error._tag}</Empty>
+            <Empty>{m.tickets_list_load_error({ error: error._tag })}</Empty>
           ),
           onDefect: (defect) => (
-            <Empty>Something went wrong: {String(defect)}</Empty>
+            <Empty>{m.tickets_list_defect({ defect: String(defect) })}</Empty>
           ),
           onSuccess: ({ value }) => (
             <FilteredList
@@ -335,14 +353,14 @@ function Toolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={() => onSearchFocusChange(true)}
           onBlur={() => onSearchFocusChange(false)}
-          placeholder="Search tickets by title or id…"
-          aria-label="Search tickets"
+          placeholder={m.tickets_search_placeholder()}
+          aria-label={m.tickets_search_aria_label()}
         />
         {query ? (
           <button
             type="button"
             onClick={() => onQueryChange("")}
-            aria-label="Clear search"
+            aria-label={m.tickets_search_clear_aria_label()}
             className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="size-3.5" strokeWidth={1.75} />
@@ -391,8 +409,8 @@ function Toolbar({
                 "hover:bg-destructive/15 hover:border-destructive/60",
                 "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
               )}
-              title="Clear all filters"
-              aria-label="Clear all filters"
+              title={m.tickets_filters_clear_all()}
+              aria-label={m.tickets_filters_clear_all()}
             >
               <X className="size-4 shrink-0" strokeWidth={1.75} />
             </motion.button>
@@ -421,10 +439,10 @@ function StatusChips({
   compact: boolean
 }) {
   const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
-    { key: "all", label: "All", badge: counts.all },
+    { key: "all", label: m.tickets_status_all(), badge: counts.all },
     ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
       key: s,
-      label: STATUS_META[s].label,
+      label: STATUS_LABELS[s](),
       icon: STATUS_META[s].icon,
       iconClassName: STATUS_META[s].className,
       badge: counts[s]
@@ -442,7 +460,12 @@ function StatusChips({
           onClick={() => onChange(item.key)}
           aria-pressed={active}
           aria-label={
-            compact ? `${item.label} (${counts[item.key]})` : undefined
+            compact
+              ? m.tickets_status_chip_aria_label({
+                  label: item.label,
+                  count: counts[item.key]
+                })
+              : undefined
           }
           className={SEGMENTED_ITEM_CLASS(active)}
         >
@@ -484,13 +507,15 @@ function FiltersMenu({
           )}
           aria-label={
             compact && activeCount > 0
-              ? `Filters (${activeCount} active)`
-              : "Filters"
+              ? m.tickets_filters_active_aria_label({ count: activeCount })
+              : m.tickets_filters_aria_label()
           }
           aria-pressed={active}
         >
           <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>Filters</CollapsingLabel>
+          <CollapsingLabel show={!compact}>
+            {m.tickets_filters_label()}
+          </CollapsingLabel>
           {activeCount > 0 && (
             <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
               {activeCount}
@@ -505,7 +530,7 @@ function FiltersMenu({
         className="w-56"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <SectionLabel>Type</SectionLabel>
+        <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -513,14 +538,14 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          All types
+          {m.tickets_filters_all_types()}
           {typeFilter === "all" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const meta = TYPE_META[t]
+          const TIcon = meta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -531,7 +556,7 @@ function FiltersMenu({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {typeFilter === t && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -540,7 +565,7 @@ function FiltersMenu({
         })}
 
         <div className="my-1 h-px bg-border" />
-        <SectionLabel>Assignee</SectionLabel>
+        <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -548,7 +573,7 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          Anyone
+          {m.tickets_filters_assignee_anyone()}
           {assigneeFilter === "all" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
@@ -562,7 +587,7 @@ function FiltersMenu({
             className="cursor-pointer"
           >
             <UserRound className="size-4" strokeWidth={1.75} />
-            Mine
+            {m.tickets_filters_assignee_mine()}
             {assigneeFilter === "mine" && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
@@ -575,24 +600,24 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          Unassigned
+          {m.tickets_filters_assignee_unassigned()}
           {assigneeFilter === "unassigned" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {members.length > 0 && <div className="my-1 h-px bg-border" />}
-        {members.map((m) => (
+        {members.map((member) => (
           <DropdownMenuItem
-            key={m.id}
+            key={member.id}
             onSelect={(e) => {
               e.preventDefault()
-              onAssigneeFilterChange(m.id)
+              onAssigneeFilterChange(member.id)
             }}
             className="cursor-pointer"
           >
-            <MemberAvatar member={m} size={20} />
-            <span className="truncate">{m.name}</span>
-            {assigneeFilter === m.id && (
+            <MemberAvatar member={member} size={20} />
+            <span className="truncate">{member.name}</span>
+            {assigneeFilter === member.id && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
           </DropdownMenuItem>
@@ -625,11 +650,11 @@ function SortMenu({
         <button
           type="button"
           className={TOOLBAR_BUTTON_CLASS}
-          aria-label={`Sort tickets (${SORTS[value].label})`}
+          aria-label={m.tickets_sort_aria_label({ label: SORTS[value].label() })}
         >
           <ArrowDownAZ className="size-4" strokeWidth={1.75} />
           <CollapsingLabel show={!compact}>
-            {SORTS[value].label}
+            {SORTS[value].label()}
           </CollapsingLabel>
           <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
         </button>
@@ -641,7 +666,7 @@ function SortMenu({
             onSelect={() => onChange(k)}
             className="cursor-pointer"
           >
-            {SORTS[k].label}
+            {SORTS[k].label()}
             {value === k && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
@@ -713,7 +738,7 @@ function FilteredList({
       return (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
           <span>
-            No tickets match{" "}
+            {m.tickets_no_search_matches_prefix()}{" "}
             <span className="font-mono text-foreground">"{query}"</span>.
           </span>
           <button
@@ -722,12 +747,12 @@ function FilteredList({
             className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground transition-colors hover:bg-accent"
           >
             <X className="size-3" strokeWidth={1.75} />
-            Clear search
+            {m.tickets_clear_search_button()}
           </button>
         </div>
       )
     }
-    return <Empty>No tickets match your filters.</Empty>
+    return <Empty>{m.tickets_no_filter_matches()}</Empty>
   }
 
   return (
@@ -866,12 +891,12 @@ function Expanded({
         ),
         onError: (error) => (
           <p className="text-sm text-muted-foreground">
-            Couldn't load detail: {error._tag}
+            {m.tickets_detail_load_error({ error: error._tag })}
           </p>
         ),
         onDefect: (defect) => (
           <p className="text-sm text-muted-foreground">
-            Something went wrong: {String(defect)}
+            {m.tickets_detail_defect({ defect: String(defect) })}
           </p>
         ),
         onSuccess: ({ value }) => (
@@ -928,19 +953,23 @@ function ExpandedDetail({
               members={members}
             />
             <span>·</span>
-            <span title={ticket.createdAt.toLocaleString()}>
-              created {ticket.createdAt.toLocaleDateString()}
+            <span title={ticket.createdAt.toLocaleString(getLocale())}>
+              {m.tickets_detail_created({
+                date: ticket.createdAt.toLocaleDateString(getLocale())
+              })}
             </span>
             <span>·</span>
-            <span title={ticket.updatedAt.toLocaleString()}>
-              updated {ticket.updatedAt.toLocaleDateString()}
+            <span title={ticket.updatedAt.toLocaleString(getLocale())}>
+              {m.tickets_detail_updated({
+                date: ticket.updatedAt.toLocaleDateString(getLocale())
+              })}
             </span>
           </div>
         </div>
         <SaveIndicator status={bodyStatus} />
         <ConfirmDeleteIcon
-          ariaLabel="Delete ticket"
-          message="Delete this ticket?"
+          ariaLabel={m.tickets_detail_delete_aria_label()}
+          message={m.tickets_detail_delete_confirm()}
           disabled={deleting}
           onConfirm={async () => {
             setDeleting(true)
@@ -1061,7 +1090,7 @@ function TitleField({
       onKeyDown={handleKey}
       className="-mx-1 w-full rounded bg-transparent px-1 text-base font-semibold tracking-tight outline-none ring-2 ring-ring/50"
       maxLength={200}
-      aria-label="Ticket title"
+      aria-label={m.tickets_title_aria_label()}
     />
   )
 }
@@ -1080,6 +1109,7 @@ function TypeBadgeTrigger({
   const update = useAtomSet(updateTicketAtom)
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1092,10 +1122,10 @@ function TypeBadgeTrigger({
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            aria-label={`Type: ${meta.label}. Click to change.`}
+            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
           >
             <Icon strokeWidth={1.75} />
-            {meta.label.toLowerCase()}
+            {typeLabel.toLowerCase()}
           </button>
         </Badge>
       </DropdownMenuTrigger>
@@ -1107,8 +1137,8 @@ function TypeBadgeTrigger({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const tMeta = TYPE_META[t]
+          const TIcon = tMeta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -1119,7 +1149,7 @@ function TypeBadgeTrigger({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {t === ticket.type && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -1145,6 +1175,7 @@ function TypeButton({
   const update = useAtomSet(updateTicketAtom)
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1152,12 +1183,12 @@ function TypeButton({
           mode="inline"
           margin="2"
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Type: ${meta.label}. Click to change.`}
+          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
           className={className}
         >
           <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
             <Icon className="size-3.5" strokeWidth={1.75} />
-            <span>{meta.label}</span>
+            <span>{typeLabel}</span>
           </span>
         </Hitbox>
       </DropdownMenuTrigger>
@@ -1168,8 +1199,8 @@ function TypeButton({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const tMeta = TYPE_META[t]
+          const TIcon = tMeta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -1180,7 +1211,7 @@ function TypeButton({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {t === ticket.type && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -1231,29 +1262,29 @@ function AssigneeMenuContent({
         className="cursor-pointer"
       >
         <UserRound className="size-4" strokeWidth={1.75} />
-        Unassigned
+        {m.tickets_assignee_unassigned()}
         {assignees.length === 0 && (
           <Check className="ml-auto size-3.5 text-muted-foreground" />
         )}
       </DropdownMenuItem>
       {members.length > 0 && <div className="my-1 h-px bg-border" />}
-      {members.map((m) => {
-        const selected = assignees.includes(m.id)
+      {members.map((member) => {
+        const selected = assignees.includes(member.id)
         return (
           <DropdownMenuItem
-            key={m.id}
+            key={member.id}
             onSelect={(e) => {
               e.preventDefault()
-              toggle(m.id)
+              toggle(member.id)
             }}
             className="cursor-pointer"
           >
-            <MemberAvatar member={m} size={20} />
+            <MemberAvatar member={member} size={20} />
             <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm">{m.name}</div>
-              {m.username && (
+              <div className="truncate text-sm">{member.name}</div>
+              {member.username && (
                 <div className="truncate font-mono text-[10px] text-muted-foreground">
-                  @{m.username}
+                  @{member.username}
                 </div>
               )}
             </div>
@@ -1279,20 +1310,20 @@ function AssigneePicker({
   members: ReadonlyArray<Member>
 }) {
   const resolved = ticket.assignees
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
+    .map((id) => members.find((member) => member.id === id))
+    .filter((member): member is Member => !!member)
   const label =
     resolved.length === 0
-      ? "Unassigned"
+      ? m.tickets_assignee_unassigned()
       : resolved.length === 1
         ? resolved[0].name
-        : `${resolved.length} people`
+        : m.tickets_assignee_count({ count: resolved.length })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Assignees: ${label}. Click to change.`}
+          aria-label={m.tickets_assignees_aria_label({ label })}
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
         >
           {resolved.length === 0 ? (
@@ -1329,14 +1360,14 @@ function AssigneeRowTrigger({
   className?: string
 }) {
   const resolved = ticket.assignees
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
+    .map((id) => members.find((member) => member.id === id))
+    .filter((member): member is Member => !!member)
   const label =
     resolved.length === 0
-      ? "Unassigned. Click to assign."
+      ? m.tickets_assignees_row_unassigned_aria_label()
       : resolved.length === 1
-        ? `Assigned to ${resolved[0].name}. Click to change.`
-        : `${resolved.length} people assigned. Click to change.`
+        ? m.tickets_assignees_row_one_aria_label({ name: resolved[0].name })
+        : m.tickets_assignees_row_many_aria_label({ count: resolved.length })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1384,6 +1415,7 @@ function StatusButton({
   const update = useAtomSet(updateTicketAtom)
   const meta = STATUS_META[ticket.status]
   const Icon = meta.icon
+  const statusLabel = STATUS_LABELS[ticket.status]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1391,8 +1423,8 @@ function StatusButton({
           mode="inline"
           margin="2"
           onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={`Status: ${meta.label}. Click to change.`}
-          title={meta.label}
+          aria-label={m.tickets_status_aria_label({ label: statusLabel })}
+          title={statusLabel}
         >
           <span
             className={cn(
@@ -1411,8 +1443,8 @@ function StatusButton({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(STATUS_META) as TicketStatus[]).map((status) => {
-          const m = STATUS_META[status]
-          const SIcon = m.icon
+          const sMeta = STATUS_META[status]
+          const SIcon = sMeta.icon
           return (
             <DropdownMenuItem
               key={status}
@@ -1422,8 +1454,11 @@ function StatusButton({
               }}
               className="cursor-pointer"
             >
-              <SIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
-              {m.label}
+              <SIcon
+                className={cn("size-4", sMeta.className)}
+                strokeWidth={1.75}
+              />
+              {STATUS_LABELS[status]()}
               {status === ticket.status && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -1438,11 +1473,11 @@ function StatusButton({
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const label =
     status === "saving"
-      ? "Saving…"
+      ? m.tickets_save_status_saving()
       : status === "dirty"
-        ? "Unsaved changes"
+        ? m.tickets_save_status_dirty()
         : status === "saved"
-          ? "Saved"
+          ? m.tickets_save_status_saved()
           : null
   if (!label) return null
   return (
@@ -1458,10 +1493,10 @@ function NoTicketsYet() {
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
         <ListChecks className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="text-sm font-medium">No tickets yet</div>
+      <div className="text-sm font-medium">{m.tickets_empty_title()}</div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        Type a title in the row above and press Enter. Each ticket becomes a
-        markdown file under <span className="font-mono">tickets/</span>.
+        {m.tickets_empty_hint_prefix()}{" "}
+        <span className="font-mono">tickets/</span>.
       </p>
     </div>
   )

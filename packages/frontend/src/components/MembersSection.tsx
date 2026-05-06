@@ -41,15 +41,16 @@ import {
 } from "@/components/ui/input-group"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
+import { m } from "@/paraglide/messages"
 import type { AssignableRole, Member, Role } from "@projectproject/shared"
 
 const ROLE_META: Record<
   Role,
-  { label: string; icon: typeof Crown; tone: BadgeTone }
+  { label: () => string; icon: typeof Crown; tone: BadgeTone }
 > = {
-  owner: { label: "Owner", icon: Crown, tone: "amber" },
-  admin: { label: "Admin", icon: ShieldCheck, tone: "blue" },
-  member: { label: "Member", icon: UserRound, tone: "muted" }
+  owner: { label: () => m.members_role_owner(), icon: Crown, tone: "amber" },
+  admin: { label: () => m.members_role_admin(), icon: ShieldCheck, tone: "blue" },
+  member: { label: () => m.members_role_member(), icon: UserRound, tone: "muted" }
 }
 
 export function MembersSection({
@@ -71,9 +72,9 @@ export function MembersSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Members</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{m.members_section_title()}</h2>
         <p className="text-xs text-muted-foreground">
-          DB-backed; mirrored to frontmatter as usernames.
+          {m.members_section_subtitle()}
         </p>
       </div>
 
@@ -139,7 +140,7 @@ function AddMemberRow({
       setError(
         err instanceof Error
           ? err.message
-          : "Couldn't add member — make sure they've signed in at least once."
+          : m.members_add_error_fallback()
       )
     } finally {
       setSubmitting(false)
@@ -158,8 +159,8 @@ function AddMemberRow({
           onChange={(e) => setEmail(e.target.value)}
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
-          placeholder="Email of an existing user…"
-          aria-label="Email to add as member"
+          placeholder={m.members_add_email_placeholder()}
+          aria-label={m.members_add_email_aria_label()}
           disabled={submitting}
         />
         <RoleSelect value={role} onChange={setRole} />
@@ -191,10 +192,10 @@ function RoleSelect({
         >
           <button
             type="button"
-            aria-label={`Role: ${meta.label}. Click to change.`}
+            aria-label={m.members_role_select_aria_label({ role: meta.label() })}
           >
             <Icon strokeWidth={1.75} />
-            {meta.label}
+            {meta.label()}
           </button>
         </Badge>
       </DropdownMenuTrigger>
@@ -209,7 +210,7 @@ function RoleSelect({
               className="cursor-pointer"
             >
               <RIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {m.label()}
               {r === value && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -247,7 +248,7 @@ function MemberRow({
           {member.name}
           {isSelf && (
             <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-              you
+              {m.members_self_indicator()}
             </span>
           )}
         </div>
@@ -263,7 +264,7 @@ function MemberRow({
       </div>
       <Badge tone={meta.tone} size="sm">
         <Icon strokeWidth={1.75} />
-        {meta.label}
+        {meta.label()}
       </Badge>
       <MemberMenu
         orgSlug={orgSlug}
@@ -319,7 +320,7 @@ function MemberMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Member actions"
+          aria-label={m.members_actions_aria_label()}
           className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
         >
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
@@ -329,7 +330,7 @@ function MemberMenu({
         {confirming ? (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
-              Remove {member.name} from this project?
+              {m.members_remove_confirm_prompt({ name: member.name })}
             </p>
             <div className="flex gap-1 px-1 pb-1">
               <button
@@ -338,7 +339,7 @@ function MemberMenu({
                 onClick={() => void onRemove()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {removing ? "Removing…" : "Remove"}
+                {removing ? m.members_remove_in_progress() : m.members_remove_button()}
               </button>
               <button
                 type="button"
@@ -346,7 +347,7 @@ function MemberMenu({
                 onClick={() => setConfirming(false)}
                 className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                Cancel
+                {m.common_cancel_button()}
               </button>
             </div>
           </div>
@@ -357,8 +358,12 @@ function MemberMenu({
                 {(["admin", "member"] as AssignableRole[])
                   .filter((r) => r !== member.role)
                   .map((r) => {
-                    const m = ROLE_META[r]
-                    const RIcon = m.icon
+                    const meta = ROLE_META[r]
+                    const RIcon = meta.icon
+                    const makeLabel =
+                      r === "admin"
+                        ? m.members_make_admin()
+                        : m.members_make_member()
                     return (
                       <DropdownMenuItem
                         key={r}
@@ -368,7 +373,7 @@ function MemberMenu({
                         className="cursor-pointer"
                       >
                         <RIcon className="size-4" strokeWidth={1.75} />
-                        Make {m.label.toLowerCase()}
+                        {makeLabel}
                       </DropdownMenuItem>
                     )
                   })}
@@ -384,7 +389,7 @@ function MemberMenu({
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
                 <Trash2 className="size-4" strokeWidth={1.75} />
-                Remove
+                {m.members_remove_button()}
               </DropdownMenuItem>
             )}
           </>

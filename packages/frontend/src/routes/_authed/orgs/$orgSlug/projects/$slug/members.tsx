@@ -2,13 +2,14 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
 import { MembersSection } from "@/components/MembersSection"
+import { m } from "@/paraglide/messages"
 import { useProject } from "./-context"
 import type { Member, Role } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/members")({
   component: MembersTab,
   loader: () => ({
-    crumb: { type: "static" as const, label: "Members" }
+    crumb: { type: "static" as const, label: m.project_detail_tab_members() }
   })
 })
 
