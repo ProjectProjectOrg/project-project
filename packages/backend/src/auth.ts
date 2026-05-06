@@ -66,7 +66,15 @@ import { betterAuth } from "better-auth"
 import { admin, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { account, session, user, verification } from "./db/schema"
+import {
+  account,
+  invitation,
+  member,
+  organization as organizationTable,
+  session,
+  user,
+  verification
+} from "./db/schema"
 
 // TODO: build a small Drizzle client just for Better Auth.
 const db = drizzle(process.env.DATABASE_URL!)
@@ -75,7 +83,15 @@ const db = drizzle(process.env.DATABASE_URL!)
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-    schema: { user, session, account, verification }
+    schema: {
+      user,
+      session,
+      account,
+      verification,
+      organization: organizationTable,
+      member,
+      invitation
+    }
   }),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
