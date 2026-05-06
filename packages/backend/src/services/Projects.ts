@@ -739,6 +739,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       update,
       remove,
       requireMember,
+      requireRole,
       addMember,
       updateMember,
       removeMember,
