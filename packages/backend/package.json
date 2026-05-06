@@ -12,6 +12,7 @@
     "test:watch": "bun --env-file=../../.env vitest",
     "migrate:orgs": "bun --env-file=../../.env scripts/migrate-orgs.ts",
     "migrate:relayout": "bun --env-file=../../.env scripts/relayout-data.ts",
+    "seed:org": "bun --env-file=../../.env scripts/seed-org.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
