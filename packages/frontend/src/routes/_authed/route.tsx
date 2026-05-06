@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
-import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import { LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
@@ -58,7 +58,6 @@ function Sidebar() {
       </div>
       <nav className="flex flex-col gap-1 px-3 py-2">
         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-        <NavItem to="/projects" icon={FolderKanban} label="Projects" />
       </nav>
       <div className="mt-auto p-3">
         <ThemeSwitcher />

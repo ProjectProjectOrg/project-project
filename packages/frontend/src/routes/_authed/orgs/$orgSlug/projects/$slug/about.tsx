@@ -1,5 +1,3 @@
-// About tab — markdown description editor (the project body).
-
 import { useAtomSet } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
@@ -14,7 +12,7 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { useProject } from "./-context"
 
-export const Route = createFileRoute("/_authed/projects/$slug/about")({
+export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/about")({
   component: AboutTab,
   loader: () => ({
     crumb: { type: "static" as const, label: "About" }
@@ -22,6 +20,7 @@ export const Route = createFileRoute("/_authed/projects/$slug/about")({
 })
 
 function AboutTab() {
+  const { orgSlug } = Route.useParams()
   const project = useProject()
   const update = useAtomSet(updateProjectAtom)
   const [status, setStatus] = useState<SaveStatus>("idle")
@@ -41,7 +40,9 @@ function AboutTab() {
         <LexicalEditor
           key={project.slug}
           markdown={project.body}
-          onChange={(next) => update({ slug: project.slug, body: next })}
+          onChange={(next) =>
+            update({ orgSlug, slug: project.slug, body: next })
+          }
           onStatusChange={setStatus}
         />
       </CardContent>

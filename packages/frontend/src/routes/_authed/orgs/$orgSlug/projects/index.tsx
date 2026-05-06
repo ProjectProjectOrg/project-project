@@ -15,15 +15,21 @@ import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
 
-export const Route = createFileRoute("/_authed/projects/")({
+export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
   component: Projects,
-  loader: () => ({
-    crumb: { type: "static" as const, label: "Projects", to: "/projects" }
+  loader: ({ params }) => ({
+    crumb: {
+      type: "static" as const,
+      label: "Projects",
+      to: "/orgs/$orgSlug/projects",
+      params: { orgSlug: params.orgSlug }
+    }
   })
 })
 
 function Projects() {
-  const list = useAtomValue(projectsListAtom)
+  const { orgSlug } = Route.useParams()
+  const list = useAtomValue(projectsListAtom(orgSlug))
   const [creating, setCreating] = useState(false)
 
   return (
@@ -33,7 +39,7 @@ function Projects() {
         <p>Type a name and press Enter to create a project.</p>
       </PageHeader>
 
-      <CreateRow onFocusChange={setCreating} />
+      <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
 
       {/* Same intent-driven dim pattern as the ticket list: when the user
           is composing a new project the existing list dims to pull focus
@@ -57,7 +63,7 @@ function Projects() {
               <ul className="flex flex-col gap-2">
                 {value.map((project) => (
                   <li key={project.slug}>
-                    <ProjectRow project={project} />
+                    <ProjectRow orgSlug={orgSlug} project={project} />
                   </li>
                 ))}
               </ul>
@@ -69,8 +75,10 @@ function Projects() {
 }
 
 function CreateRow({
+  orgSlug,
   onFocusChange
 }: {
+  orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
   const create = useAtomSet(createProjectAtom)
@@ -86,7 +94,7 @@ function CreateRow({
     setSubmitting(true)
     setError(null)
     try {
-      await create({ name: trimmed })
+      await create({ orgSlug, name: trimmed })
       setName("")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project")
@@ -95,8 +103,6 @@ function CreateRow({
     }
   }
 
-  // Uses the shared InputGroup primitive — same chrome and leading-addon
-  // column alignment as every other "create" input in the app.
   return (
     <form onSubmit={onSubmit}>
       <InputGroup>
@@ -127,14 +133,16 @@ function CreateRow({
 }
 
 function ProjectRow({
+  orgSlug,
   project
 }: {
+  orgSlug: string
   project: { slug: string; name: string; createdAt: Date }
 }) {
   return (
     <Link
-      to="/projects/$slug"
-      params={{ slug: project.slug }}
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug: project.slug }}
       className={cn(
         "group flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-colors",
         "hover:bg-accent/40 hover:border-border/80"
