@@ -60,7 +60,7 @@ export type GithubConnection = typeof GithubConnection.Type
 export const Project = Schema.Struct({
   slug: Slug,
   name: Schema.String,
-  ownerId: Schema.String,
+  createdBy: Schema.String,
   createdAt: Schema.Date
 })
 export type Project = typeof Project.Type
@@ -73,9 +73,10 @@ export type CreateProjectInput = typeof CreateProjectInput.Type
 // Returned by GET /projects/:slug. The list endpoint stays index-shaped (no
 // body); this one carries the markdown body so the detail view can render it
 // without a second round trip. `members` reflects the frontmatter source of
-// truth; `ownerId` is duplicated for cheap lookups but always equals the
-// owner-role member's id. `github` is the connection block from project.md;
-// null when no repo is connected.
+// truth; `createdBy` is the immutable creator of the project (audit only —
+// the owner-role member in `members` is the current owner and may differ).
+// `github` is the connection block from project.md; null when no repo is
+// connected.
 export const ProjectDetail = Schema.Struct({
   ...Project.fields,
   github: Schema.NullOr(GithubConnection),
