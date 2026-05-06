@@ -7,31 +7,12 @@
 // derived from it. There is no code generation step — the *type* of `AppApi`
 // is what flows into both ends.
 //
-// You will revisit this file in nearly every chapter, adding a new group or
-// a new endpoint each time. For Chapter 0, your job is to declare the
-// smallest possible API: a single `GET /health` endpoint that returns
-// `{ status: "ok" }`.
-//
-// CONCEPTS USED HERE (look these up while you implement)
+// ORG-SCOPED PATHS (T-05)
 // ----------------------------------------------------------------------------
-// - `HttpApi.make("name")`           — creates the top-level API description
-// - `HttpApiGroup.make("name")`      — groups related endpoints (later: auth,
-//                                      projects, tickets). Even one endpoint
-//                                      lives inside a group.
-// - `HttpApiEndpoint.get(name, path)` — declares a GET endpoint
-// - `.addSuccess(schema)`            — declares the success response shape
-// - `.addError(schema)`              — declares a failure variant (later)
-// - `Schema.Struct({...})`           — describes an object shape
-// - `Schema.Literal("ok")`           — narrows a string to an exact value
-//
-// IMPORTANT
-// ----------------------------------------------------------------------------
-// In Effect v3 stable, `Schema` is imported from the main `effect` package
-// (not `@effect/schema`). The spec uses `import { Schema as S } from "effect"`.
-//
-// Do NOT implement the endpoint here. This file describes shapes only;
-// implementations live in `packages/backend/src/main.ts` (and later, the
-// `handlers/` directory).
+// Every project- and ticket-scoped endpoint is nested under
+// `/orgs/:orgSlug/...`. Handlers read `path.orgSlug` and use it to scope all
+// downstream service calls. The `:orgSlug` is the URL-canonical source of
+// "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
 
 import {
   HttpApi,
@@ -105,28 +86,41 @@ const AuthGroup = HttpApiGroup.make("auth")
   .add(HttpApiEndpoint.get("me", "/me").addSuccess(User).addError(Unauthorized))
   .middleware(Authentication)
 
+const OrgPath = Schema.Struct({ orgSlug: Slug })
+const ProjectPath = Schema.Struct({ orgSlug: Slug, slug: Slug })
+const ProjectMemberPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  userId: Schema.String
+})
+const TicketPath = Schema.Struct({ orgSlug: Slug, slug: Slug, id: TicketId })
+
 const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
-    HttpApiEndpoint.get("list", "/projects")
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects")
+      .setPath(OrgPath)
       .addSuccess(Schema.Array(Project))
       .addError(Unauthorized)
+      .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.post("create", "/projects")
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects")
+      .setPath(OrgPath)
       .setPayload(CreateProjectInput)
       .addSuccess(Project)
       .addError(Unauthorized)
+      .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.get("get", "/projects/:slug")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug")
+      .setPath(ProjectPath)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.patch("update", "/projects/:slug")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug")
+      .setPath(ProjectPath)
       .setPayload(UpdateProjectInput)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
@@ -134,15 +128,15 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint.del("delete", "/projects/:slug")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug")
+      .setPath(ProjectPath)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint.post("addMember", "/projects/:slug/members")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.post("addMember", "/orgs/:orgSlug/projects/:slug/members")
+      .setPath(ProjectPath)
       .setPayload(AddMemberInput)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
@@ -150,8 +144,11 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint.patch("updateMember", "/projects/:slug/members/:userId")
-      .setPath(Schema.Struct({ slug: Slug, userId: Schema.String }))
+    HttpApiEndpoint.patch(
+      "updateMember",
+      "/orgs/:orgSlug/projects/:slug/members/:userId"
+    )
+      .setPath(ProjectMemberPath)
       .setPayload(UpdateMemberInput)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
@@ -159,20 +156,22 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Forbidden)
   )
   .add(
-    HttpApiEndpoint.del("removeMember", "/projects/:slug/members/:userId")
-      .setPath(Schema.Struct({ slug: Slug, userId: Schema.String }))
+    HttpApiEndpoint.del(
+      "removeMember",
+      "/orgs/:orgSlug/projects/:slug/members/:userId"
+    )
+      .setPath(ProjectMemberPath)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
   )
-  // --- GitHub connection ----------------------------------------------------
-  // Connect/disconnect a repo to a project. Connect verifies push access via
-  // Octokit before persisting, so a successful response means the user can
-  // actually create branches and open PRs.
   .add(
-    HttpApiEndpoint.post("connectGithub", "/projects/:slug/github")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.post(
+      "connectGithub",
+      "/orgs/:orgSlug/projects/:slug/github"
+    )
+      .setPath(ProjectPath)
       .setPayload(ConnectGithubInput)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
@@ -185,15 +184,19 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(GitHubError)
   )
   .add(
-    HttpApiEndpoint.del("disconnectGithub", "/projects/:slug/github")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.del(
+      "disconnectGithub",
+      "/orgs/:orgSlug/projects/:slug/github"
+    )
+      .setPath(ProjectPath)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
   )
-  // List the user's repos for the picker. q is a free-text filter, page is
-  // 1-indexed. Returns hasMore so the picker can lazy-load.
+  // User-scoped: lists the caller's GitHub repos. Not org-scoped — lives
+  // outside the `/orgs/:orgSlug` tree on purpose; the picker calls this
+  // before a repo is connected to a project so there's no project context.
   .add(
     HttpApiEndpoint.get("listRepos", "/github/repos")
       .setUrlParams(
@@ -208,22 +211,22 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(GitHubScopeInsufficient)
       .addError(GitHubError)
   )
-  // Per-project git states (branch + PR) for every ticket. One batched
-  // GraphQL call backs this. UI calls this on project page load and after
-  // any branch/PR mutation; ~30s atom TTL otherwise.
   .add(
-    HttpApiEndpoint.get("gitStates", "/projects/:slug/git-states")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.get(
+      "gitStates",
+      "/orgs/:orgSlug/projects/:slug/git-states"
+    )
+      .setPath(ProjectPath)
       .addSuccess(GitStatesResponse)
       .addError(Unauthorized)
       .addError(NotFound)
   )
-  // Lists branches on the connected repo. q is a free-text filter passed to
-  // GitHub's `refs(query:...)` GraphQL — server-side fuzzy match. first caps
-  // the page size; default 30 keeps the combobox snappy.
   .add(
-    HttpApiEndpoint.get("listBranches", "/projects/:slug/github/branches")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.get(
+      "listBranches",
+      "/orgs/:orgSlug/projects/:slug/github/branches"
+    )
+      .setPath(ProjectPath)
       .setUrlParams(
         Schema.Struct({
           q: Schema.optional(Schema.String),
@@ -243,47 +246,62 @@ const ProjectsGroup = HttpApiGroup.make("projects")
 
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
-    HttpApiEndpoint.get("list", "/projects/:slug/tickets")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.get(
+      "list",
+      "/orgs/:orgSlug/projects/:slug/tickets"
+    )
+      .setPath(ProjectPath)
       .addSuccess(Schema.Array(Ticket))
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.post("create", "/projects/:slug/tickets")
-      .setPath(Schema.Struct({ slug: Slug }))
+    HttpApiEndpoint.post(
+      "create",
+      "/orgs/:orgSlug/projects/:slug/tickets"
+    )
+      .setPath(ProjectPath)
       .setPayload(CreateTicketInput)
       .addSuccess(Ticket)
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.get("get", "/projects/:slug/tickets/:id")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.get(
+      "get",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id"
+    )
+      .setPath(TicketPath)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.patch("update", "/projects/:slug/tickets/:id")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.patch(
+      "update",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id"
+    )
+      .setPath(TicketPath)
       .setPayload(UpdateTicketInput)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.del("delete", "/projects/:slug/tickets/:id")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.del(
+      "delete",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id"
+    )
+      .setPath(TicketPath)
       .addError(Unauthorized)
       .addError(NotFound)
   )
-  // --- Branch & PR operations ----------------------------------------------
-  // Each call writes the resulting branch / PR number back to the ticket
-  // markdown. Errors map to inline UI states on the ticket detail panel.
   .add(
-    HttpApiEndpoint.post("createBranch", "/projects/:slug/tickets/:id/branch")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.post(
+      "createBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/branch"
+    )
+      .setPath(TicketPath)
       .setPayload(CreateBranchInput)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
@@ -298,8 +316,11 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(GitHubError)
   )
   .add(
-    HttpApiEndpoint.post("openPr", "/projects/:slug/tickets/:id/pr")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.post(
+      "openPr",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/pr"
+    )
+      .setPath(TicketPath)
       .setPayload(OpenPrInput)
       .addSuccess(OpenPrResult)
       .addError(Unauthorized)
@@ -313,22 +334,21 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(GitHubError)
   )
   .add(
-    HttpApiEndpoint.del("clearBranch", "/projects/:slug/tickets/:id/branch")
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+    HttpApiEndpoint.del(
+      "clearBranch",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/branch"
+    )
+      .setPath(TicketPath)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
-  // Attach an existing remote branch to a ticket. Verifies the branch exists
-  // on remote before persisting, so a successful response means the branch
-  // is live. BranchNotFound surfaces when the branch was deleted between
-  // listing and submitting (the UI refreshes the list and keeps the form open).
   .add(
     HttpApiEndpoint.post(
       "attachBranch",
-      "/projects/:slug/tickets/:id/attach-branch"
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/attach-branch"
     )
-      .setPath(Schema.Struct({ slug: Slug, id: TicketId }))
+      .setPath(TicketPath)
       .setPayload(AttachBranchInput)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
@@ -344,11 +364,6 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .middleware(Authentication)
 
-// Swagger UI's "Try it out" prepends `servers[0].url` to each operation's
-// path. Without it, requests go to `/projects/...` instead of `/api/projects/...`
-// (the actual mount in packages/backend/src/main.ts). Only affects the
-// generated OpenAPI spec — HttpApiClient ignores this annotation and uses
-// its own `baseUrl` option.
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)

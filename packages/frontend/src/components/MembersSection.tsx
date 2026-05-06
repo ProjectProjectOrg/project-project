@@ -53,11 +53,13 @@ const ROLE_META: Record<
 }
 
 export function MembersSection({
+  orgSlug,
   slug,
   members,
   callerRole,
   callerId
 }: {
+  orgSlug: string
   slug: string
   members: ReadonlyArray<Member>
   callerRole: Role
@@ -75,7 +77,13 @@ export function MembersSection({
         </p>
       </div>
 
-      {canManage && <AddMemberRow slug={slug} onFocusChange={setAdding} />}
+      {canManage && (
+        <AddMemberRow
+          orgSlug={orgSlug}
+          slug={slug}
+          onFocusChange={setAdding}
+        />
+      )}
 
       {/* Same intent-driven dim used elsewhere — when the user is composing
           a new member, the existing list quiets down to pull focus to the
@@ -88,6 +96,7 @@ export function MembersSection({
         {members.map((m) => (
           <li key={m.id}>
             <MemberRow
+              orgSlug={orgSlug}
               slug={slug}
               member={m}
               callerRole={callerRole}
@@ -101,9 +110,11 @@ export function MembersSection({
 }
 
 function AddMemberRow({
+  orgSlug,
   slug,
   onFocusChange
 }: {
+  orgSlug: string
   slug: string
   onFocusChange?: (focused: boolean) => void
 }) {
@@ -120,7 +131,7 @@ function AddMemberRow({
     setSubmitting(true)
     setError(null)
     try {
-      await add({ slug, email: trimmed, role })
+      await add({ orgSlug, slug, email: trimmed, role })
       setEmail("")
     } catch (err) {
       // The server returns NotFound for both "no project" and "no user with
@@ -211,11 +222,13 @@ function RoleSelect({
 }
 
 function MemberRow({
+  orgSlug,
   slug,
   member,
   callerRole,
   callerId
 }: {
+  orgSlug: string
   slug: string
   member: Member
   callerRole: Role
@@ -252,16 +265,23 @@ function MemberRow({
         <Icon strokeWidth={1.75} />
         {meta.label}
       </Badge>
-      <MemberMenu slug={slug} member={member} callerRole={callerRole} />
+      <MemberMenu
+        orgSlug={orgSlug}
+        slug={slug}
+        member={member}
+        callerRole={callerRole}
+      />
     </div>
   )
 }
 
 function MemberMenu({
+  orgSlug,
   slug,
   member,
   callerRole
 }: {
+  orgSlug: string
   slug: string
   member: Member
   callerRole: Role
@@ -284,7 +304,7 @@ function MemberMenu({
   async function onRemove() {
     setRemoving(true)
     try {
-      await remove({ slug, userId: member.id })
+      await remove({ orgSlug, slug, userId: member.id })
     } catch {
       setRemoving(false)
     }
@@ -343,7 +363,7 @@ function MemberMenu({
                       <DropdownMenuItem
                         key={r}
                         onSelect={() =>
-                          update({ slug, userId: member.id, role: r })
+                          update({ orgSlug, slug, userId: member.id, role: r })
                         }
                         className="cursor-pointer"
                       >

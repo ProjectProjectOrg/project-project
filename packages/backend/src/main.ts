@@ -73,6 +73,7 @@ import { ProjectsHandlerLive } from "./handlers/projects"
 import { TicketsHandlerLive } from "./handlers/tickets"
 import { AuthenticationLive } from "./services/Auth"
 import { BetterAuth, BetterAuthLive } from "./services/BetterAuth"
+import { CurrentOrg } from "./services/CurrentOrg"
 import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
 import { Markdown } from "./services/Markdown"
@@ -118,6 +119,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(TicketsHandlerLive),
   Layer.provide(Tickets.Default),
   Layer.provide(Projects.Default),
+  Layer.provide(CurrentOrg.Default),
   Layer.provide(GitHub.Default),
   Layer.provide(Users.Default),
   Layer.provide(Markdown.Default),

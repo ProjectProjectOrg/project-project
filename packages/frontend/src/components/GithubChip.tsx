@@ -22,6 +22,7 @@ import {
   githubReposAtom,
   projectGitStatesAtom
 } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,14 +35,17 @@ import { cn } from "@/lib/utils"
 import type { GithubConnection, GithubRepo, Role } from "@projectproject/shared"
 
 type Props = {
+  orgSlug: string
   slug: string
   github: GithubConnection | null
   callerRole: Role
 }
 
-export function GithubChip({ slug, github, callerRole }: Props) {
+export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
   const canManage = callerRole === "owner" || callerRole === "admin"
-  const states = useAtomValue(projectGitStatesAtom(slug))
+  const states = useAtomValue(
+    projectGitStatesAtom(projectKey(orgSlug, slug))
+  )
 
   const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
     if (!Result.isSuccess(states)) return null
@@ -67,7 +71,7 @@ export function GithubChip({ slug, github, callerRole }: Props) {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0">
-          <ConnectPanel slug={slug} />
+          <ConnectPanel orgSlug={orgSlug} slug={slug} />
         </PopoverContent>
       </Popover>
     )
@@ -75,6 +79,7 @@ export function GithubChip({ slug, github, callerRole }: Props) {
 
   return (
     <ConnectedChip
+      orgSlug={orgSlug}
       slug={slug}
       github={github}
       flag={flag}
@@ -84,11 +89,13 @@ export function GithubChip({ slug, github, callerRole }: Props) {
 }
 
 function ConnectedChip({
+  orgSlug,
   slug,
   github,
   flag,
   canManage
 }: {
+  orgSlug: string
   slug: string
   github: GithubConnection
   flag: "token_expired" | "scope" | "repo_gone" | null
@@ -120,7 +127,7 @@ function ConnectedChip({
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-3">
-              <ManagePanel slug={slug} github={github} />
+              <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
             </PopoverContent>
           </Popover>
         )}
@@ -162,7 +169,7 @@ function ConnectedChip({
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-80 p-3">
-            <ManagePanel slug={slug} github={github} />
+            <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
           </PopoverContent>
         </Popover>
       )}
@@ -170,9 +177,13 @@ function ConnectedChip({
   )
 }
 
-// --- Connect panel (popover content) -------------------------------------
-
-function ConnectPanel({ slug }: { slug: string }) {
+function ConnectPanel({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
   const [query, setQuery] = useState("")
   const repos = useAtomValue(githubReposAtom(query))
   const connect = useAtomSet(connectGithubAtom)
@@ -185,6 +196,7 @@ function ConnectPanel({ slug }: { slug: string }) {
     setError(null)
     try {
       await connect({
+        orgSlug,
         slug,
         repoOwner: repo.owner,
         repoName: repo.name,
@@ -277,12 +289,12 @@ function ConnectPanel({ slug }: { slug: string }) {
   )
 }
 
-// --- Manage panel (popover content) --------------------------------------
-
 function ManagePanel({
+  orgSlug,
   slug,
   github
 }: {
+  orgSlug: string
   slug: string
   github: GithubConnection
 }) {
@@ -296,6 +308,7 @@ function ManagePanel({
     setSaving(true)
     try {
       await connect({
+        orgSlug,
         slug,
         repoOwner: github.repoOwner,
         repoName: github.repoName,
@@ -358,7 +371,7 @@ function ManagePanel({
               type="button"
               size="sm"
               variant="primary"
-              onClick={() => void disconnect({ slug })}
+              onClick={() => void disconnect({ orgSlug, slug })}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Disconnect

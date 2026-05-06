@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,11 +63,13 @@ function defaultBranchName(
 }
 
 export function CreateBranchFields({
+  orgSlug,
   slug,
   ticket,
   github,
   branchTemplate
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
   github: GithubConnection
@@ -79,7 +82,7 @@ export function CreateBranchFields({
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [status, setStatus] = useState<TicketStatus>("in_progress")
   const [error, setError] = useState<string | null>(null)
-  const create = useAtomSet(createBranchAtom(slug))
+  const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)))
   const updateTicket = useAtomSet(updateTicketAtom)
 
   async function submit() {
@@ -94,7 +97,7 @@ export function CreateBranchFields({
           baseBranch: base.trim() || undefined
         }),
         status !== ticket.status
-          ? updateTicket({ slug, id: ticket.id, status })
+          ? updateTicket({ orgSlug, slug, id: ticket.id, status })
           : Promise.resolve()
       ])
       close()
@@ -135,6 +138,7 @@ export function CreateBranchFields({
         <label className="block text-xs">
           <span className="text-muted-foreground">Base branch</span>
           <BaseBranchCombobox
+            orgSlug={orgSlug}
             slug={slug}
             value={base}
             onChange={setBase}
@@ -296,12 +300,14 @@ function StatusDropdown({
 }
 
 function BaseBranchCombobox({
+  orgSlug,
   slug,
   value,
   onChange,
   placeholder,
   disabled
 }: {
+  orgSlug: string
   slug: string
   value: string
   onChange: (next: string) => void
@@ -317,7 +323,7 @@ function BaseBranchCombobox({
     return () => clearTimeout(t)
   }, [search])
 
-  const result = useAtomValue(branchesAtom(branchesKey(slug, q)))
+  const result = useAtomValue(branchesAtom(branchesKey(orgSlug, slug, q)))
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)
 
