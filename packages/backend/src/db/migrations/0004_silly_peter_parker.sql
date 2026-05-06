@@ -49,6 +49,6 @@ CREATE INDEX "invitation_email_idx" ON "invitation" USING btree ("email");--> st
 CREATE INDEX "member_organizationId_idx" ON "member" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "member_userId_idx" ON "member" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_slug_uidx" ON "organization" USING btree ("slug");--> statement-breakpoint
+ALTER TABLE "project_index" ADD CONSTRAINT "project_index_id_unique" UNIQUE("id");--> statement-breakpoint
 ALTER TABLE "project_index" ADD CONSTRAINT "project_index_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_member" ADD CONSTRAINT "project_member_project_id_project_index_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project_index"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_index" ADD CONSTRAINT "project_index_id_unique" UNIQUE("id");
+ALTER TABLE "project_member" ADD CONSTRAINT "project_member_project_id_project_index_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project_index"("id") ON DELETE cascade ON UPDATE no action;
