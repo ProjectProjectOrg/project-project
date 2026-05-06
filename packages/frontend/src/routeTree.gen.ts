@@ -14,6 +14,7 @@ import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
+import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
@@ -43,6 +44,11 @@ const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
   id: '/orgs/$orgSlug',
   path: '/orgs/$orgSlug',
   getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedOrgsOrgSlugIndexRoute = AuthedOrgsOrgSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
 } as any)
 const AuthedOrgsOrgSlugProjectsIndexRoute =
   AuthedOrgsOrgSlugProjectsIndexRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -90,7 +97,7 @@ export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/': typeof AuthedIndexRoute
-  '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
@@ -103,6 +110,7 @@ export interface FileRoutesById {
   '/_authed/profile': typeof AuthedProfileRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -116,6 +124,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/orgs/$orgSlug'
+    | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/_authed/profile'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
+    | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/projects/'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
@@ -186,6 +196,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug'
       preLoaderRoute: typeof AuthedOrgsOrgSlugRouteRouteImport
       parentRoute: typeof AuthedRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/': {
+      id: '/_authed/orgs/$orgSlug/'
+      path: '/'
+      fullPath: '/orgs/$orgSlug/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/': {
       id: '/_authed/orgs/$orgSlug/projects/'
@@ -247,12 +264,14 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
   )
 
 interface AuthedOrgsOrgSlugRouteRouteChildren {
+  AuthedOrgsOrgSlugIndexRoute: typeof AuthedOrgsOrgSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsIndexRoute: typeof AuthedOrgsOrgSlugProjectsIndexRoute
 }
 
 const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugIndexRoute: AuthedOrgsOrgSlugIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugRouteRoute:
       AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren,
     AuthedOrgsOrgSlugProjectsIndexRoute: AuthedOrgsOrgSlugProjectsIndexRoute,
