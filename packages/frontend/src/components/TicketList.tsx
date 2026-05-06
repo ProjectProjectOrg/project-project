@@ -76,6 +76,11 @@ const SORTS = {
   title: {
     label: "Title",
     compare: (a: Ticket, b: Ticket) => a.title.localeCompare(b.title)
+  },
+  priority: {
+    label: "Priority (high → low)",
+    compare: (a: Ticket, b: Ticket) =>
+      PRIORITY_META[b.priority].ordinal - PRIORITY_META[a.priority].ordinal
   }
 } as const
 type SortKey = keyof typeof SORTS
@@ -733,7 +738,7 @@ function FilteredList({
   }
 
   return (
-    <ul className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
+    <ul className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
       {filtered.map((t) => {
         const isExpanded = expandedId === t.id
         return (
@@ -814,6 +819,7 @@ function Row({
           className="hidden sm:inline-flex"
         />
         <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        <PriorityChip priority={ticket.priority} className="hidden sm:inline-flex" />
         <TypeButton
           orgSlug={orgSlug}
           slug={slug}
@@ -1479,6 +1485,28 @@ function StatusButton({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function PriorityChip({
+  priority,
+  className
+}: {
+  priority: TicketPriority
+  className?: string
+}) {
+  const meta = PRIORITY_META[priority]
+  const Icon = meta.icon
+  return (
+    <Badge
+      tone={meta.tone}
+      size="xs"
+      className={cn("font-mono", className)}
+      aria-label={`Priority: ${meta.label}`}
+    >
+      <Icon className="size-3" strokeWidth={1.75} />
+      {meta.label}
+    </Badge>
   )
 }
 
