@@ -262,6 +262,11 @@ async function main() {
         `verification failed: ${file} still has 'ownerId' frontmatter`
       )
     }
+    if (!("createdBy" in data)) {
+      throw new Error(
+        `verification failed: ${file} is missing 'createdBy' frontmatter`
+      )
+    }
   }
 
   console.log("[migrate-orgs] done.")
