@@ -29,3 +29,6 @@ data/
 # don't share via the repo.
 .serena/
 storage/
+
+# Claude Code local state
+.claude/
