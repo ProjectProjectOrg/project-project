@@ -6,6 +6,7 @@ import {
   NotFound,
   Tag,
   TagInUse,
+  TAG_DEFAULT_PALETTE,
   TicketId,
   type CreateTagInput,
   type UpdateTagInput
@@ -15,19 +16,6 @@ import { Db } from "./Db"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
 import { Tickets } from "./Tickets"
-
-const PALETTE = [
-  "#7c3aed",
-  "#0ea5e9",
-  "#22c55e",
-  "#f59e0b",
-  "#ef4444",
-  "#ec4899",
-  "#14b8a6",
-  "#6366f1",
-  "#84cc16",
-  "#f97316"
-] as const
 
 const TagFrontmatter = Schema.Struct({
   id: TicketId,
@@ -39,8 +27,8 @@ const TagFrontmatter = Schema.Struct({
 const decodeTagFrontmatter = Schema.decodeUnknown(TagFrontmatter)
 
 function pickColor(used: ReadonlyArray<string>): string {
-  for (const c of PALETTE) if (!used.includes(c)) return c
-  return PALETTE[used.length % PALETTE.length]
+  for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
+  return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
 }
 
 export class Tags extends Effect.Service<Tags>()("Tags", {

@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue, Result } from "@effect-atom/atom-react"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { ColorPicker } from "@/components/ColorPicker"
 import {
   Popover,
   PopoverContent,
@@ -149,14 +150,10 @@ function Editor({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
-        <input
-          type="color"
+        <ColorPicker
           value={tag.color}
-          onChange={(e) =>
-            onRename({ color: e.target.value as Tag["color"] })
-          }
-          className="size-7 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0"
-          aria-label={`Color for ${tag.name}`}
+          onChange={(hex) => onRename({ color: hex as Tag["color"] })}
+          ariaLabel={`Color for ${tag.name}`}
         />
         <input
           value={draftName}
