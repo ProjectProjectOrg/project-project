@@ -1,13 +1,10 @@
 // Markdown service — filesystem-backed read/write for projects on disk.
 //
-// ProjectProject's source of truth is markdown on disk: each project lives at
-// `<PROJECTS_DIR>/<slug>/project.md` with YAML frontmatter. This service is a
-// narrow seam over that layout. It does NOT understand the domain (slug
-// validation, ownership) — callers (the Projects service) own that.
-//
-// Frontmatter is round-tripped as a plain object. The shared `Project` schema
-// is what validates the wire boundary; the on-disk frontmatter is internal,
-// so we keep this service schema-agnostic.
+// Source of truth is markdown on disk under
+// `<PROJECTS_DIR>/orgs/<orgSlug>/projects/<projectSlug>/project.md`. Every
+// public method takes `orgSlug` explicitly — there is no implicit "active
+// org" lookup at this layer; callers (handlers via the Projects service)
+// thread it through.
 
 import { Config, Data, Effect } from "effect"
 import * as fs from "node:fs/promises"
@@ -55,15 +52,28 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
         new MarkdownError({ cause, message: "failed to create projects dir" })
     })
 
-    const projectFilePath = (slug: string) =>
-      path.join(absoluteRoot, slug, "project.md")
+    const projectDir = (orgSlug: string, slug: string) =>
+      path.join(absoluteRoot, "orgs", orgSlug, "projects", slug)
+
+    const projectFilePath = (orgSlug: string, slug: string) =>
+      path.join(projectDir(orgSlug, slug), "project.md")
+
+    const ensureSafeOrgAndProject = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeSlug(orgSlug)
+        yield* ensureSafeSlug(slug)
+      })
 
     const readProjectFile = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<ParsedMarkdown, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
-        const file = projectFilePath(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const file = projectFilePath(orgSlug, slug)
         const raw = yield* Effect.tryPromise({
           try: () => fs.readFile(file, "utf8"),
           catch: (cause): NotFound | MarkdownError => {
@@ -80,13 +90,14 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       })
 
     const writeProjectFile = (
+      orgSlug: string,
       slug: string,
       frontmatter: Record<string, unknown>,
       body: string
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
-        const file = projectFilePath(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const file = projectFilePath(orgSlug, slug)
         const dir = path.dirname(file)
         const content = matter.stringify(body, frontmatter)
         yield* Effect.tryPromise({
@@ -100,11 +111,12 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       })
 
     const removeProjectDir = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
-        const dir = path.dirname(projectFilePath(slug))
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const dir = projectDir(orgSlug, slug)
         yield* Effect.tryPromise({
           try: () => fs.rm(dir, { recursive: true, force: true }),
           catch: (cause) =>
@@ -128,20 +140,21 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
             })
           )
 
-    const ticketsDir = (slug: string) =>
-      path.join(absoluteRoot, slug, "tickets")
+    const ticketsDir = (orgSlug: string, slug: string) =>
+      path.join(projectDir(orgSlug, slug), "tickets")
 
-    const ticketFilePath = (slug: string, id: string) =>
-      path.join(ticketsDir(slug), `${id}.md`)
+    const ticketFilePath = (orgSlug: string, slug: string, id: string) =>
+      path.join(ticketsDir(orgSlug, slug), `${id}.md`)
 
     const readTicketFile = (
+      orgSlug: string,
       slug: string,
       id: string
     ): Effect.Effect<ParsedMarkdown, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
-        const file = ticketFilePath(slug, id)
+        const file = ticketFilePath(orgSlug, slug, id)
         const raw = yield* Effect.tryPromise({
           try: () => fs.readFile(file, "utf8"),
           catch: (cause): NotFound | MarkdownError => {
@@ -161,15 +174,16 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
     // ticket id without races: scan finds the next id, write with `wx` flag,
     // and on EEXIST the caller bumps the id and retries.
     const createTicketFile = (
+      orgSlug: string,
       slug: string,
       id: string,
       frontmatter: Record<string, unknown>,
       body: string
     ): Effect.Effect<void, MarkdownError | TicketIdTaken> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
-        const file = ticketFilePath(slug, id)
+        const file = ticketFilePath(orgSlug, slug, id)
         const dir = path.dirname(file)
         const content = matter.stringify(body, frontmatter)
         yield* Effect.tryPromise({
@@ -189,15 +203,16 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       })
 
     const writeTicketFile = (
+      orgSlug: string,
       slug: string,
       id: string,
       frontmatter: Record<string, unknown>,
       body: string
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
-        const file = ticketFilePath(slug, id)
+        const file = ticketFilePath(orgSlug, slug, id)
         const content = matter.stringify(body, frontmatter)
         yield* Effect.tryPromise({
           try: () => fs.writeFile(file, content, "utf8"),
@@ -207,13 +222,14 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       })
 
     const removeTicketFile = (
+      orgSlug: string,
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
-        const file = ticketFilePath(slug, id)
+        const file = ticketFilePath(orgSlug, slug, id)
         yield* Effect.tryPromise({
           try: () => fs.rm(file),
           catch: (cause): NotFound | MarkdownError => {
@@ -230,11 +246,12 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
     // Returns the list of ticket ids in a project's tickets/ dir, or an
     // empty array if the dir doesn't exist yet (a project with no tickets).
     const listTicketIds = (
+      orgSlug: string,
       slug: string
     ): Effect.Effect<ReadonlyArray<string>, MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureSafeSlug(slug)
-        const dir = ticketsDir(slug)
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const dir = ticketsDir(orgSlug, slug)
         const entries = yield* Effect.tryPromise({
           try: async () => {
             try {
@@ -255,6 +272,7 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       })
 
     return {
+      projectDir,
       readProjectFile,
       writeProjectFile,
       removeProjectDir,

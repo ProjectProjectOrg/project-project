@@ -1,14 +1,12 @@
 // Tickets service — domain logic over the Markdown store.
 //
-// Tickets live in `<project>/tickets/<id>.md`. There's no DB index for them:
-// the filesystem IS the store. List = scan + parse, get = parse, create =
-// allocate next id and create file atomically, update = read-modify-write,
-// delete = unlink.
+// Tickets live at <org>/<project>/tickets/<id>.md. Every method takes
+// `orgSlug` as its first parameter — same convention as Projects. There's no
+// DB index for tickets: the filesystem IS the store.
 //
 // Permission gate: every method first verifies the caller can see the project
-// (via Projects.getBySlug). If the project is missing or not owned by the
-// caller, we return NotFound — same as for an unknown ticket id. The client
-// gets one error to handle either way.
+// (via Projects.requireMember). If the project is missing or not owned by the
+// caller, we return NotFound — same as for an unknown ticket id.
 //
 // Sequential ids: the next id is `max(existing) + 1`. To avoid races between
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
@@ -45,12 +43,6 @@ import { Projects } from "./Projects"
 
 const MAX_CREATE_ATTEMPTS = 16
 
-// Decoded shape of ticket frontmatter on disk. Mirrors the wire schema but
-// dates are ISO strings here (gray-matter sometimes parses YAML scalars to
-// strings, sometimes to Date — Schema.Date handles both forms via its decode).
-//
-// `pr` and `lastTransitionedPr` were added in the git-connection feature.
-// Both default to null when missing so older ticket files keep parsing.
 const TicketFrontmatter = Schema.Struct({
   id: TicketId,
   title: Schema.String,
@@ -137,22 +129,17 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     const projects = yield* Projects
     const github = yield* GitHub
 
-    // Single permission gate for every ticket op. Any project member can
-    // read/write tickets (per spec §"Permission model"). Non-members and
-    // missing projects collapse to NotFound — same wire response either
-    // way, no information leak about which projects exist.
     const ensureAccess = (
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<void, NotFound> =>
       Effect.gen(function* () {
-        yield* projects.requireMember(userId, slug)
+        yield* projects.requireMember(orgSlug, userId, slug)
       })
 
-    // Read + decode a single ticket file. NotFound when missing, dies on
-    // schema mismatch (corruption is not a routine outcome the wire cares
-    // about).
     const readTicket = (
+      orgSlug: string,
       slug: string,
       id: string
     ): Effect.Effect<
@@ -160,53 +147,50 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       NotFound | MarkdownError
     > =>
       Effect.gen(function* () {
-        const file = yield* md.readTicketFile(slug, id)
+        const file = yield* md.readTicketFile(orgSlug, slug, id)
         const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
         return { ...fm, body: file.body }
       })
 
     const list = (
+      orgSlug: string,
       ownerId: string,
       slug: string
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(ownerId, slug)
-        const ids = yield* md.listTicketIds(slug)
-        // Read each ticket. If any single one is corrupt we surface the
-        // whole list as a defect; partial lists would be confusing.
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        const ids = yield* md.listTicketIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(slug, id),
+          (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        // Sort by numeric id ascending (T-1, T-2, ...). The filesystem order
-        // isn't guaranteed.
         return [...tickets.map(frontmatterToWire)].sort(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
 
     const get = (
+      orgSlug: string,
       ownerId: string,
       slug: string,
       id: string
     ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(ownerId, slug)
-        const t = yield* readTicket(slug, id)
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        const t = yield* readTicket(orgSlug, slug, id)
         return { ...frontmatterToWire(t), body: t.body }
       })
 
-    // Allocate the next id (max+1), retry on TicketIdTaken up to
-    // MAX_CREATE_ATTEMPTS times (a concurrent create stole the slot).
     const create = (
+      orgSlug: string,
       ownerId: string,
       slug: string,
       input: CreateTicketInput
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(ownerId, slug)
-        const ids = yield* md.listTicketIds(slug)
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        const ids = yield* md.listTicketIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
         const now = new Date()
@@ -227,6 +211,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
           const result = yield* md
             .createTicketFile(
+              orgSlug,
               slug,
               candidate,
               frontmatterToDisk({ ...fm, id: candidate as TicketId }),
@@ -249,20 +234,21 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       })
 
     const update = (
+      orgSlug: string,
       ownerId: string,
       slug: string,
       id: string,
       input: UpdateTicketInput
     ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(ownerId, slug)
-        const existing = yield* readTicket(slug, id)
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        const existing = yield* readTicket(orgSlug, slug, id)
 
         if (input.assignees !== undefined) {
           const existingSet = new Set(existing.assignees)
           for (const id of input.assignees) {
             if (!existingSet.has(id)) {
-              yield* projects.requireMember(id, slug)
+              yield* projects.requireMember(orgSlug, id, slug)
             }
           }
         }
@@ -285,26 +271,32 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         }
         const nextBody = input.body ?? existing.body
 
-        yield* md.writeTicketFile(slug, id, frontmatterToDisk(next), nextBody)
+        yield* md.writeTicketFile(
+          orgSlug,
+          slug,
+          id,
+          frontmatterToDisk(next),
+          nextBody
+        )
 
         return { ...frontmatterToWire(next), body: nextBody }
       })
 
     const remove = (
+      orgSlug: string,
       ownerId: string,
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(ownerId, slug)
-        yield* md.removeTicketFile(slug, id)
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        yield* md.removeTicketFile(orgSlug, slug, id)
       })
 
     // --- Git operations -------------------------------------------------
 
-    // Read-modify-write of just the git-related fields. Bumps updatedAt
-    // because frontmatter changed; status, body, etc. unchanged.
     const writeGitFields = (
+      orgSlug: string,
       slug: string,
       id: string,
       existing: TicketFrontmatter & { body: string },
@@ -328,6 +320,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           updatedAt: new Date()
         }
         yield* md.writeTicketFile(
+          orgSlug,
           slug,
           id,
           frontmatterToDisk(next),
@@ -337,6 +330,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       })
 
     const createBranch = (
+      orgSlug: string,
       userId: string,
       slug: string,
       id: string,
@@ -355,16 +349,16 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
+        yield* ensureAccess(orgSlug, userId, slug)
         const project = yield* projects
-          .get(userId, slug)
+          .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
           return yield* Effect.fail(
             new Conflict({ reason: "no_github_connection" })
           )
         }
-        const ticket = yield* readTicket(slug, id)
+        const ticket = yield* readTicket(orgSlug, slug, id)
         const baseBranch =
           input.baseBranch ?? project.github.defaultBaseBranch ?? "main"
 
@@ -376,7 +370,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           userId
         )
 
-        const next = yield* writeGitFields(slug, id, ticket, {
+        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
           branch: input.name,
           pr: null,
           lastTransitionedPr: null
@@ -385,6 +379,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       })
 
     const attachBranch = (
+      orgSlug: string,
       userId: string,
       slug: string,
       id: string,
@@ -402,16 +397,16 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
+        yield* ensureAccess(orgSlug, userId, slug)
         const project = yield* projects
-          .get(userId, slug)
+          .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
           return yield* Effect.fail(
             new Conflict({ reason: "no_github_connection" })
           )
         }
-        const ticket = yield* readTicket(slug, id)
+        const ticket = yield* readTicket(orgSlug, slug, id)
 
         const exists = yield* github.branchExists(
           project.github.repoOwner,
@@ -423,7 +418,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           return yield* Effect.fail(new BranchNotFound({ name: input.name }))
         }
 
-        const next = yield* writeGitFields(slug, id, ticket, {
+        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
           branch: input.name,
           pr: null,
           lastTransitionedPr: null
@@ -432,6 +427,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       })
 
     const openPr = (
+      orgSlug: string,
       userId: string,
       slug: string,
       id: string,
@@ -449,16 +445,16 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
+        yield* ensureAccess(orgSlug, userId, slug)
         const project = yield* projects
-          .get(userId, slug)
+          .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
           return yield* Effect.fail(
             new Conflict({ reason: "no_github_connection" })
           )
         }
-        const ticket = yield* readTicket(slug, id)
+        const ticket = yield* readTicket(orgSlug, slug, id)
         if (!ticket.branch) {
           return yield* Effect.fail(
             new Conflict({ reason: "no_branch_on_ticket" })
@@ -482,7 +478,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           userId
         )
 
-        yield* writeGitFields(slug, id, ticket, {
+        yield* writeGitFields(orgSlug, slug, id, ticket, {
           pr: result.number,
           lastTransitionedPr: null
         })
@@ -490,14 +486,15 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       })
 
     const clearBranch = (
+      orgSlug: string,
       userId: string,
       slug: string,
       id: string
     ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
-        const ticket = yield* readTicket(slug, id)
-        const next = yield* writeGitFields(slug, id, ticket, {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const ticket = yield* readTicket(orgSlug, slug, id)
+        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
           branch: null,
           pr: null,
           lastTransitionedPr: null
@@ -505,20 +502,15 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         return { ...frontmatterToWire(next), body: ticket.body }
       })
 
-    // Single batched read of git state across every ticket in a project.
-    // Mutates ticket markdown when:
-    //   - the observed PR number differs from the stored `pr` field, OR
-    //   - the PR is merged and we haven't auto-transitioned for this PR yet.
-    // Both writes are idempotent. The `transitioned` array carries the
-    // transitions that just happened so the frontend can show a toast.
     const listGitStates = (
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<GitStatesResponse, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
+        yield* ensureAccess(orgSlug, userId, slug)
         const project = yield* projects
-          .get(userId, slug)
+          .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
 
         if (!project.github) {
@@ -530,17 +522,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           }
         }
 
-        const ids = yield* md.listTicketIds(slug)
+        const ids = yield* md.listTicketIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(slug, id),
+          (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
 
-        // Try to fetch GitHub state. If the token / scope / repo is the
-        // problem, return empty per-ticket states with the appropriate
-        // status flag so the header chip can flip without us tagging
-        // every ticket with the same error.
         const result = yield* github
           .fetchProjectStates(
             project.github.repoOwner,
@@ -621,22 +609,18 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
             continue
           }
 
-          // Persist the observed PR number if it changed, so other
-          // surfaces (ticket detail load) reflect it without another
-          // fetch.
           if (ticket.pr !== pr.number) {
-            yield* writeGitFields(slug, ticket.id, ticket, {
+            yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
               pr: pr.number
             })
           }
 
           if (pr.state === "merged") {
-            // Auto-transition: idempotent on lastTransitionedPr.
             if (
               ticket.status !== "done" &&
               ticket.lastTransitionedPr !== pr.number
             ) {
-              yield* writeGitFields(slug, ticket.id, ticket, {
+              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
                 status: "done",
                 pr: pr.number,
                 lastTransitionedPr: pr.number
@@ -648,9 +632,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
                 prNumber: pr.number
               })
             } else if (ticket.lastTransitionedPr !== pr.number) {
-              // Already done, but record the PR as transitioned so we
-              // don't loop next fetch.
-              yield* writeGitFields(slug, ticket.id, ticket, {
+              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
                 pr: pr.number,
                 lastTransitionedPr: pr.number
               })

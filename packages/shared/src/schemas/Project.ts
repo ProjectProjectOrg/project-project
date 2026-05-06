@@ -58,6 +58,7 @@ export const GithubConnection = Schema.Struct({
 export type GithubConnection = typeof GithubConnection.Type
 
 export const Project = Schema.Struct({
+  org: Slug,
   slug: Slug,
   name: Schema.String,
   createdBy: Schema.String,
