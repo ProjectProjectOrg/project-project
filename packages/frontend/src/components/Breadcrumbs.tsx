@@ -58,9 +58,7 @@ function normalizeCrumbs(
   orgs: ReadonlyArray<UserOrganization>
 ) {
   const hideOrgCrumb = orgs.length > 1
-  return hideOrgCrumb
-    ? crumbs.filter((crumb) => crumb.type !== "org")
-    : crumbs
+  return hideOrgCrumb ? crumbs.filter((crumb) => crumb.type !== "org") : crumbs
 }
 
 export function Breadcrumbs({ className }: { className?: string }) {
