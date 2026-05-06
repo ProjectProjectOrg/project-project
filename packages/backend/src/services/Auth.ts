@@ -85,7 +85,7 @@ export const AuthenticationLive = Layer.effect(
           ).activeOrganizationId
           const activeOrgSlug = yield* ba
             .getOrgSlugById(activeOrganizationId)
-            .pipe(Effect.mapError(() => new Unauthorized()))
+            .pipe(Effect.orDie)
           return {
             id,
             email,

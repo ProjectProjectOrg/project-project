@@ -52,6 +52,7 @@ export class CurrentOrg extends Effect.Service<CurrentOrg>()("CurrentOrg", {
         .where(eq(organization.slug, orgSlug))
         .limit(1)
         .pipe(
+          Effect.orDie,
           Effect.flatMap((rows) =>
             rows[0]
               ? Effect.succeed({
@@ -60,12 +61,8 @@ export class CurrentOrg extends Effect.Service<CurrentOrg>()("CurrentOrg", {
                   role: rows[0].role as Role
                 })
               : Effect.fail(new NotFound())
-          ),
-          Effect.orDie
-        ) as Effect.Effect<
-        { organizationId: string; orgSlug: string; role: Role },
-        NotFound
-      >
+          )
+        )
 
     return { resolve } as const
   })
