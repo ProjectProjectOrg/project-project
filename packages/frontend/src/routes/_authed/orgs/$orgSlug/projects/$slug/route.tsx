@@ -12,6 +12,7 @@ import {
   Info,
   ListChecks,
   MoreHorizontal,
+  Tags as TagsIcon,
   Trash2,
   Users as UsersIcon,
   type LucideIcon
@@ -293,17 +294,19 @@ function ProjectMenu({
   )
 }
 
-type TabKey = "tickets" | "about" | "members"
+type TabKey = "tickets" | "about" | "members" | "tags"
 type TabDef = {
   key: TabKey
   to:
     | "/orgs/$orgSlug/projects/$slug"
     | "/orgs/$orgSlug/projects/$slug/about"
     | "/orgs/$orgSlug/projects/$slug/members"
+    | "/orgs/$orgSlug/projects/$slug/tags"
   label: string
   icon: typeof ListChecks
   exact: boolean
   countFor?: "tickets" | "members"
+  adminOnly?: boolean
 }
 
 const TABS: ReadonlyArray<TabDef> = [
@@ -329,6 +332,14 @@ const TABS: ReadonlyArray<TabDef> = [
     icon: UsersIcon,
     exact: false,
     countFor: "members"
+  },
+  {
+    key: "tags",
+    to: "/orgs/$orgSlug/projects/$slug/tags",
+    label: "Tags",
+    icon: TagsIcon,
+    exact: false,
+    adminOnly: true
   }
 ]
 
@@ -342,6 +353,12 @@ function TabsNav({
   project: ProjectDetailType
 }) {
   const location = useLocation()
+  const me = useAtomValue(meAtom)
+  const myRole: Role | null = Result.isSuccess(me)
+    ? (project.members.find((m) => m.id === me.value.id)?.role ?? null)
+    : null
+  const isAdmin = myRole === "owner" || myRole === "admin"
+  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin)
   const base = `/orgs/${orgSlug}/projects/${slug}`
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
@@ -355,7 +372,7 @@ function TabsNav({
     : null
 
   const isActive = (key: TabKey): boolean => {
-    const t = TABS.find((x) => x.key === key)!
+    const t = visibleTabs.find((x) => x.key === key)!
     const target = t.to
       .replace("$orgSlug", orgSlug)
       .replace("$slug", slug)
@@ -369,7 +386,7 @@ function TabsNav({
   }
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
-  const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
+  const items: ReadonlyArray<SegmentedItem<TabKey>> = visibleTabs.map((t) => ({
     key: t.key,
     label: t.label,
     icon: t.icon,
@@ -388,7 +405,7 @@ function TabsNav({
         layoutId={`project-tabs-${slug}`}
         isActive={isActive}
         renderItem={(item, content, { active }) => {
-          const def = TABS.find((t) => t.key === item.key)!
+          const def = visibleTabs.find((t) => t.key === item.key)!
           if (item.key === "tickets" && ticketsCount !== null) {
             return (
               <Link
