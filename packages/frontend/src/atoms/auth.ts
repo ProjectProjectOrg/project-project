@@ -116,16 +116,3 @@ export const logoutAtom = runtime.fn(
     get.refresh(meAtom)
   })
 )
-
-// Set the user's active organization (Better Auth's organization plugin) and
-// refresh meAtom so the new `activeOrgSlug` flows out to the sidebar /
-// breadcrumbs / etc. immediately. Called from the org-route layout on every
-// navigation; future org switcher (T-08) calls the same atom.
-export const setActiveOrgAtom = runtime.fn(
-  Effect.fn(function* (orgSlug: string, get) {
-    yield* Effect.tryPromise(() =>
-      authClient.organization.setActive({ organizationSlug: orgSlug })
-    )
-    get.refresh(meAtom)
-  })
-)
