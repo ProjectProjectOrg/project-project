@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Check, Plus, X } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { TagChip } from "@/components/TagChip"
 import { TagAdminPopover } from "@/components/TagAdminPopover"
 import {
@@ -8,10 +8,17 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { createTagAtom, tagsAtom, tagsKey } from "@/atoms/tags"
+import {
+  createTagAtom,
+  deleteTagAtom,
+  renameTagAtom,
+  tagsAtom,
+  tagsKey
+} from "@/atoms/tags"
+import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { TagName, TicketDetail } from "@projectproject/shared"
+import type { Tag, TagName, TicketDetail } from "@projectproject/shared"
 
 type Props = {
   orgSlug: string
@@ -26,21 +33,65 @@ const NEUTRAL = "#94a3b8"
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
   const tagsResult = useAtomValue(tagsAtom(key))
+  const ticketsResult = useAtomValue(
+    ticketsListAtom(ticketsListKey(orgSlug, slug))
+  )
   const updateTicket = useAtomSet(updateTicketAtom)
   const createTag = useAtomSet(createTagAtom(key))
+  const renameTag = useAtomSet(renameTagAtom(key))
+  const deleteTag = useAtomSet(deleteTagAtom(key))
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
+  const [renameMap, setRenameMap] = useState<ReadonlyMap<string, string>>(
+    new Map()
+  )
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set())
 
   const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
-  const registryWaiting =
-    Result.isSuccess(tagsResult) && tagsResult.waiting
-  const colorByName = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const t of registry) map.set(t.name, t.color)
+  const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
+
+  const displayed = useMemo(
+    () =>
+      ticket.tags
+        .map((name) => renameMap.get(name) ?? name)
+        .filter((name) => !removed.has(name)),
+    [ticket.tags, renameMap, removed]
+  )
+
+  useEffect(() => {
+    if (renameMap.size === 0 && removed.size === 0) return
+    const ticketTags = new Set<string>(ticket.tags)
+    const registryNames = new Set<string>(registry.map((t) => t.name))
+    setRenameMap((prev) => {
+      let next: Map<string, string> | null = null
+      for (const [oldName, newName] of prev) {
+        const reflected =
+          ticketTags.has(newName) && !ticketTags.has(oldName)
+        if (reflected) {
+          if (!next) next = new Map(prev)
+          next.delete(oldName)
+        }
+      }
+      return next ?? prev
+    })
+    setRemoved((prev) => {
+      let next: Set<string> | null = null
+      for (const name of prev) {
+        if (!registryNames.has(name) && !ticketTags.has(name)) {
+          if (!next) next = new Set(prev)
+          next.delete(name)
+        }
+      }
+      return next ?? prev
+    })
+  }, [ticket.tags, registry, renameMap.size, removed.size])
+
+  const tagByName = useMemo(() => {
+    const map = new Map<string, Tag>()
+    for (const t of registry) map.set(t.name, t)
     return map
   }, [registry])
 
-  const applied = ticket.tags
   const lowered = draft.trim().toLowerCase()
   const exactRegistered = registry.find((t) => t.name === lowered)
   const isValidNewName = VALID.test(lowered)
@@ -57,14 +108,14 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     })
 
   const addTag = (name: string) => {
-    if ((applied as ReadonlyArray<string>).includes(name)) return
-    apply([...applied, name])
+    if (displayed.includes(name)) return
+    apply([...ticket.tags.filter((t) => !removed.has(t)), name])
     setDraft("")
     setOpen(false)
   }
 
-  const removeTag = (name: string) => {
-    apply(applied.filter((t) => t !== name))
+  const removeFromTicket = (name: string) => {
+    apply(ticket.tags.filter((t) => t !== name))
   }
 
   const createAndApply = () => {
@@ -74,20 +125,72 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     )
   }
 
+  const ticketHasTag = (name: string) =>
+    (ticket.tags as ReadonlyArray<string>).includes(name)
+
+  const handlePatch = (
+    oldName: string,
+    patch: { nextName?: TagName; color?: Tag["color"] }
+  ) => {
+    if (patch.nextName && patch.nextName !== oldName) {
+      const newName = patch.nextName as string
+      setRenameMap((prev) => {
+        const next = new Map(prev)
+        next.set(oldName, newName)
+        return next
+      })
+    }
+    void renameTag({
+      oldName: oldName as TagName,
+      nextName: patch.nextName,
+      color: patch.color
+    })
+  }
+
+  const handleDelete = async (name: string) => {
+    setRemoved((prev) => new Set(prev).add(name))
+    try {
+      await deleteTag({ name: name as TagName, force: true })
+    } catch (e) {
+      setRemoved((prev) => {
+        const next = new Set(prev)
+        next.delete(name)
+        return next
+      })
+      throw e
+    }
+  }
+
+  const usageCountFor = (name: string) =>
+    Result.isSuccess(ticketsResult)
+      ? ticketsResult.value.reduce(
+          (n, t) =>
+            n + ((t.tags as ReadonlyArray<string>).includes(name) ? 1 : 0),
+          0
+        )
+      : ticketHasTag(name)
+        ? 1
+        : 0
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {applied.map((name, i) => (
-        <AppliedTagChip
-          key={i}
-          orgSlug={orgSlug}
-          slug={slug}
-          name={name}
-          color={colorByName.get(name) ?? null}
-          canManage={canManageTags}
-          waiting={registryWaiting}
-          onRemove={() => removeTag(name)}
-        />
-      ))}
+      {displayed.map((name, i) => {
+        const tag = tagByName.get(name)
+        return (
+          <AppliedTagChip
+            key={i}
+            name={name}
+            tag={tag}
+            color={tag?.color ?? null}
+            canManage={canManageTags}
+            waiting={registryWaiting}
+            usageCount={tag ? usageCountFor(tag.name) : 0}
+            onPatch={(patch) => handlePatch(name, patch)}
+            onDelete={() => handleDelete(name)}
+            onRemove={() => removeFromTicket(name)}
+          />
+        )
+      })}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
@@ -96,7 +199,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
             className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-border px-1.5 text-[11px] text-muted-foreground transition-colors duration-100 hover:border-foreground/40 hover:text-foreground active:scale-[0.97]"
           >
             <Plus className="size-3" strokeWidth={2} />
-            {applied.length === 0 ? "Add tag" : null}
+            {displayed.length === 0 ? "Add tag" : null}
           </button>
         </PopoverTrigger>
         <PopoverContent
@@ -131,15 +234,15 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                 </p>
               ) : null}
               {filtered.map((tag) => {
-                const isApplied = (applied as ReadonlyArray<string>).includes(
-                  tag.name
-                )
+                const isApplied = displayed.includes(tag.name)
                 return (
                   <button
                     key={tag.name}
                     type="button"
                     onClick={() =>
-                      isApplied ? removeTag(tag.name) : addTag(tag.name)
+                      isApplied
+                        ? removeFromTicket(tag.name)
+                        : addTag(tag.name)
                     }
                     className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-accent active:scale-[0.99]"
                   >
@@ -172,20 +275,24 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 }
 
 function AppliedTagChip({
-  orgSlug,
-  slug,
   name,
+  tag,
   color,
   canManage,
   waiting,
+  usageCount,
+  onPatch,
+  onDelete,
   onRemove
 }: {
-  orgSlug: string
-  slug: string
   name: string
+  tag: Tag | undefined
   color: string | null
   canManage: boolean
   waiting: boolean
+  usageCount: number
+  onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
+  onDelete: () => Promise<void> | void
   onRemove: () => void
 }) {
   const hex = color ?? NEUTRAL
@@ -208,9 +315,13 @@ function AppliedTagChip({
     </button>
   )
 
-  if (!canManage) {
+  if (!canManage || !tag) {
     return (
-      <span data-slot="tag-chip" className={cn(wrapperClass, "px-2 py-0.5 pr-1.5")} style={wrapperStyle}>
+      <span
+        data-slot="tag-chip"
+        className={cn(wrapperClass, "px-2 py-0.5 pr-1.5")}
+        style={wrapperStyle}
+      >
         {name}
         {removeButton}
       </span>
@@ -218,8 +329,17 @@ function AppliedTagChip({
   }
 
   return (
-    <span data-slot="tag-chip" className={cn(wrapperClass, "pl-2 pr-1.5 py-0.5")} style={wrapperStyle}>
-      <TagAdminPopover orgSlug={orgSlug} slug={slug} tagName={name}>
+    <span
+      data-slot="tag-chip"
+      className={cn(wrapperClass, "pl-2 pr-1.5 py-0.5")}
+      style={wrapperStyle}
+    >
+      <TagAdminPopover
+        tag={tag}
+        usageCount={usageCount}
+        onPatch={onPatch}
+        onDelete={onDelete}
+      >
         <button
           type="button"
           aria-label={`Edit tag ${name}`}

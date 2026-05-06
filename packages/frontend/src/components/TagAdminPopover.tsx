@@ -1,4 +1,3 @@
-import { useAtomSet, useAtomValue, Result } from "@effect-atom/atom-react"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
@@ -13,41 +12,27 @@ import {
   useConfirmButton
 } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
-import { deleteTagAtom, renameTagAtom, tagsAtom, tagsKey } from "@/atoms/tags"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import type { Tag, TagName } from "@projectproject/shared"
 
 const VALID = /^[a-z0-9][a-z0-9-]{0,30}$/
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 type Props = {
-  orgSlug: string
-  slug: string
-  tagName: string
+  tag: Tag
+  usageCount: number
+  onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
+  onDelete: () => Promise<void> | void
   children: React.ReactNode
 }
 
-export function TagAdminPopover({ orgSlug, slug, tagName, children }: Props) {
-  const key = tagsKey(orgSlug, slug)
-  const tags = useAtomValue(tagsAtom(key))
-  const tickets = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
-  const rename = useAtomSet(renameTagAtom(key))
-  const remove = useAtomSet(deleteTagAtom(key))
-
-  const tag = Result.isSuccess(tags)
-    ? tags.value.find((t) => t.name === tagName)
-    : undefined
-
+export function TagAdminPopover({
+  tag,
+  usageCount,
+  onPatch,
+  onDelete,
+  children
+}: Props) {
   const [open, setOpen] = useState(false)
-
-  const usageCount =
-    tag && Result.isSuccess(tickets)
-      ? tickets.value.reduce(
-          (n, t) => n + (t.tags.includes(tag.name) ? 1 : 0),
-          0
-        )
-      : 0
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
@@ -57,24 +42,18 @@ export function TagAdminPopover({ orgSlug, slug, tagName, children }: Props) {
         className="w-64 p-2"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {tag ? (
-          <ConfirmButton.Root className="w-full">
-            <Body
-              tag={tag}
-              usageCount={usageCount}
-              onRename={(patch) => rename({ oldName: tag.name, ...patch })}
-              onConfirmDelete={async () => {
-                await remove({ name: tag.name, force: true })
-                setOpen(false)
-              }}
-              onDismiss={() => setOpen(false)}
-            />
-          </ConfirmButton.Root>
-        ) : (
-          <p className="animate-pulse px-1 py-0.5 text-xs text-muted-foreground">
-            Updating tag…
-          </p>
-        )}
+        <ConfirmButton.Root className="w-full">
+          <Body
+            tag={tag}
+            usageCount={usageCount}
+            onPatch={onPatch}
+            onConfirmDelete={async () => {
+              await onDelete()
+              setOpen(false)
+            }}
+            onDismiss={() => setOpen(false)}
+          />
+        </ConfirmButton.Root>
       </PopoverContent>
     </Popover>
   )
@@ -83,13 +62,13 @@ export function TagAdminPopover({ orgSlug, slug, tagName, children }: Props) {
 function Body({
   tag,
   usageCount,
-  onRename,
+  onPatch,
   onConfirmDelete,
   onDismiss
 }: {
   tag: Tag
   usageCount: number
-  onRename: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
+  onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onConfirmDelete: () => Promise<void>
   onDismiss: () => void
 }) {
@@ -108,7 +87,7 @@ function Body({
             <Editor
               tag={tag}
               usageCount={usageCount}
-              onRename={onRename}
+              onPatch={onPatch}
               onDismiss={onDismiss}
             />
           </motion.div>
@@ -135,12 +114,12 @@ function Body({
 function Editor({
   tag,
   usageCount,
-  onRename,
+  onPatch,
   onDismiss
 }: {
   tag: Tag
   usageCount: number
-  onRename: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
+  onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onDismiss: () => void
 }) {
   const { open: openConfirm } = useConfirmButton()
@@ -149,7 +128,7 @@ function Editor({
   const commit = () => {
     const trimmed = draftName.trim()
     if (trimmed === tag.name || !VALID.test(trimmed)) return
-    onRename({ nextName: trimmed as TagName })
+    onPatch({ nextName: trimmed as TagName })
   }
 
   return (
@@ -157,7 +136,7 @@ function Editor({
       <div className="flex items-center gap-1.5">
         <ColorPicker
           value={tag.color}
-          onChange={(hex) => onRename({ color: hex as Tag["color"] })}
+          onChange={(hex) => onPatch({ color: hex as Tag["color"] })}
           ariaLabel={`Color for ${tag.name}`}
         />
         <input

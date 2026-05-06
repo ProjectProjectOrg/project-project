@@ -71,16 +71,16 @@ export const renameTagAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(tagsAtom(key), {
     reducer: (current, input: RenameInput) => {
       if (!Result.isSuccess(current)) return current
-      const isColorOnly =
-        input.color !== undefined && input.nextName === undefined
-      if (isColorOnly) {
-        const nextColor = input.color!
-        const next = current.value.map((t) =>
-          t.name === input.oldName ? { ...t, color: nextColor } : t
-        )
-        return Result.success(next, { waiting: true })
-      }
-      return Result.success(current.value, { waiting: true })
+      const next = current.value.map((t) =>
+        t.name === input.oldName
+          ? {
+              ...t,
+              name: input.nextName ?? t.name,
+              color: input.color ?? t.color
+            }
+          : t
+      )
+      return Result.success(next, { waiting: true })
     },
     fn: runtime.fn(
       Effect.fn(function* (input: RenameInput, get) {
