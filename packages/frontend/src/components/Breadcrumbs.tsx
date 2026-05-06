@@ -20,7 +20,7 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useMatches } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { Fragment } from "react"
-import { projectAtom } from "@/atoms/projects"
+import { projectAtom, projectKey } from "@/atoms/projects"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId } from "@projectproject/shared"
@@ -32,8 +32,8 @@ export type Crumb =
       to?: string
       params?: Record<string, string>
     }
-  | { type: "project"; slug: string }
-  | { type: "ticket"; slug: string; id: TicketId }
+  | { type: "project"; orgSlug: string; slug: string }
+  | { type: "ticket"; orgSlug: string; slug: string; id: TicketId }
 
 export type CrumbData = Crumb | ReadonlyArray<Crumb>
 
@@ -87,8 +87,8 @@ export function Breadcrumbs({ className }: { className?: string }) {
 
 function crumbKey(c: Crumb, i: number) {
   if (c.type === "static") return `s-${i}-${c.label}`
-  if (c.type === "project") return `p-${c.slug}`
-  return `t-${c.slug}-${c.id}`
+  if (c.type === "project") return `p-${c.orgSlug}-${c.slug}`
+  return `t-${c.orgSlug}-${c.slug}-${c.id}`
 }
 
 function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
@@ -100,14 +100,35 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
         </CrumbText>
       )
     case "project":
-      return <ProjectCrumb slug={crumb.slug} isLast={isLast} />
+      return (
+        <ProjectCrumb
+          orgSlug={crumb.orgSlug}
+          slug={crumb.slug}
+          isLast={isLast}
+        />
+      )
     case "ticket":
-      return <TicketCrumb slug={crumb.slug} id={crumb.id} isLast={isLast} />
+      return (
+        <TicketCrumb
+          orgSlug={crumb.orgSlug}
+          slug={crumb.slug}
+          id={crumb.id}
+          isLast={isLast}
+        />
+      )
   }
 }
 
-function ProjectCrumb({ slug, isLast }: { slug: string; isLast: boolean }) {
-  const result = useAtomValue(projectAtom(slug))
+function ProjectCrumb({
+  orgSlug,
+  slug,
+  isLast
+}: {
+  orgSlug: string
+  slug: string
+  isLast: boolean
+}) {
+  const result = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   if (!Result.isSuccess(result)) {
     return (
       <span
@@ -118,27 +139,33 @@ function ProjectCrumb({ slug, isLast }: { slug: string; isLast: boolean }) {
     )
   }
   return (
-    <CrumbText to="/projects/$slug" params={{ slug }} isLast={isLast}>
+    <CrumbText
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug }}
+      isLast={isLast}
+    >
       {result.value.name}
     </CrumbText>
   )
 }
 
 function TicketCrumb({
+  orgSlug,
   slug,
   id,
   isLast
 }: {
+  orgSlug: string
   slug: string
   id: TicketId
   isLast: boolean
 }) {
-  const result = useAtomValue(ticketAtom(ticketKey(slug, id)))
+  const result = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, id)))
   const label = Result.isSuccess(result) ? result.value.title : id
   return (
     <CrumbText
-      to="/projects/$slug_/tickets/$id"
-      params={{ slug, id }}
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug }}
       isLast={isLast}
     >
       <span className="font-mono text-xs">{id}</span>{" "}

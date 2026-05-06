@@ -11,8 +11,9 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { CopyButton } from "@/components/ui/copy-button"
-import { useProject } from "@/routes/_authed/projects/$slug/-context"
+import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { projectGitStatesAtom } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
@@ -27,10 +28,13 @@ import type {
 } from "@projectproject/shared"
 
 function useGitState(
+  orgSlug: string,
   slug: string,
   ticketId: string
 ): { state: GitState | null; waiting: boolean } {
-  const states = useAtomValue(projectGitStatesAtom(slug))
+  const states = useAtomValue(
+    projectGitStatesAtom(projectKey(orgSlug, slug))
+  )
   if (!Result.isSuccess(states)) return { state: null, waiting: false }
   return {
     state: states.value.states[ticketId] ?? null,
@@ -54,13 +58,15 @@ function checksColor(s: string): string {
 }
 
 export function TicketGitChip({
+  orgSlug,
   slug,
   ticketId
 }: {
+  orgSlug: string
   slug: string
   ticketId: TicketId
 }) {
-  const { state, waiting } = useGitState(slug, ticketId)
+  const { state, waiting } = useGitState(orgSlug, slug, ticketId)
   const project = useProject()
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pulse = waiting && "animate-pulse"
@@ -141,17 +147,19 @@ export function TicketGitChip({
 }
 
 export function TicketGitPanel({
+  orgSlug,
   slug,
   ticket,
   github,
   branchTemplate
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
   github: GithubConnection | null
   branchTemplate: string | null
 }) {
-  const { state, waiting } = useGitState(slug, ticket.id)
+  const { state, waiting } = useGitState(orgSlug, slug, ticket.id)
   if (!github) return null
   if (state === null) {
     return (
@@ -162,6 +170,7 @@ export function TicketGitPanel({
   }
   return (
     <PanelForState
+      orgSlug={orgSlug}
       slug={slug}
       ticket={ticket}
       state={state}
@@ -173,6 +182,7 @@ export function TicketGitPanel({
 }
 
 function PanelForState({
+  orgSlug,
   slug,
   ticket,
   state,
@@ -180,6 +190,7 @@ function PanelForState({
   github,
   branchTemplate
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
   state: GitState
@@ -232,6 +243,7 @@ function PanelForState({
         </InlineForm.Idle>
         <InlineForm.Form action="create">
           <CreateBranchFields
+            orgSlug={orgSlug}
             slug={slug}
             ticket={ticket}
             github={github}
@@ -239,7 +251,11 @@ function PanelForState({
           />
         </InlineForm.Form>
         <InlineForm.Form action="connect">
-          <ConnectBranchFields slug={slug} ticket={ticket} />
+          <ConnectBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            ticket={ticket}
+          />
         </InlineForm.Form>
       </Root>
     )
@@ -270,7 +286,11 @@ function PanelForState({
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields slug={slug} id={ticket.id} />
+          <ClearBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+          />
         </InlineForm.Form>
       </Root>
     )
@@ -359,7 +379,11 @@ function PanelForState({
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields slug={slug} id={ticket.id} />
+          <ClearBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+          />
         </InlineForm.Form>
       </Root>
     )

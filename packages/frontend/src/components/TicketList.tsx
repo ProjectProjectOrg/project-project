@@ -31,6 +31,7 @@ import {
   ticketAtom,
   ticketKey,
   ticketsListAtom,
+  ticketsListKey,
   updateTicketAtom
 } from "@/atoms/tickets"
 import {
@@ -45,7 +46,7 @@ import { TicketGitChip, TicketGitPanel } from "@/components/TicketGit"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { Kbd } from "@/components/ui/kbd"
-import { useProject } from "@/routes/_authed/projects/$slug/-context"
+import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { cn } from "@/lib/utils"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { meAtom } from "@/atoms/auth"
@@ -82,13 +83,15 @@ function idNum(t: Ticket): number {
 }
 
 export function TicketList({
+  orgSlug,
   slug,
   members
 }: {
+  orgSlug: string
   slug: string
   members: ReadonlyArray<Member>
 }) {
-  const list = useAtomValue(ticketsListAtom(slug))
+  const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
   const me = useAtomValue(meAtom)
   const myId = Result.isSuccess(me) ? me.value.id : null
   const navigate = useNavigate()
@@ -153,7 +156,7 @@ export function TicketList({
 
   return (
     <div className="group/list flex flex-col gap-3">
-      <CreateTicketRow slug={slug} />
+      <CreateTicketRow orgSlug={orgSlug} slug={slug} />
 
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {Result.isSuccess(list) && list.value.length > 0 && (
@@ -188,6 +191,7 @@ export function TicketList({
           ),
           onSuccess: ({ value }) => (
             <FilteredList
+              orgSlug={orgSlug}
               slug={slug}
               tickets={value}
               query={query}
@@ -649,6 +653,7 @@ function SortMenu({
 }
 
 function FilteredList({
+  orgSlug,
   slug,
   tickets,
   query,
@@ -663,6 +668,7 @@ function FilteredList({
   onConsumeFocusBody,
   members
 }: {
+  orgSlug: string
   slug: string
   tickets: ReadonlyArray<Ticket>
   query: string
@@ -735,6 +741,7 @@ function FilteredList({
             className="col-span-full grid grid-cols-subgrid transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40 [ul:has(>li[data-expanded])>&:not([data-expanded]):hover]:opacity-100"
           >
             <Row
+              orgSlug={orgSlug}
               slug={slug}
               ticket={t}
               members={members}
@@ -751,6 +758,7 @@ function FilteredList({
 }
 
 function Row({
+  orgSlug,
   slug,
   ticket,
   members,
@@ -759,6 +767,7 @@ function Row({
   focusBody,
   onConsumeFocusBody
 }: {
+  orgSlug: string
   slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
@@ -783,7 +792,12 @@ function Row({
           isExpanded ? "bg-accent/40" : "hover:bg-accent/30"
         )}
       >
-        <StatusButton slug={slug} ticket={ticket} stopPropagation />
+        <StatusButton
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          stopPropagation
+        />
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
@@ -791,13 +805,15 @@ function Row({
           {ticket.title}
         </span>
         <AssigneeRowTrigger
+          orgSlug={orgSlug}
           slug={slug}
           ticket={ticket}
           members={members}
           className="hidden sm:inline-flex"
         />
-        <TicketGitChip slug={slug} ticketId={ticket.id} />
+        <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         <TypeButton
+          orgSlug={orgSlug}
           slug={slug}
           ticket={ticket}
           className="hidden sm:inline-flex"
@@ -813,6 +829,7 @@ function Row({
       {isExpanded && (
         <div className="col-span-full">
           <Expanded
+            orgSlug={orgSlug}
             slug={slug}
             id={ticket.id}
             members={members}
@@ -826,19 +843,21 @@ function Row({
 }
 
 function Expanded({
+  orgSlug,
   slug,
   id,
   members,
   focusBody,
   onConsumeFocusBody
 }: {
+  orgSlug: string
   slug: string
   id: TicketId
   members: ReadonlyArray<Member>
   focusBody: boolean
   onConsumeFocusBody: () => void
 }) {
-  const detail = useAtomValue(ticketAtom(ticketKey(slug, id)))
+  const detail = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, id)))
   return (
     <div className="border-t border-border/60 bg-muted/30 px-4 py-4">
       {Result.matchWithError(detail, {
@@ -857,6 +876,7 @@ function Expanded({
         ),
         onSuccess: ({ value }) => (
           <ExpandedDetail
+            orgSlug={orgSlug}
             slug={slug}
             ticket={value}
             members={members}
@@ -870,12 +890,14 @@ function Expanded({
 }
 
 function ExpandedDetail({
+  orgSlug,
   slug,
   ticket,
   members,
   focusBody,
   onConsumeFocusBody
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
   members: ReadonlyArray<Member>
@@ -896,10 +918,15 @@ function ExpandedDetail({
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <TitleField slug={slug} ticket={ticket} />
+          <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <TypeBadgeTrigger slug={slug} ticket={ticket} />
-            <AssigneePicker slug={slug} ticket={ticket} members={members} />
+            <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            <AssigneePicker
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={ticket}
+              members={members}
+            />
             <span>·</span>
             <span title={ticket.createdAt.toLocaleString()}>
               created {ticket.createdAt.toLocaleDateString()}
@@ -918,7 +945,7 @@ function ExpandedDetail({
           onConfirm={async () => {
             setDeleting(true)
             try {
-              await remove({ slug, id: ticket.id })
+              await remove({ orgSlug, slug, id: ticket.id })
               navigate({
                 to: ".",
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
@@ -932,13 +959,15 @@ function ExpandedDetail({
         />
       </div>
 
-      <ExpandedGitPanel slug={slug} ticket={ticket} />
+      <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
         <LexicalEditor
           key={`${slug}/${ticket.id}`}
           markdown={ticket.body}
-          onChange={(next) => update({ slug, id: ticket.id, body: next })}
+          onChange={(next) =>
+            update({ orgSlug, slug, id: ticket.id, body: next })
+          }
           onStatusChange={setBodyStatus}
           autoFocus={autoFocusBody}
         />
@@ -948,9 +977,11 @@ function ExpandedDetail({
 }
 
 function ExpandedGitPanel({
+  orgSlug,
   slug,
   ticket
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
 }) {
@@ -958,6 +989,7 @@ function ExpandedGitPanel({
   if (!project.github) return null
   return (
     <TicketGitPanel
+      orgSlug={orgSlug}
       slug={slug}
       ticket={ticket}
       github={project.github}
@@ -966,7 +998,15 @@ function ExpandedGitPanel({
   )
 }
 
-function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
+function TitleField({
+  orgSlug,
+  slug,
+  ticket
+}: {
+  orgSlug: string
+  slug: string
+  ticket: TicketDetail
+}) {
   const update = useAtomSet(updateTicketAtom)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)
@@ -984,7 +1024,7 @@ function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
     }
     setSaving(true)
     try {
-      await update({ slug, id: ticket.id, title: trimmed })
+      await update({ orgSlug, slug, id: ticket.id, title: trimmed })
     } finally {
       setSaving(false)
       setEditing(false)
@@ -1027,10 +1067,12 @@ function TitleField({ slug, ticket }: { slug: string; ticket: TicketDetail }) {
 }
 
 function TypeBadgeTrigger({
+  orgSlug,
   slug,
   ticket,
   className
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; type: TicketType }
   className?: string
@@ -1072,7 +1114,7 @@ function TypeBadgeTrigger({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({ slug, id: ticket.id, type: t })
+                update({ orgSlug, slug, id: ticket.id, type: t })
               }}
               className="cursor-pointer"
             >
@@ -1090,10 +1132,12 @@ function TypeBadgeTrigger({
 }
 
 function TypeButton({
+  orgSlug,
   slug,
   ticket,
   className
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; type: TicketType }
   className?: string
@@ -1131,7 +1175,7 @@ function TypeButton({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({ slug, id: ticket.id, type: t })
+                update({ orgSlug, slug, id: ticket.id, type: t })
               }}
               className="cursor-pointer"
             >
@@ -1149,10 +1193,12 @@ function TypeButton({
 }
 
 function AssigneeMenuContent({
+  orgSlug,
   slug,
   ticket,
   members
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
@@ -1160,7 +1206,7 @@ function AssigneeMenuContent({
   const update = useAtomSet(updateTicketAtom)
   const assignees = ticket.assignees
   const setAssignees = (next: ReadonlyArray<string>) => {
-    update({ slug, id: ticket.id, assignees: next })
+    update({ orgSlug, slug, id: ticket.id, assignees: next })
   }
   const toggle = (id: string) => {
     setAssignees(
@@ -1222,10 +1268,12 @@ function AssigneeMenuContent({
 }
 
 function AssigneePicker({
+  orgSlug,
   slug,
   ticket,
   members
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
@@ -1257,17 +1305,24 @@ function AssigneePicker({
           <span>{label}</span>
         </button>
       </DropdownMenuTrigger>
-      <AssigneeMenuContent slug={slug} ticket={ticket} members={members} />
+      <AssigneeMenuContent
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        members={members}
+      />
     </DropdownMenu>
   )
 }
 
 function AssigneeRowTrigger({
+  orgSlug,
   slug,
   ticket,
   members,
   className
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
@@ -1305,16 +1360,23 @@ function AssigneeRowTrigger({
           </span>
         </Hitbox>
       </DropdownMenuTrigger>
-      <AssigneeMenuContent slug={slug} ticket={ticket} members={members} />
+      <AssigneeMenuContent
+        orgSlug={orgSlug}
+        slug={slug}
+        ticket={ticket}
+        members={members}
+      />
     </DropdownMenu>
   )
 }
 
 function StatusButton({
+  orgSlug,
   slug,
   ticket,
   stopPropagation
 }: {
+  orgSlug: string
   slug: string
   ticket: { id: TicketId; status: TicketStatus }
   stopPropagation?: boolean
@@ -1356,7 +1418,7 @@ function StatusButton({
               key={status}
               onSelect={() => {
                 if (status === ticket.status) return
-                update({ slug, id: ticket.id, status })
+                update({ orgSlug, slug, id: ticket.id, status })
               }}
               className="cursor-pointer"
             >
