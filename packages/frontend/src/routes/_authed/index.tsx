@@ -1,10 +1,6 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 
+// Required so TanStack Router registers "/"; reached only when activeOrgSlug is null
 export const Route = createFileRoute("/_authed/")({
-  beforeLoad: () => {
-    throw redirect({
-      to: "/orgs/$orgSlug",
-      params: { orgSlug: "project-project" }
-    })
-  }
+  component: () => null
 })

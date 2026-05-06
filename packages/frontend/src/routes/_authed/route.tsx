@@ -1,5 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  Navigate,
+  Outlet,
+  useLocation
+} from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
@@ -22,6 +28,7 @@ export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
 
 function AuthedLayout() {
   const me = useAtomValue(meAtom)
+  const { pathname } = useLocation()
 
   return Result.matchWithError(me, {
     onInitial: () => <FullPageStatus>Loading…</FullPageStatus>,
@@ -29,7 +36,19 @@ function AuthedLayout() {
     onDefect: (defect) => (
       <FullPageStatus>Something went wrong: {String(defect)}</FullPageStatus>
     ),
-    onSuccess: ({ value }) => <Shell user={value} />
+    onSuccess: ({ value }) => {
+      // "/" with an active org → org dashboard; null org falls through to Shell (https://projectproject.missler.xyz/projects/project-project?ticket=T-35 will redirect to /onboarding).
+      if (pathname === "/" && value.activeOrgSlug) {
+        return (
+          <Navigate
+            to="/orgs/$orgSlug"
+            params={{ orgSlug: value.activeOrgSlug }}
+            replace
+          />
+        )
+      }
+      return <Shell user={value} />
+    }
   })
 }
 
