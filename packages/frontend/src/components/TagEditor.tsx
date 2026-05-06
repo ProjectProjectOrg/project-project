@@ -48,14 +48,25 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
   const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
+  const registryNames = useMemo(
+    () => new Set<string>(registry.map((t) => t.name as string)),
+    [registry]
+  )
 
-  const mapName = (name: string) => renameMap.get(name) ?? name
+  const mapName = (name: string) => {
+    const renamed = renameMap.get(name)
+    if (!renamed) return name
+    if (registryNames.has(name)) return name
+    return renamed
+  }
 
   const displayed = useMemo(
     () =>
-      ticket.tags.map(mapName).filter((name) => !removed.has(name)),
+      ticket.tags
+        .map(mapName)
+        .filter((name) => !(removed.has(name) && !registryNames.has(name))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ticket.tags, renameMap, removed]
+    [ticket.tags, renameMap, removed, registryNames]
   )
 
   const tagByName = useMemo(() => {

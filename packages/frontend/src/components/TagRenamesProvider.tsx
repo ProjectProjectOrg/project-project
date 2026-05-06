@@ -1,13 +1,4 @@
-import {
-  createContext,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState
-} from "react"
-import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { tagsAtom, tagsKey } from "@/atoms/tags"
+import { createContext, use, useCallback, useMemo, useState } from "react"
 
 type ProjectKey = string
 type RenameMap = ReadonlyMap<string, string>
@@ -86,25 +77,6 @@ export function useTagRenames(orgSlug: string, slug: string) {
   const key = `${orgSlug}/${slug}`
   const renames = ctx.renamesFor(key)
   const removed = ctx.removedFor(key)
-  const tagsResult = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
-
-  useEffect(() => {
-    if (!Result.isSuccess(tagsResult)) return
-    if (renames.size === 0 && removed.size === 0) return
-    const registryNames = new Set<string>(
-      tagsResult.value.map((t) => t.name)
-    )
-    for (const oldName of renames.keys()) {
-      if (!registryNames.has(oldName)) {
-        // best-effort: clear once the old name is no longer in the registry
-      }
-    }
-    for (const name of removed) {
-      if (!registryNames.has(name)) {
-        ctx.unregisterRemove(key, name)
-      }
-    }
-  }, [tagsResult, renames, removed, ctx, key])
 
   const registerRename = useCallback(
     (oldName: string, newName: string) =>
