@@ -136,8 +136,11 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
 
 function Topbar({ user }: { user: User }) {
   return (
-    <header className="flex h-14 items-center gap-2 px-4">
-      <OrgSwitcher />
+    <header className="flex h-14 items-center gap-1 px-4">
+      <OrgSwitcher
+        activeOrgSlug={user.activeOrgSlug}
+        organizations={user.organizations}
+      />
       <Breadcrumbs className="min-w-0 flex-1" />
       <UserMenu user={user} />
     </header>

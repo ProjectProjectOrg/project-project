@@ -83,10 +83,10 @@
 
 import { Context, Data, Effect, Layer } from "effect"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import type { Session, User } from "../auth"
-import { account, organization } from "../db/schema"
+import { account, member, organization } from "../db/schema"
 
 class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -116,6 +116,15 @@ export class BetterAuth extends Context.Tag("BetterAuth")<
     readonly getOrgSlugById: (
       organizationId: string | null | undefined
     ) => Effect.Effect<string | null, BetterAuthError>
+    readonly listUserOrganizations: (userId: string) => Effect.Effect<
+      ReadonlyArray<{
+        readonly id: string
+        readonly name: string
+        readonly slug: string
+        readonly logo: string | null
+      }>,
+      BetterAuthError
+    >
   }
 >() {}
 
@@ -171,6 +180,25 @@ export const BetterAuthLive = Layer.effect(
             catch: (cause) => new BetterAuthError({ cause })
           })
           return rows[0]?.slug ?? null
+        }),
+      listUserOrganizations: (userId) =>
+        Effect.tryPromise({
+          try: () =>
+            db
+              .select({
+                id: organization.id,
+                name: organization.name,
+                slug: organization.slug,
+                logo: organization.logo
+              })
+              .from(member)
+              .innerJoin(
+                organization,
+                eq(member.organizationId, organization.id)
+              )
+              .where(eq(member.userId, userId))
+              .orderBy(asc(organization.name)),
+          catch: (cause) => new BetterAuthError({ cause })
         })
     })
   })

@@ -97,22 +97,25 @@
 // `Result.match` with `onFailure: (failure) => ...` is fine — just remember
 // the argument is the Failure variant, not the error.
 
+import { Atom } from "@effect-atom/atom-react"
 import { Effect } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
 
-export const meAtom = runtime.atom(
+export const meBaseAtom = runtime.atom(
   Effect.gen(function* () {
     const client = yield* ApiClient
     return yield* client.auth.me()
   })
 )
 
+export const meAtom = Atom.optimistic(meBaseAtom)
+
 // Sign out, then refresh meAtom so the gate flips to redirect on the next render.
 export const logoutAtom = runtime.fn(
   Effect.fn(function* (_: void, get) {
     yield* Effect.tryPromise(() => authClient.signOut())
-    get.refresh(meAtom)
+    get.refresh(meBaseAtom)
   })
 )

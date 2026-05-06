@@ -1,28 +1,33 @@
-import { Atom } from "@effect-atom/atom-react"
+import { Atom, Result } from "@effect-atom/atom-react"
 import { Effect } from "effect"
-import { runtime } from "@/runtime"
+import { meAtom, meBaseAtom } from "@/atoms/auth"
+import { projectsListAtom } from "@/atoms/projects"
 import { authClient } from "@/services/AuthClient"
+import { runtime } from "@/runtime"
+import type { UserOrganization } from "@projectproject/shared"
 
-export type UserOrganization = {
-  readonly id: string
-  readonly name: string
-  readonly slug: string
-  readonly logo?: string | null
-}
-
-export const userOrgsAtom = runtime
-  .atom(
-    Effect.tryPromise({
-      try: async () => {
-        const result = await authClient.$fetch<UserOrganization[]>(
-          "/organization/list",
-          { method: "GET" }
-        )
-        if (result.error) throw result.error
-        const orgs = result.data ?? []
-        return [...orgs].sort((a, b) => a.name.localeCompare(b.name))
-      },
-      catch: (cause) => cause
+export const switchOrgAtom = Atom.optimisticFn(meAtom, {
+  reducer: (current, org: UserOrganization) => {
+    if (!Result.isSuccess(current)) return current
+    return Result.success(
+      { ...current.value, activeOrgSlug: org.slug },
+      { waiting: true }
+    )
+  },
+  fn: runtime.fn(
+    Effect.fn(function* (org: UserOrganization, get) {
+      yield* Effect.tryPromise({
+        try: async () => {
+          const result = await authClient.$fetch("/organization/set-active", {
+            method: "POST",
+            body: { organizationId: org.id }
+          })
+          if (result.error) throw result.error
+        },
+        catch: (cause) => cause
+      })
+      get.refresh(meBaseAtom)
+      get.refresh(projectsListAtom(org.slug))
     })
   )
-  .pipe(Atom.setIdleTTL("1 minute"))
+})

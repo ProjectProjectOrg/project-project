@@ -20,10 +20,11 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useMatches } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { Fragment } from "react"
+import { meAtom } from "@/atoms/auth"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { TicketId } from "@projectproject/shared"
+import type { TicketId, UserOrganization } from "@projectproject/shared"
 
 export type Crumb =
   | {
@@ -32,6 +33,7 @@ export type Crumb =
       to?: string
       params?: Record<string, string>
     }
+  | { type: "org"; orgSlug: string }
   | { type: "project"; orgSlug: string; slug: string }
   | { type: "ticket"; orgSlug: string; slug: string; id: TicketId }
 
@@ -41,7 +43,7 @@ export type CrumbData = Crumb | ReadonlyArray<Crumb>
 // we narrow at the read site.
 type WithCrumb = { crumb?: CrumbData }
 
-function flatten(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
+function flattenCrumbs(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
   const out: Crumb[] = []
   for (const c of crumbs) {
     if (!c) continue
@@ -51,10 +53,22 @@ function flatten(crumbs: ReadonlyArray<CrumbData | undefined>): Crumb[] {
   return out
 }
 
+function normalizeCrumbs(
+  crumbs: ReadonlyArray<Crumb>,
+  orgs: ReadonlyArray<UserOrganization>
+) {
+  const hideOrgCrumb = orgs.length > 1
+  return hideOrgCrumb
+    ? crumbs.filter((crumb) => crumb.type !== "org")
+    : crumbs
+}
+
 export function Breadcrumbs({ className }: { className?: string }) {
   const matches = useMatches()
+  const me = useAtomValue(meAtom)
+  const orgs = Result.isSuccess(me) ? me.value.organizations : []
   const raw = matches.map((m) => (m.loaderData as WithCrumb | undefined)?.crumb)
-  const crumbs = flatten(raw)
+  const crumbs = normalizeCrumbs(flattenCrumbs(raw), orgs)
 
   if (crumbs.length === 0) return null
 
@@ -77,7 +91,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
                 aria-hidden
               />
             )}
-            <CrumbItem crumb={c} isLast={isLast} />
+            <CrumbItem crumb={c} isLast={isLast} orgs={orgs} />
           </Fragment>
         )
       })}
@@ -87,16 +101,36 @@ export function Breadcrumbs({ className }: { className?: string }) {
 
 function crumbKey(c: Crumb, i: number) {
   if (c.type === "static") return `s-${i}-${c.label}`
+  if (c.type === "org") return `o-${c.orgSlug}`
   if (c.type === "project") return `p-${c.orgSlug}-${c.slug}`
   return `t-${c.orgSlug}-${c.slug}-${c.id}`
 }
 
-function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
+function CrumbItem({
+  crumb,
+  isLast,
+  orgs
+}: {
+  crumb: Crumb
+  isLast: boolean
+  orgs: ReadonlyArray<UserOrganization>
+}) {
   switch (crumb.type) {
     case "static":
       return (
         <CrumbText to={crumb.to} params={crumb.params} isLast={isLast}>
           {crumb.label}
+        </CrumbText>
+      )
+    case "org":
+      return (
+        <CrumbText
+          to="/orgs/$orgSlug"
+          params={{ orgSlug: crumb.orgSlug }}
+          isLast={isLast}
+        >
+          {orgs.find((org) => org.slug === crumb.orgSlug)?.name ??
+            crumb.orgSlug}
         </CrumbText>
       )
     case "project":

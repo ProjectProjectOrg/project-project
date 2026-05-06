@@ -165,16 +165,24 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           )
         )
 
-    const getIndexRow = (slug: string) =>
-      db
-        .select()
-        .from(projectIndex)
-        .where(eq(projectIndex.slug, slug))
-        .limit(1)
-        .pipe(
-          Effect.map((rows) => rows[0] ?? null),
-          Effect.orDie
-        )
+    const getIndexRow = (orgSlug: string, slug: string) =>
+      Effect.gen(function* () {
+        const organizationId = yield* orgIdFromSlug(orgSlug)
+        return yield* db
+          .select()
+          .from(projectIndex)
+          .where(
+            and(
+              eq(projectIndex.slug, slug),
+              eq(projectIndex.organizationId, organizationId)
+            )
+          )
+          .limit(1)
+          .pipe(
+            Effect.map((rows) => rows[0] ?? null),
+            Effect.orDie
+          )
+      })
 
     const findFreeSlug = (base: string): Effect.Effect<string> =>
       Effect.gen(function* () {
@@ -226,53 +234,65 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     const list = (
       orgSlug: string,
       userId: string
-    ): Effect.Effect<ReadonlyArray<Project>> =>
-      db
-        .select({
-          slug: projectIndex.slug,
-          name: projectIndex.name,
-          createdBy: projectIndex.createdBy,
-          createdAt: projectIndex.createdAt
-        })
-        .from(projectIndex)
-        .innerJoin(
-          projectMember,
-          and(
-            eq(projectMember.projectSlug, projectIndex.slug),
-            eq(projectMember.userId, userId)
+    ): Effect.Effect<ReadonlyArray<Project>, NotFound> =>
+      Effect.gen(function* () {
+        const organizationId = yield* orgIdFromSlug(orgSlug)
+        return yield* db
+          .select({
+            slug: projectIndex.slug,
+            name: projectIndex.name,
+            createdBy: projectIndex.createdBy,
+            createdAt: projectIndex.createdAt
+          })
+          .from(projectIndex)
+          .innerJoin(
+            projectMember,
+            and(
+              eq(projectMember.projectSlug, projectIndex.slug),
+              eq(projectMember.userId, userId)
+            )
           )
-        )
-        .orderBy(asc(projectIndex.createdAt))
-        .pipe(
-          Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
-          Effect.orDie
-        )
+          .where(eq(projectIndex.organizationId, organizationId))
+          .orderBy(asc(projectIndex.createdAt))
+          .pipe(
+            Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
+            Effect.orDie
+          )
+      })
 
     // --- Permission gates ----------------------------------------------
 
     const requireMember = (
-      _orgSlug: string,
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<{ role: Role }, NotFound> =>
-      db
-        .select({ role: projectMember.role })
-        .from(projectMember)
-        .where(
-          and(
-            eq(projectMember.projectSlug, slug),
-            eq(projectMember.userId, userId)
+      Effect.gen(function* () {
+        const organizationId = yield* orgIdFromSlug(orgSlug)
+        return yield* db
+          .select({ role: projectMember.role })
+          .from(projectMember)
+          .innerJoin(
+            projectIndex,
+            eq(projectIndex.slug, projectMember.projectSlug)
           )
-        )
-        .limit(1)
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((rows) =>
-            rows[0]
-              ? Effect.succeed({ role: rows[0].role as Role })
-              : Effect.fail(new NotFound())
+          .where(
+            and(
+              eq(projectMember.projectSlug, slug),
+              eq(projectMember.userId, userId),
+              eq(projectIndex.organizationId, organizationId)
+            )
           )
-        )
+          .limit(1)
+          .pipe(
+            Effect.orDie,
+            Effect.flatMap((rows) =>
+              rows[0]
+                ? Effect.succeed({ role: rows[0].role as Role })
+                : Effect.fail(new NotFound())
+            )
+          )
+      })
 
     const requireRole = (
       orgSlug: string,
@@ -396,7 +416,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* requireMember(orgSlug, userId, slug)
-        const indexRow = yield* getIndexRow(slug)
+        const indexRow = yield* getIndexRow(orgSlug, slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
@@ -420,7 +440,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
+        const indexRow = yield* getIndexRow(orgSlug, slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
 
@@ -480,7 +500,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        const indexRow = yield* getIndexRow(slug)
+        const indexRow = yield* getIndexRow(orgSlug, slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
@@ -657,7 +677,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     > =>
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
+        const indexRow = yield* getIndexRow(orgSlug, slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
 
@@ -703,7 +723,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
+        const indexRow = yield* getIndexRow(orgSlug, slug)
         if (indexRow === null) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)

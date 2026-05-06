@@ -163,19 +163,19 @@
 }
 
 /* Theme switch: circular clip-path reveal centered on the click point. */
-::view-transition-old(root),
-::view-transition-new(root) {
+html.theme-transition::view-transition-old(root),
+html.theme-transition::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
-::view-transition-old(root) {
+html.theme-transition::view-transition-old(root) {
   z-index: 1;
 }
-::view-transition-new(root) {
+html.theme-transition::view-transition-new(root) {
   z-index: 2;
 }
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-new(root) {
+  html.theme-transition::view-transition-new(root) {
     animation: theme-circle-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }

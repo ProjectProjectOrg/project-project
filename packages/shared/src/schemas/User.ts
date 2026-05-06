@@ -37,6 +37,14 @@
 
 import { Schema } from "effect"
 
+export const UserOrganization = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  slug: Schema.String,
+  logo: Schema.NullOr(Schema.String)
+})
+export type UserOrganization = typeof UserOrganization.Type
+
 export const User = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
@@ -52,6 +60,10 @@ export const User = Schema.Struct({
   // the user has no active org (fresh signup, pre-onboarding). Frontend
   // reads this off `meAtom` so "current org" is available everywhere
   // without a second fetch.
-  activeOrgSlug: Schema.NullOr(Schema.String)
+  activeOrgSlug: Schema.NullOr(Schema.String),
+  // Shell chrome needs the org list immediately alongside the active slug.
+  // Keeping it on `/me` lets the authed shell render its sidebar and switcher
+  // from one coherent user snapshot instead of doing a second org-list fetch.
+  organizations: Schema.Array(UserOrganization)
 })
 export type User = typeof User.Type

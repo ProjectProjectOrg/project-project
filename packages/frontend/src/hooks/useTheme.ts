@@ -53,7 +53,11 @@ export function useTheme() {
     }
 
     if (typeof document !== "undefined" && "startViewTransition" in document) {
-      document.startViewTransition(apply)
+      document.documentElement.classList.add("theme-transition")
+      const transition = document.startViewTransition(apply)
+      transition.finished.finally(() => {
+        document.documentElement.classList.remove("theme-transition")
+      })
     } else {
       apply()
     }
