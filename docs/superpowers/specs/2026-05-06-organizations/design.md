@@ -36,9 +36,10 @@ Out of scope (parked for explicit later phases):
 
 1. **Multi-tenancy** is the framing — strict isolation between orgs.
 2. **Better Auth `organization` plugin** for org/member/invitation tables; **`admin` plugin** for instance super-admin.
-3. **Effective role composition.** `org owner` → implies project `owner` everywhere in the org. `org admin` → implies project `admin` everywhere. `org member` → no implication; explicit project membership required.
-   - `effectiveProjectRole = max(implicit-from-org, explicit-projectMember)`.
-   - **Constraint:** projectMember rows require an active org membership for the same `(userId, organizationId)`. Cascades on org-membership removal.
+3. **Strictly orthogonal roles.** Org-level role and project-level role are independent. Org membership grants org-level capabilities (settings, billing, invites) but **zero** access to project content. To access a project's content, a user must have an explicit `projectMember` row — even the org owner.
+   - **Why this over implicit-access:** in a real multi-tenant SaaS, a single org can span unrelated projects (agency with multiple clients, internal-finance vs public-marketing within one workspace, etc.). Implicit "org admin sees everything" leaks privacy across projects. Explicit-only access is auditable and predictable.
+   - **Failsafe for the org owner:** project creator is auto-added as project owner (already true). Lockout of an org owner from a project is recovered via T-10's transfer-ownership / "force-add to any project in my org" flow, or via super-admin impersonation.
+   - **Constraint:** projectMember rows require an active org membership for the same `(userId, organizationId)`. Cascades on org-membership removal — when a user is removed from / leaves an org, their `projectMember` rows for projects in that org are deleted.
 4. **No personal orgs.** Sign-up requires create-or-accept-invite. Org is the only tenant unit.
 5. **Teams ≠ Projects.** Better Auth's teams construct is reserved for future "project-access grouping" use, not used for project identity.
 6. **Self-serve org creation is primary.** Super-admin via Better Auth's `admin` plugin can also create orgs — for ops, support, recovery — but is not the gate.
@@ -146,19 +147,15 @@ Standard owner/admin/member from the plugin. Used for:
 
 ### Project role gates (existing)
 
-The matrix in `services/Projects.ts` is unchanged in shape — it just runs against **effective project role**:
+The matrix in `services/Projects.ts` runs against `projectMember.role` only — no org-role composition. A user without an explicit `projectMember` row has zero access to the project, regardless of their org role. The `requireMember(orgSlug, userId, slug)` helper still resolves the org first (via `CurrentOrg.resolve` in the handler chain) so non-org-members 404 before they hit the project gate, but inside the org the project gate is purely `projectMember`-based.
 
-```ts
-function effectiveProjectRole(orgRole: OrgRole, projectRole: ProjectRole | null): ProjectRole {
-  if (orgRole === "owner") return "owner"
-  if (orgRole === "admin") return rankMax("admin", projectRole)
-  return projectRole ?? throwForbidden() // org member with no explicit project membership: no access
-}
-```
+UI is correspondingly simple: project member list = `projectMember` rows. No "via org role" greyed rows, no implicit/explicit distinction.
 
-`requireRole(userId, projectId, allowed)` becomes `requireRole(userId, orgId, projectId, allowed)` — composes both lookups, returns 404 on miss (no info leak).
+### Membership invariants
 
-UI shows implicit-via-org-role members as a separate, greyed row in the project members list ("Wouter — Owner via org role"). Demoting yourself from this row routes to "leave the org" / "lower your org role" — not "remove from project".
+- **Project member ⊂ org member.** `Projects.addMember` should reject target users who aren't already in the org's `member` table. UI surface: "invite to org first." Small (~5-line) defensive check; lands in whichever PR next touches `Projects.addMember`. Not a separate ticket.
+- **Cascade on org removal.** When a user is removed from / leaves an org, their `projectMember` rows for projects in that org are deleted. Owned by T-10 (org settings, member management).
+- **Lockout recovery.** Org owner can force-add themselves to any project in their org (T-10), or super-admin can impersonate (T-11).
 
 ## Sign-up & onboarding
 
@@ -206,7 +203,7 @@ DB and FS aren't transactionally coupled. Order: DB first, then FS, then frontma
 3. **One-off migration.** Script runs against dev data. Verifies. After this, schema migration tightens nullable columns to NOT NULL.
 4. **Onboarding flow.** `/onboarding` route, self-serve org creation, GitHub sign-in lands here for users with zero orgs.
 5. **URL refactor.** All project routes become `/orgs/:orgSlug/projects/:projectSlug/...`. Atoms, handlers, components updated. Active-org session sync middleware.
-6. **Effective-role logic.** `effectiveProjectRole` helper applied in every `requireRole` callsite. Member list shows "via org role" rows.
+6. **Strict-orthogonal roles.** Closed; the existing `requireMember`/`requireRole` already implements the strict-orthogonal stance. The org-membership precondition on `addMember` and the cascade-on-org-removal land with their natural owners (T-09 and T-10).
 7. **Org switcher.** Nav affordance for users in 2+ orgs.
 8. **Member invitations.** Email-based invite flow via Better Auth.
 9. **Org settings page.** Rename, transfer ownership, soft-delete.

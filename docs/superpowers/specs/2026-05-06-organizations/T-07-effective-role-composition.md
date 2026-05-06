@@ -1,64 +1,36 @@
 # T-07 — Effective project-role composition
 
-**Status:** ready
-**Depends on:** T-01, T-05, T-06
-**Phase:** 6
+**Status:** CLOSED. Behavior is already implemented; ticket is no longer needed.
 
-## Goal
+## What was originally proposed
 
-Implement `effectiveProjectRole = max(implicit-from-org, explicit-projectMember)` so org owners/admins automatically get baseline project access without explicit `projectMember` rows. Permission checks across `services/Projects.ts` and `services/Tickets.ts` consume effective role; UI shows implicit-via-org members distinctly.
+`effectiveProjectRole(orgRole, projectRole) → role | null`, where org owner implied project owner everywhere and org admin implied project admin everywhere. UI rendered "via org role" badges next to implicit members. The composition rule was design decision #3 in the original grilling.
 
-## Scope
+## Why it's closed
 
-### Backend
+After building T-01..T-06 and seeing the downstream complexity (member list UI distinguishing implicit/explicit rows, "remove from project" routing to "leave org instead", separate `loadMembers` vs effective-members endpoints, the `effectiveProjectRole` helper itself), we revisited decision #3 and switched to **strictly orthogonal roles**:
 
-- New helper `lib/effectiveRole.ts`:
-  ```ts
-  function effectiveProjectRole(
-    orgRole: "owner" | "admin" | "member",
-    projectRole: "owner" | "admin" | "member" | null
-  ): "owner" | "admin" | "member" | null {
-    if (orgRole === "owner") return "owner"
-    if (orgRole === "admin") return rankMax("admin", projectRole)
-    return projectRole
-  }
-  ```
-  with `rankMax` honoring `owner > admin > member`.
-- Update `Projects.requireMember(userId, orgId, projectId)`: composes `currentOrg.role` + `projectMember.role` → effective role. Returns NotFound if effective role is null (org member with no explicit project membership AND no implicit elevation).
-- `Projects.requireRole(..., allowed)`: identical signature, just compares effective role against `allowed`.
-- `Tickets`'s `ensureAccess` reuses `Projects.requireMember`.
+- Org-level role grants org-level capabilities (settings, billing, invites). Zero project-content access.
+- Project-level role grants project-level capabilities. Requires an explicit `projectMember` row.
+- Even the org owner doesn't auto-get access to a project — they must be added explicitly.
 
-### `loadMembers` semantics
+The full rationale is in `design.md` under "Decisions", item 3.
 
-- `Projects.loadMembers(projectId)` continues to return only **explicit** projectMember rows (this is the source of truth for "who has been deliberately granted access at the project level"). The "via org" rows are computed on the frontend by joining the org's `member` list to the project view, OR returned by a new endpoint `GET /orgs/:slug/projects/:slug/effective-members` if we want the server to compose it. **Recommend server-side composition** so the wire shape is honest.
+## Why no implementation work is needed
 
-### Frontend
+The existing `Projects.requireMember` and `Projects.requireRole` already check `projectMember.role` only — no org-role composition. The `_orgSlug` parameter that's threaded through is unused (preserved as a leftover from when we expected to compose). The strict-orthogonal stance is already the runtime behavior; T-07 was always going to be paperwork.
 
-- Project member list UI:
-  - Explicit rows render normally (with role-edit affordances per existing rules).
-  - Implicit rows render in a greyed style with the badge "Owner via org role" / "Admin via org role". No edit affordance — clicking offers "Manage in org settings" as a routable action.
-  - Removing an implicit member from a project is not possible. The "Remove" button is hidden / disabled with explanatory tooltip.
+## Where the spilled-over scope lives
 
-### Constraint: org-membership precondition
+- **Org-membership precondition on `addMember`** (target user must be in the org before being added to a project) — small (~5-line) defensive check; lands in whichever PR next touches `Projects.addMember`. Not a separate ticket.
+- **Cascade on org-removal** (drop `projectMember` rows for projects in that org when a user is removed from / leaves the org) → T-10 (org settings).
+- **Lockout recovery** (org owner force-adding themselves to any project in their org) → T-10.
 
-- When adding someone to a project (`addMember`), require the target user to already be in `member` for this org. Otherwise return a typed error like `NotInOrganization` (or reuse `NotFound`). UI surface: invite to org first.
-- Cascades: when an org member is removed, all their `projectMember` rows for that org are deleted (cascade via FK or explicit transactional delete in the org-removal path; pick whichever is cleaner with Better Auth's plugin).
+## Removed UI complexity (vs. the original plan)
 
-## Out of scope
+- No "via org role" greyed rows in the project member list.
+- No "you can't remove this person from the project" indirection.
+- No separate effective-members endpoint.
+- No `effectiveProjectRole` helper.
 
-- Org settings UI for promoting users to org admin (T-10).
-- Last-owner / transfer-ownership rules (T-10).
-
-## Acceptance criteria
-
-1. An org `owner` who has no `projectMember` row on a project can still read, edit, delete that project. Permission checks pass.
-2. An org `admin` can edit project metadata + connect GitHub on any project, even with no `projectMember` row.
-3. An org `admin` cannot delete a project they have no explicit `owner` projectMember on (admin doesn't elevate to project-owner).
-4. An org `member` with no `projectMember` row on a project gets 404 on every project endpoint.
-5. Member list UI shows "via org" rows distinctly. Tries to remove → routed to org settings.
-6. Adding a non-org-member to a project fails with a typed error.
-
-## Notes
-
-- Server-side composition for the effective members endpoint keeps the wire shape simple: one array, with each member tagged `source: "explicit" | "org-role"`.
-- The `effectiveProjectRole` function is small and pure — easy to unit-test exhaustively. Do that.
+Member list is just `projectMember` rows. Permissions are just the `projectMember.role` value.
