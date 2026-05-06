@@ -1,7 +1,8 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Check, Plus } from "lucide-react"
+import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { TagChip } from "@/components/TagChip"
+import { TagAdminPopover } from "@/components/TagAdminPopover"
 import {
   Popover,
   PopoverContent,
@@ -20,6 +21,7 @@ type Props = {
 }
 
 const VALID = /^[a-z0-9][a-z0-9-]{0,30}$/
+const NEUTRAL = "#94a3b8"
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
@@ -73,10 +75,13 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {applied.map((name) => (
-        <TagChip
+        <AppliedTagChip
           key={name}
+          orgSlug={orgSlug}
+          slug={slug}
           name={name}
           color={colorByName.get(name) ?? null}
+          canManage={canManageTags}
           onRemove={() => removeTag(name)}
         />
       ))}
@@ -133,9 +138,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                     onClick={() =>
                       isApplied ? removeTag(tag.name) : addTag(tag.name)
                     }
-                    className={cn(
-                      "flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-accent active:scale-[0.99]"
-                    )}
+                    className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-accent active:scale-[0.99]"
                   >
                     <TagChip name={tag.name} color={tag.color} size="xs" />
                     {isApplied ? (
@@ -162,5 +165,63 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
         </PopoverContent>
       </Popover>
     </div>
+  )
+}
+
+function AppliedTagChip({
+  orgSlug,
+  slug,
+  name,
+  color,
+  canManage,
+  onRemove
+}: {
+  orgSlug: string
+  slug: string
+  name: string
+  color: string | null
+  canManage: boolean
+  onRemove: () => void
+}) {
+  const hex = color ?? NEUTRAL
+  const wrapperClass =
+    "inline-flex h-6 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-xs transition-colors"
+  const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
+  const removeButton = (
+    <button
+      type="button"
+      aria-label={`Remove tag ${name}`}
+      onClick={(e) => {
+        e.stopPropagation()
+        onRemove()
+      }}
+      className="inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
+    >
+      <X className="size-3" />
+    </button>
+  )
+
+  if (!canManage) {
+    return (
+      <span data-slot="tag-chip" className={cn(wrapperClass, "px-2 py-0.5 pr-1.5")} style={wrapperStyle}>
+        {name}
+        {removeButton}
+      </span>
+    )
+  }
+
+  return (
+    <span data-slot="tag-chip" className={cn(wrapperClass, "pl-2 pr-1.5 py-0.5")} style={wrapperStyle}>
+      <TagAdminPopover orgSlug={orgSlug} slug={slug} tagName={name}>
+        <button
+          type="button"
+          aria-label={`Edit tag ${name}`}
+          className="-ml-0.5 cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
+        >
+          {name}
+        </button>
+      </TagAdminPopover>
+      {removeButton}
+    </span>
   )
 }

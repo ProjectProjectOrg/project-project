@@ -12,7 +12,6 @@ import {
   Info,
   ListChecks,
   MoreHorizontal,
-  Settings as SettingsIcon,
   Trash2,
   Users as UsersIcon,
   type LucideIcon
@@ -139,7 +138,7 @@ function ProjectHeader({
         github={project.github}
         callerRole={myRole}
       />
-      <ProjectMenu orgSlug={orgSlug} slug={slug} role={myRole} />
+      <ProjectMenu orgSlug={orgSlug} slug={slug} />
     </header>
   )
 }
@@ -217,18 +216,15 @@ function NameField({
 
 function ProjectMenu({
   orgSlug,
-  slug,
-  role
+  slug
 }: {
   orgSlug: string
   slug: string
-  role: Role
 }) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const isAdmin = role === "owner" || role === "admin"
 
   async function onDelete() {
     setDeleting(true)
@@ -257,32 +253,16 @@ function ProjectMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!confirming ? (
-          <>
-            {isAdmin ? (
-              <DropdownMenuItem
-                onSelect={() =>
-                  navigate({
-                    to: "/orgs/$orgSlug/projects/$slug/settings",
-                    params: { orgSlug, slug }
-                  })
-                }
-                className="cursor-pointer"
-              >
-                <SettingsIcon className="size-4" strokeWidth={1.75} />
-                Project settings
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setConfirming(true)
-              }}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-4" strokeWidth={1.75} />
-              Delete project
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              setConfirming(true)
+            }}
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} />
+            Delete project
+          </DropdownMenuItem>
         ) : (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">

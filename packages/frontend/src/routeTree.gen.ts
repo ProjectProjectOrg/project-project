@@ -18,7 +18,6 @@ import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/org
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
-import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings'
 import { Route as AuthedOrgsOrgSlugProjectsSlugMembersRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/members'
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
 
@@ -69,12 +68,6 @@ const AuthedOrgsOrgSlugProjectsSlugIndexRoute =
     path: '/',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
   } as any)
-const AuthedOrgsOrgSlugProjectsSlugSettingsRoute =
-  AuthedOrgsOrgSlugProjectsSlugSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
-  } as any)
 const AuthedOrgsOrgSlugProjectsSlugMembersRoute =
   AuthedOrgsOrgSlugProjectsSlugMembersRouteImport.update({
     id: '/members',
@@ -98,7 +91,6 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
-  '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
 }
 export interface FileRoutesByTo {
@@ -109,7 +101,6 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
-  '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
 }
 export interface FileRoutesById {
@@ -124,7 +115,6 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/_authed/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
-  '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRoute
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
 }
 export interface FileRouteTypes {
@@ -139,7 +129,6 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/members'
-    | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -150,7 +139,6 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/members'
-    | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug'
   id:
     | '__root__'
@@ -164,7 +152,6 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
     | '/_authed/orgs/$orgSlug/projects/$slug/members'
-    | '/_authed/orgs/$orgSlug/projects/$slug/settings'
     | '/_authed/orgs/$orgSlug/projects/$slug/'
   fileRoutesById: FileRoutesById
 }
@@ -238,13 +225,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
     }
-    '/_authed/orgs/$orgSlug/projects/$slug/settings': {
-      id: '/_authed/orgs/$orgSlug/projects/$slug/settings'
-      path: '/settings'
-      fullPath: '/orgs/$orgSlug/projects/$slug/settings'
-      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteImport
-      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
-    }
     '/_authed/orgs/$orgSlug/projects/$slug/members': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/members'
       path: '/members'
@@ -265,7 +245,6 @@ declare module '@tanstack/react-router' {
 interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugAboutRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   AuthedOrgsOrgSlugProjectsSlugMembersRoute: typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
-  AuthedOrgsOrgSlugProjectsSlugSettingsRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRoute
   AuthedOrgsOrgSlugProjectsSlugIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
 }
 
@@ -275,8 +254,6 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjects
       AuthedOrgsOrgSlugProjectsSlugAboutRoute,
     AuthedOrgsOrgSlugProjectsSlugMembersRoute:
       AuthedOrgsOrgSlugProjectsSlugMembersRoute,
-    AuthedOrgsOrgSlugProjectsSlugSettingsRoute:
-      AuthedOrgsOrgSlugProjectsSlugSettingsRoute,
     AuthedOrgsOrgSlugProjectsSlugIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugIndexRoute,
   }
