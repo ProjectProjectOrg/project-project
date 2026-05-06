@@ -4,6 +4,7 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
+import { paraglideVitePlugin } from "@inlang/paraglide-js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -37,7 +38,15 @@ export default defineConfig({
     // Generates packages/frontend/src/routeTree.gen.ts from files in src/routes/
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
-    tailwindcss()
+    tailwindcss(),
+    paraglideVitePlugin({
+      project: "./project.inlang",
+      outdir: "./src/paraglide",
+      strategy: ["cookie", "preferredLanguage", "baseLocale"],
+      cookieName: "pp_locale",
+      cookieMaxAge: 60 * 60 * 24 * 365,
+      emitTsDeclarations: true
+    })
   ],
   server: {
     port: 5173,

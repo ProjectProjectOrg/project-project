@@ -75,6 +75,14 @@ Concrete example: the inline-pill version of `SegmentedTabs` (used for "Update s
 
 If extending the primitive feels disruptive (touches public API, would conflict with other callsites), stop and ask before going local.
 
+## i18n
+
+- All user-facing strings go through paraglide messages (`m.*` from `@/paraglide/messages`); raw literals in JSX are forbidden.
+- User-authored markdown (ticket descriptions, project READMEs, comments) stays as authored — never translated.
+- Errors map through `packages/frontend/src/lib/errorMessage.ts`. Extend that file when adding new tagged errors that surface in the UI.
+- `Intl.*` callsites take the active locale, read via `getLocale()` from `@/paraglide/runtime`. No `format.ts` wrapper layer.
+- Source locale: `en`. Adding `nl` is a future PR (the locale switcher ships with it).
+
 ## Mutations and optimistic updates
 
 **Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.

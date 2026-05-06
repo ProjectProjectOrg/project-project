@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_save_button": "Save",
+  "common_cancel_button": "Cancel",
+  "tickets_new_button": "New ticket",
+  "theme_light": "Light",
+  "theme_system": "System",
+  "theme_dark": "Dark",
+  "error_unknown": "Something went wrong.",
+  "validation_required": "Required"
+}
