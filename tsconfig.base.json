@@ -15,6 +15,7 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "plugins": [{ "name": "@effect/language-service" }]
   }
 }
