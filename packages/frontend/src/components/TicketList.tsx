@@ -26,6 +26,7 @@ import {
   X
 } from "lucide-react"
 import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
+import { PRIORITY_META, PRIORITY_ORDER } from "@/lib/priority-meta"
 import {
   deleteTicketAtom,
   ticketAtom,
@@ -55,6 +56,7 @@ import type {
   Ticket,
   TicketDetail,
   TicketId,
+  TicketPriority,
   TicketStatus,
   TicketType
 } from "@projectproject/shared"
@@ -959,6 +961,8 @@ function ExpandedDetail({
         />
       </div>
 
+      <PriorityPicker orgSlug={orgSlug} slug={slug} ticket={ticket} />
+
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
@@ -972,6 +976,49 @@ function ExpandedDetail({
           autoFocus={autoFocusBody}
         />
       </div>
+    </div>
+  )
+}
+
+function PriorityPicker({
+  orgSlug,
+  slug,
+  ticket
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; priority: TicketPriority }
+}) {
+  const update = useAtomSet(updateTicketAtom)
+  const items: ReadonlyArray<SegmentedItem<TicketPriority>> = PRIORITY_ORDER.map(
+    (key) => ({
+      key,
+      label: PRIORITY_META[key].label,
+      icon: PRIORITY_META[key].icon
+    })
+  )
+  return (
+    <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span>Update priority to:</span>
+      <SegmentedTabs
+        items={items}
+        layoutId={`ticket-${ticket.id}-priority`}
+        variant="inline"
+        isActive={(k) => k === ticket.priority}
+        renderItem={(item, content, { active }) => (
+          <button
+            type="button"
+            onClick={() => {
+              if (item.key === ticket.priority) return
+              update({ orgSlug, slug, id: ticket.id, priority: item.key })
+            }}
+            aria-pressed={active}
+            className={SEGMENTED_ITEM_CLASS(active, "inline")}
+          >
+            {content}
+          </button>
+        )}
+      />
     </div>
   )
 }
