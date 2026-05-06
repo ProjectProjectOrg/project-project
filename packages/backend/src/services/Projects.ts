@@ -127,13 +127,13 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         .where(eq(organization.slug, orgSlug))
         .limit(1)
         .pipe(
+          Effect.orDie,
           Effect.flatMap((rows) =>
             rows[0]
               ? Effect.succeed(rows[0].id)
               : Effect.fail(new NotFound())
-          ),
-          Effect.orDie
-        ) as Effect.Effect<string, NotFound>
+          )
+        )
 
     const getIndexRow = (slug: string) =>
       db
@@ -236,13 +236,13 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         )
         .limit(1)
         .pipe(
+          Effect.orDie,
           Effect.flatMap((rows) =>
             rows[0]
               ? Effect.succeed({ role: rows[0].role as Role })
               : Effect.fail(new NotFound())
-          ),
-          Effect.orDie
-        ) as Effect.Effect<{ role: Role }, NotFound>
+          )
+        )
 
     const requireRole = (
       orgSlug: string,
