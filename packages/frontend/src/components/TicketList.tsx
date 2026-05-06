@@ -782,11 +782,7 @@ function FilteredList({
             ? t.assignees.length === 0
             : t.assignees.includes(assigneeFilter)
       )
-      .filter(
-        (t) =>
-          selectedTags.length === 0 ||
-          selectedTags.every((sel) => t.tags.includes(sel))
-      )
+      .filter((t) => selectedTags.every((sel) => t.tags.includes(sel)))
       .filter((t) => {
         if (!q) return true
         return (
