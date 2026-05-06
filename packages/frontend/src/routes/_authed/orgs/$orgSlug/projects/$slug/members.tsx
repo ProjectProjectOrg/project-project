@@ -1,5 +1,3 @@
-// Members tab — DB-backed membership management.
-
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
@@ -7,7 +5,7 @@ import { MembersSection } from "@/components/MembersSection"
 import { useProject } from "./-context"
 import type { Member, Role } from "@projectproject/shared"
 
-export const Route = createFileRoute("/_authed/projects/$slug/members")({
+export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/members")({
   component: MembersTab,
   loader: () => ({
     crumb: { type: "static" as const, label: "Members" }
@@ -15,6 +13,7 @@ export const Route = createFileRoute("/_authed/projects/$slug/members")({
 })
 
 function MembersTab() {
+  const { orgSlug } = Route.useParams()
   const project = useProject()
   const me = useAtomValue(meAtom)
   if (!Result.isSuccess(me)) return null
@@ -24,6 +23,7 @@ function MembersTab() {
 
   return (
     <MembersSection
+      orgSlug={orgSlug}
       slug={project.slug}
       members={project.members}
       callerRole={callerRole}

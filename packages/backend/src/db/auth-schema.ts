@@ -24,6 +24,7 @@ export const user = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
   username: text("username").unique(),
+  lastActiveOrganizationId: text("last_active_organization_id"),
 });
 
 export const session = pgTable(

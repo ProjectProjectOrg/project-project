@@ -1,20 +1,21 @@
-// Inline confirm form for "clear branch". Two buttons; no body.
-
 import { useAtomSet } from "@effect-atom/atom-react"
 import { clearBranchAtom } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import type { TicketId } from "@projectproject/shared"
 
 export function ClearBranchFields({
+  orgSlug,
   slug,
   id
 }: {
+  orgSlug: string
   slug: string
   id: TicketId
 }) {
   const { busy, setBusy, close } = useInlineForm()
-  const clear = useAtomSet(clearBranchAtom(slug))
+  const clear = useAtomSet(clearBranchAtom(projectKey(orgSlug, slug)))
 
   async function submit() {
     setBusy(true)

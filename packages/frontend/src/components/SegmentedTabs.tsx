@@ -1,7 +1,7 @@
 // Shared segmented-tabs primitive.
 //
 // One component, two callsites: the project-level Tickets/About/Members tabs
-// in `routes/_authed/projects/$slug/route.tsx` and the All/Todo/In progress/
+// in `routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx` and the All/Todo/In progress/
 // Done chips in `components/TicketList.tsx`. Same chrome (rounded-xl border
 // container, padded with inner pills), same active-state animation
 // (LayoutGroup + a single `motion.span` shared via `layoutId` slides

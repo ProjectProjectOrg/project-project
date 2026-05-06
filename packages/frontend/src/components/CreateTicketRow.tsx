@@ -16,15 +16,24 @@ import {
 import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { createTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_META } from "@/lib/ticket-meta"
 import type { TicketType } from "@projectproject/shared"
 
-export function CreateTicketRow({ slug }: { slug: string }) {
+export function CreateTicketRow({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
   const create = useAtomSet(createTicketAtom, { mode: "promise" })
-  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(slug))
+  const refreshGitStates = useAtomRefresh(
+    projectGitStatesBaseAtom(projectKey(orgSlug, slug))
+  )
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -46,7 +55,7 @@ export function CreateTicketRow({ slug }: { slug: string }) {
     setSubmitting(true)
     setError(null)
     try {
-      const ticket = await create({ slug, title: trimmed, type })
+      const ticket = await create({ orgSlug, slug, title: trimmed, type })
       setTitle("")
       refreshGitStates()
       navigate({
