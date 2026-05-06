@@ -1,8 +1,8 @@
 // Ticket schema — over-the-wire shape returned by /projects/:slug/tickets endpoints.
 //
 // Tickets are stored as markdown files at
-// `<PROJECTS_DIR>/<project-slug>/tickets/<ticket-id>.md`. The frontmatter is
-// the structured data the API returns; the body is the description.
+// `<PROJECTS_DIR>/orgs/<org-slug>/projects/<project-slug>/tickets/<ticket-id>.md`.
+// The frontmatter is the structured data the API returns; the body is the description.
 //
 // IDs are sequential per project: T-1, T-2, ... — assigned by the server.
 

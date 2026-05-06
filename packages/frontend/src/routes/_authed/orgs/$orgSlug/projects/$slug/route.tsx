@@ -21,9 +21,10 @@ import { meAtom } from "@/atoms/auth"
 import {
   deleteProjectAtom,
   projectAtom,
+  projectKey,
   updateProjectAtom
 } from "@/atoms/projects"
-import { ticketsListAtom } from "@/atoms/tickets"
+import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { motion } from "framer-motion"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
@@ -53,19 +54,28 @@ import type {
   ProjectDetail as ProjectDetailType
 } from "@projectproject/shared"
 
-export const Route = createFileRoute("/_authed/projects/$slug")({
+export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   component: ProjectLayout,
   loader: ({ params }) => ({
     crumb: [
-      { type: "static" as const, label: "Projects", to: "/projects" },
-      { type: "project" as const, slug: params.slug }
+      {
+        type: "static" as const,
+        label: "Projects",
+        to: "/orgs/$orgSlug/projects",
+        params: { orgSlug: params.orgSlug }
+      },
+      {
+        type: "project" as const,
+        orgSlug: params.orgSlug,
+        slug: params.slug
+      }
     ]
   })
 })
 
 function ProjectLayout() {
-  const { slug } = Route.useParams()
-  const project = useAtomValue(projectAtom(slug))
+  const { orgSlug, slug } = Route.useParams()
+  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
 
   return (
     <PageContainer>
@@ -83,11 +93,12 @@ function ProjectLayout() {
         onSuccess: ({ value }) => (
           <ProjectContext.Provider value={value}>
             <ProjectHeader
+              orgSlug={orgSlug}
               slug={value.slug}
               name={value.name}
               project={value}
             />
-            <TabsNav slug={slug} project={value} />
+            <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
             <Outlet />
           </ProjectContext.Provider>
         )
@@ -97,10 +108,12 @@ function ProjectLayout() {
 }
 
 function ProjectHeader({
+  orgSlug,
   slug,
   name,
   project
 }: {
+  orgSlug: string
   slug: string
   name: string
   project: ProjectDetailType
@@ -116,16 +129,29 @@ function ProjectHeader({
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
-        <NameField slug={slug} name={name} />
+        <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
       </div>
-      <GithubChip slug={slug} github={project.github} callerRole={myRole} />
-      <ProjectMenu slug={slug} />
+      <GithubChip
+        orgSlug={orgSlug}
+        slug={slug}
+        github={project.github}
+        callerRole={myRole}
+      />
+      <ProjectMenu orgSlug={orgSlug} slug={slug} />
     </header>
   )
 }
 
-function NameField({ slug, name }: { slug: string; name: string }) {
+function NameField({
+  orgSlug,
+  slug,
+  name
+}: {
+  orgSlug: string
+  slug: string
+  name: string
+}) {
   const update = useAtomSet(updateProjectAtom)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
@@ -144,7 +170,7 @@ function NameField({ slug, name }: { slug: string; name: string }) {
     }
     setSaving(true)
     try {
-      await update({ slug, name: trimmed })
+      await update({ orgSlug, slug, name: trimmed })
     } finally {
       setSaving(false)
       setEditing(false)
@@ -188,7 +214,13 @@ function NameField({ slug, name }: { slug: string; name: string }) {
   )
 }
 
-function ProjectMenu({ slug }: { slug: string }) {
+function ProjectMenu({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
   const [confirming, setConfirming] = useState(false)
@@ -197,8 +229,8 @@ function ProjectMenu({ slug }: { slug: string }) {
   async function onDelete() {
     setDeleting(true)
     try {
-      await remove({ slug })
-      navigate({ to: "/projects" })
+      await remove({ orgSlug, slug })
+      navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
     } catch {
       setDeleting(false)
     }
@@ -264,7 +296,10 @@ function ProjectMenu({ slug }: { slug: string }) {
 type TabKey = "tickets" | "about" | "members"
 type TabDef = {
   key: TabKey
-  to: "/projects/$slug" | "/projects/$slug/about" | "/projects/$slug/members"
+  to:
+    | "/orgs/$orgSlug/projects/$slug"
+    | "/orgs/$orgSlug/projects/$slug/about"
+    | "/orgs/$orgSlug/projects/$slug/members"
   label: string
   icon: typeof ListChecks
   exact: boolean
@@ -274,7 +309,7 @@ type TabDef = {
 const TABS: ReadonlyArray<TabDef> = [
   {
     key: "tickets",
-    to: "/projects/$slug",
+    to: "/orgs/$orgSlug/projects/$slug",
     label: "Tickets",
     icon: ListChecks,
     exact: true,
@@ -282,14 +317,14 @@ const TABS: ReadonlyArray<TabDef> = [
   },
   {
     key: "about",
-    to: "/projects/$slug/about",
+    to: "/orgs/$orgSlug/projects/$slug/about",
     label: "About",
     icon: Info,
     exact: false
   },
   {
     key: "members",
-    to: "/projects/$slug/members",
+    to: "/orgs/$orgSlug/projects/$slug/members",
     label: "Members",
     icon: UsersIcon,
     exact: false,
@@ -298,15 +333,19 @@ const TABS: ReadonlyArray<TabDef> = [
 ]
 
 function TabsNav({
+  orgSlug,
   slug,
   project
 }: {
+  orgSlug: string
   slug: string
   project: ProjectDetailType
 }) {
   const location = useLocation()
-  const base = `/projects/${slug}`
-  const ticketsResult = useAtomValue(ticketsListAtom(slug))
+  const base = `/orgs/${orgSlug}/projects/${slug}`
+  const ticketsResult = useAtomValue(
+    ticketsListAtom(ticketsListKey(orgSlug, slug))
+  )
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.length
     : null
@@ -317,7 +356,9 @@ function TabsNav({
 
   const isActive = (key: TabKey): boolean => {
     const t = TABS.find((x) => x.key === key)!
-    const target = t.to.replace("$slug", slug)
+    const target = t.to
+      .replace("$orgSlug", orgSlug)
+      .replace("$slug", slug)
     return t.exact
       ? location.pathname === target ||
           location.pathname === target + "/" ||
@@ -352,7 +393,7 @@ function TabsNav({
             return (
               <Link
                 to={def.to}
-                params={{ slug }}
+                params={{ orgSlug, slug }}
                 className={SEGMENTED_ITEM_CLASS(active)}
               >
                 {active && (
@@ -385,7 +426,7 @@ function TabsNav({
           return (
             <Link
               to={def.to}
-              params={{ slug }}
+              params={{ orgSlug, slug }}
               className={SEGMENTED_ITEM_CLASS(active)}
             >
               {content}

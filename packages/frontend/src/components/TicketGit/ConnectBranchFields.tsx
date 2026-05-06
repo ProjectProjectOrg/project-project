@@ -10,6 +10,7 @@ import { Result, useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/a
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
+import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
@@ -17,9 +18,11 @@ import { cn } from "@/lib/utils"
 import type { TicketDetail } from "@projectproject/shared"
 
 export function ConnectBranchFields({
+  orgSlug,
   slug,
   ticket
 }: {
+  orgSlug: string
   slug: string
   ticket: TicketDetail
 }) {
@@ -30,17 +33,15 @@ export function ConnectBranchFields({
   const [activeIdx, setActiveIdx] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
-  // Debounce the input → q transition. 200ms is short enough to feel live,
-  // long enough to skip per-keystroke fetches.
   useEffect(() => {
     const t = setTimeout(() => setQ(input), 200)
     return () => clearTimeout(t)
   }, [input])
 
-  const key = branchesKey(slug, q)
+  const key = branchesKey(orgSlug, slug, q)
   const result = useAtomValue(branchesAtom(key))
   const refreshBranches = useAtomRefresh(branchesAtom(key))
-  const attach = useAtomSet(attachBranchAtom(slug))
+  const attach = useAtomSet(attachBranchAtom(projectKey(orgSlug, slug)))
 
   const items = Result.isSuccess(result) ? result.value.items : []
   const listRef = useRef<HTMLDivElement>(null)

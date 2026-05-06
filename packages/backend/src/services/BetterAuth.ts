@@ -86,7 +86,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import type { Session, User } from "../auth"
-import { account } from "../db/schema"
+import { account, organization } from "../db/schema"
 
 class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -113,6 +113,9 @@ export class BetterAuth extends Context.Tag("BetterAuth")<
     readonly getGithubAccessToken: (
       userId: string
     ) => Effect.Effect<string, NoGithubToken | BetterAuthError>
+    readonly getOrgSlugById: (
+      organizationId: string | null | undefined
+    ) => Effect.Effect<string | null, BetterAuthError>
   }
 >() {}
 
@@ -154,6 +157,20 @@ export const BetterAuthLive = Layer.effect(
           const token = rows[0]?.token
           if (!token) return yield* Effect.fail(new NoGithubToken())
           return token
+        }),
+      getOrgSlugById: (organizationId) =>
+        Effect.gen(function* () {
+          if (!organizationId) return null
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({ slug: organization.slug })
+                .from(organization)
+                .where(eq(organization.id, organizationId))
+                .limit(1),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          return rows[0]?.slug ?? null
         })
     })
   })

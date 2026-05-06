@@ -1,5 +1,11 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute, Link, Navigate, Outlet } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Link,
+  Navigate,
+  Outlet,
+  useLocation
+} from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
@@ -23,6 +29,7 @@ export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
 
 function AuthedLayout() {
   const me = useAtomValue(meAtom)
+  const { pathname } = useLocation()
 
   return Result.matchWithError(me, {
     onInitial: () => <FullPageStatus>Loading…</FullPageStatus>,
@@ -30,7 +37,19 @@ function AuthedLayout() {
     onDefect: (defect) => (
       <FullPageStatus>Something went wrong: {String(defect)}</FullPageStatus>
     ),
-    onSuccess: ({ value }) => <Shell user={value} />
+    onSuccess: ({ value }) => {
+      // "/" with an active org → org dashboard; null org falls through to Shell (https://projectproject.missler.xyz/projects/project-project?ticket=T-35 will redirect to /onboarding).
+      if (pathname === "/" && value.activeOrgSlug) {
+        return (
+          <Navigate
+            to="/orgs/$orgSlug"
+            params={{ orgSlug: value.activeOrgSlug }}
+            replace
+          />
+        )
+      }
+      return <Shell user={value} />
+    }
   })
 }
 
@@ -38,7 +57,7 @@ function Shell({ user }: { user: User }) {
   return (
     <div className="h-full p-3">
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
-        <Sidebar />
+        <Sidebar user={user} />
         <Topbar user={user} />
         <main className="m-2 ml-0 mt-0 overflow-auto rounded-xl bg-muted/60">
           <div className="p-6">
@@ -50,7 +69,9 @@ function Shell({ user }: { user: User }) {
   )
 }
 
-function Sidebar() {
+function Sidebar({ user }: { user: User }) {
+  const orgSlug = user.activeOrgSlug
+
   return (
     <aside className="row-span-2 flex flex-col">
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
@@ -58,8 +79,15 @@ function Sidebar() {
         <Wordmark className="h-5 w-auto" />
       </div>
       <nav className="flex flex-col gap-1 px-3 py-2">
-        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-        <NavItem to="/projects" icon={FolderKanban} label="Projects" />
+        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" exact />
+        {orgSlug && (
+          <NavItem
+            to="/orgs/$orgSlug/projects"
+            params={{ orgSlug }}
+            icon={FolderKanban}
+            label="Projects"
+          />
+        )}
       </nav>
       <div className="mt-auto p-3">
         <ThemeSwitcher />
@@ -68,21 +96,30 @@ function Sidebar() {
   )
 }
 
-function NavItem({
-  to,
-  icon: Icon,
-  label
-}: {
-  to: string
-  icon: LucideIcon
-  label: string
-}) {
+type NavItemProps =
+  | {
+      to: "/"
+      icon: LucideIcon
+      label: string
+      exact?: boolean
+      params?: undefined
+    }
+  | {
+      to: "/orgs/$orgSlug/projects"
+      params: { orgSlug: string }
+      icon: LucideIcon
+      label: string
+      exact?: boolean
+    }
+
+function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
   const base =
     "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors"
   return (
     <Link
       to={to}
-      activeOptions={{ exact: to === "/" }}
+      params={params as never}
+      activeOptions={{ exact: exact ?? false }}
       className={cn(
         base,
         "text-muted-foreground hover:bg-accent/60 hover:text-foreground"

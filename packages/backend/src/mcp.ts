@@ -36,7 +36,6 @@ import { and, eq, gt } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { z } from "zod"
 import { session } from "./db/schema"
-import { TRANSITIONAL_ORG_SLUG as org } from "./lib/transitionalOrg"
 import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
 import { BetterAuthLive } from "./services/BetterAuth"
@@ -44,6 +43,11 @@ import { Markdown } from "./services/Markdown"
 import { Projects } from "./services/Projects"
 import { Tickets } from "./services/Tickets"
 import { Users } from "./services/Users"
+
+// MCP tokens are user-scoped today; org scoping happens server-side via
+// this fallback. Per design spec Q12, future tokens will be org-scoped at
+// issue time and this constant goes away.
+const org = process.env.MARKMATE_MCP_ORG ?? "project-project"
 
 // --- Auth ------------------------------------------------------------------
 

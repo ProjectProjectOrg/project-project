@@ -77,13 +77,23 @@ export const AuthenticationLive = Layer.effect(
           // seam — the schema is what guards the wire.
           const username =
             (session.user as { username?: string | null }).username ?? null
+          // `activeOrganizationId` lives on the session row (organization
+          // plugin). Resolve to a slug here so the wire shape is the
+          // human-readable identifier the frontend builds URLs from.
+          const activeOrganizationId = (
+            session.session as { activeOrganizationId?: string | null }
+          ).activeOrganizationId
+          const activeOrgSlug = yield* ba
+            .getOrgSlugById(activeOrganizationId)
+            .pipe(Effect.orDie)
           return {
             id,
             email,
             name,
             username,
             image: image ?? null,
-            createdAt
+            createdAt,
+            activeOrgSlug
           }
         })
     })
