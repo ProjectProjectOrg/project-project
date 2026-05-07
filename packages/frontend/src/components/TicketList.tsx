@@ -1034,6 +1034,7 @@ function ExpandedDetail({
           ariaLabel="Delete ticket"
           message="Delete this ticket?"
           disabled={deleting}
+          dense
           onConfirm={async () => {
             setDeleting(true)
             try {
@@ -1081,7 +1082,7 @@ function ExpandedDetail({
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <MentionScopeProvider scope={{ orgSlug, slug }}>
+        <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
           <LexicalEditor
             key={`${slug}/${ticket.id}`}
             markdown={ticket.body}

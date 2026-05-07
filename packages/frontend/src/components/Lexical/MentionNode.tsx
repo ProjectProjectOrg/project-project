@@ -1,27 +1,32 @@
 import {
   $applyNodeReplacement,
+  DecoratorNode,
   type DOMConversionMap,
   type DOMConversionOutput,
   type DOMExportOutput,
-  type EditorConfig,
   type LexicalNode,
   type NodeKey,
-  type SerializedTextNode,
-  TextNode
+  type SerializedLexicalNode,
+  type Spread
 } from "lexical"
+import type { ReactElement } from "react"
 import {
   formatMentionHref,
   parseMentionHref,
   type MentionType
 } from "@projectproject/shared"
+import { MentionChip } from "./MentionChip"
 
-export interface SerializedMentionNode extends SerializedTextNode {
-  mentionType: MentionType
-  mentionId: string
-  mentionLabel: string
-}
+export type SerializedMentionNode = Spread<
+  {
+    mentionType: MentionType
+    mentionId: string
+    mentionLabel: string
+  },
+  SerializedLexicalNode
+>
 
-export class MentionNode extends TextNode {
+export class MentionNode extends DecoratorNode<ReactElement> {
   __mentionType: MentionType
   __mentionId: string
   __mentionLabel: string
@@ -40,30 +45,36 @@ export class MentionNode extends TextNode {
   }
 
   constructor(type: MentionType, id: string, label: string, key?: NodeKey) {
-    super(displayText(type, id, label), key)
+    super(key)
     this.__mentionType = type
     this.__mentionId = id
     this.__mentionLabel = label
   }
 
-  createDOM(config: EditorConfig): HTMLElement {
-    const dom = super.createDOM(config)
-    dom.classList.add("mention-chip", `mention-${this.__mentionType}`)
-    dom.setAttribute("data-mention-type", this.__mentionType)
-    dom.setAttribute("data-mention-id", this.__mentionId)
-    return dom
+  createDOM(): HTMLElement {
+    const span = document.createElement("span")
+    span.setAttribute("data-mention-type", this.__mentionType)
+    span.setAttribute("data-mention-id", this.__mentionId)
+    span.style.display = "inline"
+    return span
   }
 
-  isTextEntity(): true {
+  updateDOM(): false {
+    return false
+  }
+
+  isInline(): boolean {
     return true
   }
 
-  canInsertTextBefore(): boolean {
+  isKeyboardSelectable(): boolean {
     return false
   }
 
-  canInsertTextAfter(): boolean {
-    return false
+  getTextContent(): string {
+    return this.__mentionType === "user"
+      ? `@${this.__mentionLabel}`
+      : this.__mentionId
   }
 
   exportDOM(): DOMExportOutput {
@@ -105,25 +116,21 @@ export class MentionNode extends TextNode {
   }
 
   static importJSON(serialized: SerializedMentionNode): MentionNode {
-    const node = $createMentionNode(
+    return $createMentionNode(
       serialized.mentionType,
       serialized.mentionId,
       serialized.mentionLabel
     )
-    node.setFormat(serialized.format)
-    node.setDetail(serialized.detail)
-    node.setMode(serialized.mode)
-    node.setStyle(serialized.style)
-    return node
   }
-}
 
-const displayText = (type: MentionType, id: string, label: string) => {
-  switch (type) {
-    case "user":
-      return `@${label}`
-    case "ticket":
-      return id
+  decorate(): ReactElement {
+    return (
+      <MentionChip
+        type={this.__mentionType}
+        id={this.__mentionId}
+        label={this.__mentionLabel}
+      />
+    )
   }
 }
 
@@ -139,4 +146,10 @@ export function $isMentionNode(
   node: LexicalNode | null | undefined
 ): node is MentionNode {
   return node instanceof MentionNode
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    import.meta.hot!.invalidate()
+  })
 }

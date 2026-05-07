@@ -46,7 +46,9 @@ function Root({
   )
   return (
     <ConfirmButtonContext value={value}>
-      <span className={cn("inline-flex", className)}>{children}</span>
+      <span className={cn("relative inline-flex items-center", className)}>
+        {children}
+      </span>
     </ConfirmButtonContext>
   )
 }

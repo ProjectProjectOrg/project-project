@@ -90,10 +90,12 @@ const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Idle({
   className,
-  children
+  children,
+  block = false
 }: {
   className?: string
   children: React.ReactNode
+  block?: boolean
 }) {
   const { mode } = useInlineForm()
   return (
@@ -106,7 +108,12 @@ function Idle({
           exit={{ opacity: 0 }}
           transition={FADE_TRANSITION}
         >
-          <div className={cn("flex items-center gap-2", className)}>
+          <div
+            className={cn(
+              block ? "block" : "flex items-center gap-2",
+              className
+            )}
+          >
             {children}
           </div>
         </motion.div>

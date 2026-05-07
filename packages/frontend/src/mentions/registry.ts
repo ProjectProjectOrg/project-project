@@ -1,17 +1,16 @@
 import type { ReactNode } from "react"
 import type { Effect } from "effect"
-import type { MentionRef, MentionType } from "@projectproject/shared"
+import type { MentionType } from "@projectproject/shared"
+import type { MentionScope } from "./scope"
 
 export interface MentionCandidate {
   readonly id: string
   readonly label: string
   readonly secondary?: string
+  readonly image?: string | null
 }
 
-export interface MentionScope {
-  readonly orgSlug?: string
-  readonly slug?: string
-}
+export type { MentionScope }
 
 export interface MentionProvider {
   readonly trigger: string
@@ -21,7 +20,6 @@ export interface MentionProvider {
     scope: MentionScope
   ) => Effect.Effect<ReadonlyArray<MentionCandidate>, unknown, unknown>
   readonly renderRow: (candidate: MentionCandidate) => ReactNode
-  readonly renderChip: (ref: MentionRef) => ReactNode
 }
 
 import { userMentionProvider } from "./userProvider"

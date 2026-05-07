@@ -7,13 +7,16 @@ export function ConfirmDeleteIcon({
   message,
   confirmLabel = "Delete",
   onConfirm,
-  disabled
+  disabled,
+  dense = false
 }: {
   ariaLabel: string
   message: string
   confirmLabel?: string
   onConfirm: () => Promise<void> | void
   disabled?: boolean
+  /** Pull the icon up/down with -my-2 so it nests cleanly into a row of larger controls (e.g. an input). */
+  dense?: boolean
 }) {
   return (
     <ConfirmButton.Root>
@@ -22,7 +25,10 @@ export function ConfirmDeleteIcon({
         size="icon-sm"
         aria-label={ariaLabel}
         disabled={disabled}
-        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive -my-2"
+        className={
+          "text-muted-foreground hover:bg-destructive/10 hover:text-destructive" +
+          (dense ? " -my-2" : "")
+        }
       >
         <Trash2 strokeWidth={1.75} />
       </ConfirmButton.Trigger>

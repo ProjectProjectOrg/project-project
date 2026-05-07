@@ -1,12 +1,15 @@
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
 import { parseMentionHref } from "@projectproject/shared"
-import { providerForType } from "@/mentions/registry"
+import { MentionChip } from "@/components/Lexical/MentionChip"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
+
+const allowMentionUrls = (url: string) =>
+  url.startsWith("mention:") ? url : defaultUrlTransform(url)
 
 export function Markdown({
   children,
@@ -20,6 +23,7 @@ export function Markdown({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[prismPlugin as never]}
+        urlTransform={allowMentionUrls}
         components={{
           a: ({ href, children: linkChildren, ...rest }) => {
             const ref = href ? parseMentionHref(href) : null
@@ -30,13 +34,8 @@ export function Markdown({
                 </a>
               )
             }
-            const provider = providerForType(ref.type)
             const label = String(linkChildren ?? ref.id)
-            return provider ? (
-              <>{provider.renderChip({ ...ref, label })}</>
-            ) : (
-              <span className="mention-chip">{label}</span>
-            )
+            return <MentionChip type={ref.type} id={ref.id} label={label} />
           }
         }}
       >

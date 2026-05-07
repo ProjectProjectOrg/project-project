@@ -5,7 +5,16 @@ import {
   LexicalTypeaheadMenuPlugin,
   MenuOption
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import { TextNode, $getSelection, $isRangeSelection } from "lexical"
+import {
+  TextNode,
+  $getSelection,
+  $isRangeSelection,
+  $isElementNode,
+  KEY_BACKSPACE_COMMAND,
+  KEY_DELETE_COMMAND,
+  COMMAND_PRIORITY_LOW,
+  type LexicalNode
+} from "lexical"
 import { Effect } from "effect"
 import { AppLayer } from "@/runtime"
 import {
@@ -15,7 +24,7 @@ import {
   providerForTrigger
 } from "@/mentions/registry"
 import { useMentionScope } from "@/mentions/scope"
-import { $createMentionNode } from "./MentionNode"
+import { $createMentionNode, $isMentionNode } from "./MentionNode"
 
 class MentionMenuOption extends MenuOption {
   constructor(
@@ -67,7 +76,7 @@ export function MentionsPlugin(): JSX.Element | null {
     let cancelled = false
     Effect.runPromise(
       (
-        activeProvider.search(queryString, scope ?? {}) as Effect.Effect<
+        activeProvider.search(queryString, scope ?? { orgSlug: "", slug: "" }) as Effect.Effect<
           ReadonlyArray<MentionCandidate>,
           unknown,
           never
@@ -110,12 +119,61 @@ export function MentionsPlugin(): JSX.Element | null {
         )
         if (nodeToReplace) nodeToReplace.replace(node)
         else sel.insertNodes([node])
-        node.select()
+        node.selectNext()
         closeMenu()
       })
     },
     [editor]
   )
+
+  useEffect(() => {
+    const adjacentNode = (
+      direction: "previous" | "next"
+    ): LexicalNode | null => {
+      const sel = $getSelection()
+      if (!$isRangeSelection(sel) || !sel.isCollapsed()) return null
+      const anchor = sel.anchor
+      const node = anchor.getNode()
+      if (anchor.type === "text") {
+        if (direction === "previous") {
+          return anchor.offset === 0 ? node.getPreviousSibling() : null
+        }
+        return anchor.offset === node.getTextContentSize()
+          ? node.getNextSibling()
+          : null
+      }
+      if (!$isElementNode(node)) return null
+      const idx = direction === "previous" ? anchor.offset - 1 : anchor.offset
+      return node.getChildAtIndex(idx)
+    }
+    const removeMention = (target: LexicalNode | null) => {
+      if (!$isMentionNode(target)) return false
+      target.remove()
+      return true
+    }
+    const removeBackspace = editor.registerCommand<KeyboardEvent | null>(
+      KEY_BACKSPACE_COMMAND,
+      (e) => {
+        const removed = removeMention(adjacentNode("previous"))
+        if (removed) e?.preventDefault()
+        return removed
+      },
+      COMMAND_PRIORITY_LOW
+    )
+    const removeDelete = editor.registerCommand<KeyboardEvent | null>(
+      KEY_DELETE_COMMAND,
+      (e) => {
+        const removed = removeMention(adjacentNode("next"))
+        if (removed) e?.preventDefault()
+        return removed
+      },
+      COMMAND_PRIORITY_LOW
+    )
+    return () => {
+      removeBackspace()
+      removeDelete()
+    }
+  }, [editor])
 
   return (
     <LexicalTypeaheadMenuPlugin<MentionMenuOption>

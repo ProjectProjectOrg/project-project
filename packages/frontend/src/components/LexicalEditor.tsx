@@ -158,6 +158,8 @@ export interface LexicalEditorProps {
   placeholder?: string
   /** Focus the editor on mount. */
   autoFocus?: boolean
+  /** Compact mode — single-line minimum height suitable for inline composers. */
+  compact?: boolean
 }
 
 export function LexicalEditor({
@@ -167,7 +169,8 @@ export function LexicalEditor({
   debounceMs = 600,
   className,
   placeholder = "Write a description in markdown…",
-  autoFocus = false
+  autoFocus = false,
+  compact = false
 }: LexicalEditorProps) {
   const initialConfig = useRef({
     namespace: "ProjectBody",
@@ -248,7 +251,10 @@ export function LexicalEditor({
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                className="lexical-content min-h-[8rem] outline-none"
+                className={cn(
+                  "lexical-content outline-none",
+                  compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
+                )}
                 aria-placeholder={placeholder}
                 placeholder={
                   <div className="pointer-events-none absolute left-0 top-0 select-none text-muted-foreground">

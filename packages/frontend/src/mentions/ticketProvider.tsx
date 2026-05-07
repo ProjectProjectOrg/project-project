@@ -27,10 +27,5 @@ export const ticketMentionProvider: MentionProvider = {
       <span className="font-mono shrink-0 whitespace-nowrap">{c.id}</span>
       <span className="text-muted-foreground truncate">{c.label}</span>
     </div>
-  ),
-  renderChip: (ref) => (
-    <span className="bg-accent text-accent-foreground rounded px-1 py-0.5 font-mono text-sm">
-      {ref.id}
-    </span>
   )
 }

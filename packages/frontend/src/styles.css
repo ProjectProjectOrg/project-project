@@ -520,20 +520,6 @@ html.dark .prose-md .token.coord {
   accent-color: var(--foreground);
 }
 
-.mention-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 0.25rem;
-  border-radius: 0.25rem;
-  background-color: var(--accent);
-  color: var(--accent-foreground);
-  font-weight: 500;
-  cursor: pointer;
-}
-.mention-chip.mention-ticket {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 0.85em;
-}
 
 @layer base {
   * {
