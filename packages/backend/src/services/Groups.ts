@@ -58,7 +58,8 @@ function bumpId(id: string): string {
 }
 
 function pickColor(used: ReadonlyArray<string>): GroupColor {
-  for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c as GroupColor
+  for (const c of TAG_DEFAULT_PALETTE)
+    if (!used.includes(c)) return c as GroupColor
   return TAG_DEFAULT_PALETTE[
     used.length % TAG_DEFAULT_PALETTE.length
   ] as GroupColor
@@ -182,10 +183,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       userId: string,
       slug: string,
       input: CreateGroupInput
-    ): Effect.Effect<
-      Group,
-      NotFound | Forbidden | Conflict | MarkdownError
-    > =>
+    ): Effect.Effect<Group, NotFound | Forbidden | Conflict | MarkdownError> =>
       Effect.gen(function* () {
         const kind: GroupKind = input.kind ?? "other"
         yield* requireKindRole(orgSlug, userId, slug, kind)
@@ -250,10 +248,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string,
       input: UpdateGroupInput
-    ): Effect.Effect<
-      GroupDetail,
-      NotFound | Forbidden | MarkdownError
-    > =>
+    ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         const existing = yield* readGroup(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
@@ -289,10 +284,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string,
       input: UpdateGroupTicketsInput
-    ): Effect.Effect<
-      GroupDetail,
-      NotFound | Conflict | MarkdownError
-    > =>
+    ): Effect.Effect<GroupDetail, NotFound | Conflict | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         yield* validateTicketIds(orgSlug, slug, input.tickets)
