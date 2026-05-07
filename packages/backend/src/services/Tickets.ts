@@ -306,8 +306,8 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        yield* md.removeTicketFile(orgSlug, slug, id)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
+        yield* md.removeTicketFile(orgSlug, slug, id)
       })
 
     const replaceTag = (

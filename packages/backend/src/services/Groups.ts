@@ -250,6 +250,8 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       input: UpdateGroupInput
     ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
+        yield* projects.get(orgSlug, userId, slug)
+
         const existing = yield* readGroup(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
@@ -284,10 +286,14 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string,
       input: UpdateGroupTicketsInput
-    ): Effect.Effect<GroupDetail, NotFound | Conflict | MarkdownError> =>
+    ): Effect.Effect<
+      GroupDetail,
+      NotFound | Conflict | Forbidden | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* readGroup(orgSlug, slug, id)
+        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
         const next: GroupFrontmatter = {
@@ -312,6 +318,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       id: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* readGroup(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* md.removeGroupFile(orgSlug, slug, id)
