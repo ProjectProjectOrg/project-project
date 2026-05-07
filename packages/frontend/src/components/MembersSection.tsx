@@ -197,8 +197,8 @@ function RoleSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
         {(["admin", "member"] as AssignableRole[]).map((r) => {
-          const meta = ROLE_META[r]
-          const RIcon = meta.icon
+          const roleMeta = ROLE_META[r]
+          const RIcon = roleMeta.icon
           return (
             <DropdownMenuItem
               key={r}
@@ -206,7 +206,7 @@ function RoleSelect({
               className="cursor-pointer"
             >
               <RIcon className="size-4" strokeWidth={1.75} />
-              {meta.label()}
+              {roleMeta.label()}
               {r === value && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
