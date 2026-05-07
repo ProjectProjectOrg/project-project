@@ -50,6 +50,12 @@ import {
 } from "./schemas/GitState"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import {
+  Comment,
+  CommentId,
+  CreateCommentInput,
+  UpdateCommentInput
+} from "./schemas/Comment"
+import {
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -99,6 +105,12 @@ const ProjectTagPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
   name: TagName
+})
+const TicketCommentPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  id: TicketId,
+  commentId: CommentId
 })
 
 const ProjectsGroup = HttpApiGroup.make("projects")
@@ -352,6 +364,53 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .middleware(Authentication)
 
+const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
+  .add(
+    HttpApiEndpoint.get(
+      "list",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments"
+    )
+      .setPath(TicketPath)
+      .addSuccess(Schema.Array(Comment))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "create",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments"
+    )
+      .setPath(TicketPath)
+      .setPayload(CreateCommentInput)
+      .addSuccess(Comment)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "update",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId"
+    )
+      .setPath(TicketCommentPath)
+      .setPayload(UpdateCommentInput)
+      .addSuccess(Comment)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.del(
+      "delete",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/comments/:commentId"
+    )
+      .setPath(TicketCommentPath)
+      .addSuccess(Schema.Void)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .middleware(Authentication)
+
 const TagsGroup = HttpApiGroup.make("tags")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tags")
@@ -396,6 +455,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
+  .add(TicketCommentsGroup)
   .add(TagsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

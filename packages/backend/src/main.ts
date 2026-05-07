@@ -69,6 +69,7 @@ import { count } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
+import { CommentsHandlerLive } from "./handlers/comments"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
@@ -79,6 +80,7 @@ import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
 import { Markdown } from "./services/Markdown"
 import { Projects } from "./services/Projects"
+import { Comments } from "./services/Comments"
 import { Tags } from "./services/Tags"
 import { Tickets } from "./services/Tickets"
 import { Users } from "./services/Users"
@@ -119,9 +121,11 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(AuthHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(TicketsHandlerLive),
+  Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
   Layer.provide(Tags.Default),
   Layer.provide(Tickets.Default),
+  Layer.provide(Comments.Default),
   Layer.provide(Projects.Default),
   Layer.provide(CurrentOrg.Default),
   Layer.provide(GitHub.Default),
