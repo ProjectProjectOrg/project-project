@@ -3,15 +3,8 @@ import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
-
-// Read-only markdown renderer. Code blocks are highlighted via Prism — the
-// same engine `@lexical/code` uses inside the editor, so colors are
-// consistent across edit and read.
-//
-// `rehype-prism-plus` runs synchronously and ships with a curated common-langs
-// set (TS/JS/CSS/HTML/Bash/JSON/YAML/...). Unknown fence labels fall through
-// without erroring (`ignoreMissing: true`). The token CSS lives in styles.css
-// under `.prose-md` for both palettes.
+import { parseMentionHref } from "@projectproject/shared"
+import { providerForType } from "@/mentions/registry"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
 
@@ -27,6 +20,25 @@ export function Markdown({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[prismPlugin as never]}
+        components={{
+          a: ({ href, children: linkChildren, ...rest }) => {
+            const ref = href ? parseMentionHref(href) : null
+            if (!ref) {
+              return (
+                <a href={href} {...rest}>
+                  {linkChildren}
+                </a>
+              )
+            }
+            const provider = providerForType(ref.type)
+            const label = String(linkChildren ?? ref.id)
+            return provider ? (
+              <>{provider.renderChip({ ...ref, label })}</>
+            ) : (
+              <span className="mention-chip">{label}</span>
+            )
+          }
+        }}
       >
         {children}
       </ReactMarkdown>
