@@ -42,6 +42,8 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { CommentsSection } from "./Comments/CommentsSection"
+import { MentionScopeProvider } from "@/mentions/scope"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { TagChip } from "@/components/TagChip"
 import { TagEditor } from "@/components/TagEditor"
@@ -1079,16 +1081,20 @@ function ExpandedDetail({
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <LexicalEditor
-          key={`${slug}/${ticket.id}`}
-          markdown={ticket.body}
-          onChange={(next) =>
-            update({ orgSlug, slug, id: ticket.id, body: next })
-          }
-          onStatusChange={setBodyStatus}
-          autoFocus={autoFocusBody}
-        />
+        <MentionScopeProvider scope={{ orgSlug, slug }}>
+          <LexicalEditor
+            key={`${slug}/${ticket.id}`}
+            markdown={ticket.body}
+            onChange={(next) =>
+              update({ orgSlug, slug, id: ticket.id, body: next })
+            }
+            onStatusChange={setBodyStatus}
+            autoFocus={autoFocusBody}
+          />
+        </MentionScopeProvider>
       </div>
+
+      <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
     </div>
   )
 }
