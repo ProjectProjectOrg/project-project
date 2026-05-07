@@ -287,8 +287,8 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<GroupDetail, NotFound | Conflict | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        yield* validateTicketIds(orgSlug, slug, input.tickets)
         const existing = yield* readGroup(orgSlug, slug, id)
+        yield* validateTicketIds(orgSlug, slug, input.tickets)
 
         const next: GroupFrontmatter = {
           ...existing,

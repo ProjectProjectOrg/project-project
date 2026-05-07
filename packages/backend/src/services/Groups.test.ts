@@ -166,6 +166,28 @@ it.effect("updateTickets rejects unknown ticket ids", () =>
   )
 )
 
+it.effect("updateTickets returns NotFound before validating tickets", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const result = yield* Effect.either(
+      groups.updateTickets("org", "user-1", "p", "G-404", {
+        tickets: ["T-99" as never]
+      })
+    )
+    expect(result._tag).toBe("Left")
+    if (result._tag === "Left") {
+      expect(result.left._tag).toBe("NotFound")
+    }
+  }).pipe(
+    Effect.provide(
+      Groups.Default.pipe(
+        Layer.provide(makeFakeMarkdown({ ticketIds: ["T-1"] }).layer),
+        Layer.provide(makeFakeProjects({ role: "member" }))
+      )
+    )
+  )
+)
+
 it.effect("removeTicketFromAllGroups strips the id", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
