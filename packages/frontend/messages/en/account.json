@@ -1,0 +1,16 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "auth_consent_notice": "By signing in you authorize this instance to read your GitHub profile and (later) create branches on connected repos.",
+  "auth_continue_with_github_button": "Continue with GitHub",
+  "auth_tagline": "Markdown-first project management.",
+  "profile_crumb_label": "Profile",
+  "profile_joined_label": "Joined",
+  "profile_page_subtitle": "Account details and security settings.",
+  "profile_page_title": "Profile",
+  "profile_section_account_description": "From your GitHub identity.",
+  "profile_section_account_title": "Account",
+  "profile_section_security_description": "Passkeys and two-factor will live here once Better Auth's plugins are wired up.",
+  "profile_section_security_empty": "Nothing to configure yet.",
+  "profile_section_security_title": "Security",
+  "profile_user_id_label": "User ID"
+}

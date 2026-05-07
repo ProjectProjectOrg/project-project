@@ -82,6 +82,26 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 - Errors map through `packages/frontend/src/lib/errorMessage.ts`. Extend that file when adding new tagged errors that surface in the UI.
 - `Intl.*` callsites take the active locale, read via `getLocale()` from `@/paraglide/runtime`. No `format.ts` wrapper layer.
 - Source locale: `en`. Adding `nl` is a future PR (the locale switcher ships with it).
+- Translation placement is governed by this ruleset, not by a validation script.
+- Message IDs stay flat and prefix-based, for example `tickets_search_placeholder`.
+- Keep existing message IDs unchanged when moving or reorganizing translations.
+- Place new translations in the file/domain that owns their prefix.
+- Use `common_` only for strings shared across unrelated domains. Do not move a string to `common_` only because the English text is generic.
+- Domain-specific actions stay domain-specific, for example `project_detail_delete_button`, not `common_delete_button`.
+- If a new domain or prefix is introduced, update this section and the Inlang `pathPattern` in the same PR.
+- Future locales must mirror the same file layout and message IDs as `en`.
+
+| File | Prefixes |
+| --- | --- |
+| `packages/frontend/messages/en/common.json` | `common_`, `error_`, `validation_` |
+| `packages/frontend/messages/en/shell.json` | `chrome_`, `nav_`, `theme_` |
+| `packages/frontend/messages/en/account.json` | `auth_`, `profile_` |
+| `packages/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_` |
+| `packages/frontend/messages/en/tickets.json` | `tickets_` |
+| `packages/frontend/messages/en/tags.json` | `tags_`, `color_` |
+| `packages/frontend/messages/en/git.json` | `git_`, `github_` |
+
+Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
 ## Mutations and optimistic updates
 
