@@ -122,7 +122,8 @@ function EditForm({
 
   return (
     <>
-      <header className="flex items-center gap-2 text-sm">
+      {/* mt-1.5 is to match idle state, which has slightly higher time text */}
+      <header className="flex items-center gap-2 text-sm mt-1.5">
         <MemberAvatar member={comment.author} size={20} />
         <span className="font-medium">
           {comment.author.name ?? comment.author.email}

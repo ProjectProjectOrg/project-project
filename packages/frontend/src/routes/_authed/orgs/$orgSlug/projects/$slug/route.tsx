@@ -25,7 +25,7 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"

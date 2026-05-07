@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "motion/react"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"

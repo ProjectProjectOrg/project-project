@@ -1,5 +1,5 @@
 import { createContext, useCallback, useMemo, useState, use } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion } from "motion/react"
 import { X } from "lucide-react"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -74,16 +74,14 @@ function Root<A extends string = string>({
 
   return (
     <InlineFormContext value={value as unknown as InlineFormContextValue}>
-      <motion.div
-        layout
-        transition={FADE_TRANSITION}
+      <div
         className={cn(
           "rounded-lg border border-border bg-background px-3 py-2",
           className
         )}
       >
         {children}
-      </motion.div>
+      </div>
     </InlineFormContext>
   )
 }
@@ -100,27 +98,19 @@ function Idle({
   block?: boolean
 }) {
   const { mode } = useInlineForm()
+  if (mode !== "idle") return null
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {mode === "idle" && (
-        <motion.div
-          key="idle"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={FADE_TRANSITION}
-        >
-          <div
-            className={cn(
-              block ? "block" : "flex items-center gap-2",
-              className
-            )}
-          >
-            {children}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={FADE_TRANSITION}
+    >
+      <div
+        className={cn(block ? "block" : "flex items-center gap-2", className)}
+      >
+        {children}
+      </div>
+    </motion.div>
   )
 }
 
@@ -215,26 +205,21 @@ function Form<A extends string>({
   children: React.ReactNode
 }) {
   const { mode, close, busy } = useInlineForm<A>()
+  if (mode !== action) return null
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {mode === action && (
-        <motion.div
-          key={`form-${action}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={FADE_TRANSITION}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && !busy && !e.defaultPrevented) {
-              e.preventDefault()
-              close()
-            }
-          }}
-        >
-          <div className={cn("space-y-2", className)}>{children}</div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={FADE_TRANSITION}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !busy && !e.defaultPrevented) {
+          e.preventDefault()
+          close()
+        }
+      }}
+    >
+      <div className={cn("space-y-2", className)}>{children}</div>
+    </motion.div>
   )
 }
 

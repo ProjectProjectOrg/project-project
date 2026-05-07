@@ -12,7 +12,7 @@
 
 import { useAtomSet } from "@effect-atom/atom-react"
 import { useState, type FormEvent } from "react"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import {
   Check,
   Crown,

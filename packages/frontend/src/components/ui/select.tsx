@@ -12,7 +12,7 @@ import {
   type HTMLAttributes
 } from "react"
 import { createPortal } from "react-dom"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "motion/react"
 import { cva, type VariantProps } from "class-variance-authority"
 import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
