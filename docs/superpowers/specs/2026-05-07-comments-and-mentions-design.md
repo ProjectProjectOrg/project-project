@@ -55,7 +55,7 @@ Rules:
 - The description region = everything between the ticket frontmatter and `<!-- comments:start -->`. The comments region = everything between `<!-- comments:start -->` and `<!-- comments:end -->`. A ticket with zero comments has no markers at all.
 - Per-comment frontmatter is a standard `---`-fenced YAML block, parsed with the same library as the ticket frontmatter.
 - Comment IDs are `c_<ulid>` — sortable, generated server-side, never reused.
-- Comment bodies that contain a `<!-- comment:* -->` substring are rejected at write time (validation error) to keep the parser unambiguous. Bodies containing `---` are fine — the parser only treats `---` as a frontmatter boundary at the start of a block immediately after a `<!-- comment:* -->` marker.
+- Comment bodies are validated at write time with a single regex (`/<!--\s*comment(s)?:/`) — any match rejects the write with a validation error. This keeps the parser unambiguous without needing escape handling. Bodies containing `---` are fine — the parser only treats `---` as a frontmatter boundary when it's the first non-blank line immediately after a `<!-- comment:<id> -->` marker.
 
 ### Forging is structurally impossible
 
