@@ -29,7 +29,6 @@ function AssigneeMenuContent({
       orgSlug,
       slug,
       id: ticket.id,
-      baseVersion: ticket.version,
       assignees: next
     })
   }
