@@ -23,6 +23,7 @@ import { Fragment } from "react"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 
 export type Crumb =
@@ -60,7 +61,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
 
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={m.nav_breadcrumb_label()}
       className={cn(
         "flex min-w-0 items-center gap-1 text-sm text-muted-foreground",
         className
@@ -134,7 +135,7 @@ function ProjectCrumb({
       <span
         className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"
         style={{ width: `${Math.max(slug.length, 4)}ch` }}
-        aria-label={`Loading ${slug}`}
+        aria-label={m.nav_crumb_loading({ slug })}
       />
     )
   }
@@ -170,7 +171,7 @@ function TicketCrumb({
     >
       <span className="font-mono text-xs">{id}</span>{" "}
       <span className={Result.isSuccess(result) ? "" : "italic opacity-60"}>
-        {Result.isSuccess(result) ? label : "…"}
+        {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
       </span>
     </CrumbText>
   )

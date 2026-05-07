@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { meAtom } from "@/atoms/auth"
+import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import type {
   Member,
@@ -122,10 +123,10 @@ export function TicketList({
             <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
-            <Empty>Couldn't load tickets: {error._tag}</Empty>
+            <Empty>{m.tickets_list_load_error({ error: error._tag })}</Empty>
           ),
           onDefect: (defect) => (
-            <Empty>Something went wrong: {String(defect)}</Empty>
+            <Empty>{m.tickets_list_defect({ defect: String(defect) })}</Empty>
           ),
           onSuccess: ({ value }) => (
             <FilteredList

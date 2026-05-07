@@ -1,0 +1,16 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "chrome_defect": "Something went wrong: {defect}",
+  "chrome_loading": "Loading…",
+  "chrome_sidebar_dashboard": "Dashboard",
+  "chrome_sidebar_projects": "Projects",
+  "chrome_user_menu_open": "Open user menu",
+  "chrome_user_menu_profile": "Profile",
+  "chrome_user_menu_sign_out": "Sign out",
+  "nav_breadcrumb_label": "Breadcrumb",
+  "nav_crumb_loading": "Loading {slug}",
+  "nav_crumb_loading_placeholder": "…",
+  "theme_dark": "Dark",
+  "theme_light": "Light",
+  "theme_system": "System"
+}

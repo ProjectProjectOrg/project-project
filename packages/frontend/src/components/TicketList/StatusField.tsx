@@ -7,7 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { STATUS_META } from "@/lib/ticket-meta"
+import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketStatus } from "@projectproject/shared"
@@ -26,6 +27,7 @@ export function StatusButton({
   const update = useAtomSet(updateTicketAtom)
   const meta = STATUS_META[ticket.status]
   const Icon = meta.icon
+  const statusLabel = STATUS_LABELS[ticket.status]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,8 +35,8 @@ export function StatusButton({
           mode="inline"
           margin="2"
           onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={`Status: ${meta.label}. Click to change.`}
-          title={meta.label}
+          aria-label={m.tickets_status_aria_label({ label: statusLabel })}
+          title={statusLabel}
         >
           <span
             className={cn(
@@ -53,8 +55,8 @@ export function StatusButton({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(STATUS_META) as TicketStatus[]).map((status) => {
-          const m = STATUS_META[status]
-          const SIcon = m.icon
+          const sMeta = STATUS_META[status]
+          const SIcon = sMeta.icon
           return (
             <DropdownMenuItem
               key={status}
@@ -64,8 +66,11 @@ export function StatusButton({
               }}
               className="cursor-pointer"
             >
-              <SIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
-              {m.label}
+              <SIcon
+                className={cn("size-4", sMeta.className)}
+                strokeWidth={1.75}
+              />
+              {STATUS_LABELS[status]()}
               {status === ticket.status && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}

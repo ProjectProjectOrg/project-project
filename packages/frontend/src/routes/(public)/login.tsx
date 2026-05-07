@@ -1,6 +1,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
+import { m } from "@/paraglide/messages"
 import { authClient } from "@/services/AuthClient"
 import { Button } from "@/components/ui/button"
 import { Logo, Wordmark } from "@/components/Logo"
@@ -32,7 +33,7 @@ function LoginPage() {
           <div className="flex flex-col items-center gap-4">
             <Wordmark className="h-5 w-auto" />
             <p className="text-sm text-muted-foreground">
-              Markdown-first project management.
+              {m.auth_tagline()}
             </p>
           </div>
         </div>
@@ -43,12 +44,11 @@ function LoginPage() {
           size="lg"
           className="w-full"
         >
-          Continue with GitHub
+          {m.auth_continue_with_github_button()}
         </Button>
 
         <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-          By signing in you authorize this instance to read your GitHub profile
-          and (later) create branches on connected repos.
+          {m.auth_consent_notice()}
         </p>
       </div>
     </main>

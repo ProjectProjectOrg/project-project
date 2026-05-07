@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { m } from "@/paraglide/messages"
 import { updateTicketAtom } from "@/atoms/tickets"
 import type { Member, TicketId } from "@projectproject/shared"
 
@@ -55,29 +56,29 @@ function AssigneeMenuContent({
         className="cursor-pointer"
       >
         <UserRound className="size-4" strokeWidth={1.75} />
-        Unassigned
+        {m.tickets_assignee_unassigned()}
         {assignees.length === 0 && (
           <Check className="ml-auto size-3.5 text-muted-foreground" />
         )}
       </DropdownMenuItem>
       {members.length > 0 && <div className="my-1 h-px bg-border" />}
-      {members.map((m) => {
-        const selected = assignees.includes(m.id)
+      {members.map((member) => {
+        const selected = assignees.includes(member.id)
         return (
           <DropdownMenuItem
-            key={m.id}
+            key={member.id}
             onSelect={(e) => {
               e.preventDefault()
-              toggle(m.id)
+              toggle(member.id)
             }}
             className="cursor-pointer"
           >
-            <MemberAvatar member={m} size={20} />
+            <MemberAvatar member={member} size={20} />
             <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm">{m.name}</div>
-              {m.username && (
+              <div className="truncate text-sm">{member.name}</div>
+              {member.username && (
                 <div className="truncate font-mono text-[10px] text-muted-foreground">
-                  @{m.username}
+                  @{member.username}
                 </div>
               )}
             </div>
@@ -103,20 +104,20 @@ export function AssigneePicker({
   members: ReadonlyArray<Member>
 }) {
   const resolved = ticket.assignees
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
+    .map((id) => members.find((member) => member.id === id))
+    .filter((member): member is Member => !!member)
   const label =
     resolved.length === 0
-      ? "Unassigned"
+      ? m.tickets_assignee_unassigned()
       : resolved.length === 1
         ? resolved[0].name
-        : `${resolved.length} people`
+        : m.tickets_assignee_count({ count: resolved.length })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Assignees: ${label}. Click to change.`}
+          aria-label={m.tickets_assignees_aria_label({ label })}
           className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
         >
           {resolved.length === 0 ? (
@@ -153,14 +154,14 @@ export function AssigneeRowTrigger({
   className?: string
 }) {
   const resolved = ticket.assignees
-    .map((id) => members.find((m) => m.id === id))
-    .filter((m): m is Member => !!m)
+    .map((id) => members.find((member) => member.id === id))
+    .filter((member): member is Member => !!member)
   const label =
     resolved.length === 0
-      ? "Unassigned. Click to assign."
+      ? m.tickets_assignees_row_unassigned_aria_label()
       : resolved.length === 1
-        ? `Assigned to ${resolved[0].name}. Click to change.`
-        : `${resolved.length} people assigned. Click to change.`
+        ? m.tickets_assignees_row_one_aria_label({ name: resolved[0].name })
+        : m.tickets_assignees_row_many_aria_label({ count: resolved.length })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

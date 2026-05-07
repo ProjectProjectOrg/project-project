@@ -10,11 +10,10 @@ import {
 } from "@/components/ui/popover"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
+import { m } from "@/paraglide/messages"
 import type { Tag, TagName } from "@projectproject/shared"
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
-const VALIDATION_HINT =
-  "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters."
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 type Props = {
@@ -139,7 +138,7 @@ function Editor({
         <ColorPicker
           value={tag.color}
           onChange={(hex) => onPatch({ color: hex as Tag["color"] })}
-          ariaLabel={`Color for ${tag.name}`}
+          ariaLabel={m.tags_color_aria_label({ name: tag.name })}
         />
         <input
           value={draftName}
@@ -155,7 +154,7 @@ function Editor({
               onDismiss()
             }
           }}
-          aria-label="Tag name"
+          aria-label={m.tags_name_aria_label()}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? "tag-rename-error" : undefined}
           className={cn(
@@ -168,7 +167,7 @@ function Editor({
         <button
           type="button"
           onClick={openConfirm}
-          aria-label="Delete tag"
+          aria-label={m.tags_delete_button()}
           className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-destructive/10 hover:text-destructive active:scale-[0.97]"
         >
           <Trash2 className="size-3.5" strokeWidth={1.75} />
@@ -179,11 +178,13 @@ function Editor({
           id="tag-rename-error"
           className="px-0.5 text-[11px] leading-tight text-destructive"
         >
-          {VALIDATION_HINT}
+          {m.tags_name_validation_hint()}
         </p>
       ) : (
         <p className="px-0.5 text-[11px] text-muted-foreground">
-          Applied to {usageCount} ticket{usageCount === 1 ? "" : "s"}
+          {usageCount === 1
+            ? m.tags_usage_one()
+            : m.tags_usage_many({ count: usageCount })}
         </p>
       )}
     </div>
@@ -211,9 +212,12 @@ function Confirm({
   return (
     <div className="flex flex-col gap-2 text-xs">
       <p>
-        Delete <strong>{tag.name}</strong> permanently? It will be removed from{" "}
-        {usageCount} ticket{usageCount === 1 ? "" : "s"} and the tag will no
-        longer exist on this project.
+        {usageCount === 1
+          ? m.tags_delete_confirm_one({ name: tag.name })
+          : m.tags_delete_confirm_many({
+              name: tag.name,
+              count: usageCount
+            })}
       </p>
       <div className="flex gap-1">
         <Button
@@ -222,10 +226,10 @@ function Confirm({
           disabled={busy}
           className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
         >
-          {busy ? "Deleting…" : "Delete tag"}
+          {busy ? m.tags_delete_in_progress() : m.tags_delete_button()}
         </Button>
         <Button size="sm" variant="ghost" onClick={close} disabled={busy}>
-          Cancel
+          {m.common_cancel_button()}
         </Button>
       </div>
     </div>

@@ -6,6 +6,8 @@ import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { meAtom } from "@/atoms/auth"
+import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   deleteTicketAtom,
   ticketAtom,
@@ -42,12 +44,12 @@ export function Expanded({
         ),
         onError: (error) => (
           <p className="text-sm text-muted-foreground">
-            Couldn't load detail: {error._tag}
+            {m.tickets_detail_load_error({ error: error._tag })}
           </p>
         ),
         onDefect: (defect) => (
           <p className="text-sm text-muted-foreground">
-            Something went wrong: {String(defect)}
+            {m.tickets_detail_defect({ defect: String(defect) })}
           </p>
         ),
         onSuccess: ({ value }) => (
@@ -105,8 +107,8 @@ function ExpandedDetail({
         </div>
         <SaveIndicator status={bodyStatus} />
         <ConfirmDeleteIcon
-          ariaLabel="Delete ticket"
-          message="Delete this ticket?"
+          ariaLabel={m.tickets_detail_delete_aria_label()}
+          message={m.tickets_detail_delete_confirm()}
           disabled={deleting}
           onConfirm={async () => {
             setDeleting(true)
@@ -139,12 +141,16 @@ function ExpandedDetail({
           members={members}
         />
         <span className="ml-auto flex items-center gap-2">
-          <span title={ticket.createdAt.toLocaleString()}>
-            created {ticket.createdAt.toLocaleDateString()}
+          <span title={ticket.createdAt.toLocaleString(getLocale())}>
+            {m.tickets_detail_created({
+              date: ticket.createdAt.toLocaleDateString(getLocale())
+            })}
           </span>
           <span>·</span>
-          <span title={ticket.updatedAt.toLocaleString()}>
-            updated {ticket.updatedAt.toLocaleDateString()}
+          <span title={ticket.updatedAt.toLocaleString(getLocale())}>
+            {m.tickets_detail_updated({
+              date: ticket.updatedAt.toLocaleDateString(getLocale())
+            })}
           </span>
         </span>
       </div>
@@ -263,7 +269,7 @@ function TitleField({
       onKeyDown={handleKey}
       className="-mx-1 w-full rounded bg-transparent px-1 text-base font-semibold tracking-tight outline-none ring-2 ring-ring/50"
       maxLength={200}
-      aria-label="Ticket title"
+      aria-label={m.tickets_title_aria_label()}
     />
   )
 }
@@ -271,11 +277,11 @@ function TitleField({
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const label =
     status === "saving"
-      ? "Saving…"
+      ? m.tickets_save_status_saving()
       : status === "dirty"
-        ? "Unsaved changes"
+        ? m.tickets_save_status_dirty()
         : status === "saved"
-          ? "Saved"
+          ? m.tickets_save_status_saved()
           : null
   if (!label) return null
   return (

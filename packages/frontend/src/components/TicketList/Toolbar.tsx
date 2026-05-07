@@ -30,7 +30,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TagChip } from "@/components/TagChip"
 import { Kbd } from "@/components/ui/kbd"
-import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
+import {
+  STATUS_LABELS,
+  STATUS_META,
+  TYPE_LABELS,
+  TYPE_META
+} from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
@@ -181,14 +187,14 @@ export function Toolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={() => onSearchFocusChange(true)}
           onBlur={() => onSearchFocusChange(false)}
-          placeholder="Search tickets by title or id…"
-          aria-label="Search tickets"
+          placeholder={m.tickets_search_placeholder()}
+          aria-label={m.tickets_search_aria_label()}
         />
         {query ? (
           <button
             type="button"
             onClick={() => onQueryChange("")}
-            aria-label="Clear search"
+            aria-label={m.tickets_search_clear_aria_label()}
             className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="size-3.5" strokeWidth={1.75} />
@@ -241,8 +247,8 @@ export function Toolbar({
                 "hover:bg-destructive/15 hover:border-destructive/60",
                 "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
               )}
-              title="Clear all filters"
-              aria-label="Clear all filters"
+              title={m.tickets_filters_clear_all()}
+              aria-label={m.tickets_filters_clear_all()}
             >
               <X className="size-4 shrink-0" strokeWidth={1.75} />
             </motion.button>
@@ -265,10 +271,10 @@ function StatusChips({
   compact: boolean
 }) {
   const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
-    { key: "all", label: "All", badge: counts.all },
+    { key: "all", label: m.tickets_status_all(), badge: counts.all },
     ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
       key: s,
-      label: STATUS_META[s].label,
+      label: STATUS_LABELS[s](),
       icon: STATUS_META[s].icon,
       iconClassName: STATUS_META[s].className,
       badge: counts[s]
@@ -286,7 +292,12 @@ function StatusChips({
           onClick={() => onChange(item.key)}
           aria-pressed={active}
           aria-label={
-            compact ? `${item.label} (${counts[item.key]})` : undefined
+            compact
+              ? m.tickets_status_chip_aria_label({
+                  label: item.label,
+                  count: counts[item.key]
+                })
+              : undefined
           }
           className={SEGMENTED_ITEM_CLASS(active)}
         >
@@ -347,13 +358,15 @@ function FiltersMenu({
           )}
           aria-label={
             compact && activeCount > 0
-              ? `Filters (${activeCount} active)`
-              : "Filters"
+              ? m.tickets_filters_active_aria_label({ count: activeCount })
+              : m.tickets_filters_aria_label()
           }
           aria-pressed={active}
         >
           <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>Filters</CollapsingLabel>
+          <CollapsingLabel show={!compact}>
+            {m.tickets_filters_label()}
+          </CollapsingLabel>
           {activeCount > 0 && (
             <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
               {activeCount}
@@ -368,7 +381,7 @@ function FiltersMenu({
         className="w-56"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <SectionLabel>Type</SectionLabel>
+        <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -376,14 +389,14 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          All types
+          {m.tickets_filters_all_types()}
           {typeFilter === "all" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const meta = TYPE_META[t]
+          const TIcon = meta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -394,7 +407,7 @@ function FiltersMenu({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {typeFilter === t && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -403,7 +416,7 @@ function FiltersMenu({
         })}
 
         <div className="my-1 h-px bg-border" />
-        <SectionLabel>Assignee</SectionLabel>
+        <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -411,7 +424,7 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          Anyone
+          {m.tickets_filters_assignee_anyone()}
           {assigneeFilter === "all" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
@@ -425,7 +438,7 @@ function FiltersMenu({
             className="cursor-pointer"
           >
             <UserRound className="size-4" strokeWidth={1.75} />
-            Mine
+            {m.tickets_filters_assignee_mine()}
             {assigneeFilter === "mine" && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
@@ -438,24 +451,24 @@ function FiltersMenu({
           }}
           className="cursor-pointer"
         >
-          Unassigned
+          {m.tickets_filters_assignee_unassigned()}
           {assigneeFilter === "unassigned" && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {members.length > 0 && <div className="my-1 h-px bg-border" />}
-        {members.map((m) => (
+        {members.map((member) => (
           <DropdownMenuItem
-            key={m.id}
+            key={member.id}
             onSelect={(e) => {
               e.preventDefault()
-              onAssigneeFilterChange(m.id)
+              onAssigneeFilterChange(member.id)
             }}
             className="cursor-pointer"
           >
-            <MemberAvatar member={m} size={20} />
-            <span className="truncate">{m.name}</span>
-            {assigneeFilter === m.id && (
+            <MemberAvatar member={member} size={20} />
+            <span className="truncate">{member.name}</span>
+            {assigneeFilter === member.id && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
           </DropdownMenuItem>
@@ -464,7 +477,7 @@ function FiltersMenu({
         {tagList.length > 0 && (
           <>
             <div className="my-1 h-px bg-border" />
-            <SectionLabel>Tags</SectionLabel>
+            <SectionLabel>{m.tickets_filters_section_tags()}</SectionLabel>
             <div className="flex flex-wrap gap-1 px-2 pb-1.5 pt-0.5">
               {tagList.map((tag) => {
                 const selected = selectedTags.includes(tag.name)
@@ -520,11 +533,13 @@ function SortMenu({
         <button
           type="button"
           className={TOOLBAR_BUTTON_CLASS}
-          aria-label={`Sort tickets (${SORTS[value].label})`}
+          aria-label={m.tickets_sort_aria_label({
+            label: SORTS[value].label()
+          })}
         >
           <ArrowDownAZ className="size-4" strokeWidth={1.75} />
           <CollapsingLabel show={!compact}>
-            {SORTS[value].label}
+            {SORTS[value].label()}
           </CollapsingLabel>
           <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
         </button>
@@ -536,7 +551,7 @@ function SortMenu({
             onSelect={() => onChange(k)}
             className="cursor-pointer"
           >
-            {SORTS[k].label}
+            {SORTS[k].label()}
             {value === k && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}

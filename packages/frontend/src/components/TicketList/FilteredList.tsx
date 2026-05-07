@@ -3,6 +3,7 @@ import { ChevronDown, ListChecks, X } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type {
   Member,
   Ticket,
@@ -90,7 +91,7 @@ export function FilteredList({
       return (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
           <span>
-            No tickets match{" "}
+            {m.tickets_no_search_matches_prefix()}{" "}
             <span className="font-mono text-foreground">"{query}"</span>.
           </span>
           <Button
@@ -100,12 +101,12 @@ export function FilteredList({
             leadingIcon={X}
             onClick={onClearSearch}
           >
-            Clear search
+            {m.tickets_clear_search_button()}
           </Button>
         </div>
       )
     }
-    return <Empty>No tickets match your filters.</Empty>
+    return <Empty>{m.tickets_no_filter_matches()}</Empty>
   }
 
   return (
@@ -232,10 +233,10 @@ function NoTicketsYet() {
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
         <ListChecks className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="text-sm font-medium">No tickets yet</div>
+      <div className="text-sm font-medium">{m.tickets_empty_title()}</div>
       <p className="max-w-xs text-xs text-muted-foreground">
-        Type a title in the row above and press Enter. Each ticket becomes a
-        markdown file under <span className="font-mono">tickets/</span>.
+        {m.tickets_empty_hint_prefix()}{" "}
+        <span className="font-mono">tickets/</span>.
       </p>
     </div>
   )

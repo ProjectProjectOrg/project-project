@@ -7,7 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { TYPE_META } from "@/lib/ticket-meta"
+import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
+import { m } from "@/paraglide/messages"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketType } from "@projectproject/shared"
@@ -26,20 +27,21 @@ export function TypeBadgeTrigger({
   const update = useAtomSet(updateTicketAtom)
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Type: ${meta.label}. Click to change.`}
+          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
             className
           )}
         >
           <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{meta.label}</span>
+          <span>{typeLabel}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -50,8 +52,8 @@ export function TypeBadgeTrigger({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const tMeta = TYPE_META[t]
+          const TIcon = tMeta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -62,7 +64,7 @@ export function TypeBadgeTrigger({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {t === ticket.type && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -88,6 +90,7 @@ export function TypeButton({
   const update = useAtomSet(updateTicketAtom)
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -95,12 +98,12 @@ export function TypeButton({
           mode="inline"
           margin="2"
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Type: ${meta.label}. Click to change.`}
+          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
           className={className}
         >
           <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
             <Icon className="size-3.5" strokeWidth={1.75} />
-            <span>{meta.label}</span>
+            <span>{typeLabel}</span>
           </span>
         </Hitbox>
       </DropdownMenuTrigger>
@@ -111,8 +114,8 @@ export function TypeButton({
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
-          const m = TYPE_META[t]
-          const TIcon = m.icon
+          const tMeta = TYPE_META[t]
+          const TIcon = tMeta.icon
           return (
             <DropdownMenuItem
               key={t}
@@ -123,7 +126,7 @@ export function TypeButton({
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
-              {m.label}
+              {TYPE_LABELS[t]()}
               {t === ticket.type && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}

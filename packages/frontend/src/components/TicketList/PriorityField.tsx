@@ -7,7 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { PRIORITY_META, PRIORITY_ORDER } from "@/lib/priority-meta"
+import {
+  PRIORITY_LABELS,
+  PRIORITY_META,
+  PRIORITY_ORDER
+} from "@/lib/priority-meta"
+import { m } from "@/paraglide/messages"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketPriority } from "@projectproject/shared"
@@ -26,6 +31,7 @@ export function PriorityButton({
   const update = useAtomSet(updateTicketAtom)
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
+  const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,8 +39,8 @@ export function PriorityButton({
           mode="inline"
           margin="2"
           onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={`Priority: ${meta.label}. Click to change.`}
-          title={meta.label}
+          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+          title={priorityLabel}
         >
           <span
             className={cn(
@@ -53,8 +59,8 @@ export function PriorityButton({
         onClick={(e) => e.stopPropagation()}
       >
         {PRIORITY_ORDER.map((p) => {
-          const m = PRIORITY_META[p]
-          const PIcon = m.icon
+          const pMeta = PRIORITY_META[p]
+          const PIcon = pMeta.icon
           return (
             <DropdownMenuItem
               key={p}
@@ -64,8 +70,11 @@ export function PriorityButton({
               }}
               className="cursor-pointer"
             >
-              <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
-              {m.label}
+              <PIcon
+                className={cn("size-4", pMeta.className)}
+                strokeWidth={1.75}
+              />
+              {PRIORITY_LABELS[p]()}
               {p === ticket.priority && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
@@ -91,20 +100,21 @@ export function PriorityBadgeTrigger({
   const update = useAtomSet(updateTicketAtom)
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
+  const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Priority: ${meta.label}. Click to change.`}
+          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
             className
           )}
         >
           <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{meta.label}</span>
+          <span>{priorityLabel}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -115,8 +125,8 @@ export function PriorityBadgeTrigger({
         onClick={(e) => e.stopPropagation()}
       >
         {PRIORITY_ORDER.map((p) => {
-          const m = PRIORITY_META[p]
-          const PIcon = m.icon
+          const pMeta = PRIORITY_META[p]
+          const PIcon = pMeta.icon
           return (
             <DropdownMenuItem
               key={p}
@@ -126,8 +136,11 @@ export function PriorityBadgeTrigger({
               }}
               className="cursor-pointer"
             >
-              <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
-              {m.label}
+              <PIcon
+                className={cn("size-4", pMeta.className)}
+                strokeWidth={1.75}
+              />
+              {PRIORITY_LABELS[p]()}
               {p === ticket.priority && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
