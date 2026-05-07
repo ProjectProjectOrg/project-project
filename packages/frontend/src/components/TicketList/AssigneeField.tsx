@@ -8,32 +8,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  updateTicketAtom,
+  type TicketConflict
+} from "@/atoms/tickets"
 import type { Member, TicketId } from "@projectproject/shared"
 
 function AssigneeMenuContent({
   orgSlug,
   slug,
   ticket,
-  members
+  members,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  ticket: { id: TicketId; version: string; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const assignees = ticket.assignees
-  const setAssignees = (next: ReadonlyArray<string>) => {
-    update({
-      orgSlug,
-      slug,
-      id: ticket.id,
+  const setAssignees = async (next: ReadonlyArray<string>) => {
+    const result = await update({
+      baseVersion: ticket.version,
       assignees: next
     })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
   }
   const toggle = (id: string) => {
-    setAssignees(
+    void setAssignees(
       assignees.includes(id)
         ? assignees.filter((a) => a !== id)
         : [...assignees, id]
@@ -50,7 +58,7 @@ function AssigneeMenuContent({
       <DropdownMenuItem
         onSelect={(e) => {
           e.preventDefault()
-          if (assignees.length > 0) setAssignees([])
+          if (assignees.length > 0) void setAssignees([])
         }}
         className="cursor-pointer"
       >
@@ -95,12 +103,14 @@ export function AssigneePicker({
   orgSlug,
   slug,
   ticket,
-  members
+  members,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  ticket: { id: TicketId; version: string; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
+  onConflict?: (info: TicketConflict) => void
 }) {
   const resolved = ticket.assignees
     .map((id) => members.find((m) => m.id === id))
@@ -134,6 +144,7 @@ export function AssigneePicker({
         slug={slug}
         ticket={ticket}
         members={members}
+        onConflict={onConflict}
       />
     </DropdownMenu>
   )
@@ -144,13 +155,15 @@ export function AssigneeRowTrigger({
   slug,
   ticket,
   members,
-  className
+  className,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  ticket: { id: TicketId; version: string; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
   className?: string
+  onConflict?: (info: TicketConflict) => void
 }) {
   const resolved = ticket.assignees
     .map((id) => members.find((m) => m.id === id))
@@ -189,6 +202,7 @@ export function AssigneeRowTrigger({
         slug={slug}
         ticket={ticket}
         members={members}
+        onConflict={onConflict}
       />
     </DropdownMenu>
   )

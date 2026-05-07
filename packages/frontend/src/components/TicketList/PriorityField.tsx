@@ -8,7 +8,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { PRIORITY_META, PRIORITY_ORDER } from "@/lib/priority-meta"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  updateTicketAtom,
+  type TicketConflict
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketPriority } from "@projectproject/shared"
 
@@ -16,16 +20,29 @@ export function PriorityButton({
   orgSlug,
   slug,
   ticket,
-  stopPropagation
+  stopPropagation,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; priority: TicketPriority }
+  ticket: { id: TicketId; version: string; priority: TicketPriority }
   stopPropagation?: boolean
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
+  const apply = async (next: TicketPriority) => {
+    if (next === ticket.priority) return
+    const result = await update({
+      baseVersion: ticket.version,
+      priority: next
+    })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -58,10 +75,7 @@ export function PriorityButton({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
-                if (p === ticket.priority) return
-                update({ orgSlug, slug, id: ticket.id, priority: p })
-              }}
+              onSelect={() => void apply(p)}
               className="cursor-pointer"
             >
               <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />
@@ -81,16 +95,29 @@ export function PriorityBadgeTrigger({
   orgSlug,
   slug,
   ticket,
-  className
+  className,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; priority: TicketPriority }
+  ticket: { id: TicketId; version: string; priority: TicketPriority }
   className?: string
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
+  const apply = async (next: TicketPriority) => {
+    if (next === ticket.priority) return
+    const result = await update({
+      baseVersion: ticket.version,
+      priority: next
+    })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -120,10 +147,7 @@ export function PriorityBadgeTrigger({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
-                if (p === ticket.priority) return
-                update({ orgSlug, slug, id: ticket.id, priority: p })
-              }}
+              onSelect={() => void apply(p)}
               className="cursor-pointer"
             >
               <PIcon className={cn("size-4", m.className)} strokeWidth={1.75} />

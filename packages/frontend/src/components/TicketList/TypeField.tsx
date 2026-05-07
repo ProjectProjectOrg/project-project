@@ -8,7 +8,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { TYPE_META } from "@/lib/ticket-meta"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  updateTicketAtom,
+  type TicketConflict
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketType } from "@projectproject/shared"
 
@@ -16,16 +20,29 @@ export function TypeBadgeTrigger({
   orgSlug,
   slug,
   ticket,
-  className
+  className,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; type: TicketType }
+  ticket: { id: TicketId; version: string; type: TicketType }
   className?: string
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const apply = async (next: TicketType) => {
+    if (next === ticket.type) return
+    const result = await update({
+      baseVersion: ticket.version,
+      type: next
+    })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -55,10 +72,7 @@ export function TypeBadgeTrigger({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
-                if (t === ticket.type) return
-                update({ orgSlug, slug, id: ticket.id, type: t })
-              }}
+              onSelect={() => void apply(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -78,16 +92,29 @@ export function TypeButton({
   orgSlug,
   slug,
   ticket,
-  className
+  className,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; type: TicketType }
+  ticket: { id: TicketId; version: string; type: TicketType }
   className?: string
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
+  const apply = async (next: TicketType) => {
+    if (next === ticket.type) return
+    const result = await update({
+      baseVersion: ticket.version,
+      type: next
+    })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -116,10 +143,7 @@ export function TypeButton({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
-                if (t === ticket.type) return
-                update({ orgSlug, slug, id: ticket.id, type: t })
-              }}
+              onSelect={() => void apply(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />

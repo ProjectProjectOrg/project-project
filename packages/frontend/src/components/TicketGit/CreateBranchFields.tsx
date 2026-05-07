@@ -9,7 +9,7 @@ import {
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -83,29 +83,31 @@ export function CreateBranchFields({
   const [status, setStatus] = useState<TicketStatus>("in_progress")
   const [error, setError] = useState<string | null>(null)
   const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)))
-  const updateTicket = useAtomSet(updateTicketAtom)
+  const updateTicket = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
 
   async function submit() {
     if (!name.trim()) return
     setError(null)
     setBusy(true)
     try {
-      await Promise.all([
+      const [, statusResult] = await Promise.all([
         create({
           id: ticket.id,
           name: name.trim(),
           baseBranch: base.trim() || undefined
         }),
         status !== ticket.status
-          ? updateTicket({
-              orgSlug,
-              slug,
-              id: ticket.id,
-              baseVersion: ticket.version,
-              status
-            })
-          : Promise.resolve()
+          ? updateTicket({ baseVersion: ticket.version, status })
+          : Promise.resolve(null)
       ])
+      if (statusResult && statusResult._tag === "Conflict") {
+        setError("Status was changed elsewhere — refresh and retry.")
+        setBusy(false)
+        return
+      }
       close()
     } catch (e) {
       const tag =

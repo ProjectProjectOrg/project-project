@@ -8,7 +8,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { STATUS_META } from "@/lib/ticket-meta"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  updateTicketAtom,
+  type TicketConflict
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketStatus } from "@projectproject/shared"
 
@@ -16,16 +20,29 @@ export function StatusButton({
   orgSlug,
   slug,
   ticket,
-  stopPropagation
+  stopPropagation,
+  onConflict
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; status: TicketStatus }
+  ticket: { id: TicketId; version: string; status: TicketStatus }
   stopPropagation?: boolean
+  onConflict?: (info: TicketConflict) => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const meta = STATUS_META[ticket.status]
   const Icon = meta.icon
+  const apply = async (next: TicketStatus) => {
+    if (next === ticket.status) return
+    const result = await update({
+      baseVersion: ticket.version,
+      status: next
+    })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -58,10 +75,7 @@ export function StatusButton({
           return (
             <DropdownMenuItem
               key={status}
-              onSelect={() => {
-                if (status === ticket.status) return
-                update({ orgSlug, slug, id: ticket.id, status })
-              }}
+              onSelect={() => void apply(status)}
               className="cursor-pointer"
             >
               <SIcon className={cn("size-4", m.className)} strokeWidth={1.75} />

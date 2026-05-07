@@ -17,8 +17,13 @@ import {
   tagsAtom,
   tagsKey
 } from "@/atoms/tags"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  ticketsListAtom,
+  ticketsListKey,
+  updateTicketAtom,
+  type TicketConflict
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { Tag, TagName, TicketDetail } from "@projectproject/shared"
 
@@ -27,6 +32,7 @@ type Props = {
   slug: string
   ticket: TicketDetail
   canManageTags: boolean
+  onConflict?: (info: TicketConflict) => void
 }
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
@@ -34,13 +40,22 @@ const VALIDATION_HINT =
   "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters."
 const NEUTRAL = "#94a3b8"
 
-export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
+export function TagEditor({
+  orgSlug,
+  slug,
+  ticket,
+  canManageTags,
+  onConflict
+}: Props) {
   const key = tagsKey(orgSlug, slug)
   const tagsResult = useAtomValue(tagsAtom(key))
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
   )
-  const updateTicket = useAtomSet(updateTicketAtom)
+  const updateTicket = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promise" }
+  )
   const createTag = useAtomSet(createTagAtom(key))
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key))
@@ -92,24 +107,23 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     ? registry.filter((t) => t.name.includes(lowered))
     : registry
 
-  const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({
-      orgSlug,
-      slug,
-      id: ticket.id,
+  const apply = async (next: ReadonlyArray<string>) => {
+    const result = await updateTicket({
       baseVersion: ticket.version,
       tags: next as unknown as ReadonlyArray<TagName>
     })
+    if (result._tag === "Conflict") onConflict?.(result.conflict)
+  }
 
   const addTag = (name: string) => {
     if (displayed.includes(name)) return
-    apply([...ticket.tags.filter((t) => !removed.has(t)), name])
+    void apply([...ticket.tags.filter((t) => !removed.has(t)), name])
     setDraft("")
     setOpen(false)
   }
 
   const removeFromTicket = (name: string) => {
-    apply(ticket.tags.filter((t) => t !== name))
+    void apply(ticket.tags.filter((t) => t !== name))
   }
 
   const createAndApply = () => {
