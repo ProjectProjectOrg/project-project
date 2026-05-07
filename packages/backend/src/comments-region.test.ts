@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
+import type { CommentBlock } from "./comments-region"
 import {
   COMMENTS_END,
   COMMENTS_START,
-  CommentBlock,
   parseCommentsRegion,
   serializeCommentsRegion,
   splitDescriptionAndCommentsRegion,
