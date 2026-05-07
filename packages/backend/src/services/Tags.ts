@@ -27,18 +27,16 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
     const projects = yield* Projects
     const tickets = yield* Tickets
 
-    const projectIdFromSlug = (
-      slug: string
-    ): Effect.Effect<string, NotFound> =>
-      db
-        .select({ id: projectIndex.id })
-        .from(projectIndex)
-        .where(eq(projectIndex.slug, slug))
-        .limit(1)
+    const projectIdFromSlug = (slug: string): Effect.Effect<string, NotFound> =>
+      db.query.projectIndex
+        .findFirst({
+          columns: { id: true },
+          where: eq(projectIndex.slug, slug)
+        })
         .pipe(
           Effect.orDie,
-          Effect.flatMap((rows) =>
-            rows[0] ? Effect.succeed(rows[0].id) : Effect.fail(new NotFound())
+          Effect.flatMap((row) =>
+            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
           )
         )
 
@@ -65,10 +63,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const projectId = yield* projectIdFromSlug(slug)
-        const rows = yield* db
-          .select()
-          .from(projectTag)
-          .where(eq(projectTag.projectId, projectId))
+        const rows = yield* db.query.projectTag
+          .findMany({ where: eq(projectTag.projectId, projectId) })
           .pipe(Effect.orDie)
         return rows.map(
           (r): Tag => ({
@@ -90,28 +86,27 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
-        const existing = yield* db
-          .select({ color: projectTag.color })
-          .from(projectTag)
-          .where(eq(projectTag.projectId, projectId))
+        const existing = yield* db.query.projectTag
+          .findMany({
+            columns: { color: true },
+            where: eq(projectTag.projectId, projectId)
+          })
           .pipe(Effect.orDie)
 
         const color =
           input.color ??
           (pickColor(existing.map((e) => e.color)) as Tag["color"])
 
-        const existingRow = yield* db
-          .select({ name: projectTag.name })
-          .from(projectTag)
-          .where(
-            and(
+        const existingRow = yield* db.query.projectTag
+          .findFirst({
+            columns: { name: true },
+            where: and(
               eq(projectTag.projectId, projectId),
               eq(projectTag.name, input.name)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
-        if (existingRow.length > 0)
+        if (existingRow)
           return yield* Effect.fail(new Conflict({ reason: "tag_exists" }))
 
         const inserted = yield* db
@@ -139,46 +134,36 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       slug: string,
       name: string,
       patch: UpdateTagInput
-    ): Effect.Effect<
-      Tag,
-      NotFound | Forbidden | Conflict | MarkdownError
-    > =>
+    ): Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
-        const existingRows = yield* db
-          .select()
-          .from(projectTag)
-          .where(
-            and(
+        const existing = yield* db.query.projectTag
+          .findFirst({
+            where: and(
               eq(projectTag.projectId, projectId),
               eq(projectTag.name, name)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
-        if (existingRows.length === 0)
-          return yield* Effect.fail(new NotFound())
-        const existing = existingRows[0]
+        if (!existing) return yield* Effect.fail(new NotFound())
 
         const nextName = patch.name ?? existing.name
         const nextColor = patch.color ?? existing.color
         const renaming = nextName !== existing.name
 
         if (renaming) {
-          const collision = yield* db
-            .select({ name: projectTag.name })
-            .from(projectTag)
-            .where(
-              and(
+          const collision = yield* db.query.projectTag
+            .findFirst({
+              columns: { name: true },
+              where: and(
                 eq(projectTag.projectId, projectId),
                 eq(projectTag.name, nextName)
               )
-            )
-            .limit(1)
+            })
             .pipe(Effect.orDie)
-          if (collision.length > 0)
+          if (collision)
             return yield* Effect.fail(new Conflict({ reason: "tag_exists" }))
         }
 
@@ -186,10 +171,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .update(projectTag)
           .set({ name: nextName, color: nextColor })
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .pipe(Effect.orDie)
 
@@ -215,28 +197,22 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
-        const existingRows = yield* db
-          .select({ name: projectTag.name })
-          .from(projectTag)
-          .where(
-            and(
+        const existingRow = yield* db.query.projectTag
+          .findFirst({
+            columns: { name: true },
+            where: and(
               eq(projectTag.projectId, projectId),
               eq(projectTag.name, name)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
-        if (existingRows.length === 0)
-          return yield* Effect.fail(new NotFound())
+        if (!existingRow) return yield* Effect.fail(new NotFound())
 
         yield* rewriteTagInTickets(orgSlug, slug, name, null)
         yield* db
           .delete(projectTag)
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .pipe(Effect.orDie)
       })

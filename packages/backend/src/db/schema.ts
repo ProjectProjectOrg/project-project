@@ -40,6 +40,7 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
+import { relations } from "drizzle-orm"
 import {
   index,
   pgTable,
@@ -108,3 +109,37 @@ export const projectTag = pgTable(
     index("project_tag_project_idx").on(t.projectId)
   ]
 )
+
+export const projectIndexRelations = relations(
+  projectIndex,
+  ({ one, many }) => ({
+    organization: one(organization, {
+      fields: [projectIndex.organizationId],
+      references: [organization.id]
+    }),
+    members: many(projectMember),
+    tags: many(projectTag)
+  })
+)
+
+export const projectMemberRelations = relations(projectMember, ({ one }) => ({
+  project: one(projectIndex, {
+    fields: [projectMember.projectSlug],
+    references: [projectIndex.slug]
+  }),
+  user: one(user, {
+    fields: [projectMember.userId],
+    references: [user.id]
+  })
+}))
+
+export const projectTagRelations = relations(projectTag, ({ one }) => ({
+  project: one(projectIndex, {
+    fields: [projectTag.projectId],
+    references: [projectIndex.id]
+  }),
+  createdByUser: one(user, {
+    fields: [projectTag.createdBy],
+    references: [user.id]
+  })
+}))

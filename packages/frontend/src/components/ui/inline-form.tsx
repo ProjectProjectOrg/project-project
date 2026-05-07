@@ -125,7 +125,8 @@ function Display<A extends string = string>({
   previews?: Partial<Record<A, React.ReactNode>>
 }) {
   const { hoveredAction } = useInlineForm<A>()
-  const preview = previews && hoveredAction ? previews[hoveredAction] : undefined
+  const preview =
+    previews && hoveredAction ? previews[hoveredAction] : undefined
   return (
     <div className={cn("relative min-w-0", className)}>
       <AnimatePresence initial={false} mode="wait">
@@ -169,8 +170,7 @@ function Actions({
   )
 }
 
-interface TriggerProps<A extends string>
-  extends Omit<ButtonProps, "onClick"> {
+interface TriggerProps<A extends string> extends Omit<ButtonProps, "onClick"> {
   action: A
 }
 

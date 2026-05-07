@@ -86,6 +86,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import type { Session, User } from "../auth"
+import * as schema from "../db/schema"
 import { account, organization } from "../db/schema"
 
 class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
@@ -122,10 +123,7 @@ export class BetterAuth extends Context.Tag("BetterAuth")<
 export const BetterAuthLive = Layer.effect(
   BetterAuth,
   Effect.sync(() => {
-    // Same lightweight Drizzle client pattern as `auth.ts`. Better Auth's
-    // own queries use a separate pool on the same DATABASE_URL; one extra
-    // shallow connection here is fine and keeps this service self-contained.
-    const db = drizzle(process.env.DATABASE_URL!)
+    const db = drizzle(process.env.DATABASE_URL!, { schema })
 
     return BetterAuth.of({
       handler: (request) =>
@@ -140,37 +138,32 @@ export const BetterAuthLive = Layer.effect(
         }),
       getGithubAccessToken: (userId) =>
         Effect.gen(function* () {
-          const rows = yield* Effect.tryPromise({
+          const row = yield* Effect.tryPromise({
             try: () =>
-              db
-                .select({ token: account.accessToken })
-                .from(account)
-                .where(
-                  and(
-                    eq(account.userId, userId),
-                    eq(account.providerId, "github")
-                  )
+              db.query.account.findFirst({
+                columns: { accessToken: true },
+                where: and(
+                  eq(account.userId, userId),
+                  eq(account.providerId, "github")
                 )
-                .limit(1),
+              }),
             catch: (cause) => new BetterAuthError({ cause })
           })
-          const token = rows[0]?.token
-          if (!token) return yield* Effect.fail(new NoGithubToken())
-          return token
+          if (!row?.accessToken) return yield* Effect.fail(new NoGithubToken())
+          return row.accessToken
         }),
       getOrgSlugById: (organizationId) =>
         Effect.gen(function* () {
           if (!organizationId) return null
-          const rows = yield* Effect.tryPromise({
+          const row = yield* Effect.tryPromise({
             try: () =>
-              db
-                .select({ slug: organization.slug })
-                .from(organization)
-                .where(eq(organization.id, organizationId))
-                .limit(1),
+              db.query.organization.findFirst({
+                columns: { slug: true },
+                where: eq(organization.id, organizationId)
+              }),
             catch: (cause) => new BetterAuthError({ cause })
           })
-          return rows[0]?.slug ?? null
+          return row?.slug ?? null
         })
     })
   })

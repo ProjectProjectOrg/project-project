@@ -39,7 +39,7 @@ import {
 } from "@/components/SegmentedTabs"
 import { cn } from "@/lib/utils"
 import { slugify } from "@/lib/slug"
-import { STATUS_META } from "@/lib/ticket-meta"
+import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import type {
   GithubConnection,
@@ -191,11 +191,7 @@ function StatusPicker({
           disabled={disabled}
         />
       ) : (
-        <StatusDropdown
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-        />
+        <StatusDropdown value={value} onChange={onChange} disabled={disabled} />
       )}
     </div>
   )
@@ -213,7 +209,7 @@ function StatusInlinePills({
   const items: ReadonlyArray<SegmentedItem<TicketStatus>> = STATUS_KEYS.map(
     (key) => ({
       key,
-      label: STATUS_META[key].label,
+      label: STATUS_LABELS[key](),
       icon: STATUS_META[key].icon,
       iconClassName: STATUS_META[key].className
     })
@@ -253,13 +249,16 @@ function StatusDropdown({
 }) {
   const current = STATUS_META[value] ?? STATUS_META.todo
   const Icon = current.icon
+  const currentLabel = STATUS_LABELS[value]
+    ? STATUS_LABELS[value]()
+    : STATUS_LABELS.todo()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           disabled={disabled}
-          aria-label={m.git_status_select_aria_label({ status: current.label })}
+          aria-label={m.git_status_select_aria_label({ status: currentLabel })}
           className={cn(
             "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
             "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
@@ -270,7 +269,7 @@ function StatusDropdown({
             className={cn("size-3", current.className)}
             strokeWidth={1.75}
           />
-          <span>{current.label}</span>
+          <span>{currentLabel}</span>
           <ChevronDown className="size-3 opacity-60" strokeWidth={1.75} />
         </button>
       </DropdownMenuTrigger>
@@ -288,7 +287,7 @@ function StatusDropdown({
                 className={cn("size-4", meta.className)}
                 strokeWidth={1.75}
               />
-              {meta.label}
+              {STATUS_LABELS[key]()}
               {value === key && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}

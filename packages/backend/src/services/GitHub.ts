@@ -608,10 +608,7 @@ export class GitHub extends Effect.Service<GitHub>()("GitHub", {
             | RateLimited
             | GitHubError => {
             const err = mapHttpError(cause)
-            if (
-              err._tag === "BranchExists" ||
-              err._tag === "BranchProtected"
-            ) {
+            if (err._tag === "BranchExists" || err._tag === "BranchProtected") {
               return new GitHubError({ message: "unexpected GitHub response" })
             }
             return err
@@ -677,10 +674,7 @@ export class GitHub extends Effect.Service<GitHub>()("GitHub", {
             | RateLimited
             | GitHubError => {
             const err = mapHttpError(cause)
-            if (
-              err._tag === "BranchExists" ||
-              err._tag === "BranchProtected"
-            ) {
+            if (err._tag === "BranchExists" || err._tag === "BranchProtected") {
               return new GitHubError({ message: "unexpected GitHub response" })
             }
             return err

@@ -48,12 +48,7 @@ import {
   OpenPrInput,
   OpenPrResult
 } from "./schemas/GitState"
-import {
-  CreateTagInput,
-  Tag,
-  TagName,
-  UpdateTagInput
-} from "./schemas/Tag"
+import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import {
   BranchExists,
   BranchNotFound,
@@ -223,10 +218,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(GitHubError)
   )
   .add(
-    HttpApiEndpoint.get(
-      "gitStates",
-      "/orgs/:orgSlug/projects/:slug/git-states"
-    )
+    HttpApiEndpoint.get("gitStates", "/orgs/:orgSlug/projects/:slug/git-states")
       .setPath(ProjectPath)
       .addSuccess(GitStatesResponse)
       .addError(Unauthorized)
@@ -257,20 +249,14 @@ const ProjectsGroup = HttpApiGroup.make("projects")
 
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
-    HttpApiEndpoint.get(
-      "list",
-      "/orgs/:orgSlug/projects/:slug/tickets"
-    )
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets")
       .setPath(ProjectPath)
       .addSuccess(Schema.Array(Ticket))
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.post(
-      "create",
-      "/orgs/:orgSlug/projects/:slug/tickets"
-    )
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
       .setPath(ProjectPath)
       .setPayload(CreateTicketInput)
       .addSuccess(Ticket)
@@ -278,20 +264,14 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.get(
-      "get",
-      "/orgs/:orgSlug/projects/:slug/tickets/:id"
-    )
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id")
       .setPath(TicketPath)
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.patch(
-      "update",
-      "/orgs/:orgSlug/projects/:slug/tickets/:id"
-    )
+    HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug/tickets/:id")
       .setPath(TicketPath)
       .setPayload(UpdateTicketInput)
       .addSuccess(TicketDetail)
@@ -299,10 +279,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.del(
-      "delete",
-      "/orgs/:orgSlug/projects/:slug/tickets/:id"
-    )
+    HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tickets/:id")
       .setPath(TicketPath)
       .addError(Unauthorized)
       .addError(NotFound)

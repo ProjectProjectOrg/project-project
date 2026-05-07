@@ -8,8 +8,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src:
-    url("../../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
+  src: url("../../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
     format("woff2-variations");
 }
 @font-face {
@@ -17,8 +16,7 @@
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src:
-    url("../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
+  src: url("../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
     format("woff2-variations");
 }
 @font-face {
@@ -26,8 +24,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src:
-    url("../../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2")
+  src: url("../../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2")
     format("woff2");
 }
 
@@ -112,8 +109,7 @@
   --font-sans:
     "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono:
-    "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   @keyframes spinner-move {
     to {
       stroke-dashoffset: -100;
@@ -134,8 +130,13 @@
   animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .transition-expand {

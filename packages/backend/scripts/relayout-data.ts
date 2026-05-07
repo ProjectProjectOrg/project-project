@@ -156,9 +156,7 @@ async function main() {
     const parsed = matter(await fs.readFile(file, "utf8"))
     const data = parsed.data as Record<string, unknown>
     if (data.org !== orgSlug) {
-      throw new Error(
-        `verify failed: ${file} has org=${String(data.org)}`
-      )
+      throw new Error(`verify failed: ${file} has org=${String(data.org)}`)
     }
     if ("ownerId" in data) {
       throw new Error(`verify failed: ${file} still has 'ownerId'`)

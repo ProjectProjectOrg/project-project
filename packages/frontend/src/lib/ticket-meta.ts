@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import type { TicketStatus, TicketType } from "@projectproject/shared"
 import type { BadgeTone } from "@/components/ui/badge"
+import { m } from "@/paraglide/messages"
 
 export const STATUS_META: Record<
   TicketStatus,
@@ -36,4 +37,17 @@ export const TYPE_META: Record<
   bug: { label: "Bug", icon: Bug, tone: "red" },
   chore: { label: "Chore", icon: Hammer, tone: "amber" },
   other: { label: "Other", icon: HelpCircle, tone: "muted" }
+}
+
+export const STATUS_LABELS: Record<TicketStatus, () => string> = {
+  todo: () => m.tickets_status_todo(),
+  in_progress: () => m.tickets_status_in_progress(),
+  done: () => m.tickets_status_done()
+}
+
+export const TYPE_LABELS: Record<TicketType, () => string> = {
+  feat: () => m.tickets_type_feat(),
+  bug: () => m.tickets_type_bug(),
+  chore: () => m.tickets_type_chore(),
+  other: () => m.tickets_type_other()
 }

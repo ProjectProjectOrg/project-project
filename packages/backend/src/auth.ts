@@ -67,6 +67,7 @@ import { admin, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
+import * as schema from "./db/schema"
 import {
   account,
   invitation,
@@ -77,8 +78,7 @@ import {
   verification
 } from "./db/schema"
 
-// TODO: build a small Drizzle client just for Better Auth.
-const db = drizzle(process.env.DATABASE_URL!)
+const db = drizzle(process.env.DATABASE_URL!, { schema })
 
 // TODO: configure and export `auth`.
 export const auth = betterAuth({
@@ -142,32 +142,27 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (sessionData) => {
-          const userRows = await db
-            .select({ last: user.lastActiveOrganizationId })
-            .from(user)
-            .where(eq(user.id, sessionData.userId))
-            .limit(1)
-          let orgId = userRows[0]?.last ?? null
+          const currentUser = await db.query.user.findFirst({
+            columns: { lastActiveOrganizationId: true },
+            where: eq(user.id, sessionData.userId)
+          })
+          let orgId = currentUser?.lastActiveOrganizationId ?? null
           if (orgId) {
-            const stillMember = await db
-              .select({ orgId: member.organizationId })
-              .from(member)
-              .where(
-                and(
-                  eq(member.userId, sessionData.userId),
-                  eq(member.organizationId, orgId)
-                )
+            const stillMember = await db.query.member.findFirst({
+              columns: { organizationId: true },
+              where: and(
+                eq(member.userId, sessionData.userId),
+                eq(member.organizationId, orgId)
               )
-              .limit(1)
-            if (stillMember.length === 0) orgId = null
+            })
+            if (!stillMember) orgId = null
           }
           if (!orgId) {
-            const memberships = await db
-              .select({ orgId: member.organizationId })
-              .from(member)
-              .where(eq(member.userId, sessionData.userId))
-              .limit(1)
-            orgId = memberships[0]?.orgId ?? null
+            const firstMembership = await db.query.member.findFirst({
+              columns: { organizationId: true },
+              where: eq(member.userId, sessionData.userId)
+            })
+            orgId = firstMembership?.organizationId ?? null
           }
           if (!orgId) return { data: sessionData }
           return {

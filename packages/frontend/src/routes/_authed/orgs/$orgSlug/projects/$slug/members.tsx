@@ -6,7 +6,9 @@ import { m } from "@/paraglide/messages"
 import { useProject } from "./-context"
 import type { Member, Role } from "@projectproject/shared"
 
-export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/members")({
+export const Route = createFileRoute(
+  "/_authed/orgs/$orgSlug/projects/$slug/members"
+)({
   component: MembersTab,
   loader: () => ({
     crumb: { type: "static" as const, label: m.project_detail_tab_members() }

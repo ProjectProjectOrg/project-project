@@ -44,9 +44,7 @@ type Props = {
 
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
   const canManage = callerRole === "owner" || callerRole === "admin"
-  const states = useAtomValue(
-    projectGitStatesAtom(projectKey(orgSlug, slug))
-  )
+  const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
 
   const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
     if (!Result.isSuccess(states)) return null
@@ -178,13 +176,7 @@ function ConnectedChip({
   )
 }
 
-function ConnectPanel({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const [query, setQuery] = useState("")
   const repos = useAtomValue(githubReposAtom(query))
   const connect = useAtomSet(connectGithubAtom)

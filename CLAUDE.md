@@ -127,26 +127,31 @@ Within each message file, group keys by prefix in the order listed above, then s
      Atom.optimisticFn(xAtom(key), {
        reducer: (current, input) => {
          if (!Result.isSuccess(current)) return current
-         return Result.success(applyOptimistically(current.value, input), { waiting: true })
+         return Result.success(applyOptimistically(current.value, input), {
+           waiting: true
+         })
        },
-       fn: runtime.fn(Effect.fn(function* (input, get) {
-         const updated = yield* api.mutate(input)
-         get.refresh(xBaseAtom(key))   // pull server truth — optimistic mirror auto-updates
-         get.refresh(otherAffectedAtoms)
-         return updated
-       }))
+       fn: runtime.fn(
+         Effect.fn(function* (input, get) {
+           const updated = yield* api.mutate(input)
+           get.refresh(xBaseAtom(key)) // pull server truth — optimistic mirror auto-updates
+           get.refresh(otherAffectedAtoms)
+           return updated
+         })
+       )
      })
    )
    ```
 
-3. **Always refresh the *base* atom**, never the optimistic wrapper, after the mutation lands. Refreshing the wrapper would loop.
+3. **Always refresh the _base_ atom**, never the optimistic wrapper, after the mutation lands. Refreshing the wrapper would loop.
 
 4. **The reducer's job is the synthetic next state.** It must match what the server will return well enough that the brief moment before the refresh isn't visibly wrong. When the result is hard to model (e.g. a PR number assigned by GitHub), use a **pulse-only reducer** instead — return the current value with `{ waiting: true }` so the UI flips its pulse animation without inventing fake data:
 
    ```ts
-   reducer: (current, _input) => Result.isSuccess(current)
-     ? Result.success(current.value, { waiting: true })
-     : current
+   reducer: (current, _input) =>
+     Result.isSuccess(current)
+       ? Result.success(current.value, { waiting: true })
+       : current
    ```
 
    This keeps the data display honest and still gives the user a "syncing" affordance. See `openPrAtom` for an example.

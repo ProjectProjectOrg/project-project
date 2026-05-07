@@ -220,13 +220,7 @@ function NameField({
   )
 }
 
-function ProjectMenu({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const remove = useAtomSet(deleteProjectAtom)
   const navigate = useNavigate()
   const [confirming, setConfirming] = useState(false)
@@ -364,9 +358,7 @@ function TabsNav({
 
   const isActive = (key: TabKey): boolean => {
     const t = TABS.find((x) => x.key === key)!
-    const target = t.to
-      .replace("$orgSlug", orgSlug)
-      .replace("$slug", slug)
+    const target = t.to.replace("$orgSlug", orgSlug).replace("$slug", slug)
     return t.exact
       ? location.pathname === target ||
           location.pathname === target + "/" ||
@@ -455,14 +447,16 @@ function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
   for (const t of tickets) counts[t.status]++
   return (
     <>
-      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map((s) => (
-        <BadgeStat
-          key={s}
-          count={counts[s]}
-          icon={STATUS_META[s].icon}
-          className={STATUS_META[s].className}
-        />
-      ))}
+      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map(
+        (s) => (
+          <BadgeStat
+            key={s}
+            count={counts[s]}
+            icon={STATUS_META[s].icon}
+            className={STATUS_META[s].className}
+          />
+        )
+      )}
     </>
   )
 }

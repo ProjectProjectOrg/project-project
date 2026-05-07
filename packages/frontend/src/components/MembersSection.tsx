@@ -79,11 +79,7 @@ export function MembersSection({
       </div>
 
       {canManage && (
-        <AddMemberRow
-          orgSlug={orgSlug}
-          slug={slug}
-          onFocusChange={setAdding}
-        />
+        <AddMemberRow orgSlug={orgSlug} slug={slug} onFocusChange={setAdding} />
       )}
 
       {/* Same intent-driven dim used elsewhere — when the user is composing

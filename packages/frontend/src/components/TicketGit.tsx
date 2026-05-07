@@ -33,9 +33,7 @@ function useGitState(
   slug: string,
   ticketId: string
 ): { state: GitState | null; waiting: boolean } {
-  const states = useAtomValue(
-    projectGitStatesAtom(projectKey(orgSlug, slug))
-  )
+  const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
   if (!Result.isSuccess(states)) return { state: null, waiting: false }
   const entry = states.value.states[ticketId]
   return {
@@ -227,7 +225,9 @@ function PanelForState({
               )
             }}
           >
-            <span className="text-xs text-muted-foreground">{m.git_no_branch_yet()}</span>
+            <span className="text-xs text-muted-foreground">
+              {m.git_no_branch_yet()}
+            </span>
           </InlineForm.Display>
           <InlineForm.Actions>
             <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
@@ -253,11 +253,7 @@ function PanelForState({
           />
         </InlineForm.Form>
         <InlineForm.Form action="connect">
-          <ConnectBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            ticket={ticket}
-          />
+          <ConnectBranchFields orgSlug={orgSlug} slug={slug} ticket={ticket} />
         </InlineForm.Form>
       </Root>
     )
@@ -288,11 +284,7 @@ function PanelForState({
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-          />
+          <ClearBranchFields orgSlug={orgSlug} slug={slug} id={ticket.id} />
         </InlineForm.Form>
       </Root>
     )
@@ -301,9 +293,7 @@ function PanelForState({
   if (state.tag === "pr_open") {
     return (
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div
-          className={cn("flex flex-wrap items-center gap-2", pulse)}
-        >
+        <div className={cn("flex flex-wrap items-center gap-2", pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink
             number={state.number}
@@ -322,9 +312,7 @@ function PanelForState({
   if (state.tag === "pr_merged") {
     return (
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div
-          className={cn("flex flex-wrap items-center gap-2", pulse)}
-        >
+        <div className={cn("flex flex-wrap items-center gap-2", pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="merged" />
           <span className="text-xs text-muted-foreground">
@@ -371,7 +359,9 @@ function PanelForState({
           <InlineForm.Display className={cn(pulse)}>
             <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
               <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-              {m.git_stale_branch_prefix()} <span className="font-mono">{state.name}</span> {m.git_stale_branch_suffix()}
+              {m.git_stale_branch_prefix()}{" "}
+              <span className="font-mono">{state.name}</span>{" "}
+              {m.git_stale_branch_suffix()}
             </span>
           </InlineForm.Display>
           <InlineForm.Actions>
@@ -381,11 +371,7 @@ function PanelForState({
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-          />
+          <ClearBranchFields orgSlug={orgSlug} slug={slug} id={ticket.id} />
         </InlineForm.Form>
       </Root>
     )

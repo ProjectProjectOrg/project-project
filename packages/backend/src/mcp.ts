@@ -35,6 +35,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import { z } from "zod"
+import * as schema from "./db/schema"
 import { session } from "./db/schema"
 import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
@@ -52,19 +53,18 @@ const org = process.env.MARKMATE_MCP_ORG ?? "project-project"
 // --- Auth ------------------------------------------------------------------
 
 async function resolveUserId(token: string): Promise<string> {
-  const db = drizzle(process.env.DATABASE_URL!)
-  const rows = await db
-    .select({ userId: session.userId })
-    .from(session)
-    .where(and(eq(session.token, token), gt(session.expiresAt, new Date())))
-    .limit(1)
-  if (rows.length === 0) {
+  const db = drizzle(process.env.DATABASE_URL!, { schema })
+  const row = await db.query.session.findFirst({
+    columns: { userId: true },
+    where: and(eq(session.token, token), gt(session.expiresAt, new Date()))
+  })
+  if (!row) {
     throw new Error(
       "MARKMATE_MCP_TOKEN is invalid or expired. Sign in via the web UI " +
         "and copy a fresh session token."
     )
   }
-  return rows[0].userId
+  return row.userId
 }
 
 // --- Runtime ---------------------------------------------------------------

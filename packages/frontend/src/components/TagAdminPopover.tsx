@@ -8,10 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  ConfirmButton,
-  useConfirmButton
-} from "@/components/ui/confirm-button"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 import type { Tag, TagName } from "@projectproject/shared"

@@ -23,9 +23,7 @@ export const Hitbox = forwardRef<HTMLButtonElement, HitboxProps>(
       type="button"
       className={cn(
         "group/hitbox cursor-pointer",
-        mode === "absolute"
-          ? "absolute inset-0"
-          : "inline-flex items-center",
+        mode === "absolute" ? "absolute inset-0" : "inline-flex items-center",
         MARGIN[margin],
         className
       )}

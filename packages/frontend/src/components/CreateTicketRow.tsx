@@ -24,7 +24,7 @@ import {
 } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
-import { TYPE_META } from "@/lib/ticket-meta"
+import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import type { TicketType } from "@projectproject/shared"
 
@@ -106,7 +106,9 @@ export function CreateTicketRow({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={m.tickets_create_type_aria_label({ type: TYPE_META[type].label })}
+                aria-label={m.tickets_create_type_aria_label({
+                  type: TYPE_LABELS[type]()
+                })}
                 className={cn(
                   "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
                   expanded
@@ -116,7 +118,7 @@ export function CreateTicketRow({
               >
                 <Icon className="size-4 shrink-0" strokeWidth={1.75} />
                 <CollapsingLabel show={expanded}>
-                  <span className="text-xs">{TYPE_META[type].label}</span>
+                  <span className="text-xs">{TYPE_LABELS[type]()}</span>
                 </CollapsingLabel>
               </button>
             </DropdownMenuTrigger>
@@ -139,7 +141,7 @@ export function CreateTicketRow({
                     className="cursor-pointer"
                   >
                     <TIcon className="size-4" strokeWidth={1.75} />
-                    {TYPE_META[t].label}
+                    {TYPE_LABELS[t]()}
                   </DropdownMenuItem>
                 )
               })}

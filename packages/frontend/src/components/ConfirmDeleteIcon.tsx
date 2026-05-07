@@ -1,9 +1,6 @@
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  ConfirmButton,
-  useConfirmButton
-} from "@/components/ui/confirm-button"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 
 export function ConfirmDeleteIcon({
   ariaLabel,

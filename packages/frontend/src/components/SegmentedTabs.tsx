@@ -98,7 +98,10 @@ export function SegmentedTabs<K extends string>({
                 <motion.span
                   layoutId={`${layoutId}-active`}
                   transition={springs.moderate}
-                  className={cn("absolute inset-0 -z-0 bg-accent", v.pillRounding)}
+                  className={cn(
+                    "absolute inset-0 -z-0 bg-accent",
+                    v.pillRounding
+                  )}
                 />
               )}
               <span

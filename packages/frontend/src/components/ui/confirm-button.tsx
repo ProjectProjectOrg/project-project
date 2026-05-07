@@ -67,11 +67,7 @@ function Trigger({
           exit={{ opacity: 0 }}
           transition={FADE_TRANSITION}
         >
-          <Button
-            {...rest}
-            disabled={disabled || busy}
-            onClick={open}
-          >
+          <Button {...rest} disabled={disabled || busy} onClick={open}>
             {children}
           </Button>
         </motion.div>

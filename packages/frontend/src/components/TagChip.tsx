@@ -25,9 +25,7 @@ export function TagChip({
 }: Props) {
   const hex = color ?? NEUTRAL
   const sizeClasses =
-    size === "xs"
-      ? "h-5 px-1.5 text-[11px]"
-      : "h-6 px-2 py-0.5 text-xs"
+    size === "xs" ? "h-5 px-1.5 text-[11px]" : "h-6 px-2 py-0.5 text-xs"
   const bgAlpha = intensity === "strong" ? "33" : "1a"
   return (
     <span
