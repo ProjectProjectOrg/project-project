@@ -8,10 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import {
-  ConfirmButton,
-  useConfirmButton
-} from "@/components/ui/confirm-button"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
 import type { Tag, TagName } from "@projectproject/shared"
 
@@ -214,9 +211,9 @@ function Confirm({
   return (
     <div className="flex flex-col gap-2 text-xs">
       <p>
-        Delete <strong>{tag.name}</strong> permanently? It will be removed
-        from {usageCount} ticket{usageCount === 1 ? "" : "s"} and the tag
-        will no longer exist on this project.
+        Delete <strong>{tag.name}</strong> permanently? It will be removed from{" "}
+        {usageCount} ticket{usageCount === 1 ? "" : "s"} and the tag will no
+        longer exist on this project.
       </p>
       <div className="flex gap-1">
         <Button

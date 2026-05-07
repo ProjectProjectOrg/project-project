@@ -97,9 +97,9 @@ projectMember = pgTable("project_member", {
 ```yaml
 ---
 slug: design-system
-org: acme              # NEW
+org: acme # NEW
 name: Design System Rewrite
-createdBy: github_42   # was ownerId
+createdBy: github_42 # was ownerId
 members:
   - { username: wouter, role: owner }
   - { username: pm-anna, role: member }
@@ -149,7 +149,10 @@ Standard owner/admin/member from the plugin. Used for:
 The matrix in `services/Projects.ts` is unchanged in shape — it just runs against **effective project role**:
 
 ```ts
-function effectiveProjectRole(orgRole: OrgRole, projectRole: ProjectRole | null): ProjectRole {
+function effectiveProjectRole(
+  orgRole: OrgRole,
+  projectRole: ProjectRole | null
+): ProjectRole {
   if (orgRole === "owner") return "owner"
   if (orgRole === "admin") return rankMax("admin", projectRole)
   return projectRole ?? throwForbidden() // org member with no explicit project membership: no access

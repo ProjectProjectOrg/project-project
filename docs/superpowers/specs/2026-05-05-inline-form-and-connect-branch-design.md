@@ -38,7 +38,7 @@ type InlineFormMode<A extends string> = "idle" | A
 interface InlineFormContextValue<A extends string = string> {
   mode: InlineFormMode<A>
   open: (action: A) => void
-  close: () => void          // returns mode to "idle" and resets busy to false
+  close: () => void // returns mode to "idle" and resets busy to false
   busy: boolean
   setBusy: (b: boolean) => void
 }
@@ -58,7 +58,7 @@ The action union `A` is generic on `Root`. Consumers can annotate explicitly (`<
 
 ### Behavior
 
-- `close()` resets `mode` to `"idle"` *and* sets `busy` to `false`. This guards against forms that throw without resetting busy.
+- `close()` resets `mode` to `"idle"` _and_ sets `busy` to `false`. This guards against forms that throw without resetting busy.
 - `Trigger` and `Cancel` are disabled while `busy === true`. Form-author-supplied submit buttons are responsible for their own disabled state.
 - Pending UX (option B): forms remain mounted while `busy === true`. On success, the form calls `close()`; on error, the form sets `busy = false` (or returns early before setting busy true) and displays its own inline error.
 - React 19: use `use(InlineFormContext)` per `react19-no-forwardref`. No `forwardRef`.
@@ -129,13 +129,27 @@ Per `state.tag === "no_branch"`:
       <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
         Create branch
       </InlineForm.Trigger>
-      <InlineForm.Trigger action="connect" size="sm" variant="tertiary" leadingIcon={GitBranch}>
+      <InlineForm.Trigger
+        action="connect"
+        size="sm"
+        variant="tertiary"
+        leadingIcon={GitBranch}
+      >
         Connect branch
       </InlineForm.Trigger>
     </InlineForm.Actions>
   </InlineForm.Idle>
-  <InlineForm.Form action="create"><CreateBranchFields slug={slug} ticket={ticket} branchTemplate={branchTemplate} github={github} /></InlineForm.Form>
-  <InlineForm.Form action="connect"><ConnectBranchFields slug={slug} ticket={ticket} /></InlineForm.Form>
+  <InlineForm.Form action="create">
+    <CreateBranchFields
+      slug={slug}
+      ticket={ticket}
+      branchTemplate={branchTemplate}
+      github={github}
+    />
+  </InlineForm.Form>
+  <InlineForm.Form action="connect">
+    <ConnectBranchFields slug={slug} ticket={ticket} />
+  </InlineForm.Form>
 </InlineForm.Root>
 ```
 

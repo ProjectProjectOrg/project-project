@@ -44,8 +44,13 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const createTag = useAtomSet(createTagAtom(key))
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key))
-  const { renameMap, removed, registerRename, registerRemove, unregisterRemove } =
-    useTagRenames(orgSlug, slug)
+  const {
+    renameMap,
+    removed,
+    registerRename,
+    registerRemove,
+    unregisterRemove
+  } = useTagRenames(orgSlug, slug)
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
@@ -179,11 +184,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
             aria-label="Add tag"
             className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
           >
-            {displayed.length === 0 ? (
-              "Add tag"
-            ) : (
-              <Plus strokeWidth={2} />
-            )}
+            {displayed.length === 0 ? "Add tag" : <Plus strokeWidth={2} />}
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -241,9 +242,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                     key={tag.name}
                     type="button"
                     onClick={() =>
-                      isApplied
-                        ? removeFromTicket(tag.name)
-                        : addTag(tag.name)
+                      isApplied ? removeFromTicket(tag.name) : addTag(tag.name)
                     }
                     className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-accent active:scale-[0.99]"
                   >

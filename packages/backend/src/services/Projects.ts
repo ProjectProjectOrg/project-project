@@ -50,7 +50,7 @@ import type {
   ProjectDetail,
   UpdateProjectInput
 } from "@projectproject/shared"
-import { organization, projectIndex, projectMember, user } from "../db/schema"
+import { organization, projectIndex, projectMember } from "../db/schema"
 import { Db } from "./Db"
 import { GitHub } from "./GitHub"
 import { Markdown, type MarkdownError } from "./Markdown"
@@ -153,41 +153,35 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     // --- DB helpers ----------------------------------------------------
 
     const orgIdFromSlug = (orgSlug: string): Effect.Effect<string, NotFound> =>
-      db
-        .select({ id: organization.id })
-        .from(organization)
-        .where(eq(organization.slug, orgSlug))
-        .limit(1)
+      db.query.organization
+        .findFirst({
+          columns: { id: true },
+          where: eq(organization.slug, orgSlug)
+        })
         .pipe(
           Effect.orDie,
-          Effect.flatMap((rows) =>
-            rows[0] ? Effect.succeed(rows[0].id) : Effect.fail(new NotFound())
+          Effect.flatMap((row) =>
+            row ? Effect.succeed(row.id) : Effect.fail(new NotFound())
           )
         )
 
     const getIndexRow = (slug: string) =>
-      db
-        .select()
-        .from(projectIndex)
-        .where(eq(projectIndex.slug, slug))
-        .limit(1)
-        .pipe(
-          Effect.map((rows) => rows[0] ?? null),
-          Effect.orDie
-        )
+      db.query.projectIndex
+        .findFirst({ where: eq(projectIndex.slug, slug) })
+        .pipe(Effect.orDie)
 
     const findFreeSlug = (base: string): Effect.Effect<string> =>
       Effect.gen(function* () {
         const safeBase = base.length > 0 ? base : "project"
         for (let i = 0; i < MAX_SLUG_ATTEMPTS; i++) {
           const candidate = i === 0 ? safeBase : `${safeBase}-${i + 1}`
-          const existing = yield* db
-            .select({ slug: projectIndex.slug })
-            .from(projectIndex)
-            .where(eq(projectIndex.slug, candidate))
-            .limit(1)
+          const existing = yield* db.query.projectIndex
+            .findFirst({
+              columns: { slug: true },
+              where: eq(projectIndex.slug, candidate)
+            })
             .pipe(Effect.orDie)
-          if (existing.length === 0) return candidate
+          if (!existing) return candidate
         }
         return yield* Effect.die(
           new Error(`could not allocate unique slug for "${base}"`)
@@ -195,28 +189,34 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       })
 
     const loadMembers = (slug: string): Effect.Effect<ReadonlyArray<Member>> =>
-      db
-        .select({
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          role: projectMember.role
+      db.query.projectMember
+        .findMany({
+          where: eq(projectMember.projectSlug, slug),
+          columns: { role: true },
+          with: {
+            user: {
+              columns: {
+                id: true,
+                username: true,
+                name: true,
+                email: true,
+                image: true
+              }
+            }
+          }
         })
-        .from(projectMember)
-        .innerJoin(user, eq(projectMember.userId, user.id))
-        .where(eq(projectMember.projectSlug, slug))
         .pipe(
           Effect.map((rows) =>
-            rows.map((r) => ({
-              id: r.id,
-              username: r.username,
-              name: r.name,
-              email: r.email,
-              image: r.image,
-              role: r.role as Role
-            }))
+            rows.map(
+              (r): Member => ({
+                id: r.user.id,
+                username: r.user.username,
+                name: r.user.name,
+                email: r.user.email,
+                image: r.user.image,
+                role: r.role as Role
+              })
+            )
           ),
           Effect.orDie
         )
@@ -255,21 +255,19 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       userId: string,
       slug: string
     ): Effect.Effect<{ role: Role }, NotFound> =>
-      db
-        .select({ role: projectMember.role })
-        .from(projectMember)
-        .where(
-          and(
+      db.query.projectMember
+        .findFirst({
+          columns: { role: true },
+          where: and(
             eq(projectMember.projectSlug, slug),
             eq(projectMember.userId, userId)
           )
-        )
-        .limit(1)
+        })
         .pipe(
           Effect.orDie,
-          Effect.flatMap((rows) =>
-            rows[0]
-              ? Effect.succeed({ role: rows[0].role as Role })
+          Effect.flatMap((row) =>
+            row
+              ? Effect.succeed({ role: row.role as Role })
               : Effect.fail(new NotFound())
           )
         )
@@ -397,7 +395,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         yield* requireMember(orgSlug, userId, slug)
         const indexRow = yield* getIndexRow(slug)
-        if (indexRow === null) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
         return {
@@ -421,7 +419,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (indexRow === null) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
 
         const nextName = input.name ?? indexRow.name
@@ -481,7 +479,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
-        if (indexRow === null) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
@@ -517,20 +515,18 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
         const target = yield* users.findByEmail(input.email)
         if (target === null) return yield* Effect.fail(new NotFound())
 
-        const existing = yield* db
-          .select({ role: projectMember.role })
-          .from(projectMember)
-          .where(
-            and(
+        const existing = yield* db.query.projectMember
+          .findFirst({
+            columns: { role: true },
+            where: and(
               eq(projectMember.projectSlug, slug),
               eq(projectMember.userId, target.id)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
 
-        if (existing.length > 0) {
-          const currentRole = existing[0].role as Role
+        if (existing) {
+          const currentRole = existing.role as Role
           if (currentRole !== input.role) {
             const callerCtx = yield* requireMember(orgSlug, userId, slug)
             if (callerCtx.role !== "owner") {
@@ -570,19 +566,17 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner"])
-        const existing = yield* db
-          .select({ role: projectMember.role })
-          .from(projectMember)
-          .where(
-            and(
+        const existing = yield* db.query.projectMember
+          .findFirst({
+            columns: { role: true },
+            where: and(
               eq(projectMember.projectSlug, slug),
               eq(projectMember.userId, targetUserId)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
-        if (existing.length === 0) return yield* Effect.fail(new NotFound())
-        if ((existing[0].role as Role) === "owner") {
+        if (!existing) return yield* Effect.fail(new NotFound())
+        if ((existing.role as Role) === "owner") {
           return yield* Effect.fail(new Forbidden())
         }
         yield* db
@@ -609,19 +603,17 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
           "owner",
           "admin"
         ])
-        const existing = yield* db
-          .select({ role: projectMember.role })
-          .from(projectMember)
-          .where(
-            and(
+        const existing = yield* db.query.projectMember
+          .findFirst({
+            columns: { role: true },
+            where: and(
               eq(projectMember.projectSlug, slug),
               eq(projectMember.userId, targetUserId)
             )
-          )
-          .limit(1)
+          })
           .pipe(Effect.orDie)
-        if (existing.length === 0) return yield* Effect.fail(new NotFound())
-        const targetRole = existing[0].role as Role
+        if (!existing) return yield* Effect.fail(new NotFound())
+        const targetRole = existing.role as Role
         if (targetRole === "owner") return yield* Effect.fail(new Forbidden())
         if (targetRole === "admin" && callerCtx.role !== "owner") {
           return yield* Effect.fail(new Forbidden())
@@ -658,7 +650,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (indexRow === null) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
@@ -704,7 +696,7 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (indexRow === null) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* Effect.fail(new NotFound())
         const file = yield* readProject(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(

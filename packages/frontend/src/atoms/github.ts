@@ -20,7 +20,12 @@ import type {
   TicketId
 } from "@projectproject/shared"
 import { projectAtom, projectKey } from "./projects"
-import { ticketAtom, ticketKey, ticketsListAtom, ticketsListKey } from "./tickets"
+import {
+  ticketAtom,
+  ticketKey,
+  ticketsListAtom,
+  ticketsListKey
+} from "./tickets"
 
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
@@ -118,10 +123,7 @@ export const disconnectGithubAtom = runtime.fn(
 export const createBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (
-      current,
-      input: { id: TicketId } & CreateBranchInput
-    ) => {
+    reducer: (current, input: { id: TicketId } & CreateBranchInput) => {
       if (!Result.isSuccess(current)) return current
       const optimistic: GitState = {
         tag: "branch_no_pr",
@@ -137,10 +139,7 @@ export const createBranchAtom = Atom.family((key: string) => {
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (
-        input: { id: TicketId } & CreateBranchInput,
-        get
-      ) {
+      Effect.fn(function* (input: { id: TicketId } & CreateBranchInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.tickets.createBranch({
           path: { orgSlug, slug, id: input.id },
@@ -158,10 +157,7 @@ export const createBranchAtom = Atom.family((key: string) => {
 export const attachBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (
-      current,
-      input: { id: TicketId } & AttachBranchInput
-    ) => {
+    reducer: (current, input: { id: TicketId } & AttachBranchInput) => {
       if (!Result.isSuccess(current)) return current
       const optimistic: GitState = {
         tag: "branch_no_pr",
@@ -177,10 +173,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (
-        input: { id: TicketId } & AttachBranchInput,
-        get
-      ) {
+      Effect.fn(function* (input: { id: TicketId } & AttachBranchInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.tickets.attachBranch({
           path: { orgSlug, slug, id: input.id },

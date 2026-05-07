@@ -12,7 +12,9 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { useProject } from "./-context"
 
-export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/about")({
+export const Route = createFileRoute(
+  "/_authed/orgs/$orgSlug/projects/$slug/about"
+)({
   component: AboutTab,
   loader: () => ({
     crumb: { type: "static" as const, label: "About" }
