@@ -29,7 +29,7 @@ export function CommentsSection({
 
   const comments = Result.isSuccess(result) ? result.value : []
   const total = comments.length
-  const ordered = [...comments].reverse()
+  const ordered = [...comments].toReversed()
   const visibleSlice =
     showAll || total <= INITIAL_VISIBLE
       ? ordered
@@ -58,7 +58,7 @@ export function CommentsSection({
           />
           <span>{headingLabel}</span>
         </button>
-        <AnimatePresence initial={true}>
+        <AnimatePresence initial={false}>
           {!collapsed && (
             <motion.div
               key="body"
@@ -82,14 +82,16 @@ export function CommentsSection({
                   </p>
                 )}
                 {visibleSlice.map((c) => (
-                  <CommentRow
-                    key={c.id}
-                    comment={c}
-                    waiting={result.waiting}
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    ticketId={ticketId}
-                  />
+                  <AnimatePresence initial={true}>
+                    <CommentRow
+                      key={c.id}
+                      comment={c}
+                      waiting={result.waiting}
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      ticketId={ticketId}
+                    />
+                  </AnimatePresence>
                 ))}
                 {hidden > 0 && (
                   <button
