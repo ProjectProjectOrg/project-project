@@ -1,0 +1,548 @@
+import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import {
+  ArrowDownAZ,
+  Check,
+  ChevronDown,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+  X
+} from "lucide-react"
+import {
+  CollapsingLabel,
+  SEGMENTED_ITEM_CLASS,
+  SegmentedTabs,
+  type SegmentedItem
+} from "@/components/SegmentedTabs"
+import { MemberAvatar } from "@/components/MemberAvatar"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@/components/ui/input-group"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { TagChip } from "@/components/TagChip"
+import { Kbd } from "@/components/ui/kbd"
+import { STATUS_META, TYPE_META } from "@/lib/ticket-meta"
+import { tagsAtom, tagsKey } from "@/atoms/tags"
+import { useGlobalShortcut } from "@/lib/use-global-shortcut"
+import { cn } from "@/lib/utils"
+import type {
+  Member,
+  Ticket,
+  TagName,
+  TicketStatus,
+  TicketType
+} from "@projectproject/shared"
+import { SORTS, type SortKey } from "./sort"
+
+const TOOLBAR_BUTTON_CLASS = cn(
+  "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
+  "text-muted-foreground transition-colors hover:text-foreground",
+  "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
+)
+
+export function Toolbar({
+  query,
+  onQueryChange,
+  statusFilter,
+  onStatusFilterChange,
+  typeFilter,
+  onTypeFilterChange,
+  assigneeFilter,
+  onAssigneeFilterChange,
+  selectedTags,
+  onSelectedTagsChange,
+  sortKey,
+  onSortChange,
+  tickets,
+  members,
+  myId,
+  orgSlug,
+  slug,
+  compact,
+  onSearchFocusChange
+}: {
+  query: string
+  onQueryChange: (q: string) => void
+  statusFilter: TicketStatus | "all"
+  onStatusFilterChange: (s: TicketStatus | "all") => void
+  typeFilter: TicketType | "all"
+  onTypeFilterChange: (t: TicketType | "all") => void
+  assigneeFilter: string
+  onAssigneeFilterChange: (a: string) => void
+  selectedTags: ReadonlyArray<TagName>
+  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
+  sortKey: SortKey
+  onSortChange: (k: SortKey) => void
+  tickets: ReadonlyArray<Ticket>
+  members: ReadonlyArray<Member>
+  myId: string | null
+  orgSlug: string
+  slug: string
+  compact: boolean
+  onSearchFocusChange: (focused: boolean) => void
+}) {
+  const searchRef = useRef<HTMLInputElement>(null)
+  useGlobalShortcut("/", searchRef)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const next = Math.round(entry.contentRect.width)
+      setWidth((w) => (w === next ? w : next))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    typeFilter !== "all" ||
+    assigneeFilter !== "all" ||
+    selectedTags.length > 0 ||
+    query.length > 0
+
+  const clearAll = () => {
+    onQueryChange("")
+    onStatusFilterChange("all")
+    onTypeFilterChange("all")
+    onAssigneeFilterChange("all")
+    onSelectedTagsChange([])
+  }
+  const counts = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const resolved =
+      assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
+    const matchesOtherFilters = (t: Ticket) =>
+      (typeFilter === "all" || t.type === typeFilter) &&
+      (resolved === "all" ||
+        (resolved === "unassigned"
+          ? t.assignees.length === 0
+          : t.assignees.includes(resolved))) &&
+      (q === "" ||
+        t.title.toLowerCase().includes(q) ||
+        t.id.toLowerCase().includes(q))
+
+    const c: Record<TicketStatus | "all", number> = {
+      all: 0,
+      todo: 0,
+      in_progress: 0,
+      done: 0
+    }
+    for (const t of tickets) {
+      if (!matchesOtherFilters(t)) continue
+      c.all++
+      c[t.status]++
+    }
+    return c
+  }, [tickets, typeFilter, assigneeFilter, myId, query])
+
+  const FULL_FITS_ROW = 1040
+  const STATUS_COMPACT_FITS_ROW = 760
+  const ALL_COMPACT_FITS_ROW = 600
+  const STATUS_COMPACT_FITS_WRAPPED = 540
+  const measured = width > 0
+  const onSameRow = measured && width >= ALL_COMPACT_FITS_ROW
+  const statusCompact = measured
+    ? onSameRow
+      ? compact || width < FULL_FITS_ROW
+      : true
+    : false
+  const controlsCompact = measured
+    ? onSameRow
+      ? compact || width < STATUS_COMPACT_FITS_ROW
+      : width < STATUS_COMPACT_FITS_WRAPPED
+    : false
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex flex-wrap items-center gap-x-2 gap-y-2"
+    >
+      <InputGroup className="min-w-0 flex-1 basis-[220px]">
+        <InputGroupAddon>
+          <Search className="size-4" strokeWidth={1.75} />
+        </InputGroupAddon>
+        <InputGroupInput
+          ref={searchRef}
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={() => onSearchFocusChange(true)}
+          onBlur={() => onSearchFocusChange(false)}
+          placeholder="Search tickets by title or id…"
+          aria-label="Search tickets"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => onQueryChange("")}
+            aria-label="Clear search"
+            className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-3.5" strokeWidth={1.75} />
+          </button>
+        ) : !compact ? (
+          <Kbd>/</Kbd>
+        ) : null}
+      </InputGroup>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChips
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          counts={counts}
+          compact={statusCompact}
+        />
+
+        <FiltersMenu
+          typeFilter={typeFilter}
+          onTypeFilterChange={onTypeFilterChange}
+          assigneeFilter={assigneeFilter}
+          onAssigneeFilterChange={onAssigneeFilterChange}
+          selectedTags={selectedTags}
+          onSelectedTagsChange={onSelectedTagsChange}
+          members={members}
+          myId={myId}
+          orgSlug={orgSlug}
+          slug={slug}
+          compact={controlsCompact}
+        />
+
+        <SortMenu
+          value={sortKey}
+          onChange={onSortChange}
+          compact={controlsCompact}
+        />
+
+        <AnimatePresence initial={false}>
+          {hasActiveFilters && (
+            <motion.button
+              key="clear"
+              type="button"
+              onClick={clearAll}
+              initial={{ opacity: 0, width: 0, marginLeft: -8 }}
+              animate={{ opacity: 1, width: 36, marginLeft: 0 }}
+              exit={{ opacity: 0, width: 0, marginLeft: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className={cn(
+                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
+                "hover:bg-destructive/15 hover:border-destructive/60",
+                "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
+              )}
+              title="Clear all filters"
+              aria-label="Clear all filters"
+            >
+              <X className="size-4 shrink-0" strokeWidth={1.75} />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+function StatusChips({
+  value,
+  onChange,
+  counts,
+  compact
+}: {
+  value: TicketStatus | "all"
+  onChange: (v: TicketStatus | "all") => void
+  counts: Record<TicketStatus | "all", number>
+  compact: boolean
+}) {
+  const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
+    { key: "all", label: "All", badge: counts.all },
+    ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
+      key: s,
+      label: STATUS_META[s].label,
+      icon: STATUS_META[s].icon,
+      iconClassName: STATUS_META[s].className,
+      badge: counts[s]
+    }))
+  ]
+  return (
+    <SegmentedTabs
+      items={items}
+      layoutId="status-chips"
+      isActive={(k) => k === value}
+      compact={compact}
+      renderItem={(item, content, { active }) => (
+        <button
+          type="button"
+          onClick={() => onChange(item.key)}
+          aria-pressed={active}
+          aria-label={
+            compact ? `${item.label} (${counts[item.key]})` : undefined
+          }
+          className={SEGMENTED_ITEM_CLASS(active)}
+        >
+          {content}
+        </button>
+      )}
+    />
+  )
+}
+
+function FiltersMenu({
+  typeFilter,
+  onTypeFilterChange,
+  assigneeFilter,
+  onAssigneeFilterChange,
+  selectedTags,
+  onSelectedTagsChange,
+  members,
+  myId,
+  orgSlug,
+  slug,
+  compact
+}: {
+  typeFilter: TicketType | "all"
+  onTypeFilterChange: (v: TicketType | "all") => void
+  assigneeFilter: string
+  onAssigneeFilterChange: (v: string) => void
+  selectedTags: ReadonlyArray<TagName>
+  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
+  members: ReadonlyArray<Member>
+  myId: string | null
+  orgSlug: string
+  slug: string
+  compact: boolean
+}) {
+  const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
+  const tagList = Result.isSuccess(tags) ? tags.value : []
+  const toggleTag = (name: TagName) => {
+    onSelectedTagsChange(
+      selectedTags.includes(name)
+        ? selectedTags.filter((t) => t !== name)
+        : [...selectedTags, name]
+    )
+  }
+  const activeCount =
+    (typeFilter !== "all" ? 1 : 0) +
+    (assigneeFilter !== "all" ? 1 : 0) +
+    (selectedTags.length > 0 ? 1 : 0)
+  const active = activeCount > 0
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            TOOLBAR_BUTTON_CLASS,
+            active && "bg-accent text-foreground hover:text-foreground"
+          )}
+          aria-label={
+            compact && activeCount > 0
+              ? `Filters (${activeCount} active)`
+              : "Filters"
+          }
+          aria-pressed={active}
+        >
+          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+          <CollapsingLabel show={!compact}>Filters</CollapsingLabel>
+          {activeCount > 0 && (
+            <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
+              {activeCount}
+            </span>
+          )}
+          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="w-56"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        <SectionLabel>Type</SectionLabel>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault()
+            onTypeFilterChange("all")
+          }}
+          className="cursor-pointer"
+        >
+          All types
+          {typeFilter === "all" && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          const m = TYPE_META[t]
+          const TIcon = m.icon
+          return (
+            <DropdownMenuItem
+              key={t}
+              onSelect={(e) => {
+                e.preventDefault()
+                onTypeFilterChange(t)
+              }}
+              className="cursor-pointer"
+            >
+              <TIcon className="size-4" strokeWidth={1.75} />
+              {m.label}
+              {typeFilter === t && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+
+        <div className="my-1 h-px bg-border" />
+        <SectionLabel>Assignee</SectionLabel>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault()
+            onAssigneeFilterChange("all")
+          }}
+          className="cursor-pointer"
+        >
+          Anyone
+          {assigneeFilter === "all" && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+        {myId && (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault()
+              onAssigneeFilterChange("mine")
+            }}
+            className="cursor-pointer"
+          >
+            <UserRound className="size-4" strokeWidth={1.75} />
+            Mine
+            {assigneeFilter === "mine" && (
+              <Check className="ml-auto size-3.5 text-muted-foreground" />
+            )}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault()
+            onAssigneeFilterChange("unassigned")
+          }}
+          className="cursor-pointer"
+        >
+          Unassigned
+          {assigneeFilter === "unassigned" && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+        {members.length > 0 && <div className="my-1 h-px bg-border" />}
+        {members.map((m) => (
+          <DropdownMenuItem
+            key={m.id}
+            onSelect={(e) => {
+              e.preventDefault()
+              onAssigneeFilterChange(m.id)
+            }}
+            className="cursor-pointer"
+          >
+            <MemberAvatar member={m} size={20} />
+            <span className="truncate">{m.name}</span>
+            {assigneeFilter === m.id && (
+              <Check className="ml-auto size-3.5 text-muted-foreground" />
+            )}
+          </DropdownMenuItem>
+        ))}
+
+        {tagList.length > 0 && (
+          <>
+            <div className="my-1 h-px bg-border" />
+            <SectionLabel>Tags</SectionLabel>
+            <div className="flex flex-wrap gap-1 px-2 pb-1.5 pt-0.5">
+              {tagList.map((tag) => {
+                const selected = selectedTags.includes(tag.name)
+                return (
+                  <button
+                    key={tag.name}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toggleTag(tag.name)
+                    }}
+                    aria-pressed={selected}
+                    className="rounded-md outline-none transition-transform duration-100 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+                  >
+                    <TagChip
+                      name={tag.name}
+                      color={tag.color ?? null}
+                      size="xs"
+                      intensity={selected ? "strong" : "soft"}
+                      className={cn(!selected && "opacity-60")}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-2 pt-1 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </div>
+  )
+}
+
+function SortMenu({
+  value,
+  onChange,
+  compact
+}: {
+  value: SortKey
+  onChange: (k: SortKey) => void
+  compact: boolean
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={TOOLBAR_BUTTON_CLASS}
+          aria-label={`Sort tickets (${SORTS[value].label})`}
+        >
+          <ArrowDownAZ className="size-4" strokeWidth={1.75} />
+          <CollapsingLabel show={!compact}>
+            {SORTS[value].label}
+          </CollapsingLabel>
+          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
+        {(Object.keys(SORTS) as SortKey[]).map((k) => (
+          <DropdownMenuItem
+            key={k}
+            onSelect={() => onChange(k)}
+            className="cursor-pointer"
+          >
+            {SORTS[k].label}
+            {value === k && (
+              <Check className="ml-auto size-3.5 text-muted-foreground" />
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
