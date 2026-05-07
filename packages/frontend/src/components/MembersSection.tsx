@@ -90,12 +90,12 @@ export function MembersSection({
         transition={{ duration: 0.18, ease: "easeOut" }}
         className="divide-y divide-border rounded-xl border border-border bg-background"
       >
-        {members.map((m) => (
-          <li key={m.id}>
+        {members.map((member) => (
+          <li key={member.id}>
             <MemberRow
               orgSlug={orgSlug}
               slug={slug}
-              member={m}
+              member={member}
               callerRole={callerRole}
               callerId={callerId}
             />
@@ -197,8 +197,8 @@ function RoleSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
         {(["admin", "member"] as AssignableRole[]).map((r) => {
-          const m = ROLE_META[r]
-          const RIcon = m.icon
+          const roleMeta = ROLE_META[r]
+          const RIcon = roleMeta.icon
           return (
             <DropdownMenuItem
               key={r}
@@ -206,7 +206,7 @@ function RoleSelect({
               className="cursor-pointer"
             >
               <RIcon className="size-4" strokeWidth={1.75} />
-              {m.label()}
+              {roleMeta.label()}
               {r === value && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
