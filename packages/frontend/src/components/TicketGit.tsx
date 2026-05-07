@@ -36,8 +36,9 @@ function useGitState(
     projectGitStatesAtom(projectKey(orgSlug, slug))
   )
   if (!Result.isSuccess(states)) return { state: null, waiting: false }
+  const entry = states.value.states[ticketId]
   return {
-    state: states.value.states[ticketId] ?? null,
+    state: entry ?? { tag: "no_branch" },
     waiting: states.waiting
   }
 }

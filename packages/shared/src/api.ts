@@ -49,6 +49,12 @@ import {
   OpenPrResult
 } from "./schemas/GitState"
 import {
+  CreateTagInput,
+  Tag,
+  TagName,
+  UpdateTagInput
+} from "./schemas/Tag"
+import {
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -94,6 +100,11 @@ const ProjectMemberPath = Schema.Struct({
   userId: Schema.String
 })
 const TicketPath = Schema.Struct({ orgSlug: Slug, slug: Slug, id: TicketId })
+const ProjectTagPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  name: TagName
+})
 
 const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
@@ -364,11 +375,50 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   )
   .middleware(Authentication)
 
+const TagsGroup = HttpApiGroup.make("tags")
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tags")
+      .setPath(ProjectPath)
+      .addSuccess(Schema.Array(Tag))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tags")
+      .setPath(ProjectPath)
+      .setPayload(CreateTagInput)
+      .addSuccess(Tag)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .add(
+    HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug/tags/:name")
+      .setPath(ProjectTagPath)
+      .setPayload(UpdateTagInput)
+      .addSuccess(Tag)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .add(
+    HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tags/:name")
+      .setPath(ProjectTagPath)
+      .addSuccess(Schema.Void)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
+  .add(TagsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

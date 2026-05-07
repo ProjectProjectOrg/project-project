@@ -25,7 +25,7 @@ export function ConfirmDeleteIcon({
         size="icon-sm"
         aria-label={ariaLabel}
         disabled={disabled}
-        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive -my-2"
       >
         <Trash2 strokeWidth={1.75} />
       </ConfirmButton.Trigger>

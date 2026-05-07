@@ -27,6 +27,7 @@ const buttonVariants = cva(
           "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60"
       },
       size: {
+        xs: "h-5 px-1.5 text-[11px] gap-1",
         sm: "h-7 px-3 text-[12px] gap-1",
         md: "h-8 px-4 text-[13px] gap-1.5",
         lg: "h-9 px-5 text-[14px] gap-1.5",
@@ -39,9 +40,11 @@ const buttonVariants = cva(
       iconRight: { true: "" }
     },
     compoundVariants: [
+      { size: "xs", iconLeft: true, className: "pl-1" },
       { size: "sm", iconLeft: true, className: "pl-[6px]" },
       { size: "md", iconLeft: true, className: "pl-[10px]" },
       { size: "lg", iconLeft: true, className: "pl-[14px]" },
+      { size: "xs", iconRight: true, className: "pr-1" },
       { size: "sm", iconRight: true, className: "pr-[6px]" },
       { size: "md", iconRight: true, className: "pr-[10px]" },
       { size: "lg", iconRight: true, className: "pr-[14px]" }
@@ -86,7 +89,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size === "icon-xs" ||
       size === "icon-sm" ||
       size === "icon-lg"
-    const iconSize = size === "sm" ? 14 : size === "lg" ? 20 : 16
+    const iconSize =
+      size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16
     const shape = useShape()
 
     const compClassName = cn(
