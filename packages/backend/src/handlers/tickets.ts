@@ -56,13 +56,19 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
-      .handle("delete", ({ path }) =>
+      .handle("delete", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          yield* tickets.remove(org.orgSlug, user.id, path.slug, path.id)
+          yield* tickets.remove(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload.baseVersion
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("createBranch", ({ path, payload }) =>

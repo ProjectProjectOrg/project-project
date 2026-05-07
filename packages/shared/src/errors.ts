@@ -68,6 +68,16 @@ export class Conflict extends Schema.TaggedError<Conflict>()(
   HttpApiSchema.annotations({ status: 409 })
 ) {}
 
+export class TicketChanged extends Schema.TaggedError<TicketChanged>()(
+  "TicketChanged",
+  {
+    currentVersion: Schema.String,
+    conflictingFields: Schema.Array(Schema.String),
+    message: Schema.String
+  },
+  HttpApiSchema.annotations({ status: 409 })
+) {}
+
 // --- GitHub-side errors -----------------------------------------------------
 // Distinct from generic 4xx because the user-facing remedy is different
 // (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures

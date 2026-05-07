@@ -80,6 +80,7 @@ import { GitHub } from "./services/GitHub"
 import { Markdown } from "./services/Markdown"
 import { Projects } from "./services/Projects"
 import { Tags } from "./services/Tags"
+import { TicketFileStore } from "./services/TicketFileStore"
 import { Tickets } from "./services/Tickets"
 import { Users } from "./services/Users"
 
@@ -122,6 +123,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(TagsHandlerLive),
   Layer.provide(Tags.Default),
   Layer.provide(Tickets.Default),
+  Layer.provide(TicketFileStore.Default),
   Layer.provide(Projects.Default),
   Layer.provide(CurrentOrg.Default),
   Layer.provide(GitHub.Default),

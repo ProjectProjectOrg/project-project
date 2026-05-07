@@ -42,6 +42,7 @@
 
 import { relations } from "drizzle-orm"
 import {
+  integer,
   index,
   pgTable,
   primaryKey,
@@ -109,6 +110,16 @@ export const projectTag = pgTable(
     index("project_tag_project_idx").on(t.projectId)
   ]
 )
+
+export const projectTicketCounter = pgTable("project_ticket_counter", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projectIndex.id, { onDelete: "cascade" }),
+  nextNumber: integer("next_number").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+})
 
 export const projectIndexRelations = relations(
   projectIndex,

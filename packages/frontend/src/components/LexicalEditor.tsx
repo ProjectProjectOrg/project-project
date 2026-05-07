@@ -138,7 +138,7 @@ function AutoFocusPlugin() {
 // state and reset the cursor. To swap to a different project's body, the
 // caller must remount this component (e.g. `<LexicalEditor key={slug} />`).
 
-export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
+export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "conflict"
 
 export interface LexicalEditorProps {
   /** Initial markdown body. Re-applied to the editor when this prop changes. */
@@ -147,6 +147,8 @@ export interface LexicalEditorProps {
   onChange: (markdown: string) => Promise<void> | void
   /** Optional save-status sink so the parent can show "saving…"/"saved". */
   onStatusChange?: (status: SaveStatus) => void
+  onLocalDraftChange?: (markdown: string) => void
+  paused?: boolean
   /** Debounce delay for autosave in milliseconds. */
   debounceMs?: number
   className?: string
@@ -159,6 +161,8 @@ export function LexicalEditor({
   markdown,
   onChange,
   onStatusChange,
+  onLocalDraftChange,
+  paused = false,
   debounceMs = 600,
   className,
   placeholder = "Write a description in markdown…",
@@ -204,6 +208,7 @@ export function LexicalEditor({
   }
 
   function flush() {
+    if (paused) return
     if (inflight.current) return
     const next = pending.current
     if (next === null) return
@@ -224,6 +229,7 @@ export function LexicalEditor({
   }
 
   function schedule() {
+    if (paused) return
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(flush, debounceMs)
   }
@@ -271,6 +277,7 @@ export function LexicalEditor({
               }
               if (next === liveRef.current) return
               liveRef.current = next
+              onLocalDraftChange?.(next)
               pending.current = next
               setStatus("dirty")
               schedule()

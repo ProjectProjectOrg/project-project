@@ -43,7 +43,9 @@ export const Ticket = Schema.Struct({
   assignees: Schema.Array(Schema.String),
   createdBy: Schema.String,
   createdAt: Schema.Date,
-  updatedAt: Schema.Date
+  updatedAt: Schema.Date,
+  revision: Schema.Number,
+  version: Schema.String
 })
 export type Ticket = typeof Ticket.Type
 
@@ -60,6 +62,7 @@ export const CreateTicketInput = Schema.Struct({
 export type CreateTicketInput = typeof CreateTicketInput.Type
 
 export const UpdateTicketInput = Schema.Struct({
+  baseVersion: Schema.String,
   title: Schema.optional(
     Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200))
   ),
@@ -71,3 +74,8 @@ export const UpdateTicketInput = Schema.Struct({
   body: Schema.optional(Schema.String)
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
+
+export const DeleteTicketInput = Schema.Struct({
+  baseVersion: Schema.String
+})
+export type DeleteTicketInput = typeof DeleteTicketInput.Type

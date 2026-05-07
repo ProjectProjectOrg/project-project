@@ -32,6 +32,7 @@ import {
   RateLimited,
   RepoGone,
   Ticket,
+  TicketChanged,
   TicketDetail,
   TicketId,
   TransitionRecord,
@@ -40,8 +41,12 @@ import {
 import { GitHub } from "./GitHub"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
+import { TicketFileStore, type TicketStoreError } from "./TicketFileStore"
 
-const MAX_CREATE_ATTEMPTS = 16
+const dieOnTicketStore = <A, E, R>(
+  effect: Effect.Effect<A, E | TicketStoreError, R>
+): Effect.Effect<A, E, R> =>
+  effect.pipe(Effect.catchTag("TicketStoreError", (cause) => Effect.die(cause)))
 
 const TicketFrontmatter = Schema.Struct({
   id: TicketId,
@@ -66,7 +71,8 @@ const TicketFrontmatter = Schema.Struct({
   }),
   createdBy: Schema.String,
   createdAt: Schema.Date,
-  updatedAt: Schema.Date
+  updatedAt: Schema.Date,
+  revision: Schema.optionalWith(Schema.Number, { default: () => 0 })
 })
 type TicketFrontmatter = typeof TicketFrontmatter.Type
 
@@ -83,21 +89,10 @@ function decodeFrontmatterCompat(raw: unknown) {
   return decodeFrontmatter(raw)
 }
 
-function nextIdFrom(ids: ReadonlyArray<string>): string {
-  let max = 0
-  for (const id of ids) {
-    const n = Number(id.slice(2))
-    if (Number.isFinite(n) && n > max) max = n
-  }
-  return `T-${max + 1}`
-}
-
-function bumpId(id: string): string {
-  const n = Number(id.slice(2))
-  return `T-${n + 1}`
-}
-
-function frontmatterToWire(fm: TicketFrontmatter): Ticket {
+function frontmatterToWire(
+  fm: TicketFrontmatter,
+  version = "sha256:unknown"
+): Ticket {
   return {
     id: fm.id,
     title: fm.title,
@@ -111,7 +106,9 @@ function frontmatterToWire(fm: TicketFrontmatter): Ticket {
     assignees: fm.assignees,
     createdBy: fm.createdBy,
     createdAt: fm.createdAt,
-    updatedAt: fm.updatedAt
+    updatedAt: fm.updatedAt,
+    revision: fm.revision,
+    version
   }
 }
 
@@ -129,7 +126,8 @@ function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
     assignees: fm.assignees,
     createdBy: fm.createdBy,
     createdAt: fm.createdAt.toISOString(),
-    updatedAt: fm.updatedAt.toISOString()
+    updatedAt: fm.updatedAt.toISOString(),
+    revision: fm.revision
   }
 }
 
@@ -138,6 +136,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     const md = yield* Markdown
     const projects = yield* Projects
     const github = yield* GitHub
+    const ticketFiles = yield* TicketFileStore
 
     const ensureAccess = (
       orgSlug: string,
@@ -153,13 +152,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       slug: string,
       id: string
     ): Effect.Effect<
-      TicketFrontmatter & { body: string },
+      TicketFrontmatter & { body: string; version: string },
       NotFound | MarkdownError
     > =>
       Effect.gen(function* () {
-        const file = yield* md.readTicketFile(orgSlug, slug, id)
+        const file = yield* ticketFiles.readRaw(orgSlug, slug, id)
         const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.body }
+        return { ...fm, body: file.body, version: file.version }
       })
 
     const list = (
@@ -175,7 +174,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...tickets.map(frontmatterToWire)].sort(
+        return [...tickets.map((t) => frontmatterToWire(t, t.version))].sort(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
@@ -189,7 +188,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const t = yield* readTicket(orgSlug, slug, id)
-        return { ...frontmatterToWire(t), body: t.body }
+        return { ...frontmatterToWire(t, t.version), body: t.body }
       })
 
     const create = (
@@ -200,12 +199,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* md.listTicketIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
+        const id = yield* dieOnTicketStore(
+          ticketFiles.allocateId(orgSlug, slug)
+        )
 
         const now = new Date()
         const fm: TicketFrontmatter = {
-          id: candidate as TicketId,
+          id,
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
@@ -217,32 +217,21 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           assignees: [],
           createdBy: ownerId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          revision: 1
         }
 
-        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const result = yield* md
-            .createTicketFile(
-              orgSlug,
-              slug,
-              candidate,
-              frontmatterToDisk({ ...fm, id: candidate as TicketId }),
-              `# ${input.title}\n`
-            )
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("TicketIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
-            )
-          if (result === "ok") {
-            return frontmatterToWire({ ...fm, id: candidate as TicketId })
-          }
-          candidate = bumpId(candidate)
-        }
-        return yield* Effect.die(
-          new Error(`could not allocate ticket id for "${slug}"`)
-        )
+        yield* ticketFiles
+          .create(
+            orgSlug,
+            slug,
+            id,
+            frontmatterToDisk(fm),
+            `# ${input.title}\n`
+          )
+          .pipe(Effect.catchTag("TicketIdTaken", (cause) => Effect.die(cause)))
+        const created = yield* readTicket(orgSlug, slug, id)
+        return frontmatterToWire(created, created.version)
       })
 
     const update = (
@@ -251,7 +240,10 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       slug: string,
       id: string,
       input: UpdateTicketInput
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      TicketDetail,
+      NotFound | MarkdownError | TicketChanged | TicketStoreError
+    > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
@@ -281,30 +273,43 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
               : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          revision: existing.revision + 1
         }
         const nextBody = input.body ?? existing.body
 
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          nextBody
+        const written = yield* dieOnTicketStore(
+          ticketFiles.writeChecked(
+            orgSlug,
+            slug,
+            id,
+            input.baseVersion,
+            Object.keys(input).filter((key) => key !== "baseVersion"),
+            () => ({
+              frontmatter: frontmatterToDisk(next),
+              body: nextBody
+            })
+          )
         )
 
-        return { ...frontmatterToWire(next), body: nextBody }
+        const fm = yield* decodeFrontmatterCompat(written.data).pipe(
+          Effect.orDie
+        )
+        return { ...frontmatterToWire(fm, written.version), body: written.body }
       })
 
     const remove = (
       orgSlug: string,
       ownerId: string,
       slug: string,
-      id: string
-    ): Effect.Effect<void, NotFound | MarkdownError> =>
+      id: string,
+      baseVersion: string
+    ): Effect.Effect<void, NotFound | MarkdownError | TicketChanged> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        yield* md.removeTicketFile(orgSlug, slug, id)
+        yield* dieOnTicketStore(
+          ticketFiles.removeChecked(orgSlug, slug, id, baseVersion)
+        )
       })
 
     const replaceTag = (
@@ -317,22 +322,25 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       Effect.gen(function* () {
         const existing = yield* readTicket(orgSlug, slug, id)
         if (!existing.tags.includes(oldName)) return false
-        const nextTags =
-          newName === null
-            ? existing.tags.filter((t) => t !== oldName)
-            : existing.tags.map((t) => (t === oldName ? newName : t))
-        const { body, ...fm } = existing
-        const next: TicketFrontmatter = {
-          ...fm,
-          tags: nextTags,
-          updatedAt: new Date()
-        }
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          body
+        yield* dieOnTicketStore(
+          ticketFiles.writeLatest(orgSlug, slug, id, (current) => {
+            const fm = Effect.runSync(
+              decodeFrontmatterCompat(current.data).pipe(Effect.orDie)
+            )
+            const nextTags =
+              newName === null
+                ? fm.tags.filter((t) => t !== oldName)
+                : fm.tags.map((t) => (t === oldName ? newName : t))
+            return {
+              frontmatter: frontmatterToDisk({
+                ...fm,
+                tags: nextTags,
+                revision: fm.revision + 1,
+                updatedAt: new Date()
+              }),
+              body: current.body
+            }
+          })
         )
         return true
       })
@@ -343,34 +351,36 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       orgSlug: string,
       slug: string,
       id: string,
-      existing: TicketFrontmatter & { body: string },
+      _existing: TicketFrontmatter & { body: string },
       patch: {
         branch?: string | null
         pr?: number | null
         lastTransitionedPr?: number | null
         status?: TicketFrontmatter["status"]
       }
-    ): Effect.Effect<TicketFrontmatter, MarkdownError> =>
+    ): Effect.Effect<TicketFrontmatter, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        const next: TicketFrontmatter = {
-          ...existing,
-          branch: patch.branch !== undefined ? patch.branch : existing.branch,
-          pr: patch.pr !== undefined ? patch.pr : existing.pr,
-          lastTransitionedPr:
-            patch.lastTransitionedPr !== undefined
-              ? patch.lastTransitionedPr
-              : existing.lastTransitionedPr,
-          status: patch.status ?? existing.status,
-          updatedAt: new Date()
-        }
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          existing.body
+        const written = yield* dieOnTicketStore(
+          ticketFiles.writeLatest(orgSlug, slug, id, (current) => {
+            const fm = Effect.runSync(
+              decodeFrontmatterCompat(current.data).pipe(Effect.orDie)
+            )
+            const next: TicketFrontmatter = {
+              ...fm,
+              branch: patch.branch !== undefined ? patch.branch : fm.branch,
+              pr: patch.pr !== undefined ? patch.pr : fm.pr,
+              lastTransitionedPr:
+                patch.lastTransitionedPr !== undefined
+                  ? patch.lastTransitionedPr
+                  : fm.lastTransitionedPr,
+              status: patch.status ?? fm.status,
+              updatedAt: new Date(),
+              revision: fm.revision + 1
+            }
+            return { frontmatter: frontmatterToDisk(next), body: current.body }
+          })
         )
-        return next
+        return yield* decodeFrontmatterCompat(written.data).pipe(Effect.orDie)
       })
 
     const createBranch = (

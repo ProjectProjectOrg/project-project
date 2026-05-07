@@ -97,7 +97,13 @@ export function CreateBranchFields({
           baseBranch: base.trim() || undefined
         }),
         status !== ticket.status
-          ? updateTicket({ orgSlug, slug, id: ticket.id, status })
+          ? updateTicket({
+              orgSlug,
+              slug,
+              id: ticket.id,
+              baseVersion: ticket.version,
+              status
+            })
           : Promise.resolve()
       ])
       close()

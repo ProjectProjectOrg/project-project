@@ -35,6 +35,7 @@ import {
 } from "./schemas/Project"
 import {
   CreateTicketInput,
+  DeleteTicketInput,
   Ticket,
   TicketDetail,
   TicketId,
@@ -61,6 +62,7 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
+  TicketChanged,
   Unauthorized
 } from "./errors"
 import { Authentication } from "./Authentication"
@@ -277,12 +279,15 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(TicketChanged)
   )
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tickets/:id")
       .setPath(TicketPath)
+      .setPayload(DeleteTicketInput)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(TicketChanged)
   )
   .add(
     HttpApiEndpoint.post(

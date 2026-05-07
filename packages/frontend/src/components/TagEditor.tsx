@@ -97,6 +97,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       orgSlug,
       slug,
       id: ticket.id,
+      baseVersion: ticket.version,
       tags: next as unknown as ReadonlyArray<TagName>
     })
 

@@ -4,6 +4,7 @@ import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import type {
   CreateTicketInput,
+  DeleteTicketInput,
   TicketId,
   UpdateTicketInput
 } from "@projectproject/shared"
@@ -85,13 +86,23 @@ export const updateTicketAtom = runtime.fn(
 
 export const deleteTicketAtom = runtime.fn(
   Effect.fn(function* (
-    input: { orgSlug: string; slug: string; id: TicketId },
+    input: { orgSlug: string; slug: string; id: TicketId } & DeleteTicketInput,
     get
   ) {
     const client = yield* ApiClient
     yield* client.tickets.delete({
-      path: { orgSlug: input.orgSlug, slug: input.slug, id: input.id }
+      path: { orgSlug: input.orgSlug, slug: input.slug, id: input.id },
+      payload: { baseVersion: input.baseVersion }
     })
     get.refresh(ticketsListAtom(ticketsListKey(input.orgSlug, input.slug)))
+  })
+)
+
+export const fetchTicketAtom = runtime.fn(
+  Effect.fn(function* (input: { orgSlug: string; slug: string; id: TicketId }) {
+    const client = yield* ApiClient
+    return yield* client.tickets.get({
+      path: { orgSlug: input.orgSlug, slug: input.slug, id: input.id }
+    })
   })
 )
