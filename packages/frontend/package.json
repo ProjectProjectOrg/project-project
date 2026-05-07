@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --emit-ts-declarations --silent",
+    "typecheck": "bun run paraglide:compile && tsc --noEmit",
     "favicons": "bun scripts/generate-favicons.ts"
   },
   "dependencies": {
