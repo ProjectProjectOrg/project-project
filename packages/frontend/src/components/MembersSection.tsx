@@ -90,12 +90,12 @@ export function MembersSection({
         transition={{ duration: 0.18, ease: "easeOut" }}
         className="divide-y divide-border rounded-xl border border-border bg-background"
       >
-        {members.map((m) => (
-          <li key={m.id}>
+        {members.map((member) => (
+          <li key={member.id}>
             <MemberRow
               orgSlug={orgSlug}
               slug={slug}
-              member={m}
+              member={member}
               callerRole={callerRole}
               callerId={callerId}
             />
