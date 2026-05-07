@@ -31,7 +31,8 @@
     "effect": "latest",
     "gray-matter": "^4.0.3",
     "octokit": "^5.0.5",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@effect/vitest": "^0.29.0",

@@ -10,6 +10,7 @@
 
 import { Effect } from "effect"
 import { eq, inArray } from "drizzle-orm"
+import type { User } from "@projectproject/shared"
 import { user } from "../db/schema"
 import { Db } from "./Db"
 
@@ -54,6 +55,40 @@ export class Users extends Effect.Service<Users>()("Users", {
         .pipe(Effect.orDie)
     }
 
-    return { findByEmail, findManyByIds } as const
+    const fullByIds = (
+      ids: ReadonlyArray<string>
+    ): Effect.Effect<ReadonlyArray<User>> => {
+      if (ids.length === 0) return Effect.succeed([])
+      return db.query.user
+        .findMany({
+          columns: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            image: true,
+            createdAt: true
+          },
+          where: inArray(user.id, [...ids])
+        })
+        .pipe(
+          Effect.map((rows) =>
+            rows.map(
+              (r): User => ({
+                id: r.id,
+                email: r.email,
+                name: r.name,
+                username: r.username,
+                image: r.image ?? null,
+                createdAt: r.createdAt,
+                activeOrgSlug: null
+              })
+            )
+          ),
+          Effect.orDie
+        )
+    }
+
+    return { findByEmail, findManyByIds, fullByIds } as const
   })
 }) {}
