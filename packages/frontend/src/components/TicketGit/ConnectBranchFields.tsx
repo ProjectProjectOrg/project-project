@@ -6,7 +6,12 @@
 // we debounce input by 200ms before the q changes (avoids a fetch per
 // keystroke).
 
-import { Result, useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import {
+  Result,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue
+} from "@effect-atom/atom-react"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"

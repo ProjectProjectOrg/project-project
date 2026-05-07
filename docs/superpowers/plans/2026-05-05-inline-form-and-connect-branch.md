@@ -44,6 +44,7 @@ If you want unit tests for `GitHub.listBranches`, `GitHub.branchExists`, or `Tic
 ## Task 1: Shared error — `BranchNotFound`
 
 **Files:**
+
 - Modify: `packages/shared/src/errors.ts`
 
 - [ ] **Step 1: Add the new tagged error**
@@ -78,6 +79,7 @@ git commit -m "feat(shared): add BranchNotFound tagged error"
 ## Task 2: Shared HTTP API — `listBranches` + `attachBranch`
 
 **Files:**
+
 - Modify: `packages/shared/src/schemas/GitState.ts`
 - Modify: `packages/shared/src/api.ts`
 
@@ -212,6 +214,7 @@ git commit -m "feat(shared): add listBranches and attachBranch endpoints"
 ## Task 3: GitHub service — `listBranches` + `branchExists`
 
 **Files:**
+
 - Modify: `packages/backend/src/services/GitHub.ts`
 
 - [ ] **Step 1: Update imports**
@@ -238,162 +241,151 @@ import {
 Insert before the final `return { ... } as const` block, alongside `fetchProjectStates`:
 
 ```ts
-    // List branches via GraphQL refs(query:). Server-side fuzzy match means
-    // a typing user gets results without us paging through hundreds of refs.
-    // Caller passes `first` to cap page size.
-    const listBranches = (
-      owner: string,
-      name: string,
-      query: string | undefined,
-      first: number,
-      userId: string
-    ): Effect.Effect<
-      BranchListResponse,
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-    > =>
-      Effect.gen(function* () {
-        const token = yield* tokenFor(userId)
-        const gql = graphqlFor(token)
+// List branches via GraphQL refs(query:). Server-side fuzzy match means
+// a typing user gets results without us paging through hundreds of refs.
+// Caller passes `first` to cap page size.
+const listBranches = (
+  owner: string,
+  name: string,
+  query: string | undefined,
+  first: number,
+  userId: string
+): Effect.Effect<
+  BranchListResponse,
+  | GitHubTokenExpired
+  | GitHubScopeInsufficient
+  | RepoGone
+  | RateLimited
+  | GitHubError
+> =>
+  Effect.gen(function* () {
+    const token = yield* tokenFor(userId)
+    const gql = graphqlFor(token)
 
-        interface QResult {
-          repository: {
-            refs: {
-              nodes: ReadonlyArray<{
-                name: string
-                branchProtectionRule: { id: string } | null
-              }>
-              pageInfo: { hasNextPage: boolean }
-            }
-          } | null
+    interface QResult {
+      repository: {
+        refs: {
+          nodes: ReadonlyArray<{
+            name: string
+            branchProtectionRule: { id: string } | null
+          }>
+          pageInfo: { hasNextPage: boolean }
         }
+      } | null
+    }
 
-        const data = yield* Effect.tryPromise({
-          try: () =>
-            gql<QResult>(
-              /* GraphQL */ `
-                query Q(
-                  $owner: String!
-                  $name: String!
-                  $q: String
-                  $first: Int!
+    const data = yield* Effect.tryPromise({
+      try: () =>
+        gql<QResult>(
+          /* GraphQL */ `
+            query Q($owner: String!, $name: String!, $q: String, $first: Int!) {
+              repository(owner: $owner, name: $name) {
+                refs(
+                  refPrefix: "refs/heads/"
+                  query: $q
+                  first: $first
+                  orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
                 ) {
-                  repository(owner: $owner, name: $name) {
-                    refs(
-                      refPrefix: "refs/heads/"
-                      query: $q
-                      first: $first
-                      orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
-                    ) {
-                      nodes {
-                        name
-                        branchProtectionRule {
-                          id
-                        }
-                      }
-                      pageInfo {
-                        hasNextPage
-                      }
+                  nodes {
+                    name
+                    branchProtectionRule {
+                      id
                     }
                   }
-                }
-              `,
-              { owner, name, q: query ?? null, first }
-            ),
-          catch: (
-            cause
-          ):
-            | GitHubTokenExpired
-            | GitHubScopeInsufficient
-            | RepoGone
-            | RateLimited
-            | GitHubError => {
-            const err = mapHttpError(cause)
-            if (
-              err._tag === "BranchExists" ||
-              err._tag === "BranchProtected"
-            ) {
-              return new GitHubError({ message: "unexpected GitHub response" })
-            }
-            return err
-          }
-        })
-
-        if (!data.repository) return yield* Effect.fail(new RepoGone())
-
-        return {
-          items: data.repository.refs.nodes.map((n) => ({
-            name: n.name,
-            isProtected: n.branchProtectionRule !== null
-          })),
-          hasMore: data.repository.refs.pageInfo.hasNextPage
-        }
-      })
-
-    // Single GraphQL ref lookup. Returns true when the branch exists on
-    // remote, false when it doesn't. RepoGone bubbles for unknown repos.
-    const branchExists = (
-      owner: string,
-      name: string,
-      branch: string,
-      userId: string
-    ): Effect.Effect<
-      boolean,
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-    > =>
-      Effect.gen(function* () {
-        const token = yield* tokenFor(userId)
-        const gql = graphqlFor(token)
-
-        interface QResult {
-          repository: {
-            ref: { name: string } | null
-          } | null
-        }
-
-        const data = yield* Effect.tryPromise({
-          try: () =>
-            gql<QResult>(
-              /* GraphQL */ `
-                query Q($owner: String!, $name: String!, $ref: String!) {
-                  repository(owner: $owner, name: $name) {
-                    ref(qualifiedName: $ref) {
-                      name
-                    }
+                  pageInfo {
+                    hasNextPage
                   }
                 }
-              `,
-              { owner, name, ref: `refs/heads/${branch}` }
-            ),
-          catch: (
-            cause
-          ):
-            | GitHubTokenExpired
-            | GitHubScopeInsufficient
-            | RepoGone
-            | RateLimited
-            | GitHubError => {
-            const err = mapHttpError(cause)
-            if (
-              err._tag === "BranchExists" ||
-              err._tag === "BranchProtected"
-            ) {
-              return new GitHubError({ message: "unexpected GitHub response" })
+              }
             }
-            return err
-          }
-        })
+          `,
+          { owner, name, q: query ?? null, first }
+        ),
+      catch: (
+        cause
+      ):
+        | GitHubTokenExpired
+        | GitHubScopeInsufficient
+        | RepoGone
+        | RateLimited
+        | GitHubError => {
+        const err = mapHttpError(cause)
+        if (err._tag === "BranchExists" || err._tag === "BranchProtected") {
+          return new GitHubError({ message: "unexpected GitHub response" })
+        }
+        return err
+      }
+    })
 
-        if (!data.repository) return yield* Effect.fail(new RepoGone())
-        return data.repository.ref !== null
-      })
+    if (!data.repository) return yield* Effect.fail(new RepoGone())
+
+    return {
+      items: data.repository.refs.nodes.map((n) => ({
+        name: n.name,
+        isProtected: n.branchProtectionRule !== null
+      })),
+      hasMore: data.repository.refs.pageInfo.hasNextPage
+    }
+  })
+
+// Single GraphQL ref lookup. Returns true when the branch exists on
+// remote, false when it doesn't. RepoGone bubbles for unknown repos.
+const branchExists = (
+  owner: string,
+  name: string,
+  branch: string,
+  userId: string
+): Effect.Effect<
+  boolean,
+  | GitHubTokenExpired
+  | GitHubScopeInsufficient
+  | RepoGone
+  | RateLimited
+  | GitHubError
+> =>
+  Effect.gen(function* () {
+    const token = yield* tokenFor(userId)
+    const gql = graphqlFor(token)
+
+    interface QResult {
+      repository: {
+        ref: { name: string } | null
+      } | null
+    }
+
+    const data = yield* Effect.tryPromise({
+      try: () =>
+        gql<QResult>(
+          /* GraphQL */ `
+            query Q($owner: String!, $name: String!, $ref: String!) {
+              repository(owner: $owner, name: $name) {
+                ref(qualifiedName: $ref) {
+                  name
+                }
+              }
+            }
+          `,
+          { owner, name, ref: `refs/heads/${branch}` }
+        ),
+      catch: (
+        cause
+      ):
+        | GitHubTokenExpired
+        | GitHubScopeInsufficient
+        | RepoGone
+        | RateLimited
+        | GitHubError => {
+        const err = mapHttpError(cause)
+        if (err._tag === "BranchExists" || err._tag === "BranchProtected") {
+          return new GitHubError({ message: "unexpected GitHub response" })
+        }
+        return err
+      }
+    })
+
+    if (!data.repository) return yield* Effect.fail(new RepoGone())
+    return data.repository.ref !== null
+  })
 ```
 
 - [ ] **Step 3: Export the new methods**
@@ -401,15 +393,15 @@ Insert before the final `return { ... } as const` block, alongside `fetchProject
 Update the final `return { ... } as const` to include them:
 
 ```ts
-    return {
-      listUserRepos,
-      verifyAccess,
-      createBranch,
-      openPullRequest,
-      fetchProjectStates,
-      listBranches,
-      branchExists
-    } as const
+return {
+  listUserRepos,
+  verifyAccess,
+  createBranch,
+  openPullRequest,
+  fetchProjectStates,
+  listBranches,
+  branchExists
+} as const
 ```
 
 - [ ] **Step 4: Type-check**
@@ -429,6 +421,7 @@ git commit -m "feat(backend): add GitHub.listBranches and GitHub.branchExists"
 ## Task 4: Tickets service — `attachBranch`
 
 **Files:**
+
 - Modify: `packages/backend/src/services/Tickets.ts`
 
 - [ ] **Step 1: Update imports**
@@ -447,52 +440,52 @@ Add `AttachBranchInput` and `BranchNotFound` to the existing `@projectproject/sh
 Insert immediately after `createBranch` (around line 374, before `openPr`):
 
 ```ts
-    const attachBranch = (
-      userId: string,
-      slug: string,
-      id: string,
-      input: AttachBranchInput
-    ): Effect.Effect<
-      TicketDetail,
-      | NotFound
-      | Conflict
-      | BranchNotFound
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-      | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        yield* ensureAccess(userId, slug)
-        const project = yield* projects
-          .get(userId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-        if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
-        }
-        const ticket = yield* readTicket(slug, id)
+const attachBranch = (
+  userId: string,
+  slug: string,
+  id: string,
+  input: AttachBranchInput
+): Effect.Effect<
+  TicketDetail,
+  | NotFound
+  | Conflict
+  | BranchNotFound
+  | GitHubTokenExpired
+  | GitHubScopeInsufficient
+  | RepoGone
+  | RateLimited
+  | GitHubError
+  | MarkdownError
+> =>
+  Effect.gen(function* () {
+    yield* ensureAccess(userId, slug)
+    const project = yield* projects
+      .get(userId, slug)
+      .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+    if (!project.github) {
+      return yield* Effect.fail(
+        new Conflict({ reason: "no_github_connection" })
+      )
+    }
+    const ticket = yield* readTicket(slug, id)
 
-        const exists = yield* github.branchExists(
-          project.github.repoOwner,
-          project.github.repoName,
-          input.name,
-          userId
-        )
-        if (!exists) {
-          return yield* Effect.fail(new BranchNotFound({ name: input.name }))
-        }
+    const exists = yield* github.branchExists(
+      project.github.repoOwner,
+      project.github.repoName,
+      input.name,
+      userId
+    )
+    if (!exists) {
+      return yield* Effect.fail(new BranchNotFound({ name: input.name }))
+    }
 
-        const next = yield* writeGitFields(slug, id, ticket, {
-          branch: input.name,
-          pr: null,
-          lastTransitionedPr: null
-        })
-        return { ...frontmatterToWire(next), body: ticket.body }
-      })
+    const next = yield* writeGitFields(slug, id, ticket, {
+      branch: input.name,
+      pr: null,
+      lastTransitionedPr: null
+    })
+    return { ...frontmatterToWire(next), body: ticket.body }
+  })
 ```
 
 - [ ] **Step 3: Export the method**
@@ -500,18 +493,18 @@ Insert immediately after `createBranch` (around line 374, before `openPr`):
 Update the final `return { ... } as const` of the Tickets service (around line 646) to include `attachBranch`:
 
 ```ts
-    return {
-      list,
-      get,
-      create,
-      update,
-      remove,
-      createBranch,
-      attachBranch,
-      openPr,
-      clearBranch,
-      listGitStates
-    } as const
+return {
+  list,
+  get,
+  create,
+  update,
+  remove,
+  createBranch,
+  attachBranch,
+  openPr,
+  clearBranch,
+  listGitStates
+} as const
 ```
 
 - [ ] **Step 4: Type-check**
@@ -531,6 +524,7 @@ git commit -m "feat(backend): add Tickets.attachBranch service method"
 ## Task 5: Wire the new handlers
 
 **Files:**
+
 - Modify: `packages/backend/src/handlers/projects.ts`
 - Modify: `packages/backend/src/handlers/tickets.ts`
 
@@ -604,6 +598,7 @@ git commit -m "feat(backend): wire listBranches and attachBranch handlers"
 ## Task 6: Frontend atoms — `branchesAtom`, `attachBranchAtom`
 
 **Files:**
+
 - Modify: `packages/frontend/src/atoms/github.ts`
 
 - [ ] **Step 1: Update imports**
@@ -684,6 +679,7 @@ git commit -m "feat(frontend): add branchesAtom and attachBranchAtom"
 ## Task 7: `InlineForm` primitive
 
 **Files:**
+
 - Create: `packages/frontend/src/components/ui/inline-form.tsx`
 
 - [ ] **Step 1: Create the file**
@@ -816,8 +812,7 @@ function Actions({
   )
 }
 
-interface TriggerProps<A extends string>
-  extends Omit<ButtonProps, "onClick"> {
+interface TriggerProps<A extends string> extends Omit<ButtonProps, "onClick"> {
   action: A
 }
 
@@ -829,11 +824,7 @@ function Trigger<A extends string>({
 }: TriggerProps<A>) {
   const { open, busy } = useInlineForm<A>()
   return (
-    <Button
-      {...rest}
-      disabled={disabled || busy}
-      onClick={() => open(action)}
-    >
+    <Button {...rest} disabled={disabled || busy} onClick={() => open(action)}>
       {children}
     </Button>
   )
@@ -902,6 +893,7 @@ git commit -m "feat(frontend): add InlineForm compound-component primitive"
 This task **moves** the two existing form bodies (`CreateBranchRow`, `OpenPrRow` from `TicketGit.tsx`) into the new `TicketGit/` subfolder and refits them onto `useInlineForm` — replacing local `busy` state and `onClose` props. Behavior is otherwise unchanged. The legacy components in `TicketGit.tsx` stay temporarily so the file compiles; Task 10 deletes them along with the panel rewrite.
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TicketGit/CreateBranchFields.tsx`
 - Create: `packages/frontend/src/components/TicketGit/OpenPrFields.tsx`
 
@@ -1160,6 +1152,7 @@ git commit -m "feat(frontend): extract CreateBranchFields and OpenPrFields onto 
 ## Task 9: `ConnectBranchFields` (combobox)
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TicketGit/ConnectBranchFields.tsx`
 
 - [ ] **Step 1: Write the combobox**
@@ -1175,7 +1168,12 @@ Create `packages/frontend/src/components/TicketGit/ConnectBranchFields.tsx`:
 // we debounce input by 200ms before the q changes (avoids a fetch per
 // keystroke).
 
-import { Result, useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import {
+  Result,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue
+} from "@effect-atom/atom-react"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom } from "@/atoms/github"
@@ -1364,6 +1362,7 @@ git commit -m "feat(frontend): add ConnectBranchFields combobox form"
 This task replaces the `mode` state, the legacy `CreateBranchRow` / `OpenPrRow` / `ClearBranchButton` definitions in `TicketGit.tsx`, and the dispatch logic in `StateBody` with a fresh `TicketGitPanel` built on `<InlineForm>`. Also extracts the two-step clear-branch confirm into a tiny `ClearBranchFields` form so it follows the same pattern as the others.
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TicketGit/ClearBranchFields.tsx`
 - Modify: `packages/frontend/src/components/TicketGit.tsx`
 
@@ -1615,7 +1614,9 @@ function PanelForState({
       <InlineForm.Root<"create" | "connect">>
         <InlineForm.Idle>
           <InlineForm.Display>
-            <span className="text-xs text-muted-foreground">No branch yet.</span>
+            <span className="text-xs text-muted-foreground">
+              No branch yet.
+            </span>
           </InlineForm.Display>
           <InlineForm.Actions>
             <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
@@ -1661,11 +1662,7 @@ function PanelForState({
             >
               Open PR
             </InlineForm.Trigger>
-            <InlineForm.Trigger
-              action="clear"
-              size="sm"
-              variant="ghost"
-            >
+            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
               Clear
             </InlineForm.Trigger>
           </InlineForm.Actions>
@@ -1748,7 +1745,8 @@ function PanelForState({
           <InlineForm.Display>
             <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
               <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-              Branch <span className="font-mono">{state.name}</span> not on remote.
+              Branch <span className="font-mono">{state.name}</span> not on
+              remote.
             </span>
           </InlineForm.Display>
           <InlineForm.Actions>
@@ -1833,10 +1831,12 @@ function PrLink({
 - [ ] **Step 3: Type-check + lint**
 
 Run:
+
 ```
 bun typecheck
 bun lint
 ```
+
 Expected: PASS. The legacy `CreateBranchRow`, `OpenPrRow`, and `ClearBranchButton` symbols are now gone from `TicketGit.tsx`; their imports (`Input`, `Button`, `useState`, `X`, `useAtomSet`, `clearBranchAtom`, `createBranchAtom`, `openPrAtom`, `CheckCircle2`) drop with them.
 
 - [ ] **Step 4: Manual verification**
@@ -1844,12 +1844,12 @@ Expected: PASS. The legacy `CreateBranchRow`, `OpenPrRow`, and `ClearBranchButto
 Run: `bun dev`
 Open the project in a browser and exercise each flow on a project with a connected GitHub repo:
 
-  - **No branch → Create branch:** click "Create branch", confirm fields populate from the template, confirm the submit button shows "Creating…" while busy and triggers/cancel disable, confirm the panel transitions to the `branch_no_pr` row after success.
-  - **No branch → Connect branch:** click "Connect branch", type to search (verify debounced fetch — should not fetch on every keystroke), select a branch with mouse and Enter, confirm the panel transitions to `branch_no_pr` after success. Trigger the `BranchNotFound` path by entering a name that doesn't exist (force by deleting a branch on GitHub between steps) and confirm the form stays open with the inline error and the list refreshes.
-  - **branch_no_pr → Open PR:** open the PR form, submit, confirm `pr_open` state.
-  - **branch_no_pr → Clear:** click "Clear", confirm the inline confirm appears, click "Clear" again, confirm the panel returns to `no_branch`.
-  - **stale_branch → Clear:** same as above starting from stale.
-  - **pr_closed → Open new PR:** confirm flow.
+- **No branch → Create branch:** click "Create branch", confirm fields populate from the template, confirm the submit button shows "Creating…" while busy and triggers/cancel disable, confirm the panel transitions to the `branch_no_pr` row after success.
+- **No branch → Connect branch:** click "Connect branch", type to search (verify debounced fetch — should not fetch on every keystroke), select a branch with mouse and Enter, confirm the panel transitions to `branch_no_pr` after success. Trigger the `BranchNotFound` path by entering a name that doesn't exist (force by deleting a branch on GitHub between steps) and confirm the form stays open with the inline error and the list refreshes.
+- **branch_no_pr → Open PR:** open the PR form, submit, confirm `pr_open` state.
+- **branch_no_pr → Clear:** click "Clear", confirm the inline confirm appears, click "Clear" again, confirm the panel returns to `no_branch`.
+- **stale_branch → Clear:** same as above starting from stale.
+- **pr_closed → Open new PR:** confirm flow.
 
 If any flow misbehaves, fix and stay on this task. Don't claim completion before all six flows work.
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a required `priority` (low/med/high) field to tickets and a project-scoped, name+color tag registry (Postgres-backed) that tickets can apply by storing tag *names* in their frontmatter.
+**Goal:** Add a required `priority` (low/med/high) field to tickets and a project-scoped, name+color tag registry (Postgres-backed) that tickets can apply by storing tag _names_ in their frontmatter.
 
-**Architecture:** Vertical-slice contract-first. Shared schemas + HttpApi first, then DB migration, then backend service + handler, then frontend atoms, then UI surfaces (priority editor on ticket detail, priority column on list, inline tag editor, tag filter dropdown, tag admin route). The tag registry lives in a new `project_tag` table; tag *usage* lives as plain string arrays in ticket frontmatter — no registry validation on write, orphan strings tolerated. Renames and force-deletes walk every ticket and rewrite frontmatter; non-force delete fails with a typed `TagInUse` error carrying the affected tickets so the UI can warn inline.
+**Architecture:** Vertical-slice contract-first. Shared schemas + HttpApi first, then DB migration, then backend service + handler, then frontend atoms, then UI surfaces (priority editor on ticket detail, priority column on list, inline tag editor, tag filter dropdown, tag admin route). The tag registry lives in a new `project_tag` table; tag _usage_ lives as plain string arrays in ticket frontmatter — no registry validation on write, orphan strings tolerated. Renames and force-deletes walk every ticket and rewrite frontmatter; non-force delete fails with a typed `TagInUse` error carrying the affected tickets so the UI can warn inline.
 
 **Tech stack:** Effect v3, `@effect/platform` HttpApi, Drizzle + Postgres, gray-matter (already wired), `@effect-atom/atom-react`, TanStack Start + Router, shadcn/Radix, Tailwind, Lucide. No new runtime deps.
 
@@ -48,6 +48,7 @@
 ## Task 1: Shared — Priority schema + Tag schemas + `TagInUse` error
 
 **Files:**
+
 - Modify: `packages/shared/src/schemas/Ticket.ts`
 - Create: `packages/shared/src/schemas/Tag.ts`
 - Modify: `packages/shared/src/errors.ts`
@@ -188,6 +189,7 @@ git commit -m "feat(shared): priority + tag schemas, TagInUse error"
 ## Task 2: Shared — Tags HttpApi group
 
 **Files:**
+
 - Modify: `packages/shared/src/api.ts`
 
 - [ ] **Step 1: Define `TagsGroup`**
@@ -195,12 +197,7 @@ git commit -m "feat(shared): priority + tag schemas, TagInUse error"
 Insert after `TicketsGroup` and before `AppApi` in `packages/shared/src/api.ts`:
 
 ```ts
-import {
-  CreateTagInput,
-  Tag,
-  TagName,
-  UpdateTagInput
-} from "./schemas/Tag"
+import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import { TagInUse } from "./errors"
 
 const ProjectTagPath = Schema.Struct({
@@ -228,10 +225,7 @@ const TagsGroup = HttpApiGroup.make("tags")
       .addError(Conflict)
   )
   .add(
-    HttpApiEndpoint.patch(
-      "update",
-      "/orgs/:orgSlug/projects/:slug/tags/:name"
-    )
+    HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug/tags/:name")
       .setPath(ProjectTagPath)
       .setPayload(UpdateTagInput)
       .addSuccess(Tag)
@@ -241,12 +235,11 @@ const TagsGroup = HttpApiGroup.make("tags")
       .addError(Conflict)
   )
   .add(
-    HttpApiEndpoint.del(
-      "delete",
-      "/orgs/:orgSlug/projects/:slug/tags/:name"
-    )
+    HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tags/:name")
       .setPath(ProjectTagPath)
-      .setUrlParams(Schema.Struct({ force: Schema.optional(Schema.BooleanFromString) }))
+      .setUrlParams(
+        Schema.Struct({ force: Schema.optional(Schema.BooleanFromString) })
+      )
       .addSuccess(Schema.Void)
       .addError(Unauthorized)
       .addError(NotFound)
@@ -277,6 +270,7 @@ git commit -m "feat(shared): add Tags HttpApi group"
 ## Task 3: DB — `project_tag` table + migration
 
 **Files:**
+
 - Modify: `packages/backend/src/db/schema.ts`
 - Add: `packages/backend/src/db/migrations/000N_*.sql` (drizzle-generated)
 
@@ -329,6 +323,7 @@ git commit -m "feat(backend): add project_tag table"
 ## Task 4: Backend — Tickets service: priority + tags pass-through
 
 **Files:**
+
 - Modify: `packages/backend/src/services/Tickets.ts`
 
 The Tickets service decodes ticket frontmatter via `TicketFrontmatter` and round-trips via `frontmatterToDisk` / `frontmatterToWire`. We add `priority` + `tags` with `optionalWith` defaults so existing `.md` files decode cleanly.
@@ -469,6 +464,7 @@ git commit -m "feat(backend): tickets carry priority + tags in frontmatter"
 ## Task 5: Backend — `Tags` service
 
 **Files:**
+
 - Create: `packages/backend/src/services/Tags.ts`
 
 This service owns the registry CRUD plus the rename / force-delete walks over ticket frontmatter. It depends on `Db`, `Markdown`, and `Projects` (for permission gates and the project-id lookup).
@@ -539,9 +535,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
     const md = yield* Markdown
     const projects = yield* Projects
 
-    const projectIdFromSlug = (
-      slug: string
-    ): Effect.Effect<string, NotFound> =>
+    const projectIdFromSlug = (slug: string): Effect.Effect<string, NotFound> =>
       db
         .select({ id: projectIndex.id })
         .from(projectIndex)
@@ -580,10 +574,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       input: CreateTagInput
     ): Effect.Effect<Tag, NotFound | Forbidden | Conflict> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, [
-          "owner",
-          "admin"
-        ])
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existing = yield* db
@@ -597,7 +588,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         void conflict
 
         const color =
-          input.color ?? (nextColor(existing.map((e) => e.color)) as Tag["color"])
+          input.color ??
+          (nextColor(existing.map((e) => e.color)) as Tag["color"])
 
         const inserted = yield* db
           .insert(projectTag)
@@ -638,9 +630,9 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       Effect.gen(function* () {
         const ids = yield* md.listTicketIds(orgSlug, slug)
         for (const id of ids) {
-          const file = yield* md.readTicketFile(orgSlug, slug, id).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null))
-          )
+          const file = yield* md
+            .readTicketFile(orgSlug, slug, id)
+            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
           if (!file) continue
           const fm = file.data as Record<string, unknown>
           const tagsRaw = fm.tags
@@ -651,7 +643,11 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
             newName === null
               ? tagsRaw.filter((t) => t !== oldName)
               : tagsRaw.map((t) => (t === oldName ? newName : t))
-          const nextFm = { ...fm, tags: nextTags, updatedAt: new Date().toISOString() }
+          const nextFm = {
+            ...fm,
+            tags: nextTags,
+            updatedAt: new Date().toISOString()
+          }
           yield* md.writeTicketFile(orgSlug, slug, id, nextFm, file.body)
         }
       })
@@ -661,9 +657,9 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         const ids = yield* md.listTicketIds(orgSlug, slug)
         const usages: { ticketId: TicketId; title: string }[] = []
         for (const id of ids) {
-          const file = yield* md.readTicketFile(orgSlug, slug, id).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null))
-          )
+          const file = yield* md
+            .readTicketFile(orgSlug, slug, id)
+            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
           if (!file) continue
           const decoded = yield* decodeTagFrontmatter(file.data).pipe(
             Effect.catchAll(() => Effect.succeed(null))
@@ -682,30 +678,20 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       slug: string,
       name: string,
       patch: UpdateTagInput
-    ): Effect.Effect<
-      Tag,
-      NotFound | Forbidden | Conflict | MarkdownError
-    > =>
+    ): Effect.Effect<Tag, NotFound | Forbidden | Conflict | MarkdownError> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, [
-          "owner",
-          "admin"
-        ])
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existingRows = yield* db
           .select()
           .from(projectTag)
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .limit(1)
           .pipe(Effect.orDie)
-        if (existingRows.length === 0)
-          return yield* Effect.fail(new NotFound())
+        if (existingRows.length === 0) return yield* Effect.fail(new NotFound())
         const existing = existingRows[0]
 
         const nextName = patch.name ?? existing.name
@@ -732,10 +718,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .update(projectTag)
           .set({ name: nextName, color: nextColor })
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .pipe(Effect.orDie)
 
@@ -759,31 +742,22 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       force: boolean
     ): Effect.Effect<void, NotFound | Forbidden | TagInUse | MarkdownError> =>
       Effect.gen(function* () {
-        yield* projects.requireRole(orgSlug, userId, slug, [
-          "owner",
-          "admin"
-        ])
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const projectId = yield* projectIdFromSlug(slug)
 
         const existingRows = yield* db
           .select({ name: projectTag.name })
           .from(projectTag)
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .limit(1)
           .pipe(Effect.orDie)
-        if (existingRows.length === 0)
-          return yield* Effect.fail(new NotFound())
+        if (existingRows.length === 0) return yield* Effect.fail(new NotFound())
 
         const usages = yield* scanTagUsages(orgSlug, slug, name)
         if (usages.length > 0 && !force) {
-          return yield* Effect.fail(
-            new TagInUse({ tagName: name, usages })
-          )
+          return yield* Effect.fail(new TagInUse({ tagName: name, usages }))
         }
 
         if (usages.length > 0) {
@@ -792,10 +766,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         yield* db
           .delete(projectTag)
           .where(
-            and(
-              eq(projectTag.projectId, projectId),
-              eq(projectTag.name, name)
-            )
+            and(eq(projectTag.projectId, projectId), eq(projectTag.name, name))
           )
           .pipe(Effect.orDie)
       })
@@ -822,6 +793,7 @@ git commit -m "feat(backend): add Tags service (registry CRUD + frontmatter walk
 ## Task 6: Backend — `tags` handler + runtime wiring
 
 **Files:**
+
 - Create: `packages/backend/src/handlers/tags.ts`
 - Modify: wherever the runtime layer is composed (`packages/backend/src/main.ts` or `packages/backend/src/server.ts`)
 
@@ -912,14 +884,14 @@ import { Tags } from "./services/Tags"
 const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(TicketsHandlerLive),
-  Layer.provide(TagsHandlerLive),
+  Layer.provide(TagsHandlerLive)
   // ...
 )
 
 const ServicesLive = Layer.mergeAll(
   Projects.Default,
   Tickets.Default,
-  Tags.Default,
+  Tags.Default
   // ...
 )
 ```
@@ -945,6 +917,7 @@ git commit -m "feat(backend): wire Tags handler + service into the runtime"
 ## Task 7: Frontend — tag atoms
 
 **Files:**
+
 - Create: `packages/frontend/src/atoms/tags.ts`
 
 The atoms follow the `Atom.optimistic` + `Atom.optimisticFn` shape from `atoms/github.ts`. Optimistic for create (synthetic next state); pulse-only for rename and delete (the rename rewrites tickets too — easier to flip the pulse and let `tagsBaseAtom` resolve to truth).
@@ -956,7 +929,12 @@ import { Atom, Result } from "@effect-atom/atom-react"
 import { Effect } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { ticketKey, ticketAtom, ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import {
+  ticketKey,
+  ticketAtom,
+  ticketsListAtom,
+  ticketsListKey
+} from "@/atoms/tickets"
 import type {
   CreateTagInput,
   Tag,
@@ -1015,7 +993,11 @@ export const createTagAtom = Atom.family((key: string) => {
   })
 })
 
-type RenameInput = { oldName: TagName; nextName?: TagName; color?: Tag["color"] }
+type RenameInput = {
+  oldName: TagName
+  nextName?: TagName
+  color?: Tag["color"]
+}
 export const renameTagAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
   const orgSlug = key.slice(0, idx)
@@ -1092,6 +1074,7 @@ git commit -m "feat(frontend): tag atoms (optimistic + pulse-only mutations)"
 ## Task 8: Frontend — priority meta + Badge tone wiring
 
 **Files:**
+
 - Create: `packages/frontend/src/lib/priority-meta.ts`
 
 - [ ] **Step 1: Write the meta module**
@@ -1110,7 +1093,11 @@ export const PRIORITY_META: Record<
   high: { label: "High", icon: ChevronsUp, tone: "red", ordinal: 2 }
 }
 
-export const PRIORITY_ORDER: ReadonlyArray<TicketPriority> = ["low", "med", "high"]
+export const PRIORITY_ORDER: ReadonlyArray<TicketPriority> = [
+  "low",
+  "med",
+  "high"
+]
 ```
 
 - [ ] **Step 2: Type-check + commit**
@@ -1127,6 +1114,7 @@ git commit -m "feat(frontend): priority-meta map (label/icon/tone/ordinal)"
 ## Task 9: Frontend — priority editor on ticket detail
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx`
 
 The ticket detail already uses `SegmentedTabs` with `variant="inline"` for "Update status to:". Mirror the pattern.
@@ -1196,6 +1184,7 @@ git commit -m "feat(frontend): priority editor on ticket detail"
 ## Task 10: Frontend — priority column on ticket list (sortable)
 
 **Files:**
+
 - Modify: `packages/frontend/src/components/TicketList.tsx`
 
 - [ ] **Step 1: Read the existing list**
@@ -1244,11 +1233,12 @@ git commit -m "feat(frontend): priority column on ticket list (sortable)"
 ## Task 11: Frontend — `TagChip` primitive
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TagChip.tsx`
 
 - [ ] **Step 1: Write the chip**
 
-The existing `Badge` primitive uses preset tones from a fixed map; tags need *dynamic* hex colors. Build `TagChip` as a thin wrapper that drives the color via inline style (background + foreground), following Badge's chrome (rounded, padding, transition-colors, hover ease-out).
+The existing `Badge` primitive uses preset tones from a fixed map; tags need _dynamic_ hex colors. Build `TagChip` as a thin wrapper that drives the color via inline style (background + foreground), following Badge's chrome (rounded, padding, transition-colors, hover ease-out).
 
 ```tsx
 import { X } from "lucide-react"
@@ -1275,9 +1265,7 @@ export function TagChip({
 }: Props) {
   const hex = color ?? NEUTRAL
   const sizeClasses =
-    size === "xs"
-      ? "h-5 px-1.5 text-[11px]"
-      : "h-6 px-2 py-0.5 text-xs"
+    size === "xs" ? "h-5 px-1.5 text-[11px]" : "h-6 px-2 py-0.5 text-xs"
   return (
     <span
       data-slot="tag-chip"
@@ -1321,6 +1309,7 @@ git commit -m "feat(frontend): TagChip primitive (dynamic hex color)"
 ## Task 12: Frontend — inline tag editor on ticket detail
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TagEditor.tsx`
 - Modify: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx`
 
@@ -1459,6 +1448,7 @@ git commit -m "feat(frontend): inline tag editor on ticket detail"
 ## Task 13: Frontend — tag filter in ticket list filter dropdown
 
 **Files:**
+
 - Modify: `packages/frontend/src/components/TicketList.tsx`
 
 - [ ] **Step 1: Locate the existing filter dropdown**
@@ -1487,7 +1477,7 @@ Filter predicate inside the existing list `useMemo`:
 
 - [ ] **Step 3: Verify**
 
-Dev server. Apply two tags to two different tickets. Use the filter — selecting both tags should show only tickets that carry *both* (AND).
+Dev server. Apply two tags to two different tickets. Use the filter — selecting both tags should show only tickets that carry _both_ (AND).
 
 - [ ] **Step 4: Commit**
 
@@ -1501,6 +1491,7 @@ git commit -m "feat(frontend): tag filter in ticket list dropdown"
 ## Task 14: Frontend — tag admin route + UI
 
 **Files:**
+
 - Create: `packages/frontend/src/components/TagAdminSection.tsx`
 - Create: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/tags.tsx`
 - Modify: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx` — add a "Tags" tab next to Tickets/About/Members, visible only when role is owner or admin.
@@ -1526,9 +1517,7 @@ type Props = { orgSlug: string; slug: string }
 export function TagAdminSection({ orgSlug, slug }: Props) {
   const key = tagsKey(orgSlug, slug)
   const tags = useAtomValue(tagsAtom(key))
-  const tickets = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
-  )
+  const tickets = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
   const create = useAtomSet(createTagAtom(key))
   const rename = useAtomSet(renameTagAtom(key))
   const remove = useAtomSet(deleteTagAtom(key))
@@ -1542,10 +1531,7 @@ export function TagAdminSection({ orgSlug, slug }: Props) {
   const list = Result.isSuccess(tags) ? tags.value : []
   const ticketList = Result.isSuccess(tickets) ? tickets.value : []
   const usageCount = (name: string) =>
-    ticketList.reduce(
-      (n, t) => n + (t.tags.includes(name) ? 1 : 0),
-      0
-    )
+    ticketList.reduce((n, t) => n + (t.tags.includes(name) ? 1 : 0), 0)
 
   const handleCreate = () => {
     const lowered = draft.trim().toLowerCase()
@@ -1599,12 +1585,8 @@ export function TagAdminSection({ orgSlug, slug }: Props) {
             key={tag.name}
             tag={tag}
             usageCount={usageCount(tag.name)}
-            onRename={(next) =>
-              rename({ oldName: tag.name, nextName: next })
-            }
-            onRecolor={(color) =>
-              rename({ oldName: tag.name, color })
-            }
+            onRename={(next) => rename({ oldName: tag.name, nextName: next })}
+            onRecolor={(color) => rename({ oldName: tag.name, color })}
             onDelete={() => handleDelete(tag.name)}
           />
         ))}

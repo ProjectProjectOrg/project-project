@@ -190,11 +190,7 @@ function StatusPicker({
           disabled={disabled}
         />
       ) : (
-        <StatusDropdown
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-        />
+        <StatusDropdown value={value} onChange={onChange} disabled={disabled} />
       )}
     </div>
   )

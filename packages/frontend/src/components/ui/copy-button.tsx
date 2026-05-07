@@ -50,9 +50,7 @@ export function CopyButton({
         {copied ? (
           <motion.span
             key="check"
-            initial={
-              reduceMotion ? false : { opacity: 0, filter: "blur(4px)" }
-            }
+            initial={reduceMotion ? false : { opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={
               reduceMotion ? undefined : { opacity: 0, filter: "blur(4px)" }
@@ -65,9 +63,7 @@ export function CopyButton({
         ) : (
           <motion.span
             key="copy"
-            initial={
-              reduceMotion ? false : { opacity: 0, filter: "blur(4px)" }
-            }
+            initial={reduceMotion ? false : { opacity: 0, filter: "blur(4px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={
               reduceMotion ? undefined : { opacity: 0, filter: "blur(4px)" }

@@ -92,8 +92,6 @@ export const deleteTicketAtom = runtime.fn(
     yield* client.tickets.delete({
       path: { orgSlug: input.orgSlug, slug: input.slug, id: input.id }
     })
-    get.refresh(
-      ticketsListAtom(ticketsListKey(input.orgSlug, input.slug))
-    )
+    get.refresh(ticketsListAtom(ticketsListKey(input.orgSlug, input.slug)))
   })
 )

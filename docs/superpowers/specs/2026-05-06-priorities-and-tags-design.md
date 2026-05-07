@@ -9,7 +9,7 @@
 Give tickets two new dimensions:
 
 1. **Priority** — a required `low | med | high` field, default `med`, sortable in the ticket list.
-2. **Tags** — a project-scoped registry of named, colored tags that can be applied to tickets (and, in Phase 7, to docs). Frontmatter holds the applied tag *names* as a string array.
+2. **Tags** — a project-scoped registry of named, colored tags that can be applied to tickets (and, in Phase 7, to docs). Frontmatter holds the applied tag _names_ as a string array.
 
 ## Scope
 
@@ -18,7 +18,7 @@ In scope:
 - Required `priority` on every ticket. Backwards-compat default `med` for existing tickets.
 - Project-scoped tag registry stored in Postgres (`project_tag` table).
 - Multiple tags per ticket via frontmatter `tags: [string]`.
-- Owner/admin-only CRUD on tag *definitions*. Any member can apply existing tags.
+- Owner/admin-only CRUD on tag _definitions_. Any member can apply existing tags.
 - Tag rename rewrites every ticket frontmatter that references the old name.
 - Tag delete fails with a typed `TagInUse` error listing the affected tickets unless `force=true` is passed; with force, it scans-and-strips.
 - Priority column (sortable, colored chip) on the ticket list table.
@@ -41,8 +41,8 @@ Out of scope:
 ### Ticket frontmatter (additive)
 
 ```yaml
-priority: med           # required: low | med | high. Default 'med'.
-tags: [auth, frontend]  # optional string array. Defaults to [].
+priority: med # required: low | med | high. Default 'med'.
+tags: [auth, frontend] # optional string array. Defaults to [].
 ```
 
 Existing tickets without `priority` decode as `med` via Schema default — no migration script required, but we may add a one-shot rewriter to normalize files on disk later.
@@ -50,15 +50,23 @@ Existing tickets without `priority` decode as `med` via Schema default — no mi
 ### Postgres `project_tag`
 
 ```ts
-export const projectTag = pgTable("project_tag", {
-  projectId: uuid("project_id").notNull()
-    .references(() => projectIndex.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  color: text("color").notNull(),
-  createdBy: text("created_by").notNull().references(() => user.id),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull().defaultNow()
-}, (t) => [primaryKey({ columns: [t.projectId, t.name] })])
+export const projectTag = pgTable(
+  "project_tag",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.name] })]
+)
 ```
 
 - `name` is lowercase, regex `^[a-z0-9][a-z0-9-]{0,30}$`. Schema-validated at the API boundary.
@@ -125,10 +133,12 @@ export const UpdateTagInput = Schema.Struct({
 ```ts
 export class TagInUse extends Schema.TaggedError<TagInUse>()("TagInUse", {
   tagName: Schema.String,
-  usages: Schema.Array(Schema.Struct({
-    ticketId: TicketId,
-    title: Schema.String
-  }))
+  usages: Schema.Array(
+    Schema.Struct({
+      ticketId: TicketId,
+      title: Schema.String
+    })
+  )
 }) {}
 ```
 
@@ -138,28 +148,43 @@ New `tags` group on `AppApi`:
 
 ```ts
 const Tags = HttpApiGroup.make("tags")
-  .add(HttpApiEndpoint.get("list", "/projects/:slug/tags")
-    .setPath(S.Struct({ slug: S.String }))
-    .addSuccess(S.Array(Tag))
-    .addError(NotFound).addError(Forbidden))
+  .add(
+    HttpApiEndpoint.get("list", "/projects/:slug/tags")
+      .setPath(S.Struct({ slug: S.String }))
+      .addSuccess(S.Array(Tag))
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
 
-  .add(HttpApiEndpoint.post("create", "/projects/:slug/tags")
-    .setPath(S.Struct({ slug: S.String }))
-    .setPayload(CreateTagInput)
-    .addSuccess(Tag)
-    .addError(Conflict).addError(Forbidden).addError(NotFound))
+  .add(
+    HttpApiEndpoint.post("create", "/projects/:slug/tags")
+      .setPath(S.Struct({ slug: S.String }))
+      .setPayload(CreateTagInput)
+      .addSuccess(Tag)
+      .addError(Conflict)
+      .addError(Forbidden)
+      .addError(NotFound)
+  )
 
-  .add(HttpApiEndpoint.patch("update", "/projects/:slug/tags/:name")
-    .setPath(S.Struct({ slug: S.String, name: TagName }))
-    .setPayload(UpdateTagInput)
-    .addSuccess(Tag)
-    .addError(NotFound).addError(Conflict).addError(Forbidden))
+  .add(
+    HttpApiEndpoint.patch("update", "/projects/:slug/tags/:name")
+      .setPath(S.Struct({ slug: S.String, name: TagName }))
+      .setPayload(UpdateTagInput)
+      .addSuccess(Tag)
+      .addError(NotFound)
+      .addError(Conflict)
+      .addError(Forbidden)
+  )
 
-  .add(HttpApiEndpoint.del("delete", "/projects/:slug/tags/:name")
-    .setPath(S.Struct({ slug: S.String, name: TagName }))
-    .setUrlParams(S.Struct({ force: S.optional(S.Boolean) }))
-    .addSuccess(S.Void)
-    .addError(NotFound).addError(Forbidden).addError(TagInUse))
+  .add(
+    HttpApiEndpoint.del("delete", "/projects/:slug/tags/:name")
+      .setPath(S.Struct({ slug: S.String, name: TagName }))
+      .setUrlParams(S.Struct({ force: S.optional(S.Boolean) }))
+      .addSuccess(S.Void)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(TagInUse)
+  )
 ```
 
 The `Tickets` group's existing `update` endpoint gains `priority` and `tags` via the updated `UpdateTicketInput` — no new endpoints needed for ticket-side mutations.
@@ -169,19 +194,35 @@ The `Tickets` group's existing `update` endpoint gains `priority` and `tags` via
 ### `Tags` service
 
 ```ts
-export class Tags extends Context.Tag("Tags")<Tags, {
-  readonly list: (slug: string, userId: string) =>
-    Effect.Effect<readonly Tag[], NotFound | Forbidden>
+export class Tags extends Context.Tag("Tags")<
+  Tags,
+  {
+    readonly list: (
+      slug: string,
+      userId: string
+    ) => Effect.Effect<readonly Tag[], NotFound | Forbidden>
 
-  readonly create: (slug: string, input: CreateTagInput, userId: string) =>
-    Effect.Effect<Tag, Conflict | Forbidden | NotFound>
+    readonly create: (
+      slug: string,
+      input: CreateTagInput,
+      userId: string
+    ) => Effect.Effect<Tag, Conflict | Forbidden | NotFound>
 
-  readonly update: (slug: string, name: string, patch: UpdateTagInput, userId: string) =>
-    Effect.Effect<Tag, NotFound | Conflict | Forbidden>
+    readonly update: (
+      slug: string,
+      name: string,
+      patch: UpdateTagInput,
+      userId: string
+    ) => Effect.Effect<Tag, NotFound | Conflict | Forbidden>
 
-  readonly remove: (slug: string, name: string, force: boolean, userId: string) =>
-    Effect.Effect<void, NotFound | TagInUse | Forbidden>
-}>() {}
+    readonly remove: (
+      slug: string,
+      name: string,
+      force: boolean,
+      userId: string
+    ) => Effect.Effect<void, NotFound | TagInUse | Forbidden>
+  }
+>() {}
 ```
 
 Implementation notes:
@@ -227,13 +268,17 @@ export const createTagAtom = Atom.family((slug: string) =>
   Atom.optimisticFn(tagsAtom(slug), {
     reducer: (current, input) => {
       if (!Result.isSuccess(current)) return current
-      return Result.success([...current.value, optimisticTag(input)], { waiting: true })
+      return Result.success([...current.value, optimisticTag(input)], {
+        waiting: true
+      })
     },
-    fn: runtime.fn(Effect.fn(function* (input, get) {
-      const tag = yield* api.tags.create({ path: { slug }, payload: input })
-      get.refresh(tagsBaseAtom(slug))
-      return tag
-    }))
+    fn: runtime.fn(
+      Effect.fn(function* (input, get) {
+        const tag = yield* api.tags.create({ path: { slug }, payload: input })
+        get.refresh(tagsBaseAtom(slug))
+        return tag
+      })
+    )
   })
 )
 
@@ -254,7 +299,7 @@ The existing `updateTicketAtom` already accepts an arbitrary patch. Extending it
 - **Ticket list table:**
   - New `Priority` column. Renders a colored chip (`high` → red-500, `med` → amber-500, `low` → slate-400). Sortable by ordinal (high → low). Width is icon-shaped — short labels.
   - **No tags column.** Per Wouter's call: tags only visible on ticket detail.
-  - The existing **filter/sort dropdown** above the table gets a **Tags** filter section: multi-select tag chips. Selecting two tags filters to tickets carrying *all* selected tags (AND, not OR; matches user expectation when narrowing). Empty selection = no filter.
+  - The existing **filter/sort dropdown** above the table gets a **Tags** filter section: multi-select tag chips. Selecting two tags filters to tickets carrying _all_ selected tags (AND, not OR; matches user expectation when narrowing). Empty selection = no filter.
 
 - **Ticket detail:**
   - Priority editor: `SegmentedTabs` "Update priority to: [low | med | high]" right next to the existing status segmented control. Same `variant="inline"` chrome.

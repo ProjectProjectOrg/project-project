@@ -1050,11 +1050,7 @@ function ExpandedDetail({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <PriorityBadgeTrigger
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-        />
+        <PriorityBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
         <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
         <AssigneePicker
           orgSlug={orgSlug}

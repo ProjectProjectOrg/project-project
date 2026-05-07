@@ -22,7 +22,7 @@ Org owners/admins can invite users to their org by email, with a chosen role (`a
 
 ### Frontend
 
-- New section in org settings (T-10) — but the *invite* form can ship here standalone, mounted on `/orgs/:slug/settings/members`.
+- New section in org settings (T-10) — but the _invite_ form can ship here standalone, mounted on `/orgs/:slug/settings/members`.
 - Form: email input, role select (`admin | member`), submit. After success, invite appears in pending-invitations list with cancel affordance.
 - New route `/invite/:token`:
   - If unauthed: store token in localStorage, redirect to `/login`.

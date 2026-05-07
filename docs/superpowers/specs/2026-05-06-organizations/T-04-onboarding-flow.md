@@ -19,7 +19,7 @@ When a freshly-signed-up user lands in the app with zero orgs, route them to an 
   - **Recommend A** for consistency with the rest of the HttpApi.
 - Server-side: validate slug against reserved list + DNS rules + uniqueness. Create org. Add caller as `owner`. Return new org.
 - After success: call `auth.client.organization.setActive(newOrgId)`, navigate to `/orgs/:newSlug`.
-- Add a route guard on `/_authed` that, if `member` table has zero rows for the user, redirects to `/onboarding`. (Inverse: if user is *on* `/onboarding` and *has* orgs, redirect to last active.)
+- Add a route guard on `/_authed` that, if `member` table has zero rows for the user, redirects to `/onboarding`. (Inverse: if user is _on_ `/onboarding` and _has_ orgs, redirect to last active.)
 
 ## Out of scope
 
@@ -33,7 +33,7 @@ When a freshly-signed-up user lands in the app with zero orgs, route them to an 
 1. New user signs up with GitHub → lands on `/onboarding`.
 2. Submitting valid form → `POST /orgs` (or `auth.client.organization.create`) succeeds → user is `owner` of new org → URL becomes `/orgs/:slug`.
 3. Submitting invalid slug (reserved, malformed, taken) → inline validation error, no submission.
-4. Refreshing `/onboarding` while *already* in an org → redirect to that org.
+4. Refreshing `/onboarding` while _already_ in an org → redirect to that org.
 5. Refreshing `/orgs/:slug` while in zero orgs (e.g. soft-delete) → redirect to `/onboarding`.
 
 ## Notes

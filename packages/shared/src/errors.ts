@@ -126,4 +126,3 @@ export class BranchNotFound extends Schema.TaggedError<BranchNotFound>()(
   { name: Schema.String },
   HttpApiSchema.annotations({ status: 404 })
 ) {}
-
