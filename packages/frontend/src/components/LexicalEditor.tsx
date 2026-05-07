@@ -14,6 +14,9 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS
 } from "@lexical/markdown"
+import { MentionNode } from "./Lexical/MentionNode"
+import { MentionsPlugin } from "./Lexical/MentionsPlugin"
+import { MENTION_TRANSFORMER } from "./Lexical/mentionTransformer"
 import { $createParagraphNode, $getRoot } from "lexical"
 import {
   CodeHighlightNode,
@@ -25,6 +28,8 @@ import { ListItemNode, ListNode } from "@lexical/list"
 import { LinkNode } from "@lexical/link"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
+
+const MARKDOWN_TRANSFORMERS = [MENTION_TRANSFORMER, ...TRANSFORMERS]
 
 // Lexical-backed markdown editor.
 //
@@ -177,10 +182,11 @@ export function LexicalEditor({
       ListItemNode,
       CodeNode,
       CodeHighlightNode,
-      LinkNode
+      LinkNode,
+      MentionNode
     ],
     editorState: () => {
-      $convertFromMarkdownString(markdown, TRANSFORMERS)
+      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
     }
   }).current
 
@@ -259,11 +265,12 @@ export function LexicalEditor({
         <LinkPlugin />
         <CodeHighlightPlugin />
         {autoFocus && <AutoFocusPlugin />}
-        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <MentionsPlugin />
+        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin
           onChange={(editorState) => {
             editorState.read(() => {
-              const next = $convertToMarkdownString(TRANSFORMERS)
+              const next = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
               if (isFirstChange.current) {
                 isFirstChange.current = false
                 liveRef.current = next
