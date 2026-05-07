@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react"
+import { createPortal } from "react-dom"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   LexicalTypeaheadMenuPlugin,
@@ -124,13 +125,16 @@ export function MentionsPlugin(): JSX.Element | null {
       options={options}
       menuRenderFn={(anchorRef, { selectedIndex, selectOptionAndCleanUp }) => {
         if (!anchorRef.current || options.length === 0) return null
-        return (
-          <div className="bg-popover text-popover-foreground border-border z-50 rounded-md border shadow-md">
+        return createPortal(
+          <div className="bg-popover text-popover-foreground border-border z-50 mt-1 min-w-48 overflow-hidden rounded-md border shadow-md">
             {options.map((opt, i) => (
               <button
                 key={opt.key}
                 type="button"
-                onClick={() => selectOptionAndCleanUp(opt)}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  selectOptionAndCleanUp(opt)
+                }}
                 className={`hover:bg-accent block w-full px-3 py-1.5 text-left text-sm transition-colors ${
                   i === selectedIndex ? "bg-accent" : ""
                 }`}
@@ -138,7 +142,8 @@ export function MentionsPlugin(): JSX.Element | null {
                 {opt.provider.renderRow(opt.candidate)}
               </button>
             ))}
-          </div>
+          </div>,
+          anchorRef.current
         )
       }}
     />
