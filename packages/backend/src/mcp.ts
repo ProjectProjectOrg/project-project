@@ -40,6 +40,7 @@ import { session } from "./db/schema"
 import { Db, DbLive } from "./services/Db"
 import { GitHub } from "./services/GitHub"
 import { BetterAuthLive } from "./services/BetterAuth"
+import { Groups } from "./services/Groups"
 import { Markdown } from "./services/Markdown"
 import { Projects } from "./services/Projects"
 import { Tickets } from "./services/Tickets"
@@ -79,6 +80,7 @@ async function resolveUserId(token: string): Promise<string> {
 // of them at the top level.
 
 const ServicesLayer = Tickets.Default.pipe(
+  Layer.provideMerge(Groups.Default),
   Layer.provideMerge(Projects.Default),
   Layer.provideMerge(GitHub.Default),
   Layer.provideMerge(Users.Default),

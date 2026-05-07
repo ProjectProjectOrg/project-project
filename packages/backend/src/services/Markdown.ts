@@ -22,6 +22,8 @@ export class MarkdownError extends Data.TaggedError("MarkdownError")<{
 // creates without leaking the race to the wire.
 export class TicketIdTaken extends Data.TaggedError("TicketIdTaken")<{}> {}
 
+export class GroupIdTaken extends Data.TaggedError("GroupIdTaken")<{}> {}
+
 export interface ParsedMarkdown {
   readonly data: Record<string, unknown>
   readonly body: string
@@ -271,6 +273,147 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
           .filter((id) => SAFE_TICKET_ID.test(id))
       })
 
+    // --- Groups ------------------------------------------------------------
+
+    const SAFE_GROUP_ID = /^G-[1-9][0-9]*$/
+    const ensureSafeGroupId = (
+      id: string
+    ): Effect.Effect<void, MarkdownError> =>
+      SAFE_GROUP_ID.test(id)
+        ? Effect.void
+        : Effect.fail(
+            new MarkdownError({
+              cause: undefined,
+              message: `unsafe group id: ${id}`
+            })
+          )
+
+    const groupsDir = (orgSlug: string, slug: string) =>
+      path.join(projectDir(orgSlug, slug), "groups")
+
+    const groupFilePath = (orgSlug: string, slug: string, id: string) =>
+      path.join(groupsDir(orgSlug, slug), `${id}.md`)
+
+    const readGroupFile = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<ParsedMarkdown, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        const raw = yield* Effect.tryPromise({
+          try: () => fs.readFile(file, "utf8"),
+          catch: (cause): NotFound | MarkdownError => {
+            const code = (cause as NodeJS.ErrnoException | undefined)?.code
+            if (code === "ENOENT") return new NotFound()
+            return new MarkdownError({ cause, message: `read failed: ${file}` })
+          }
+        })
+        const parsed = matter(raw)
+        return {
+          data: parsed.data as Record<string, unknown>,
+          body: parsed.content
+        }
+      })
+
+    const createGroupFile = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      frontmatter: Record<string, unknown>,
+      body: string
+    ): Effect.Effect<void, MarkdownError | GroupIdTaken> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        const dir = path.dirname(file)
+        const content = matter.stringify(body, frontmatter)
+        yield* Effect.tryPromise({
+          try: async () => {
+            await fs.mkdir(dir, { recursive: true })
+            await fs.writeFile(file, content, { encoding: "utf8", flag: "wx" })
+          },
+          catch: (cause): MarkdownError | GroupIdTaken => {
+            const code = (cause as NodeJS.ErrnoException | undefined)?.code
+            if (code === "EEXIST") return new GroupIdTaken()
+            return new MarkdownError({
+              cause,
+              message: `create failed: ${file}`
+            })
+          }
+        })
+      })
+
+    const writeGroupFile = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      frontmatter: Record<string, unknown>,
+      body: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        const content = matter.stringify(body, frontmatter)
+        yield* Effect.tryPromise({
+          try: () => fs.writeFile(file, content, "utf8"),
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `write failed: ${file}` })
+        })
+      })
+
+    const removeGroupFile = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<void, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        yield* Effect.tryPromise({
+          try: () => fs.rm(file),
+          catch: (cause): NotFound | MarkdownError => {
+            const code = (cause as NodeJS.ErrnoException | undefined)?.code
+            if (code === "ENOENT") return new NotFound()
+            return new MarkdownError({
+              cause,
+              message: `remove failed: ${file}`
+            })
+          }
+        })
+      })
+
+    const listGroupIds = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<ReadonlyArray<string>, MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const dir = groupsDir(orgSlug, slug)
+        const entries = yield* Effect.tryPromise({
+          try: async () => {
+            try {
+              return await fs.readdir(dir)
+            } catch (cause) {
+              const code = (cause as NodeJS.ErrnoException | undefined)?.code
+              if (code === "ENOENT") return [] as ReadonlyArray<string>
+              throw cause
+            }
+          },
+          catch: (cause) =>
+            new MarkdownError({ cause, message: `list failed: ${dir}` })
+        })
+        return entries
+          .filter((f) => f.endsWith(".md"))
+          .map((f) => f.slice(0, -3))
+          .filter((id) => SAFE_GROUP_ID.test(id))
+      })
+
     return {
       projectDir,
       readProjectFile,
@@ -281,6 +424,11 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       writeTicketFile,
       removeTicketFile,
       listTicketIds,
+      readGroupFile,
+      createGroupFile,
+      writeGroupFile,
+      removeGroupFile,
+      listGroupIds,
       root: absoluteRoot
     } as const
   })

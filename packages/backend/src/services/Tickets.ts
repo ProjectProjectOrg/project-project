@@ -38,6 +38,7 @@ import {
   UpdateTicketInput
 } from "@projectproject/shared"
 import { GitHub } from "./GitHub"
+import { Groups } from "./Groups"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
 
@@ -138,6 +139,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     const md = yield* Markdown
     const projects = yield* Projects
     const github = yield* GitHub
+    const groups = yield* Groups
 
     const ensureAccess = (
       orgSlug: string,
@@ -305,6 +307,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         yield* md.removeTicketFile(orgSlug, slug, id)
+        yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
       })
 
     const replaceTag = (
