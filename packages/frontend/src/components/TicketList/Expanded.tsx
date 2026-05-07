@@ -83,12 +83,6 @@ function ExpandedDetail({
   const update = useAtomSet(updateTicketAtom)
   const remove = useAtomSet(deleteTicketAtom)
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
-  const [lastSavedVersion, setLastSavedVersion] = useState(ticket.version)
-  const [localDraft, setLocalDraft] = useState(ticket.body)
-  const [conflictRemote, setConflictRemote] = useState<TicketDetail | null>(
-    null
-  )
-  const [editorKey, setEditorKey] = useState(`${slug}/${ticket.id}`)
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const autoFocusBody = useRef(focusBody).current
@@ -102,52 +96,6 @@ function ExpandedDetail({
     ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
     : "member"
   const canManageTags = myRole === "owner" || myRole === "admin"
-  const inConflict = conflictRemote !== null
-
-  useEffect(() => {
-    if (!inConflict) {
-      setLastSavedVersion(ticket.version)
-      setLocalDraft(ticket.body)
-    }
-  }, [inConflict, ticket.body, ticket.version])
-
-  async function saveBody(markdown: string, baseVersion = lastSavedVersion) {
-    try {
-      await update({
-        orgSlug,
-        slug,
-        id: ticket.id,
-        baseVersion,
-        body: markdown
-      })
-      const saved = await fetchTicketHttp(orgSlug, slug, ticket.id)
-      setLastSavedVersion(saved.version)
-      setConflictRemote(null)
-      setBodyStatus("saved")
-    } catch (e) {
-      if (isTicketChanged(e)) {
-        const latest = await fetchTicketHttp(orgSlug, slug, ticket.id)
-        setConflictRemote(latest)
-        setBodyStatus("conflict")
-        throw e
-      }
-      throw e
-    }
-  }
-
-  async function keepMine() {
-    if (!conflictRemote) return
-    await saveBody(localDraft, conflictRemote.version)
-  }
-
-  function useLatest() {
-    if (!conflictRemote) return
-    setLocalDraft(conflictRemote.body)
-    setLastSavedVersion(conflictRemote.version)
-    setConflictRemote(null)
-    setBodyStatus("idle")
-    setEditorKey(`${slug}/${ticket.id}/${conflictRemote.version}`)
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -166,8 +114,7 @@ function ExpandedDetail({
               await remove({
                 orgSlug,
                 slug,
-                id: ticket.id,
-                baseVersion: ticket.version
+                id: ticket.id
               })
               navigate({
                 to: ".",
@@ -213,78 +160,15 @@ function ExpandedDetail({
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
         <LexicalEditor
-          key={editorKey}
-          markdown={localDraft}
-          onChange={(next) => saveBody(next)}
-          onLocalDraftChange={setLocalDraft}
+          key={`${slug}/${ticket.id}`}
+          markdown={ticket.body}
+          onChange={(next) =>
+            update({ orgSlug, slug, id: ticket.id, body: next })
+          }
           onStatusChange={setBodyStatus}
           autoFocus={autoFocusBody}
-          paused={inConflict}
         />
       </div>
-      {conflictRemote && (
-        <div className="grid gap-3 rounded-lg border border-amber-300/60 bg-amber-50/60 p-3 text-sm dark:bg-amber-950/20 md:grid-cols-2">
-          <ConflictPane title="Your draft" body={localDraft} />
-          <ConflictPane title="Latest saved" body={conflictRemote.body} />
-          <div className="flex flex-wrap gap-2 md:col-span-2">
-            <button
-              type="button"
-              onClick={() => void keepMine()}
-              className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground"
-            >
-              Keep mine
-            </button>
-            <button
-              type="button"
-              onClick={useLatest}
-              className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium"
-            >
-              Use latest
-            </button>
-            <button
-              type="button"
-              onClick={() => void saveBody(localDraft, conflictRemote.version)}
-              className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium"
-            >
-              Edit manually
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function isTicketChanged(error: unknown): error is { _tag: "TicketChanged" } {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "_tag" in error &&
-    error._tag === "TicketChanged"
-  )
-}
-
-async function fetchTicketHttp(
-  orgSlug: string,
-  slug: string,
-  id: TicketId
-): Promise<TicketDetail> {
-  const res = await fetch(
-    `/api/orgs/${encodeURIComponent(orgSlug)}/projects/${encodeURIComponent(slug)}/tickets/${encodeURIComponent(id)}`
-  )
-  if (!res.ok) throw new Error(`Failed to refresh ticket: ${res.status}`)
-  return (await res.json()) as TicketDetail
-}
-
-function ConflictPane({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="mb-1 text-xs font-medium text-muted-foreground">
-        {title}
-      </div>
-      <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-background p-2 font-mono text-xs">
-        {body}
-      </pre>
     </div>
   )
 }
@@ -341,7 +225,6 @@ function TitleField({
         orgSlug,
         slug,
         id: ticket.id,
-        baseVersion: ticket.version,
         title: trimmed
       })
     } finally {
@@ -389,13 +272,11 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
   const label =
     status === "saving"
       ? "Saving…"
-      : status === "conflict"
-        ? "Changed elsewhere"
-        : status === "dirty"
-          ? "Unsaved changes"
-          : status === "saved"
-            ? "Saved"
-            : null
+      : status === "dirty"
+        ? "Unsaved changes"
+        : status === "saved"
+          ? "Saved"
+          : null
   if (!label) return null
   return (
     <span className="self-center text-xs text-muted-foreground tabular-nums">

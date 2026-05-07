@@ -20,7 +20,7 @@ export function StatusButton({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; status: TicketStatus; version: string }
+  ticket: { id: TicketId; status: TicketStatus }
   stopPropagation?: boolean
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -60,13 +60,7 @@ export function StatusButton({
               key={status}
               onSelect={() => {
                 if (status === ticket.status) return
-                update({
-                  orgSlug,
-                  slug,
-                  id: ticket.id,
-                  baseVersion: ticket.version,
-                  status
-                })
+                update({ orgSlug, slug, id: ticket.id, status })
               }}
               className="cursor-pointer"
             >

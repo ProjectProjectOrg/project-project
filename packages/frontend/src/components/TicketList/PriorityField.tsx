@@ -20,7 +20,7 @@ export function PriorityButton({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; priority: TicketPriority; version: string }
+  ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -60,13 +60,7 @@ export function PriorityButton({
               key={p}
               onSelect={() => {
                 if (p === ticket.priority) return
-                update({
-                  orgSlug,
-                  slug,
-                  id: ticket.id,
-                  baseVersion: ticket.version,
-                  priority: p
-                })
+                update({ orgSlug, slug, id: ticket.id, priority: p })
               }}
               className="cursor-pointer"
             >
@@ -91,7 +85,7 @@ export function PriorityBadgeTrigger({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; priority: TicketPriority; version: string }
+  ticket: { id: TicketId; priority: TicketPriority }
   className?: string
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -128,13 +122,7 @@ export function PriorityBadgeTrigger({
               key={p}
               onSelect={() => {
                 if (p === ticket.priority) return
-                update({
-                  orgSlug,
-                  slug,
-                  id: ticket.id,
-                  baseVersion: ticket.version,
-                  priority: p
-                })
+                update({ orgSlug, slug, id: ticket.id, priority: p })
               }}
               className="cursor-pointer"
             >

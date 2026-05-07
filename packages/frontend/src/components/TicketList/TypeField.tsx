@@ -20,7 +20,7 @@ export function TypeBadgeTrigger({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; type: TicketType; version: string }
+  ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -57,13 +57,7 @@ export function TypeBadgeTrigger({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({
-                  orgSlug,
-                  slug,
-                  id: ticket.id,
-                  baseVersion: ticket.version,
-                  type: t
-                })
+                update({ orgSlug, slug, id: ticket.id, type: t })
               }}
               className="cursor-pointer"
             >
@@ -88,7 +82,7 @@ export function TypeButton({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; type: TicketType; version: string }
+  ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -124,13 +118,7 @@ export function TypeButton({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({
-                  orgSlug,
-                  slug,
-                  id: ticket.id,
-                  baseVersion: ticket.version,
-                  type: t
-                })
+                update({ orgSlug, slug, id: ticket.id, type: t })
               }}
               className="cursor-pointer"
             >

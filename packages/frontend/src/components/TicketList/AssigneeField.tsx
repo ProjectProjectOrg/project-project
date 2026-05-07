@@ -19,7 +19,7 @@ function AssigneeMenuContent({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string>; version: string }
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
   const update = useAtomSet(updateTicketAtom)
@@ -99,7 +99,7 @@ export function AssigneePicker({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string>; version: string }
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
   const resolved = ticket.assignees
@@ -148,7 +148,7 @@ export function AssigneeRowTrigger({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string>; version: string }
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
   className?: string
 }) {
