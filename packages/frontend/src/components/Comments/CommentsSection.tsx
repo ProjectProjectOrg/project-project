@@ -29,7 +29,7 @@ export function CommentsSection({
 
   const comments = Result.isSuccess(result) ? result.value : []
   const total = comments.length
-  const ordered = [...comments].toReversed()
+  const ordered = [...comments].reverse()
   const visibleSlice =
     showAll || total <= INITIAL_VISIBLE
       ? ordered
