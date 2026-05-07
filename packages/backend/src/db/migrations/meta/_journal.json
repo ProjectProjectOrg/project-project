@@ -43,6 +43,13 @@
       "when": 1778077687532,
       "tag": "0005_narrow_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778089564482,
+      "tag": "0006_blushing_zodiak",
+      "breakpoints": true
     }
   ]
 }

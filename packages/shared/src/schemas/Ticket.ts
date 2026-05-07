@@ -7,6 +7,7 @@
 // IDs are sequential per project: T-1, T-2, ... — assigned by the server.
 
 import { Schema } from "effect"
+import { TagName } from "./Tag"
 
 export const TicketId = Schema.String.pipe(
   Schema.pattern(/^T-[1-9][0-9]*$/),
@@ -20,11 +21,16 @@ export type TicketStatus = typeof TicketStatus.Type
 export const TicketType = Schema.Literal("feat", "bug", "chore", "other")
 export type TicketType = typeof TicketType.Type
 
+export const TicketPriority = Schema.Literal("low", "med", "high")
+export type TicketPriority = typeof TicketPriority.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
   type: TicketType,
+  priority: TicketPriority,
+  tags: Schema.Array(TagName),
   branch: Schema.NullOr(Schema.String),
   // The PR number observed for this ticket's branch. Updated by the server
   // whenever a `git_states` fetch sees a PR for `branch`. Null while the
@@ -59,6 +65,8 @@ export const UpdateTicketInput = Schema.Struct({
   ),
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
+  priority: Schema.optional(TicketPriority),
+  tags: Schema.optional(Schema.Array(TagName)),
   assignees: Schema.optional(Schema.Array(Schema.String)),
   body: Schema.optional(Schema.String)
 })

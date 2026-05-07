@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
+import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type {
   Ticket,
@@ -95,14 +96,16 @@ function ProjectLayout() {
         ),
         onSuccess: ({ value }) => (
           <ProjectContext.Provider value={value}>
-            <ProjectHeader
-              orgSlug={orgSlug}
-              slug={value.slug}
-              name={value.name}
-              project={value}
-            />
-            <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-            <Outlet />
+            <TagRenamesProvider>
+              <ProjectHeader
+                orgSlug={orgSlug}
+                slug={value.slug}
+                name={value.name}
+                project={value}
+              />
+              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+              <Outlet />
+            </TagRenamesProvider>
           </ProjectContext.Provider>
         )
       })}

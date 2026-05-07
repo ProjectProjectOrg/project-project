@@ -33,3 +33,6 @@ storage/
 # Paraglide generated runtime — recompiled by the Vite plugin from
 # packages/frontend/messages/*.json on each dev/build.
 packages/frontend/src/paraglide/
+
+# Claude Code local state
+.claude/
