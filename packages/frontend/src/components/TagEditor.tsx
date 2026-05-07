@@ -20,6 +20,7 @@ import {
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type { Tag, TagName, TicketDetail } from "@projectproject/shared"
 
 type Props = {
@@ -30,8 +31,6 @@ type Props = {
 }
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
-const VALIDATION_HINT =
-  "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters."
 const NEUTRAL = "#94a3b8"
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
@@ -181,10 +180,14 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
             variant="tertiary"
             size={displayed.length === 0 ? "xs" : "icon-xs"}
             leadingIcon={displayed.length === 0 ? Plus : undefined}
-            aria-label="Add tag"
+            aria-label={m.tags_add_button()}
             className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
           >
-            {displayed.length === 0 ? "Add tag" : <Plus strokeWidth={2} />}
+            {displayed.length === 0 ? (
+              m.tags_add_button()
+            ) : (
+              <Plus strokeWidth={2} />
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -213,7 +216,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
               aria-describedby={
                 showValidationError ? "tag-name-error" : undefined
               }
-              placeholder="Search or create..."
+              placeholder={m.tags_search_or_create_placeholder()}
               className={cn(
                 "h-7 rounded-md border bg-transparent px-2 text-xs outline-none transition-colors",
                 showValidationError
@@ -226,13 +229,13 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                 id="tag-name-error"
                 className="px-1 text-[11px] leading-tight text-destructive"
               >
-                {VALIDATION_HINT}
+                {m.tags_name_validation_hint()}
               </p>
             ) : null}
             <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
               {filtered.length === 0 && !canManageTags ? (
                 <p className="px-2 py-1 text-[11px] text-muted-foreground">
-                  No tags match.
+                  {m.tags_no_matches()}
                 </p>
               ) : null}
               {filtered.map((tag) => {
@@ -263,7 +266,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                   className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.99]"
                 >
                   <Plus className="size-3.5" strokeWidth={2} />
-                  Create tag '{lowered}'
+                  {m.tags_create_button({ name: lowered })}
                 </button>
               ) : null}
             </div>
@@ -304,7 +307,7 @@ function AppliedTagChip({
   const removeButton = (
     <button
       type="button"
-      aria-label={`Remove tag ${name}`}
+      aria-label={m.tags_remove_aria_label({ name })}
       onClick={(e) => {
         e.stopPropagation()
         onRemove()
@@ -342,7 +345,7 @@ function AppliedTagChip({
       >
         <button
           type="button"
-          aria-label={`Edit tag ${name}`}
+          aria-label={m.tags_edit_aria_label({ name })}
           className="-ml-0.5 cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
         >
           {name}

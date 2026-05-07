@@ -4,6 +4,7 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { commentsKey, createCommentAtom } from "@/atoms/comments"
+import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 
 export function CommentComposer({
@@ -35,7 +36,7 @@ export function CommentComposer({
       setEditorVersion((v) => v + 1)
       setExpanded(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to post comment.")
+      setError(e instanceof Error ? e.message : m.comments_composer_failed())
     } finally {
       setBusy(false)
     }
@@ -58,7 +59,7 @@ export function CommentComposer({
         key={editorVersion}
         markdown={body}
         onChange={(md) => setBody(md)}
-        placeholder="Write a comment…"
+        placeholder={m.comments_composer_placeholder()}
         compact
       />
       <AnimatePresence initial={false}>
@@ -74,7 +75,7 @@ export function CommentComposer({
             {error && <p className="text-destructive mb-2 text-sm">{error}</p>}
             <div className="flex justify-end">
               <Button size="sm" onClick={submit} disabled={busy || !body.trim()}>
-                Comment
+                {m.comments_composer_submit()}
               </Button>
             </div>
           </motion.div>

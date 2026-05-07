@@ -2,15 +2,16 @@ import type { MouseEvent } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
+import { m } from "@/paraglide/messages"
 
 const options: ReadonlyArray<{
   value: ThemePreference
-  label: string
+  label: () => string
   icon: typeof Sun
 }> = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "system", label: "System", icon: Monitor },
-  { value: "dark", label: "Dark", icon: Moon }
+  { value: "light", label: m.theme_light, icon: Sun },
+  { value: "system", label: m.theme_system, icon: Monitor },
+  { value: "dark", label: m.theme_dark, icon: Moon }
 ]
 
 export function ThemeSwitcher() {
@@ -45,7 +46,7 @@ export function ThemeSwitcher() {
             key={opt.value}
             index={i}
             icon={opt.icon}
-            label={opt.label}
+            label={opt.label()}
           />
         ))}
       </TabsSubtle>

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import type { User } from "@projectproject/shared"
 import type { LucideIcon } from "lucide-react"
@@ -31,10 +32,12 @@ function AuthedLayout() {
   const { pathname } = useLocation()
 
   return Result.matchWithError(me, {
-    onInitial: () => <FullPageStatus>Loading…</FullPageStatus>,
+    onInitial: () => <FullPageStatus>{m.chrome_loading()}</FullPageStatus>,
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => (
-      <FullPageStatus>Something went wrong: {String(defect)}</FullPageStatus>
+      <FullPageStatus>
+        {m.chrome_defect({ defect: String(defect) })}
+      </FullPageStatus>
     ),
     onSuccess: ({ value }) => {
       // "/" with an active org → org dashboard; null org falls through to Shell (https://projectproject.missler.xyz/projects/project-project?ticket=T-35 will redirect to /onboarding).
@@ -78,13 +81,18 @@ function Sidebar({ user }: { user: User }) {
         <Wordmark className="h-5 w-auto" />
       </div>
       <nav className="flex flex-col gap-1 px-3 py-2">
-        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" exact />
+        <NavItem
+          to="/"
+          icon={LayoutDashboard}
+          label={m.chrome_sidebar_dashboard()}
+          exact
+        />
         {orgSlug && (
           <NavItem
             to="/orgs/$orgSlug/projects"
             params={{ orgSlug }}
             icon={FolderKanban}
-            label="Projects"
+            label={m.chrome_sidebar_projects()}
           />
         )}
       </nav>
@@ -151,7 +159,7 @@ function UserMenu({ user }: { user: User }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Open user menu"
+          aria-label={m.chrome_user_menu_open()}
           className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Avatar className="size-9">
@@ -177,7 +185,7 @@ function UserMenu({ user }: { user: User }) {
         <DropdownMenuItem asChild>
           <Link to="/profile" className="cursor-pointer">
             <UserRound className="size-4" strokeWidth={1.75} />
-            Profile
+            {m.chrome_user_menu_profile()}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -186,7 +194,7 @@ function UserMenu({ user }: { user: User }) {
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="size-4" strokeWidth={1.75} />
-          Sign out
+          {m.chrome_user_menu_sign_out()}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

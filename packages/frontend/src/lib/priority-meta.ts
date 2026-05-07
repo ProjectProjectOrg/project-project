@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Minus, type LucideIcon } from "lucide-react"
 import type { TicketPriority } from "@projectproject/shared"
 import type { BadgeTone } from "@/components/ui/badge"
+import { m } from "@/paraglide/messages"
 
 export const PRIORITY_META: Record<
   TicketPriority,
@@ -40,3 +41,9 @@ export const PRIORITY_ORDER: ReadonlyArray<TicketPriority> = [
   "med",
   "low"
 ]
+
+export const PRIORITY_LABELS: Record<TicketPriority, () => string> = {
+  low: () => m.tickets_priority_low(),
+  med: () => m.tickets_priority_med(),
+  high: () => m.tickets_priority_high()
+}

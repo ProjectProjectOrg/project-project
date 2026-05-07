@@ -7,6 +7,7 @@ import {
 } from "@projectproject/shared"
 import { springs } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 type Props = {
   value: string
@@ -59,7 +60,7 @@ export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
     >
       <button
         type="button"
-        aria-label={ariaLabel ?? "Pick color"}
+        aria-label={ariaLabel ?? m.color_picker_aria_label()}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.06] active:scale-[0.94]"
@@ -134,7 +135,7 @@ function Ring({
             transition={{ ...springs.slow, delay, scale: { duration: 0.15 } }}
             whileHover={{ scale: 1.18 }}
             onClick={() => onSelect(c.hex)}
-            aria-label={`Color ${c.hex}`}
+            aria-label={m.color_swatch_aria_label({ hex: c.hex })}
             className={cn(
               "pointer-events-auto absolute rounded-full border",
               isActive && "border-foreground border-2"

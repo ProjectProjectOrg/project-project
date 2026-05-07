@@ -32,6 +32,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type { GithubConnection, GithubRepo, Role } from "@projectproject/shared"
 
 type Props = {
@@ -65,7 +66,7 @@ export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <GithubIcon className="size-3.5" strokeWidth={1.75} />
-            Connect repo
+            {m.github_chip_connect_repo_button()}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0">
@@ -102,11 +103,11 @@ function ConnectedChip({
   const url = `https://github.com/${github.repoOwner}/${github.repoName}`
   const warning =
     flag === "token_expired"
-      ? "GitHub token expired"
+      ? m.git_github_token_expired_error()
       : flag === "scope"
-        ? "GitHub scope insufficient"
+        ? m.git_github_scope_insufficient_error()
         : flag === "repo_gone"
-          ? "Repo not accessible"
+          ? m.git_repo_gone_error()
           : null
 
   if (warning) {
@@ -121,7 +122,7 @@ function ConnectedChip({
                 type="button"
                 className="ml-1 underline-offset-2 hover:underline"
               >
-                Manage
+                {m.github_chip_manage_button()}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-3">
@@ -151,7 +152,7 @@ function ConnectedChip({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Manage GitHub connection"
+              aria-label={m.github_chip_manage_connection_aria_label()}
               className={cn(
                 "grid size-5 place-items-center rounded transition-colors hover:bg-accent",
                 "data-[state=open]:bg-accent"
@@ -199,12 +200,12 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
         typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
       setError(
         tag === "GitHubTokenExpired" || tag === "NoGithubToken"
-          ? "GitHub token expired — re-authenticate."
+          ? m.github_chip_connect_token_expired_error()
           : tag === "GitHubScopeInsufficient"
-            ? "Insufficient scope on GitHub token."
+            ? m.github_chip_connect_scope_insufficient_error()
             : tag === "RepoGone"
-              ? "Repo not accessible."
-              : "Couldn't connect repo."
+              ? m.git_repo_gone_error()
+              : m.github_chip_connect_failed_error()
       )
       setBusyKey(null)
     }
@@ -215,7 +216,7 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
       <div className="mb-2 flex items-center gap-2">
         <Search className="size-4 text-muted-foreground" strokeWidth={1.75} />
         <Input
-          placeholder="Search repos…"
+          placeholder={m.github_chip_search_repos_placeholder()}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
@@ -231,24 +232,24 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
         {Result.matchWithError(repos, {
           onInitial: () => (
             <li className="px-2 py-3 text-sm text-muted-foreground">
-              Loading…
+              {m.chrome_loading()}
             </li>
           ),
           onError: () => (
             <li className="px-2 py-3 text-sm text-destructive">
-              Couldn't load repos.
+              {m.github_chip_load_repos_error()}
             </li>
           ),
           onDefect: () => (
             <li className="px-2 py-3 text-sm text-destructive">
-              Couldn't load repos.
+              {m.github_chip_load_repos_error()}
             </li>
           ),
           onSuccess: ({ value }) => (
             <>
               {value.repos.length === 0 ? (
                 <li className="px-2 py-3 text-sm text-muted-foreground">
-                  No repos.
+                  {m.github_chip_no_repos()}
                 </li>
               ) : (
                 value.repos.map((repo) => {
@@ -266,7 +267,9 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
                           {repo.owner}/{repo.name}
                         </span>
                         <span className="shrink-0 text-xs text-muted-foreground">
-                          {repo.private ? "private" : "public"}
+                          {repo.private
+                            ? m.github_chip_repo_private()
+                            : m.github_chip_repo_public()}
                         </span>
                       </button>
                     </li>
@@ -318,7 +321,7 @@ function ManagePanel({
           htmlFor="github-default-base"
           className="block text-xs font-medium text-muted-foreground"
         >
-          Default base branch
+          {m.github_chip_default_base_branch_label()}
         </label>
         <div className="mt-1 flex gap-2">
           <Input
@@ -334,11 +337,11 @@ function ManagePanel({
             disabled={saving || base === (github.defaultBaseBranch ?? "")}
             onClick={() => void saveBase()}
           >
-            Save
+            {m.common_save_button()}
           </Button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Leave empty to use the repo's default branch.
+          {m.github_chip_default_base_branch_hint()}
         </p>
       </div>
       <div className="border-t border-border pt-3">
@@ -348,16 +351,16 @@ function ManagePanel({
             onClick={() => setConfirmDisconnect(true)}
             className="text-xs text-destructive hover:underline"
           >
-            Disconnect repo
+            {m.github_chip_disconnect_repo_button()}
           </button>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              Disconnect{" "}
+              {m.github_chip_disconnect_confirm_prefix()}{" "}
               <span className="font-mono">
                 {github.repoOwner}/{github.repoName}
               </span>
-              ?
+              {m.github_chip_disconnect_confirm_suffix()}
             </span>
             <Button
               type="button"
@@ -366,7 +369,7 @@ function ManagePanel({
               onClick={() => void disconnect({ orgSlug, slug })}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Disconnect
+              {m.github_chip_disconnect_button()}
             </Button>
             <Button
               type="button"
@@ -374,7 +377,7 @@ function ManagePanel({
               variant="ghost"
               onClick={() => setConfirmDisconnect(false)}
             >
-              Cancel
+              {m.common_cancel_button()}
             </Button>
           </div>
         )}

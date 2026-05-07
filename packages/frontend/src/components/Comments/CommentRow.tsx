@@ -7,6 +7,8 @@ import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { meAtom } from "@/atoms/auth"
+import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   commentsKey,
   deleteCommentAtom,
@@ -47,20 +49,22 @@ export function CommentRow({
               {comment.author.name ?? comment.author.email}
             </span>
             <time className="text-muted-foreground">
-              {new Date(comment.createdAt).toLocaleString()}
+              {new Date(comment.createdAt).toLocaleString(getLocale())}
             </time>
             {comment.editedAt && (
-              <span className="text-muted-foreground text-xs">(edited)</span>
+              <span className="text-muted-foreground text-xs">
+                {m.comments_edited_marker()}
+              </span>
             )}
           </div>
           {isAuthor && (
             <div className="flex items-center gap-1">
               <InlineForm.Trigger<Mode> action="edit" size="sm" variant="ghost">
-                Edit
+                {m.comments_edit_button()}
               </InlineForm.Trigger>
               <ConfirmDeleteIcon
-                ariaLabel="Delete comment"
-                message="Delete this comment?"
+                ariaLabel={m.comments_delete_aria_label()}
+                message={m.comments_delete_confirm()}
                 onConfirm={async () => {
                   await deleteComment({ commentId: comment.id })
                 }}
@@ -111,7 +115,7 @@ function EditForm({
       await edit({ commentId: comment.id, body })
       close()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.")
+      setError(e instanceof Error ? e.message : m.comments_save_failed())
       setBusy(false)
     }
   }
@@ -123,7 +127,9 @@ function EditForm({
         <span className="font-medium">
           {comment.author.name ?? comment.author.email}
         </span>
-        <span className="text-muted-foreground">editing…</span>
+        <span className="text-muted-foreground">
+          {m.comments_editing_marker()}
+        </span>
       </header>
       <LexicalEditor
         markdown={body}
@@ -134,7 +140,7 @@ function EditForm({
       <div className="flex justify-end gap-2">
         <InlineForm.Cancel />
         <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
-          Save
+          {m.comments_save_button()}
         </Button>
       </div>
     </>

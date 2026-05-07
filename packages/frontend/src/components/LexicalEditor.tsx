@@ -28,6 +28,7 @@ import { ListItemNode, ListNode } from "@lexical/list"
 import { LinkNode } from "@lexical/link"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 const MARKDOWN_TRANSFORMERS = [MENTION_TRANSFORMER, ...TRANSFORMERS]
 
@@ -168,7 +169,7 @@ export function LexicalEditor({
   onStatusChange,
   debounceMs = 600,
   className,
-  placeholder = "Write a description in markdown…",
+  placeholder = m.editor_placeholder(),
   autoFocus = false,
   compact = false
 }: LexicalEditorProps) {

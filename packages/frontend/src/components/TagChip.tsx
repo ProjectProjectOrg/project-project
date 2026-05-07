@@ -1,5 +1,6 @@
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 type Props = {
   name: string
@@ -44,7 +45,7 @@ export function TagChip({
       {onRemove ? (
         <button
           type="button"
-          aria-label={`Remove tag ${name}`}
+          aria-label={m.tags_remove_aria_label({ name })}
           onClick={onRemove}
           className="-mr-1 inline-flex size-4 items-center justify-center rounded transition-colors duration-100 hover:bg-black/10 active:scale-[0.97]"
         >

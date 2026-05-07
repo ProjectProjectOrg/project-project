@@ -3,6 +3,7 @@ import { clearBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
+import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 
 export function ClearBranchFields({
@@ -30,7 +31,7 @@ export function ClearBranchFields({
   return (
     <div className="flex items-center justify-end gap-2 text-xs">
       <span className="mr-auto text-muted-foreground">
-        Clear branch from this ticket?
+        {m.git_clear_branch_prompt()}
       </span>
       <InlineForm.Cancel />
       <Button
@@ -40,7 +41,7 @@ export function ClearBranchFields({
         onClick={() => void submit()}
         disabled={busy}
       >
-        {busy ? "Clearing…" : "Clear"}
+        {busy ? m.git_clear_branch_in_progress() : m.git_clear_branch_button()}
       </Button>
     </div>
   )

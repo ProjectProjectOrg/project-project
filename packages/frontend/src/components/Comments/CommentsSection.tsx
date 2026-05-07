@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react"
 import { commentsAtom, commentsKey } from "@/atoms/comments"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { MentionScopeProvider } from "@/mentions/scope"
+import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 import { CommentRow } from "./CommentRow"
 import { CommentComposer } from "./CommentComposer"
@@ -35,7 +36,9 @@ export function CommentsSection({
   const hidden = total - visibleSlice.length
 
   const headingLabel =
-    total > 0 ? `Comments · ${total}` : "Comments"
+    total > 0
+      ? m.comments_heading_with_count({ count: total })
+      : m.comments_heading()
 
   return (
     <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
@@ -67,7 +70,7 @@ export function CommentsSection({
               <div className="space-y-3">
                 {Result.isSuccess(result) && total === 0 && (
                   <p className="text-muted-foreground text-sm">
-                    No comments yet.
+                    {m.comments_empty()}
                   </p>
                 )}
                 {hidden > 0 && (
@@ -76,7 +79,9 @@ export function CommentsSection({
                     onClick={() => setShowAll(true)}
                     className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                   >
-                    Show {hidden} older comment{hidden === 1 ? "" : "s"}
+                    {hidden === 1
+                      ? m.comments_show_older_one()
+                      : m.comments_show_older_many({ count: hidden })}
                   </button>
                 )}
                 {visibleSlice.map((c) => (
@@ -91,7 +96,7 @@ export function CommentsSection({
                 ))}
                 {Result.isFailure(result) && (
                   <p className="text-destructive text-sm">
-                    Failed to load comments.
+                    {m.comments_load_failed()}
                   </p>
                 )}
               </div>

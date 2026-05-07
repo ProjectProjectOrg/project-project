@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 import type { TicketDetail } from "@projectproject/shared"
 
 export function ConnectBranchFields({
@@ -66,18 +67,18 @@ export function ConnectBranchFields({
       const tag =
         typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
       if (tag === "BranchNotFound") {
-        setError(`Branch "${branchName}" was just deleted upstream.`)
+        setError(m.git_branch_not_found_error({ name: branchName }))
         setSelected(null)
         refreshBranches()
       } else {
         setError(
           tag === "GitHubTokenExpired"
-            ? "GitHub token expired."
+            ? m.git_github_token_expired_error()
             : tag === "GitHubScopeInsufficient"
-              ? "GitHub scope insufficient."
+              ? m.git_github_scope_insufficient_error()
               : tag === "RepoGone"
-                ? "Repo not accessible."
-                : "Couldn't attach branch."
+                ? m.git_repo_gone_error()
+                : m.git_attach_branch_error()
         )
       }
       setBusy(false)
@@ -109,7 +110,7 @@ export function ConnectBranchFields({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={onKeyDown}
         className="h-8 font-mono"
-        placeholder="Search branches…"
+        placeholder={m.git_search_branches_placeholder()}
         disabled={busy}
       />
       <div
@@ -124,11 +125,11 @@ export function ConnectBranchFields({
           </div>
         ) : Result.isFailure(result) ? (
           <p className="p-2 text-xs text-destructive">
-            Couldn't load branches.
+            {m.git_load_branches_error()}
           </p>
         ) : items.length === 0 ? (
           <p className="p-2 text-xs text-muted-foreground">
-            No branches found.
+            {m.git_no_branches_found()}
           </p>
         ) : (
           <ul role="listbox" className="py-1">
@@ -158,7 +159,7 @@ export function ConnectBranchFields({
                   </span>
                   {b.isProtected && (
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      protected
+                      {m.git_branch_protected_pill()}
                     </span>
                   )}
                 </button>
@@ -180,7 +181,7 @@ export function ConnectBranchFields({
           onClick={() => selected && void submit(selected)}
           disabled={busy || !selected}
         >
-          {busy ? "Connecting…" : "Connect"}
+          {busy ? m.git_connect_branch_in_progress() : m.git_connect_branch_button()}
         </Button>
       </div>
     </>

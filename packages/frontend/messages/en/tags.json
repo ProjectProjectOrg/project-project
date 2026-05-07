@@ -1,0 +1,20 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "tags_add_button": "Add tag",
+  "tags_color_aria_label": "Color for {name}",
+  "tags_create_button": "Create tag \"{name}\"",
+  "tags_delete_button": "Delete tag",
+  "tags_delete_confirm_many": "Delete {name} permanently? It will be removed from {count} tickets and the tag will no longer exist on this project.",
+  "tags_delete_confirm_one": "Delete {name} permanently? It will be removed from 1 ticket and the tag will no longer exist on this project.",
+  "tags_delete_in_progress": "Deleting…",
+  "tags_edit_aria_label": "Edit tag {name}",
+  "tags_name_aria_label": "Tag name",
+  "tags_name_validation_hint": "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters.",
+  "tags_no_matches": "No tags match.",
+  "tags_remove_aria_label": "Remove tag {name}",
+  "tags_search_or_create_placeholder": "Search or create...",
+  "tags_usage_many": "Applied to {count} tickets",
+  "tags_usage_one": "Applied to 1 ticket",
+  "color_picker_aria_label": "Pick color",
+  "color_swatch_aria_label": "Color {hex}"
+}
