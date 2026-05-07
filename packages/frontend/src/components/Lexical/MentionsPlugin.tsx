@@ -126,7 +126,7 @@ export function MentionsPlugin(): JSX.Element | null {
       menuRenderFn={(anchorRef, { selectedIndex, selectOptionAndCleanUp }) => {
         if (!anchorRef.current || options.length === 0) return null
         return createPortal(
-          <div className="bg-popover text-popover-foreground border-border z-50 mt-1 min-w-48 overflow-hidden rounded-md border shadow-md">
+          <div className="bg-popover text-popover-foreground border-border z-50 mt-1 w-72 overflow-hidden rounded-md border shadow-md">
             {options.map((opt, i) => (
               <button
                 key={opt.key}

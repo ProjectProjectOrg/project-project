@@ -23,9 +23,9 @@ export const ticketMentionProvider: MentionProvider = {
         .map((t) => ({ id: t.id, label: t.title }))
     }),
   renderRow: (c) => (
-    <div className="flex items-center gap-2">
-      <span className="font-mono">{c.id}</span>
-      <span className="text-muted-foreground">{c.label}</span>
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="font-mono shrink-0 whitespace-nowrap">{c.id}</span>
+      <span className="text-muted-foreground truncate">{c.label}</span>
     </div>
   ),
   renderChip: (ref) => (
