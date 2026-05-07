@@ -88,7 +88,7 @@ export function CommentsSection({
                   <CommentRow
                     key={c.id}
                     comment={c}
-                    waiting={Boolean(result.waiting)}
+                    waiting={result.waiting}
                     orgSlug={orgSlug}
                     slug={slug}
                     ticketId={ticketId}
