@@ -143,3 +143,33 @@ export const projectTagRelations = relations(projectTag, ({ one }) => ({
     references: [user.id]
   })
 }))
+
+export const commentIndex = pgTable(
+  "comment_index",
+  {
+    id: text("id").primaryKey(),
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    editedAt: timestamp("edited_at", { withTimezone: true })
+  },
+  (t) => [
+    index("comment_index_ticket_idx").on(
+      t.projectSlug,
+      t.ticketId,
+      t.createdAt
+    )
+  ]
+)
+
+export const commentIndexRelations = relations(commentIndex, ({ one }) => ({
+  author: one(user, {
+    fields: [commentIndex.authorId],
+    references: [user.id]
+  })
+}))
