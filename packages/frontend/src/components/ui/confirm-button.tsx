@@ -46,9 +46,13 @@ function Root({
   )
   return (
     <ConfirmButtonContext value={value}>
-      <span className={cn("relative inline-flex items-center", className)}>
+      <motion.span
+        layout
+        transition={FADE_TRANSITION}
+        className={cn("relative inline-flex items-center", className)}
+      >
         {children}
-      </span>
+      </motion.span>
     </ConfirmButtonContext>
   )
 }
