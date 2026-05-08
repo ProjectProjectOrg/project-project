@@ -5,7 +5,6 @@ import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
-import { meAtom } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
@@ -17,6 +16,7 @@ import {
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
+import { useProjectRole } from "@/lib/projectRole"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
 import { PriorityBadgeTrigger } from "./PriorityField"
@@ -94,12 +94,7 @@ function ExpandedDetail({
     if (focusBody) onConsumeFocusBody()
   }, [focusBody, onConsumeFocusBody])
 
-  const project = useProject()
-  const me = useAtomValue(meAtom)
-  const myRole = Result.isSuccess(me)
-    ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
-    : "member"
-  const canManageTags = myRole === "owner" || myRole === "admin"
+  const { canManageTags } = useProjectRole()
 
   return (
     <div className="flex flex-col gap-3">
@@ -115,11 +110,7 @@ function ExpandedDetail({
           onConfirm={async () => {
             setDeleting(true)
             try {
-              await remove({
-                orgSlug,
-                slug,
-                id: ticket.id
-              })
+              await remove({ orgSlug, slug, id: ticket.id })
               navigate({
                 to: ".",
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
@@ -167,7 +158,7 @@ function ExpandedDetail({
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
+        <MentionScopeProvider scope={{ orgSlug, slug, members }}>
           <LexicalEditor
             key={`${slug}/${ticket.id}`}
             markdown={ticket.body}
@@ -280,16 +271,15 @@ function TitleField({
   )
 }
 
+const SAVE_STATUS_LABELS = {
+  saving: m.tickets_save_status_saving,
+  dirty: m.tickets_save_status_dirty,
+  saved: m.tickets_save_status_saved
+} as const
+
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? m.tickets_save_status_saving()
-      : status === "dirty"
-        ? m.tickets_save_status_dirty()
-        : status === "saved"
-          ? m.tickets_save_status_saved()
-          : null
-  if (!label) return null
+  if (status === "idle") return null
+  const label = SAVE_STATUS_LABELS[status]()
   return (
     <span className="self-center text-xs text-muted-foreground tabular-nums">
       {label}

@@ -68,6 +68,15 @@ export class Conflict extends Schema.TaggedError<Conflict>()(
   HttpApiSchema.annotations({ status: 409 })
 ) {}
 
+// 400 — caller-supplied input violates a domain invariant the schema can't
+// express on its own (cross-field constraints like `endsAt >= startsAt`).
+// Use `reason` to disambiguate (`invalid_interval`, ...).
+export class Validation extends Schema.TaggedError<Validation>()(
+  "Validation",
+  { reason: Schema.String },
+  HttpApiSchema.annotations({ status: 400 })
+) {}
+
 // --- GitHub-side errors -----------------------------------------------------
 // Distinct from generic 4xx because the user-facing remedy is different
 // (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures

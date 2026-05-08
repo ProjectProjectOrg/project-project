@@ -38,6 +38,7 @@ import {
   UpdateTicketInput
 } from "@projectproject/shared"
 import { GitHub } from "./GitHub"
+import { Groups } from "./Groups"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
 
@@ -92,9 +93,22 @@ function nextIdFrom(ids: ReadonlyArray<string>): string {
   return `T-${max + 1}`
 }
 
-function bumpId(id: string): string {
-  const n = Number(id.slice(2))
-  return `T-${n + 1}`
+function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
+  return {
+    id: fm.id,
+    title: fm.title,
+    status: fm.status,
+    type: fm.type,
+    priority: fm.priority,
+    tags: fm.tags,
+    branch: fm.branch,
+    pr: fm.pr,
+    lastTransitionedPr: fm.lastTransitionedPr,
+    assignees: fm.assignees,
+    createdBy: fm.createdBy,
+    createdAt: fm.createdAt.toISOString(),
+    updatedAt: fm.updatedAt.toISOString()
+  }
 }
 
 function frontmatterToWire(fm: TicketFrontmatter): Ticket {
@@ -115,29 +129,12 @@ function frontmatterToWire(fm: TicketFrontmatter): Ticket {
   }
 }
 
-function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
-  return {
-    id: fm.id,
-    title: fm.title,
-    status: fm.status,
-    type: fm.type,
-    priority: fm.priority,
-    tags: fm.tags,
-    branch: fm.branch,
-    pr: fm.pr,
-    lastTransitionedPr: fm.lastTransitionedPr,
-    assignees: fm.assignees,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt.toISOString(),
-    updatedAt: fm.updatedAt.toISOString()
-  }
-}
-
 export class Tickets extends Effect.Service<Tickets>()("Tickets", {
   effect: Effect.gen(function* () {
     const md = yield* Markdown
     const projects = yield* Projects
     const github = yield* GitHub
+    const groups = yield* Groups
 
     const ensureAccess = (
       orgSlug: string,
@@ -238,7 +235,8 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           if (result === "ok") {
             return frontmatterToWire({ ...fm, id: candidate as TicketId })
           }
-          candidate = bumpId(candidate)
+          const freshIds = yield* md.listTicketIds(orgSlug, slug)
+          candidate = nextIdFrom(freshIds)
         }
         return yield* Effect.die(
           new Error(`could not allocate ticket id for "${slug}"`)
@@ -305,6 +303,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
         yield* md.removeTicketFile(orgSlug, slug, id)
       })
 

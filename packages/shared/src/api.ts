@@ -56,6 +56,14 @@ import {
   UpdateCommentInput
 } from "./schemas/Comment"
 import {
+  CreateGroupInput,
+  Group,
+  GroupDetail,
+  GroupId,
+  UpdateGroupInput,
+  UpdateGroupTicketsInput
+} from "./schemas/Group"
+import {
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -67,7 +75,8 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
-  Unauthorized
+  Unauthorized,
+  Validation
 } from "./errors"
 import { Authentication } from "./Authentication"
 
@@ -111,6 +120,11 @@ const TicketCommentPath = Schema.Struct({
   slug: Slug,
   id: TicketId,
   commentId: CommentId
+})
+const GroupPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  id: GroupId
 })
 
 const ProjectsGroup = HttpApiGroup.make("projects")
@@ -449,6 +463,63 @@ const TagsGroup = HttpApiGroup.make("tags")
   )
   .middleware(Authentication)
 
+const GroupsGroup = HttpApiGroup.make("groups")
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/groups")
+      .setPath(ProjectPath)
+      .addSuccess(Schema.Array(Group))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/groups")
+      .setPath(ProjectPath)
+      .setPayload(CreateGroupInput)
+      .addSuccess(Group)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/groups/:id")
+      .setPath(GroupPath)
+      .addSuccess(GroupDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug/groups/:id")
+      .setPath(GroupPath)
+      .setPayload(UpdateGroupInput)
+      .addSuccess(GroupDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets"
+    )
+      .setPath(GroupPath)
+      .setPayload(UpdateGroupTicketsInput)
+      .addSuccess(GroupDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/groups/:id")
+      .setPath(GroupPath)
+      .addSuccess(Schema.Void)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -457,5 +528,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TagsGroup)
+  .add(GroupsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
