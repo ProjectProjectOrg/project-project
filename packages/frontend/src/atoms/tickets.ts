@@ -1,11 +1,11 @@
 import { Atom } from "@effect-atom/atom-react"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import type {
-  CreateTicketInput,
+import {
   TicketId,
-  UpdateTicketInput
+  type CreateTicketInput,
+  type UpdateTicketInput
 } from "@projectproject/shared"
 
 // Family keys are primitive strings. Slugs and ticket ids are URL-safe
@@ -13,6 +13,8 @@ import type {
 
 export const ticketsListKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
+
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
 export const ticketsListAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
@@ -35,7 +37,7 @@ export const ticketAtom = Atom.family((key: string) => {
   const parts = key.split("/")
   const orgSlug = parts[0]
   const slug = parts[1]
-  const id = parts.slice(2).join("/") as TicketId
+  const id = makeTicketId(parts.slice(2).join("/"))
   return runtime
     .atom(
       Effect.gen(function* () {

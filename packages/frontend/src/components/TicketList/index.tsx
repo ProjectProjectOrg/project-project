@@ -1,20 +1,32 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Schema } from "effect"
 import { useEffect, useState } from "react"
 import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { meAtom } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import type {
-  Member,
-  TagName,
+import {
   TicketId,
-  TicketStatus,
-  TicketType
+  type Member,
+  type TagName,
+  type TicketStatus,
+  type TicketType
 } from "@projectproject/shared"
 import { Empty, FilteredList } from "./FilteredList"
 import { type SortKey } from "./sort"
 import { Toolbar } from "./Toolbar"
+
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
+
+function ticketIdFromSearch(value: string | undefined): TicketId | null {
+  if (!value) return null
+  try {
+    return makeTicketId(value)
+  } catch {
+    return null
+  }
+}
 
 export function TicketList({
   orgSlug,
@@ -33,7 +45,7 @@ export function TicketList({
     ticket?: string
     focusBody?: number
   }
-  const expandedId = (search.ticket ?? null) as TicketId | null
+  const expandedId = ticketIdFromSearch(search.ticket)
   const focusBody = search.focusBody === 1
 
   const setExpanded = (id: TicketId | null) => {

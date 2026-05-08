@@ -1,4 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Schema } from "effect"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type { Tag, TagName, TicketDetail } from "@projectproject/shared"
+import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
 
 type Props = {
   orgSlug: string
@@ -32,6 +33,7 @@ type Props = {
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const NEUTRAL = "#94a3b8"
+const makeTagName = Schema.decodeUnknownSync(TagName)
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
@@ -96,7 +98,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       orgSlug,
       slug,
       id: ticket.id,
-      tags: next as unknown as ReadonlyArray<TagName>
+      tags: next.map((name) => makeTagName(name))
     })
 
   const addTag = (name: string) => {
@@ -112,7 +114,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   const createAndApply = () => {
     if (!isValidNewName || exactRegistered) return
-    Promise.resolve(createTag({ name: lowered as TagName })).then(() =>
+    Promise.resolve(createTag({ name: makeTagName(lowered) })).then(() =>
       addTag(lowered)
     )
   }
@@ -128,7 +130,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       registerRename(oldName, patch.nextName)
     }
     void renameTag({
-      oldName: oldName as TagName,
+      oldName: makeTagName(oldName),
       nextName: patch.nextName,
       color: patch.color
     })
@@ -137,7 +139,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const handleDelete = async (name: string) => {
     registerRemove(name)
     try {
-      await deleteTag({ name: name as TagName })
+      await deleteTag({ name: makeTagName(name) })
     } catch (e) {
       unregisterRemove(name)
       throw e

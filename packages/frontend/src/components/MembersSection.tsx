@@ -52,6 +52,7 @@ const ROLE_META: Record<
   admin: { label: () => m.members_role_admin(), icon: ShieldCheck, tone: "blue" },
   member: { label: () => m.members_role_member(), icon: UserRound, tone: "muted" }
 }
+const ASSIGNABLE_ROLES = ["admin", "member"] satisfies ReadonlyArray<AssignableRole>
 
 export function MembersSection({
   orgSlug,
@@ -196,7 +197,7 @@ function RoleSelect({
         </Badge>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        {(["admin", "member"] as AssignableRole[]).map((r) => {
+        {ASSIGNABLE_ROLES.map((r) => {
           const roleMeta = ROLE_META[r]
           const RIcon = roleMeta.icon
           return (
@@ -351,7 +352,7 @@ function MemberMenu({
           <>
             {canChangeRole && (
               <>
-                {(["admin", "member"] as AssignableRole[])
+                {ASSIGNABLE_ROLES
                   .filter((r) => r !== member.role)
                   .map((r) => {
                     const meta = ROLE_META[r]

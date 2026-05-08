@@ -30,6 +30,7 @@ import {
   OpenPrResult,
   RateLimited,
   RepoGone,
+  TagName,
   Ticket,
   TicketDetail,
   TicketId,
@@ -45,6 +46,7 @@ import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeTagName = Schema.decodeUnknownSync(TagName)
 
 function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
@@ -233,9 +235,7 @@ export const TicketsLive = Layer.effect(
           newName === null
             ? existing.tags.filter((t) => t !== oldName)
             : existing.tags.map((t) =>
-                t === oldName
-                  ? (newName as TicketDocument["tags"][number])
-                  : t
+                t === oldName ? makeTagName(newName) : t
               )
         const next: TicketDocument = {
           ...existing,
