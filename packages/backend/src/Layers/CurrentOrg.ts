@@ -20,11 +20,13 @@
 // will be the first consumer; sync gets added there.
 
 import { and, eq } from "drizzle-orm"
-import { Effect, Layer } from "effect"
-import { NotFound, type Role } from "@projectproject/shared"
+import { Effect, Layer, Schema } from "effect"
+import { NotFound, Role } from "@projectproject/shared"
 import { member, organization } from "../db/schema"
 import { Db } from "../Services/Db"
 import { CurrentOrg, type CurrentOrgShape } from "../Services/CurrentOrg"
+
+const makeRole = Schema.decodeUnknownSync(Role)
 
 export const CurrentOrgLive = Layer.effect(
   CurrentOrg,
@@ -60,7 +62,7 @@ export const CurrentOrgLive = Layer.effect(
               ? Effect.succeed({
                   organizationId: rows[0].organizationId,
                   orgSlug,
-                  role: rows[0].role as Role
+                  role: makeRole(rows[0].role)
                 })
               : Effect.fail(new NotFound())
           )

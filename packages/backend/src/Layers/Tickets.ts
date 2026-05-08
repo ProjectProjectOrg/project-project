@@ -37,102 +37,33 @@ import {
 } from "@projectproject/shared"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
-import { Markdown, type MarkdownError } from "../Services/Markdown"
+import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import { TicketDocs, type TicketDocument } from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
-const TicketFrontmatter = Schema.Struct({
-  id: TicketId,
-  title: Schema.String,
-  status: Schema.Literal("todo", "in_progress", "done"),
-  type: Schema.Literal("feat", "bug", "chore", "other"),
-  priority: Schema.optionalWith(Schema.Literal("low", "med", "high"), {
-    default: () => "med" as const
-  }),
-  tags: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => []
-  }),
-  branch: Schema.NullOr(Schema.String),
-  pr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    default: () => null
-  }),
-  lastTransitionedPr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    default: () => null
-  }),
-  assignees: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => []
-  }),
-  createdBy: Schema.String,
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date
-})
-type TicketFrontmatter = typeof TicketFrontmatter.Type
-
-const decodeFrontmatter = Schema.decodeUnknown(TicketFrontmatter)
-
-function decodeFrontmatterCompat(raw: unknown) {
-  if (raw && typeof raw === "object") {
-    const r = raw as Record<string, unknown>
-    if (r.assignees === undefined && "assignee" in r) {
-      const legacy = r.assignee
-      r.assignees = typeof legacy === "string" ? [legacy] : []
-    }
-  }
-  return decodeFrontmatter(raw)
-}
-
-function nextIdFrom(ids: ReadonlyArray<string>): string {
+function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
   for (const id of ids) {
     const n = Number(id.slice(2))
     if (Number.isFinite(n) && n > max) max = n
   }
-  return `T-${max + 1}`
+  return makeTicketId(`T-${max + 1}`)
 }
 
-function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
-  return {
-    id: fm.id,
-    title: fm.title,
-    status: fm.status,
-    type: fm.type,
-    priority: fm.priority,
-    tags: fm.tags,
-    branch: fm.branch,
-    pr: fm.pr,
-    lastTransitionedPr: fm.lastTransitionedPr,
-    assignees: fm.assignees,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt.toISOString(),
-    updatedAt: fm.updatedAt.toISOString()
-  }
-}
-
-function frontmatterToWire(fm: TicketFrontmatter): Ticket {
-  return {
-    id: fm.id,
-    title: fm.title,
-    status: fm.status,
-    type: fm.type,
-    priority: fm.priority,
-    tags: fm.tags as Ticket["tags"],
-    branch: fm.branch,
-    pr: fm.pr,
-    lastTransitionedPr: fm.lastTransitionedPr,
-    assignees: fm.assignees,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt,
-    updatedAt: fm.updatedAt
-  }
+function documentToTicket(document: TicketDocument): Ticket {
+  const { body: _body, ...ticket } = document
+  return ticket
 }
 
 export const TicketsLive = Layer.effect(
   Tickets,
   Effect.gen(function* () {
-    const md = yield* Markdown
+    const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
     const github = yield* GitHub
     const groups = yield* Groups
@@ -150,15 +81,8 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<
-      TicketFrontmatter & { body: string },
-      NotFound | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        const file = yield* md.readTicketFile(orgSlug, slug, id)
-        const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.body }
-      })
+    ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
+      ticketDocs.read(orgSlug, slug, id)
 
     const list = (
       orgSlug: string,
@@ -167,13 +91,13 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...tickets.map(frontmatterToWire)].sort(
+        return [...tickets.map(documentToTicket)].sort(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
@@ -186,8 +110,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const t = yield* readTicket(orgSlug, slug, id)
-        return { ...frontmatterToWire(t), body: t.body }
+        return yield* readTicket(orgSlug, slug, id)
       })
 
     const create = (
@@ -198,12 +121,12 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
         const now = new Date()
-        const fm: TicketFrontmatter = {
-          id: candidate as TicketId,
+        const document: TicketDocument = {
+          id: candidate,
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
@@ -215,18 +138,13 @@ export const TicketsLive = Layer.effect(
           assignees: [],
           createdBy: ownerId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          body: `# ${input.title}\n`
         }
 
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const result = yield* md
-            .createTicketFile(
-              orgSlug,
-              slug,
-              candidate,
-              frontmatterToDisk({ ...fm, id: candidate as TicketId }),
-              `# ${input.title}\n`
-            )
+          const result = yield* ticketDocs
+            .create(orgSlug, slug, { ...document, id: candidate })
             .pipe(
               Effect.map(() => "ok" as const),
               Effect.catchTag("TicketIdTaken", () =>
@@ -234,9 +152,9 @@ export const TicketsLive = Layer.effect(
               )
             )
           if (result === "ok") {
-            return frontmatterToWire({ ...fm, id: candidate as TicketId })
+            return documentToTicket({ ...document, id: candidate })
           }
-          const freshIds = yield* md.listTicketIds(orgSlug, slug)
+          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
           candidate = nextIdFrom(freshIds)
         }
         return yield* Effect.die(
@@ -264,7 +182,7 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const next: TicketFrontmatter = {
+        const next: TicketDocument = {
           id: existing.id,
           title: input.title ?? existing.title,
           status: input.status ?? existing.status,
@@ -280,19 +198,13 @@ export const TicketsLive = Layer.effect(
               : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          body: input.body ?? existing.body
         }
-        const nextBody = input.body ?? existing.body
 
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          nextBody
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
 
-        return { ...frontmatterToWire(next), body: nextBody }
+        return next
       })
 
     const remove = (
@@ -304,7 +216,7 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
-        yield* md.removeTicketFile(orgSlug, slug, id)
+        yield* ticketDocs.remove(orgSlug, slug, id)
       })
 
     const replaceTag = (
@@ -316,24 +228,21 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<boolean, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         const existing = yield* readTicket(orgSlug, slug, id)
-        if (!existing.tags.includes(oldName)) return false
+        if (!existing.tags.some((tag) => tag === oldName)) return false
         const nextTags =
           newName === null
             ? existing.tags.filter((t) => t !== oldName)
-            : existing.tags.map((t) => (t === oldName ? newName : t))
-        const { body, ...fm } = existing
-        const next: TicketFrontmatter = {
-          ...fm,
+            : existing.tags.map((t) =>
+                t === oldName
+                  ? (newName as TicketDocument["tags"][number])
+                  : t
+              )
+        const next: TicketDocument = {
+          ...existing,
           tags: nextTags,
           updatedAt: new Date()
         }
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          body
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
       })
 
@@ -343,16 +252,16 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string,
-      existing: TicketFrontmatter & { body: string },
+      existing: TicketDocument,
       patch: {
         branch?: string | null
         pr?: number | null
         lastTransitionedPr?: number | null
-        status?: TicketFrontmatter["status"]
+        status?: TicketDocument["status"]
       }
-    ): Effect.Effect<TicketFrontmatter, MarkdownError> =>
+    ): Effect.Effect<TicketDocument, MarkdownError> =>
       Effect.gen(function* () {
-        const next: TicketFrontmatter = {
+        const next: TicketDocument = {
           ...existing,
           branch: patch.branch !== undefined ? patch.branch : existing.branch,
           pr: patch.pr !== undefined ? patch.pr : existing.pr,
@@ -363,13 +272,7 @@ export const TicketsLive = Layer.effect(
           status: patch.status ?? existing.status,
           updatedAt: new Date()
         }
-        yield* md.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          existing.body
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
         return next
       })
 
@@ -419,7 +322,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const attachBranch = (
@@ -467,7 +370,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const openPr = (
@@ -543,7 +446,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const listGitStates = (
@@ -566,7 +469,7 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicket(orgSlug, slug, id),

@@ -28,7 +28,7 @@
 //   change role         ✓      –      –
 
 import { Effect, Layer, Schema } from "effect"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import {
   Forbidden,
   GitHubError,
@@ -36,8 +36,7 @@ import {
   GitHubTokenExpired,
   NotFound,
   RepoGone,
-  Role,
-  Slug
+  Role
 } from "@projectproject/shared"
 import type {
   AddMemberInput,
@@ -53,70 +52,13 @@ import type {
 import { organization, projectIndex, projectMember } from "../db/schema"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
-import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import type { MarkdownError } from "../Services/Markdown"
 import { Users } from "../Services/Users"
 import { Projects, type ProjectsShape } from "../Services/Projects"
 
 const MAX_SLUG_ATTEMPTS = 100
-
-// Defensive: project.md should carry an `org:` field after T-02 writes,
-// but pre-migration files won't have it. Log a warning so we notice drift,
-// but don't crash — the handler's `orgSlug` parameter is authoritative.
-function checkOrgFrontmatter(
-  expected: string,
-  data: Record<string, unknown>,
-  slug: string
-): void {
-  const onDisk = data["org"]
-  if (onDisk === undefined) {
-    console.warn(
-      `[markdown] project '${slug}' has no 'org' frontmatter (expected '${expected}'). Run migrate:orgs.`
-    )
-    return
-  }
-  if (onDisk !== expected) {
-    const onDiskSafe =
-      typeof onDisk === "string" ? onDisk : JSON.stringify(onDisk)
-    console.warn(
-      `[markdown] project '${slug}' frontmatter org='${onDiskSafe}' does not match request org='${expected}'.`
-    )
-  }
-}
-
-// On-disk `project.md` frontmatter shape. Decoded at every read site so
-// hand-edits or partial writes surface as a defect rather than as silently
-// wrong data downstream. `members` and `github` use disk-flavored shapes
-// (just the fields the file carries — the wire `Member` schema is fuller,
-// and the wire `GithubConnection` matches the disk shape exactly here).
-const FrontmatterMember = Schema.Struct({
-  username: Schema.String,
-  role: Role
-})
-
-const FrontmatterGithub = Schema.Struct({
-  repoOwner: Schema.String,
-  repoName: Schema.String,
-  defaultBaseBranch: Schema.optionalWith(Schema.NullOr(Schema.String), {
-    default: () => null
-  })
-})
-
-const ProjectFrontmatter = Schema.Struct({
-  org: Schema.optional(Slug),
-  slug: Slug,
-  name: Schema.String,
-  createdBy: Schema.optional(Schema.String),
-  createdAt: Schema.Date,
-  members: Schema.optionalWith(Schema.Array(FrontmatterMember), {
-    default: () => []
-  }),
-  github: Schema.optionalWith(Schema.NullOr(FrontmatterGithub), {
-    default: () => null
-  })
-})
-type ProjectFrontmatter = typeof ProjectFrontmatter.Type
-
-const decodeProjectFrontmatter = Schema.decodeUnknown(ProjectFrontmatter)
+const makeRole = Schema.decodeUnknownSync(Role)
 
 function slugify(name: string): string {
   return name
@@ -131,26 +73,9 @@ export const ProjectsLive = Layer.effect(
   Projects,
   Effect.gen(function* () {
     const db = yield* Db
-    const md = yield* Markdown
+    const projectDocs = yield* ProjectDocs
     const users = yield* Users
     const github = yield* GitHub
-
-    // --- Markdown read with frontmatter validation --------------------
-    // Decoded shape failures die — frontmatter corruption is not a wire
-    // outcome, same as how the Tickets service treats decode errors.
-    const readProject = (
-      orgSlug: string,
-      slug: string
-    ): Effect.Effect<
-      ProjectFrontmatter & { body: string },
-      NotFound | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        const file = yield* md.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
-        const fm = yield* decodeProjectFrontmatter(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.body }
-      })
 
     // --- DB helpers ----------------------------------------------------
 
@@ -216,7 +141,7 @@ export const ProjectsLive = Layer.effect(
                 name: r.user.name,
                 email: r.user.email,
                 image: r.user.image,
-                role: r.role as Role
+                role: makeRole(r.role)
               })
             )
           ),
@@ -269,7 +194,7 @@ export const ProjectsLive = Layer.effect(
           Effect.orDie,
           Effect.flatMap((row) =>
             row
-              ? Effect.succeed({ role: row.role as Role })
+              ? Effect.succeed({ role: makeRole(row.role) })
               : Effect.fail(new NotFound())
           )
         )
@@ -290,15 +215,6 @@ export const ProjectsLive = Layer.effect(
 
     // --- Frontmatter sync ----------------------------------------------
 
-    const readGithubFromFile = (
-      orgSlug: string,
-      slug: string
-    ): Effect.Effect<GithubConnection | null, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        const fm = yield* readProject(orgSlug, slug)
-        return fm.github
-      })
-
     const syncFrontmatter = (
       orgSlug: string,
       slug: string,
@@ -308,27 +224,20 @@ export const ProjectsLive = Layer.effect(
       body: string,
       members: ReadonlyArray<Member>,
       connection: GithubConnection | null
-    ): Effect.Effect<void, MarkdownError> => {
-      const fm: Record<string, unknown> = {
+    ): Effect.Effect<void, MarkdownError> =>
+      projectDocs.write(orgSlug, slug, {
         org: orgSlug,
         slug,
         name,
         createdBy,
-        createdAt: createdAt.toISOString(),
+        createdAt,
         members: members.map((m) => ({
           username: m.username ?? m.email,
           role: m.role
-        }))
-      }
-      if (connection) {
-        fm.github = {
-          repoOwner: connection.repoOwner,
-          repoName: connection.repoName,
-          defaultBaseBranch: connection.defaultBaseBranch
-        }
-      }
-      return md.writeProjectFile(orgSlug, slug, fm, body)
-    }
+        })),
+        github: connection,
+        body
+      })
 
     // --- CRUD ----------------------------------------------------------
 
@@ -398,7 +307,7 @@ export const ProjectsLive = Layer.effect(
         yield* requireMember(orgSlug, userId, slug)
         const indexRow = yield* getIndexRow(slug)
         if (!indexRow) return yield* Effect.fail(new NotFound())
-        const file = yield* readProject(orgSlug, slug)
+        const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         return {
           org: orgSlug,
@@ -422,7 +331,7 @@ export const ProjectsLive = Layer.effect(
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (!indexRow) return yield* Effect.fail(new NotFound())
-        const file = yield* readProject(orgSlug, slug)
+        const file = yield* projectDocs.read(orgSlug, slug)
 
         const nextName = input.name ?? indexRow.name
         const nextBody = input.body ?? file.body
@@ -466,7 +375,7 @@ export const ProjectsLive = Layer.effect(
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner"])
-        yield* md.removeProjectDir(orgSlug, slug)
+        yield* projectDocs.removeDir(orgSlug, slug)
         yield* db
           .delete(projectIndex)
           .where(eq(projectIndex.slug, slug))
@@ -482,7 +391,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
         if (!indexRow) return yield* Effect.fail(new NotFound())
-        const file = yield* readProject(orgSlug, slug)
+        const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
           orgSlug,
@@ -528,7 +437,7 @@ export const ProjectsLive = Layer.effect(
           .pipe(Effect.orDie)
 
         if (existing) {
-          const currentRole = existing.role as Role
+          const currentRole = makeRole(existing.role)
           if (currentRole !== input.role) {
             const callerCtx = yield* requireMember(orgSlug, userId, slug)
             if (callerCtx.role !== "owner") {
@@ -578,7 +487,7 @@ export const ProjectsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!existing) return yield* Effect.fail(new NotFound())
-        if ((existing.role as Role) === "owner") {
+        if (makeRole(existing.role) === "owner") {
           return yield* Effect.fail(new Forbidden())
         }
         yield* db
@@ -615,7 +524,7 @@ export const ProjectsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!existing) return yield* Effect.fail(new NotFound())
-        const targetRole = existing.role as Role
+        const targetRole = makeRole(existing.role)
         if (targetRole === "owner") return yield* Effect.fail(new Forbidden())
         if (targetRole === "admin" && callerCtx.role !== "owner") {
           return yield* Effect.fail(new Forbidden())
@@ -653,7 +562,7 @@ export const ProjectsLive = Layer.effect(
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (!indexRow) return yield* Effect.fail(new NotFound())
-        const file = yield* readProject(orgSlug, slug)
+        const file = yield* projectDocs.read(orgSlug, slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
 
@@ -699,7 +608,7 @@ export const ProjectsLive = Layer.effect(
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
         if (!indexRow) return yield* Effect.fail(new NotFound())
-        const file = yield* readProject(orgSlug, slug)
+        const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
           orgSlug,
@@ -722,9 +631,6 @@ export const ProjectsLive = Layer.effect(
           members
         }
       })
-
-    void inArray
-    void readGithubFromFile
 
     return {
       list,

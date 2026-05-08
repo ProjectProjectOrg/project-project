@@ -174,6 +174,33 @@ Use tagged errors for expected domain outcomes. Use defects for broken invariant
 3. Git-state planner extraction.
    This targets the most complex current workflow and gives a strong example of separating domain decision logic from Effectful adapters.
 
+4. Typed document repositories.
+   This moves Markdown frontmatter decoding and disk serialization behind `ProjectDocs`, `TicketDocs`, and `GroupDocs` adapters.
+
+## Learning Output: Typed Document Repositories
+
+Problem:
+
+`Markdown` correctly owns filesystem IO, but its Interface is intentionally raw: `{ data, body }`. When `Projects`, `Tickets`, `Groups`, and `Tags` consume that raw shape directly, each domain module must know frontmatter schemas, defaults, legacy compatibility, and disk serialization. That makes the modules shallow: their callers get little leverage because the file-format complexity leaks inward.
+
+Solution:
+
+Add typed document repository modules:
+
+- `Services/ProjectDocs.ts` + `Layers/ProjectDocs.ts`
+- `Services/TicketDocs.ts` + `Layers/TicketDocs.ts`
+- `Services/GroupDocs.ts` + `Layers/GroupDocs.ts`
+
+The live layers depend on `Markdown`, decode raw frontmatter once, and expose domain-shaped document values. Domain layers now depend on document repositories, not raw Markdown.
+
+Best practice:
+
+Raw external data should cross the adapter seam only once. After that seam, code should use typed domain values and tagged expected failures. This improves locality because file-format changes stay in one adapter, and it improves leverage because tests can mock `GroupDocs` or `TicketDocs` directly without building fake markdown files.
+
+Effect pattern:
+
+The service tag file defines the Interface. The live layer defines the Implementation. Runtime composition wires the live adapters together. This is the same broad shape we saw in t3code, adapted to Effect v3 and our uppercase `Services/` and `Layers/` folders.
+
 ## What This Is Not
 
 This is not an implementation plan. It does not decide folder structure, exact service shape names, or which module gets split first. Those are architectural decisions and should be picked deliberately before code changes.

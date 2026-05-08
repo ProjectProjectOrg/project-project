@@ -1,92 +1,92 @@
 import { it } from "@effect/vitest"
 import { Effect, Layer, Schema } from "effect"
 import { expect } from "vitest"
-import { Forbidden, NotFound, TicketId } from "@projectproject/shared"
-import type { ProjectDetail, Role } from "@projectproject/shared"
+import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
+import type { GroupDetail, ProjectDetail, Role } from "@projectproject/shared"
+import {
+  GroupDocs,
+  type GroupDocsShape,
+  type GroupDocument
+} from "./GroupDocs"
 import { Groups } from "./Groups"
 import { GroupsLive } from "../Layers/Groups"
-import { GroupIdTaken, Markdown, type MarkdownShape } from "./Markdown"
+import { GroupIdTaken } from "./Markdown"
 import { Projects, type ProjectsShape } from "./Projects"
+import { TicketDocs, type TicketDocsShape } from "./TicketDocs"
 
-type FileEntry = { fm: Record<string, unknown>; body: string }
+const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
-function unexpectedMarkdownCall(method: string): Effect.Effect<never> {
-  return Effect.die(new Error(`unexpected Markdown.${method} call`))
+function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
+  return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
 }
 
-function makeFakeMarkdown(initial?: {
+function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
-  groups?: Record<string, FileEntry>
+  groups?: Record<string, GroupDetail>
 }) {
-  const groups = new Map<string, FileEntry>(
+  const groups = new Map<string, GroupDocument>(
     Object.entries(initial?.groups ?? {})
   )
   const ticketIds = [...(initial?.ticketIds ?? [])]
 
-  const service = {
-    root: "/tmp/projectproject-test",
-    projectDir: (orgSlug: string, slug: string) =>
-      `/tmp/projectproject-test/orgs/${orgSlug}/projects/${slug}`,
-    readProjectFile: () => unexpectedMarkdownCall("readProjectFile"),
-    writeProjectFile: () => unexpectedMarkdownCall("writeProjectFile"),
-    removeProjectDir: () => unexpectedMarkdownCall("removeProjectDir"),
-    readTicketFile: () => unexpectedMarkdownCall("readTicketFile"),
-    createTicketFile: () => unexpectedMarkdownCall("createTicketFile"),
-    writeTicketFile: () => unexpectedMarkdownCall("writeTicketFile"),
-    removeTicketFile: () => unexpectedMarkdownCall("removeTicketFile"),
-    listTicketIds: () => Effect.succeed([...ticketIds]),
-    readGroupFile: (_org: string, _slug: string, id: string) => {
-      const g = groups.get(id)
-      return g
-        ? Effect.succeed({ data: g.fm, body: g.body })
+  const groupService = {
+    listIds: () => Effect.succeed([...groups.keys()].map((id) => groupId(id))),
+    read: (_org: string, _slug: string, id: string) => {
+      const group = groups.get(id)
+      return group
+        ? Effect.succeed(group)
         : Effect.fail(new NotFound())
     },
-    createGroupFile: (
+    create: (
       _org: string,
       _slug: string,
-      id: string,
-      fm: Record<string, unknown>,
-      body: string
+      document: GroupDocument
     ) => {
-      if (groups.has(id)) {
+      if (groups.has(document.id)) {
         return Effect.fail(new GroupIdTaken())
       }
-      groups.set(id, { fm, body })
+      groups.set(document.id, document)
       return Effect.void
     },
-    writeGroupFile: (
+    write: (
       _org: string,
       _slug: string,
       id: string,
-      fm: Record<string, unknown>,
-      body: string
+      document: GroupDocument
     ) => {
-      groups.set(id, { fm, body })
+      groups.set(id, document)
       return Effect.void
     },
-    writeGroupFileIfExists: (
+    writeIfExists: (
       _org: string,
       _slug: string,
       id: string,
-      fm: Record<string, unknown>,
-      body: string
+      document: GroupDocument
     ) => {
       if (!groups.has(id)) return Effect.fail(new NotFound())
-      groups.set(id, { fm, body })
+      groups.set(id, document)
       return Effect.void
     },
-    removeGroupFile: (_org: string, _slug: string, id: string) => {
+    remove: (_org: string, _slug: string, id: string) => {
       if (!groups.has(id)) return Effect.fail(new NotFound())
       groups.delete(id)
       return Effect.void
-    },
-    listGroupIds: () => Effect.succeed([...groups.keys()])
-  } satisfies MarkdownShape
+    }
+  } satisfies GroupDocsShape
+
+  const ticketService = {
+    listIds: () => Effect.succeed(ticketIds.map((id) => ticketId(id))),
+    read: () => unexpectedTicketDocsCall("read"),
+    create: () => unexpectedTicketDocsCall("create"),
+    write: () => unexpectedTicketDocsCall("write"),
+    remove: () => unexpectedTicketDocsCall("remove")
+  } satisfies TicketDocsShape
 
   return {
     state: { groups, ticketIds },
-    layer: Layer.succeed(Markdown, service)
+    groupLayer: Layer.succeed(GroupDocs, groupService),
+    ticketLayer: Layer.succeed(TicketDocs, ticketService)
   }
 }
 
@@ -144,6 +144,18 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
   return Layer.succeed(Projects, service)
 }
 
+function makeGroupsLayer(
+  docs?: Parameters<typeof makeFakeDocs>[0],
+  projects?: { role?: Role }
+) {
+  const fakeDocs = makeFakeDocs(docs)
+  return GroupsLive.pipe(
+    Layer.provide(fakeDocs.groupLayer),
+    Layer.provide(fakeDocs.ticketLayer),
+    Layer.provide(makeFakeProjects(projects))
+  )
+}
+
 it.effect("create + list returns the new group", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
@@ -157,12 +169,7 @@ it.effect("create + list returns the new group", () =>
     expect(list).toHaveLength(1)
     expect(list[0].name).toBe("Backlog cleanup")
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -180,12 +187,7 @@ it.effect("create with kind=sprint fails for non-admin member", () =>
       expect(result.left._tag).toBe("Forbidden")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -198,12 +200,7 @@ it.effect("create with kind=sprint succeeds for admin", () =>
     })
     expect(created.kind).toBe("sprint")
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "admin" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
   )
 )
 
@@ -223,12 +220,7 @@ it.effect("updateTickets rejects unknown ticket ids", () =>
       expect(result.left._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown({ ticketIds: ["T-1"] }).layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
   )
 )
 
@@ -245,12 +237,7 @@ it.effect("updateTickets returns NotFound before validating tickets", () =>
       expect(result.left._tag).toBe("NotFound")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown({ ticketIds: ["T-1"] }).layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "member" }))
   )
 )
 
@@ -269,12 +256,7 @@ it.effect("create rejects endsAt before startsAt", () =>
       expect(result.left._tag).toBe("Validation")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -296,12 +278,7 @@ it.effect("update rejects endsAt before existing startsAt", () =>
       expect(result.left._tag).toBe("Validation")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -320,12 +297,7 @@ it.effect("update rejects completedAt in the future", () =>
       expect(result.left._tag).toBe("Validation")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -347,12 +319,7 @@ it.effect("update rejects completedAt before startsAt", () =>
       expect(result.left._tag).toBe("Validation")
     }
   }).pipe(
-    Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown().layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
-    )
+    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
   )
 )
 
@@ -368,10 +335,7 @@ it.effect("removeTicketFromAllGroups strips the id", () =>
     expect(after.tickets).toEqual(["T-2"])
   }).pipe(
     Effect.provide(
-      GroupsLive.pipe(
-        Layer.provide(makeFakeMarkdown({ ticketIds: ["T-1", "T-2"] }).layer),
-        Layer.provide(makeFakeProjects({ role: "member" }))
-      )
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "member" })
     )
   )
 )
