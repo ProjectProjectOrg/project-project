@@ -1,4 +1,4 @@
-import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { Result, useAtom, useAtomValue } from "@effect-atom/atom-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
@@ -28,8 +28,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 import { TagChip } from "@/components/TagChip"
 import { Kbd } from "@/components/ui/kbd"
+import { meAtom } from "@/atoms/auth"
 import {
   STATUS_LABELS,
   STATUS_META,
@@ -38,6 +40,16 @@ import {
 } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
+import {
+  assigneeFilterAtom,
+  queryAtom,
+  searchFocusedAtom,
+  selectedTagsAtom,
+  sortKeyAtom,
+  statusFilterAtom,
+  ticketListUiKey,
+  typeFilterAtom
+} from "@/atoms/ticketListUi"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import type {
@@ -56,46 +68,29 @@ const TOOLBAR_BUTTON_CLASS = cn(
 )
 
 export function Toolbar({
-  query,
-  onQueryChange,
-  statusFilter,
-  onStatusFilterChange,
-  typeFilter,
-  onTypeFilterChange,
-  assigneeFilter,
-  onAssigneeFilterChange,
-  selectedTags,
-  onSelectedTagsChange,
-  sortKey,
-  onSortChange,
-  tickets,
-  members,
-  myId,
   orgSlug,
   slug,
-  compact,
-  onSearchFocusChange
+  tickets,
+  members
 }: {
-  query: string
-  onQueryChange: (q: string) => void
-  statusFilter: TicketStatus | "all"
-  onStatusFilterChange: (s: TicketStatus | "all") => void
-  typeFilter: TicketType | "all"
-  onTypeFilterChange: (t: TicketType | "all") => void
-  assigneeFilter: string
-  onAssigneeFilterChange: (a: string) => void
-  selectedTags: ReadonlyArray<TagName>
-  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
-  sortKey: SortKey
-  onSortChange: (k: SortKey) => void
-  tickets: ReadonlyArray<Ticket>
-  members: ReadonlyArray<Member>
-  myId: string | null
   orgSlug: string
   slug: string
-  compact: boolean
-  onSearchFocusChange: (focused: boolean) => void
+  tickets: ReadonlyArray<Ticket>
+  members: ReadonlyArray<Member>
 }) {
+  const key = ticketListUiKey(orgSlug, slug)
+  const [query, setQuery] = useAtom(queryAtom(key))
+  const [statusFilter, setStatusFilter] = useAtom(statusFilterAtom(key))
+  const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
+  const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
+  const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
+  const [sortKey, setSortKey] = useAtom(sortKeyAtom(key))
+  const [searchFocused, setSearchFocused] = useAtom(searchFocusedAtom(key))
+  const me = useAtomValue(meAtom)
+  const myId = Result.isSuccess(me) ? me.value.id : null
+
+  const compact = searchFocused || query.length > 0
+
   const searchRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("/", searchRef)
 
@@ -121,12 +116,13 @@ export function Toolbar({
     query.length > 0
 
   const clearAll = () => {
-    onQueryChange("")
-    onStatusFilterChange("all")
-    onTypeFilterChange("all")
-    onAssigneeFilterChange("all")
-    onSelectedTagsChange([])
+    setQuery("")
+    setStatusFilter("all")
+    setTypeFilter("all")
+    setAssigneeFilter("all")
+    setSelectedTags([])
   }
+
   const counts = useMemo(() => {
     const q = query.trim().toLowerCase()
     const resolved =
@@ -184,21 +180,23 @@ export function Toolbar({
         <InputGroupInput
           ref={searchRef}
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onFocus={() => onSearchFocusChange(true)}
-          onBlur={() => onSearchFocusChange(false)}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
           placeholder={m.tickets_search_placeholder()}
           aria-label={m.tickets_search_aria_label()}
         />
         {query ? (
-          <button
+          <Button
             type="button"
-            onClick={() => onQueryChange("")}
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => setQuery("")}
             aria-label={m.tickets_search_clear_aria_label()}
-            className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="shrink-0 rounded"
           >
-            <X className="size-3.5" strokeWidth={1.75} />
-          </button>
+            <X strokeWidth={1.75} />
+          </Button>
         ) : !compact ? (
           <Kbd>/</Kbd>
         ) : null}
@@ -207,28 +205,22 @@ export function Toolbar({
       <div className="flex flex-wrap items-center gap-2">
         <StatusChips
           value={statusFilter}
-          onChange={onStatusFilterChange}
+          onChange={setStatusFilter}
           counts={counts}
           compact={statusCompact}
         />
 
         <FiltersMenu
-          typeFilter={typeFilter}
-          onTypeFilterChange={onTypeFilterChange}
-          assigneeFilter={assigneeFilter}
-          onAssigneeFilterChange={onAssigneeFilterChange}
-          selectedTags={selectedTags}
-          onSelectedTagsChange={onSelectedTagsChange}
-          members={members}
-          myId={myId}
           orgSlug={orgSlug}
           slug={slug}
+          members={members}
+          myId={myId}
           compact={controlsCompact}
         />
 
         <SortMenu
           value={sortKey}
-          onChange={onSortChange}
+          onChange={setSortKey}
           compact={controlsCompact}
         />
 
@@ -309,34 +301,26 @@ function StatusChips({
 }
 
 function FiltersMenu({
-  typeFilter,
-  onTypeFilterChange,
-  assigneeFilter,
-  onAssigneeFilterChange,
-  selectedTags,
-  onSelectedTagsChange,
-  members,
-  myId,
   orgSlug,
   slug,
+  members,
+  myId,
   compact
 }: {
-  typeFilter: TicketType | "all"
-  onTypeFilterChange: (v: TicketType | "all") => void
-  assigneeFilter: string
-  onAssigneeFilterChange: (v: string) => void
-  selectedTags: ReadonlyArray<TagName>
-  onSelectedTagsChange: (next: ReadonlyArray<TagName>) => void
-  members: ReadonlyArray<Member>
-  myId: string | null
   orgSlug: string
   slug: string
+  members: ReadonlyArray<Member>
+  myId: string | null
   compact: boolean
 }) {
+  const key = ticketListUiKey(orgSlug, slug)
+  const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
+  const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
+  const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
   const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
   const tagList = Result.isSuccess(tags) ? tags.value : []
   const toggleTag = (name: TagName) => {
-    onSelectedTagsChange(
+    setSelectedTags(
       selectedTags.includes(name)
         ? selectedTags.filter((t) => t !== name)
         : [...selectedTags, name]
@@ -385,7 +369,7 @@ function FiltersMenu({
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
-            onTypeFilterChange("all")
+            setTypeFilter("all")
           }}
           className="cursor-pointer"
         >
@@ -402,7 +386,7 @@ function FiltersMenu({
               key={t}
               onSelect={(e) => {
                 e.preventDefault()
-                onTypeFilterChange(t)
+                setTypeFilter(t)
               }}
               className="cursor-pointer"
             >
@@ -420,7 +404,7 @@ function FiltersMenu({
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
-            onAssigneeFilterChange("all")
+            setAssigneeFilter("all")
           }}
           className="cursor-pointer"
         >
@@ -433,7 +417,7 @@ function FiltersMenu({
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
-              onAssigneeFilterChange("mine")
+              setAssigneeFilter("mine")
             }}
             className="cursor-pointer"
           >
@@ -447,7 +431,7 @@ function FiltersMenu({
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
-            onAssigneeFilterChange("unassigned")
+            setAssigneeFilter("unassigned")
           }}
           className="cursor-pointer"
         >
@@ -462,7 +446,7 @@ function FiltersMenu({
             key={member.id}
             onSelect={(e) => {
               e.preventDefault()
-              onAssigneeFilterChange(member.id)
+              setAssigneeFilter(member.id)
             }}
             className="cursor-pointer"
           >

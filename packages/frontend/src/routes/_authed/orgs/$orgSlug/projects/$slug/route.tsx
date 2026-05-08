@@ -17,7 +17,7 @@ import {
   type LucideIcon
 } from "lucide-react"
 import { STATUS_META } from "@/lib/ticket-meta"
-import { meAtom } from "@/atoms/auth"
+import { useProjectRole } from "@/lib/projectRole"
 import {
   deleteProjectAtom,
   projectAtom,
@@ -29,7 +29,6 @@ import { motion } from "framer-motion"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"
-import type { Role } from "@projectproject/shared"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -124,10 +123,7 @@ function ProjectHeader({
   name: string
   project: ProjectDetailType
 }) {
-  const me = useAtomValue(meAtom)
-  const myRole: Role = Result.isSuccess(me)
-    ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
-    : "member"
+  const { role: myRole } = useProjectRole()
 
   return (
     <header className="flex items-start gap-3">
