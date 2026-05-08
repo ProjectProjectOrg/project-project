@@ -24,7 +24,6 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
-  GitState,
   GitStatesResponse,
   NotFound,
   OpenPrInput,
@@ -34,7 +33,6 @@ import {
   Ticket,
   TicketDetail,
   TicketId,
-  TransitionRecord,
   UpdateTicketInput
 } from "@projectproject/shared"
 import { GitHub } from "../Services/GitHub"
@@ -42,6 +40,7 @@ import { Groups } from "../Services/Groups"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
+import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
 
@@ -628,99 +627,24 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const raw = result.raw
-        const states: Record<string, GitState> = {}
-        const transitioned: TransitionRecord[] = []
+        const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
+        const plan = planTicketGitStates(tickets, result.raw, new Date())
 
-        for (const ticket of tickets) {
-          if (!ticket.branch) {
-            states[ticket.id] = { tag: "no_branch" }
-            continue
-          }
-
-          const pr = raw.prByBranch.get(ticket.branch)
-          const branchExists = raw.existingBranches.has(ticket.branch)
-
-          if (!pr && !branchExists) {
-            states[ticket.id] = { tag: "stale_branch", name: ticket.branch }
-            continue
-          }
-          if (!pr) {
-            states[ticket.id] = {
-              tag: "branch_no_pr",
-              name: ticket.branch,
-              baseBranch: raw.defaultBranch
-            }
-            continue
-          }
-
-          if (ticket.pr !== pr.number) {
-            yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-              pr: pr.number
-            })
-          }
-
-          if (pr.state === "merged") {
-            if (
-              ticket.status !== "done" &&
-              ticket.lastTransitionedPr !== pr.number
-            ) {
-              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-                status: "done",
-                pr: pr.number,
-                lastTransitionedPr: pr.number
-              })
-              transitioned.push({
-                ticketId: ticket.id,
-                fromStatus: ticket.status,
-                toStatus: "done",
-                prNumber: pr.number
-              })
-            } else if (ticket.lastTransitionedPr !== pr.number) {
-              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-                pr: pr.number,
-                lastTransitionedPr: pr.number
-              })
-            }
-            states[ticket.id] = {
-              tag: "pr_merged",
-              branch: ticket.branch,
-              baseBranch: pr.baseRefName,
-              number: pr.number,
-              url: pr.url,
-              title: pr.title,
-              mergedAt: pr.mergedAt ?? new Date()
-            }
-            continue
-          }
-
-          if (pr.state === "closed") {
-            states[ticket.id] = {
-              tag: "pr_closed",
-              branch: ticket.branch,
-              baseBranch: pr.baseRefName,
-              number: pr.number,
-              url: pr.url,
-              title: pr.title
-            }
-            continue
-          }
-
-          states[ticket.id] = {
-            tag: "pr_open",
-            branch: ticket.branch,
-            baseBranch: pr.baseRefName,
-            number: pr.number,
-            url: pr.url,
-            draft: pr.draft,
-            title: pr.title,
-            checks: pr.checks
-          }
+        for (const write of plan.writes) {
+          const ticket = ticketById.get(write.ticketId)
+          if (!ticket) continue
+          yield* writeGitFields(
+            orgSlug,
+            slug,
+            write.ticketId,
+            ticket,
+            write.patch
+          )
         }
 
         return {
-          states,
-          transitioned,
+          states: plan.states,
+          transitioned: plan.transitioned,
           tokenStatus: "ok",
           repoStatus: "ok"
         }
