@@ -197,13 +197,12 @@ function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
-    { mode: "promiseExit" }
-  )
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketAtom(tKey))
+  const saving = updateState.waiting
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)
-  const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!editing) setDraft(ticket.title)
   }, [editing, ticket.title])
@@ -215,9 +214,7 @@ function TitleField({
       setDraft(ticket.title)
       return
     }
-    setSaving(true)
     await update({ title: trimmed })
-    setSaving(false)
     setEditing(false)
   }
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
