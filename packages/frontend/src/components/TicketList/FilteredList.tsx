@@ -1,68 +1,80 @@
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useEffect, useMemo, useRef } from "react"
 import { ChevronDown, ListChecks, X } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@/components/ui/empty"
+import { meAtom } from "@/atoms/auth"
+import {
+  assigneeFilterAtom,
+  queryAtom,
+  selectedTagsAtom,
+  sortKeyAtom,
+  statusFilterAtom,
+  ticketListUiKey,
+  typeFilterAtom
+} from "@/atoms/ticketListUi"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type {
-  Member,
-  Ticket,
-  TagName,
-  TicketId,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
+import type { Member, Ticket, TicketId } from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
 import { Expanded } from "./Expanded"
 import { PriorityButton } from "./PriorityField"
-import { SORTS, type SortKey } from "./sort"
+import { SORTS } from "./sort"
 import { StatusButton } from "./StatusField"
 import { TypeButton } from "./TypeField"
+
+const EMPTY_BORDER = "border border-dashed border-border"
 
 export function FilteredList({
   orgSlug,
   slug,
   tickets,
-  query,
-  onClearSearch,
-  statusFilter,
-  typeFilter,
-  assigneeFilter,
-  selectedTags,
-  sortKey,
+  members,
   expandedId,
   onExpand,
   focusBody,
-  onConsumeFocusBody,
-  members
+  onConsumeFocusBody
 }: {
   orgSlug: string
   slug: string
   tickets: ReadonlyArray<Ticket>
-  query: string
-  onClearSearch: () => void
-  statusFilter: TicketStatus | "all"
-  typeFilter: TicketType | "all"
-  assigneeFilter: "all" | "unassigned" | string
-  selectedTags: ReadonlyArray<TagName>
-  sortKey: SortKey
+  members: ReadonlyArray<Member>
   expandedId: TicketId | null
   onExpand: (id: TicketId | null) => void
   focusBody: boolean
   onConsumeFocusBody: () => void
-  members: ReadonlyArray<Member>
 }) {
+  const key = ticketListUiKey(orgSlug, slug)
+  const query = useAtomValue(queryAtom(key))
+  const statusFilter = useAtomValue(statusFilterAtom(key))
+  const typeFilter = useAtomValue(typeFilterAtom(key))
+  const assigneeFilter = useAtomValue(assigneeFilterAtom(key))
+  const selectedTags = useAtomValue(selectedTagsAtom(key))
+  const sortKey = useAtomValue(sortKeyAtom(key))
+  const me = useAtomValue(meAtom)
+  const myId = Result.isSuccess(me) ? me.value.id : null
+
+  const resolvedAssignee: "all" | "unassigned" | string =
+    assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return tickets
       .filter((t) => statusFilter === "all" || t.status === statusFilter)
       .filter((t) => typeFilter === "all" || t.type === typeFilter)
       .filter((t) =>
-        assigneeFilter === "all"
+        resolvedAssignee === "all"
           ? true
-          : assigneeFilter === "unassigned"
+          : resolvedAssignee === "unassigned"
             ? t.assignees.length === 0
-            : t.assignees.includes(assigneeFilter)
+            : t.assignees.includes(resolvedAssignee)
       )
       .filter((t) => selectedTags.every((sel) => t.tags.includes(sel)))
       .filter((t) => {
@@ -78,35 +90,22 @@ export function FilteredList({
     query,
     statusFilter,
     typeFilter,
-    assigneeFilter,
+    resolvedAssignee,
     selectedTags,
     sortKey
   ])
 
-  if (tickets.length === 0) {
-    return <NoTicketsYet />
-  }
+  if (tickets.length === 0) return <NoTicketsYet />
+
   if (filtered.length === 0) {
     if (query.trim().length > 0) {
-      return (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-          <span>
-            {m.tickets_no_search_matches_prefix()}{" "}
-            <span className="font-mono text-foreground">"{query}"</span>.
-          </span>
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            leadingIcon={X}
-            onClick={onClearSearch}
-          >
-            {m.tickets_clear_search_button()}
-          </Button>
-        </div>
-      )
+      return <NoSearchMatches orgSlug={orgSlug} slug={slug} query={query} />
     }
-    return <Empty>{m.tickets_no_filter_matches()}</Empty>
+    return (
+      <Empty className={cn(EMPTY_BORDER, "p-6")}>
+        <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
+      </Empty>
+    )
   }
 
   return (
@@ -229,23 +228,48 @@ function Row({
 
 function NoTicketsYet() {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-background/50 px-4 py-10 text-center">
-      <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <ListChecks className="size-5" strokeWidth={1.75} />
-      </div>
-      <div className="text-sm font-medium">{m.tickets_empty_title()}</div>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        {m.tickets_empty_hint_prefix()}{" "}
-        <span className="font-mono">tickets/</span>.
-      </p>
-    </div>
+    <Empty className={cn(EMPTY_BORDER, "rounded-xl bg-background/50 px-4 py-10")}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <ListChecks strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle className="text-sm font-medium">
+          {m.tickets_empty_title()}
+        </EmptyTitle>
+        <EmptyDescription className="max-w-xs text-xs">
+          {m.tickets_empty_hint_prefix()}{" "}
+          <span className="font-mono">tickets/</span>.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }
 
-export function Empty({ children }: { children: React.ReactNode }) {
+function NoSearchMatches({
+  orgSlug,
+  slug,
+  query
+}: {
+  orgSlug: string
+  slug: string
+  query: string
+}) {
+  const setQuery = useAtomSet(queryAtom(ticketListUiKey(orgSlug, slug)))
   return (
-    <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
+    <Empty className={cn(EMPTY_BORDER, "rounded-xl px-4 py-6 gap-2")}>
+      <EmptyDescription>
+        {m.tickets_no_search_matches_prefix()}{" "}
+        <span className="font-mono text-foreground">"{query}"</span>.
+      </EmptyDescription>
+      <Button
+        type="button"
+        variant="tertiary"
+        size="xs"
+        leadingIcon={X}
+        onClick={() => setQuery("")}
+      >
+        {m.tickets_clear_search_button()}
+      </Button>
+    </Empty>
   )
 }

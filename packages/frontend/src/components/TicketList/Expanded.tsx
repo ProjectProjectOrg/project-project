@@ -5,7 +5,6 @@ import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
-import { meAtom } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
@@ -15,6 +14,7 @@ import {
   updateTicketAtom
 } from "@/atoms/tickets"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { useProjectRole } from "@/lib/projectRole"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
 import { PriorityBadgeTrigger } from "./PriorityField"
@@ -85,19 +85,13 @@ function ExpandedDetail({
   const update = useAtomSet(updateTicketAtom)
   const remove = useAtomSet(deleteTicketAtom)
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
-  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const autoFocusBody = useRef(focusBody).current
   useEffect(() => {
     if (focusBody) onConsumeFocusBody()
   }, [focusBody, onConsumeFocusBody])
 
-  const project = useProject()
-  const me = useAtomValue(meAtom)
-  const myRole = Result.isSuccess(me)
-    ? (project.members.find((m) => m.id === me.value.id)?.role ?? "member")
-    : "member"
-  const canManageTags = myRole === "owner" || myRole === "admin"
+  const { canManageTags } = useProjectRole()
 
   return (
     <div className="flex flex-col gap-3">
@@ -109,24 +103,13 @@ function ExpandedDetail({
         <ConfirmDeleteIcon
           ariaLabel={m.tickets_detail_delete_aria_label()}
           message={m.tickets_detail_delete_confirm()}
-          disabled={deleting}
           onConfirm={async () => {
-            setDeleting(true)
-            try {
-              await remove({
-                orgSlug,
-                slug,
-                id: ticket.id
-              })
-              navigate({
-                to: ".",
-                search: (prev) => ({ ...(prev as object), ticket: undefined }),
-                replace: true
-              })
-            } catch (e) {
-              setDeleting(false)
-              throw e
-            }
+            await remove({ orgSlug, slug, id: ticket.id })
+            navigate({
+              to: ".",
+              search: (prev) => ({ ...(prev as object), ticket: undefined }),
+              replace: true
+            })
           }}
         />
       </div>
@@ -274,16 +257,15 @@ function TitleField({
   )
 }
 
+const SAVE_STATUS_LABELS = {
+  saving: m.tickets_save_status_saving,
+  dirty: m.tickets_save_status_dirty,
+  saved: m.tickets_save_status_saved
+} as const
+
 function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? m.tickets_save_status_saving()
-      : status === "dirty"
-        ? m.tickets_save_status_dirty()
-        : status === "saved"
-          ? m.tickets_save_status_saved()
-          : null
-  if (!label) return null
+  if (status === "idle") return null
+  const label = SAVE_STATUS_LABELS[status]()
   return (
     <span className="self-center text-xs text-muted-foreground tabular-nums">
       {label}
