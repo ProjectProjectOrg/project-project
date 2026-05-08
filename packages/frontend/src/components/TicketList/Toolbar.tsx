@@ -193,7 +193,7 @@ export function Toolbar({
             size="icon-xs"
             onClick={() => setQuery("")}
             aria-label={m.tickets_search_clear_aria_label()}
-            className="shrink-0 rounded"
+            className="shrink-0 rounded-xl"
           >
             <X strokeWidth={1.75} />
           </Button>
