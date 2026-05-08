@@ -1,7 +1,6 @@
 import { Effect, Schema } from "effect"
 import {
   ADMIN_GATED_KINDS,
-  Conflict,
   CreateGroupInput,
   Forbidden,
   Group,
@@ -13,7 +12,8 @@ import {
   TAG_DEFAULT_PALETTE,
   TicketId,
   UpdateGroupInput,
-  UpdateGroupTicketsInput
+  UpdateGroupTicketsInput,
+  Validation
 } from "@projectproject/shared"
 import { Markdown, type MarkdownError } from "./Markdown"
 import { Projects } from "./Projects"
@@ -21,11 +21,9 @@ import { Projects } from "./Projects"
 const MAX_CREATE_ATTEMPTS = 16
 
 const GroupFrontmatter = Schema.Struct({
-  id: GroupId,
-  name: Schema.String,
+  ...Group.fields,
   kind: Schema.optionalWith(GroupKind, { default: () => "other" as const }),
   tickets: Schema.optionalWith(Schema.Array(TicketId), { default: () => [] }),
-  color: GroupColor,
   startsAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
     default: () => null
   }),
@@ -34,12 +32,8 @@ const GroupFrontmatter = Schema.Struct({
   }),
   completedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
     default: () => null
-  }),
-  createdBy: Schema.String,
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date
+  })
 })
-type GroupFrontmatter = typeof GroupFrontmatter.Type
 
 const decodeFrontmatter = Schema.decodeUnknown(GroupFrontmatter)
 
@@ -52,11 +46,6 @@ function nextIdFrom(ids: ReadonlyArray<string>): string {
   return `G-${max + 1}`
 }
 
-function bumpId(id: string): string {
-  const n = Number(id.slice(2))
-  return `G-${n + 1}`
-}
-
 function pickColor(used: ReadonlyArray<string>): GroupColor {
   for (const c of TAG_DEFAULT_PALETTE)
     if (!used.includes(c)) return c as GroupColor
@@ -65,23 +54,7 @@ function pickColor(used: ReadonlyArray<string>): GroupColor {
   ] as GroupColor
 }
 
-function frontmatterToWire(fm: GroupFrontmatter): Group {
-  return {
-    id: fm.id,
-    name: fm.name,
-    kind: fm.kind,
-    tickets: fm.tickets,
-    color: fm.color,
-    startsAt: fm.startsAt,
-    endsAt: fm.endsAt,
-    completedAt: fm.completedAt,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt,
-    updatedAt: fm.updatedAt
-  }
-}
-
-function frontmatterToDisk(fm: GroupFrontmatter): Record<string, unknown> {
+function frontmatterToDisk(fm: Group): Record<string, unknown> {
   return {
     id: fm.id,
     name: fm.name,
@@ -107,32 +80,55 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string
     ): Effect.Effect<
-      GroupFrontmatter & { body: string },
+      { group: Group; body: string },
       NotFound | MarkdownError
     > =>
       Effect.gen(function* () {
         const file = yield* md.readGroupFile(orgSlug, slug, id)
-        const fm = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.body }
+        const group = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
+        return { group, body: file.body }
       })
 
     const validateTicketIds = (
       orgSlug: string,
       slug: string,
       ticketIds: ReadonlyArray<string>
-    ): Effect.Effect<void, Conflict | MarkdownError> =>
+    ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         if (ticketIds.length === 0) return
         const existing = yield* md.listTicketIds(orgSlug, slug)
         const set = new Set(existing)
         for (const id of ticketIds) {
           if (!set.has(id)) {
-            return yield* Effect.fail(
-              new Conflict({ reason: `ticket_not_found:${id}` })
-            )
+            return yield* Effect.fail(new NotFound())
           }
         }
       })
+
+    const validateInterval = (
+      startsAt: Date | null,
+      endsAt: Date | null
+    ): Effect.Effect<void, Validation> =>
+      startsAt !== null && endsAt !== null && endsAt < startsAt
+        ? Effect.fail(new Validation({ reason: "invalid_interval" }))
+        : Effect.void
+
+    const validateCompletion = (
+      completedAt: Date | null,
+      startsAt: Date | null,
+      now: Date
+    ): Effect.Effect<void, Validation> => {
+      if (completedAt === null) return Effect.void
+      if (completedAt > now) {
+        return Effect.fail(new Validation({ reason: "completed_in_future" }))
+      }
+      if (startsAt !== null && completedAt < startsAt) {
+        return Effect.fail(
+          new Validation({ reason: "completed_before_start" })
+        )
+      }
+      return Effect.void
+    }
 
     const requireKindRole = (
       orgSlug: string,
@@ -156,12 +152,12 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const ids = yield* md.listGroupIds(orgSlug, slug)
-        const groups = yield* Effect.forEach(
+        const results = yield* Effect.forEach(
           ids,
           (id) => readGroup(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...groups.map(frontmatterToWire)].sort(
+        return [...results.map((r) => r.group)].sort(
           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
         )
       })
@@ -174,8 +170,8 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<GroupDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const g = yield* readGroup(orgSlug, slug, id)
-        return { ...frontmatterToWire(g), body: g.body }
+        const { group, body } = yield* readGroup(orgSlug, slug, id)
+        return { ...group, body }
       })
 
     const create = (
@@ -183,27 +179,29 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       userId: string,
       slug: string,
       input: CreateGroupInput
-    ): Effect.Effect<Group, NotFound | Forbidden | Conflict | MarkdownError> =>
+    ): Effect.Effect<
+      Group,
+      NotFound | Forbidden | Validation | MarkdownError
+    > =>
       Effect.gen(function* () {
         const kind: GroupKind = input.kind ?? "other"
         yield* requireKindRole(orgSlug, userId, slug, kind)
 
         const requestedTickets = input.tickets ?? []
         yield* validateTicketIds(orgSlug, slug, requestedTickets)
+        yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
 
         const ids = yield* md.listGroupIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
-        const existing = yield* Effect.forEach(
-          ids,
-          (id) => readGroup(orgSlug, slug, id),
-          { concurrency: 8 }
-        )
-        const usedColors = existing.map((g) => g.color)
-        const color = input.color ?? pickColor(usedColors)
+        const color = yield* input.color !== undefined
+          ? Effect.succeed(input.color)
+          : Effect.forEach(ids, (id) => readGroup(orgSlug, slug, id), {
+              concurrency: 8
+            }).pipe(Effect.map((rs) => pickColor(rs.map((r) => r.group.color))))
 
         const now = new Date()
-        const fm: GroupFrontmatter = {
+        const fm: Group = {
           id: candidate as GroupId,
           name: input.name,
           kind,
@@ -218,12 +216,13 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
         }
 
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+          const next: Group = { ...fm, id: candidate as GroupId }
           const result = yield* md
             .createGroupFile(
               orgSlug,
               slug,
               candidate,
-              frontmatterToDisk({ ...fm, id: candidate as GroupId }),
+              frontmatterToDisk(next),
               `# ${input.name}\n`
             )
             .pipe(
@@ -233,9 +232,10 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
               )
             )
           if (result === "ok") {
-            return frontmatterToWire({ ...fm, id: candidate as GroupId })
+            return next
           }
-          candidate = bumpId(candidate)
+          const freshIds = yield* md.listGroupIds(orgSlug, slug)
+          candidate = nextIdFrom(freshIds)
         }
         return yield* Effect.die(
           new Error(`could not allocate group id for "${slug}"`)
@@ -248,14 +248,22 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string,
       input: UpdateGroupInput
-    ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      GroupDetail,
+      NotFound | Forbidden | Validation | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* projects.get(orgSlug, userId, slug)
 
-        const existing = yield* readGroup(orgSlug, slug, id)
+        const { group: existing, body: existingBody } = yield* readGroup(
+          orgSlug,
+          slug,
+          id
+        )
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
-        const next: GroupFrontmatter = {
+        const now = new Date()
+        const next: Group = {
           ...existing,
           name: input.name ?? existing.name,
           color: input.color ?? existing.color,
@@ -266,9 +274,11 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
             input.completedAt !== undefined
               ? input.completedAt
               : existing.completedAt,
-          updatedAt: new Date()
+          updatedAt: now
         }
-        const nextBody = input.body ?? existing.body
+        yield* validateInterval(next.startsAt, next.endsAt)
+        yield* validateCompletion(next.completedAt, next.startsAt, now)
+        const nextBody = input.body ?? existingBody
 
         yield* md.writeGroupFile(
           orgSlug,
@@ -277,7 +287,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
           frontmatterToDisk(next),
           nextBody
         )
-        return { ...frontmatterToWire(next), body: nextBody }
+        return { ...next, body: nextBody }
       })
 
     const updateTickets = (
@@ -288,15 +298,19 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       input: UpdateGroupTicketsInput
     ): Effect.Effect<
       GroupDetail,
-      NotFound | Conflict | Forbidden | MarkdownError
+      NotFound | Forbidden | MarkdownError
     > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const existing = yield* readGroup(orgSlug, slug, id)
+        const { group: existing, body: existingBody } = yield* readGroup(
+          orgSlug,
+          slug,
+          id
+        )
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
-        const next: GroupFrontmatter = {
+        const next: Group = {
           ...existing,
           tickets: input.tickets,
           updatedAt: new Date()
@@ -306,9 +320,9 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
           slug,
           id,
           frontmatterToDisk(next),
-          existing.body
+          existingBody
         )
-        return { ...frontmatterToWire(next), body: existing.body }
+        return { ...next, body: existingBody }
       })
 
     const remove = (
@@ -319,7 +333,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const existing = yield* readGroup(orgSlug, slug, id)
+        const { group: existing } = yield* readGroup(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* md.removeGroupFile(orgSlug, slug, id)
       })
@@ -331,25 +345,33 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
         const ids = yield* md.listGroupIds(orgSlug, slug)
-        for (const id of ids) {
-          const g = yield* readGroup(orgSlug, slug, id).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null))
-          )
-          if (g === null) continue
-          if (!g.tickets.includes(ticketId as TicketId)) continue
-          const next: GroupFrontmatter = {
-            ...g,
-            tickets: g.tickets.filter((t) => t !== ticketId),
-            updatedAt: new Date()
-          }
-          yield* md.writeGroupFile(
-            orgSlug,
-            slug,
-            id,
-            frontmatterToDisk(next),
-            g.body
-          )
-        }
+        yield* Effect.forEach(
+          ids,
+          (id) =>
+            Effect.gen(function* () {
+              const result = yield* readGroup(orgSlug, slug, id).pipe(
+                Effect.catchTag("NotFound", () => Effect.succeed(null))
+              )
+              if (result === null) return
+              const { group, body } = result
+              if (!group.tickets.includes(ticketId as TicketId)) return
+              const next: Group = {
+                ...group,
+                tickets: group.tickets.filter((t) => t !== ticketId),
+                updatedAt: new Date()
+              }
+              yield* md
+                .writeGroupFileIfExists(
+                  orgSlug,
+                  slug,
+                  id,
+                  frontmatterToDisk(next),
+                  body
+                )
+                .pipe(Effect.catchTag("NotFound", () => Effect.void))
+            }),
+          { concurrency: 8 }
+        )
       })
 
     return {

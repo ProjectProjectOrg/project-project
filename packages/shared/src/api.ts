@@ -69,7 +69,8 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
-  Unauthorized
+  Unauthorized,
+  Validation
 } from "./errors"
 import { Authentication } from "./Authentication"
 
@@ -419,7 +420,7 @@ const GroupsGroup = HttpApiGroup.make("groups")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
-      .addError(Conflict)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/groups/:id")
@@ -436,6 +437,7 @@ const GroupsGroup = HttpApiGroup.make("groups")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -447,7 +449,7 @@ const GroupsGroup = HttpApiGroup.make("groups")
       .addSuccess(GroupDetail)
       .addError(Unauthorized)
       .addError(NotFound)
-      .addError(Conflict)
+      .addError(Forbidden)
   )
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/groups/:id")

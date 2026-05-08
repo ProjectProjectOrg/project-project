@@ -366,6 +366,36 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
         })
       })
 
+    const writeGroupFileIfExists = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      frontmatter: Record<string, unknown>,
+      body: string
+    ): Effect.Effect<void, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        const content = matter.stringify(body, frontmatter)
+        yield* Effect.tryPromise({
+          try: async () => {
+            const fh = await fs.open(file, "r+")
+            try {
+              await fh.truncate(0)
+              await fh.writeFile(content, "utf8")
+            } finally {
+              await fh.close()
+            }
+          },
+          catch: (cause): NotFound | MarkdownError => {
+            const code = (cause as NodeJS.ErrnoException | undefined)?.code
+            if (code === "ENOENT") return new NotFound()
+            return new MarkdownError({ cause, message: `write failed: ${file}` })
+          }
+        })
+      })
+
     const removeGroupFile = (
       orgSlug: string,
       slug: string,
@@ -427,6 +457,7 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       readGroupFile,
       createGroupFile,
       writeGroupFile,
+      writeGroupFileIfExists,
       removeGroupFile,
       listGroupIds,
       root: absoluteRoot
