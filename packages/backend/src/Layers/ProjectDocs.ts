@@ -1,10 +1,5 @@
 import { Effect, Layer, Schema } from "effect"
-import {
-  GithubConnection,
-  NotFound,
-  Role,
-  Slug
-} from "@projectproject/shared"
+import { GithubConnection, NotFound, Role, Slug } from "@projectproject/shared"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import {
   ProjectDocs,
@@ -15,23 +10,22 @@ import {
 
 function checkOrgFrontmatter(
   expected: string,
-  data: Record<string, unknown>,
-  slug: string
-): void {
+  data: Record<string, unknown>
+): Effect.Effect<void> {
   const onDisk = data["org"]
   if (onDisk === undefined) {
-    console.warn(
-      `[markdown] project '${slug}' has no 'org' frontmatter (expected '${expected}'). Run migrate:orgs.`
+    return Effect.logWarning("project frontmatter is missing org").pipe(
+      Effect.annotateLogs({ expectedOrg: expected })
     )
-    return
   }
   if (onDisk !== expected) {
     const onDiskSafe =
       typeof onDisk === "string" ? onDisk : JSON.stringify(onDisk)
-    console.warn(
-      `[markdown] project '${slug}' frontmatter org='${onDiskSafe}' does not match request org='${expected}'.`
+    return Effect.logWarning("project frontmatter org mismatch").pipe(
+      Effect.annotateLogs({ expectedOrg: expected, actualOrg: onDiskSafe })
     )
   }
+  return Effect.void
 }
 
 const ProjectDocMember = Schema.Struct({
@@ -63,7 +57,9 @@ const ProjectFrontmatter = Schema.Struct({
 
 const decodeProjectFrontmatter = Schema.decodeUnknown(ProjectFrontmatter)
 
-function toFrontmatter(document: ProjectDocumentWrite): Record<string, unknown> {
+function toFrontmatter(
+  document: ProjectDocumentWrite
+): Record<string, unknown> {
   const frontmatter: Record<string, unknown> = {
     org: document.org,
     slug: document.slug,
@@ -85,6 +81,19 @@ function toFrontmatter(document: ProjectDocumentWrite): Record<string, unknown> 
   return frontmatter
 }
 
+function withProjectDocTelemetry<A, E>(
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  effect: Effect.Effect<A, E>
+): Effect.Effect<A, E> {
+  const annotations = { module: "ProjectDocs", operation, orgSlug, slug }
+  return effect.pipe(
+    Effect.withSpan(`ProjectDocs.${operation}`, { attributes: annotations }),
+    Effect.annotateLogs(annotations)
+  )
+}
+
 export const ProjectDocsLive = Layer.effect(
   ProjectDocs,
   Effect.gen(function* () {
@@ -94,32 +103,47 @@ export const ProjectDocsLive = Layer.effect(
       orgSlug: string,
       slug: string
     ): Effect.Effect<ProjectDocument, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        const file = yield* markdown.readProjectFile(orgSlug, slug)
-        checkOrgFrontmatter(orgSlug, file.data, slug)
-        const frontmatter = yield* decodeProjectFrontmatter(file.data).pipe(
-          Effect.orDie
-        )
-        return { ...frontmatter, body: file.body }
-      })
+      withProjectDocTelemetry(
+        "read",
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const file = yield* markdown.readProjectFile(orgSlug, slug)
+          yield* checkOrgFrontmatter(orgSlug, file.data)
+          const frontmatter = yield* decodeProjectFrontmatter(file.data).pipe(
+            Effect.orDie
+          )
+          return { ...frontmatter, body: file.body }
+        })
+      )
 
     const write = (
       orgSlug: string,
       slug: string,
       document: ProjectDocumentWrite
     ): Effect.Effect<void, MarkdownError> =>
-      markdown.writeProjectFile(
+      withProjectDocTelemetry(
+        "write",
         orgSlug,
         slug,
-        toFrontmatter(document),
-        document.body
+        markdown.writeProjectFile(
+          orgSlug,
+          slug,
+          toFrontmatter(document),
+          document.body
+        )
       )
 
     const removeDir = (
       orgSlug: string,
       slug: string
     ): Effect.Effect<void, MarkdownError> =>
-      markdown.removeProjectDir(orgSlug, slug)
+      withProjectDocTelemetry(
+        "removeDir",
+        orgSlug,
+        slug,
+        markdown.removeProjectDir(orgSlug, slug)
+      )
 
     return { read, write, removeDir } satisfies ProjectDocsShape
   })

@@ -1,4 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Cause, Exit, Match, Option } from "effect"
 import {
   Check,
   CheckCircle2,
@@ -82,51 +83,66 @@ export function CreateBranchFields({
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [status, setStatus] = useState<TicketStatus>("in_progress")
-  const [error, setError] = useState<string | null>(null)
-  const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)))
+  const [errorString, setError] = useState<string | null>(null)
+  const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
   const updateTicket = useAtomSet(updateTicketAtom)
 
   async function submit() {
     if (!name.trim()) return
     setError(null)
     setBusy(true)
-    try {
-      await Promise.all([
-        create({
-          id: ticket.id,
-          name: name.trim(),
-          baseBranch: base.trim() || undefined
-        }),
-        status !== ticket.status
-          ? updateTicket({ orgSlug, slug, id: ticket.id, status })
-          : Promise.resolve()
-      ])
-      close()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      setError(
-        tag === "BranchExists"
-          ? m.git_branch_exists_error({ name: name.trim() })
-          : tag === "BranchProtected"
-            ? m.git_branch_protected_error()
-            : tag === "GitHubTokenExpired"
-              ? m.git_github_token_expired_error()
-              : tag === "GitHubScopeInsufficient"
-                ? m.git_github_scope_insufficient_error()
-                : tag === "RepoGone"
-                  ? m.git_repo_gone_error()
-                  : m.git_create_branch_error()
-      )
-      setBusy(false)
-    }
+    const branchName = name.trim()
+    const exit = await create({
+      id: ticket.id,
+      name: branchName,
+      baseBranch: base.trim() || undefined
+    })
+
+    Exit.match(exit, {
+      onSuccess: () => {
+        if (status !== ticket.status) {
+          updateTicket({ orgSlug, slug, id: ticket.id, status })
+        }
+        close()
+      },
+      onFailure: (cause) => {
+        const failure = Cause.failureOption(cause)
+        if (Option.isNone(failure)) {
+          setError(m.git_create_branch_error())
+        } else {
+          setError(
+            Match.value(failure.value).pipe(
+              Match.tag("BranchExists", () =>
+                m.git_branch_exists_error({ name: branchName })
+              ),
+              Match.tag("BranchProtected", () =>
+                m.git_branch_protected_error()
+              ),
+              Match.tag("GitHubTokenExpired", () =>
+                m.git_github_token_expired_error()
+              ),
+              Match.tag("GitHubScopeInsufficient", () =>
+                m.git_github_scope_insufficient_error()
+              ),
+              Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.orElse(() => m.git_create_branch_error())
+            )
+          )
+        }
+        setBusy(false)
+      }
+    })
   }
 
   return (
     <>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <label className="block text-xs">
-          <span className="text-muted-foreground">{m.git_branch_name_label()}</span>
+          <span className="text-muted-foreground">
+            {m.git_branch_name_label()}
+          </span>
           <Input
             autoFocus
             value={name}
@@ -137,7 +153,9 @@ export function CreateBranchFields({
           />
         </label>
         <label className="block text-xs">
-          <span className="text-muted-foreground">{m.git_base_branch_label()}</span>
+          <span className="text-muted-foreground">
+            {m.git_base_branch_label()}
+          </span>
           <BaseBranchCombobox
             orgSlug={orgSlug}
             slug={slug}
@@ -148,9 +166,9 @@ export function CreateBranchFields({
           />
         </label>
       </div>
-      {error && (
+      {errorString && (
         <p className="text-xs text-destructive" role="alert">
-          {error}
+          {errorString}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -163,7 +181,9 @@ export function CreateBranchFields({
             onClick={() => void submit()}
             disabled={busy || !name.trim()}
           >
-            {busy ? m.git_create_branch_in_progress() : m.git_create_branch_button()}
+            {busy
+              ? m.git_create_branch_in_progress()
+              : m.git_create_branch_button()}
           </Button>
         </div>
       </div>

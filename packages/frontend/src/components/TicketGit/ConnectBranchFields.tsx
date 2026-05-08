@@ -12,6 +12,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
+import { Cause, Exit, Match, Option } from "effect"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
@@ -37,7 +38,7 @@ export function ConnectBranchFields({
   const [q, setQ] = useState("")
   const [selected, setSelected] = useState<string | null>(null)
   const [activeIdx, setActiveIdx] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  const [errorString, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setQ(input), 200)
@@ -47,7 +48,9 @@ export function ConnectBranchFields({
   const key = branchesKey(orgSlug, slug, q)
   const result = useAtomValue(branchesAtom(key))
   const refreshBranches = useAtomRefresh(branchesAtom(key))
-  const attach = useAtomSet(attachBranchAtom(projectKey(orgSlug, slug)))
+  const attach = useAtomSet(attachBranchAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
 
   const items = Result.isSuccess(result) ? result.value.items : []
   const listRef = useRef<HTMLDivElement>(null)
@@ -60,29 +63,36 @@ export function ConnectBranchFields({
   async function submit(branchName: string) {
     setError(null)
     setBusy(true)
-    try {
-      await attach({ id: ticket.id, name: branchName })
-      close()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      if (tag === "BranchNotFound") {
-        setError(m.git_branch_not_found_error({ name: branchName }))
-        setSelected(null)
-        refreshBranches()
-      } else {
-        setError(
-          tag === "GitHubTokenExpired"
-            ? m.git_github_token_expired_error()
-            : tag === "GitHubScopeInsufficient"
-              ? m.git_github_scope_insufficient_error()
-              : tag === "RepoGone"
-                ? m.git_repo_gone_error()
-                : m.git_attach_branch_error()
-        )
+    const exit = await attach({ id: ticket.id, name: branchName })
+
+    Exit.match(exit, {
+      onSuccess: () => close(),
+      onFailure: (cause) => {
+        const failure = Cause.failureOption(cause)
+        if (Option.isNone(failure)) {
+          setError(m.git_attach_branch_error())
+        } else {
+          setError(
+            Match.value(failure.value).pipe(
+              Match.tag("BranchNotFound", () => {
+                setSelected(null)
+                refreshBranches()
+                return m.git_branch_not_found_error({ name: branchName })
+              }),
+              Match.tag("GitHubTokenExpired", () =>
+                m.git_github_token_expired_error()
+              ),
+              Match.tag("GitHubScopeInsufficient", () =>
+                m.git_github_scope_insufficient_error()
+              ),
+              Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.orElse(() => m.git_attach_branch_error())
+            )
+          )
+        }
+        setBusy(false)
       }
-      setBusy(false)
-    }
+    })
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -168,9 +178,9 @@ export function ConnectBranchFields({
           </ul>
         )}
       </div>
-      {error && (
+      {errorString && (
         <p className="text-xs text-destructive" role="alert">
-          {error}
+          {errorString}
         </p>
       )}
       <div className="flex justify-end gap-2">
@@ -181,7 +191,9 @@ export function ConnectBranchFields({
           onClick={() => selected && void submit(selected)}
           disabled={busy || !selected}
         >
-          {busy ? m.git_connect_branch_in_progress() : m.git_connect_branch_button()}
+          {busy
+            ? m.git_connect_branch_in_progress()
+            : m.git_connect_branch_button()}
         </Button>
       </div>
     </>

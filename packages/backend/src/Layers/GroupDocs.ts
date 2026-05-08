@@ -61,6 +61,26 @@ function toDocument(
   return { ...group, body }
 }
 
+function withGroupDocTelemetry<A, E>(
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  attributes: Record<string, unknown>,
+  effect: Effect.Effect<A, E>
+): Effect.Effect<A, E> {
+  const annotations = {
+    module: "GroupDocs",
+    operation,
+    orgSlug,
+    slug,
+    ...attributes
+  }
+  return effect.pipe(
+    Effect.withSpan(`GroupDocs.${operation}`, { attributes: annotations }),
+    Effect.annotateLogs(annotations)
+  )
+}
+
 export const GroupDocsLive = Layer.effect(
   GroupDocs,
   Effect.gen(function* () {
@@ -70,36 +90,54 @@ export const GroupDocsLive = Layer.effect(
       orgSlug: string,
       slug: string
     ): Effect.Effect<ReadonlyArray<GroupId>, MarkdownError> =>
-      markdown
-        .listGroupIds(orgSlug, slug)
-        .pipe(
-          Effect.flatMap((ids) =>
-            Effect.forEach(ids, (id) => decodeGroupId(id).pipe(Effect.orDie))
+      withGroupDocTelemetry(
+        "listIds",
+        orgSlug,
+        slug,
+        {},
+        markdown
+          .listGroupIds(orgSlug, slug)
+          .pipe(
+            Effect.flatMap((ids) =>
+              Effect.forEach(ids, (id) => decodeGroupId(id).pipe(Effect.orDie))
+            )
           )
-        )
+      )
 
     const read = (
       orgSlug: string,
       slug: string,
       id: string
     ): Effect.Effect<GroupDocument, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        const file = yield* markdown.readGroupFile(orgSlug, slug, id)
-        const group = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
-        return toDocument(group, file.body)
-      })
+      withGroupDocTelemetry(
+        "read",
+        orgSlug,
+        slug,
+        { groupId: id },
+        Effect.gen(function* () {
+          const file = yield* markdown.readGroupFile(orgSlug, slug, id)
+          const group = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
+          return toDocument(group, file.body)
+        })
+      )
 
     const create = (
       orgSlug: string,
       slug: string,
       document: GroupDocument
     ): Effect.Effect<void, MarkdownError | GroupIdTaken> =>
-      markdown.createGroupFile(
+      withGroupDocTelemetry(
+        "create",
         orgSlug,
         slug,
-        document.id,
-        frontmatterToDisk(document),
-        document.body
+        { groupId: document.id },
+        markdown.createGroupFile(
+          orgSlug,
+          slug,
+          document.id,
+          frontmatterToDisk(document),
+          document.body
+        )
       )
 
     const write = (
@@ -108,12 +146,18 @@ export const GroupDocsLive = Layer.effect(
       id: string,
       document: GroupDocument
     ): Effect.Effect<void, MarkdownError> =>
-      markdown.writeGroupFile(
+      withGroupDocTelemetry(
+        "write",
         orgSlug,
         slug,
-        id,
-        frontmatterToDisk(document),
-        document.body
+        { groupId: id },
+        markdown.writeGroupFile(
+          orgSlug,
+          slug,
+          id,
+          frontmatterToDisk(document),
+          document.body
+        )
       )
 
     const writeIfExists = (
@@ -122,12 +166,18 @@ export const GroupDocsLive = Layer.effect(
       id: string,
       document: GroupDocument
     ): Effect.Effect<void, NotFound | MarkdownError> =>
-      markdown.writeGroupFileIfExists(
+      withGroupDocTelemetry(
+        "writeIfExists",
         orgSlug,
         slug,
-        id,
-        frontmatterToDisk(document),
-        document.body
+        { groupId: id },
+        markdown.writeGroupFileIfExists(
+          orgSlug,
+          slug,
+          id,
+          frontmatterToDisk(document),
+          document.body
+        )
       )
 
     const remove = (
@@ -135,7 +185,13 @@ export const GroupDocsLive = Layer.effect(
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | MarkdownError> =>
-      markdown.removeGroupFile(orgSlug, slug, id)
+      withGroupDocTelemetry(
+        "remove",
+        orgSlug,
+        slug,
+        { groupId: id },
+        markdown.removeGroupFile(orgSlug, slug, id)
+      )
 
     return {
       listIds,

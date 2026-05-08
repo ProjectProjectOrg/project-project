@@ -33,7 +33,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
-import { Effect, ManagedRuntime } from "effect"
+import { Cause, Effect, Exit, ManagedRuntime, Option } from "effect"
 import { z } from "zod"
 import * as schema from "./db/schema"
 import { session } from "./db/schema"
@@ -88,6 +88,13 @@ function asError(message: string): {
   }
 }
 
+type TaggedFailure = { readonly _tag: string }
+
+function describeCause<E extends TaggedFailure>(cause: Cause.Cause<E>): string {
+  const failure = Cause.failureOption(cause)
+  return Option.isNone(failure) ? Cause.pretty(cause) : failure.value._tag
+}
+
 // --- Main ------------------------------------------------------------------
 
 async function main(): Promise<void> {
@@ -104,7 +111,15 @@ async function main(): Promise<void> {
 
   const runtime = ManagedRuntime.make(BackendRuntimeLive)
   const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets>) =>
-    runtime.runPromise(eff as Effect.Effect<A, E, never>)
+    runtime.runPromiseExit(eff as Effect.Effect<A, E, never>)
+  const runTool = async <A, E extends TaggedFailure>(
+    name: string,
+    eff: Effect.Effect<A, E, Projects | Tickets>
+  ) =>
+    Exit.match(await run(eff), {
+      onSuccess: asJson,
+      onFailure: (cause) => asError(`${name} failed: ${describeCause(cause)}`)
+    })
 
   const server = new McpServer(
     { name: "markmate", version: "0.1.0" },
@@ -137,19 +152,14 @@ async function main(): Promise<void> {
         "slug, name, createdBy, createdAt for each.",
       inputSchema: {}
     },
-    async () => {
-      try {
-        const projects = await run(
-          Effect.gen(function* () {
-            const svc = yield* Projects
-            return yield* svc.list(org, userId)
-          })
-        )
-        return asJson(projects)
-      } catch (e) {
-        return asError(`list_projects failed: ${String(e)}`)
-      }
-    }
+    async () =>
+      runTool(
+        "list_projects",
+        Effect.gen(function* () {
+          const svc = yield* Projects
+          return yield* svc.list(org, userId)
+        })
+      )
   )
 
   // --- get_project ---------------------------------------------------------
@@ -163,21 +173,16 @@ async function main(): Promise<void> {
         "isn't a member.",
       inputSchema: { slug: z.string() }
     },
-    async ({ slug }) => {
-      try {
-        const detail = await run(
-          Effect.gen(function* () {
-            const svc = yield* Projects
-            return yield* svc
-              .get(org, userId, slug)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        return asJson(detail)
-      } catch (e) {
-        return asError(`get_project failed: ${describeError(e)}`)
-      }
-    }
+    async ({ slug }) =>
+      runTool(
+        "get_project",
+        Effect.gen(function* () {
+          const svc = yield* Projects
+          return yield* svc
+            .get(org, userId, slug)
+            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+        })
+      )
   )
 
   // --- list_tickets --------------------------------------------------------
@@ -209,37 +214,35 @@ async function main(): Promise<void> {
         has_pr: z.boolean().optional()
       }
     },
-    async ({ slug, status, type, assignee, has_branch, has_pr }) => {
-      try {
-        const tickets = await run(
-          Effect.gen(function* () {
-            const svc = yield* Tickets
-            return yield* svc
-              .list(org, userId, slug)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        const filtered = tickets.filter((t) => {
-          if (status && t.status !== status) return false
-          if (type && t.type !== type) return false
-          if (assignee !== undefined) {
-            if (assignee === null) {
-              if (t.assignees.length > 0) return false
-            } else if (!t.assignees.includes(assignee)) {
+    async ({ slug, status, type, assignee, has_branch, has_pr }) =>
+      runTool(
+        "list_tickets",
+        Effect.gen(function* () {
+          const svc = yield* Tickets
+          const tickets = yield* svc
+            .list(org, userId, slug)
+            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+          return tickets.filter((t) => {
+            if (status && t.status !== status) return false
+            if (type && t.type !== type) return false
+            if (assignee !== undefined) {
+              if (assignee === null) {
+                if (t.assignees.length > 0) return false
+              } else if (!t.assignees.includes(assignee)) {
+                return false
+              }
+            }
+            if (
+              has_branch !== undefined &&
+              (t.branch !== null) !== has_branch
+            ) {
               return false
             }
-          }
-          if (has_branch !== undefined && (t.branch !== null) !== has_branch) {
-            return false
-          }
-          if (has_pr !== undefined && (t.pr !== null) !== has_pr) return false
-          return true
+            if (has_pr !== undefined && (t.pr !== null) !== has_pr) return false
+            return true
+          })
         })
-        return asJson(filtered)
-      } catch (e) {
-        return asError(`list_tickets failed: ${describeError(e)}`)
-      }
-    }
+      )
   )
 
   // --- get_ticket ----------------------------------------------------------
@@ -250,21 +253,16 @@ async function main(): Promise<void> {
       description: "Returns the full ticket: frontmatter + body (markdown).",
       inputSchema: { slug: z.string(), id: z.string() }
     },
-    async ({ slug, id }) => {
-      try {
-        const ticket = await run(
-          Effect.gen(function* () {
-            const svc = yield* Tickets
-            return yield* svc
-              .get(org, userId, slug, id)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        return asJson(ticket)
-      } catch (e) {
-        return asError(`get_ticket failed: ${describeError(e)}`)
-      }
-    }
+    async ({ slug, id }) =>
+      runTool(
+        "get_ticket",
+        Effect.gen(function* () {
+          const svc = yield* Tickets
+          return yield* svc
+            .get(org, userId, slug, id)
+            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+        })
+      )
   )
 
   // --- Connect transport ---------------------------------------------------
@@ -275,13 +273,6 @@ async function main(): Promise<void> {
   transport.onclose = () => {
     void runtime.dispose().finally(() => process.exit(0))
   }
-}
-
-function describeError(e: unknown): string {
-  if (typeof e === "object" && e && "_tag" in e) {
-    return String(e._tag)
-  }
-  return String(e)
 }
 
 main().catch((e) => {

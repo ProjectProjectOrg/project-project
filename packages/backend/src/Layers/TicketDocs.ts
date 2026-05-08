@@ -84,6 +84,26 @@ function toDocument(
   }
 }
 
+function withTicketDocTelemetry<A, E>(
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  attributes: Record<string, unknown>,
+  effect: Effect.Effect<A, E>
+): Effect.Effect<A, E> {
+  const annotations = {
+    module: "TicketDocs",
+    operation,
+    orgSlug,
+    slug,
+    ...attributes
+  }
+  return effect.pipe(
+    Effect.withSpan(`TicketDocs.${operation}`, { attributes: annotations }),
+    Effect.annotateLogs(annotations)
+  )
+}
+
 export const TicketDocsLive = Layer.effect(
   TicketDocs,
   Effect.gen(function* () {
@@ -93,38 +113,56 @@ export const TicketDocsLive = Layer.effect(
       orgSlug: string,
       slug: string
     ): Effect.Effect<ReadonlyArray<TicketId>, MarkdownError> =>
-      markdown
-        .listTicketIds(orgSlug, slug)
-        .pipe(
-          Effect.flatMap((ids) =>
-            Effect.forEach(ids, (id) => decodeTicketId(id).pipe(Effect.orDie))
+      withTicketDocTelemetry(
+        "listIds",
+        orgSlug,
+        slug,
+        {},
+        markdown
+          .listTicketIds(orgSlug, slug)
+          .pipe(
+            Effect.flatMap((ids) =>
+              Effect.forEach(ids, (id) => decodeTicketId(id).pipe(Effect.orDie))
+            )
           )
-        )
+      )
 
     const read = (
       orgSlug: string,
       slug: string,
       id: string
     ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        const file = yield* markdown.readTicketFile(orgSlug, slug, id)
-        const frontmatter = yield* decodeFrontmatterCompat(file.data).pipe(
-          Effect.orDie
-        )
-        return toDocument(frontmatter, file.body)
-      })
+      withTicketDocTelemetry(
+        "read",
+        orgSlug,
+        slug,
+        { ticketId: id },
+        Effect.gen(function* () {
+          const file = yield* markdown.readTicketFile(orgSlug, slug, id)
+          const frontmatter = yield* decodeFrontmatterCompat(file.data).pipe(
+            Effect.orDie
+          )
+          return toDocument(frontmatter, file.body)
+        })
+      )
 
     const create = (
       orgSlug: string,
       slug: string,
       document: TicketDocument
     ): Effect.Effect<void, MarkdownError | TicketIdTaken> =>
-      markdown.createTicketFile(
+      withTicketDocTelemetry(
+        "create",
         orgSlug,
         slug,
-        document.id,
-        frontmatterToDisk(document),
-        document.body
+        { ticketId: document.id },
+        markdown.createTicketFile(
+          orgSlug,
+          slug,
+          document.id,
+          frontmatterToDisk(document),
+          document.body
+        )
       )
 
     const write = (
@@ -133,12 +171,18 @@ export const TicketDocsLive = Layer.effect(
       id: string,
       document: TicketDocument
     ): Effect.Effect<void, MarkdownError> =>
-      markdown.writeTicketFile(
+      withTicketDocTelemetry(
+        "write",
         orgSlug,
         slug,
-        id,
-        frontmatterToDisk(document),
-        document.body
+        { ticketId: id },
+        markdown.writeTicketFile(
+          orgSlug,
+          slug,
+          id,
+          frontmatterToDisk(document),
+          document.body
+        )
       )
 
     const remove = (
@@ -146,7 +190,13 @@ export const TicketDocsLive = Layer.effect(
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | MarkdownError> =>
-      markdown.removeTicketFile(orgSlug, slug, id)
+      withTicketDocTelemetry(
+        "remove",
+        orgSlug,
+        slug,
+        { ticketId: id },
+        markdown.removeTicketFile(orgSlug, slug, id)
+      )
 
     return { listIds, read, create, write, remove } satisfies TicketDocsShape
   })
