@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/paraglide/messages"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import type { Member, TicketId } from "@projectproject/shared"
 
 function AssigneeMenuContent({
@@ -23,15 +23,10 @@ function AssigneeMenuContent({
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
   const assignees = ticket.assignees
   const setAssignees = (next: ReadonlyArray<string>) => {
-    update({
-      orgSlug,
-      slug,
-      id: ticket.id,
-      assignees: next
-    })
+    update({ assignees: next })
   }
   const toggle = (id: string) => {
     setAssignees(

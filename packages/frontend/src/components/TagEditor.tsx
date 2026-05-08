@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Schema } from "effect"
+import { Cause, Exit, Schema } from "effect"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -18,8 +18,12 @@ import {
   tagsAtom,
   tagsKey
 } from "@/atoms/tags"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketKey,
+  ticketsListAtom,
+  ticketsListKey,
+  updateTicketAtom
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
@@ -41,10 +45,12 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
   )
-  const updateTicket = useAtomSet(updateTicketAtom)
-  const createTag = useAtomSet(createTagAtom(key))
+  const updateTicket = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+  const createTag = useAtomSet(createTagAtom(key), { mode: "promiseExit" })
   const renameTag = useAtomSet(renameTagAtom(key))
-  const deleteTag = useAtomSet(deleteTagAtom(key))
+  const deleteTag = useAtomSet(deleteTagAtom(key), { mode: "promiseExit" })
   const {
     renameMap,
     removed,
@@ -94,12 +100,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     : registry
 
   const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({
-      orgSlug,
-      slug,
-      id: ticket.id,
-      tags: next.map((name) => makeTagName(name))
-    })
+    updateTicket({ tags: next.map((name) => makeTagName(name)) })
 
   const addTag = (name: string) => {
     if (displayed.includes(name)) return
@@ -112,11 +113,11 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     apply(ticket.tags.filter((t) => t !== name))
   }
 
-  const createAndApply = () => {
+  const createAndApply = async () => {
     if (!isValidNewName || exactRegistered) return
-    Promise.resolve(createTag({ name: makeTagName(lowered) })).then(() =>
-      addTag(lowered)
-    )
+    const name = lowered
+    const exit = await createTag({ name: makeTagName(name) })
+    if (Exit.isSuccess(exit)) addTag(name)
   }
 
   const ticketHasTag = (name: string) =>
@@ -138,11 +139,10 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   const handleDelete = async (name: string) => {
     registerRemove(name)
-    try {
-      await deleteTag({ name: makeTagName(name) })
-    } catch (e) {
+    const exit = await deleteTag({ name: makeTagName(name) })
+    if (Exit.isFailure(exit)) {
       unregisterRemove(name)
-      throw e
+      throw Cause.squash(exit.cause)
     }
   }
 
@@ -207,7 +207,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                 if (e.key === "Enter") {
                   e.preventDefault()
                   if (exactRegistered) addTag(exactRegistered.name)
-                  else if (canManageTags) createAndApply()
+                  else if (canManageTags) void createAndApply()
                 }
                 if (e.key === "Escape") {
                   e.preventDefault()
@@ -264,7 +264,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
               isValidNewName ? (
                 <button
                   type="button"
-                  onClick={createAndApply}
+                  onClick={() => void createAndApply()}
                   className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.99]"
                 >
                   <Plus className="size-3.5" strokeWidth={2} />

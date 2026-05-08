@@ -1,5 +1,11 @@
-import { useAtomRefresh, useAtomSet } from "@effect-atom/atom-react"
+import {
+  Result,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue
+} from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
+import { Exit } from "effect"
 import { useRef, useState, type FormEvent } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
@@ -35,21 +41,23 @@ export function CreateTicketRow({
   orgSlug: string
   slug: string
 }) {
-  const create = useAtomSet(createTicketAtom, { mode: "promise" })
-  const refreshGitStates = useAtomRefresh(
-    projectGitStatesBaseAtom(projectKey(orgSlug, slug))
-  )
+  const projKey = projectKey(orgSlug, slug)
+  const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
+  const createState = useAtomValue(createTicketAtom(projKey))
+  const submitting = createState.waiting
+  const error = Result.isFailure(createState)
+    ? m.tickets_create_error_fallback()
+    : null
+  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
   const refreshTickets = useAtomRefresh(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
   )
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
-  const [submitting, setSubmitting] = useState(false)
   const [focused, setFocused] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [closingMenu, setClosingMenu] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("c", inputRef)
   const trimmed = title.trim()
@@ -60,10 +68,9 @@ export function CreateTicketRow({
     if (!trimmed || submitting) return
     inputRef.current?.blur()
     setFocused(false)
-    setSubmitting(true)
-    setError(null)
-    try {
-      const ticket = await create({ orgSlug, slug, title: trimmed, type })
+    const exit = await create({ title: trimmed, type })
+    if (Exit.isSuccess(exit)) {
+      const ticket = exit.value
       setTitle("")
       refreshTickets()
       refreshGitStates()
@@ -76,10 +83,6 @@ export function CreateTicketRow({
         }),
         replace: true
       })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : m.tickets_create_error_fallback())
-    } finally {
-      setSubmitting(false)
     }
   }
 

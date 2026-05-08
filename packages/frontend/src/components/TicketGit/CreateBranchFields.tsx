@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Cause, Exit, Match, Option } from "effect"
+import { Exit, Match } from "effect"
 import {
   Check,
   CheckCircle2,
@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -83,39 +83,24 @@ export function CreateBranchFields({
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [status, setStatus] = useState<TicketStatus>("in_progress")
-  const [errorString, setError] = useState<string | null>(null)
-  const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)), {
-    mode: "promiseExit"
-  })
-  const updateTicket = useAtomSet(updateTicketAtom)
+  const [didSubmit, setDidSubmit] = useState(false)
+  const [attemptedName, setAttemptedName] = useState("")
+  const pKey = projectKey(orgSlug, slug)
+  const create = useAtomSet(createBranchAtom(pKey), { mode: "promiseExit" })
+  const createState = useAtomValue(createBranchAtom(pKey))
+  const updateTicket = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
 
-  async function submit() {
-    if (!name.trim()) return
-    setError(null)
-    setBusy(true)
-    const branchName = name.trim()
-    const exit = await create({
-      id: ticket.id,
-      name: branchName,
-      baseBranch: base.trim() || undefined
-    })
-
-    Exit.match(exit, {
-      onSuccess: () => {
-        if (status !== ticket.status) {
-          updateTicket({ orgSlug, slug, id: ticket.id, status })
-        }
-        close()
-      },
-      onFailure: (cause) => {
-        const failure = Cause.failureOption(cause)
-        if (Option.isNone(failure)) {
-          setError(m.git_create_branch_error())
-        } else {
-          setError(
-            Match.value(failure.value).pipe(
+  const errorString =
+    didSubmit && !createState.waiting
+      ? Result.matchWithError(createState, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) =>
+            Match.value(error).pipe(
               Match.tag("BranchExists", () =>
-                m.git_branch_exists_error({ name: branchName })
+                m.git_branch_exists_error({ name: attemptedName })
               ),
               Match.tag("BranchProtected", () =>
                 m.git_branch_protected_error()
@@ -128,12 +113,28 @@ export function CreateBranchFields({
               ),
               Match.tag("RepoGone", () => m.git_repo_gone_error()),
               Match.orElse(() => m.git_create_branch_error())
-            )
-          )
-        }
-        setBusy(false)
-      }
+            ),
+          onDefect: () => m.git_create_branch_error()
+        })
+      : null
+
+  async function submit() {
+    if (!name.trim()) return
+    setBusy(true)
+    setDidSubmit(true)
+    const branchName = name.trim()
+    setAttemptedName(branchName)
+    const exit = await create({
+      id: ticket.id,
+      name: branchName,
+      baseBranch: base.trim() || undefined
     })
+    if (Exit.isSuccess(exit)) {
+      if (status !== ticket.status) updateTicket({ status })
+      close()
+    } else {
+      setBusy(false)
+    }
   }
 
   return (

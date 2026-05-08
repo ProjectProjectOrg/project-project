@@ -19,7 +19,7 @@ import type {
   GitState,
   TicketId
 } from "@projectproject/shared"
-import { projectAtom, projectKey } from "./projects"
+import { projectAtom } from "./projects"
 import {
   ticketAtom,
   ticketKey,
@@ -89,36 +89,36 @@ export const branchesAtom = Atom.family((key: string) =>
 
 // --- Mutations -----------------------------------------------------------
 
-export const connectGithubAtom = runtime.fn(
-  Effect.fn(function* (
-    input: { orgSlug: string; slug: string } & ConnectGithubInput,
-    get
-  ) {
-    const client = yield* ApiClient
-    const { orgSlug, slug, ...payload } = input
-    const updated = yield* client.projects.connectGithub({
-      path: { orgSlug, slug },
-      payload
+export const connectGithubAtom = Atom.family((key: string) => {
+  const { orgSlug, slug } = splitProjectKey(key)
+  return runtime.fn(
+    Effect.fn(function* (input: ConnectGithubInput, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.projects.connectGithub({
+        path: { orgSlug, slug },
+        payload: input
+      })
+      get.refresh(projectAtom(key))
+      get.refresh(projectGitStatesBaseAtom(key))
+      return updated
     })
-    const key = projectKey(orgSlug, slug)
-    get.refresh(projectAtom(key))
-    get.refresh(projectGitStatesBaseAtom(key))
-    return updated
-  })
-)
+  )
+})
 
-export const disconnectGithubAtom = runtime.fn(
-  Effect.fn(function* (input: { orgSlug: string; slug: string }, get) {
-    const client = yield* ApiClient
-    const updated = yield* client.projects.disconnectGithub({
-      path: { orgSlug: input.orgSlug, slug: input.slug }
+export const disconnectGithubAtom = Atom.family((key: string) => {
+  const { orgSlug, slug } = splitProjectKey(key)
+  return runtime.fn(
+    Effect.fn(function* (_input: void, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.projects.disconnectGithub({
+        path: { orgSlug, slug }
+      })
+      get.refresh(projectAtom(key))
+      get.refresh(projectGitStatesBaseAtom(key))
+      return updated
     })
-    const key = projectKey(input.orgSlug, input.slug)
-    get.refresh(projectAtom(key))
-    get.refresh(projectGitStatesBaseAtom(key))
-    return updated
-  })
-)
+  )
+})
 
 export const createBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)

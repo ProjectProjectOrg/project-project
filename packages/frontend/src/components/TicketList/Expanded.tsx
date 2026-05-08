@@ -1,5 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
+import { Cause, Exit } from "effect"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { TagEditor } from "@/components/TagEditor"
@@ -82,8 +83,9 @@ function ExpandedDetail({
   focusBody: boolean
   onConsumeFocusBody: () => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
-  const remove = useAtomSet(deleteTicketAtom)
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey))
+  const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
@@ -112,21 +114,17 @@ function ExpandedDetail({
           disabled={deleting}
           onConfirm={async () => {
             setDeleting(true)
-            try {
-              await remove({
-                orgSlug,
-                slug,
-                id: ticket.id
-              })
+            const exit = await remove()
+            if (Exit.isSuccess(exit)) {
               navigate({
                 to: ".",
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
                 replace: true
               })
-            } catch (e) {
-              setDeleting(false)
-              throw e
+              return
             }
+            setDeleting(false)
+            throw Cause.squash(exit.cause)
           }}
         />
       </div>
@@ -168,9 +166,7 @@ function ExpandedDetail({
         <LexicalEditor
           key={`${slug}/${ticket.id}`}
           markdown={ticket.body}
-          onChange={(next) =>
-            update({ orgSlug, slug, id: ticket.id, body: next })
-          }
+          onChange={(next) => update({ body: next })}
           onStatusChange={setBodyStatus}
           autoFocus={autoFocusBody}
         />
@@ -210,7 +206,10 @@ function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)),
+    { mode: "promiseExit" }
+  )
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)
   const [saving, setSaving] = useState(false)
@@ -226,17 +225,9 @@ function TitleField({
       return
     }
     setSaving(true)
-    try {
-      await update({
-        orgSlug,
-        slug,
-        id: ticket.id,
-        title: trimmed
-      })
-    } finally {
-      setSaving(false)
-      setEditing(false)
-    }
+    await update({ title: trimmed })
+    setSaving(false)
+    setEditing(false)
   }
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {

@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect-atom/atom-react"
+import { Exit } from "effect"
 import { clearBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
@@ -16,14 +17,16 @@ export function ClearBranchFields({
   id: TicketId
 }) {
   const { busy, setBusy, close } = useInlineForm()
-  const clear = useAtomSet(clearBranchAtom(projectKey(orgSlug, slug)))
+  const clear = useAtomSet(clearBranchAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
 
   async function submit() {
     setBusy(true)
-    try {
-      await clear({ id })
+    const exit = await clear({ id })
+    if (Exit.isSuccess(exit)) {
       close()
-    } catch {
+    } else {
       setBusy(false)
     }
   }

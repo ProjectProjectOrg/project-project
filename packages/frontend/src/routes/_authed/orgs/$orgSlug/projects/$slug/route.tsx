@@ -6,6 +6,7 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
+import { Exit } from "effect"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   FolderKanban,
@@ -158,7 +159,9 @@ function NameField({
   slug: string
   name: string
 }) {
-  const update = useAtomSet(updateProjectAtom)
+  const update = useAtomSet(updateProjectAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [saving, setSaving] = useState(false)
@@ -175,12 +178,9 @@ function NameField({
       return
     }
     setSaving(true)
-    try {
-      await update({ orgSlug, slug, name: trimmed })
-    } finally {
-      setSaving(false)
-      setEditing(false)
-    }
+    await update({ name: trimmed })
+    setSaving(false)
+    setEditing(false)
   }
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -221,17 +221,19 @@ function NameField({
 }
 
 function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const remove = useAtomSet(deleteProjectAtom)
+  const remove = useAtomSet(deleteProjectAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
   const navigate = useNavigate()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function onDelete() {
     setDeleting(true)
-    try {
-      await remove({ orgSlug, slug })
+    const exit = await remove()
+    if (Exit.isSuccess(exit)) {
       navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
-    } catch {
+    } else {
       setDeleting(false)
     }
   }

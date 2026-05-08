@@ -10,7 +10,8 @@
 //   - We hide actions the caller can't perform (caller_role passed in).
 //     The server still enforces; this just keeps the UI honest.
 
-import { useAtomSet } from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Exit } from "effect"
 import { useState, type FormEvent } from "react"
 import { motion } from "framer-motion"
 import {
@@ -24,6 +25,7 @@ import {
 } from "lucide-react"
 import {
   addMemberAtom,
+  projectKey,
   removeMemberAtom,
   updateMemberAtom
 } from "@/atoms/projects"
@@ -49,10 +51,21 @@ const ROLE_META: Record<
   { label: () => string; icon: typeof Crown; tone: BadgeTone }
 > = {
   owner: { label: () => m.members_role_owner(), icon: Crown, tone: "amber" },
-  admin: { label: () => m.members_role_admin(), icon: ShieldCheck, tone: "blue" },
-  member: { label: () => m.members_role_member(), icon: UserRound, tone: "muted" }
+  admin: {
+    label: () => m.members_role_admin(),
+    icon: ShieldCheck,
+    tone: "blue"
+  },
+  member: {
+    label: () => m.members_role_member(),
+    icon: UserRound,
+    tone: "muted"
+  }
 }
-const ASSIGNABLE_ROLES = ["admin", "member"] satisfies ReadonlyArray<AssignableRole>
+const ASSIGNABLE_ROLES = [
+  "admin",
+  "member"
+] satisfies ReadonlyArray<AssignableRole>
 
 export function MembersSection({
   orgSlug,
@@ -73,7 +86,9 @@ export function MembersSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">{m.members_section_title()}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {m.members_section_title()}
+        </h2>
         <p className="text-xs text-muted-foreground">
           {m.members_section_subtitle()}
         </p>
@@ -116,31 +131,23 @@ function AddMemberRow({
   slug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const add = useAtomSet(addMemberAtom)
+  const pKey = projectKey(orgSlug, slug)
+  const add = useAtomSet(addMemberAtom(pKey), { mode: "promiseExit" })
+  const addState = useAtomValue(addMemberAtom(pKey))
+  const submitting = addState.waiting
+  const error = Result.isFailure(addState)
+    ? m.members_add_error_fallback()
+    : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const trimmed = email.trim()
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await add({ orgSlug, slug, email: trimmed, role })
+    const exit = await add({ email: trimmed, role })
+    if (Exit.isSuccess(exit)) {
       setEmail("")
-    } catch (err) {
-      // The server returns NotFound for both "no project" and "no user with
-      // that email" — phrase generically since the project's already loaded.
-      setError(
-        err instanceof Error
-          ? err.message
-          : m.members_add_error_fallback()
-      )
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -189,7 +196,9 @@ function RoleSelect({
         >
           <button
             type="button"
-            aria-label={m.members_role_select_aria_label({ role: meta.label() })}
+            aria-label={m.members_role_select_aria_label({
+              role: meta.label()
+            })}
           >
             <Icon strokeWidth={1.75} />
             {meta.label()}
@@ -284,8 +293,9 @@ function MemberMenu({
   member: Member
   callerRole: Role
 }) {
-  const update = useAtomSet(updateMemberAtom)
-  const remove = useAtomSet(removeMemberAtom)
+  const pKey = projectKey(orgSlug, slug)
+  const update = useAtomSet(updateMemberAtom(pKey))
+  const remove = useAtomSet(removeMemberAtom(pKey), { mode: "promiseExit" })
   const [confirming, setConfirming] = useState(false)
   const [removing, setRemoving] = useState(false)
 
@@ -301,9 +311,8 @@ function MemberMenu({
 
   async function onRemove() {
     setRemoving(true)
-    try {
-      await remove({ orgSlug, slug, userId: member.id })
-    } catch {
+    const exit = await remove({ userId: member.id })
+    if (Exit.isFailure(exit)) {
       setRemoving(false)
     }
   }
@@ -336,7 +345,9 @@ function MemberMenu({
                 onClick={() => void onRemove()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {removing ? m.members_remove_in_progress() : m.members_remove_button()}
+                {removing
+                  ? m.members_remove_in_progress()
+                  : m.members_remove_button()}
               </button>
               <button
                 type="button"
@@ -352,28 +363,24 @@ function MemberMenu({
           <>
             {canChangeRole && (
               <>
-                {ASSIGNABLE_ROLES
-                  .filter((r) => r !== member.role)
-                  .map((r) => {
-                    const meta = ROLE_META[r]
-                    const RIcon = meta.icon
-                    const makeLabel =
-                      r === "admin"
-                        ? m.members_make_admin()
-                        : m.members_make_member()
-                    return (
-                      <DropdownMenuItem
-                        key={r}
-                        onSelect={() =>
-                          update({ orgSlug, slug, userId: member.id, role: r })
-                        }
-                        className="cursor-pointer"
-                      >
-                        <RIcon className="size-4" strokeWidth={1.75} />
-                        {makeLabel}
-                      </DropdownMenuItem>
-                    )
-                  })}
+                {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
+                  const meta = ROLE_META[r]
+                  const RIcon = meta.icon
+                  const makeLabel =
+                    r === "admin"
+                      ? m.members_make_admin()
+                      : m.members_make_member()
+                  return (
+                    <DropdownMenuItem
+                      key={r}
+                      onSelect={() => update({ userId: member.id, role: r })}
+                      className="cursor-pointer"
+                    >
+                      <RIcon className="size-4" strokeWidth={1.75} />
+                      {makeLabel}
+                    </DropdownMenuItem>
+                  )
+                })}
               </>
             )}
             {canChangeRole && canRemove && <DropdownMenuSeparator />}

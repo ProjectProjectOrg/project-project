@@ -9,7 +9,7 @@
 // Token / repo failure modes shown by the parent layout via gitStates response.
 
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Cause, Exit, Match, Option } from "effect"
+import { Match } from "effect"
 import {
   AlertTriangle,
   ChevronDown,
@@ -180,44 +180,34 @@ function ConnectedChip({
 function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const [query, setQuery] = useState("")
   const repos = useAtomValue(githubReposAtom(query))
-  const connect = useAtomSet(connectGithubAtom, { mode: "promiseExit" })
-  const [busyKey, setBusyKey] = useState<string | null>(null)
-  const [errorString, setError] = useState<string | null>(null)
+  const pKey = projectKey(orgSlug, slug)
+  const connect = useAtomSet(connectGithubAtom(pKey))
+  const connectState = useAtomValue(connectGithubAtom(pKey))
+  const busy = connectState.waiting
+  const errorString = connectState.waiting
+    ? null
+    : Result.matchWithError(connectState, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) =>
+          Match.value(error).pipe(
+            Match.tag("GitHubTokenExpired", () =>
+              m.github_chip_connect_token_expired_error()
+            ),
+            Match.tag("GitHubScopeInsufficient", () =>
+              m.github_chip_connect_scope_insufficient_error()
+            ),
+            Match.tag("RepoGone", () => m.git_repo_gone_error()),
+            Match.orElse(() => m.github_chip_connect_failed_error())
+          ),
+        onDefect: () => m.github_chip_connect_failed_error()
+      })
 
-  async function pick(repo: GithubRepo) {
-    const key = `${repo.owner}/${repo.name}`
-    setBusyKey(key)
-    setError(null)
-    const exit = await connect({
-      orgSlug,
-      slug,
+  function pick(repo: GithubRepo) {
+    connect({
       repoOwner: repo.owner,
       repoName: repo.name,
       defaultBaseBranch: null
-    })
-
-    Exit.match(exit, {
-      onSuccess: () => undefined,
-      onFailure: (cause) => {
-        const failure = Cause.failureOption(cause)
-        if (Option.isNone(failure)) {
-          setError(m.github_chip_connect_failed_error())
-        } else {
-          setError(
-            Match.value(failure.value).pipe(
-              Match.tag("GitHubTokenExpired", () =>
-                m.github_chip_connect_token_expired_error()
-              ),
-              Match.tag("GitHubScopeInsufficient", () =>
-                m.github_chip_connect_scope_insufficient_error()
-              ),
-              Match.tag("RepoGone", () => m.git_repo_gone_error()),
-              Match.orElse(() => m.github_chip_connect_failed_error())
-            )
-          )
-        }
-        setBusyKey(null)
-      }
     })
   }
 
@@ -264,13 +254,12 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
               ) : (
                 value.repos.map((repo) => {
                   const key = `${repo.owner}/${repo.name}`
-                  const busy = busyKey === key
                   return (
                     <li key={key}>
                       <button
                         type="button"
-                        disabled={busy || busyKey !== null}
-                        onClick={() => void pick(repo)}
+                        disabled={busy}
+                        onClick={() => pick(repo)}
                         className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
                       >
                         <span className="min-w-0 flex-1 truncate font-mono">
@@ -303,22 +292,20 @@ function ManagePanel({
   slug: string
   github: GithubConnection
 }) {
+  const pKey = projectKey(orgSlug, slug)
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
-  const connect = useAtomSet(connectGithubAtom, { mode: "promiseExit" })
-  const disconnect = useAtomSet(disconnectGithubAtom)
+  const connect = useAtomSet(connectGithubAtom(pKey), { mode: "promiseExit" })
+  const connectState = useAtomValue(connectGithubAtom(pKey))
+  const saving = connectState.waiting
+  const disconnect = useAtomSet(disconnectGithubAtom(pKey))
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
-  const [saving, setSaving] = useState(false)
 
   async function saveBase() {
-    setSaving(true)
     await connect({
-      orgSlug,
-      slug,
       repoOwner: github.repoOwner,
       repoName: github.repoName,
       defaultBaseBranch: base.trim() || null
     })
-    setSaving(false)
   }
 
   return (
@@ -373,7 +360,7 @@ function ManagePanel({
               type="button"
               size="sm"
               variant="primary"
-              onClick={() => void disconnect({ orgSlug, slug })}
+              onClick={() => void disconnect()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {m.github_chip_disconnect_button()}
