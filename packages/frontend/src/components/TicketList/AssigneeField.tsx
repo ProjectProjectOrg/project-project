@@ -24,7 +24,9 @@ function AssigneeMenuContent({
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const assignees = ticket.assignees
   const setAssignees = (next: ReadonlyArray<string>) => {
     update({ assignees: next })

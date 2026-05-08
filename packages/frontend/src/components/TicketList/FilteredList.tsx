@@ -228,7 +228,9 @@ function Row({
 
 function NoTicketsYet() {
   return (
-    <Empty className={cn(EMPTY_BORDER, "rounded-xl bg-background/50 px-4 py-10")}>
+    <Empty
+      className={cn(EMPTY_BORDER, "rounded-xl bg-background/50 px-4 py-10")}
+    >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <ListChecks strokeWidth={1.75} />

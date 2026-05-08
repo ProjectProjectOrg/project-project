@@ -1,9 +1,5 @@
 import { Atom } from "@effect-atom/atom-react"
-import type {
-  TagName,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
+import type { TagName, TicketStatus, TicketType } from "@projectproject/shared"
 import type { SortKey } from "@/components/TicketList/sort"
 
 export const ticketListUiKey = (orgSlug: string, slug: string) =>
@@ -31,6 +27,4 @@ export const sortKeyAtom = Atom.family((_key: string) =>
   Atom.make<SortKey>("id")
 )
 
-export const searchFocusedAtom = Atom.family((_key: string) =>
-  Atom.make(false)
-)
+export const searchFocusedAtom = Atom.family((_key: string) => Atom.make(false))

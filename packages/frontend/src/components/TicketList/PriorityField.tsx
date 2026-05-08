@@ -28,7 +28,9 @@ export function PriorityButton({
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -97,7 +99,9 @@ export function PriorityBadgeTrigger({
   ticket: { id: TicketId; priority: TicketPriority }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()

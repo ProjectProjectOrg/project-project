@@ -383,7 +383,10 @@ export const MarkdownLive = Layer.effect(
           catch: (cause): NotFound | MarkdownError => {
             const code = (cause as NodeJS.ErrnoException | undefined)?.code
             if (code === "ENOENT") return new NotFound()
-            return new MarkdownError({ cause, message: `write failed: ${file}` })
+            return new MarkdownError({
+              cause,
+              message: `write failed: ${file}`
+            })
           }
         })
       })

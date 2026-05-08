@@ -87,9 +87,7 @@ export const GroupsLive = Layer.effect(
         return Effect.fail(new Validation({ reason: "completed_in_future" }))
       }
       if (startsAt !== null && completedAt < startsAt) {
-        return Effect.fail(
-          new Validation({ reason: "completed_before_start" })
-        )
+        return Effect.fail(new Validation({ reason: "completed_before_start" }))
       }
       return Effect.void
     }
@@ -187,14 +185,12 @@ export const GroupsLive = Layer.effect(
 
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
           const next: GroupDocument = { ...document, id: candidate }
-          const result = yield* groupDocs
-            .create(orgSlug, slug, next)
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("GroupIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
+          const result = yield* groupDocs.create(orgSlug, slug, next).pipe(
+            Effect.map(() => "ok" as const),
+            Effect.catchTag("GroupIdTaken", () =>
+              Effect.succeed("retry" as const)
             )
+          )
           if (result === "ok") {
             return documentToGroup(next)
           }
@@ -293,11 +289,17 @@ export const GroupsLive = Layer.effect(
           ids,
           (id) =>
             Effect.gen(function* () {
-              const group = yield* groupDocs.read(orgSlug, slug, id).pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(null))
-              )
+              const group = yield* groupDocs
+                .read(orgSlug, slug, id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
               if (group === null) return
-              if (!group.tickets.some((id) => id === ticketId)) return
+              if (
+                !group.tickets.some(
+                  (groupTicketId) => groupTicketId === ticketId
+                )
+              ) {
+                return
+              }
               const next: GroupDocument = {
                 ...group,
                 tickets: group.tickets.filter((t) => t !== ticketId),

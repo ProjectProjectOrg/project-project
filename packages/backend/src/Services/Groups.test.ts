@@ -3,11 +3,7 @@ import { Effect, Layer, Schema } from "effect"
 import { expect } from "vitest"
 import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
 import type { GroupDetail, ProjectDetail, Role } from "@projectproject/shared"
-import {
-  GroupDocs,
-  type GroupDocsShape,
-  type GroupDocument
-} from "./GroupDocs"
+import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
 import { Groups } from "./Groups"
 import { GroupsLive } from "../Layers/Groups"
 import { GroupIdTaken } from "./Markdown"
@@ -34,15 +30,9 @@ function makeFakeDocs(initial?: {
     listIds: () => Effect.succeed([...groups.keys()].map((id) => groupId(id))),
     read: (_org: string, _slug: string, id: string) => {
       const group = groups.get(id)
-      return group
-        ? Effect.succeed(group)
-        : Effect.fail(new NotFound())
+      return group ? Effect.succeed(group) : Effect.fail(new NotFound())
     },
-    create: (
-      _org: string,
-      _slug: string,
-      document: GroupDocument
-    ) => {
+    create: (_org: string, _slug: string, document: GroupDocument) => {
       if (groups.has(document.id)) {
         return Effect.fail(new GroupIdTaken())
       }
@@ -168,9 +158,7 @@ it.effect("create + list returns the new group", () =>
     const list = yield* groups.list("org", "user-1", "p")
     expect(list).toHaveLength(1)
     expect(list[0].name).toBe("Backlog cleanup")
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("create with kind=sprint fails for non-admin member", () =>
@@ -186,9 +174,7 @@ it.effect("create with kind=sprint fails for non-admin member", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Forbidden")
     }
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("create with kind=sprint succeeds for admin", () =>
@@ -199,9 +185,7 @@ it.effect("create with kind=sprint succeeds for admin", () =>
       kind: "sprint"
     })
     expect(created.kind).toBe("sprint")
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
 )
 
 it.effect("updateTickets rejects unknown ticket ids", () =>
@@ -255,9 +239,7 @@ it.effect("create rejects endsAt before startsAt", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Validation")
     }
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("update rejects endsAt before existing startsAt", () =>
@@ -277,9 +259,7 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Validation")
     }
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("update rejects completedAt in the future", () =>
@@ -296,9 +276,7 @@ it.effect("update rejects completedAt in the future", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Validation")
     }
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("update rejects completedAt before startsAt", () =>
@@ -318,9 +296,7 @@ it.effect("update rejects completedAt before startsAt", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Validation")
     }
-  }).pipe(
-    Effect.provide(makeGroupsLayer(undefined, { role: "member" }))
-  )
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
 it.effect("removeTicketFromAllGroups strips the id", () =>

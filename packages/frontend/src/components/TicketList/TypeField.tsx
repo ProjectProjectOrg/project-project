@@ -24,7 +24,9 @@ export function TypeBadgeTrigger({
   ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
   const typeLabel = TYPE_LABELS[ticket.type]()
@@ -85,7 +87,9 @@ export function TypeButton({
   ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
   const typeLabel = TYPE_LABELS[ticket.type]()

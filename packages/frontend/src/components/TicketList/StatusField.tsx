@@ -24,7 +24,9 @@ export function StatusButton({
   ticket: { id: TicketId; status: TicketStatus }
   stopPropagation?: boolean
 }) {
-  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = STATUS_META[ticket.status]
   const Icon = meta.icon
   const statusLabel = STATUS_LABELS[ticket.status]()

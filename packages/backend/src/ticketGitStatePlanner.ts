@@ -1,4 +1,8 @@
-import type { GitState, TicketId, TransitionRecord } from "@projectproject/shared"
+import type {
+  GitState,
+  TicketId,
+  TransitionRecord
+} from "@projectproject/shared"
 import type { RawProjectStates } from "./Services/GitHub"
 
 export interface TicketGitStateInput {
@@ -57,10 +61,7 @@ export function planTicketGitStates(
     }
 
     if (pr.state === "merged") {
-      if (
-        ticket.status !== "done" &&
-        ticket.lastTransitionedPr !== pr.number
-      ) {
+      if (ticket.status !== "done" && ticket.lastTransitionedPr !== pr.number) {
         writes.push({
           ticketId: ticket.id,
           patch: {

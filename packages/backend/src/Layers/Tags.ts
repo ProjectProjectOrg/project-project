@@ -104,8 +104,7 @@ export const TagsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
 
-        const color =
-          input.color ?? pickColor(existing.map((e) => e.color))
+        const color = input.color ?? pickColor(existing.map((e) => e.color))
 
         const existingRow = yield* db.query.projectTag
           .findFirst({

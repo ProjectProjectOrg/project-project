@@ -32,9 +32,7 @@ function LoginPage() {
           <Logo className="size-12" />
           <div className="flex flex-col items-center gap-4">
             <Wordmark className="h-5 w-auto" />
-            <p className="text-sm text-muted-foreground">
-              {m.auth_tagline()}
-            </p>
+            <p className="text-sm text-muted-foreground">{m.auth_tagline()}</p>
           </div>
         </div>
 
