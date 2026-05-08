@@ -24,7 +24,9 @@ const buttonVariants = cva(
         tertiary:
           "border border-border text-foreground bg-transparent hover:bg-muted active:bg-muted/60",
         ghost:
-          "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60"
+          "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60",
+        chip:
+          "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80"
       },
       size: {
         xs: "h-5 px-1.5 text-[11px] gap-1",
@@ -47,7 +49,12 @@ const buttonVariants = cva(
       { size: "xs", iconRight: true, className: "pr-1" },
       { size: "sm", iconRight: true, className: "pr-[6px]" },
       { size: "md", iconRight: true, className: "pr-[10px]" },
-      { size: "lg", iconRight: true, className: "pr-[14px]" }
+      { size: "lg", iconRight: true, className: "pr-[14px]" },
+      {
+        variant: "chip",
+        className:
+          "h-auto rounded-md px-1.5 py-0.5 text-[13px] gap-1.5"
+      }
     ],
     defaultVariants: {
       variant: "primary",

@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Check, UserRound } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import { AvatarStack, MemberAvatar } from "@/components/MemberAvatar"
 import {
@@ -110,10 +111,10 @@ export function AssigneePicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="chip"
           aria-label={m.tickets_assignees_aria_label({ label })}
-          className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
         >
           {resolved.length === 0 ? (
             <UserRound className="size-3.5" strokeWidth={1.75} />
@@ -123,7 +124,7 @@ export function AssigneePicker({
             <AvatarStack subjects={resolved} size={18} max={3} />
           )}
           <span>{label}</span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <AssigneeMenuContent
         orgSlug={orgSlug}

@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
@@ -10,7 +11,6 @@ import {
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
-import { cn } from "@/lib/utils"
 import type { TicketId, TicketType } from "@projectproject/shared"
 
 export function TypeBadgeTrigger({
@@ -31,18 +31,16 @@ export function TypeBadgeTrigger({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="chip"
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
-            className
-          )}
+          className={className}
         >
           <Icon className="size-3.5" strokeWidth={1.75} />
           <span>{typeLabel}</span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
