@@ -14,6 +14,8 @@ import {
   updateTicketAtom
 } from "@/atoms/tickets"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { MentionScopeProvider } from "@/mentions/scope"
+import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { useProjectRole } from "@/lib/projectRole"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
@@ -85,6 +87,7 @@ function ExpandedDetail({
   const update = useAtomSet(updateTicketAtom)
   const remove = useAtomSet(deleteTicketAtom)
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
+  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const autoFocusBody = useRef(focusBody).current
   useEffect(() => {
@@ -103,13 +106,20 @@ function ExpandedDetail({
         <ConfirmDeleteIcon
           ariaLabel={m.tickets_detail_delete_aria_label()}
           message={m.tickets_detail_delete_confirm()}
+          disabled={deleting}
           onConfirm={async () => {
-            await remove({ orgSlug, slug, id: ticket.id })
-            navigate({
-              to: ".",
-              search: (prev) => ({ ...(prev as object), ticket: undefined }),
-              replace: true
-            })
+            setDeleting(true)
+            try {
+              await remove({ orgSlug, slug, id: ticket.id })
+              navigate({
+                to: ".",
+                search: (prev) => ({ ...(prev as object), ticket: undefined }),
+                replace: true
+              })
+            } catch (e) {
+              setDeleting(false)
+              throw e
+            }
           }}
         />
       </div>
@@ -148,16 +158,20 @@ function ExpandedDetail({
       <ExpandedGitPanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
 
       <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <LexicalEditor
-          key={`${slug}/${ticket.id}`}
-          markdown={ticket.body}
-          onChange={(next) =>
-            update({ orgSlug, slug, id: ticket.id, body: next })
-          }
-          onStatusChange={setBodyStatus}
-          autoFocus={autoFocusBody}
-        />
+        <MentionScopeProvider scope={{ orgSlug, slug, members }}>
+          <LexicalEditor
+            key={`${slug}/${ticket.id}`}
+            markdown={ticket.body}
+            onChange={(next) =>
+              update({ orgSlug, slug, id: ticket.id, body: next })
+            }
+            onStatusChange={setBodyStatus}
+            autoFocus={autoFocusBody}
+          />
+        </MentionScopeProvider>
       </div>
+
+      <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
     </div>
   )
 }

@@ -16,7 +16,7 @@
 // `CollapsingLabel` is exported alongside so other toolbar controls
 // (TypeFilter / SortMenu) can collapse labels with the same easing.
 
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
+import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import type { ComponentType, ReactNode } from "react"
 import { Fragment } from "react"
 import { springs } from "@/lib/springs"

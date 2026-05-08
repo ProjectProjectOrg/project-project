@@ -1,6 +1,6 @@
 import { Result, useAtom, useAtomValue } from "@effect-atom/atom-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion } from "motion/react"
 import {
   ArrowDownAZ,
   Check,

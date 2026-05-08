@@ -150,13 +150,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       slug: string,
       id: string
     ): Effect.Effect<
-      TicketFrontmatter & { body: string },
+      TicketFrontmatter & { body: string; region: string },
       NotFound | MarkdownError
     > =>
       Effect.gen(function* () {
-        const file = yield* md.readTicketFile(orgSlug, slug, id)
+        const file = yield* md.readTicketParts(orgSlug, slug, id)
         const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.body }
+        return { ...fm, body: file.description, region: file.region }
       })
 
     const list = (
@@ -283,12 +283,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
         }
         const nextBody = input.body ?? existing.body
 
-        yield* md.writeTicketFile(
+        yield* md.writeTicketWithRegion(
           orgSlug,
           slug,
           id,
           frontmatterToDisk(next),
-          nextBody
+          nextBody,
+          existing.region
         )
 
         return { ...frontmatterToWire(next), body: nextBody }
@@ -320,18 +321,19 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           newName === null
             ? existing.tags.filter((t) => t !== oldName)
             : existing.tags.map((t) => (t === oldName ? newName : t))
-        const { body, ...fm } = existing
+        const { body, region, ...fm } = existing
         const next: TicketFrontmatter = {
           ...fm,
           tags: nextTags,
           updatedAt: new Date()
         }
-        yield* md.writeTicketFile(
+        yield* md.writeTicketWithRegion(
           orgSlug,
           slug,
           id,
           frontmatterToDisk(next),
-          body
+          body,
+          region
         )
         return true
       })
@@ -342,7 +344,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       orgSlug: string,
       slug: string,
       id: string,
-      existing: TicketFrontmatter & { body: string },
+      existing: TicketFrontmatter & { body: string; region: string },
       patch: {
         branch?: string | null
         pr?: number | null
@@ -362,12 +364,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           status: patch.status ?? existing.status,
           updatedAt: new Date()
         }
-        yield* md.writeTicketFile(
+        yield* md.writeTicketWithRegion(
           orgSlug,
           slug,
           id,
           frontmatterToDisk(next),
-          existing.body
+          existing.body,
+          existing.region
         )
         return next
       })

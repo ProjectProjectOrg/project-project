@@ -12,7 +12,7 @@
 
 import { useAtomSet } from "@effect-atom/atom-react"
 import { useState, type FormEvent } from "react"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import {
   Check,
   Crown,
@@ -49,8 +49,16 @@ const ROLE_META: Record<
   { label: () => string; icon: typeof Crown; tone: BadgeTone }
 > = {
   owner: { label: () => m.members_role_owner(), icon: Crown, tone: "amber" },
-  admin: { label: () => m.members_role_admin(), icon: ShieldCheck, tone: "blue" },
-  member: { label: () => m.members_role_member(), icon: UserRound, tone: "muted" }
+  admin: {
+    label: () => m.members_role_admin(),
+    icon: ShieldCheck,
+    tone: "blue"
+  },
+  member: {
+    label: () => m.members_role_member(),
+    icon: UserRound,
+    tone: "muted"
+  }
 }
 
 export function MembersSection({
@@ -72,7 +80,9 @@ export function MembersSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">{m.members_section_title()}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {m.members_section_title()}
+        </h2>
         <p className="text-xs text-muted-foreground">
           {m.members_section_subtitle()}
         </p>
@@ -134,9 +144,7 @@ function AddMemberRow({
       // The server returns NotFound for both "no project" and "no user with
       // that email" — phrase generically since the project's already loaded.
       setError(
-        err instanceof Error
-          ? err.message
-          : m.members_add_error_fallback()
+        err instanceof Error ? err.message : m.members_add_error_fallback()
       )
     } finally {
       setSubmitting(false)
@@ -188,7 +196,9 @@ function RoleSelect({
         >
           <button
             type="button"
-            aria-label={m.members_role_select_aria_label({ role: meta.label() })}
+            aria-label={m.members_role_select_aria_label({
+              role: meta.label()
+            })}
           >
             <Icon strokeWidth={1.75} />
             {meta.label()}
@@ -335,7 +345,9 @@ function MemberMenu({
                 onClick={() => void onRemove()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
               >
-                {removing ? m.members_remove_in_progress() : m.members_remove_button()}
+                {removing
+                  ? m.members_remove_in_progress()
+                  : m.members_remove_button()}
               </button>
               <button
                 type="button"

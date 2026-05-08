@@ -1,0 +1,19 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "comments_heading": "Comments",
+  "comments_heading_with_count": "Comments · {count}",
+  "comments_empty": "No comments yet.",
+  "comments_show_older_one": "Show 1 older comment",
+  "comments_show_older_many": "Show {count} older comments",
+  "comments_load_failed": "Failed to load comments.",
+  "comments_edited_marker": "(edited)",
+  "comments_editing_marker": "editing…",
+  "comments_edit_button": "Edit",
+  "comments_save_button": "Save",
+  "comments_save_failed": "Failed to save.",
+  "comments_delete_aria_label": "Delete comment",
+  "comments_delete_confirm": "Delete this comment?",
+  "comments_composer_placeholder": "Write a comment…",
+  "comments_composer_submit": "Comment",
+  "comments_composer_failed": "Failed to post comment."
+}

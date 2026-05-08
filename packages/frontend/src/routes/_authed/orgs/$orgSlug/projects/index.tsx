@@ -1,7 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState, type FormEvent } from "react"
-import { motion } from "framer-motion"
+import { motion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
 import {

@@ -123,9 +123,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
         return Effect.fail(new Validation({ reason: "completed_in_future" }))
       }
       if (startsAt !== null && completedAt < startsAt) {
-        return Effect.fail(
-          new Validation({ reason: "completed_before_start" })
-        )
+        return Effect.fail(new Validation({ reason: "completed_before_start" }))
       }
       return Effect.void
     }
@@ -296,10 +294,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       slug: string,
       id: string,
       input: UpdateGroupTicketsInput
-    ): Effect.Effect<
-      GroupDetail,
-      NotFound | Forbidden | MarkdownError
-    > =>
+    ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const { group: existing, body: existingBody } = yield* readGroup(

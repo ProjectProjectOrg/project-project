@@ -1,0 +1,284 @@
+import { Data, Effect } from "effect"
+import { and, eq } from "drizzle-orm"
+import { ulid } from "ulid"
+import {
+  Comment,
+  CommentId,
+  CreateCommentInput,
+  Forbidden,
+  NotFound,
+  UpdateCommentInput,
+  type TicketId
+} from "@projectproject/shared"
+import { commentIndex } from "../db/schema"
+import {
+  type CommentBlock,
+  parseCommentsRegion,
+  serializeCommentsRegion,
+  validateCommentBody
+} from "../comments-region"
+import { Db } from "./Db"
+import { Markdown, type MarkdownError } from "./Markdown"
+import { Projects } from "./Projects"
+import { Users } from "./Users"
+
+class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
+  readonly reason: string
+}> {}
+
+const newCommentId = (): CommentId => `c_${ulid()}` as CommentId
+
+export class Comments extends Effect.Service<Comments>()("Comments", {
+  effect: Effect.gen(function* () {
+    const db = yield* Db
+    const md = yield* Markdown
+    const projects = yield* Projects
+    const users = yield* Users
+
+    const ensureMember = (orgSlug: string, userId: string, slug: string) =>
+      projects.requireMember(orgSlug, userId, slug)
+
+    const readBlocks = (orgSlug: string, slug: string, ticketId: string) =>
+      Effect.gen(function* () {
+        const parts = yield* md.readTicketParts(orgSlug, slug, ticketId)
+        return {
+          description: parts.description,
+          frontmatter: parts.data,
+          blocks: parseCommentsRegion(parts.region)
+        }
+      })
+
+    const writeBlocks = (
+      orgSlug: string,
+      slug: string,
+      ticketId: string,
+      frontmatter: Record<string, unknown>,
+      description: string,
+      blocks: ReadonlyArray<CommentBlock>
+    ) =>
+      md.writeTicketWithRegion(
+        orgSlug,
+        slug,
+        ticketId,
+        frontmatter,
+        description,
+        serializeCommentsRegion(blocks)
+      )
+
+    const list = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: TicketId
+    ): Effect.Effect<ReadonlyArray<Comment>, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureMember(orgSlug, userId, slug)
+        const rows = yield* db.query.commentIndex
+          .findMany({
+            where: and(
+              eq(commentIndex.projectSlug, slug),
+              eq(commentIndex.ticketId, ticketId)
+            ),
+            orderBy: (c, { asc }) => [asc(c.createdAt)]
+          })
+          .pipe(Effect.orDie)
+        if (rows.length === 0) return []
+        const { blocks } = yield* readBlocks(orgSlug, slug, ticketId)
+        const blockById = new Map(blocks.map((b) => [b.id, b]))
+        const authors = yield* users.fullByIds(rows.map((r) => r.authorId))
+        const authorById = new Map(authors.map((u) => [u.id, u]))
+        return rows.flatMap((r): Comment[] => {
+          const block = blockById.get(r.id)
+          const author = authorById.get(r.authorId)
+          if (!block || !author) return []
+          return [
+            {
+              id: r.id as CommentId,
+              ticketId,
+              projectSlug: slug as Comment["projectSlug"],
+              author,
+              body: block.body,
+              createdAt: r.createdAt,
+              editedAt: r.editedAt ?? null
+            }
+          ]
+        })
+      })
+
+    const create = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: TicketId,
+      input: CreateCommentInput
+    ): Effect.Effect<Comment, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureMember(orgSlug, userId, slug)
+        const validation = validateCommentBody(input.body)
+        if (!validation.ok) {
+          return yield* Effect.die(
+            new InvalidCommentBody({ reason: validation.reason })
+          )
+        }
+        const { description, frontmatter, blocks } = yield* readBlocks(
+          orgSlug,
+          slug,
+          ticketId
+        )
+        const id = newCommentId()
+        const now = new Date()
+
+        yield* db
+          .insert(commentIndex)
+          .values({
+            id,
+            projectSlug: slug,
+            ticketId,
+            authorId: userId,
+            createdAt: now,
+            editedAt: null
+          })
+          .pipe(Effect.orDie)
+
+        const next: CommentBlock = {
+          id,
+          author: userId,
+          createdAt: now,
+          editedAt: null,
+          body: input.body
+        }
+        yield* writeBlocks(orgSlug, slug, ticketId, frontmatter, description, [
+          ...blocks,
+          next
+        ]).pipe(
+          Effect.tapError(() =>
+            db
+              .delete(commentIndex)
+              .where(eq(commentIndex.id, id))
+              .pipe(Effect.orDie)
+          )
+        )
+        const author = yield* users
+          .fullByIds([userId])
+          .pipe(Effect.map((xs) => xs[0]))
+        return {
+          id,
+          ticketId,
+          projectSlug: slug as Comment["projectSlug"],
+          author,
+          body: input.body,
+          createdAt: now,
+          editedAt: null
+        }
+      })
+
+    const requireAuthor = (
+      slug: string,
+      ticketId: string,
+      commentId: string,
+      userId: string
+    ): Effect.Effect<
+      { authorId: string; createdAt: Date },
+      NotFound | Forbidden
+    > =>
+      Effect.gen(function* () {
+        const row = yield* db.query.commentIndex
+          .findFirst({
+            where: and(
+              eq(commentIndex.id, commentId),
+              eq(commentIndex.projectSlug, slug),
+              eq(commentIndex.ticketId, ticketId)
+            )
+          })
+          .pipe(Effect.orDie)
+        if (!row) return yield* Effect.fail(new NotFound())
+        if (row.authorId !== userId) return yield* Effect.fail(new Forbidden())
+        return { authorId: row.authorId, createdAt: row.createdAt }
+      })
+
+    const edit = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: TicketId,
+      commentId: CommentId,
+      input: UpdateCommentInput
+    ): Effect.Effect<Comment, NotFound | Forbidden | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureMember(orgSlug, userId, slug)
+        const validation = validateCommentBody(input.body)
+        if (!validation.ok) {
+          return yield* Effect.die(
+            new InvalidCommentBody({ reason: validation.reason })
+          )
+        }
+        const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
+        const editedAt = new Date()
+        yield* db
+          .update(commentIndex)
+          .set({ editedAt })
+          .where(eq(commentIndex.id, commentId))
+          .pipe(Effect.orDie)
+        const { description, frontmatter, blocks } = yield* readBlocks(
+          orgSlug,
+          slug,
+          ticketId
+        )
+        const nextBlocks = blocks.map((b) =>
+          b.id === commentId ? { ...b, body: input.body, editedAt } : b
+        )
+        yield* writeBlocks(
+          orgSlug,
+          slug,
+          ticketId,
+          frontmatter,
+          description,
+          nextBlocks
+        )
+        const author = yield* users
+          .fullByIds([userId])
+          .pipe(Effect.map((xs) => xs[0]))
+        return {
+          id: commentId,
+          ticketId,
+          projectSlug: slug as Comment["projectSlug"],
+          author,
+          body: input.body,
+          createdAt: meta.createdAt,
+          editedAt
+        }
+      })
+
+    const remove = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: TicketId,
+      commentId: CommentId
+    ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureMember(orgSlug, userId, slug)
+        yield* requireAuthor(slug, ticketId, commentId, userId)
+        yield* db
+          .delete(commentIndex)
+          .where(eq(commentIndex.id, commentId))
+          .pipe(Effect.orDie)
+        const { description, frontmatter, blocks } = yield* readBlocks(
+          orgSlug,
+          slug,
+          ticketId
+        )
+        yield* writeBlocks(
+          orgSlug,
+          slug,
+          ticketId,
+          frontmatter,
+          description,
+          blocks.filter((b) => b.id !== commentId)
+        )
+      })
+
+    return { list, create, edit, remove } as const
+  }),
+  dependencies: []
+}) {}

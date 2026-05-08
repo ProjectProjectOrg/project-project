@@ -12,7 +12,7 @@ import {
   type ReactNode,
   type HTMLAttributes
 } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "motion/react"
 import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"

@@ -13,7 +13,8 @@
       "./messages/{locale}/projects.json",
       "./messages/{locale}/tickets.json",
       "./messages/{locale}/tags.json",
-      "./messages/{locale}/git.json"
+      "./messages/{locale}/git.json",
+      "./messages/{locale}/comments.json"
     ]
   }
 }

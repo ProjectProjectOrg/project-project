@@ -77,7 +77,9 @@ export function CreateTicketRow({
         replace: true
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : m.tickets_create_error_fallback())
+      setError(
+        err instanceof Error ? err.message : m.tickets_create_error_fallback()
+      )
     } finally {
       setSubmitting(false)
     }
