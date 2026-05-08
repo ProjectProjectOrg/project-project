@@ -83,33 +83,42 @@ export const addMemberAtom = Atom.family((key: string) => {
   )
 })
 
+export const memberKey = (orgSlug: string, slug: string, userId: string) =>
+  `${orgSlug}/${slug}/${userId}`
+
+const splitMemberKey = (
+  key: string
+): { orgSlug: string; slug: string; userId: string } => {
+  const parts = key.split("/")
+  return {
+    orgSlug: parts[0],
+    slug: parts[1],
+    userId: parts.slice(2).join("/")
+  }
+}
+
 export const updateMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
+  const { orgSlug, slug, userId } = splitMemberKey(key)
   return runtime.fn(
-    Effect.fn(function* (
-      input: { userId: string; role: "admin" | "member" },
-      get
-    ) {
+    Effect.fn(function* (input: { role: "admin" | "member" }, get) {
       const client = yield* ApiClient
       const updated = yield* client.projects.updateMember({
-        path: { orgSlug, slug, userId: input.userId },
-        payload: { role: input.role }
+        path: { orgSlug, slug, userId },
+        payload: input
       })
-      get.refresh(projectAtom(key))
+      get.refresh(projectAtom(projectKey(orgSlug, slug)))
       return updated
     })
   )
 })
 
 export const removeMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
+  const { orgSlug, slug, userId } = splitMemberKey(key)
   return runtime.fn(
-    Effect.fn(function* (input: { userId: string }, get) {
+    Effect.fn(function* (_input: void, get) {
       const client = yield* ApiClient
-      yield* client.projects.removeMember({
-        path: { orgSlug, slug, userId: input.userId }
-      })
-      get.refresh(projectAtom(key))
+      yield* client.projects.removeMember({ path: { orgSlug, slug, userId } })
+      get.refresh(projectAtom(projectKey(orgSlug, slug)))
     })
   )
 })

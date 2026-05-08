@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import {
   addMemberAtom,
+  memberKey,
   projectKey,
   removeMemberAtom,
   updateMemberAtom
@@ -293,11 +294,12 @@ function MemberMenu({
   member: Member
   callerRole: Role
 }) {
-  const pKey = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateMemberAtom(pKey))
-  const remove = useAtomSet(removeMemberAtom(pKey), { mode: "promiseExit" })
+  const mKey = memberKey(orgSlug, slug, member.id)
+  const update = useAtomSet(updateMemberAtom(mKey))
+  const remove = useAtomSet(removeMemberAtom(mKey), { mode: "promiseExit" })
+  const removeState = useAtomValue(removeMemberAtom(mKey))
+  const removing = removeState.waiting
   const [confirming, setConfirming] = useState(false)
-  const [removing, setRemoving] = useState(false)
 
   // Only owner can change roles. Admins can remove non-admin members.
   // Owner row has no actionable menu — ownership transfer isn't modeled.
@@ -310,11 +312,7 @@ function MemberMenu({
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 
   async function onRemove() {
-    setRemoving(true)
-    const exit = await remove({ userId: member.id })
-    if (Exit.isFailure(exit)) {
-      setRemoving(false)
-    }
+    await remove()
   }
 
   return (
@@ -373,7 +371,7 @@ function MemberMenu({
                   return (
                     <DropdownMenuItem
                       key={r}
-                      onSelect={() => update({ userId: member.id, role: r })}
+                      onSelect={() => update({ role: r })}
                       className="cursor-pointer"
                     >
                       <RIcon className="size-4" strokeWidth={1.75} />
