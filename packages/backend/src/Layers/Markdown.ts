@@ -6,28 +6,19 @@
 // org" lookup at this layer; callers (handlers via the Projects service)
 // thread it through.
 
-import { Config, Data, Effect } from "effect"
+import { Config, Effect, Layer } from "effect"
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 import matter from "gray-matter"
 import { NotFound } from "@projectproject/shared"
-
-export class MarkdownError extends Data.TaggedError("MarkdownError")<{
-  readonly cause: unknown
-  readonly message: string
-}> {}
-
-// Boundary error: a ticket file at the requested id already exists. Used by
-// the Tickets service to retry sequential id allocation under concurrent
-// creates without leaking the race to the wire.
-export class TicketIdTaken extends Data.TaggedError("TicketIdTaken")<{}> {}
-
-export class GroupIdTaken extends Data.TaggedError("GroupIdTaken")<{}> {}
-
-export interface ParsedMarkdown {
-  readonly data: Record<string, unknown>
-  readonly body: string
-}
+import {
+  GroupIdTaken,
+  Markdown,
+  MarkdownError,
+  TicketIdTaken,
+  type MarkdownShape,
+  type ParsedMarkdown
+} from "../Services/Markdown"
 
 const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -40,8 +31,9 @@ function ensureSafeSlug(slug: string): Effect.Effect<void, MarkdownError> {
   return Effect.void
 }
 
-export class Markdown extends Effect.Service<Markdown>()("Markdown", {
-  effect: Effect.gen(function* () {
+export const MarkdownLive = Layer.effect(
+  Markdown,
+  Effect.gen(function* () {
     const root = yield* Config.string("PROJECTS_DIR")
     const absoluteRoot = path.isAbsolute(root)
       ? root
@@ -461,6 +453,6 @@ export class Markdown extends Effect.Service<Markdown>()("Markdown", {
       removeGroupFile,
       listGroupIds,
       root: absoluteRoot
-    } as const
+    } satisfies MarkdownShape
   })
-}) {}
+)

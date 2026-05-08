@@ -33,18 +33,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Effect, ManagedRuntime } from "effect"
 import { z } from "zod"
 import * as schema from "./db/schema"
 import { session } from "./db/schema"
-import { Db, DbLive } from "./services/Db"
-import { GitHub } from "./services/GitHub"
-import { BetterAuthLive } from "./services/BetterAuth"
-import { Groups } from "./services/Groups"
-import { Markdown } from "./services/Markdown"
-import { Projects } from "./services/Projects"
-import { Tickets } from "./services/Tickets"
-import { Users } from "./services/Users"
+import { BackendRuntimeLive } from "./runtime"
+import { Projects } from "./Services/Projects"
+import { Tickets } from "./Services/Tickets"
 
 // MCP tokens are user-scoped today; org scoping happens server-side via
 // this fallback. Per design spec Q12, future tokens will be org-scoped at
@@ -67,27 +62,6 @@ async function resolveUserId(token: string): Promise<string> {
   }
   return row.userId
 }
-
-// --- Runtime ---------------------------------------------------------------
-// Mirror of `main.ts`'s service graph, minus the HTTP layers. Each service
-// declares its dependencies via `Effect.Service`'s reads, but `Effect.Service`
-// doesn't auto-wire siblings — we have to chain `provideMerge` so each
-// upstream service finds its dependencies further down.
-//
-// Order: Tickets → Projects → GitHub → Markdown → Users, then BetterAuth +
-// Db at the bottom for the others to see. `provideMerge` (vs `provide`)
-// keeps every layer in the exposed surface so the runtime can resolve any
-// of them at the top level.
-
-const ServicesLayer = Tickets.Default.pipe(
-  Layer.provideMerge(Groups.Default),
-  Layer.provideMerge(Projects.Default),
-  Layer.provideMerge(GitHub.Default),
-  Layer.provideMerge(Users.Default),
-  Layer.provideMerge(Markdown.Default),
-  Layer.provideMerge(BetterAuthLive),
-  Layer.provideMerge(DbLive)
-)
 
 // --- Tool body helpers -----------------------------------------------------
 
@@ -128,8 +102,8 @@ async function main(): Promise<void> {
 
   const userId = await resolveUserId(token)
 
-  const runtime = ManagedRuntime.make(ServicesLayer)
-  const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets | Db>) =>
+  const runtime = ManagedRuntime.make(BackendRuntimeLive)
+  const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets>) =>
     runtime.runPromise(eff as Effect.Effect<A, E, never>)
 
   const server = new McpServer(

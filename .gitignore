@@ -36,3 +36,6 @@ packages/frontend/src/paraglide/
 
 # Claude Code local state
 .claude/
+
+# opensrc - source code for packages
+opensrc/

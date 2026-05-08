@@ -1,4 +1,4 @@
-// packages/backend/src/services/Auth.ts
+// packages/backend/src/Layers/Auth.ts
 //
 // THE AUTHENTICATION MIDDLEWARE — LIVE IMPLEMENTATION.
 // ============================================================================
@@ -45,7 +45,7 @@
 import { HttpServerRequest } from "@effect/platform"
 import { Authentication, Unauthorized } from "@projectproject/shared"
 import { Effect, Layer } from "effect"
-import { BetterAuth } from "./BetterAuth"
+import { BetterAuth } from "../Services/BetterAuth"
 
 export const AuthenticationLive = Layer.effect(
   Authentication,

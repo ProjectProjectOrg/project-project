@@ -12,7 +12,7 @@
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
 // exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
 
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import {
   AttachBranchInput,
   BranchExists,
@@ -37,10 +37,11 @@ import {
   TransitionRecord,
   UpdateTicketInput
 } from "@projectproject/shared"
-import { GitHub } from "./GitHub"
-import { Groups } from "./Groups"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
+import { GitHub } from "../Services/GitHub"
+import { Groups } from "../Services/Groups"
+import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { Tickets, type TicketsShape } from "../Services/Tickets"
 
 const MAX_CREATE_ATTEMPTS = 16
 
@@ -129,8 +130,9 @@ function frontmatterToWire(fm: TicketFrontmatter): Ticket {
   }
 }
 
-export class Tickets extends Effect.Service<Tickets>()("Tickets", {
-  effect: Effect.gen(function* () {
+export const TicketsLive = Layer.effect(
+  Tickets,
+  Effect.gen(function* () {
     const md = yield* Markdown
     const projects = yield* Projects
     const github = yield* GitHub
@@ -736,7 +738,6 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       openPr,
       clearBranch,
       listGitStates
-    } as const
-  }),
-  dependencies: []
-}) {}
+    } satisfies TicketsShape
+  })
+)

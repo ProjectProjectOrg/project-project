@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import {
   ADMIN_GATED_KINDS,
   CreateGroupInput,
@@ -15,8 +15,9 @@ import {
   UpdateGroupTicketsInput,
   Validation
 } from "@projectproject/shared"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
+import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { Groups, type GroupsShape } from "../Services/Groups"
 
 const MAX_CREATE_ATTEMPTS = 16
 
@@ -70,8 +71,9 @@ function frontmatterToDisk(fm: Group): Record<string, unknown> {
   }
 }
 
-export class Groups extends Effect.Service<Groups>()("Groups", {
-  effect: Effect.gen(function* () {
+export const GroupsLive = Layer.effect(
+  Groups,
+  Effect.gen(function* () {
     const md = yield* Markdown
     const projects = yield* Projects
 
@@ -382,6 +384,6 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       updateTickets,
       remove,
       removeTicketFromAllGroups
-    } as const
+    } satisfies GroupsShape
   })
-}) {}
+)

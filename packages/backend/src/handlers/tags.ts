@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import { Effect } from "effect"
-import { CurrentOrg } from "../services/CurrentOrg"
-import { Tags } from "../services/Tags"
+import { CurrentOrg } from "../Services/CurrentOrg"
+import { Tags } from "../Services/Tags"
 
 const dieOnMarkdown = <A, R>(eff: Effect.Effect<A, any, R>) =>
   eff.pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))

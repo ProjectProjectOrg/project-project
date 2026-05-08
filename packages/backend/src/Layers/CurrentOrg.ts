@@ -20,13 +20,15 @@
 // will be the first consumer; sync gets added there.
 
 import { and, eq } from "drizzle-orm"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { NotFound, type Role } from "@projectproject/shared"
 import { member, organization } from "../db/schema"
-import { Db } from "./Db"
+import { Db } from "../Services/Db"
+import { CurrentOrg, type CurrentOrgShape } from "../Services/CurrentOrg"
 
-export class CurrentOrg extends Effect.Service<CurrentOrg>()("CurrentOrg", {
-  effect: Effect.gen(function* () {
+export const CurrentOrgLive = Layer.effect(
+  CurrentOrg,
+  Effect.gen(function* () {
     const db = yield* Db
 
     const resolve = (
@@ -64,6 +66,6 @@ export class CurrentOrg extends Effect.Service<CurrentOrg>()("CurrentOrg", {
           )
         )
 
-    return { resolve } as const
+    return { resolve } satisfies CurrentOrgShape
   })
-}) {}
+)

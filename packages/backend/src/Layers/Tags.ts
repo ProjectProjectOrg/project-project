@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { and, eq } from "drizzle-orm"
 import {
   Conflict,
@@ -10,18 +10,20 @@ import {
   type UpdateTagInput
 } from "@projectproject/shared"
 import { projectIndex, projectTag } from "../db/schema"
-import { Db } from "./Db"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
-import { Tickets } from "./Tickets"
+import { Db } from "../Services/Db"
+import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { Tags, type TagsShape } from "../Services/Tags"
+import { Tickets } from "../Services/Tickets"
 
 function pickColor(used: ReadonlyArray<string>): string {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
   return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
 }
 
-export class Tags extends Effect.Service<Tags>()("Tags", {
-  effect: Effect.gen(function* () {
+export const TagsLive = Layer.effect(
+  Tags,
+  Effect.gen(function* () {
     const db = yield* Db
     const md = yield* Markdown
     const projects = yield* Projects
@@ -217,6 +219,6 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .pipe(Effect.orDie)
       })
 
-    return { list, create, update, remove } as const
+    return { list, create, update, remove } satisfies TagsShape
   })
-}) {}
+)

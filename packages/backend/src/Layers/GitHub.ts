@@ -31,7 +31,7 @@
 // row is missing entirely (`NoGithubToken`), we report `GitHubTokenExpired` —
 // the user-facing remedy is the same: reconnect via OAuth.
 
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { Octokit } from "octokit"
 import { graphql as graphqlRequest } from "@octokit/graphql"
 import {
@@ -46,31 +46,13 @@ import {
   RateLimited,
   RepoGone
 } from "@projectproject/shared"
-import { BetterAuth } from "./BetterAuth"
-
-// Raw shapes returned by `fetchProjectStates`. The Tickets service maps these
-// to the wire-side `GitState` union. Keeping the raw shape close to the
-// GraphQL response means one source of truth for the parsing.
-export interface RawBranchEntry {
-  readonly headRefName: string
-  readonly baseRefName: string
-  readonly state: "open" | "closed" | "merged"
-  readonly draft: boolean
-  readonly number: number
-  readonly url: string
-  readonly title: string
-  readonly mergedAt: Date | null
-  readonly checks: "passing" | "failing" | "pending" | "neutral" | "none"
-}
-
-export interface RawProjectStates {
-  readonly defaultBranch: string
-  readonly existingBranches: ReadonlySet<string>
-  // Most-recent PR keyed by head ref name. We pick the latest-updated PR per
-  // branch — a branch can have multiple PRs over its lifetime, but the latest
-  // is the one the UI cares about.
-  readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
-}
+import { BetterAuth } from "../Services/BetterAuth"
+import {
+  GitHub,
+  type GitHubShape,
+  type RawBranchEntry,
+  type RawProjectStates
+} from "../Services/GitHub"
 
 type GitHubFailure =
   | GitHubTokenExpired
@@ -131,8 +113,9 @@ const octokitFor = (token: string) => new Octokit({ auth: token })
 const graphqlFor = (token: string) =>
   graphqlRequest.defaults({ headers: { authorization: `token ${token}` } })
 
-export class GitHub extends Effect.Service<GitHub>()("GitHub", {
-  effect: Effect.gen(function* () {
+export const GitHubLive = Layer.effect(
+  GitHub,
+  Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
 
     // Fetch token, mapping `NoGithubToken` → `GitHubTokenExpired` for the
@@ -693,7 +676,6 @@ export class GitHub extends Effect.Service<GitHub>()("GitHub", {
       fetchProjectStates,
       listBranches,
       branchExists
-    } as const
-  }),
-  dependencies: []
-}) {}
+    } satisfies GitHubShape
+  })
+)

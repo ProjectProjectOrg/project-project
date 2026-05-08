@@ -16,9 +16,9 @@
 //
 // WHAT'S IN THIS FILE
 // ----------------------------------------------------------------------------
-// Three handler groups (`health`, `db`, `auth`) implementing the contract
-// from `@projectproject/shared`, plus the wiring that makes them serve over
-// HTTP. Two mounts under the shared `/api` namespace coexist on the same
+// Handler groups implement the contract from `@projectproject/shared`, and the
+// runtime module provides the service graph they call into. Two mounts under
+// the shared `/api` namespace coexist on the same
 // Bun server:
 //
 //   - `/api/auth/*` — handed off to Better Auth's own request handler,
@@ -36,10 +36,9 @@
 // as `:3000/api/me` exactly. Direct backend curls (`curl :3000/api/me`)
 // hit the same path the frontend does.
 //
-// The interesting wiring lives at the bottom in `ServerLive`: an `HttpRouter`
-// with two `mountApp` calls, an explicit `Effect.catchTag("RouteNotFound", ...)`
-// fallback, and one shared layer chain providing every service the handlers
-// and middleware need.
+// The HTTP wiring lives at the bottom in `ServerLive`: an `HttpRouter` with two
+// `mountApp` calls, an explicit `Effect.catchTag("RouteNotFound", ...)`
+// fallback, and transport-specific layers around the shared backend runtime.
 //
 // MENTAL MODEL REMINDERS
 // ----------------------------------------------------------------------------
@@ -48,9 +47,8 @@
 //   side. We compose layers to build the dependency graph and let the Bun
 //   runtime resolve it.
 // - `Layer.provide` is directional ("this needs that underneath"); `Layer.merge`
-//   is parallel. The chain at the bottom uses `provide` exclusively so that
-//   `BetterAuthLive` and `DbLive` are reachable from anything above them
-//   (including `AuthenticationLive`, which depends on `BetterAuth`).
+//   is parallel. The backend service graph lives in `runtime.ts`; this file adds
+//   the HTTP transport and route mounts around it.
 // - `Layer.launch` rather than `Effect.runPromise` because layers describe
 //   long-lived resources; launch keeps the server alive for the lifetime of
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
@@ -73,17 +71,12 @@ import { GroupsHandlerLive } from "./handlers/groups"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
-import { AuthenticationLive } from "./services/Auth"
-import { BetterAuth, BetterAuthLive } from "./services/BetterAuth"
-import { CurrentOrg } from "./services/CurrentOrg"
-import { Db, DbLive } from "./services/Db"
-import { GitHub } from "./services/GitHub"
-import { Groups } from "./services/Groups"
-import { Markdown } from "./services/Markdown"
-import { Projects } from "./services/Projects"
-import { Tags } from "./services/Tags"
-import { Tickets } from "./services/Tickets"
-import { Users } from "./services/Users"
+import {
+  BackendHttpServicesLive,
+  BackendInfrastructureLive
+} from "./runtime"
+import { BetterAuth } from "./Services/BetterAuth"
+import { Db } from "./Services/Db"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -123,15 +116,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(TicketsHandlerLive),
   Layer.provide(TagsHandlerLive),
   Layer.provide(GroupsHandlerLive),
-  Layer.provide(Tags.Default),
-  Layer.provide(Tickets.Default),
-  Layer.provide(Groups.Default),
-  Layer.provide(Projects.Default),
-  Layer.provide(CurrentOrg.Default),
-  Layer.provide(GitHub.Default),
-  Layer.provide(Users.Default),
-  Layer.provide(Markdown.Default),
-  Layer.provide(AuthenticationLive)
+  Layer.provide(BackendHttpServicesLive)
 )
 
 // Swagger UI lives under /api/docs and reads /api/docs/swagger.json (the
@@ -151,8 +136,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
 ).pipe(
   Layer.provide(SwaggerLive),
   Layer.provide(ApiLive),
-  Layer.provide(BetterAuthLive),
-  Layer.provide(DbLive),
+  Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 )
 

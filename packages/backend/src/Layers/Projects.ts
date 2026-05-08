@@ -27,7 +27,7 @@
 //   add/remove member   ✓      ✓      –   (admin can't touch admins)
 //   change role         ✓      –      –
 
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { and, asc, eq, inArray } from "drizzle-orm"
 import {
   Forbidden,
@@ -51,10 +51,11 @@ import type {
   UpdateProjectInput
 } from "@projectproject/shared"
 import { organization, projectIndex, projectMember } from "../db/schema"
-import { Db } from "./Db"
-import { GitHub } from "./GitHub"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Users } from "./Users"
+import { Db } from "../Services/Db"
+import { GitHub } from "../Services/GitHub"
+import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { Users } from "../Services/Users"
+import { Projects, type ProjectsShape } from "../Services/Projects"
 
 const MAX_SLUG_ATTEMPTS = 100
 
@@ -126,8 +127,9 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-export class Projects extends Effect.Service<Projects>()("Projects", {
-  effect: Effect.gen(function* () {
+export const ProjectsLive = Layer.effect(
+  Projects,
+  Effect.gen(function* () {
     const db = yield* Db
     const md = yield* Markdown
     const users = yield* Users
@@ -737,6 +739,6 @@ export class Projects extends Effect.Service<Projects>()("Projects", {
       removeMember,
       connectGithub,
       disconnectGithub
-    } as const
+    } satisfies ProjectsShape
   })
-}) {}
+)
