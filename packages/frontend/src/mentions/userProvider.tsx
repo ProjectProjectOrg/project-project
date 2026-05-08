@@ -41,12 +41,18 @@ export const userMentionProvider: MentionProvider = {
   renderRow: (c) => (
     <div className="flex items-center gap-2 min-w-0">
       <MemberAvatar
-        member={{ name: c.label, email: c.secondary ?? null, image: c.image ?? null }}
+        member={{
+          name: c.label,
+          email: c.secondary ?? null,
+          image: c.image ?? null
+        }}
         size={20}
       />
       <span className="font-medium truncate">{c.label}</span>
       {c.secondary && (
-        <span className="text-muted-foreground text-xs truncate">{c.secondary}</span>
+        <span className="text-muted-foreground text-xs truncate">
+          {c.secondary}
+        </span>
       )}
     </div>
   )

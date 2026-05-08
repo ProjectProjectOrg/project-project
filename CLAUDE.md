@@ -91,15 +91,15 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 - If a new domain or prefix is introduced, update this section and the Inlang `pathPattern` in the same PR.
 - Future locales must mirror the same file layout and message IDs as `en`.
 
-| File | Prefixes |
-| --- | --- |
-| `packages/frontend/messages/en/common.json` | `common_`, `error_`, `validation_` |
-| `packages/frontend/messages/en/shell.json` | `chrome_`, `nav_`, `theme_` |
-| `packages/frontend/messages/en/account.json` | `auth_`, `profile_` |
+| File                                          | Prefixes                                               |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `packages/frontend/messages/en/common.json`   | `common_`, `error_`, `validation_`                     |
+| `packages/frontend/messages/en/shell.json`    | `chrome_`, `nav_`, `theme_`                            |
+| `packages/frontend/messages/en/account.json`  | `auth_`, `profile_`                                    |
 | `packages/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_` |
-| `packages/frontend/messages/en/tickets.json` | `tickets_` |
-| `packages/frontend/messages/en/tags.json` | `tags_`, `color_` |
-| `packages/frontend/messages/en/git.json` | `git_`, `github_` |
+| `packages/frontend/messages/en/tickets.json`  | `tickets_`                                             |
+| `packages/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |
+| `packages/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 

@@ -147,14 +147,10 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
           editedAt: null,
           body: input.body
         }
-        yield* writeBlocks(
-          orgSlug,
-          slug,
-          ticketId,
-          frontmatter,
-          description,
-          [...blocks, next]
-        ).pipe(
+        yield* writeBlocks(orgSlug, slug, ticketId, frontmatter, description, [
+          ...blocks,
+          next
+        ]).pipe(
           Effect.tapError(() =>
             db
               .delete(commentIndex)
@@ -181,7 +177,10 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
       ticketId: string,
       commentId: string,
       userId: string
-    ): Effect.Effect<{ authorId: string; createdAt: Date }, NotFound | Forbidden> =>
+    ): Effect.Effect<
+      { authorId: string; createdAt: Date },
+      NotFound | Forbidden
+    > =>
       Effect.gen(function* () {
         const row = yield* db.query.commentIndex
           .findFirst({

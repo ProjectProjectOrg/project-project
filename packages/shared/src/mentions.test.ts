@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest"
-import {
-  formatMentionHref,
-  MENTION_SCHEME,
-  parseMentionHref
-} from "./mentions"
+import { formatMentionHref, MENTION_SCHEME, parseMentionHref } from "./mentions"
 
 describe("formatMentionHref", () => {
   it("formats user mentions", () => {
-    expect(formatMentionHref("user", "github_42")).toBe("mention:user/github_42")
+    expect(formatMentionHref("user", "github_42")).toBe(
+      "mention:user/github_42"
+    )
   })
   it("formats ticket mentions", () => {
     expect(formatMentionHref("ticket", "T-12")).toBe("mention:ticket/T-12")
@@ -47,7 +45,10 @@ describe("parseMentionHref", () => {
       ["ticket", "T-1"]
     ] as const
     for (const [type, id] of cases) {
-      expect(parseMentionHref(formatMentionHref(type, id))).toEqual({ type, id })
+      expect(parseMentionHref(formatMentionHref(type, id))).toEqual({
+        type,
+        id
+      })
     }
   })
 })

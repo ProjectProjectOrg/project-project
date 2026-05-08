@@ -76,11 +76,10 @@ export function MentionsPlugin(): JSX.Element | null {
     let cancelled = false
     Effect.runPromise(
       (
-        activeProvider.search(queryString, scope ?? { orgSlug: "", slug: "" }) as Effect.Effect<
-          ReadonlyArray<MentionCandidate>,
-          unknown,
-          never
-        >
+        activeProvider.search(
+          queryString,
+          scope ?? { orgSlug: "", slug: "" }
+        ) as Effect.Effect<ReadonlyArray<MentionCandidate>, unknown, never>
       ).pipe(Effect.provide(AppLayer))
     ).then(
       (r) => {

@@ -126,7 +126,9 @@ export function CreateBranchFields({
     <>
       <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
         <label className="block text-xs">
-          <span className="text-muted-foreground">{m.git_branch_name_label()}</span>
+          <span className="text-muted-foreground">
+            {m.git_branch_name_label()}
+          </span>
           <Input
             autoFocus
             value={name}
@@ -137,7 +139,9 @@ export function CreateBranchFields({
           />
         </label>
         <label className="block text-xs">
-          <span className="text-muted-foreground">{m.git_base_branch_label()}</span>
+          <span className="text-muted-foreground">
+            {m.git_base_branch_label()}
+          </span>
           <BaseBranchCombobox
             orgSlug={orgSlug}
             slug={slug}
@@ -163,7 +167,9 @@ export function CreateBranchFields({
             onClick={() => void submit()}
             disabled={busy || !name.trim()}
           >
-            {busy ? m.git_create_branch_in_progress() : m.git_create_branch_button()}
+            {busy
+              ? m.git_create_branch_in_progress()
+              : m.git_create_branch_button()}
           </Button>
         </div>
       </div>

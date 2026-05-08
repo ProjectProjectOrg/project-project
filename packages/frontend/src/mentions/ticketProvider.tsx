@@ -16,8 +16,7 @@ export const ticketMentionProvider: MentionProvider = {
       return tickets
         .filter(
           (t) =>
-            t.id.toLowerCase().includes(q) ||
-            t.title.toLowerCase().includes(q)
+            t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)
         )
         .slice(0, 8)
         .map((t) => ({ id: t.id, label: t.title }))

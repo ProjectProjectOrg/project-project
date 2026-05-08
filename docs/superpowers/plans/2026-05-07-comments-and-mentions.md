@@ -15,6 +15,7 @@
 ## File Map
 
 **Create:**
+
 - `packages/shared/src/mentions.ts` — canonical link scheme + `parseMentionHref` / `formatMentionHref`.
 - `packages/shared/src/schemas/Comment.ts` — wire schema for `Comment` + `CreateCommentInput` + `UpdateCommentInput`.
 - `packages/backend/src/services/Comments.ts` — service (`list`, `create`, `edit`, `delete`).
@@ -36,6 +37,7 @@
 - `packages/frontend/src/components/Comments/CommentEditor.tsx`
 
 **Modify:**
+
 - `packages/shared/src/index.ts` — re-export `Comment`, `CreateCommentInput`, `UpdateCommentInput`, mentions module.
 - `packages/shared/src/api.ts` — add `TicketCommentsGroup`, attach to `AppApi`.
 - `packages/backend/src/services/Markdown.ts` — split `readTicketFile` so callers can ask for description-only vs full file; add `writeTicketWithCommentsRegion` for atomic body+comments rewrite.
@@ -57,6 +59,7 @@ Backend + shared work is TDD with `@effect/vitest` (matching `main.test.ts`). Th
 ## Task 1: Shared mention registry — failing tests
 
 **Files:**
+
 - Create: `packages/shared/src/mentions.ts`
 - Create: `packages/shared/src/mentions.test.ts`
 
@@ -65,15 +68,13 @@ Backend + shared work is TDD with `@effect/vitest` (matching `main.test.ts`). Th
 ```ts
 // packages/shared/src/mentions.test.ts
 import { describe, expect, it } from "vitest"
-import {
-  formatMentionHref,
-  MENTION_SCHEME,
-  parseMentionHref
-} from "./mentions"
+import { formatMentionHref, MENTION_SCHEME, parseMentionHref } from "./mentions"
 
 describe("formatMentionHref", () => {
   it("formats user mentions", () => {
-    expect(formatMentionHref("user", "github_42")).toBe("mention:user/github_42")
+    expect(formatMentionHref("user", "github_42")).toBe(
+      "mention:user/github_42"
+    )
   })
   it("formats ticket mentions", () => {
     expect(formatMentionHref("ticket", "T-12")).toBe("mention:ticket/T-12")
@@ -113,7 +114,10 @@ describe("parseMentionHref", () => {
       ["ticket", "T-1"]
     ] as const
     for (const [type, id] of cases) {
-      expect(parseMentionHref(formatMentionHref(type, id))).toEqual({ type, id })
+      expect(parseMentionHref(formatMentionHref(type, id))).toEqual({
+        type,
+        id
+      })
     }
   })
 })
@@ -194,6 +198,7 @@ git commit -m "feat(shared): mention link scheme + parser/formatter"
 ## Task 2: Shared `Comment` schema
 
 **Files:**
+
 - Create: `packages/shared/src/schemas/Comment.ts`
 - Modify: `packages/shared/src/index.ts`
 
@@ -264,6 +269,7 @@ git commit -m "feat(shared): Comment schema + Create/Update inputs"
 ## Task 3: Pure comments-region parser — failing tests
 
 **Files:**
+
 - Create: `packages/backend/src/comments-region.ts`
 - Create: `packages/backend/src/comments-region.test.ts`
 
@@ -271,7 +277,7 @@ This module is the trickiest single piece of logic in the feature. It owns the o
 
 - [ ] **Step 1: Write the failing tests**
 
-```ts
+````ts
 // packages/backend/src/comments-region.test.ts
 import { describe, expect, it } from "vitest"
 import {
@@ -373,7 +379,7 @@ describe("validateCommentBody", () => {
     expect(validateCommentBody("   \n  ").ok).toBe(false)
   })
 })
-```
+````
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -446,7 +452,9 @@ export function splitDescriptionAndCommentsRegion(full: string): {
   return { description, region }
 }
 
-export function parseCommentsRegion(region: string): ReadonlyArray<CommentBlock> {
+export function parseCommentsRegion(
+  region: string
+): ReadonlyArray<CommentBlock> {
   if (!region.trim()) return []
   const inner = stripOuterMarkers(region)
   if (inner === null) return []
@@ -537,6 +545,7 @@ git commit -m "feat(backend): pure comments-region parser/serializer"
 ## Task 4: `comment_index` table + migration
 
 **Files:**
+
 - Modify: `packages/backend/src/db/schema.ts`
 - Create: `packages/backend/src/db/migrations/0007_<auto>.sql` (generated)
 
@@ -562,11 +571,7 @@ export const commentIndex = pgTable(
     editedAt: timestamp("edited_at", { withTimezone: true })
   },
   (t) => [
-    index("comment_index_ticket_idx").on(
-      t.projectSlug,
-      t.ticketId,
-      t.createdAt
-    )
+    index("comment_index_ticket_idx").on(t.projectSlug, t.ticketId, t.createdAt)
   ]
 )
 
@@ -588,6 +593,7 @@ Expected: a new file appears under `packages/backend/src/db/migrations/0007_<wor
 - [ ] **Step 3: Eyeball the generated SQL**
 
 Read the new migration file. Confirm:
+
 - `CREATE TABLE "comment_index"` with all five columns and `id` as PK.
 - FK constraint on `author_id → user(id)`.
 - Index `comment_index_ticket_idx` on `(project_slug, ticket_id, created_at)`.
@@ -611,6 +617,7 @@ git commit -m "feat(backend): comment_index table"
 ## Task 5: Markdown service — split description from comments region
 
 **Files:**
+
 - Modify: `packages/backend/src/services/Markdown.ts`
 
 The Tickets service currently returns `body: file.content` — that's the entire text after the frontmatter, comments included. We split here so neither the description endpoint nor Tickets internals ever see comments.
@@ -620,9 +627,7 @@ The Tickets service currently returns `body: file.content` — that's the entire
 In `packages/backend/src/services/Markdown.ts`, immediately after `readTicketFile` is declared, add:
 
 ```ts
-import {
-  splitDescriptionAndCommentsRegion
-} from "../comments-region"
+import { splitDescriptionAndCommentsRegion } from "../comments-region"
 
 const readTicketParts = (
   orgSlug: string,
@@ -693,14 +698,15 @@ const readTicket = (
 In every place that calls `md.writeTicketFile(orgSlug, slug, id, frontmatterToDisk(next), nextBody)` — there are several in `Tickets.ts` (`update`, `replaceTag`, `writeGitFields`) — switch to:
 
 ```ts
-yield* md.writeTicketWithRegion(
-  orgSlug,
-  slug,
-  id,
-  frontmatterToDisk(next),
-  nextBody,
-  existing.region   // preserve the existing comments region untouched
-)
+yield *
+  md.writeTicketWithRegion(
+    orgSlug,
+    slug,
+    id,
+    frontmatterToDisk(next),
+    nextBody,
+    existing.region // preserve the existing comments region untouched
+  )
 ```
 
 For `writeGitFields`, the existing variable is `existing.body` — change that body argument to `existing.body` (already description-only after step 4) and pass `existing.region` as the new sixth arg.
@@ -724,6 +730,7 @@ git commit -m "feat(backend): split description from comments region in ticket I
 ## Task 6: Comments service — failing tests
 
 **Files:**
+
 - Create: `packages/backend/src/services/Comments.ts`
 - Create: `packages/backend/src/services/Comments.test.ts`
 
@@ -815,10 +822,7 @@ import { Markdown } from "./Markdown"
 import { Projects } from "./Projects"
 import { Users } from "./Users"
 import { Comments } from "./Comments"
-import {
-  COMMENTS_END,
-  COMMENTS_START
-} from "../comments-region"
+import { COMMENTS_END, COMMENTS_START } from "../comments-region"
 import type { TicketId } from "@projectproject/shared"
 
 let tmpRoot: string
@@ -1200,14 +1204,10 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
           editedAt: null,
           body: input.body
         }
-        yield* writeBlocks(
-          orgSlug,
-          slug,
-          ticketId,
-          frontmatter,
-          description,
-          [...blocks, next]
-        ).pipe(
+        yield* writeBlocks(orgSlug, slug, ticketId, frontmatter, description, [
+          ...blocks,
+          next
+        ]).pipe(
           Effect.tapError(() =>
             db
               .delete(commentIndex)
@@ -1234,7 +1234,10 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
       ticketId: string,
       commentId: string,
       userId: string
-    ): Effect.Effect<{ authorId: string; createdAt: Date }, NotFound | Forbidden> =>
+    ): Effect.Effect<
+      { authorId: string; createdAt: Date },
+      NotFound | Forbidden
+    > =>
       db.query.commentIndex
         .findFirst({
           where: and(
@@ -1286,9 +1289,7 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
           ticketId
         )
         const nextBlocks = blocks.map((b) =>
-          b.id === commentId
-            ? { ...b, body: input.body, editedAt }
-            : b
+          b.id === commentId ? { ...b, body: input.body, editedAt } : b
         )
         yield* writeBlocks(
           orgSlug,
@@ -1370,6 +1371,7 @@ git commit -m "feat(backend): Comments service with DB-authoritative integrity"
 ## Task 7: HttpApi `ticketComments` group + handler
 
 **Files:**
+
 - Modify: `packages/shared/src/api.ts`
 - Create: `packages/backend/src/handlers/comments.ts`
 - Modify: `packages/backend/src/main.ts`
@@ -1571,11 +1573,11 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(AuthHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(TicketsHandlerLive),
-  Layer.provide(CommentsHandlerLive),  // <— add
+  Layer.provide(CommentsHandlerLive), // <— add
   Layer.provide(TagsHandlerLive),
   Layer.provide(Tags.Default),
   Layer.provide(Tickets.Default),
-  Layer.provide(Comments.Default),     // <— add
+  Layer.provide(Comments.Default), // <— add
   Layer.provide(Projects.Default),
   Layer.provide(CurrentOrg.Default),
   Layer.provide(GitHub.Default),
@@ -1610,6 +1612,7 @@ git commit -m "feat(api): ticketComments group + handler"
 ## Task 8: Frontend atoms — `commentsAtom` + optimistic mutations
 
 **Files:**
+
 - Create: `packages/frontend/src/atoms/comments.ts`
 
 - [ ] **Step 1: Write the atoms file**
@@ -1707,9 +1710,7 @@ export const editCommentAtom = Atom.family((key: string) => {
       if (!Result.isSuccess(current)) return current
       const editedAt = new Date()
       const next = current.value.map((c) =>
-        c.id === input.commentId
-          ? { ...c, body: input.body, editedAt }
-          : c
+        c.id === input.commentId ? { ...c, body: input.body, editedAt } : c
       )
       return Result.success(next, { waiting: true })
     },
@@ -1773,6 +1774,7 @@ git commit -m "feat(frontend): commentsAtom + create/edit/delete optimistic muta
 ## Task 9: Frontend mention provider registry
 
 **Files:**
+
 - Create: `packages/frontend/src/mentions/registry.ts`
 - Create: `packages/frontend/src/mentions/userProvider.tsx`
 - Create: `packages/frontend/src/mentions/ticketProvider.tsx`
@@ -1794,7 +1796,9 @@ export interface MentionCandidate {
 export interface MentionProvider {
   readonly trigger: string
   readonly type: MentionType
-  readonly search: (query: string) => Effect.Effect<ReadonlyArray<MentionCandidate>>
+  readonly search: (
+    query: string
+  ) => Effect.Effect<ReadonlyArray<MentionCandidate>>
   readonly renderRow: (candidate: MentionCandidate) => ReactNode
   readonly renderChip: (ref: MentionRef) => ReactNode
 }
@@ -1925,6 +1929,7 @@ git commit -m "feat(frontend): mention provider registry (user, ticket)"
 ## Task 10: Lexical `MentionNode` + markdown transformer
 
 **Files:**
+
 - Create: `packages/frontend/src/components/Lexical/MentionNode.ts`
 - Create: `packages/frontend/src/components/Lexical/mentionTransformer.ts`
 
@@ -1977,12 +1982,7 @@ export class MentionNode extends TextNode {
     )
   }
 
-  constructor(
-    type: MentionType,
-    id: string,
-    label: string,
-    key?: NodeKey
-  ) {
+  constructor(type: MentionType, id: string, label: string, key?: NodeKey) {
     super(displayText(type, id, label), key)
     this.__mentionType = type
     this.__mentionId = id
@@ -2096,15 +2096,8 @@ export function $isMentionNode(
 
 import type { TextMatchTransformer } from "@lexical/markdown"
 import { $createTextNode } from "lexical"
-import {
-  formatMentionHref,
-  parseMentionHref
-} from "@projectproject/shared"
-import {
-  $createMentionNode,
-  $isMentionNode,
-  MentionNode
-} from "./MentionNode"
+import { formatMentionHref, parseMentionHref } from "@projectproject/shared"
+import { $createMentionNode, $isMentionNode, MentionNode } from "./MentionNode"
 
 export const MENTION_TRANSFORMER: TextMatchTransformer = {
   dependencies: [MentionNode],
@@ -2146,6 +2139,7 @@ git commit -m "feat(frontend): MentionNode + @lexical/markdown transformer"
 ## Task 11: Lexical typeahead `MentionsPlugin`
 
 **Files:**
+
 - Create: `packages/frontend/src/components/Lexical/MentionsPlugin.tsx`
 
 - [ ] **Step 1: Implement the plugin**
@@ -2195,32 +2189,29 @@ export function MentionsPlugin(): JSX.Element | null {
   const [results, setResults] = useState<ReadonlyArray<MentionCandidate>>([])
 
   // A trigger matcher that fires on any provider's trigger character.
-  const checkForTriggerMatch = useCallback(
-    (text: string) => {
-      // Walk back from end-of-text, find the last trigger char preceded by
-      // whitespace or start-of-line.
-      for (let i = text.length - 1; i >= 0; i--) {
-        const ch = text[i]
-        if (TRIGGERS.includes(ch)) {
-          const prev = i === 0 ? " " : text[i - 1]
-          if (/\s/.test(prev)) {
-            const provider = providerForTrigger(ch)
-            if (!provider) return null
-            const matchString = text.slice(i + 1)
-            if (/\s/.test(matchString)) return null
-            setActiveProvider(provider)
-            return {
-              leadOffset: i,
-              matchingString: matchString,
-              replaceableString: text.slice(i)
-            }
+  const checkForTriggerMatch = useCallback((text: string) => {
+    // Walk back from end-of-text, find the last trigger char preceded by
+    // whitespace or start-of-line.
+    for (let i = text.length - 1; i >= 0; i--) {
+      const ch = text[i]
+      if (TRIGGERS.includes(ch)) {
+        const prev = i === 0 ? " " : text[i - 1]
+        if (/\s/.test(prev)) {
+          const provider = providerForTrigger(ch)
+          if (!provider) return null
+          const matchString = text.slice(i + 1)
+          if (/\s/.test(matchString)) return null
+          setActiveProvider(provider)
+          return {
+            leadOffset: i,
+            matchingString: matchString,
+            replaceableString: text.slice(i)
           }
         }
       }
-      return null
-    },
-    []
-  )
+    }
+    return null
+  }, [])
 
   useEffect(() => {
     if (!activeProvider || queryString === null) {
@@ -2353,6 +2344,7 @@ git commit -m "feat(frontend): Lexical mentions plugin + node registration"
 ## Task 12: `Markdown.tsx` — render mention links as chips
 
 **Files:**
+
 - Modify: `packages/frontend/src/components/Markdown.tsx`
 
 - [ ] **Step 1: Override the link renderer**
@@ -2426,6 +2418,7 @@ git commit -m "feat(frontend): render mention: links as chips in Markdown.tsx"
 ## Task 13: Comments UI — Section, Row, Composer, Editor
 
 **Files:**
+
 - Create: `packages/frontend/src/components/Comments/CommentsSection.tsx`
 - Create: `packages/frontend/src/components/Comments/CommentRow.tsx`
 - Create: `packages/frontend/src/components/Comments/CommentComposer.tsx`
@@ -2478,11 +2471,7 @@ export function CommentsSection({
           <p className="text-destructive text-sm">Failed to load comments.</p>
         )}
       </div>
-      <CommentComposer
-        orgSlug={orgSlug}
-        slug={slug}
-        ticketId={ticketId}
-      />
+      <CommentComposer orgSlug={orgSlug} slug={slug} ticketId={ticketId} />
     </section>
   )
 }
@@ -2523,8 +2512,7 @@ export function CommentRow({
 }) {
   const [editing, setEditing] = useState(false)
   const me = useAtomValue(currentUserAtom)
-  const isAuthor =
-    Result.isSuccess(me) && me.value.id === comment.author.id
+  const isAuthor = Result.isSuccess(me) && me.value.id === comment.author.id
   const key = commentsKey(orgSlug, slug, ticketId)
   const deleteComment = useAtomSet(deleteCommentAtom(key))
 
@@ -2550,7 +2538,9 @@ export function CommentRow({
       <header className="flex items-center justify-between gap-2 text-sm">
         <div className="flex items-center gap-2">
           <MemberAvatar user={comment.author} size="sm" />
-          <span className="font-medium">{comment.author.name ?? comment.author.id}</span>
+          <span className="font-medium">
+            {comment.author.name ?? comment.author.id}
+          </span>
           <time className="text-muted-foreground">
             {new Date(comment.createdAt).toLocaleString()}
           </time>
@@ -2610,7 +2600,9 @@ export function CommentComposer({
   const [body, setBody] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const create = useAtomSet(createCommentAtom(commentsKey(orgSlug, slug, ticketId)))
+  const create = useAtomSet(
+    createCommentAtom(commentsKey(orgSlug, slug, ticketId))
+  )
 
   const submit = async () => {
     if (!body.trim() || busy) return
@@ -2693,11 +2685,7 @@ export function CommentEditor({
 
   return (
     <div className="border-border space-y-2 rounded-md border p-3">
-      <LexicalEditor
-        markdown={body}
-        onChange={(md) => setBody(md)}
-        autoFocus
-      />
+      <LexicalEditor markdown={body} onChange={(md) => setBody(md)} autoFocus />
       {error && <p className="text-destructive text-sm">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button
@@ -2737,6 +2725,7 @@ git commit -m "feat(frontend): comments section, row, composer, editor"
 ## Task 14: Wire `<CommentsSection />` into the ticket detail route
 
 **Files:**
+
 - Modify: the ticket-detail route file. Find it: `ls packages/frontend/src/routes/_authed/` (look for the file matching the orgSlug + slug + tickets/$id pattern).
 
 - [ ] **Step 1: Locate the ticket detail route**
@@ -2795,6 +2784,7 @@ git commit -m "feat(frontend): mount CommentsSection in ticket detail"
 ## Task 15: Wire the ticket mention provider against the project's ticket list
 
 **Files:**
+
 - Modify: `packages/frontend/src/mentions/ticketProvider.tsx`
 - Possibly modify: `packages/frontend/src/components/Comments/CommentComposer.tsx`, `CommentEditor.tsx`, `Lexical/MentionsPlugin.tsx` to thread `orgSlug`/`slug` context.
 
@@ -2855,8 +2845,7 @@ search: (query, scope) =>
     return tickets
       .filter(
         (t) =>
-          t.id.toLowerCase().includes(q) ||
-          t.title.toLowerCase().includes(q)
+          t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)
       )
       .slice(0, 8)
       .map((t) => ({ id: t.id, label: t.title }))
@@ -2894,6 +2883,7 @@ Expected: zero errors.
 - [ ] **Step 3: Re-do the full UI smoke from Task 14, with mentions now working end-to-end**
 
 Same checklist as Task 14, plus:
+
 - `@` mention appears in the rendered comment as a chip (read-mode).
 - `#T-N` mention appears as a monospace chip in the rendered comment.
 - Open the on-disk markdown — both mentions are stored as `[label](mention:user/...)` / `[T-N](mention:ticket/T-N)`.

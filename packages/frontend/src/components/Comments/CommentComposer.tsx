@@ -51,7 +51,10 @@ export function CommentComposer({
     <motion.div
       onFocus={() => setExpanded(true)}
       onBlur={handleBlur}
-      animate={{ paddingTop: expanded ? 12 : 6, paddingBottom: expanded ? 12 : 6 }}
+      animate={{
+        paddingTop: expanded ? 12 : 6,
+        paddingBottom: expanded ? 12 : 6
+      }}
       transition={{ duration: 0.18, ease: "easeOut" }}
       className="border-border bg-background rounded-md border px-3"
     >
@@ -74,7 +77,11 @@ export function CommentComposer({
           >
             {error && <p className="text-destructive mb-2 text-sm">{error}</p>}
             <div className="flex justify-end">
-              <Button size="sm" onClick={submit} disabled={busy || !body.trim()}>
+              <Button
+                size="sm"
+                onClick={submit}
+                disabled={busy || !body.trim()}
+              >
                 {m.comments_composer_submit()}
               </Button>
             </div>

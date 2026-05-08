@@ -520,7 +520,6 @@ html.dark .prose-md .token.coord {
   accent-color: var(--foreground);
 }
 
-
 @layer base {
   * {
     @apply border-border;

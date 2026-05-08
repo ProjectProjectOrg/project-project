@@ -132,11 +132,7 @@ function EditForm({
           {m.comments_editing_marker()}
         </span>
       </header>
-      <LexicalEditor
-        markdown={body}
-        onChange={(md) => setBody(md)}
-        autoFocus
-      />
+      <LexicalEditor markdown={body} onChange={(md) => setBody(md)} autoFocus />
       {error && <p className="text-destructive text-sm">{error}</p>}
       <div className="flex justify-end gap-2">
         <InlineForm.Cancel />
@@ -147,4 +143,3 @@ function EditForm({
     </>
   )
 }
-

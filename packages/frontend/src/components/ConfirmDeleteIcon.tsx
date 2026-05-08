@@ -64,7 +64,9 @@ function ConfirmBody({
   }
   return (
     <>
-      <span className="text-xs text-muted-foreground h-8 inline-flex items-center">{message}</span>
+      <span className="text-xs text-muted-foreground h-8 inline-flex items-center">
+        {message}
+      </span>
       <Button
         size="sm"
         onClick={() => void run()}

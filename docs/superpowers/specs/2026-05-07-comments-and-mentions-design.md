@@ -31,21 +31,27 @@ status: in_progress
 Description body in markdown. Lexical reads/writes only this region.
 
 <!-- comments:start -->
-<!-- comment:c_01HX… -->
----
+
+## <!-- comment:c_01HX… -->
+
 author: github_42
 createdAt: 2026-05-07T10:00:00Z
 editedAt: 2026-05-07T10:04:11Z
+
 ---
+
 Looks good. cc [Wouter](mention:user/github_88) — does this need a story in
 [T-15](mention:ticket/T-15)?
 
-<!-- comment:c_01HX… -->
----
+## <!-- comment:c_01HX… -->
+
 author: github_88
 createdAt: 2026-05-07T10:06:30Z
+
 ---
+
 Yep, on it.
+
 <!-- comments:end -->
 ```
 
@@ -69,16 +75,22 @@ Single new table, mirroring the `project_index` pattern. No body column; markdow
 
 ```ts
 // packages/backend/src/db/schema.ts
-export const commentIndex = pgTable("comment_index", {
-  id: text("id").primaryKey(),                         // c_<ulid>
-  projectSlug: text("project_slug").notNull(),
-  ticketId: text("ticket_id").notNull(),
-  authorId: text("author_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-  editedAt: timestamp("edited_at", { withTimezone: true }),
-}, (t) => ({
-  ticketIdx: index().on(t.projectSlug, t.ticketId, t.createdAt),
-}))
+export const commentIndex = pgTable(
+  "comment_index",
+  {
+    id: text("id").primaryKey(), // c_<ulid>
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    editedAt: timestamp("edited_at", { withTimezone: true })
+  },
+  (t) => ({
+    ticketIdx: index().on(t.projectSlug, t.ticketId, t.createdAt)
+  })
+)
 ```
 
 ### Read path — DB is the authoritative list
@@ -116,10 +128,10 @@ export class Comment extends Schema.Class<Comment>("Comment")({
   id: Schema.String,
   ticketId: Schema.String,
   projectSlug: Schema.String,
-  author: User,                       // resolved server-side from authorId
-  body: Schema.String,                // raw markdown, mention links intact
+  author: User, // resolved server-side from authorId
+  body: Schema.String, // raw markdown, mention links intact
   createdAt: Schema.DateTimeUtc,
-  editedAt: Schema.NullOr(Schema.DateTimeUtc),
+  editedAt: Schema.NullOr(Schema.DateTimeUtc)
 }) {}
 ```
 

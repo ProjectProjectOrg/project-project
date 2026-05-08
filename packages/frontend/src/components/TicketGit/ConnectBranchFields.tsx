@@ -181,7 +181,9 @@ export function ConnectBranchFields({
           onClick={() => selected && void submit(selected)}
           disabled={busy || !selected}
         >
-          {busy ? m.git_connect_branch_in_progress() : m.git_connect_branch_button()}
+          {busy
+            ? m.git_connect_branch_in_progress()
+            : m.git_connect_branch_button()}
         </Button>
       </div>
     </>

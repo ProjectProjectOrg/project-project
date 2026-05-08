@@ -37,7 +37,9 @@ export function splitDescriptionAndCommentsRegion(full: string): {
   return { description, region }
 }
 
-export function parseCommentsRegion(region: string): ReadonlyArray<CommentBlock> {
+export function parseCommentsRegion(
+  region: string
+): ReadonlyArray<CommentBlock> {
   if (!region.trim()) return []
   const inner = stripOuterMarkers(region)
   if (inner === null) return []

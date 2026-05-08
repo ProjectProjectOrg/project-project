@@ -16,7 +16,11 @@ import { PageContainer, PageHeader } from "@/components/page"
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
   loader: () => ({
-    crumb: { type: "static" as const, label: m.profile_crumb_label(), to: "/profile" }
+    crumb: {
+      type: "static" as const,
+      label: m.profile_crumb_label(),
+      to: "/profile"
+    }
   })
 })
 
@@ -35,7 +39,9 @@ function Profile() {
       <Card>
         <CardHeader>
           <CardTitle>{m.profile_section_account_title()}</CardTitle>
-          <CardDescription>{m.profile_section_account_description()}</CardDescription>
+          <CardDescription>
+            {m.profile_section_account_description()}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {/* Identity hero — avatar + name + the @username/email pair, same

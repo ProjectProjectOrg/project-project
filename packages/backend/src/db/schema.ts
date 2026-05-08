@@ -159,11 +159,7 @@ export const commentIndex = pgTable(
     editedAt: timestamp("edited_at", { withTimezone: true })
   },
   (t) => [
-    index("comment_index_ticket_idx").on(
-      t.projectSlug,
-      t.ticketId,
-      t.createdAt
-    )
+    index("comment_index_ticket_idx").on(t.projectSlug, t.ticketId, t.createdAt)
   ]
 )
 

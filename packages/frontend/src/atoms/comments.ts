@@ -63,7 +63,10 @@ export const createCommentAtom = Atom.family((key: string) => {
 export const editCommentAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitKey(key)
   return Atom.optimisticFn(commentsAtom(key), {
-    reducer: (current, input: { commentId: CommentId } & UpdateCommentInput) => {
+    reducer: (
+      current,
+      input: { commentId: CommentId } & UpdateCommentInput
+    ) => {
       if (!Result.isSuccess(current)) return current
       const editedAt = new Date()
       const next = current.value.map((c) =>
