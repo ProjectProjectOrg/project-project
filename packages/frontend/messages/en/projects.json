@@ -48,6 +48,7 @@
   "members_actions_aria_label": "Member actions",
   "members_add_email_aria_label": "Email to add as member",
   "members_add_email_placeholder": "Email of an existing user…",
+  "members_add_email_validation_hint": "Between 3 and 254 characters.",
   "members_add_error_fallback": "Couldn't add member — make sure they've signed in at least once.",
   "members_make_admin": "Make admin",
   "members_make_member": "Make member",

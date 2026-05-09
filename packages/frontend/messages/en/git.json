@@ -4,6 +4,7 @@
   "git_base_branch_label": "Base branch",
   "git_branch_exists_error": "Branch \"{name}\" already exists.",
   "git_branch_name_label": "Branch name",
+  "git_branch_name_validation_hint": "Between 1 and 255 characters.",
   "git_branch_not_found_error": "Branch \"{name}\" was just deleted upstream.",
   "git_branch_protected_error": "Branch name is protected.",
   "git_branch_protected_pill": "protected",

@@ -1,10 +1,18 @@
-import { Cause, Either, Option, ParseResult, Schema, SchemaAST } from "effect"
+import {
+  Cause,
+  Either,
+  JSONSchema,
+  Option,
+  ParseResult,
+  Schema,
+  SchemaAST
+} from "effect"
 import { HttpApiError } from "@effect/platform"
 import { m } from "@/paraglide/messages"
 import { SCHEMA_HINTS } from "@/lib/schema-hints"
 
 export type InputAttrs = {
-  pattern?: RegExp
+  pattern?: string
   minLength?: number
   maxLength?: number
 }
@@ -18,39 +26,54 @@ export const validate = <A, I>(
     ParseResult.ArrayFormatter.formatErrorSync
   )
 
-export const getInputAttrs = (schema: Schema.Schema.Any): InputAttrs => {
-  const attrs: InputAttrs = {}
-  let ast: SchemaAST.AST = schema.ast
-  while (SchemaAST.isRefinement(ast)) {
-    const patternAnn = ast.annotations[Schema.PatternSchemaId]
-    if (
-      attrs.pattern === undefined &&
-      typeof patternAnn === "object" &&
-      patternAnn !== null &&
-      "regex" in patternAnn &&
-      patternAnn.regex instanceof RegExp
-    ) {
-      attrs.pattern = patternAnn.regex
-    }
-    const json = ast.annotations[SchemaAST.JSONSchemaAnnotationId]
-    if (typeof json === "object" && json !== null) {
-      if (
-        attrs.maxLength === undefined &&
-        "maxLength" in json &&
-        typeof json.maxLength === "number"
-      ) {
-        attrs.maxLength = json.maxLength
-      }
-      if (
-        attrs.minLength === undefined &&
-        "minLength" in json &&
-        typeof json.minLength === "number"
-      ) {
-        attrs.minLength = json.minLength
-      }
-    }
-    ast = ast.from
+const refPrefix = "#/$defs/"
+
+const decodeJsonPointerSegment = (segment: string) =>
+  segment.replace(/~1/g, "/").replace(/~0/g, "~")
+
+const resolveJsonSchema = (
+  schema: JSONSchema.JsonSchema7,
+  root: JSONSchema.JsonSchema7Root
+): JSONSchema.JsonSchema7 => {
+  if ("$ref" in schema && schema.$ref.startsWith(refPrefix)) {
+    const key = decodeJsonPointerSegment(schema.$ref.slice(refPrefix.length))
+    return root.$defs?.[key] ?? schema
   }
+  return schema
+}
+
+const collectInputAttrs = (value: unknown, attrs: InputAttrs) => {
+  if (typeof value !== "object" || value === null) return
+  const source = value as {
+    readonly pattern?: unknown
+    readonly minLength?: unknown
+    readonly maxLength?: unknown
+    readonly allOf?: unknown
+  }
+  if (typeof source.pattern === "string" && attrs.pattern === undefined) {
+    attrs.pattern = source.pattern
+  }
+  if (typeof source.minLength === "number") {
+    attrs.minLength =
+      attrs.minLength === undefined
+        ? source.minLength
+        : Math.max(attrs.minLength, source.minLength)
+  }
+  if (typeof source.maxLength === "number") {
+    attrs.maxLength =
+      attrs.maxLength === undefined
+        ? source.maxLength
+        : Math.min(attrs.maxLength, source.maxLength)
+  }
+  if (Array.isArray(source.allOf)) {
+    for (const item of source.allOf) collectInputAttrs(item, attrs)
+  }
+}
+
+export const getInputAttrs = (schema: Schema.Schema.Any): InputAttrs => {
+  const jsonSchema = JSONSchema.make(schema)
+  const attrs: InputAttrs = {}
+  collectInputAttrs(resolveJsonSchema(jsonSchema, jsonSchema), attrs)
   return attrs
 }
 
@@ -58,7 +81,9 @@ export const hintFor = (identifier: string): string => {
   const hint = SCHEMA_HINTS[identifier]
   if (hint) return hint()
   if (import.meta.env.DEV) {
-    console.warn(`[schema-form] no hint registered for identifier "${identifier}"`)
+    console.warn(
+      `[schema-form] no hint registered for identifier "${identifier}"`
+    )
   }
   return m.validation_invalid_value()
 }
@@ -83,8 +108,7 @@ const findIdentifier = (
   }
   if (SchemaAST.isTupleType(ast)) {
     const rest = path.slice(1)
-    const element =
-      ast.rest[0]?.type ?? ast.elements[0]?.type
+    const element = ast.rest[0]?.type ?? ast.elements[0]?.type
     return element ? findIdentifier(element, rest) : undefined
   }
   return undefined

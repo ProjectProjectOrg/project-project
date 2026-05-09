@@ -39,15 +39,18 @@ import {
   type SegmentedItem
 } from "@/components/SegmentedTabs"
 import { cn } from "@/lib/utils"
+import { getInputAttrs } from "@/lib/schema-form"
 import { slugify } from "@/lib/slug"
 import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  GithubConnection,
-  TicketDetail,
-  TicketStatus
+import {
+  BranchName,
+  type GithubConnection,
+  type TicketDetail,
+  type TicketStatus
 } from "@projectproject/shared"
 
+const branchNameAttrs = getInputAttrs(BranchName)
 const STATUS_KEYS = Object.keys(STATUS_META) as ReadonlyArray<TicketStatus>
 const STATUS_SEGMENTED_THRESHOLD = 4
 
@@ -147,6 +150,7 @@ export function CreateBranchFields({
           <Input
             autoFocus
             value={name}
+            maxLength={branchNameAttrs.maxLength}
             onChange={(e) => setName(e.target.value)}
             className="mt-0.5 font-mono"
             placeholder="feat/T-12-add-button"

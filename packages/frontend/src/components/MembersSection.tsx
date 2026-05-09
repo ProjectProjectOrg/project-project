@@ -44,8 +44,16 @@ import {
 } from "@/components/ui/input-group"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
+import { getInputAttrs } from "@/lib/schema-form"
 import { m } from "@/paraglide/messages"
-import type { AssignableRole, Member, Role } from "@projectproject/shared"
+import {
+  Email,
+  type AssignableRole,
+  type Member,
+  type Role
+} from "@projectproject/shared"
+
+const emailAttrs = getInputAttrs(Email)
 
 const ROLE_META: Record<
   Role,
@@ -167,6 +175,7 @@ function AddMemberRow({
           placeholder={m.members_add_email_placeholder()}
           aria-label={m.members_add_email_aria_label()}
           disabled={submitting}
+          maxLength={emailAttrs.maxLength}
         />
         <RoleSelect value={role} onChange={setRole} />
         {error && (

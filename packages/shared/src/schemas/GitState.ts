@@ -111,8 +111,14 @@ export const GitStatesResponse = Schema.Struct({
 export type GitStatesResponse = typeof GitStatesResponse.Type
 
 // Inputs for branch/PR mutations.
+export const BranchName = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(255),
+  Schema.annotations({ identifier: "BranchName" })
+)
+
 export const CreateBranchInput = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(255)),
+  name: BranchName,
   baseBranch: Schema.optional(Schema.String)
 })
 export type CreateBranchInput = typeof CreateBranchInput.Type
@@ -134,7 +140,7 @@ export type OpenPrResult = typeof OpenPrResult.Type
 
 // Inputs/outputs for the connect-branch flow.
 export const AttachBranchInput = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(255))
+  name: BranchName
 })
 export type AttachBranchInput = typeof AttachBranchInput.Type
 

@@ -92,10 +92,16 @@ export const ProjectDetail = Schema.Struct({
 })
 export type ProjectDetail = typeof ProjectDetail.Type
 
+export const Email = Schema.String.pipe(
+  Schema.minLength(3),
+  Schema.maxLength(254),
+  Schema.annotations({ identifier: "Email" })
+)
+
 // Members are added by email — the user must already exist (have signed in
 // via GitHub at least once). No invite flow yet; that's a follow-up.
 export const AddMemberInput = Schema.Struct({
-  email: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(254)),
+  email: Email,
   role: AssignableRole
 })
 export type AddMemberInput = typeof AddMemberInput.Type
