@@ -1,0 +1,47 @@
+import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { Link } from "@tanstack/react-router"
+import { m } from "@/paraglide/messages"
+import { projectKey, sprintsListAtom } from "@/atoms/sprints"
+import { daysLeft, pickActiveSprint } from "@projectproject/shared"
+
+export function ActiveSprintLine({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
+  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const sprints = Result.isSuccess(list) ? list.value : []
+  const active = pickActiveSprint(sprints)
+
+  if (!active) {
+    return (
+      <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
+    )
+  }
+  const left = daysLeft(active.endsAt)
+  const summary =
+    left === null
+      ? active.name
+      : left >= 0
+        ? m.project_header_active_sprint_summary({
+            name: active.name,
+            days: left
+          })
+        : m.project_header_active_sprint_overdue({
+            name: active.name,
+            days: -left
+          })
+
+  return (
+    <Link
+      to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+      params={{ orgSlug, slug, groupId: active.id }}
+      className="-mx-1 inline-flex items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+    >
+      <span className="size-1.5 rounded-full bg-foreground" aria-hidden />
+      <span className="font-mono">{summary}</span>
+    </Link>
+  )
+}
