@@ -230,9 +230,7 @@ export const CommentsLive = Layer.effect(
           ticketId
         )
         const nextBlocks = blocks.map((b) =>
-          b.id === commentId
-            ? Object.assign(b, { body: input.body, editedAt })
-            : b
+          b.id === commentId ? { ...b, body: input.body, editedAt } : b
         )
         yield* writeBlocks(
           orgSlug,
