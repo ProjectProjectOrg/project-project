@@ -6,7 +6,10 @@ import { CreateTicketRow } from "@/components/CreateTicketRow"
 import { Empty } from "@/components/ui/empty"
 import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { TicketId, type Member } from "@projectproject/shared"
+import { ticketListUiKey } from "@/atoms/ticketListUi"
+import { TicketId, type Group, type Member } from "@projectproject/shared"
+import type { ReactNode } from "react"
+import type { Ticket } from "@projectproject/shared"
 import { FilteredList } from "./FilteredList"
 import { Toolbar } from "./Toolbar"
 
@@ -24,12 +27,21 @@ function ticketIdFromSearch(value: string | undefined): TicketId | null {
 export function TicketList({
   orgSlug,
   slug,
-  members
+  members,
+  uiKey,
+  filterIds,
+  extraRowActions,
+  sprintMembership
 }: {
   orgSlug: string
   slug: string
   members: ReadonlyArray<Member>
+  uiKey?: string
+  filterIds?: ReadonlySet<TicketId>
+  extraRowActions?: (ticket: Ticket) => ReactNode
+  sprintMembership?: ReadonlyMap<TicketId, Group>
 }) {
+  const resolvedUiKey = uiKey ?? ticketListUiKey(orgSlug, slug)
   const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as {
@@ -90,6 +102,7 @@ export function TicketList({
           <Toolbar
             orgSlug={orgSlug}
             slug={slug}
+            uiKey={resolvedUiKey}
             tickets={list.value}
             members={members}
           />
@@ -113,12 +126,19 @@ export function TicketList({
             <FilteredList
               orgSlug={orgSlug}
               slug={slug}
-              tickets={value}
+              uiKey={resolvedUiKey}
+              tickets={
+                filterIds
+                  ? value.filter((t) => filterIds.has(t.id))
+                  : value
+              }
               members={members}
               expandedId={expandedId}
               onExpand={setExpanded}
               focusBody={focusBody}
               onConsumeFocusBody={consumeFocusBody}
+              extraRowActions={extraRowActions}
+              sprintMembership={sprintMembership}
             />
           )
         })}

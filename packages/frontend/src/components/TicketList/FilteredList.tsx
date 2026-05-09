@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, type ReactNode } from "react"
 import { ChevronDown, ListChecks, X } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
@@ -22,11 +22,17 @@ import {
 } from "@/atoms/ticketListUi"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type { Member, Ticket, TicketId } from "@projectproject/shared"
+import type {
+  Group,
+  Member,
+  Ticket,
+  TicketId
+} from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
 import { Expanded } from "./Expanded"
 import { PriorityButton } from "./PriorityField"
 import { SORTS } from "./sort"
+import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
 import { TypeButton } from "./TypeField"
 
@@ -40,7 +46,10 @@ export function FilteredList({
   expandedId,
   onExpand,
   focusBody,
-  onConsumeFocusBody
+  onConsumeFocusBody,
+  uiKey,
+  extraRowActions,
+  sprintMembership
 }: {
   orgSlug: string
   slug: string
@@ -50,8 +59,11 @@ export function FilteredList({
   onExpand: (id: TicketId | null) => void
   focusBody: boolean
   onConsumeFocusBody: () => void
+  uiKey?: string
+  extraRowActions?: (ticket: Ticket) => ReactNode
+  sprintMembership?: ReadonlyMap<TicketId, Group>
 }) {
-  const key = ticketListUiKey(orgSlug, slug)
+  const key = uiKey ?? ticketListUiKey(orgSlug, slug)
   const query = useAtomValue(queryAtom(key))
   const statusFilter = useAtomValue(statusFilterAtom(key))
   const typeFilter = useAtomValue(typeFilterAtom(key))
@@ -108,10 +120,23 @@ export function FilteredList({
     )
   }
 
+  const showSprintCol = sprintMembership !== undefined
+  const showExtraActionsCol = extraRowActions !== undefined
+  const gridCols = cn(
+    "grid divide-y divide-border rounded-xl border border-border bg-background",
+    showSprintCol && showExtraActionsCol
+      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto_auto]"
+      : showSprintCol
+        ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
+        : showExtraActionsCol
+          ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
+          : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto]"
+  )
   return (
-    <ul className="grid grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto] divide-y divide-border rounded-xl border border-border bg-background">
+    <ul className={gridCols}>
       {filtered.map((t) => {
         const isExpanded = expandedId === t.id
+        const membership = sprintMembership?.get(t.id) ?? null
         return (
           <li
             key={t.id}
@@ -127,6 +152,10 @@ export function FilteredList({
               onToggle={() => onExpand(isExpanded ? null : t.id)}
               focusBody={focusBody && isExpanded}
               onConsumeFocusBody={onConsumeFocusBody}
+              showSprintCol={showSprintCol}
+              showExtraActionsCol={showExtraActionsCol}
+              sprintMembership={membership}
+              extraRowActions={extraRowActions}
             />
           </li>
         )
@@ -143,7 +172,11 @@ function Row({
   isExpanded,
   onToggle,
   focusBody,
-  onConsumeFocusBody
+  onConsumeFocusBody,
+  showSprintCol,
+  showExtraActionsCol,
+  sprintMembership,
+  extraRowActions
 }: {
   orgSlug: string
   slug: string
@@ -153,6 +186,10 @@ function Row({
   onToggle: () => void
   focusBody: boolean
   onConsumeFocusBody: () => void
+  showSprintCol: boolean
+  showExtraActionsCol: boolean
+  sprintMembership: Group | null
+  extraRowActions?: (ticket: Ticket) => ReactNode
 }) {
   const rowRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -160,7 +197,10 @@ function Row({
     rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
   }, [focusBody, isExpanded])
   return (
-    <div ref={rowRef} className="col-span-full grid grid-cols-subgrid">
+    <div
+      ref={rowRef}
+      className="group/list-row col-span-full grid grid-cols-subgrid"
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -189,6 +229,14 @@ function Row({
           {ticket.title}
         </span>
         <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        {showSprintCol && (
+          <SprintField
+            orgSlug={orgSlug}
+            slug={slug}
+            ticketId={ticket.id}
+            membership={sprintMembership}
+          />
+        )}
         <AssigneeRowTrigger
           orgSlug={orgSlug}
           slug={slug}
@@ -202,6 +250,14 @@ function Row({
           ticket={ticket}
           className="hidden sm:inline-flex"
         />
+        {showExtraActionsCol && (
+          <span
+            className="inline-flex shrink-0 items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {extraRowActions?.(ticket)}
+          </span>
+        )}
         <ChevronDown
           className={cn(
             "size-4 shrink-0 text-muted-foreground transition-transform",

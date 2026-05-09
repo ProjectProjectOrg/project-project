@@ -71,14 +71,16 @@ export function Toolbar({
   orgSlug,
   slug,
   tickets,
-  members
+  members,
+  uiKey
 }: {
   orgSlug: string
   slug: string
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
+  uiKey?: string
 }) {
-  const key = ticketListUiKey(orgSlug, slug)
+  const key = uiKey ?? ticketListUiKey(orgSlug, slug)
   const [query, setQuery] = useAtom(queryAtom(key))
   const [statusFilter, setStatusFilter] = useAtom(statusFilterAtom(key))
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
@@ -213,6 +215,7 @@ export function Toolbar({
         <FiltersMenu
           orgSlug={orgSlug}
           slug={slug}
+          uiKey={key}
           members={members}
           myId={myId}
           compact={controlsCompact}
@@ -303,17 +306,19 @@ function StatusChips({
 function FiltersMenu({
   orgSlug,
   slug,
+  uiKey,
   members,
   myId,
   compact
 }: {
   orgSlug: string
   slug: string
+  uiKey: string
   members: ReadonlyArray<Member>
   myId: string | null
   compact: boolean
 }) {
-  const key = ticketListUiKey(orgSlug, slug)
+  const key = uiKey
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
   const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
   const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
