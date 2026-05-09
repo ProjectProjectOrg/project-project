@@ -23,11 +23,7 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import {
-  createTicketAtom,
-  ticketsListAtom,
-  ticketsListKey
-} from "@/atoms/tickets"
+import { createTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -49,9 +45,6 @@ export function CreateTicketRow({
     ? m.tickets_create_error_fallback()
     : null
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
-  const refreshTickets = useAtomRefresh(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
-  )
   const navigate = useNavigate()
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -72,7 +65,6 @@ export function CreateTicketRow({
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       setTitle("")
-      refreshTickets()
       refreshGitStates()
       navigate({
         to: ".",
