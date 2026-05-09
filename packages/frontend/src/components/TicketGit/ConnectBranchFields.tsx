@@ -13,7 +13,9 @@ import {
   useAtomValue
 } from "@effect-atom/atom-react"
 import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import { GitBranch } from "lucide-react"
@@ -45,8 +47,12 @@ export function ConnectBranchFields({
   const [attemptedName, setAttemptedName] = useState("")
 
   useEffect(() => {
-    const t = setTimeout(() => setQ(input), 200)
-    return () => clearTimeout(t)
+    const fiber = Effect.runFork(
+      Effect.sleep(200).pipe(Effect.tap(() => Effect.sync(() => setQ(input))))
+    )
+    return () => {
+      Effect.runFork(Fiber.interrupt(fiber))
+    }
   }, [input])
 
   const key = branchesKey(orgSlug, slug, q)

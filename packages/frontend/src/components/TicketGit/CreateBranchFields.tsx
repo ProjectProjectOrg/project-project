@@ -1,5 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Fiber from "effect/Fiber"
 import * as Match from "effect/Match"
 import {
   Check,
@@ -341,8 +343,12 @@ function BaseBranchCombobox({
   const [q, setQ] = useState("")
 
   useEffect(() => {
-    const t = setTimeout(() => setQ(search), 200)
-    return () => clearTimeout(t)
+    const fiber = Effect.runFork(
+      Effect.sleep(200).pipe(Effect.tap(() => Effect.sync(() => setQ(search))))
+    )
+    return () => {
+      Effect.runFork(Fiber.interrupt(fiber))
+    }
   }, [search])
 
   const result = useAtomValue(branchesAtom(branchesKey(orgSlug, slug, q)))

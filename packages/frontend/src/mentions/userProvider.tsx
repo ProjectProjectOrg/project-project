@@ -37,7 +37,7 @@ export const userMentionProvider: MentionProvider = {
         return []
       }
       return [{ id: me.id, label, image: null }]
-    }),
+    }).pipe(Effect.orElseSucceed(() => [])),
   renderRow: (c) => (
     <div className="flex items-center gap-2 min-w-0">
       <MemberAvatar

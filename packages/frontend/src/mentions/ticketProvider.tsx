@@ -20,7 +20,7 @@ export const ticketMentionProvider: MentionProvider = {
         )
         .slice(0, 8)
         .map((t) => ({ id: t.id, label: t.title }))
-    }),
+    }).pipe(Effect.orElseSucceed(() => [])),
   renderRow: (c) => (
     <div className="flex items-center gap-2 min-w-0">
       <span className="font-mono shrink-0 whitespace-nowrap">{c.id}</span>

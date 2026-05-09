@@ -3,9 +3,7 @@ import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Tags } from "../Services/Tags"
-
-const dieOnMarkdown = <A, R>(eff: Effect.Effect<A, any, R>) =>
-  eff.pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+import { dieOnMarkdown } from "./lib"
 
 export const TagsHandlerLive = HttpApiBuilder.group(
   AppApi,
