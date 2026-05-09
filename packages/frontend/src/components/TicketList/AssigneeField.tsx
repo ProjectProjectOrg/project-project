@@ -47,7 +47,7 @@ function AssigneeMenuContent({
       sideOffset={6}
       className="w-56"
       onClick={(e) => e.stopPropagation()}
-      onCloseAutoFocus={(e) => e.preventDefault()}
+      finalFocus={false}
     >
       <DropdownMenuItem
         onSelect={(e) => {
@@ -115,22 +115,24 @@ export function AssigneePicker({
         : m.tickets_assignee_count({ count: resolved.length })
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="chip"
-          aria-label={m.tickets_assignees_aria_label({ label })}
-        >
-          {resolved.length === 0 ? (
-            <UserRound className="size-3.5" strokeWidth={1.75} />
-          ) : resolved.length === 1 ? (
-            <MemberAvatar member={resolved[0]} size={18} />
-          ) : (
-            <AvatarStack subjects={resolved} size={18} max={3} />
-          )}
-          <span>{label}</span>
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            aria-label={m.tickets_assignees_aria_label({ label })}
+          >
+            {resolved.length === 0 ? (
+              <UserRound className="size-3.5" strokeWidth={1.75} />
+            ) : resolved.length === 1 ? (
+              <MemberAvatar member={resolved[0]} size={18} />
+            ) : (
+              <AvatarStack subjects={resolved} size={18} max={3} />
+            )}
+            <span>{label}</span>
+          </Button>
+        }
+      />
       <AssigneeMenuContent
         orgSlug={orgSlug}
         slug={slug}
@@ -165,27 +167,29 @@ export function AssigneeRowTrigger({
         : m.tickets_assignees_row_many_aria_label({ count: resolved.length })
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={label}
-          className={className}
-        >
-          <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
-            {resolved.length === 0 ? (
-              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted">
-                <UserRound className="size-3" strokeWidth={1.75} />
-              </span>
-            ) : resolved.length === 1 ? (
-              <MemberAvatar member={resolved[0]} size={20} />
-            ) : (
-              <AvatarStack subjects={resolved} size={20} max={3} />
-            )}
-          </span>
-        </Hitbox>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={label}
+            className={className}
+          >
+            <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
+              {resolved.length === 0 ? (
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted">
+                  <UserRound className="size-3" strokeWidth={1.75} />
+                </span>
+              ) : resolved.length === 1 ? (
+                <MemberAvatar member={resolved[0]} size={20} />
+              ) : (
+                <AvatarStack subjects={resolved} size={20} max={3} />
+              )}
+            </span>
+          </Hitbox>
+        }
+      />
       <AssigneeMenuContent
         orgSlug={orgSlug}
         slug={slug}

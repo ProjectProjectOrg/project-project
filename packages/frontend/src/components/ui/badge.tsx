@@ -1,6 +1,6 @@
 import * as React from "react"
+import { useRender } from "@base-ui-components/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
@@ -39,19 +39,21 @@ function Badge({
   className,
   tone,
   size,
-  asChild = false,
+  render,
   ...props
 }: React.ComponentProps<"span"> &
-  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "span"
-  return (
-    <Comp
-      data-slot="badge"
-      data-tone={tone}
-      className={cn(badgeVariants({ tone, size }), className)}
-      {...props}
-    />
-  )
+  VariantProps<typeof badgeVariants> & {
+    render?: useRender.RenderProp
+  }) {
+  return useRender({
+    defaultTagName: "span",
+    render,
+    props: {
+      ...props,
+      "data-tone": tone,
+      className: cn(badgeVariants({ tone, size }), className)
+    }
+  })
 }
 
 export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>

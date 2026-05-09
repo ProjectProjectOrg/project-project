@@ -333,37 +333,39 @@ function FiltersMenu({
   const active = activeCount > 0
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            TOOLBAR_BUTTON_CLASS,
-            active && "bg-accent text-foreground hover:text-foreground"
-          )}
-          aria-label={
-            compact && activeCount > 0
-              ? m.tickets_filters_active_aria_label({ count: activeCount })
-              : m.tickets_filters_aria_label()
-          }
-          aria-pressed={active}
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>
-            {m.tickets_filters_label()}
-          </CollapsingLabel>
-          {activeCount > 0 && (
-            <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
-              {activeCount}
-            </span>
-          )}
-          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BUTTON_CLASS,
+              active && "bg-accent text-foreground hover:text-foreground"
+            )}
+            aria-label={
+              compact && activeCount > 0
+                ? m.tickets_filters_active_aria_label({ count: activeCount })
+                : m.tickets_filters_aria_label()
+            }
+            aria-pressed={active}
+          >
+            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {m.tickets_filters_label()}
+            </CollapsingLabel>
+            {activeCount > 0 && (
+              <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
+                {activeCount}
+              </span>
+            )}
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         sideOffset={6}
         className="w-56"
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        finalFocus={false}
       >
         <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
@@ -513,21 +515,23 @@ function SortMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={TOOLBAR_BUTTON_CLASS}
-          aria-label={m.tickets_sort_aria_label({
-            label: SORTS[value].label()
-          })}
-        >
-          <ArrowDownAZ className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>
-            {SORTS[value].label()}
-          </CollapsingLabel>
-          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={TOOLBAR_BUTTON_CLASS}
+            aria-label={m.tickets_sort_aria_label({
+              label: SORTS[value].label()
+            })}
+          >
+            <ArrowDownAZ className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {SORTS[value].label()}
+            </CollapsingLabel>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-44">
         {(Object.keys(SORTS) as SortKey[]).map((k) => (
           <DropdownMenuItem

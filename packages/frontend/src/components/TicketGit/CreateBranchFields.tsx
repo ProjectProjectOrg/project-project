@@ -260,25 +260,27 @@ function StatusDropdown({
     : STATUS_LABELS.todo()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          disabled={disabled}
-          aria-label={m.git_status_select_aria_label({ status: currentLabel })}
-          className={cn(
-            "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
-            "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-        >
-          <Icon
-            className={cn("size-3", current.className)}
-            strokeWidth={1.75}
-          />
-          <span>{currentLabel}</span>
-          <ChevronDown className="size-3 opacity-60" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={m.git_status_select_aria_label({ status: currentLabel })}
+            className={cn(
+              "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
+              "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",
+              "disabled:cursor-not-allowed disabled:opacity-50"
+            )}
+          >
+            <Icon
+              className={cn("size-3", current.className)}
+              strokeWidth={1.75}
+            />
+            <span>{currentLabel}</span>
+            <ChevronDown className="size-3 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
         {STATUS_KEYS.map((key) => {
           const meta = STATUS_META[key]
@@ -335,23 +337,25 @@ function BaseBranchCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "mt-0.5 flex h-9 w-full items-center justify-between rounded-xl border border-border bg-background px-3 font-mono text-xs",
-            "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            !value && "text-muted-foreground"
-          )}
-        >
-          <span className="truncate">{value || placeholder}</span>
-          <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "mt-0.5 flex h-9 w-full items-center justify-between rounded-xl border border-border bg-background px-3 font-mono text-xs",
+              "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              !value && "text-muted-foreground"
+            )}
+          >
+            <span className="truncate">{value || placeholder}</span>
+            <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
+          </button>
+        }
+      />
       <PopoverContent
         align="start"
         className="w-[--radix-popover-trigger-width] p-0"

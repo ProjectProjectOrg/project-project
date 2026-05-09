@@ -105,33 +105,35 @@ export function CreateTicketRow({
               if (!open) setClosingMenu(true)
             }}
           >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={m.tickets_create_type_aria_label({
-                  type: TYPE_LABELS[type]()
-                })}
-                className={cn(
-                  "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
-                  expanded
-                    ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
-                    : "px-1 hover:bg-accent hover:text-foreground"
-                )}
-              >
-                <Icon className="size-4 shrink-0" strokeWidth={1.75} />
-                <CollapsingLabel show={expanded}>
-                  <span className="text-xs">{TYPE_LABELS[type]()}</span>
-                </CollapsingLabel>
-              </button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={m.tickets_create_type_aria_label({
+                    type: TYPE_LABELS[type]()
+                  })}
+                  className={cn(
+                    "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
+                    expanded
+                      ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
+                      : "px-1 hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                  <CollapsingLabel show={expanded}>
+                    <span className="text-xs">{TYPE_LABELS[type]()}</span>
+                  </CollapsingLabel>
+                </button>
+              }
+            />
             <DropdownMenuContent
               align="start"
               sideOffset={6}
               className="w-40"
-              onCloseAutoFocus={(e) => {
-                e.preventDefault()
+              finalFocus={() => {
                 inputRef.current?.focus()
                 setClosingMenu(false)
+                return false
               }}
             >
               {(Object.keys(TYPE_META) as TicketType[]).map((t) => {

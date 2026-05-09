@@ -174,27 +174,29 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
         )
       })}
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="tertiary"
-            size={displayed.length === 0 ? "xs" : "icon-xs"}
-            leadingIcon={displayed.length === 0 ? Plus : undefined}
-            aria-label={m.tags_add_button()}
-            className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-          >
-            {displayed.length === 0 ? (
-              m.tags_add_button()
-            ) : (
-              <Plus strokeWidth={2} />
-            )}
-          </Button>
-        </PopoverTrigger>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="tertiary"
+              size={displayed.length === 0 ? "xs" : "icon-xs"}
+              leadingIcon={displayed.length === 0 ? Plus : undefined}
+              aria-label={m.tags_add_button()}
+              className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+            >
+              {displayed.length === 0 ? (
+                m.tags_add_button()
+              ) : (
+                <Plus strokeWidth={2} />
+              )}
+            </Button>
+          }
+        />
         <PopoverContent
           align="start"
           sideOffset={6}
           className="w-60 p-1"
-          onOpenAutoFocus={(e) => e.preventDefault()}
+          initialFocus={true}
         >
           <div className="flex flex-col gap-1">
             <input

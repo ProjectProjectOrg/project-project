@@ -156,18 +156,20 @@ function UserMenu({ user }: { user: User }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.chrome_user_menu_open()}
-          className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Avatar className="size-9">
-            {user.image ? <AvatarImage src={user.image} alt="" /> : null}
-            <AvatarFallback>{initial}</AvatarFallback>
-          </Avatar>
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.chrome_user_menu_open()}
+            className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Avatar className="size-9">
+              {user.image ? <AvatarImage src={user.image} alt="" /> : null}
+              <AvatarFallback>{initial}</AvatarFallback>
+            </Avatar>
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={8} className="w-64">
         <div className="flex items-center gap-3 p-2">
           <Avatar className="size-10">
@@ -182,12 +184,14 @@ function UserMenu({ user }: { user: User }) {
           </div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/profile" className="cursor-pointer">
-            <UserRound className="size-4" strokeWidth={1.75} />
-            {m.chrome_user_menu_profile()}
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={
+            <Link to="/profile" className="cursor-pointer">
+              <UserRound className="size-4" strokeWidth={1.75} />
+              {m.chrome_user_menu_profile()}
+            </Link>
+          }
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => logout()}

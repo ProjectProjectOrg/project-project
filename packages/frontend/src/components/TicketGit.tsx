@@ -269,14 +269,18 @@ function PanelForState({
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
           <InlineForm.Actions>
-            <Button asChild size="sm" leadingIcon={GitPullRequest}>
-              <a
-                href={compareUrl(repoSlug, baseBranch, state.name)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {m.git_open_pr_button()}
-              </a>
+            <Button
+              render={
+                <a
+                  href={compareUrl(repoSlug, baseBranch, state.name)}
+                  target="_blank"
+                  rel="noreferrer"
+                />
+              }
+              size="sm"
+              leadingIcon={GitPullRequest}
+            >
+              {m.git_open_pr_button()}
             </Button>
             <InlineForm.Trigger action="clear" size="sm" variant="ghost">
               {m.git_clear_branch_button()}
@@ -333,18 +337,18 @@ function PanelForState({
         </div>
         <div className="ml-auto">
           <Button
-            asChild
+            render={
+              <a
+                href={compareUrl(repoSlug, baseBranch, state.branch)}
+                target="_blank"
+                rel="noreferrer"
+              />
+            }
             size="sm"
             variant="tertiary"
             leadingIcon={GitPullRequest}
           >
-            <a
-              href={compareUrl(repoSlug, baseBranch, state.branch)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {m.git_open_new_pr_button()}
-            </a>
+            {m.git_open_new_pr_button()}
           </Button>
         </div>
       </div>
@@ -457,22 +461,26 @@ export function PrLink({
         ? GitPullRequestClosed
         : GitPullRequest
   return (
-    <Badge asChild tone={badgeTone} size="xs">
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Icon strokeWidth={1.75} />#{number}
-        {checks && checks !== "none" && (
-          <Circle
-            className={cn("size-2 fill-current", checksColor(checks))}
-            strokeWidth={0}
-          />
-        )}
-        {tone === "draft" && <span>{m.git_pr_draft_label()}</span>}
-      </a>
+    <Badge
+      render={
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+        />
+      }
+      tone={badgeTone}
+      size="xs"
+    >
+      <Icon strokeWidth={1.75} />#{number}
+      {checks && checks !== "none" && (
+        <Circle
+          className={cn("size-2 fill-current", checksColor(checks))}
+          strokeWidth={0}
+        />
+      )}
+      {tone === "draft" && <span>{m.git_pr_draft_label()}</span>}
     </Badge>
   )
 }

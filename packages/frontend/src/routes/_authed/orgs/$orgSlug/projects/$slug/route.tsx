@@ -238,15 +238,17 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
         if (!open) setConfirming(false)
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.project_detail_actions_aria_label()}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
-        >
-          <MoreHorizontal className="size-4" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.project_detail_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!confirming ? (
           <DropdownMenuItem
