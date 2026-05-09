@@ -48,13 +48,17 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { PageContainer } from "@/components/page"
+import { getInputAttrs } from "@/lib/schema-form"
 import { m } from "@/paraglide/messages"
 import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
-import type {
-  Ticket,
-  ProjectDetail as ProjectDetailType
+import {
+  ProjectName,
+  type Ticket,
+  type ProjectDetail as ProjectDetailType
 } from "@projectproject/shared"
+
+const projectNameAttrs = getInputAttrs(ProjectName)
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   component: ProjectLayout,
@@ -208,7 +212,7 @@ function NameField({
       onBlur={() => void commit()}
       onKeyDown={handleKey}
       className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={120}
+      maxLength={projectNameAttrs.maxLength}
       aria-label={m.project_detail_name_aria_label()}
     />
   )

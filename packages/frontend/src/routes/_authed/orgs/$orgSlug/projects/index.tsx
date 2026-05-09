@@ -12,10 +12,14 @@ import {
   InputGroupInput
 } from "@/components/ui/input-group"
 import { PageContainer, PageHeader } from "@/components/page"
+import { getInputAttrs } from "@/lib/schema-form"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
 import { m } from "@/paraglide/messages"
+import { ProjectName } from "@projectproject/shared"
+
+const projectNameAttrs = getInputAttrs(ProjectName)
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
   component: Projects,
@@ -122,7 +126,7 @@ function CreateRow({
           placeholder={m.projects_create_name_placeholder()}
           aria-label={m.projects_create_name_aria_label()}
           disabled={submitting}
-          maxLength={120}
+          maxLength={projectNameAttrs.maxLength}
         />
         {previewSlug && (
           <InputGroupHint className="hidden sm:inline">

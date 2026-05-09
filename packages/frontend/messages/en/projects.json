@@ -24,6 +24,7 @@
   "projects_list_empty": "No projects yet",
   "projects_list_empty_body": "Type a name above and press Enter to create your first project. Everything is stored as markdown on disk — yours to grep, edit, or feed to an AI.",
   "projects_list_load_error": "Couldn't load projects: {tag}",
+  "projects_name_validation_hint": "Between 1 and 120 characters.",
   "projects_page_subtitle": "Type a name and press Enter to create a project.",
   "projects_page_title": "Projects",
   "project_detail_about_heading": "Description",

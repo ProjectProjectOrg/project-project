@@ -66,8 +66,14 @@ export const Project = Schema.Struct({
 })
 export type Project = typeof Project.Type
 
+export const ProjectName = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(120),
+  Schema.annotations({ identifier: "ProjectName" })
+)
+
 export const CreateProjectInput = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120))
+  name: ProjectName
 })
 export type CreateProjectInput = typeof CreateProjectInput.Type
 
@@ -102,9 +108,7 @@ export type UpdateMemberInput = typeof UpdateMemberInput.Type
 // Partial update payload. Both fields optional — the client sends only what
 // changed. Empty object is allowed but a no-op on the server.
 export const UpdateProjectInput = Schema.Struct({
-  name: Schema.optional(
-    Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120))
-  ),
+  name: Schema.optional(ProjectName),
   body: Schema.optional(Schema.String)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type
