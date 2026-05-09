@@ -28,8 +28,11 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     writeProjectFile: () => unexpectedMarkdownCall("writeProjectFile"),
     removeProjectDir: () => unexpectedMarkdownCall("removeProjectDir"),
     readTicketFile: () => unexpectedMarkdownCall("readTicketFile"),
+    readTicketParts: () => unexpectedMarkdownCall("readTicketParts"),
     createTicketFile: () => unexpectedMarkdownCall("createTicketFile"),
     writeTicketFile: () => unexpectedMarkdownCall("writeTicketFile"),
+    writeTicketWithRegion: () =>
+      unexpectedMarkdownCall("writeTicketWithRegion"),
     removeTicketFile: () => unexpectedMarkdownCall("removeTicketFile"),
     listTicketIds: () => unexpectedMarkdownCall("listTicketIds"),
     readGroupFile: () => unexpectedMarkdownCall("readGroupFile"),
@@ -73,7 +76,7 @@ it.effect(
         TicketDocsLive.pipe(
           Layer.provide(
             makeMarkdown({
-              readTicketFile: () =>
+              readTicketParts: () =>
                 Effect.succeed({
                   data: {
                     id: "T-1",
@@ -86,7 +89,8 @@ it.effect(
                     createdAt: "2026-01-01T00:00:00.000Z",
                     updatedAt: "2026-01-02T00:00:00.000Z"
                   },
-                  body: "# Fix auth\n"
+                  description: "# Fix auth\n",
+                  region: ""
                 })
             })
           )
@@ -149,7 +153,15 @@ it.effect(
         TicketDocsLive.pipe(
           Layer.provide(
             makeMarkdown({
-              writeTicketFile: (_org, _slug, id, frontmatter, body) => {
+              readTicketParts: () =>
+                Effect.succeed({ data: {}, description: "", region: "" }),
+              writeTicketWithRegion: (
+                _org,
+                _slug,
+                id,
+                frontmatter,
+                body
+              ) => {
                 written = { id, frontmatter, body }
                 return Effect.void
               }

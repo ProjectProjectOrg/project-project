@@ -11,6 +11,7 @@ import * as fs from "node:fs/promises"
 import * as path from "node:path"
 import matter from "gray-matter"
 import { NotFound } from "@projectproject/shared"
+import { splitDescriptionAndCommentsRegion } from "../comments-region"
 import {
   GroupIdTaken,
   Markdown,
@@ -164,6 +165,22 @@ export const MarkdownLive = Layer.effect(
         }
       })
 
+    const readTicketParts = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<
+      { data: Record<string, unknown>; description: string; region: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        const file = yield* readTicketFile(orgSlug, slug, id)
+        const { description, region } = splitDescriptionAndCommentsRegion(
+          file.body
+        )
+        return { data: file.data, description, region }
+      })
+
     // Atomic create — fails if the file already exists. Used to claim a
     // ticket id without races: scan finds the next id, write with `wx` flag,
     // and on EEXIST the caller bumps the id and retries.
@@ -214,6 +231,22 @@ export const MarkdownLive = Layer.effect(
             new MarkdownError({ cause, message: `write failed: ${file}` })
         })
       })
+
+    const writeTicketWithRegion = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      frontmatter: Record<string, unknown>,
+      description: string,
+      region: string
+    ): Effect.Effect<void, MarkdownError> =>
+      writeTicketFile(
+        orgSlug,
+        slug,
+        id,
+        frontmatter,
+        region ? `${description.replace(/\s+$/, "")}\n\n${region}` : description
+      )
 
     const removeTicketFile = (
       orgSlug: string,
@@ -445,8 +478,10 @@ export const MarkdownLive = Layer.effect(
       writeProjectFile,
       removeProjectDir,
       readTicketFile,
+      readTicketParts,
       createTicketFile,
       writeTicketFile,
+      writeTicketWithRegion,
       removeTicketFile,
       listTicketIds,
       readGroupFile,

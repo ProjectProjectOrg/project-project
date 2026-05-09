@@ -138,11 +138,11 @@ export const TicketDocsLive = Layer.effect(
         slug,
         { ticketId: id },
         Effect.gen(function* () {
-          const file = yield* markdown.readTicketFile(orgSlug, slug, id)
+          const file = yield* markdown.readTicketParts(orgSlug, slug, id)
           const frontmatter = yield* decodeFrontmatterCompat(file.data).pipe(
             Effect.orDie
           )
-          return toDocument(frontmatter, file.body)
+          return toDocument(frontmatter, file.description)
         })
       )
 
@@ -176,13 +176,19 @@ export const TicketDocsLive = Layer.effect(
         orgSlug,
         slug,
         { ticketId: id },
-        markdown.writeTicketFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(document),
-          document.body
-        )
+        Effect.gen(function* () {
+          const file = yield* markdown
+            .readTicketParts(orgSlug, slug, id)
+            .pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)))
+          yield* markdown.writeTicketWithRegion(
+            orgSlug,
+            slug,
+            id,
+            frontmatterToDisk(document),
+            document.body,
+            file.region
+          )
+        })
       )
 
     const remove = (

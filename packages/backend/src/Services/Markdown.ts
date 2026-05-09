@@ -15,6 +15,12 @@ export interface ParsedMarkdown {
   readonly body: string
 }
 
+export interface TicketParts {
+  readonly data: Record<string, unknown>
+  readonly description: string
+  readonly region: string
+}
+
 export interface MarkdownShape {
   readonly root: string
   readonly projectDir: (orgSlug: string, slug: string) => string
@@ -37,6 +43,11 @@ export interface MarkdownShape {
     slug: string,
     id: string
   ) => Effect.Effect<ParsedMarkdown, NotFound | MarkdownError>
+  readonly readTicketParts: (
+    orgSlug: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<TicketParts, NotFound | MarkdownError>
   readonly createTicketFile: (
     orgSlug: string,
     slug: string,
@@ -50,6 +61,14 @@ export interface MarkdownShape {
     id: string,
     frontmatter: Record<string, unknown>,
     body: string
+  ) => Effect.Effect<void, MarkdownError>
+  readonly writeTicketWithRegion: (
+    orgSlug: string,
+    slug: string,
+    id: string,
+    frontmatter: Record<string, unknown>,
+    description: string,
+    region: string
   ) => Effect.Effect<void, MarkdownError>
   readonly removeTicketFile: (
     orgSlug: string,

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useMemo, useState, use } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { motion } from "motion/react"
 import { X } from "lucide-react"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -46,7 +46,9 @@ function Root({
   )
   return (
     <ConfirmButtonContext value={value}>
-      <span className={cn("inline-flex", className)}>{children}</span>
+      <span className={cn("relative inline-flex items-center", className)}>
+        {children}
+      </span>
     </ConfirmButtonContext>
   )
 }
@@ -57,22 +59,17 @@ function Trigger({
   ...rest
 }: Omit<ButtonProps, "onClick">) {
   const { state, open, busy } = useConfirmButton()
+  if (state !== "idle") return null
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {state === "idle" && (
-        <motion.div
-          key="trigger"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={FADE_TRANSITION}
-        >
-          <Button {...rest} disabled={disabled || busy} onClick={open}>
-            {children}
-          </Button>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={FADE_TRANSITION}
+    >
+      <Button {...rest} disabled={disabled || busy} onClick={open}>
+        {children}
+      </Button>
+    </motion.div>
   )
 }
 
@@ -84,28 +81,21 @@ function Confirm({
   children: React.ReactNode
 }) {
   const { state, close, busy } = useConfirmButton()
+  if (state !== "confirming") return null
   return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {state === "confirming" && (
-        <motion.div
-          key="confirm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={FADE_TRANSITION}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && !busy && !e.defaultPrevented) {
-              e.preventDefault()
-              close()
-            }
-          }}
-        >
-          <div className={cn("flex items-center gap-2", className)}>
-            {children}
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={FADE_TRANSITION}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !busy && !e.defaultPrevented) {
+          e.preventDefault()
+          close()
+        }
+      }}
+    >
+      <div className={cn("flex items-center gap-2", className)}>{children}</div>
+    </motion.div>
   )
 }
 

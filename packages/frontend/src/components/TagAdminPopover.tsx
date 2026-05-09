@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { motion } from "motion/react"
 import { ColorPicker } from "@/components/ColorPicker"
 import { cn } from "@/lib/utils"
 import {
@@ -77,38 +77,27 @@ function Body({
   const { state } = useConfirmButton()
   return (
     <div className="w-full">
-      <AnimatePresence initial={false} mode="popLayout">
+      <motion.div
+        key={state}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={FADE_TRANSITION}
+      >
         {state === "idle" ? (
-          <motion.div
-            key="editor"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={FADE_TRANSITION}
-          >
-            <Editor
-              tag={tag}
-              usageCount={usageCount}
-              onPatch={onPatch}
-              onDismiss={onDismiss}
-            />
-          </motion.div>
+          <Editor
+            tag={tag}
+            usageCount={usageCount}
+            onPatch={onPatch}
+            onDismiss={onDismiss}
+          />
         ) : (
-          <motion.div
-            key="confirm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={FADE_TRANSITION}
-          >
-            <Confirm
-              tag={tag}
-              usageCount={usageCount}
-              onConfirm={onConfirmDelete}
-            />
-          </motion.div>
+          <Confirm
+            tag={tag}
+            usageCount={usageCount}
+            onConfirm={onConfirmDelete}
+          />
         )}
-      </AnimatePresence>
+      </motion.div>
     </div>
   )
 }

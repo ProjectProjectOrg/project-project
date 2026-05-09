@@ -10,6 +10,7 @@
 
 import { Effect, Layer } from "effect"
 import { eq, inArray } from "drizzle-orm"
+import type { User } from "@projectproject/shared"
 import { user } from "../db/schema"
 import { Db } from "../Services/Db"
 import { Users, type UsersShape, type UserSummary } from "../Services/Users"
@@ -49,6 +50,40 @@ export const UsersLive = Layer.effect(
         .pipe(Effect.orDie)
     }
 
-    return { findByEmail, findManyByIds } satisfies UsersShape
+    const fullByIds = (
+      ids: ReadonlyArray<string>
+    ): Effect.Effect<ReadonlyArray<User>> => {
+      if (ids.length === 0) return Effect.succeed([])
+      return db.query.user
+        .findMany({
+          columns: {
+            id: true,
+            email: true,
+            name: true,
+            username: true,
+            image: true,
+            createdAt: true
+          },
+          where: inArray(user.id, [...ids])
+        })
+        .pipe(
+          Effect.map((rows) =>
+            rows.map(
+              (r): User => ({
+                id: r.id,
+                email: r.email,
+                name: r.name,
+                username: r.username,
+                image: r.image ?? null,
+                createdAt: r.createdAt,
+                activeOrgSlug: null
+              })
+            )
+          ),
+          Effect.orDie
+        )
+    }
+
+    return { findByEmail, findManyByIds, fullByIds } satisfies UsersShape
   })
 )

@@ -1,6 +1,7 @@
 import { Layer } from "effect"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
+import { CommentsLive } from "./Layers/Comments"
 import { CurrentOrgLive } from "./Layers/CurrentOrg"
 import { DbLive } from "./Layers/Db"
 import { GitHubLive } from "./Layers/GitHub"
@@ -17,6 +18,7 @@ import { UsersLive } from "./Layers/Users"
 export const BackendInfrastructureLive = Layer.mergeAll(BetterAuthLive, DbLive)
 
 export const BackendServicesLive = TagsLive.pipe(
+  Layer.provideMerge(CommentsLive),
   Layer.provideMerge(TicketsLive),
   Layer.provideMerge(GroupsLive),
   Layer.provideMerge(ProjectsLive),

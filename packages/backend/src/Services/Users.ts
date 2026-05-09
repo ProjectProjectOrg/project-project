@@ -1,4 +1,5 @@
 import { Context, type Effect } from "effect"
+import type { User } from "@projectproject/shared"
 
 export interface UserSummary {
   readonly id: string
@@ -12,6 +13,9 @@ export interface UsersShape {
   readonly findManyByIds: (
     ids: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyArray<UserSummary>>
+  readonly fullByIds: (
+    ids: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyArray<User>>
 }
 
 export class Users extends Context.Tag("Users")<Users, UsersShape>() {}

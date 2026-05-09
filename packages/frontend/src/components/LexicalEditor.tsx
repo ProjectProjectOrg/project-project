@@ -14,6 +14,9 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS
 } from "@lexical/markdown"
+import { MentionNode } from "./Lexical/MentionNode"
+import { MentionsPlugin } from "./Lexical/MentionsPlugin"
+import { MENTION_TRANSFORMER } from "./Lexical/mentionTransformer"
 import { $createParagraphNode, $getRoot } from "lexical"
 import {
   CodeHighlightNode,
@@ -26,6 +29,8 @@ import { LinkNode } from "@lexical/link"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const MARKDOWN_TRANSFORMERS = [MENTION_TRANSFORMER, ...TRANSFORMERS]
 
 // Lexical-backed markdown editor.
 //
@@ -154,6 +159,8 @@ export interface LexicalEditorProps {
   placeholder?: string
   /** Focus the editor on mount. */
   autoFocus?: boolean
+  /** Compact mode — single-line minimum height suitable for inline composers. */
+  compact?: boolean
 }
 
 export function LexicalEditor({
@@ -163,7 +170,8 @@ export function LexicalEditor({
   debounceMs = 600,
   className,
   placeholder = m.editor_placeholder(),
-  autoFocus = false
+  autoFocus = false,
+  compact = false
 }: LexicalEditorProps) {
   const initialConfig = useRef({
     namespace: "ProjectBody",
@@ -178,10 +186,11 @@ export function LexicalEditor({
       ListItemNode,
       CodeNode,
       CodeHighlightNode,
-      LinkNode
+      LinkNode,
+      MentionNode
     ],
     editorState: () => {
-      $convertFromMarkdownString(markdown, TRANSFORMERS)
+      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
     }
   }).current
 
@@ -243,7 +252,10 @@ export function LexicalEditor({
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                className="lexical-content min-h-[8rem] outline-none"
+                className={cn(
+                  "lexical-content outline-none",
+                  compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
+                )}
                 aria-placeholder={placeholder}
                 placeholder={
                   <div className="pointer-events-none absolute left-0 top-0 select-none text-muted-foreground">
@@ -260,11 +272,12 @@ export function LexicalEditor({
         <LinkPlugin />
         <CodeHighlightPlugin />
         {autoFocus && <AutoFocusPlugin />}
-        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <MentionsPlugin />
+        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin
           onChange={(editorState) => {
             editorState.read(() => {
-              const next = $convertToMarkdownString(TRANSFORMERS)
+              const next = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
               if (isFirstChange.current) {
                 isFirstChange.current = false
                 liveRef.current = next

@@ -1,0 +1,208 @@
+import { useCallback, useEffect, useMemo, useState, type JSX } from "react"
+import { createPortal } from "react-dom"
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import {
+  LexicalTypeaheadMenuPlugin,
+  MenuOption
+} from "@lexical/react/LexicalTypeaheadMenuPlugin"
+import {
+  TextNode,
+  $getSelection,
+  $isRangeSelection,
+  $isElementNode,
+  KEY_BACKSPACE_COMMAND,
+  KEY_DELETE_COMMAND,
+  COMMAND_PRIORITY_LOW,
+  type LexicalNode
+} from "lexical"
+import { Effect } from "effect"
+import { AppLayer } from "@/runtime"
+import {
+  type MentionCandidate,
+  type MentionProvider,
+  mentionProviders,
+  providerForTrigger
+} from "@/mentions/registry"
+import { useMentionScope } from "@/mentions/scope"
+import { $createMentionNode, $isMentionNode } from "./MentionNode"
+
+class MentionMenuOption extends MenuOption {
+  constructor(
+    public readonly provider: MentionProvider,
+    public readonly candidate: MentionCandidate
+  ) {
+    super(`${provider.type}:${candidate.id}`)
+  }
+}
+
+const TRIGGERS = mentionProviders.map((p) => p.trigger).join("")
+
+export function MentionsPlugin(): JSX.Element | null {
+  const [editor] = useLexicalComposerContext()
+  const scope = useMentionScope()
+  const [queryString, setQueryString] = useState<string | null>(null)
+  const [activeProvider, setActiveProvider] = useState<MentionProvider | null>(
+    null
+  )
+  const [results, setResults] = useState<ReadonlyArray<MentionCandidate>>([])
+
+  const checkForTriggerMatch = useCallback((text: string) => {
+    for (let i = text.length - 1; i >= 0; i--) {
+      const ch = text[i]
+      if (TRIGGERS.includes(ch)) {
+        const prev = i === 0 ? " " : text[i - 1]
+        if (/\s/.test(prev)) {
+          const provider = providerForTrigger(ch)
+          if (!provider) return null
+          const matchString = text.slice(i + 1)
+          if (/\s/.test(matchString)) return null
+          setActiveProvider(provider)
+          return {
+            leadOffset: i,
+            matchingString: matchString,
+            replaceableString: text.slice(i)
+          }
+        }
+      }
+    }
+    return null
+  }, [])
+
+  useEffect(() => {
+    if (!activeProvider || queryString === null) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    Effect.runPromise(
+      (
+        activeProvider.search(
+          queryString,
+          scope ?? { orgSlug: "", slug: "" }
+        ) as Effect.Effect<ReadonlyArray<MentionCandidate>, unknown, never>
+      ).pipe(Effect.provide(AppLayer))
+    ).then(
+      (r) => {
+        if (!cancelled) setResults(r.slice(0, 8))
+      },
+      () => {
+        if (!cancelled) setResults([])
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [activeProvider, queryString, scope])
+
+  const options = useMemo(
+    () =>
+      activeProvider
+        ? results.map((c) => new MentionMenuOption(activeProvider, c))
+        : [],
+    [activeProvider, results]
+  )
+
+  const onSelectOption = useCallback(
+    (
+      selectedOption: MentionMenuOption,
+      nodeToReplace: TextNode | null,
+      closeMenu: () => void
+    ) => {
+      editor.update(() => {
+        const sel = $getSelection()
+        if (!$isRangeSelection(sel)) return
+        const node = $createMentionNode(
+          selectedOption.provider.type,
+          selectedOption.candidate.id,
+          selectedOption.candidate.label
+        )
+        if (nodeToReplace) nodeToReplace.replace(node)
+        else sel.insertNodes([node])
+        node.selectNext()
+        closeMenu()
+      })
+    },
+    [editor]
+  )
+
+  useEffect(() => {
+    const adjacentNode = (
+      direction: "previous" | "next"
+    ): LexicalNode | null => {
+      const sel = $getSelection()
+      if (!$isRangeSelection(sel) || !sel.isCollapsed()) return null
+      const anchor = sel.anchor
+      const node = anchor.getNode()
+      if (anchor.type === "text") {
+        if (direction === "previous") {
+          return anchor.offset === 0 ? node.getPreviousSibling() : null
+        }
+        return anchor.offset === node.getTextContentSize()
+          ? node.getNextSibling()
+          : null
+      }
+      if (!$isElementNode(node)) return null
+      const idx = direction === "previous" ? anchor.offset - 1 : anchor.offset
+      return node.getChildAtIndex(idx)
+    }
+    const removeMention = (target: LexicalNode | null) => {
+      if (!$isMentionNode(target)) return false
+      target.remove()
+      return true
+    }
+    const removeBackspace = editor.registerCommand<KeyboardEvent | null>(
+      KEY_BACKSPACE_COMMAND,
+      (e) => {
+        const removed = removeMention(adjacentNode("previous"))
+        if (removed) e?.preventDefault()
+        return removed
+      },
+      COMMAND_PRIORITY_LOW
+    )
+    const removeDelete = editor.registerCommand<KeyboardEvent | null>(
+      KEY_DELETE_COMMAND,
+      (e) => {
+        const removed = removeMention(adjacentNode("next"))
+        if (removed) e?.preventDefault()
+        return removed
+      },
+      COMMAND_PRIORITY_LOW
+    )
+    return () => {
+      removeBackspace()
+      removeDelete()
+    }
+  }, [editor])
+
+  return (
+    <LexicalTypeaheadMenuPlugin<MentionMenuOption>
+      onQueryChange={setQueryString}
+      onSelectOption={onSelectOption}
+      triggerFn={checkForTriggerMatch}
+      options={options}
+      menuRenderFn={(anchorRef, { selectedIndex, selectOptionAndCleanUp }) => {
+        if (!anchorRef.current || options.length === 0) return null
+        return createPortal(
+          <div className="bg-popover text-popover-foreground border-border z-50 mt-1 w-72 overflow-hidden rounded-md border shadow-md">
+            {options.map((opt, i) => (
+              <button
+                key={opt.key}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  selectOptionAndCleanUp(opt)
+                }}
+                className={`hover:bg-accent block w-full px-3 py-1.5 text-left text-sm transition-colors ${
+                  i === selectedIndex ? "bg-accent" : ""
+                }`}
+              >
+                {opt.provider.renderRow(opt.candidate)}
+              </button>
+            ))}
+          </div>,
+          anchorRef.current
+        )
+      }}
+    />
+  )
+}
