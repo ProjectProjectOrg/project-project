@@ -132,7 +132,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     if (patch.nextName && patch.nextName !== oldName) {
       registerRename(oldName, patch.nextName)
     }
-    void renameTag({
+     renameTag({
       oldName: makeTagName(oldName),
       nextName: patch.nextName,
       color: patch.color

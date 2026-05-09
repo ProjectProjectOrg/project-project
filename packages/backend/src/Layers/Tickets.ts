@@ -12,6 +12,7 @@
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
 // exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
 
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -99,7 +100,7 @@ export const TicketsLive = Layer.effect(
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...tickets.map(documentToTicket)].sort(
+        return tickets.map(documentToTicket).toSorted(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
@@ -126,7 +127,7 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const document: TicketDocument = {
           id: candidate,
           title: input.title,
@@ -200,7 +201,7 @@ export const TicketsLive = Layer.effect(
               : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
-          updatedAt: new Date(),
+          updatedAt: yield* DateTime.nowAsDate,
           body: input.body ?? existing.body
         }
 
@@ -240,7 +241,7 @@ export const TicketsLive = Layer.effect(
         const next: TicketDocument = {
           ...existing,
           tags: nextTags,
-          updatedAt: new Date()
+          updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
@@ -270,7 +271,7 @@ export const TicketsLive = Layer.effect(
               ? patch.lastTransitionedPr
               : existing.lastTransitionedPr,
           status: patch.status ?? existing.status,
-          updatedAt: new Date()
+          updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return next
@@ -523,7 +524,11 @@ export const TicketsLive = Layer.effect(
         }
 
         const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
-        const plan = planTicketGitStates(tickets, result.raw, new Date())
+        const plan = planTicketGitStates(
+          tickets,
+          result.raw,
+          yield* DateTime.nowAsDate
+        )
 
         for (const write of plan.writes) {
           const ticket = ticketById.get(write.ticketId)

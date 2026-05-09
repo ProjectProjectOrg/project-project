@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { TicketId } from "@projectproject/shared"
 import type { RawProjectStates } from "./Services/GitHub"
@@ -7,7 +8,7 @@ import {
   type TicketGitStateInput
 } from "./ticketGitStatePlanner"
 
-const now = new Date("2026-05-08T10:00:00.000Z")
+const now = DateTime.toDate(DateTime.unsafeMake("2026-05-08T10:00:00.000Z"))
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
 const baseTicket = {

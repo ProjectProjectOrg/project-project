@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useAtomValue, useAtomSet, Result } from "@effect-atom/atom-react"
+import * as DateTime from "effect/DateTime"
 import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { Button } from "@/components/ui/button"
@@ -50,7 +51,9 @@ export function CommentRow({
               {comment.author.name ?? comment.author.email}
             </span>
             <time className="text-muted-foreground">
-              {new Date(comment.createdAt).toLocaleString(getLocale())}
+              {DateTime.toDate(
+                DateTime.unsafeMake(comment.createdAt)
+              ).toLocaleString(getLocale())}
             </time>
             {comment.editedAt && (
               <span className="text-muted-foreground text-xs">

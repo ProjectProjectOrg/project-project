@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
@@ -83,7 +84,7 @@ export const editCommentAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(commentsAtom(listKey), {
     reducer: (current, input: UpdateCommentInput) => {
       if (!Result.isSuccess(current)) return current
-      const editedAt = new Date()
+      const editedAt = DateTime.toDate(DateTime.unsafeNow())
       const next = current.value.map((c) =>
         c.id === commentId ? { ...c, body: input.body, editedAt } : c
       )
@@ -110,7 +111,7 @@ export const deleteCommentAtom = Atom.family((key: string) => {
     reducer: (current, _input: void) => {
       if (!Result.isSuccess(current)) return current
       return Result.success(
-        [...current.value.filter((c) => c.id !== commentId)],
+        current.value.filter((c) => c.id !== commentId),
         { waiting: true }
       )
     },

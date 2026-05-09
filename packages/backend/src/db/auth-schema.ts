@@ -7,6 +7,9 @@ import {
   index,
   uniqueIndex
 } from "drizzle-orm/pg-core"
+import * as DateTime from "effect/DateTime"
+
+const now = () => DateTime.toDate(DateTime.unsafeNow())
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -17,7 +20,7 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .$onUpdate(now)
     .notNull(),
   role: text("role"),
   banned: boolean("banned").default(false),
@@ -35,7 +38,7 @@ export const session = pgTable(
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
-      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .$onUpdate(now)
       .notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
@@ -66,7 +69,7 @@ export const account = pgTable(
     password: text("password"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
-      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .$onUpdate(now)
       .notNull()
   },
   (table) => [index("account_userId_idx").on(table.userId)]
@@ -82,7 +85,7 @@ export const verification = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .$onUpdate(now)
       .notNull()
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)]

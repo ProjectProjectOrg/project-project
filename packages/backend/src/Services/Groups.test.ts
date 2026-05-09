@@ -1,8 +1,11 @@
 import { it } from "@effect/vitest"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
+
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
 import type { GroupDetail, ProjectDetail, Role } from "@projectproject/shared"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
@@ -88,7 +91,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
     slug: "p",
     name: "Project",
     createdBy: "user-1",
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     github: null,
     body: "# Project\n",
     members: [
@@ -233,8 +236,8 @@ it.effect("create rejects endsAt before startsAt", () =>
     const result = yield* Effect.either(
       groups.create("org", "user-1", "p", {
         name: "G",
-        startsAt: new Date("2026-06-01"),
-        endsAt: new Date("2026-05-01")
+        startsAt: isoDate("2026-06-01"),
+        endsAt: isoDate("2026-05-01")
       })
     )
     expect(result._tag).toBe("Left")
@@ -249,12 +252,12 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", {
       name: "G",
-      startsAt: new Date("2026-06-01"),
-      endsAt: new Date("2026-07-01")
+      startsAt: isoDate("2026-06-01"),
+      endsAt: isoDate("2026-07-01")
     })
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
-        endsAt: new Date("2026-05-15")
+        endsAt: isoDate("2026-05-15")
       })
     )
     expect(result._tag).toBe("Left")
@@ -268,7 +271,9 @@ it.effect("update rejects completedAt in the future", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", { name: "G" })
-    const future = new Date(Date.now() + 1000 * 60 * 60 * 24)
+    const future = DateTime.toDate(
+      DateTime.add(DateTime.unsafeNow(), { days: 1 })
+    )
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
         completedAt: future
@@ -286,12 +291,12 @@ it.effect("update rejects completedAt before startsAt", () =>
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", {
       name: "G",
-      startsAt: new Date("2026-04-01"),
-      endsAt: new Date("2026-04-30")
+      startsAt: isoDate("2026-04-01"),
+      endsAt: isoDate("2026-04-30")
     })
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
-        completedAt: new Date("2026-03-01")
+        completedAt: isoDate("2026-03-01")
       })
     )
     expect(result._tag).toBe("Left")

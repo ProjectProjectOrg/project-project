@@ -34,6 +34,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
 import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as ManagedRuntime from "effect/ManagedRuntime"
@@ -56,7 +57,10 @@ async function resolveUserId(token: string): Promise<string> {
   const db = drizzle(process.env.DATABASE_URL!, { schema })
   const row = await db.query.session.findFirst({
     columns: { userId: true },
-    where: and(eq(session.token, token), gt(session.expiresAt, new Date()))
+    where: and(
+      eq(session.token, token),
+      gt(session.expiresAt, DateTime.toDate(DateTime.unsafeNow()))
+    )
   })
   if (!row) {
     throw new Error(
@@ -115,7 +119,7 @@ async function main(): Promise<void> {
 
   const runtime = ManagedRuntime.make(BackendRuntimeLive)
   const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets>) =>
-    runtime.runPromiseExit(eff as Effect.Effect<A, E, never>)
+    runtime.runPromiseExit(eff as Effect.Effect<A, E>)
   const runTool = async <A, E extends TaggedFailure>(
     name: string,
     eff: Effect.Effect<A, E, Projects | Tickets>

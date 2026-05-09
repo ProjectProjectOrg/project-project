@@ -1,4 +1,5 @@
 import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { and, eq } from "drizzle-orm"
@@ -99,7 +100,7 @@ export const CommentsLive = Layer.effect(
             {
               id: r.id as CommentId,
               ticketId,
-              projectSlug: slug as Comment["projectSlug"],
+              projectSlug: slug,
               author,
               body: block.body,
               createdAt: r.createdAt,
@@ -130,7 +131,7 @@ export const CommentsLive = Layer.effect(
           ticketId
         )
         const id = newCommentId()
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
 
         yield* db
           .insert(commentIndex)
@@ -168,7 +169,7 @@ export const CommentsLive = Layer.effect(
         return {
           id,
           ticketId,
-          projectSlug: slug as Comment["projectSlug"],
+          projectSlug: slug,
           author,
           body: input.body,
           createdAt: now,
@@ -217,7 +218,7 @@ export const CommentsLive = Layer.effect(
           )
         }
         const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
-        const editedAt = new Date()
+        const editedAt = yield* DateTime.nowAsDate
         yield* db
           .update(commentIndex)
           .set({ editedAt })
@@ -229,7 +230,9 @@ export const CommentsLive = Layer.effect(
           ticketId
         )
         const nextBlocks = blocks.map((b) =>
-          b.id === commentId ? { ...b, body: input.body, editedAt } : b
+          b.id === commentId
+            ? Object.assign(b, { body: input.body, editedAt })
+            : b
         )
         yield* writeBlocks(
           orgSlug,
@@ -245,7 +248,7 @@ export const CommentsLive = Layer.effect(
         return {
           id: commentId,
           ticketId,
-          projectSlug: slug as Comment["projectSlug"],
+          projectSlug: slug,
           author,
           body: input.body,
           createdAt: meta.createdAt,

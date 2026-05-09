@@ -27,6 +27,7 @@
 //   add/remove member   ✓      ✓      –   (admin can't touch admins)
 //   change role         ✓      –      –
 
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -251,7 +252,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         const organizationId = yield* orgIdFromSlug(orgSlug)
         const slug = yield* findFreeSlug(slugify(input.name))
-        const createdAt = new Date()
+        const createdAt = yield* DateTime.nowAsDate
 
         const [row] = yield* db
           .insert(projectIndex)

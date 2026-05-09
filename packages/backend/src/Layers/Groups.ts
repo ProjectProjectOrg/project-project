@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -121,7 +122,7 @@ export const GroupsLive = Layer.effect(
           (id) => groupDocs.read(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...results.map(documentToGroup)].sort(
+        return results.map(documentToGroup).toSorted(
           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
         )
       })
@@ -169,7 +170,7 @@ export const GroupsLive = Layer.effect(
           color = pickColor(existingGroups.map((g) => g.color))
         }
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const document: GroupDocument = {
           id: candidate,
           name: input.name,
@@ -220,7 +221,7 @@ export const GroupsLive = Layer.effect(
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const next: GroupDocument = {
           ...existing,
           name: input.name ?? existing.name,
@@ -261,7 +262,7 @@ export const GroupsLive = Layer.effect(
         const next: GroupDocument = {
           ...existing,
           tickets: input.tickets,
-          updatedAt: new Date()
+          updatedAt: yield* DateTime.nowAsDate
         }
         yield* groupDocs.write(orgSlug, slug, id, next)
         return next
@@ -305,7 +306,7 @@ export const GroupsLive = Layer.effect(
               const next: GroupDocument = {
                 ...group,
                 tickets: group.tickets.filter((t) => t !== ticketId),
-                updatedAt: new Date()
+                updatedAt: yield* DateTime.nowAsDate
               }
               yield* groupDocs
                 .writeIfExists(orgSlug, slug, id, next)

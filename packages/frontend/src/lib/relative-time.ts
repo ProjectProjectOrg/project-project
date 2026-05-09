@@ -4,6 +4,7 @@
 // We deliberately keep this in lib/, not in a component, because the same
 // formatter wants to be available outside React (e.g. data tooltips).
 
+import * as DateTime from "effect/DateTime"
 import { getLocale } from "@/paraglide/runtime"
 
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
@@ -17,7 +18,7 @@ const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 
 export function formatRelative(date: Date): string {
   const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: "auto" })
-  const diff = (date.getTime() - Date.now()) / 1000
+  const diff = (date.getTime() - DateTime.toEpochMillis(DateTime.unsafeNow())) / 1000
   for (const [unit, secs] of UNITS) {
     if (Math.abs(diff) >= secs) {
       return rtf.format(Math.round(diff / secs), unit)

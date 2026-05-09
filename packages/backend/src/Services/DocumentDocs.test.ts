@@ -1,8 +1,11 @@
 import { it } from "@effect/vitest"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
+
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 import { GroupColor, GroupId, TagName, TicketId } from "@projectproject/shared"
 import { GroupDocsLive } from "../Layers/GroupDocs"
 import { ProjectDocsLive } from "../Layers/ProjectDocs"
@@ -126,8 +129,8 @@ it.effect(
         lastTransitionedPr: null,
         assignees: ["user-1", "user-2"],
         createdBy: "user-1",
-        createdAt: new Date("2026-02-01T10:00:00.000Z"),
-        updatedAt: new Date("2026-02-02T10:00:00.000Z"),
+        createdAt: isoDate("2026-02-01T10:00:00.000Z"),
+        updatedAt: isoDate("2026-02-02T10:00:00.000Z"),
         body: "# Write tests\n"
       })
 
@@ -235,12 +238,12 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")],
       color: groupColor("#10b981"),
-      startsAt: new Date("2026-04-01T00:00:00.000Z"),
-      endsAt: new Date("2026-04-14T00:00:00.000Z"),
+      startsAt: isoDate("2026-04-01T00:00:00.000Z"),
+      endsAt: isoDate("2026-04-14T00:00:00.000Z"),
       completedAt: null,
       createdBy: "user-1",
-      createdAt: new Date("2026-03-30T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+      createdAt: isoDate("2026-03-30T00:00:00.000Z"),
+      updatedAt: isoDate("2026-04-02T00:00:00.000Z"),
       body: "# Sprint 1\n"
     })
 
@@ -331,7 +334,7 @@ it.effect(
         slug: "project",
         name: "Project",
         createdBy: "user-1",
-        createdAt: new Date("2026-05-02T00:00:00.000Z"),
+        createdAt: isoDate("2026-05-02T00:00:00.000Z"),
         members: [{ username: "wouter", role: "owner" }],
         github: {
           repoOwner: "wouter",

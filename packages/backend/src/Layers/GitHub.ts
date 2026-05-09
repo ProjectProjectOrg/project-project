@@ -31,6 +31,8 @@
 // row is missing entirely (`NoGithubToken`), we report `GitHubTokenExpired` —
 // the user-facing remedy is the same: reconnect via OAuth.
 
+import * as Clock from "effect/Clock"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { Octokit } from "octokit"
@@ -66,13 +68,11 @@ type GitHubFailure =
 
 const HTTP_STATUS_KEY = "status"
 
-function mapHttpError(cause: unknown): GitHubFailure {
-  // Octokit throws RequestError with a numeric `status`. We don't want to
-  // depend on its constructor identity, so we duck-type.
+function mapHttpError(cause: unknown, nowSeconds: number): GitHubFailure {
   const err = cause as Record<string, unknown> | undefined
   const status = err?.[HTTP_STATUS_KEY] as number | undefined
   const message =
-    typeof err?.message === "string" ? (err.message as string) : "GitHub error"
+    typeof err?.message === "string" ? (err.message) : "GitHub error"
   const headers = (
     err?.["response"] as { headers?: Record<string, string> } | undefined
   )?.headers
@@ -83,9 +83,7 @@ function mapHttpError(cause: unknown): GitHubFailure {
   if (status === 403) {
     if (/rate.?limit|abuse/i.test(message)) {
       return new RateLimited({
-        resetAt: resetHeader
-          ? Number(resetHeader)
-          : Math.floor(Date.now() / 1000) + 60
+        resetAt: resetHeader ? Number(resetHeader) : nowSeconds + 60
       })
     }
     return new GitHubScopeInsufficient()
@@ -102,13 +100,15 @@ function mapHttpError(cause: unknown): GitHubFailure {
   }
   if (status === 429) {
     return new RateLimited({
-      resetAt: resetHeader
-        ? Number(resetHeader)
-        : Math.floor(Date.now() / 1000) + 60
+      resetAt: resetHeader ? Number(resetHeader) : nowSeconds + 60
     })
   }
   return new GitHubError({ message })
 }
+
+const nowSeconds = Clock.currentTimeMillis.pipe(
+  Effect.map((ms) => Math.floor(ms / 1000))
+)
 
 const octokitFor = (token: string) => new Octokit({ auth: token })
 const graphqlFor = (token: string) =>
@@ -165,11 +165,9 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const octokit = octokitFor(token)
+          const now = yield* nowSeconds
           const perPage = 30
 
-          // Free-text search → use the Search API; otherwise list authed
-          // user's repos (includes private + collaborator). Different
-          // endpoints, same shape mapped to GithubRepo.
           const result = yield* Effect.tryPromise({
             try: async () => {
               if (query && query.trim()) {
@@ -207,7 +205,7 @@ export const GitHubLive = Layer.effect(
                 hasMore: res.data.length === perPage
               }
             },
-            catch: mapHttpError
+            catch: (cause) => mapHttpError(cause, now)
           }).pipe(
             Effect.catchAll((e) =>
               e._tag === "GitHubTokenExpired" ||
@@ -238,9 +236,10 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const octokit = octokitFor(token)
+          const now = yield* nowSeconds
           const data = yield* Effect.tryPromise({
             try: () => octokit.rest.repos.get({ owner, repo: name }),
-            catch: mapHttpError
+            catch: (cause) => mapHttpError(cause, now)
           }).pipe(
             Effect.catchAll((e) =>
               e._tag === "GitHubTokenExpired" ||
@@ -288,9 +287,8 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const octokit = octokitFor(token)
+          const now = yield* nowSeconds
 
-          // Fetch the base branch SHA, then create the ref. Two calls; the
-          // first fails with NotFound if the base branch is wrong.
           const base = yield* Effect.tryPromise({
             try: () =>
               octokit.rest.repos.getBranch({
@@ -298,7 +296,7 @@ export const GitHubLive = Layer.effect(
                 repo: name,
                 branch: baseBranch
               }),
-            catch: mapHttpError
+            catch: (cause) => mapHttpError(cause, now)
           }).pipe(
             Effect.catchAll((e) =>
               e._tag === "RepoGone"
@@ -322,10 +320,8 @@ export const GitHubLive = Layer.effect(
                 ref: `refs/heads/${branchName}`,
                 sha
               }),
-            // mapHttpError doesn't know the branch name; rewrite errors that
-            // need it.
             catch: (cause) => {
-              const err = mapHttpError(cause)
+              const err = mapHttpError(cause, now)
               if (err._tag === "BranchExists")
                 return new BranchExists({ branch: branchName })
               if (err._tag === "BranchProtected")
@@ -371,6 +367,7 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const octokit = octokitFor(token)
+          const now = yield* nowSeconds
           const result = yield* Effect.tryPromise({
             try: () =>
               octokit.rest.pulls.create({
@@ -383,7 +380,7 @@ export const GitHubLive = Layer.effect(
                 draft: args.draft
               }),
             catch: (cause) => {
-              const err = mapHttpError(cause)
+              const err = mapHttpError(cause, now)
               // No "BranchExists" mapping for PRs; treat as GitHubError.
               if (err._tag === "BranchExists") {
                 return new GitHubError({
@@ -425,6 +422,7 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const gql = graphqlFor(token)
+          const now = yield* nowSeconds
 
           interface QResult {
             repository: {
@@ -504,9 +502,7 @@ export const GitHubLive = Layer.effect(
               | RepoGone
               | RateLimited
               | GitHubError => {
-              const err = mapHttpError(cause)
-              // Branch-specific failures don't make sense for a read-only
-              // GraphQL query — collapse them into GitHubError.
+              const err = mapHttpError(cause, now)
               if (
                 err._tag === "BranchExists" ||
                 err._tag === "BranchProtected"
@@ -560,7 +556,9 @@ export const GitHubLive = Layer.effect(
               number: pr.number,
               url: pr.url,
               title: pr.title,
-              mergedAt: pr.mergedAt ? new Date(pr.mergedAt) : null,
+              mergedAt: pr.mergedAt
+                ? DateTime.toDate(DateTime.unsafeMake(pr.mergedAt))
+                : null,
               checks: mapChecks(
                 pr.commits.nodes[0]?.commit.statusCheckRollup?.state
               )
@@ -604,6 +602,7 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const gql = graphqlFor(token)
+          const now = yield* nowSeconds
 
           interface QResult {
             repository: {
@@ -657,7 +656,7 @@ export const GitHubLive = Layer.effect(
               | RepoGone
               | RateLimited
               | GitHubError => {
-              const err = mapHttpError(cause)
+              const err = mapHttpError(cause, now)
               if (
                 err._tag === "BranchExists" ||
                 err._tag === "BranchProtected"
@@ -703,6 +702,7 @@ export const GitHubLive = Layer.effect(
         Effect.gen(function* () {
           const token = yield* tokenFor(userId)
           const gql = graphqlFor(token)
+          const now = yield* nowSeconds
 
           interface QResult {
             repository: {
@@ -732,7 +732,7 @@ export const GitHubLive = Layer.effect(
               | RepoGone
               | RateLimited
               | GitHubError => {
-              const err = mapHttpError(cause)
+              const err = mapHttpError(cause, now)
               if (
                 err._tag === "BranchExists" ||
                 err._tag === "BranchProtected"

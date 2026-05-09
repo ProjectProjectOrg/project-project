@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
@@ -45,7 +46,7 @@ export const createTagAtom = Atom.family((key: string) => {
         name: input.name,
         color: input.color ?? makeTagColor("#7c3aed"),
         createdBy: "",
-        createdAt: new Date()
+        createdAt: DateTime.toDate(DateTime.unsafeNow())
       }
       return Result.success([...current.value, synthetic], { waiting: true })
     },
