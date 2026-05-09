@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import {
   ADMIN_GATED_KINDS,
   CreateGroupInput,
@@ -10,84 +10,48 @@ import {
   GroupKind,
   NotFound,
   TAG_DEFAULT_PALETTE,
-  TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   Validation
 } from "@projectproject/shared"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
+import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
+import { Groups, type GroupsShape } from "../Services/Groups"
+import type { MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { TicketDocs } from "../Services/TicketDocs"
 
 const MAX_CREATE_ATTEMPTS = 16
+const makeGroupId = Schema.decodeUnknownSync(GroupId)
+const makeGroupColor = Schema.decodeUnknownSync(GroupColor)
 
-const GroupFrontmatter = Schema.Struct({
-  ...Group.fields,
-  kind: Schema.optionalWith(GroupKind, { default: () => "other" as const }),
-  tickets: Schema.optionalWith(Schema.Array(TicketId), { default: () => [] }),
-  startsAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
-    default: () => null
-  }),
-  endsAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
-    default: () => null
-  }),
-  completedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
-    default: () => null
-  })
-})
-
-const decodeFrontmatter = Schema.decodeUnknown(GroupFrontmatter)
-
-function nextIdFrom(ids: ReadonlyArray<string>): string {
+function nextIdFrom(ids: ReadonlyArray<GroupId>): GroupId {
   let max = 0
   for (const id of ids) {
     const n = Number(id.slice(2))
     if (Number.isFinite(n) && n > max) max = n
   }
-  return `G-${max + 1}`
+  return makeGroupId(`G-${max + 1}`)
 }
 
 function pickColor(used: ReadonlyArray<string>): GroupColor {
   for (const c of TAG_DEFAULT_PALETTE)
-    if (!used.includes(c)) return c as GroupColor
-  return TAG_DEFAULT_PALETTE[
-    used.length % TAG_DEFAULT_PALETTE.length
-  ] as GroupColor
+    if (!used.includes(c)) return makeGroupColor(c)
+  return makeGroupColor(
+    TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
+  )
 }
 
-function frontmatterToDisk(fm: Group): Record<string, unknown> {
-  return {
-    id: fm.id,
-    name: fm.name,
-    kind: fm.kind,
-    tickets: fm.tickets,
-    color: fm.color,
-    startsAt: fm.startsAt ? fm.startsAt.toISOString() : null,
-    endsAt: fm.endsAt ? fm.endsAt.toISOString() : null,
-    completedAt: fm.completedAt ? fm.completedAt.toISOString() : null,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt.toISOString(),
-    updatedAt: fm.updatedAt.toISOString()
-  }
+function documentToGroup(document: GroupDocument): Group {
+  const { body: _body, ...group } = document
+  return group
 }
 
-export class Groups extends Effect.Service<Groups>()("Groups", {
-  effect: Effect.gen(function* () {
-    const md = yield* Markdown
+export const GroupsLive = Layer.effect(
+  Groups,
+  Effect.gen(function* () {
+    const groupDocs = yield* GroupDocs
+    const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
-
-    const readGroup = (
-      orgSlug: string,
-      slug: string,
-      id: string
-    ): Effect.Effect<
-      { group: Group; body: string },
-      NotFound | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        const file = yield* md.readGroupFile(orgSlug, slug, id)
-        const group = yield* decodeFrontmatter(file.data).pipe(Effect.orDie)
-        return { group, body: file.body }
-      })
 
     const validateTicketIds = (
       orgSlug: string,
@@ -96,8 +60,8 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         if (ticketIds.length === 0) return
-        const existing = yield* md.listTicketIds(orgSlug, slug)
-        const set = new Set(existing)
+        const existing = yield* ticketDocs.listIds(orgSlug, slug)
+        const set = new Set<string>(existing)
         for (const id of ticketIds) {
           if (!set.has(id)) {
             return yield* Effect.fail(new NotFound())
@@ -149,13 +113,13 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const ids = yield* md.listGroupIds(orgSlug, slug)
+        const ids = yield* groupDocs.listIds(orgSlug, slug)
         const results = yield* Effect.forEach(
           ids,
-          (id) => readGroup(orgSlug, slug, id),
+          (id) => groupDocs.read(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...results.map((r) => r.group)].sort(
+        return [...results.map(documentToGroup)].sort(
           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
         )
       })
@@ -168,8 +132,7 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<GroupDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const { group, body } = yield* readGroup(orgSlug, slug, id)
-        return { ...group, body }
+        return yield* groupDocs.read(orgSlug, slug, id)
       })
 
     const create = (
@@ -189,18 +152,24 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
         yield* validateTicketIds(orgSlug, slug, requestedTickets)
         yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
 
-        const ids = yield* md.listGroupIds(orgSlug, slug)
+        const ids = yield* groupDocs.listIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
-        const color = yield* input.color !== undefined
-          ? Effect.succeed(input.color)
-          : Effect.forEach(ids, (id) => readGroup(orgSlug, slug, id), {
-              concurrency: 8
-            }).pipe(Effect.map((rs) => pickColor(rs.map((r) => r.group.color))))
+        let color: GroupColor
+        if (input.color !== undefined) {
+          color = input.color
+        } else {
+          const existingGroups = yield* Effect.forEach(
+            ids,
+            (id) => groupDocs.read(orgSlug, slug, id),
+            { concurrency: 8 }
+          )
+          color = pickColor(existingGroups.map((g) => g.color))
+        }
 
         const now = new Date()
-        const fm: Group = {
-          id: candidate as GroupId,
+        const document: GroupDocument = {
+          id: candidate,
           name: input.name,
           kind,
           tickets: requestedTickets,
@@ -210,29 +179,22 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
           completedAt: null,
           createdBy: userId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          body: `# ${input.name}\n`
         }
 
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const next: Group = { ...fm, id: candidate as GroupId }
-          const result = yield* md
-            .createGroupFile(
-              orgSlug,
-              slug,
-              candidate,
-              frontmatterToDisk(next),
-              `# ${input.name}\n`
+          const next: GroupDocument = { ...document, id: candidate }
+          const result = yield* groupDocs.create(orgSlug, slug, next).pipe(
+            Effect.map(() => "ok" as const),
+            Effect.catchTag("GroupIdTaken", () =>
+              Effect.succeed("retry" as const)
             )
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("GroupIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
-            )
+          )
           if (result === "ok") {
-            return next
+            return documentToGroup(next)
           }
-          const freshIds = yield* md.listGroupIds(orgSlug, slug)
+          const freshIds = yield* groupDocs.listIds(orgSlug, slug)
           candidate = nextIdFrom(freshIds)
         }
         return yield* Effect.die(
@@ -253,15 +215,11 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       Effect.gen(function* () {
         yield* projects.get(orgSlug, userId, slug)
 
-        const { group: existing, body: existingBody } = yield* readGroup(
-          orgSlug,
-          slug,
-          id
-        )
+        const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
         const now = new Date()
-        const next: Group = {
+        const next: GroupDocument = {
           ...existing,
           name: input.name ?? existing.name,
           color: input.color ?? existing.color,
@@ -276,16 +234,13 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
         }
         yield* validateInterval(next.startsAt, next.endsAt)
         yield* validateCompletion(next.completedAt, next.startsAt, now)
-        const nextBody = input.body ?? existingBody
+        const nextDocument: GroupDocument = {
+          ...next,
+          body: input.body ?? existing.body
+        }
 
-        yield* md.writeGroupFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          nextBody
-        )
-        return { ...next, body: nextBody }
+        yield* groupDocs.write(orgSlug, slug, id, nextDocument)
+        return nextDocument
       })
 
     const updateTickets = (
@@ -297,27 +252,17 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const { group: existing, body: existingBody } = yield* readGroup(
-          orgSlug,
-          slug,
-          id
-        )
+        const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
-        const next: Group = {
+        const next: GroupDocument = {
           ...existing,
           tickets: input.tickets,
           updatedAt: new Date()
         }
-        yield* md.writeGroupFile(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          existingBody
-        )
-        return { ...next, body: existingBody }
+        yield* groupDocs.write(orgSlug, slug, id, next)
+        return next
       })
 
     const remove = (
@@ -328,9 +273,9 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
-        const { group: existing } = yield* readGroup(orgSlug, slug, id)
+        const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
-        yield* md.removeGroupFile(orgSlug, slug, id)
+        yield* groupDocs.remove(orgSlug, slug, id)
       })
 
     const removeTicketFromAllGroups = (
@@ -339,30 +284,29 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       ticketId: string
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        const ids = yield* md.listGroupIds(orgSlug, slug)
+        const ids = yield* groupDocs.listIds(orgSlug, slug)
         yield* Effect.forEach(
           ids,
           (id) =>
             Effect.gen(function* () {
-              const result = yield* readGroup(orgSlug, slug, id).pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(null))
-              )
-              if (result === null) return
-              const { group, body } = result
-              if (!group.tickets.includes(ticketId as TicketId)) return
-              const next: Group = {
+              const group = yield* groupDocs
+                .read(orgSlug, slug, id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
+              if (group === null) return
+              if (
+                !group.tickets.some(
+                  (groupTicketId) => groupTicketId === ticketId
+                )
+              ) {
+                return
+              }
+              const next: GroupDocument = {
                 ...group,
                 tickets: group.tickets.filter((t) => t !== ticketId),
                 updatedAt: new Date()
               }
-              yield* md
-                .writeGroupFileIfExists(
-                  orgSlug,
-                  slug,
-                  id,
-                  frontmatterToDisk(next),
-                  body
-                )
+              yield* groupDocs
+                .writeIfExists(orgSlug, slug, id, next)
                 .pipe(Effect.catchTag("NotFound", () => Effect.void))
             }),
           { concurrency: 8 }
@@ -377,6 +321,6 @@ export class Groups extends Effect.Service<Groups>()("Groups", {
       updateTickets,
       remove,
       removeTicketFromAllGroups
-    } as const
+    } satisfies GroupsShape
   })
-}) {}
+)

@@ -12,7 +12,7 @@
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
 // exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
 
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import {
   AttachBranchInput,
   BranchExists,
@@ -24,114 +24,48 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
-  GitState,
   GitStatesResponse,
   NotFound,
   OpenPrInput,
   OpenPrResult,
   RateLimited,
   RepoGone,
+  TagName,
   Ticket,
   TicketDetail,
   TicketId,
-  TransitionRecord,
   UpdateTicketInput
 } from "@projectproject/shared"
-import { GitHub } from "./GitHub"
-import { Groups } from "./Groups"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
+import { GitHub } from "../Services/GitHub"
+import { Groups } from "../Services/Groups"
+import type { MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { TicketDocs, type TicketDocument } from "../Services/TicketDocs"
+import { Tickets, type TicketsShape } from "../Services/Tickets"
+import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeTagName = Schema.decodeUnknownSync(TagName)
 
-const TicketFrontmatter = Schema.Struct({
-  id: TicketId,
-  title: Schema.String,
-  status: Schema.Literal("todo", "in_progress", "done"),
-  type: Schema.Literal("feat", "bug", "chore", "other"),
-  priority: Schema.optionalWith(Schema.Literal("low", "med", "high"), {
-    default: () => "med" as const
-  }),
-  tags: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => []
-  }),
-  branch: Schema.NullOr(Schema.String),
-  pr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    default: () => null
-  }),
-  lastTransitionedPr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    default: () => null
-  }),
-  assignees: Schema.optionalWith(Schema.Array(Schema.String), {
-    default: () => []
-  }),
-  createdBy: Schema.String,
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date
-})
-type TicketFrontmatter = typeof TicketFrontmatter.Type
-
-const decodeFrontmatter = Schema.decodeUnknown(TicketFrontmatter)
-
-function decodeFrontmatterCompat(raw: unknown) {
-  if (raw && typeof raw === "object") {
-    const r = raw as Record<string, unknown>
-    if (r.assignees === undefined && "assignee" in r) {
-      const legacy = r.assignee
-      r.assignees = typeof legacy === "string" ? [legacy] : []
-    }
-  }
-  return decodeFrontmatter(raw)
-}
-
-function nextIdFrom(ids: ReadonlyArray<string>): string {
+function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
   for (const id of ids) {
     const n = Number(id.slice(2))
     if (Number.isFinite(n) && n > max) max = n
   }
-  return `T-${max + 1}`
+  return makeTicketId(`T-${max + 1}`)
 }
 
-function frontmatterToDisk(fm: TicketFrontmatter): Record<string, unknown> {
-  return {
-    id: fm.id,
-    title: fm.title,
-    status: fm.status,
-    type: fm.type,
-    priority: fm.priority,
-    tags: fm.tags,
-    branch: fm.branch,
-    pr: fm.pr,
-    lastTransitionedPr: fm.lastTransitionedPr,
-    assignees: fm.assignees,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt.toISOString(),
-    updatedAt: fm.updatedAt.toISOString()
-  }
+function documentToTicket(document: TicketDocument): Ticket {
+  const { body: _body, ...ticket } = document
+  return ticket
 }
 
-function frontmatterToWire(fm: TicketFrontmatter): Ticket {
-  return {
-    id: fm.id,
-    title: fm.title,
-    status: fm.status,
-    type: fm.type,
-    priority: fm.priority,
-    tags: fm.tags as Ticket["tags"],
-    branch: fm.branch,
-    pr: fm.pr,
-    lastTransitionedPr: fm.lastTransitionedPr,
-    assignees: fm.assignees,
-    createdBy: fm.createdBy,
-    createdAt: fm.createdAt,
-    updatedAt: fm.updatedAt
-  }
-}
-
-export class Tickets extends Effect.Service<Tickets>()("Tickets", {
-  effect: Effect.gen(function* () {
-    const md = yield* Markdown
+export const TicketsLive = Layer.effect(
+  Tickets,
+  Effect.gen(function* () {
+    const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
     const github = yield* GitHub
     const groups = yield* Groups
@@ -149,15 +83,8 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<
-      TicketFrontmatter & { body: string; region: string },
-      NotFound | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        const file = yield* md.readTicketParts(orgSlug, slug, id)
-        const fm = yield* decodeFrontmatterCompat(file.data).pipe(Effect.orDie)
-        return { ...fm, body: file.description, region: file.region }
-      })
+    ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
+      ticketDocs.read(orgSlug, slug, id)
 
     const list = (
       orgSlug: string,
@@ -166,13 +93,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...tickets.map(frontmatterToWire)].sort(
+        return [...tickets.map(documentToTicket)].sort(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
@@ -185,8 +112,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const t = yield* readTicket(orgSlug, slug, id)
-        return { ...frontmatterToWire(t), body: t.body }
+        return yield* readTicket(orgSlug, slug, id)
       })
 
     const create = (
@@ -197,12 +123,12 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
         const now = new Date()
-        const fm: TicketFrontmatter = {
-          id: candidate as TicketId,
+        const document: TicketDocument = {
+          id: candidate,
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
@@ -214,18 +140,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           assignees: [],
           createdBy: ownerId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          body: `# ${input.title}\n`
         }
 
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const result = yield* md
-            .createTicketFile(
-              orgSlug,
-              slug,
-              candidate,
-              frontmatterToDisk({ ...fm, id: candidate as TicketId }),
-              `# ${input.title}\n`
-            )
+          const result = yield* ticketDocs
+            .create(orgSlug, slug, { ...document, id: candidate })
             .pipe(
               Effect.map(() => "ok" as const),
               Effect.catchTag("TicketIdTaken", () =>
@@ -233,9 +154,9 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
               )
             )
           if (result === "ok") {
-            return frontmatterToWire({ ...fm, id: candidate as TicketId })
+            return documentToTicket({ ...document, id: candidate })
           }
-          const freshIds = yield* md.listTicketIds(orgSlug, slug)
+          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
           candidate = nextIdFrom(freshIds)
         }
         return yield* Effect.die(
@@ -263,7 +184,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           }
         }
 
-        const next: TicketFrontmatter = {
+        const next: TicketDocument = {
           id: existing.id,
           title: input.title ?? existing.title,
           status: input.status ?? existing.status,
@@ -279,20 +200,13 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
               : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          body: input.body ?? existing.body
         }
-        const nextBody = input.body ?? existing.body
 
-        yield* md.writeTicketWithRegion(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          nextBody,
-          existing.region
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
 
-        return { ...frontmatterToWire(next), body: nextBody }
+        return next
       })
 
     const remove = (
@@ -304,7 +218,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
-        yield* md.removeTicketFile(orgSlug, slug, id)
+        yield* ticketDocs.remove(orgSlug, slug, id)
       })
 
     const replaceTag = (
@@ -316,25 +230,19 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
     ): Effect.Effect<boolean, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         const existing = yield* readTicket(orgSlug, slug, id)
-        if (!existing.tags.includes(oldName)) return false
+        if (!existing.tags.some((tag) => tag === oldName)) return false
         const nextTags =
           newName === null
             ? existing.tags.filter((t) => t !== oldName)
-            : existing.tags.map((t) => (t === oldName ? newName : t))
-        const { body, region, ...fm } = existing
-        const next: TicketFrontmatter = {
-          ...fm,
+            : existing.tags.map((t) =>
+                t === oldName ? makeTagName(newName) : t
+              )
+        const next: TicketDocument = {
+          ...existing,
           tags: nextTags,
           updatedAt: new Date()
         }
-        yield* md.writeTicketWithRegion(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          body,
-          region
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
       })
 
@@ -344,16 +252,16 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       orgSlug: string,
       slug: string,
       id: string,
-      existing: TicketFrontmatter & { body: string; region: string },
+      existing: TicketDocument,
       patch: {
         branch?: string | null
         pr?: number | null
         lastTransitionedPr?: number | null
-        status?: TicketFrontmatter["status"]
+        status?: TicketDocument["status"]
       }
-    ): Effect.Effect<TicketFrontmatter, MarkdownError> =>
+    ): Effect.Effect<TicketDocument, MarkdownError> =>
       Effect.gen(function* () {
-        const next: TicketFrontmatter = {
+        const next: TicketDocument = {
           ...existing,
           branch: patch.branch !== undefined ? patch.branch : existing.branch,
           pr: patch.pr !== undefined ? patch.pr : existing.pr,
@@ -364,14 +272,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           status: patch.status ?? existing.status,
           updatedAt: new Date()
         }
-        yield* md.writeTicketWithRegion(
-          orgSlug,
-          slug,
-          id,
-          frontmatterToDisk(next),
-          existing.body,
-          existing.region
-        )
+        yield* ticketDocs.write(orgSlug, slug, id, next)
         return next
       })
 
@@ -421,7 +322,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const attachBranch = (
@@ -469,7 +370,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const openPr = (
@@ -545,7 +446,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           pr: null,
           lastTransitionedPr: null
         })
-        return { ...frontmatterToWire(next), body: ticket.body }
+        return next
       })
 
     const listGitStates = (
@@ -568,7 +469,7 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           }
         }
 
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicket(orgSlug, slug, id),
@@ -629,99 +530,24 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
           }
         }
 
-        const raw = result.raw
-        const states: Record<string, GitState> = {}
-        const transitioned: TransitionRecord[] = []
+        const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
+        const plan = planTicketGitStates(tickets, result.raw, new Date())
 
-        for (const ticket of tickets) {
-          if (!ticket.branch) {
-            states[ticket.id] = { tag: "no_branch" }
-            continue
-          }
-
-          const pr = raw.prByBranch.get(ticket.branch)
-          const branchExists = raw.existingBranches.has(ticket.branch)
-
-          if (!pr && !branchExists) {
-            states[ticket.id] = { tag: "stale_branch", name: ticket.branch }
-            continue
-          }
-          if (!pr) {
-            states[ticket.id] = {
-              tag: "branch_no_pr",
-              name: ticket.branch,
-              baseBranch: raw.defaultBranch
-            }
-            continue
-          }
-
-          if (ticket.pr !== pr.number) {
-            yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-              pr: pr.number
-            })
-          }
-
-          if (pr.state === "merged") {
-            if (
-              ticket.status !== "done" &&
-              ticket.lastTransitionedPr !== pr.number
-            ) {
-              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-                status: "done",
-                pr: pr.number,
-                lastTransitionedPr: pr.number
-              })
-              transitioned.push({
-                ticketId: ticket.id,
-                fromStatus: ticket.status,
-                toStatus: "done",
-                prNumber: pr.number
-              })
-            } else if (ticket.lastTransitionedPr !== pr.number) {
-              yield* writeGitFields(orgSlug, slug, ticket.id, ticket, {
-                pr: pr.number,
-                lastTransitionedPr: pr.number
-              })
-            }
-            states[ticket.id] = {
-              tag: "pr_merged",
-              branch: ticket.branch,
-              baseBranch: pr.baseRefName,
-              number: pr.number,
-              url: pr.url,
-              title: pr.title,
-              mergedAt: pr.mergedAt ?? new Date()
-            }
-            continue
-          }
-
-          if (pr.state === "closed") {
-            states[ticket.id] = {
-              tag: "pr_closed",
-              branch: ticket.branch,
-              baseBranch: pr.baseRefName,
-              number: pr.number,
-              url: pr.url,
-              title: pr.title
-            }
-            continue
-          }
-
-          states[ticket.id] = {
-            tag: "pr_open",
-            branch: ticket.branch,
-            baseBranch: pr.baseRefName,
-            number: pr.number,
-            url: pr.url,
-            draft: pr.draft,
-            title: pr.title,
-            checks: pr.checks
-          }
+        for (const write of plan.writes) {
+          const ticket = ticketById.get(write.ticketId)
+          if (!ticket) continue
+          yield* writeGitFields(
+            orgSlug,
+            slug,
+            write.ticketId,
+            ticket,
+            write.patch
+          )
         }
 
         return {
-          states,
-          transitioned,
+          states: plan.states,
+          transitioned: plan.transitioned,
           tokenStatus: "ok",
           repoStatus: "ok"
         }
@@ -739,7 +565,6 @@ export class Tickets extends Effect.Service<Tickets>()("Tickets", {
       openPr,
       clearBranch,
       listGitStates
-    } as const
-  }),
-  dependencies: []
-}) {}
+    } satisfies TicketsShape
+  })
+)

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import type { TicketId, TicketType } from "@projectproject/shared"
 
 export function TypeBadgeTrigger({
@@ -24,7 +24,9 @@ export function TypeBadgeTrigger({
   ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
   const typeLabel = TYPE_LABELS[ticket.type]()
@@ -57,7 +59,7 @@ export function TypeBadgeTrigger({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({ orgSlug, slug, id: ticket.id, type: t })
+                update({ type: t })
               }}
               className="cursor-pointer"
             >
@@ -85,7 +87,9 @@ export function TypeButton({
   ticket: { id: TicketId; type: TicketType }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
   const typeLabel = TYPE_LABELS[ticket.type]()
@@ -119,7 +123,7 @@ export function TypeButton({
               key={t}
               onSelect={() => {
                 if (t === ticket.type) return
-                update({ orgSlug, slug, id: ticket.id, type: t })
+                update({ type: t })
               }}
               className="cursor-pointer"
             >

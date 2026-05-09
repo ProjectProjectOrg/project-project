@@ -1,5 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { Exit } from "effect"
 import { useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
@@ -86,27 +87,24 @@ function CreateRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const create = useAtomSet(createProjectAtom)
+  const create = useAtomSet(createProjectAtom(orgSlug), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(createProjectAtom(orgSlug))
+  const submitting = createState.waiting
+  const error = Result.isFailure(createState)
+    ? m.projects_create_error_fallback()
+    : null
   const [name, setName] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const trimmed = name.trim()
   const previewSlug = trimmed ? slugify(trimmed) : ""
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await create({ orgSlug, name: trimmed })
+    const exit = await create({ name: trimmed })
+    if (Exit.isSuccess(exit)) {
       setName("")
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : m.projects_create_error_fallback()
-      )
-    } finally {
-      setSubmitting(false)
     }
   }
 

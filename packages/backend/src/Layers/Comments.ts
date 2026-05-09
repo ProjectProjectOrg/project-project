@@ -1,4 +1,4 @@
-import { Data, Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { and, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
@@ -17,19 +17,21 @@ import {
   serializeCommentsRegion,
   validateCommentBody
 } from "../comments-region"
-import { Db } from "./Db"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
-import { Users } from "./Users"
-
-class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
-  readonly reason: string
-}> {}
+import { Db } from "../Services/Db"
+import { Markdown, type MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { Users } from "../Services/Users"
+import {
+  Comments,
+  InvalidCommentBody,
+  type CommentsShape
+} from "../Services/Comments"
 
 const newCommentId = (): CommentId => `c_${ulid()}` as CommentId
 
-export class Comments extends Effect.Service<Comments>()("Comments", {
-  effect: Effect.gen(function* () {
+export const CommentsLive = Layer.effect(
+  Comments,
+  Effect.gen(function* () {
     const db = yield* Db
     const md = yield* Markdown
     const projects = yield* Projects
@@ -111,12 +113,12 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
       slug: string,
       ticketId: TicketId,
       input: CreateCommentInput
-    ): Effect.Effect<Comment, NotFound | MarkdownError> =>
+    ): Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
+          return yield* Effect.fail(
             new InvalidCommentBody({ reason: validation.reason })
           )
         }
@@ -203,12 +205,15 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
       ticketId: TicketId,
       commentId: CommentId,
       input: UpdateCommentInput
-    ): Effect.Effect<Comment, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      Comment,
+      NotFound | Forbidden | InvalidCommentBody | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
+          return yield* Effect.fail(
             new InvalidCommentBody({ reason: validation.reason })
           )
         }
@@ -278,7 +283,6 @@ export class Comments extends Effect.Service<Comments>()("Comments", {
         )
       })
 
-    return { list, create, edit, remove } as const
-  }),
-  dependencies: []
-}) {}
+    return { list, create, edit, remove } satisfies CommentsShape
+  })
+)

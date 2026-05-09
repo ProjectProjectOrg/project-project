@@ -8,18 +8,12 @@
 // Surface stays small on purpose: only what Projects (and later Tickets'
 // assignee resolution) actually need.
 
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { eq, inArray } from "drizzle-orm"
 import type { User } from "@projectproject/shared"
 import { user } from "../db/schema"
-import { Db } from "./Db"
-
-export interface UserSummary {
-  readonly id: string
-  readonly email: string
-  readonly name: string
-  readonly username: string | null
-}
+import { Db } from "../Services/Db"
+import { Users, type UsersShape, type UserSummary } from "../Services/Users"
 
 const userColumns = {
   id: true,
@@ -28,8 +22,9 @@ const userColumns = {
   username: true
 } as const
 
-export class Users extends Effect.Service<Users>()("Users", {
-  effect: Effect.gen(function* () {
+export const UsersLive = Layer.effect(
+  Users,
+  Effect.gen(function* () {
     const db = yield* Db
 
     const findByEmail = (email: string): Effect.Effect<UserSummary | null> =>
@@ -89,6 +84,6 @@ export class Users extends Effect.Service<Users>()("Users", {
         )
     }
 
-    return { findByEmail, findManyByIds, fullByIds } as const
+    return { findByEmail, findManyByIds, fullByIds } satisfies UsersShape
   })
-}) {}
+)

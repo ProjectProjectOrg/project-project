@@ -107,7 +107,24 @@ Within each message file, group keys by prefix in the order listed above, then s
 
 **Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.
 
-**The shape:**
+**Every mutation atom is family-keyed** by the resource it affects — `projectKey(orgSlug, slug)` for project-scoped, `ticketKey(orgSlug, slug, id)` for ticket-scoped, `orgSlug` for org-scoped. This applies to both optimistic mutations (`Atom.optimisticFn`) and plain ones (`runtime.fn`). The reason: a mutation atom's `Result` (waiting / failure) is per-key, so concurrent mutations on different resources don't share status, and a stale failure on one resource doesn't bleed onto another. Path fields (`orgSlug`, `slug`, `id`) come from the key, not the input — keep input shapes equal to the API payload.
+
+```ts
+export const updateTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id } = splitTicketKey(key)
+  return runtime.fn(
+    Effect.fn(function* (input: UpdateTicketInput, get) {
+      /* ... */
+    })
+  )
+})
+
+// caller
+const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, id)))
+update({ status: "in_progress" })
+```
+
+**The optimistic shape:**
 
 1. Split the read into a private base + public optimistic wrapper:
 
@@ -158,9 +175,20 @@ Within each message file, group keys by prefix in the order listed above, then s
 
 5. **Surface `waiting` in the UI.** The optimistic atom carries `result.waiting: true` while the mutation is in flight. Apply `animate-pulse` (or equivalent) on the elements that just changed so the user sees their action land but knows it's not confirmed yet. Don't pulse idle controls, only the data display.
 
-6. **Forms that drive optimistic mutations** keep their `setBusy` / `setError` plumbing as-is — those still gate the form's submit button and surface errors when the optimistic state reverts.
+6. **Submitting / error state.** A form that owns its mutation atom directly reads `result.waiting` and `Result.isFailure(result)` from `useAtomValue(mutationAtom(key))` rather than mirroring into `useState`:
 
-Reference: `packages/frontend/src/atoms/github.ts` (`createBranchAtom`, `attachBranchAtom`).
+   ```ts
+   const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
+   const createState = useAtomValue(createTicketAtom(projKey))
+   const submitting = createState.waiting
+   const error = Result.isFailure(createState)
+     ? m.tickets_create_error_fallback()
+     : null
+   ```
+
+   Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing, so it needs an explicit signal. Same for callsites whose UX needs richer state than the atom carries (e.g. tracking _which_ row in a list is in flight when the atom only says "something is").
+
+Reference: `packages/frontend/src/atoms/github.ts` (`createBranchAtom`, `attachBranchAtom`); `packages/frontend/src/components/CreateTicketRow.tsx` for the direct-form pattern.
 
 ## Backend stack
 

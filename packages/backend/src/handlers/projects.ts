@@ -11,10 +11,10 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import { Effect } from "effect"
-import { CurrentOrg } from "../services/CurrentOrg"
-import { GitHub } from "../services/GitHub"
-import { Projects } from "../services/Projects"
-import { Tickets } from "../services/Tickets"
+import { CurrentOrg } from "../Services/CurrentOrg"
+import { GitHub } from "../Services/GitHub"
+import { Projects } from "../Services/Projects"
+import { Tickets } from "../Services/Tickets"
 
 export const ProjectsHandlerLive = HttpApiBuilder.group(
   AppApi,

@@ -33,18 +33,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Cause, Effect, Exit, ManagedRuntime, Option } from "effect"
 import { z } from "zod"
 import * as schema from "./db/schema"
 import { session } from "./db/schema"
-import { Db, DbLive } from "./services/Db"
-import { GitHub } from "./services/GitHub"
-import { BetterAuthLive } from "./services/BetterAuth"
-import { Groups } from "./services/Groups"
-import { Markdown } from "./services/Markdown"
-import { Projects } from "./services/Projects"
-import { Tickets } from "./services/Tickets"
-import { Users } from "./services/Users"
+import { BackendRuntimeLive } from "./runtime"
+import { Projects } from "./Services/Projects"
+import { Tickets } from "./Services/Tickets"
 
 // MCP tokens are user-scoped today; org scoping happens server-side via
 // this fallback. Per design spec Q12, future tokens will be org-scoped at
@@ -67,27 +62,6 @@ async function resolveUserId(token: string): Promise<string> {
   }
   return row.userId
 }
-
-// --- Runtime ---------------------------------------------------------------
-// Mirror of `main.ts`'s service graph, minus the HTTP layers. Each service
-// declares its dependencies via `Effect.Service`'s reads, but `Effect.Service`
-// doesn't auto-wire siblings — we have to chain `provideMerge` so each
-// upstream service finds its dependencies further down.
-//
-// Order: Tickets → Projects → GitHub → Markdown → Users, then BetterAuth +
-// Db at the bottom for the others to see. `provideMerge` (vs `provide`)
-// keeps every layer in the exposed surface so the runtime can resolve any
-// of them at the top level.
-
-const ServicesLayer = Tickets.Default.pipe(
-  Layer.provideMerge(Groups.Default),
-  Layer.provideMerge(Projects.Default),
-  Layer.provideMerge(GitHub.Default),
-  Layer.provideMerge(Users.Default),
-  Layer.provideMerge(Markdown.Default),
-  Layer.provideMerge(BetterAuthLive),
-  Layer.provideMerge(DbLive)
-)
 
 // --- Tool body helpers -----------------------------------------------------
 
@@ -114,6 +88,13 @@ function asError(message: string): {
   }
 }
 
+type TaggedFailure = { readonly _tag: string }
+
+function describeCause<E extends TaggedFailure>(cause: Cause.Cause<E>): string {
+  const failure = Cause.failureOption(cause)
+  return Option.isNone(failure) ? Cause.pretty(cause) : failure.value._tag
+}
+
 // --- Main ------------------------------------------------------------------
 
 async function main(): Promise<void> {
@@ -128,9 +109,17 @@ async function main(): Promise<void> {
 
   const userId = await resolveUserId(token)
 
-  const runtime = ManagedRuntime.make(ServicesLayer)
-  const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets | Db>) =>
-    runtime.runPromise(eff as Effect.Effect<A, E, never>)
+  const runtime = ManagedRuntime.make(BackendRuntimeLive)
+  const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets>) =>
+    runtime.runPromiseExit(eff as Effect.Effect<A, E, never>)
+  const runTool = async <A, E extends TaggedFailure>(
+    name: string,
+    eff: Effect.Effect<A, E, Projects | Tickets>
+  ) =>
+    Exit.match(await run(eff), {
+      onSuccess: asJson,
+      onFailure: (cause) => asError(`${name} failed: ${describeCause(cause)}`)
+    })
 
   const server = new McpServer(
     { name: "markmate", version: "0.1.0" },
@@ -163,19 +152,14 @@ async function main(): Promise<void> {
         "slug, name, createdBy, createdAt for each.",
       inputSchema: {}
     },
-    async () => {
-      try {
-        const projects = await run(
-          Effect.gen(function* () {
-            const svc = yield* Projects
-            return yield* svc.list(org, userId)
-          })
-        )
-        return asJson(projects)
-      } catch (e) {
-        return asError(`list_projects failed: ${String(e)}`)
-      }
-    }
+    async () =>
+      runTool(
+        "list_projects",
+        Effect.gen(function* () {
+          const svc = yield* Projects
+          return yield* svc.list(org, userId)
+        })
+      )
   )
 
   // --- get_project ---------------------------------------------------------
@@ -189,21 +173,14 @@ async function main(): Promise<void> {
         "isn't a member.",
       inputSchema: { slug: z.string() }
     },
-    async ({ slug }) => {
-      try {
-        const detail = await run(
-          Effect.gen(function* () {
-            const svc = yield* Projects
-            return yield* svc
-              .get(org, userId, slug)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        return asJson(detail)
-      } catch (e) {
-        return asError(`get_project failed: ${describeError(e)}`)
-      }
-    }
+    async ({ slug }) =>
+      runTool(
+        "get_project",
+        Effect.gen(function* () {
+          const svc = yield* Projects
+          return yield* svc.get(org, userId, slug)
+        })
+      )
   )
 
   // --- list_tickets --------------------------------------------------------
@@ -235,37 +212,33 @@ async function main(): Promise<void> {
         has_pr: z.boolean().optional()
       }
     },
-    async ({ slug, status, type, assignee, has_branch, has_pr }) => {
-      try {
-        const tickets = await run(
-          Effect.gen(function* () {
-            const svc = yield* Tickets
-            return yield* svc
-              .list(org, userId, slug)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        const filtered = tickets.filter((t) => {
-          if (status && t.status !== status) return false
-          if (type && t.type !== type) return false
-          if (assignee !== undefined) {
-            if (assignee === null) {
-              if (t.assignees.length > 0) return false
-            } else if (!t.assignees.includes(assignee)) {
+    async ({ slug, status, type, assignee, has_branch, has_pr }) =>
+      runTool(
+        "list_tickets",
+        Effect.gen(function* () {
+          const svc = yield* Tickets
+          const tickets = yield* svc.list(org, userId, slug)
+          return tickets.filter((t) => {
+            if (status && t.status !== status) return false
+            if (type && t.type !== type) return false
+            if (assignee !== undefined) {
+              if (assignee === null) {
+                if (t.assignees.length > 0) return false
+              } else if (!t.assignees.includes(assignee)) {
+                return false
+              }
+            }
+            if (
+              has_branch !== undefined &&
+              (t.branch !== null) !== has_branch
+            ) {
               return false
             }
-          }
-          if (has_branch !== undefined && (t.branch !== null) !== has_branch) {
-            return false
-          }
-          if (has_pr !== undefined && (t.pr !== null) !== has_pr) return false
-          return true
+            if (has_pr !== undefined && (t.pr !== null) !== has_pr) return false
+            return true
+          })
         })
-        return asJson(filtered)
-      } catch (e) {
-        return asError(`list_tickets failed: ${describeError(e)}`)
-      }
-    }
+      )
   )
 
   // --- get_ticket ----------------------------------------------------------
@@ -276,21 +249,14 @@ async function main(): Promise<void> {
       description: "Returns the full ticket: frontmatter + body (markdown).",
       inputSchema: { slug: z.string(), id: z.string() }
     },
-    async ({ slug, id }) => {
-      try {
-        const ticket = await run(
-          Effect.gen(function* () {
-            const svc = yield* Tickets
-            return yield* svc
-              .get(org, userId, slug, id)
-              .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          })
-        )
-        return asJson(ticket)
-      } catch (e) {
-        return asError(`get_ticket failed: ${describeError(e)}`)
-      }
-    }
+    async ({ slug, id }) =>
+      runTool(
+        "get_ticket",
+        Effect.gen(function* () {
+          const svc = yield* Tickets
+          return yield* svc.get(org, userId, slug, id)
+        })
+      )
   )
 
   // --- Connect transport ---------------------------------------------------
@@ -301,13 +267,6 @@ async function main(): Promise<void> {
   transport.onclose = () => {
     void runtime.dispose().finally(() => process.exit(0))
   }
-}
-
-function describeError(e: unknown): string {
-  if (typeof e === "object" && e && "_tag" in e) {
-    return String(e._tag)
-  }
-  return String(e)
 }
 
 main().catch((e) => {

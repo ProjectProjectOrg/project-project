@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
-import { updateProjectAtom } from "@/atoms/projects"
+import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import {
   Card,
   CardContent,
@@ -25,7 +25,9 @@ export const Route = createFileRoute(
 function AboutTab() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
-  const update = useAtomSet(updateProjectAtom)
+  const update = useAtomSet(
+    updateProjectAtom(projectKey(orgSlug, project.slug))
+  )
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   return (
@@ -45,9 +47,7 @@ function AboutTab() {
         <LexicalEditor
           key={project.slug}
           markdown={project.body}
-          onChange={(next) =>
-            update({ orgSlug, slug: project.slug, body: next })
-          }
+          onChange={(next) => update({ body: next })}
           onStatusChange={setStatus}
         />
       </CardContent>

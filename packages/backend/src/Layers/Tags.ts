@@ -1,29 +1,40 @@
-import { Effect } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { and, eq } from "drizzle-orm"
 import {
   Conflict,
   Forbidden,
   NotFound,
   Tag,
+  TagColor,
+  TagName,
   TAG_DEFAULT_PALETTE,
   type CreateTagInput,
   type UpdateTagInput
 } from "@projectproject/shared"
 import { projectIndex, projectTag } from "../db/schema"
-import { Db } from "./Db"
-import { Markdown, type MarkdownError } from "./Markdown"
-import { Projects } from "./Projects"
-import { Tickets } from "./Tickets"
+import { Db } from "../Services/Db"
+import type { MarkdownError } from "../Services/Markdown"
+import { Projects } from "../Services/Projects"
+import { Tags, type TagsShape } from "../Services/Tags"
+import { TicketDocs } from "../Services/TicketDocs"
+import { Tickets } from "../Services/Tickets"
 
-function pickColor(used: ReadonlyArray<string>): string {
-  for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
-  return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
+const makeTagName = Schema.decodeUnknownSync(TagName)
+const makeTagColor = Schema.decodeUnknownSync(TagColor)
+
+function pickColor(used: ReadonlyArray<string>): TagColor {
+  for (const c of TAG_DEFAULT_PALETTE)
+    if (!used.includes(c)) return makeTagColor(c)
+  return makeTagColor(
+    TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
+  )
 }
 
-export class Tags extends Effect.Service<Tags>()("Tags", {
-  effect: Effect.gen(function* () {
+export const TagsLive = Layer.effect(
+  Tags,
+  Effect.gen(function* () {
     const db = yield* Db
-    const md = yield* Markdown
+    const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
     const tickets = yield* Tickets
 
@@ -47,7 +58,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
       newName: string | null
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        const ids = yield* md.listTicketIds(orgSlug, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
         for (const id of ids) {
           yield* tickets
             .replaceTag(orgSlug, slug, id, oldName, newName)
@@ -68,8 +79,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .pipe(Effect.orDie)
         return rows.map(
           (r): Tag => ({
-            name: r.name as Tag["name"],
-            color: r.color as Tag["color"],
+            name: makeTagName(r.name),
+            color: makeTagColor(r.color),
             createdBy: r.createdBy,
             createdAt: r.createdAt
           })
@@ -93,9 +104,7 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           })
           .pipe(Effect.orDie)
 
-        const color =
-          input.color ??
-          (pickColor(existing.map((e) => e.color)) as Tag["color"])
+        const color = input.color ?? pickColor(existing.map((e) => e.color))
 
         const existingRow = yield* db.query.projectTag
           .findFirst({
@@ -121,8 +130,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .pipe(Effect.orDie)
         const row = inserted[0]
         return {
-          name: row.name as Tag["name"],
-          color: row.color as Tag["color"],
+          name: makeTagName(row.name),
+          color: makeTagColor(row.color),
           createdBy: row.createdBy,
           createdAt: row.createdAt
         }
@@ -180,8 +189,8 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
         }
 
         return {
-          name: nextName as Tag["name"],
-          color: nextColor as Tag["color"],
+          name: makeTagName(nextName),
+          color: makeTagColor(nextColor),
           createdBy: existing.createdBy,
           createdAt: existing.createdAt
         }
@@ -217,6 +226,6 @@ export class Tags extends Effect.Service<Tags>()("Tags", {
           .pipe(Effect.orDie)
       })
 
-    return { list, create, update, remove } as const
+    return { list, create, update, remove } satisfies TagsShape
   })
-}) {}
+)

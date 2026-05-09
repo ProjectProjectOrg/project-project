@@ -10,7 +10,8 @@
 //   - We hide actions the caller can't perform (caller_role passed in).
 //     The server still enforces; this just keeps the UI honest.
 
-import { useAtomSet } from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Exit } from "effect"
 import { useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import {
@@ -24,6 +25,8 @@ import {
 } from "lucide-react"
 import {
   addMemberAtom,
+  memberKey,
+  projectKey,
   removeMemberAtom,
   updateMemberAtom
 } from "@/atoms/projects"
@@ -60,6 +63,10 @@ const ROLE_META: Record<
     tone: "muted"
   }
 }
+const ASSIGNABLE_ROLES = [
+  "admin",
+  "member"
+] satisfies ReadonlyArray<AssignableRole>
 
 export function MembersSection({
   orgSlug,
@@ -125,29 +132,23 @@ function AddMemberRow({
   slug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const add = useAtomSet(addMemberAtom)
+  const pKey = projectKey(orgSlug, slug)
+  const add = useAtomSet(addMemberAtom(pKey), { mode: "promiseExit" })
+  const addState = useAtomValue(addMemberAtom(pKey))
+  const submitting = addState.waiting
+  const error = Result.isFailure(addState)
+    ? m.members_add_error_fallback()
+    : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const trimmed = email.trim()
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await add({ orgSlug, slug, email: trimmed, role })
+    const exit = await add({ email: trimmed, role })
+    if (Exit.isSuccess(exit)) {
       setEmail("")
-    } catch (err) {
-      // The server returns NotFound for both "no project" and "no user with
-      // that email" — phrase generically since the project's already loaded.
-      setError(
-        err instanceof Error ? err.message : m.members_add_error_fallback()
-      )
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -206,7 +207,7 @@ function RoleSelect({
         </Badge>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        {(["admin", "member"] as AssignableRole[]).map((r) => {
+        {ASSIGNABLE_ROLES.map((r) => {
           const roleMeta = ROLE_META[r]
           const RIcon = roleMeta.icon
           return (
@@ -293,10 +294,12 @@ function MemberMenu({
   member: Member
   callerRole: Role
 }) {
-  const update = useAtomSet(updateMemberAtom)
-  const remove = useAtomSet(removeMemberAtom)
+  const mKey = memberKey(orgSlug, slug, member.id)
+  const update = useAtomSet(updateMemberAtom(mKey))
+  const remove = useAtomSet(removeMemberAtom(mKey), { mode: "promiseExit" })
+  const removeState = useAtomValue(removeMemberAtom(mKey))
+  const removing = removeState.waiting
   const [confirming, setConfirming] = useState(false)
-  const [removing, setRemoving] = useState(false)
 
   // Only owner can change roles. Admins can remove non-admin members.
   // Owner row has no actionable menu — ownership transfer isn't modeled.
@@ -309,12 +312,7 @@ function MemberMenu({
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 
   async function onRemove() {
-    setRemoving(true)
-    try {
-      await remove({ orgSlug, slug, userId: member.id })
-    } catch {
-      setRemoving(false)
-    }
+    await remove()
   }
 
   return (
@@ -363,28 +361,24 @@ function MemberMenu({
           <>
             {canChangeRole && (
               <>
-                {(["admin", "member"] as AssignableRole[])
-                  .filter((r) => r !== member.role)
-                  .map((r) => {
-                    const meta = ROLE_META[r]
-                    const RIcon = meta.icon
-                    const makeLabel =
-                      r === "admin"
-                        ? m.members_make_admin()
-                        : m.members_make_member()
-                    return (
-                      <DropdownMenuItem
-                        key={r}
-                        onSelect={() =>
-                          update({ orgSlug, slug, userId: member.id, role: r })
-                        }
-                        className="cursor-pointer"
-                      >
-                        <RIcon className="size-4" strokeWidth={1.75} />
-                        {makeLabel}
-                      </DropdownMenuItem>
-                    )
-                  })}
+                {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map((r) => {
+                  const meta = ROLE_META[r]
+                  const RIcon = meta.icon
+                  const makeLabel =
+                    r === "admin"
+                      ? m.members_make_admin()
+                      : m.members_make_member()
+                  return (
+                    <DropdownMenuItem
+                      key={r}
+                      onSelect={() => update({ role: r })}
+                      className="cursor-pointer"
+                    >
+                      <RIcon className="size-4" strokeWidth={1.75} />
+                      {makeLabel}
+                    </DropdownMenuItem>
+                  )
+                })}
               </>
             )}
             {canChangeRole && canRemove && <DropdownMenuSeparator />}
