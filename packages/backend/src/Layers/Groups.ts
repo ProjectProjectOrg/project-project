@@ -9,9 +9,12 @@ import {
   GroupId,
   GroupKind,
   NotFound,
+  SprintCompletedImmutable,
   TAG_DEFAULT_PALETTE,
+  TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput,
   Validation
 } from "@projectproject/shared"
 import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
@@ -249,20 +252,60 @@ export const GroupsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateGroupTicketsInput
-    ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+        if (existing.completedAt !== null) {
+          return yield* Effect.fail(new SprintCompletedImmutable())
+        }
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
-        const next: GroupDocument = {
+        const now = new Date()
+        const target: GroupDocument = {
           ...existing,
           tickets: input.tickets,
-          updatedAt: new Date()
+          updatedAt: now
         }
-        yield* groupDocs.write(orgSlug, slug, id, next)
-        return next
+
+        const evicted: Array<{
+          groupId: GroupId
+          ticketIds: ReadonlyArray<TicketId>
+        }> = []
+
+        if (existing.kind === "sprint" && input.tickets.length > 0) {
+          const incoming = new Set<string>(input.tickets)
+          const allIds = yield* groupDocs.listIds(orgSlug, slug)
+          const others = yield* Effect.forEach(
+            allIds.filter((otherId) => otherId !== id),
+            (otherId) => groupDocs.read(orgSlug, slug, otherId),
+            { concurrency: 8 }
+          )
+          for (const other of others) {
+            if (other.kind !== "sprint") continue
+            if (other.completedAt !== null) continue
+            const overlap = other.tickets.filter((tid) => incoming.has(tid))
+            if (overlap.length === 0) continue
+            const remaining = other.tickets.filter((tid) => !incoming.has(tid))
+            const nextOther: GroupDocument = {
+              ...other,
+              tickets: remaining,
+              updatedAt: now
+            }
+            yield* groupDocs.write(orgSlug, slug, other.id, nextOther)
+            evicted.push({
+              groupId: other.id,
+              ticketIds: overlap as ReadonlyArray<TicketId>
+            })
+          }
+        }
+
+        yield* groupDocs.write(orgSlug, slug, id, target)
+        return { target, evicted } satisfies UpdateGroupTicketsOutput
       })
 
     const remove = (

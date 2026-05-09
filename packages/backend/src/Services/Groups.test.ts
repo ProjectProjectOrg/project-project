@@ -299,6 +299,132 @@ it.effect("update rejects completedAt before startsAt", () =>
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "member" })))
 )
 
+it.effect(
+  "updateTickets against a sprint auto-evicts overlapping ids from other non-completed sprints",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const sprintA = yield* groups.create("org", "user-1", "p", {
+        name: "Sprint A",
+        kind: "sprint",
+        tickets: [ticketId("T-1"), ticketId("T-2")]
+      })
+      const sprintB = yield* groups.create("org", "user-1", "p", {
+        name: "Sprint B",
+        kind: "sprint"
+      })
+      const epic = yield* groups.create("org", "user-1", "p", {
+        name: "Epic",
+        tickets: [ticketId("T-1")]
+      })
+
+      const result = yield* groups.updateTickets(
+        "org",
+        "user-1",
+        "p",
+        sprintB.id,
+        { tickets: [ticketId("T-1")] }
+      )
+
+      expect(result.target.id).toBe(sprintB.id)
+      expect(result.target.tickets).toEqual(["T-1"])
+      expect(result.evicted).toHaveLength(1)
+      expect(result.evicted[0].groupId).toBe(sprintA.id)
+      expect(result.evicted[0].ticketIds).toEqual(["T-1"])
+
+      const sprintAAfter = yield* groups.get(
+        "org",
+        "user-1",
+        "p",
+        sprintA.id
+      )
+      expect(sprintAAfter.tickets).toEqual(["T-2"])
+
+      const epicAfter = yield* groups.get("org", "user-1", "p", epic.id)
+      expect(epicAfter.tickets).toEqual(["T-1"])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer(
+          { ticketIds: ["T-1", "T-2"] },
+          { role: "admin" }
+        )
+      )
+    )
+)
+
+it.effect(
+  "updateTickets against a completed sprint fails with SprintCompletedImmutable",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const sprint = yield* groups.create("org", "user-1", "p", {
+        name: "Sprint",
+        kind: "sprint",
+        startsAt: new Date("2026-04-01"),
+        endsAt: new Date("2026-04-15")
+      })
+      yield* groups.update("org", "user-1", "p", sprint.id, {
+        completedAt: new Date("2026-04-15")
+      })
+      const result = yield* Effect.either(
+        groups.updateTickets("org", "user-1", "p", sprint.id, {
+          tickets: [ticketId("T-1")]
+        })
+      )
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left._tag).toBe("SprintCompletedImmutable")
+      }
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
+      )
+    )
+)
+
+it.effect(
+  "updateTickets against a sprint does not evict from completed sprints",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const completed = yield* groups.create("org", "user-1", "p", {
+        name: "Completed",
+        kind: "sprint",
+        startsAt: new Date("2026-03-01"),
+        endsAt: new Date("2026-03-15"),
+        tickets: [ticketId("T-1")]
+      })
+      yield* groups.update("org", "user-1", "p", completed.id, {
+        completedAt: new Date("2026-03-15")
+      })
+      const active = yield* groups.create("org", "user-1", "p", {
+        name: "Active",
+        kind: "sprint"
+      })
+
+      const result = yield* groups.updateTickets(
+        "org",
+        "user-1",
+        "p",
+        active.id,
+        { tickets: [ticketId("T-1")] }
+      )
+
+      expect(result.evicted).toHaveLength(0)
+      const completedAfter = yield* groups.get(
+        "org",
+        "user-1",
+        "p",
+        completed.id
+      )
+      expect(completedAfter.tickets).toEqual(["T-1"])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
+      )
+    )
+)
+
 it.effect("removeTicketFromAllGroups strips the id", () =>
   Effect.gen(function* () {
     const groups = yield* Groups

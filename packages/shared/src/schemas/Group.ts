@@ -68,3 +68,15 @@ export const UpdateGroupTicketsInput = Schema.Struct({
   tickets: Schema.Array(TicketId)
 })
 export type UpdateGroupTicketsInput = typeof UpdateGroupTicketsInput.Type
+
+export const EvictedFromGroup = Schema.Struct({
+  groupId: GroupId,
+  ticketIds: Schema.Array(TicketId)
+})
+export type EvictedFromGroup = typeof EvictedFromGroup.Type
+
+export const UpdateGroupTicketsOutput = Schema.Struct({
+  target: GroupDetail,
+  evicted: Schema.Array(EvictedFromGroup)
+})
+export type UpdateGroupTicketsOutput = typeof UpdateGroupTicketsOutput.Type
