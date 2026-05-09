@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_cancel_button": "Cancel",
+  "common_delete_confirm_button": "Delete",
   "common_save_button": "Save",
   "error_unknown": "Something went wrong.",
   "validation_required": "Required"

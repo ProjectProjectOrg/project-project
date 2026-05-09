@@ -100,6 +100,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `packages/frontend/messages/en/tickets.json`  | `tickets_`                                             |
 | `packages/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |
 | `packages/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
+| `packages/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 

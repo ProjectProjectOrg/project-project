@@ -20,6 +20,9 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugMembersRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/members'
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/route'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/index'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
 
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
   id: '/_authed',
@@ -80,6 +83,24 @@ const AuthedOrgsOrgSlugProjectsSlugAboutRoute =
     path: '/about',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute =
+  AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport.update({
+    id: '/sprints',
+    path: '/sprints',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute =
+  AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute =
+  AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport.update({
+    id: '/$groupId',
+    path: '/$groupId',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -89,9 +110,12 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
+  '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
@@ -102,6 +126,8 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,9 +139,12 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/_authed/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,9 +156,12 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/'
+    | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/members'
     | '/orgs/$orgSlug/projects/$slug/'
+    | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/sprints/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -140,6 +172,8 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/members'
     | '/orgs/$orgSlug/projects/$slug'
+    | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/sprints'
   id:
     | '__root__'
     | '/_authed'
@@ -150,9 +184,12 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/projects/'
+    | '/_authed/orgs/$orgSlug/projects/$slug/sprints'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
     | '/_authed/orgs/$orgSlug/projects/$slug/members'
     | '/_authed/orgs/$orgSlug/projects/$slug/'
+    | '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -239,10 +276,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/sprints': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/sprints'
+      path: '/sprints'
+      fullPath: '/orgs/$orgSlug/projects/$slug/sprints'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/projects/$slug/sprints/': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
+      path: '/'
+      fullPath: '/orgs/$orgSlug/projects/$slug/sprints/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+      path: '/$groupId'
+      fullPath: '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute
+    }
   }
 }
 
+interface AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteChildren {
+  AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
+}
+
+const AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteChildren: AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteChildren =
+  {
+    AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute:
+      AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute,
+    AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute:
+      AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute,
+  }
+
+const AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren =
+  AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute._addFileChildren(
+    AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteChildren,
+  )
+
 interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
+  AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsSlugAboutRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   AuthedOrgsOrgSlugProjectsSlugMembersRoute: typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   AuthedOrgsOrgSlugProjectsSlugIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
@@ -250,6 +327,8 @@ interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
 
 const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute:
+      AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren,
     AuthedOrgsOrgSlugProjectsSlugAboutRoute:
       AuthedOrgsOrgSlugProjectsSlugAboutRoute,
     AuthedOrgsOrgSlugProjectsSlugMembersRoute:

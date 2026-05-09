@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "tickets_assign_sprint_chip": "Assign sprint",
   "tickets_assignee_count": "{count} people",
   "tickets_assignee_unassigned": "Unassigned",
   "tickets_assignees_aria_label": "Assignees: {label}. Click to change.",
@@ -51,6 +52,11 @@
   "tickets_sort_priority": "Priority (high to low)",
   "tickets_sort_title": "Title",
   "tickets_sort_updated": "Recently updated",
+  "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
+  "tickets_sprint_popover_empty": "No sprints yet",
+  "tickets_sprint_popover_new_sprint_action": "New sprint…",
+  "tickets_sprint_popover_remove_action": "Remove from sprint",
+  "tickets_sprint_popover_title": "Active + Planned",
   "tickets_status_all": "All",
   "tickets_status_aria_label": "Status: {label}. Click to change.",
   "tickets_status_chip_aria_label": "{label} ({count})",
