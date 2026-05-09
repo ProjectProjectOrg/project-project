@@ -2,6 +2,7 @@ import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { and, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
@@ -30,7 +31,8 @@ class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
   readonly reason: string
 }> {}
 
-const newCommentId = (): CommentId => `c_${ulid()}` as CommentId
+const decodeCommentId = Schema.decodeUnknownSync(CommentId)
+const newCommentId = (): CommentId => decodeCommentId(`c_${ulid()}`)
 
 export const CommentsLive = Layer.effect(
   Comments,
@@ -98,7 +100,7 @@ export const CommentsLive = Layer.effect(
           if (!block || !author) return []
           return [
             {
-              id: r.id as CommentId,
+              id: decodeCommentId(r.id),
               ticketId,
               projectSlug: slug,
               author,

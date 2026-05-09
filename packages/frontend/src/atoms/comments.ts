@@ -1,14 +1,18 @@
 import { Atom, Result } from "@effect-atom/atom-react"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import type {
+import {
   CommentId,
-  CreateCommentInput,
   TicketId,
-  UpdateCommentInput
+  type CreateCommentInput,
+  type UpdateCommentInput
 } from "@projectproject/shared"
+
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeCommentId = Schema.decodeUnknownSync(CommentId)
 
 export const commentsKey = (orgSlug: string, slug: string, id: TicketId) =>
   `${orgSlug}/${slug}/${id}`
@@ -25,7 +29,7 @@ const splitKey = (key: string) => {
   return {
     orgSlug: parts[0],
     slug: parts[1],
-    id: parts.slice(2).join("/") as TicketId
+    id: makeTicketId(parts.slice(2).join("/"))
   }
 }
 
@@ -34,8 +38,8 @@ const splitCommentKey = (key: string) => {
   return {
     orgSlug: parts[0],
     slug: parts[1],
-    id: parts[2] as TicketId,
-    commentId: parts.slice(3).join("/") as CommentId
+    id: makeTicketId(parts[2]),
+    commentId: makeCommentId(parts.slice(3).join("/"))
   }
 }
 
