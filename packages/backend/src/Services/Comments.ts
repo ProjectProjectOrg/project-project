@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect"
+import { Context, Data, type Effect } from "effect"
 import type {
   Comment,
   CommentId,
@@ -9,6 +9,10 @@ import type {
   UpdateCommentInput
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
+
+export class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
+  readonly reason: string
+}> {}
 
 export interface CommentsShape {
   readonly list: (
@@ -23,7 +27,7 @@ export interface CommentsShape {
     slug: string,
     ticketId: TicketId,
     input: CreateCommentInput
-  ) => Effect.Effect<Comment, NotFound | MarkdownError>
+  ) => Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError>
   readonly edit: (
     orgSlug: string,
     userId: string,
@@ -31,7 +35,10 @@ export interface CommentsShape {
     ticketId: TicketId,
     commentId: CommentId,
     input: UpdateCommentInput
-  ) => Effect.Effect<Comment, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<
+    Comment,
+    NotFound | Forbidden | InvalidCommentBody | MarkdownError
+  >
   readonly remove: (
     orgSlug: string,
     userId: string,

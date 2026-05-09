@@ -1,4 +1,4 @@
-import { Data, Effect, Layer } from "effect"
+import { Effect, Layer } from "effect"
 import { and, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
@@ -21,11 +21,11 @@ import { Db } from "../Services/Db"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import { Users } from "../Services/Users"
-import { Comments, type CommentsShape } from "../Services/Comments"
-
-class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
-  readonly reason: string
-}> {}
+import {
+  Comments,
+  InvalidCommentBody,
+  type CommentsShape
+} from "../Services/Comments"
 
 const newCommentId = (): CommentId => `c_${ulid()}` as CommentId
 
@@ -113,12 +113,12 @@ export const CommentsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       input: CreateCommentInput
-    ): Effect.Effect<Comment, NotFound | MarkdownError> =>
+    ): Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
+          return yield* Effect.fail(
             new InvalidCommentBody({ reason: validation.reason })
           )
         }
@@ -205,12 +205,15 @@ export const CommentsLive = Layer.effect(
       ticketId: TicketId,
       commentId: CommentId,
       input: UpdateCommentInput
-    ): Effect.Effect<Comment, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      Comment,
+      NotFound | Forbidden | InvalidCommentBody | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
+          return yield* Effect.fail(
             new InvalidCommentBody({ reason: validation.reason })
           )
         }

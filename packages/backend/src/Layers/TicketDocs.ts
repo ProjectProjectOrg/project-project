@@ -1,10 +1,5 @@
 import { Effect, Layer, Schema } from "effect"
-import {
-  NotFound,
-  TagName,
-  TicketId,
-  type TicketDetail
-} from "@projectproject/shared"
+import { NotFound, TagName, TicketId } from "@projectproject/shared"
 import {
   Markdown,
   type MarkdownError,
@@ -77,7 +72,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
 function toDocument(
   frontmatter: typeof TicketFrontmatter.Type,
   body: string
-): TicketDetail {
+): TicketDocument {
   return {
     ...frontmatter,
     body
