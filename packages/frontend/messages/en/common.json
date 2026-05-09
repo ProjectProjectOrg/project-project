@@ -3,5 +3,6 @@
   "common_cancel_button": "Cancel",
   "common_save_button": "Save",
   "error_unknown": "Something went wrong.",
+  "validation_invalid_value": "Invalid value.",
   "validation_required": "Required"
 }

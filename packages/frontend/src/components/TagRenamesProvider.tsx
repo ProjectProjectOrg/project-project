@@ -1,15 +1,16 @@
 import { createContext, use, useCallback, useMemo, useState } from "react"
+import type { TagName } from "@projectproject/shared"
 
 type ProjectKey = string
-type RenameMap = ReadonlyMap<string, string>
-type RemovedSet = ReadonlySet<string>
+type RenameMap = ReadonlyMap<TagName, TagName>
+type RemovedSet = ReadonlySet<TagName>
 
 type Ctx = {
   renamesFor: (key: ProjectKey) => RenameMap
   removedFor: (key: ProjectKey) => RemovedSet
-  registerRename: (key: ProjectKey, oldName: string, newName: string) => void
-  registerRemove: (key: ProjectKey, name: string) => void
-  unregisterRemove: (key: ProjectKey, name: string) => void
+  registerRename: (key: ProjectKey, oldName: TagName, newName: TagName) => void
+  registerRemove: (key: ProjectKey, name: TagName) => void
+  unregisterRemove: (key: ProjectKey, name: TagName) => void
 }
 
 const EMPTY_MAP: RenameMap = new Map()
@@ -22,10 +23,10 @@ export function TagRenamesProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [renames, setRenames] = useState<Map<ProjectKey, Map<string, string>>>(
-    () => new Map()
-  )
-  const [removed, setRemoved] = useState<Map<ProjectKey, Set<string>>>(
+  const [renames, setRenames] = useState<
+    Map<ProjectKey, Map<TagName, TagName>>
+  >(() => new Map())
+  const [removed, setRemoved] = useState<Map<ProjectKey, Set<TagName>>>(
     () => new Map()
   )
 
@@ -35,7 +36,7 @@ export function TagRenamesProvider({
       removedFor: (key) => removed.get(key) ?? EMPTY_SET,
       registerRename: (key, oldName, newName) =>
         setRenames((prev) => {
-          const prevForKey = prev.get(key) ?? new Map<string, string>()
+          const prevForKey = prev.get(key) ?? new Map<TagName, TagName>()
           const nextForKey = new Map(prevForKey)
           nextForKey.set(oldName, newName)
           const next = new Map(prev)
@@ -44,7 +45,7 @@ export function TagRenamesProvider({
         }),
       registerRemove: (key, name) =>
         setRemoved((prev) => {
-          const prevForKey = prev.get(key) ?? new Set<string>()
+          const prevForKey = prev.get(key) ?? new Set<TagName>()
           if (prevForKey.has(name)) return prev
           const nextForKey = new Set(prevForKey)
           nextForKey.add(name)
@@ -79,16 +80,16 @@ export function useTagRenames(orgSlug: string, slug: string) {
   const removed = ctx.removedFor(key)
 
   const registerRename = useCallback(
-    (oldName: string, newName: string) =>
+    (oldName: TagName, newName: TagName) =>
       ctx.registerRename(key, oldName, newName),
     [ctx, key]
   )
   const registerRemove = useCallback(
-    (name: string) => ctx.registerRemove(key, name),
+    (name: TagName) => ctx.registerRemove(key, name),
     [ctx, key]
   )
   const unregisterRemove = useCallback(
-    (name: string) => ctx.unregisterRemove(key, name),
+    (name: TagName) => ctx.unregisterRemove(key, name),
     [ctx, key]
   )
 

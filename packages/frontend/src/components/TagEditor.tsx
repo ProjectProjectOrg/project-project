@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Cause, Exit, Schema } from "effect"
+import { Cause, Either, Exit } from "effect"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,7 @@ import {
   ticketsListKey,
   updateTicketAtom
 } from "@/atoms/tickets"
+import { getInputAttrs, validate } from "@/lib/schema-form"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
@@ -35,9 +36,8 @@ type Props = {
   canManageTags: boolean
 }
 
-const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const NEUTRAL = "#94a3b8"
-const makeTagName = Schema.decodeUnknownSync(TagName)
+const tagNameAttrs = getInputAttrs(TagName)
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
@@ -64,11 +64,11 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
   const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
   const registryNames = useMemo(
-    () => new Set<string>(registry.map((t) => t.name as string)),
+    () => new Set(registry.map((t) => t.name)),
     [registry]
   )
 
-  const mapName = (name: string) => {
+  const mapName = (name: TagName): TagName => {
     const renamed = renameMap.get(name)
     if (!renamed) return name
     if (registryNames.has(name)) return name
@@ -80,8 +80,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       ticket.tags
         .map(mapName)
         .filter((name) => !(removed.has(name) && !registryNames.has(name))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ticket.tags, renameMap, removed, registryNames]
+    [mapName, removed, registryNames, ticket.tags]
   )
 
   const tagByName = useMemo(() => {
@@ -92,64 +91,66 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   const lowered = draft.trim().toLowerCase()
   const exactRegistered = registry.find((t) => t.name === lowered)
-  const isValidNewName = VALID.test(lowered)
+  const validatedDraft = lowered.length > 0 ? validate(TagName, lowered) : null
+  const isValidNewName =
+    validatedDraft !== null && Either.isRight(validatedDraft)
   const showValidationError =
     canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
   const filtered = lowered
     ? registry.filter((t) => t.name.includes(lowered))
     : registry
 
-  const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({ tags: next.map((name) => makeTagName(name)) })
+  const apply = (next: ReadonlyArray<TagName>) => updateTicket({ tags: next })
 
-  const addTag = (name: string) => {
+  const addTag = (name: TagName) => {
     if (displayed.includes(name)) return
     apply([...ticket.tags.filter((t) => !removed.has(t)), name])
     setDraft("")
     setOpen(false)
   }
 
-  const removeFromTicket = (name: string) => {
+  const removeFromTicket = (name: TagName) => {
     apply(ticket.tags.filter((t) => t !== name))
   }
 
   const createAndApply = async () => {
-    if (!isValidNewName || exactRegistered) return
-    const name = lowered
-    const exit = await createTag({ name: makeTagName(name) })
-    if (Exit.isSuccess(exit)) addTag(name)
+    if (!validatedDraft || Either.isLeft(validatedDraft) || exactRegistered) {
+      return
+    }
+    const tagName = validatedDraft.right
+    const exit = await createTag({ name: tagName })
+    if (Exit.isSuccess(exit)) addTag(tagName)
   }
 
-  const ticketHasTag = (name: string) =>
-    (ticket.tags as ReadonlyArray<string>).includes(name)
+  const ticketHasTag = (name: TagName) => ticket.tags.includes(name)
 
   const handlePatch = (
-    oldName: string,
+    oldName: TagName,
     patch: { nextName?: TagName; color?: Tag["color"] }
   ) => {
     if (patch.nextName && patch.nextName !== oldName) {
       registerRename(oldName, patch.nextName)
     }
     void renameTag({
-      oldName: makeTagName(oldName),
+      oldName,
       nextName: patch.nextName,
       color: patch.color
     })
   }
 
-  const handleDelete = async (name: string) => {
+  const handleDelete = async (name: TagName) => {
     registerRemove(name)
-    const exit = await deleteTag({ name: makeTagName(name) })
+    const exit = await deleteTag({ name })
     if (Exit.isFailure(exit)) {
       unregisterRemove(name)
       throw Cause.squash(exit.cause)
     }
   }
 
-  const usageCountFor = (currentName: string) =>
+  const usageCountFor = (currentName: TagName) =>
     Result.isSuccess(ticketsResult)
       ? ticketsResult.value.reduce((n, t) => {
-          const mapped = (t.tags as ReadonlyArray<string>).map(mapName)
+          const mapped = t.tags.map(mapName)
           return n + (mapped.includes(currentName) ? 1 : 0)
         }, 0)
       : ticketHasTag(currentName)
@@ -202,6 +203,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
             <input
               autoFocus
               value={draft}
+              maxLength={tagNameAttrs.maxLength}
               onChange={(e) => setDraft(e.target.value.toLowerCase())}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -290,7 +292,7 @@ function AppliedTagChip({
   onDelete,
   onRemove
 }: {
-  name: string
+  name: TagName
   tag: Tag | undefined
   color: string | null
   canManage: boolean

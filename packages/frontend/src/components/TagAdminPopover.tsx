@@ -1,8 +1,9 @@
-import { Schema } from "effect"
+import { Either, Schema } from "effect"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { motion } from "motion/react"
 import { ColorPicker } from "@/components/ColorPicker"
+import { getInputAttrs, validate } from "@/lib/schema-form"
 import { cn } from "@/lib/utils"
 import {
   Popover,
@@ -14,9 +15,8 @@ import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 import { TagColor, TagName, type Tag } from "@projectproject/shared"
 
-const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
-const makeTagName = Schema.decodeUnknownSync(TagName)
+const tagNameAttrs = getInputAttrs(TagName)
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 type Props = {
@@ -117,11 +117,14 @@ function Editor({
   const [draftName, setDraftName] = useState<string>(tag.name)
 
   const trimmed = draftName.trim()
-  const invalid = trimmed.length > 0 && !VALID.test(trimmed)
+  const validatedDraft = trimmed.length > 0 ? validate(TagName, trimmed) : null
+  const invalid =
+    validatedDraft !== null && Either.isLeft(validatedDraft)
 
   const commit = () => {
-    if (trimmed === tag.name || invalid || trimmed.length === 0) return
-    onPatch({ nextName: makeTagName(trimmed) })
+    if (trimmed === tag.name || trimmed.length === 0) return
+    if (!validatedDraft || Either.isLeft(validatedDraft)) return
+    onPatch({ nextName: validatedDraft.right })
   }
 
   return (
@@ -134,6 +137,7 @@ function Editor({
         />
         <input
           value={draftName}
+          maxLength={tagNameAttrs.maxLength}
           onChange={(e) => setDraftName(e.target.value.toLowerCase())}
           onBlur={commit}
           onKeyDown={(e) => {
