@@ -18,10 +18,18 @@ import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-conte
 import { MentionScopeProvider } from "@/mentions/scope"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { useProjectRole } from "@/lib/projectRole"
-import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
+import { getInputAttrs } from "@/lib/schema-form"
+import {
+  TicketTitle,
+  type Member,
+  type TicketDetail,
+  type TicketId
+} from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
 import { PriorityBadgeTrigger } from "./PriorityField"
 import { TypeBadgeTrigger } from "./TypeField"
+
+const titleAttrs = getInputAttrs(TicketTitle)
 
 export function Expanded({
   orgSlug,
@@ -257,7 +265,7 @@ function TitleField({
       onBlur={() => void commit()}
       onKeyDown={handleKey}
       className="-mx-1 w-full rounded bg-transparent px-1 text-base font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={200}
+      maxLength={titleAttrs.maxLength}
       aria-label={m.tickets_title_aria_label()}
     />
   )

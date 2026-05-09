@@ -58,6 +58,7 @@
   "tickets_status_in_progress": "In progress",
   "tickets_status_todo": "Todo",
   "tickets_title_aria_label": "Ticket title",
+  "tickets_title_validation_hint": "Between 1 and 200 characters.",
   "tickets_type_aria_label": "Type: {label}. Click to change.",
   "tickets_type_bug": "Bug",
   "tickets_type_chore": "Chore",

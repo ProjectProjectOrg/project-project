@@ -24,11 +24,14 @@ import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { createTicketAtom } from "@/atoms/tickets"
+import { getInputAttrs } from "@/lib/schema-form"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type { TicketType } from "@projectproject/shared"
+import { TicketTitle, type TicketType } from "@projectproject/shared"
+
+const titleAttrs = getInputAttrs(TicketTitle)
 
 export function CreateTicketRow({
   orgSlug,
@@ -152,7 +155,7 @@ export function CreateTicketRow({
           placeholder={m.tickets_create_title_placeholder()}
           aria-label={m.tickets_create_title_aria_label()}
           disabled={submitting}
-          maxLength={200}
+          maxLength={titleAttrs.maxLength}
         />
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>

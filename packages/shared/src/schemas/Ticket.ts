@@ -24,6 +24,12 @@ export type TicketType = typeof TicketType.Type
 export const TicketPriority = Schema.Literal("low", "med", "high")
 export type TicketPriority = typeof TicketPriority.Type
 
+export const TicketTitle = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(200),
+  Schema.annotations({ identifier: "TicketTitle" })
+)
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
@@ -54,15 +60,13 @@ export const TicketDetail = Schema.Struct({
 export type TicketDetail = typeof TicketDetail.Type
 
 export const CreateTicketInput = Schema.Struct({
-  title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
+  title: TicketTitle,
   type: Schema.optional(TicketType)
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
 
 export const UpdateTicketInput = Schema.Struct({
-  title: Schema.optional(
-    Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200))
-  ),
+  title: Schema.optional(TicketTitle),
   status: Schema.optional(TicketStatus),
   type: Schema.optional(TicketType),
   priority: Schema.optional(TicketPriority),
