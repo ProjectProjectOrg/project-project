@@ -9,6 +9,7 @@ import {
 import { Exit } from "effect"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
+  CalendarRange,
   FolderKanban,
   Info,
   ListChecks,
@@ -26,6 +27,12 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import {
+  projectKey as sprintsProjectKey,
+  sprintsListAtom
+} from "@/atoms/sprints"
+import { activeAndPlannedCount } from "@projectproject/shared"
+import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
@@ -133,7 +140,7 @@ function ProjectHeader({
       </div>
       <div className="min-w-0 flex-1">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
-        <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
+        <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
       </div>
       <GithubChip
         orgSlug={orgSlug}
@@ -288,27 +295,36 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   )
 }
 
-type TabKey = "tickets" | "about" | "members"
+type TabKey = "tickets" | "sprints" | "about" | "members"
 type TabDef = {
   key: TabKey
   to:
     | "/orgs/$orgSlug/projects/$slug"
+    | "/orgs/$orgSlug/projects/$slug/sprints"
     | "/orgs/$orgSlug/projects/$slug/about"
     | "/orgs/$orgSlug/projects/$slug/members"
   label: () => string
   icon: typeof ListChecks
   exact: boolean
-  countFor?: "tickets" | "members"
+  countFor?: "tickets" | "sprints" | "members"
 }
 
 const TABS: ReadonlyArray<TabDef> = [
   {
     key: "tickets",
     to: "/orgs/$orgSlug/projects/$slug",
-    label: () => m.project_detail_tab_tickets(),
+    label: () => m.project_detail_tab_backlog(),
     icon: ListChecks,
     exact: true,
     countFor: "tickets"
+  },
+  {
+    key: "sprints",
+    to: "/orgs/$orgSlug/projects/$slug/sprints",
+    label: () => m.project_detail_tab_sprints(),
+    icon: CalendarRange,
+    exact: false,
+    countFor: "sprints"
   },
   {
     key: "about",
@@ -344,6 +360,12 @@ function TabsNav({
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.length
     : null
+  const sprintsResult = useAtomValue(
+    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  )
+  const sprintsCount = Result.isSuccess(sprintsResult)
+    ? activeAndPlannedCount(sprintsResult.value)
+    : null
 
   const summary = Result.isSuccess(ticketsResult)
     ? summarize(ticketsResult.value)
@@ -369,9 +391,11 @@ function TabsNav({
     badge:
       t.countFor === "tickets"
         ? ticketsCount
-        : t.countFor === "members"
-          ? project.members.length
-          : null
+        : t.countFor === "sprints"
+          ? sprintsCount
+          : t.countFor === "members"
+            ? project.members.length
+            : null
   }))
 
   return (
@@ -398,7 +422,7 @@ function TabsNav({
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
                   <ListChecks className="size-3.5" strokeWidth={1.75} />
-                  <span>{m.project_detail_tab_tickets()}</span>
+                  <span>{m.project_detail_tab_backlog()}</span>
                   <span
                     className={cn(
                       "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
