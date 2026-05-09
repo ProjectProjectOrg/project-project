@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { useAtomSet } from "@effect-atom/atom-react"
+import { Exit } from "effect"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { commentsKey, createCommentAtom } from "@/atoms/comments"
@@ -17,28 +18,24 @@ export function CommentComposer({
   ticketId: TicketId
 }) {
   const [body, setBody] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [editorVersion, setEditorVersion] = useState(0)
-  const create = useAtomSet(
-    createCommentAtom(commentsKey(orgSlug, slug, ticketId)),
-    { mode: "promise" }
-  )
+  const key = commentsKey(orgSlug, slug, ticketId)
+  const createAtom = createCommentAtom(key)
+  const create = useAtomSet(createAtom, { mode: "promiseExit" })
+  const createState = useAtomValue(createAtom)
+  const submitting = createState.waiting
+  const error = Result.isFailure(createState)
+    ? m.comments_composer_failed()
+    : null
 
   const submit = async () => {
-    if (!body.trim() || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      await create({ body })
+    if (!body.trim() || submitting) return
+    const exit = await create({ body })
+    if (Exit.isSuccess(exit)) {
       setBody("")
       setEditorVersion((v) => v + 1)
       setExpanded(false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : m.comments_composer_failed())
-    } finally {
-      setBusy(false)
     }
   }
 
@@ -80,7 +77,8 @@ export function CommentComposer({
               <Button
                 size="sm"
                 onClick={submit}
-                disabled={busy || !body.trim()}
+                disabled={submitting || !body.trim()}
+                className={submitting ? "animate-pulse" : undefined}
               >
                 {m.comments_composer_submit()}
               </Button>

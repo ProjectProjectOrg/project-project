@@ -12,12 +12,29 @@ import type {
 export const commentsKey = (orgSlug: string, slug: string, id: TicketId) =>
   `${orgSlug}/${slug}/${id}`
 
+export const commentKey = (
+  orgSlug: string,
+  slug: string,
+  id: TicketId,
+  commentId: CommentId
+) => `${orgSlug}/${slug}/${id}/${commentId}`
+
 const splitKey = (key: string) => {
   const parts = key.split("/")
   return {
     orgSlug: parts[0],
     slug: parts[1],
     id: parts.slice(2).join("/") as TicketId
+  }
+}
+
+const splitCommentKey = (key: string) => {
+  const parts = key.split("/")
+  return {
+    orgSlug: parts[0],
+    slug: parts[1],
+    id: parts[2] as TicketId,
+    commentId: parts.slice(3).join("/") as CommentId
   }
 }
 
@@ -61,30 +78,25 @@ export const createCommentAtom = Atom.family((key: string) => {
 })
 
 export const editCommentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitKey(key)
-  return Atom.optimisticFn(commentsAtom(key), {
-    reducer: (
-      current,
-      input: { commentId: CommentId } & UpdateCommentInput
-    ) => {
+  const { orgSlug, slug, id, commentId } = splitCommentKey(key)
+  const listKey = commentsKey(orgSlug, slug, id)
+  return Atom.optimisticFn(commentsAtom(listKey), {
+    reducer: (current, input: UpdateCommentInput) => {
       if (!Result.isSuccess(current)) return current
       const editedAt = new Date()
       const next = current.value.map((c) =>
-        c.id === input.commentId ? { ...c, body: input.body, editedAt } : c
+        c.id === commentId ? { ...c, body: input.body, editedAt } : c
       )
       return Result.success([...next], { waiting: true })
     },
     fn: runtime.fn(
-      Effect.fn(function* (
-        input: { commentId: CommentId } & UpdateCommentInput,
-        get
-      ) {
+      Effect.fn(function* (input: UpdateCommentInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.ticketComments.update({
-          path: { orgSlug, slug, id, commentId: input.commentId },
+          path: { orgSlug, slug, id, commentId },
           payload: { body: input.body }
         })
-        get.refresh(commentsBaseAtom(key))
+        get.refresh(commentsBaseAtom(listKey))
         return updated
       })
     )
@@ -92,23 +104,24 @@ export const editCommentAtom = Atom.family((key: string) => {
 })
 
 export const deleteCommentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitKey(key)
-  return Atom.optimisticFn(commentsAtom(key), {
-    reducer: (current, input: { commentId: CommentId }) => {
+  const { orgSlug, slug, id, commentId } = splitCommentKey(key)
+  const listKey = commentsKey(orgSlug, slug, id)
+  return Atom.optimisticFn(commentsAtom(listKey), {
+    reducer: (current, _input: void) => {
       if (!Result.isSuccess(current)) return current
       return Result.success(
-        [...current.value.filter((c) => c.id !== input.commentId)],
+        [...current.value.filter((c) => c.id !== commentId)],
         { waiting: true }
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (input: { commentId: CommentId }, get) {
+      Effect.fn(function* (_input: void, get) {
         const client = yield* ApiClient
         yield* client.ticketComments.delete({
-          path: { orgSlug, slug, id, commentId: input.commentId }
+          path: { orgSlug, slug, id, commentId }
         })
-        get.refresh(commentsBaseAtom(key))
-        return input.commentId
+        get.refresh(commentsBaseAtom(listKey))
+        return commentId
       })
     )
   })
