@@ -1,5 +1,5 @@
 import { HttpApiBuilder } from "@effect/platform"
-import { AppApi, CurrentUser } from "@projectproject/shared"
+import { AppApi, CurrentUser, Validation } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { Comments } from "../Services/Comments"
 import { CurrentOrg } from "../Services/CurrentOrg"
@@ -32,7 +32,12 @@ export const CommentsHandlerLive = HttpApiBuilder.group(
             path.id,
             payload
           )
-        }).pipe(dieOnMarkdown)
+        }).pipe(
+          Effect.catchTag("InvalidCommentBody", (error) =>
+            Effect.fail(new Validation({ reason: error.reason }))
+          ),
+          dieOnMarkdown
+        )
       )
       .handle("update", ({ path, payload }) =>
         Effect.gen(function* () {
@@ -48,7 +53,12 @@ export const CommentsHandlerLive = HttpApiBuilder.group(
             path.commentId,
             payload
           )
-        }).pipe(dieOnMarkdown)
+        }).pipe(
+          Effect.catchTag("InvalidCommentBody", (error) =>
+            Effect.fail(new Validation({ reason: error.reason }))
+          ),
+          dieOnMarkdown
+        )
       )
       .handle("delete", ({ path }) =>
         Effect.gen(function* () {

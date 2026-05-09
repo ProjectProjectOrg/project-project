@@ -1,4 +1,3 @@
-import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -25,11 +24,11 @@ import { Db } from "../Services/Db"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import { Users } from "../Services/Users"
-import { Comments, type CommentsShape } from "../Services/Comments"
-
-class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
-  readonly reason: string
-}> {}
+import {
+  Comments,
+  InvalidCommentBody,
+  type CommentsShape
+} from "../Services/Comments"
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 const newCommentId = (): CommentId => decodeCommentId(`c_${ulid()}`)
@@ -118,14 +117,12 @@ export const CommentsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       input: CreateCommentInput
-    ): Effect.Effect<Comment, NotFound | MarkdownError> =>
+    ): Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
-            new InvalidCommentBody({ reason: validation.reason })
-          )
+          return yield* new InvalidCommentBody({ reason: validation.reason })
         }
         const { description, frontmatter, blocks } = yield* readBlocks(
           orgSlug,
@@ -210,14 +207,15 @@ export const CommentsLive = Layer.effect(
       ticketId: TicketId,
       commentId: CommentId,
       input: UpdateCommentInput
-    ): Effect.Effect<Comment, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      Comment,
+      NotFound | Forbidden | InvalidCommentBody | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.die(
-            new InvalidCommentBody({ reason: validation.reason })
-          )
+          return yield* new InvalidCommentBody({ reason: validation.reason })
         }
         const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
         const editedAt = yield* DateTime.nowAsDate

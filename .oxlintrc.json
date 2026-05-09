@@ -19,11 +19,10 @@
     "react-in-jsx-scope": "off",
     "eslint/no-shadow": "off",
     "eslint/no-await-in-loop": "off",
-    "eslint/no-underscore-dangle": "off"
+    "eslint/no-underscore-dangle": "off",
+    "workspace/no-relative-packages": "error"
   },
   "ignorePatterns": [
-    "dist",
-    "dist-electron",
     "node_modules",
     "bun.lock",
     "*.tsbuildinfo",

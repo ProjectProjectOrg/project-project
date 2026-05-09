@@ -186,9 +186,7 @@ async function main(): Promise<void> {
         "get_project",
         Effect.gen(function* () {
           const svc = yield* Projects
-          return yield* svc
-            .get(org, userId, slug)
-            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+          return yield* svc.get(org, userId, slug)
         })
       )
   )
@@ -227,9 +225,7 @@ async function main(): Promise<void> {
         "list_tickets",
         Effect.gen(function* () {
           const svc = yield* Tickets
-          const tickets = yield* svc
-            .list(org, userId, slug)
-            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+          const tickets = yield* svc.list(org, userId, slug)
           return tickets.filter((t) => {
             if (status && t.status !== status) return false
             if (type && t.type !== type) return false
@@ -266,9 +262,7 @@ async function main(): Promise<void> {
         "get_ticket",
         Effect.gen(function* () {
           const svc = yield* Tickets
-          return yield* svc
-            .get(org, userId, slug, id)
-            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+          return yield* svc.get(org, userId, slug, id)
         })
       )
   )

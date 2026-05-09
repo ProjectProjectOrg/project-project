@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -113,6 +114,11 @@ export const ProjectDocsLive = Layer.effect(
           const file = yield* markdown.readProjectFile(orgSlug, slug)
           yield* checkOrgFrontmatter(orgSlug, file.data)
           const frontmatter = yield* decodeProjectFrontmatter(file.data).pipe(
+            Effect.tapErrorCause((cause) =>
+              Effect.logWarning("project frontmatter decode failed").pipe(
+                Effect.annotateLogs({ cause: Cause.pretty(cause) })
+              )
+            ),
             Effect.orDie
           )
           return { ...frontmatter, body: file.body }

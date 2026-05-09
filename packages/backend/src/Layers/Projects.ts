@@ -63,6 +63,19 @@ import { Projects, type ProjectsShape } from "../Services/Projects"
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
 
+function withProjectTelemetry<A, E>(
+  operation: string,
+  orgSlug: string,
+  attributes: Record<string, unknown>,
+  effect: Effect.Effect<A, E>
+): Effect.Effect<A, E> {
+  const annotations = { module: "Projects", operation, orgSlug, ...attributes }
+  return effect.pipe(
+    Effect.withSpan(`Projects.${operation}`, { attributes: annotations }),
+    Effect.annotateLogs(annotations)
+  )
+}
+
 function slugify(name: string): string {
   return name
     .normalize("NFKD")
@@ -157,50 +170,60 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       userId: string
     ): Effect.Effect<ReadonlyArray<Project>> =>
-      db
-        .select({
-          slug: projectIndex.slug,
-          name: projectIndex.name,
-          createdBy: projectIndex.createdBy,
-          createdAt: projectIndex.createdAt
-        })
-        .from(projectIndex)
-        .innerJoin(
-          projectMember,
-          and(
-            eq(projectMember.projectSlug, projectIndex.slug),
-            eq(projectMember.userId, userId)
+      withProjectTelemetry(
+        "list",
+        orgSlug,
+        { userId },
+        db
+          .select({
+            slug: projectIndex.slug,
+            name: projectIndex.name,
+            createdBy: projectIndex.createdBy,
+            createdAt: projectIndex.createdAt
+          })
+          .from(projectIndex)
+          .innerJoin(
+            projectMember,
+            and(
+              eq(projectMember.projectSlug, projectIndex.slug),
+              eq(projectMember.userId, userId)
+            )
           )
-        )
-        .orderBy(asc(projectIndex.createdAt))
-        .pipe(
-          Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
-          Effect.orDie
-        )
+          .orderBy(asc(projectIndex.createdAt))
+          .pipe(
+            Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
+            Effect.orDie
+          )
+      )
 
     // --- Permission gates ----------------------------------------------
 
     const requireMember = (
-      _orgSlug: string,
+      orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<{ role: Role }, NotFound> =>
-      db.query.projectMember
-        .findFirst({
-          columns: { role: true },
-          where: and(
-            eq(projectMember.projectSlug, slug),
-            eq(projectMember.userId, userId)
+      withProjectTelemetry(
+        "requireMember",
+        orgSlug,
+        { slug, userId },
+        db.query.projectMember
+          .findFirst({
+            columns: { role: true },
+            where: and(
+              eq(projectMember.projectSlug, slug),
+              eq(projectMember.userId, userId)
+            )
+          })
+          .pipe(
+            Effect.orDie,
+            Effect.flatMap((row) =>
+              row
+                ? Effect.succeed({ role: makeRole(row.role) })
+                : Effect.fail(new NotFound())
+            )
           )
-        })
-        .pipe(
-          Effect.orDie,
-          Effect.flatMap((row) =>
-            row
-              ? Effect.succeed({ role: makeRole(row.role) })
-              : Effect.fail(new NotFound())
-          )
-        )
+      )
 
     const requireRole = (
       orgSlug: string,
@@ -249,80 +272,90 @@ export const ProjectsLive = Layer.effect(
       createdBy: string,
       input: CreateProjectInput
     ): Effect.Effect<Project, NotFound> =>
-      Effect.gen(function* () {
-        const organizationId = yield* orgIdFromSlug(orgSlug)
-        const slug = yield* findFreeSlug(slugify(input.name))
-        const createdAt = yield* DateTime.nowAsDate
+      withProjectTelemetry(
+        "create",
+        orgSlug,
+        { createdBy, projectName: input.name },
+        Effect.gen(function* () {
+          const organizationId = yield* orgIdFromSlug(orgSlug)
+          const slug = yield* findFreeSlug(slugify(input.name))
+          const createdAt = yield* DateTime.nowAsDate
 
-        const [row] = yield* db
-          .insert(projectIndex)
-          .values({
+          const [row] = yield* db
+            .insert(projectIndex)
+            .values({
+              slug,
+              name: input.name,
+              createdBy,
+              createdAt,
+              organizationId
+            })
+            .returning()
+            .pipe(Effect.orDie)
+
+          yield* db
+            .insert(projectMember)
+            .values({ projectSlug: slug, userId: createdBy, role: "owner" })
+            .pipe(Effect.orDie)
+
+          const rollback = db
+            .delete(projectIndex)
+            .where(eq(projectIndex.slug, slug))
+            .pipe(Effect.orDie)
+
+          const members = yield* loadMembers(slug)
+          yield* syncFrontmatter(
+            orgSlug,
             slug,
-            name: input.name,
+            input.name,
             createdBy,
             createdAt,
-            organizationId
-          })
-          .returning()
-          .pipe(Effect.orDie)
-
-        yield* db
-          .insert(projectMember)
-          .values({ projectSlug: slug, userId: createdBy, role: "owner" })
-          .pipe(Effect.orDie)
-
-        const rollback = db
-          .delete(projectIndex)
-          .where(eq(projectIndex.slug, slug))
-          .pipe(Effect.orDie)
-
-        const members = yield* loadMembers(slug)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          input.name,
-          createdBy,
-          createdAt,
-          `# ${input.name}\n`,
-          members,
-          null
-        ).pipe(
-          Effect.catchAll((cause) =>
-            rollback.pipe(Effect.zipRight(Effect.die(cause)))
+            `# ${input.name}\n`,
+            members,
+            null
+          ).pipe(
+            Effect.catchAll((cause) =>
+              rollback.pipe(Effect.zipRight(Effect.die(cause)))
+            )
           )
-        )
 
-        return {
-          org: orgSlug,
-          slug: row.slug,
-          name: row.name,
-          createdBy: row.createdBy,
-          createdAt: row.createdAt
-        }
-      })
+          return {
+            org: orgSlug,
+            slug: row.slug,
+            name: row.name,
+            createdBy: row.createdBy,
+            createdAt: row.createdAt
+          }
+        })
+      )
 
     const get = (
       orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireMember(orgSlug, userId, slug)
-        const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* new NotFound()
-        const file = yield* projectDocs.read(orgSlug, slug)
-        const members = yield* loadMembers(slug)
-        return {
-          org: orgSlug,
-          slug: indexRow.slug,
-          name: indexRow.name,
-          createdBy: indexRow.createdBy,
-          createdAt: indexRow.createdAt,
-          github: file.github,
-          body: file.body,
-          members
-        }
-      })
+      withProjectTelemetry(
+        "get",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireMember(orgSlug, userId, slug)
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          const file = yield* projectDocs.read(orgSlug, slug)
+          const members = yield* loadMembers(slug)
+          return {
+            org: orgSlug,
+            slug: indexRow.slug,
+            name: indexRow.name,
+            createdBy: indexRow.createdBy,
+            createdAt: indexRow.createdAt,
+            github: file.github,
+            body: file.body,
+            members
+          }
+        })
+      )
 
     const update = (
       orgSlug: string,
@@ -330,60 +363,70 @@ export const ProjectsLive = Layer.effect(
       slug: string,
       input: UpdateProjectInput
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* new NotFound()
-        const file = yield* projectDocs.read(orgSlug, slug)
+      withProjectTelemetry(
+        "update",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          const file = yield* projectDocs.read(orgSlug, slug)
 
-        const nextName = input.name ?? indexRow.name
-        const nextBody = input.body ?? file.body
+          const nextName = input.name ?? indexRow.name
+          const nextBody = input.body ?? file.body
 
-        if (input.name !== undefined && input.name !== indexRow.name) {
-          yield* db
-            .update(projectIndex)
-            .set({ name: nextName })
-            .where(eq(projectIndex.slug, slug))
-            .pipe(Effect.orDie)
-        }
+          if (input.name !== undefined && input.name !== indexRow.name) {
+            yield* db
+              .update(projectIndex)
+              .set({ name: nextName })
+              .where(eq(projectIndex.slug, slug))
+              .pipe(Effect.orDie)
+          }
 
-        const members = yield* loadMembers(slug)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          nextName,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          nextBody,
-          members,
-          file.github
-        )
+          const members = yield* loadMembers(slug)
+          yield* syncFrontmatter(
+            orgSlug,
+            slug,
+            nextName,
+            indexRow.createdBy,
+            indexRow.createdAt,
+            nextBody,
+            members,
+            file.github
+          )
 
-        return {
-          org: orgSlug,
-          slug,
-          name: nextName,
-          createdBy: indexRow.createdBy,
-          createdAt: indexRow.createdAt,
-          github: file.github,
-          body: nextBody,
-          members
-        }
-      })
+          return {
+            org: orgSlug,
+            slug,
+            name: nextName,
+            createdBy: indexRow.createdBy,
+            createdAt: indexRow.createdAt,
+            github: file.github,
+            body: nextBody,
+            members
+          }
+        })
+      )
 
     const remove = (
       orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner"])
-        yield* projectDocs.removeDir(orgSlug, slug)
-        yield* db
-          .delete(projectIndex)
-          .where(eq(projectIndex.slug, slug))
-          .pipe(Effect.orDie)
-      })
+      withProjectTelemetry(
+        "remove",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner"])
+          yield* projectDocs.removeDir(orgSlug, slug)
+          yield* db
+            .delete(projectIndex)
+            .where(eq(projectIndex.slug, slug))
+            .pipe(Effect.orDie)
+        })
+      )
 
     // --- Member management ---------------------------------------------
 
@@ -424,52 +467,57 @@ export const ProjectsLive = Layer.effect(
       slug: string,
       input: AddMemberInput
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const target = yield* users.findByEmail(input.email)
-        if (target === null) return yield* new NotFound()
+      withProjectTelemetry(
+        "addMember",
+        orgSlug,
+        { slug, userId, targetEmail: input.email, targetRole: input.role },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const target = yield* users.findByEmail(input.email)
+          if (target === null) return yield* new NotFound()
 
-        const existing = yield* db.query.projectMember
-          .findFirst({
-            columns: { role: true },
-            where: and(
-              eq(projectMember.projectSlug, slug),
-              eq(projectMember.userId, target.id)
-            )
-          })
-          .pipe(Effect.orDie)
-
-        if (existing) {
-          const currentRole = makeRole(existing.role)
-          if (currentRole !== input.role) {
-            const callerCtx = yield* requireMember(orgSlug, userId, slug)
-            if (callerCtx.role !== "owner") {
-              return yield* new Forbidden()
-            }
-            yield* db
-              .update(projectMember)
-              .set({ role: input.role })
-              .where(
-                and(
-                  eq(projectMember.projectSlug, slug),
-                  eq(projectMember.userId, target.id)
-                )
+          const existing = yield* db.query.projectMember
+            .findFirst({
+              columns: { role: true },
+              where: and(
+                eq(projectMember.projectSlug, slug),
+                eq(projectMember.userId, target.id)
               )
-              .pipe(Effect.orDie)
-          }
-        } else {
-          yield* db
-            .insert(projectMember)
-            .values({
-              projectSlug: slug,
-              userId: target.id,
-              role: input.role
             })
             .pipe(Effect.orDie)
-        }
 
-        return yield* replayDetail(orgSlug, slug)
-      })
+          if (existing) {
+            const currentRole = makeRole(existing.role)
+            if (currentRole !== input.role) {
+              const callerCtx = yield* requireMember(orgSlug, userId, slug)
+              if (callerCtx.role !== "owner") {
+                return yield* new Forbidden()
+              }
+              yield* db
+                .update(projectMember)
+                .set({ role: input.role })
+                .where(
+                  and(
+                    eq(projectMember.projectSlug, slug),
+                    eq(projectMember.userId, target.id)
+                  )
+                )
+                .pipe(Effect.orDie)
+            }
+          } else {
+            yield* db
+              .insert(projectMember)
+              .values({
+                projectSlug: slug,
+                userId: target.id,
+                role: input.role
+              })
+              .pipe(Effect.orDie)
+          }
+
+          return yield* replayDetail(orgSlug, slug)
+        })
+      )
 
     const updateMember = (
       orgSlug: string,
@@ -478,33 +526,38 @@ export const ProjectsLive = Layer.effect(
       targetUserId: string,
       nextRole: AssignableRole
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner"])
-        const existing = yield* db.query.projectMember
-          .findFirst({
-            columns: { role: true },
-            where: and(
-              eq(projectMember.projectSlug, slug),
-              eq(projectMember.userId, targetUserId)
+      withProjectTelemetry(
+        "updateMember",
+        orgSlug,
+        { slug, userId, targetUserId, nextRole },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner"])
+          const existing = yield* db.query.projectMember
+            .findFirst({
+              columns: { role: true },
+              where: and(
+                eq(projectMember.projectSlug, slug),
+                eq(projectMember.userId, targetUserId)
+              )
+            })
+            .pipe(Effect.orDie)
+          if (!existing) return yield* new NotFound()
+          if (makeRole(existing.role) === "owner") {
+            return yield* new Forbidden()
+          }
+          yield* db
+            .update(projectMember)
+            .set({ role: nextRole })
+            .where(
+              and(
+                eq(projectMember.projectSlug, slug),
+                eq(projectMember.userId, targetUserId)
+              )
             )
-          })
-          .pipe(Effect.orDie)
-        if (!existing) return yield* new NotFound()
-        if (makeRole(existing.role) === "owner") {
-          return yield* new Forbidden()
-        }
-        yield* db
-          .update(projectMember)
-          .set({ role: nextRole })
-          .where(
-            and(
-              eq(projectMember.projectSlug, slug),
-              eq(projectMember.userId, targetUserId)
-            )
-          )
-          .pipe(Effect.orDie)
-        return yield* replayDetail(orgSlug, slug)
-      })
+            .pipe(Effect.orDie)
+          return yield* replayDetail(orgSlug, slug)
+        })
+      )
 
     const removeMember = (
       orgSlug: string,
@@ -512,37 +565,42 @@ export const ProjectsLive = Layer.effect(
       slug: string,
       targetUserId: string
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        const callerCtx = yield* requireRole(orgSlug, userId, slug, [
-          "owner",
-          "admin"
-        ])
-        const existing = yield* db.query.projectMember
-          .findFirst({
-            columns: { role: true },
-            where: and(
-              eq(projectMember.projectSlug, slug),
-              eq(projectMember.userId, targetUserId)
+      withProjectTelemetry(
+        "removeMember",
+        orgSlug,
+        { slug, userId, targetUserId },
+        Effect.gen(function* () {
+          const callerCtx = yield* requireRole(orgSlug, userId, slug, [
+            "owner",
+            "admin"
+          ])
+          const existing = yield* db.query.projectMember
+            .findFirst({
+              columns: { role: true },
+              where: and(
+                eq(projectMember.projectSlug, slug),
+                eq(projectMember.userId, targetUserId)
+              )
+            })
+            .pipe(Effect.orDie)
+          if (!existing) return yield* new NotFound()
+          const targetRole = makeRole(existing.role)
+          if (targetRole === "owner") return yield* new Forbidden()
+          if (targetRole === "admin" && callerCtx.role !== "owner") {
+            return yield* new Forbidden()
+          }
+          yield* db
+            .delete(projectMember)
+            .where(
+              and(
+                eq(projectMember.projectSlug, slug),
+                eq(projectMember.userId, targetUserId)
+              )
             )
-          })
-          .pipe(Effect.orDie)
-        if (!existing) return yield* new NotFound()
-        const targetRole = makeRole(existing.role)
-        if (targetRole === "owner") return yield* new Forbidden()
-        if (targetRole === "admin" && callerCtx.role !== "owner") {
-          return yield* new Forbidden()
-        }
-        yield* db
-          .delete(projectMember)
-          .where(
-            and(
-              eq(projectMember.projectSlug, slug),
-              eq(projectMember.userId, targetUserId)
-            )
-          )
-          .pipe(Effect.orDie)
-        return yield* replayDetail(orgSlug, slug)
-      })
+            .pipe(Effect.orDie)
+          return yield* replayDetail(orgSlug, slug)
+        })
+      )
 
     // --- GitHub connection ------------------------------------------
 
@@ -561,79 +619,94 @@ export const ProjectsLive = Layer.effect(
       | GitHubError
       | MarkdownError
     > =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* new NotFound()
-        const file = yield* projectDocs.read(orgSlug, slug)
-
-        yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
-
-        const next: GithubConnection = {
-          repoOwner: input.repoOwner,
-          repoName: input.repoName,
-          defaultBaseBranch:
-            input.defaultBaseBranch === undefined
-              ? null
-              : input.defaultBaseBranch
-        }
-
-        const members = yield* loadMembers(slug)
-        yield* syncFrontmatter(
-          orgSlug,
+      withProjectTelemetry(
+        "connectGithub",
+        orgSlug,
+        {
           slug,
-          indexRow.name,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          file.body,
-          members,
-          next
-        )
+          userId,
+          repoOwner: input.repoOwner,
+          repoName: input.repoName
+        },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          const file = yield* projectDocs.read(orgSlug, slug)
 
-        return {
-          org: orgSlug,
-          slug: indexRow.slug,
-          name: indexRow.name,
-          createdBy: indexRow.createdBy,
-          createdAt: indexRow.createdAt,
-          github: next,
-          body: file.body,
-          members
-        }
-      })
+          yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
+
+          const next: GithubConnection = {
+            repoOwner: input.repoOwner,
+            repoName: input.repoName,
+            defaultBaseBranch:
+              input.defaultBaseBranch === undefined
+                ? null
+                : input.defaultBaseBranch
+          }
+
+          const members = yield* loadMembers(slug)
+          yield* syncFrontmatter(
+            orgSlug,
+            slug,
+            indexRow.name,
+            indexRow.createdBy,
+            indexRow.createdAt,
+            file.body,
+            members,
+            next
+          )
+
+          return {
+            org: orgSlug,
+            slug: indexRow.slug,
+            name: indexRow.name,
+            createdBy: indexRow.createdBy,
+            createdAt: indexRow.createdAt,
+            github: next,
+            body: file.body,
+            members
+          }
+        })
+      )
 
     const disconnectGithub = (
       orgSlug: string,
       userId: string,
       slug: string
     ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
-        yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-        const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* new NotFound()
-        const file = yield* projectDocs.read(orgSlug, slug)
-        const members = yield* loadMembers(slug)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          indexRow.name,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          file.body,
-          members,
-          null
-        )
-        return {
-          org: orgSlug,
-          slug: indexRow.slug,
-          name: indexRow.name,
-          createdBy: indexRow.createdBy,
-          createdAt: indexRow.createdAt,
-          github: null,
-          body: file.body,
-          members
-        }
-      })
+      withProjectTelemetry(
+        "disconnectGithub",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          const file = yield* projectDocs.read(orgSlug, slug)
+          const members = yield* loadMembers(slug)
+          yield* syncFrontmatter(
+            orgSlug,
+            slug,
+            indexRow.name,
+            indexRow.createdBy,
+            indexRow.createdAt,
+            file.body,
+            members,
+            null
+          )
+          return {
+            org: orgSlug,
+            slug: indexRow.slug,
+            name: indexRow.name,
+            createdBy: indexRow.createdBy,
+            createdAt: indexRow.createdAt,
+            github: null,
+            body: file.body,
+            members
+          }
+        })
+      )
 
     return {
       list,
