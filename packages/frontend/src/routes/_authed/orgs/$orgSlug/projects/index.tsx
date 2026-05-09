@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"

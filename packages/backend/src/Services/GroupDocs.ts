@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type { GroupDetail, GroupId, NotFound } from "@projectproject/shared"
 import type { GroupIdTaken, MarkdownError } from "./Markdown"
 
@@ -38,7 +39,7 @@ export interface GroupDocsShape {
   ) => Effect.Effect<void, NotFound | MarkdownError>
 }
 
-export class GroupDocs extends Context.Tag("GroupDocs")<
+export class GroupDocs extends Context.Tag("@projectproject/backend/Services/GroupDocs")<
   GroupDocs,
   GroupDocsShape
 >() {}

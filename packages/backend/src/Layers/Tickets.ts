@@ -12,7 +12,9 @@
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
 // exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
 
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import {
   AttachBranchInput,
   BranchExists,
@@ -75,9 +77,7 @@ export const TicketsLive = Layer.effect(
       userId: string,
       slug: string
     ): Effect.Effect<void, NotFound> =>
-      Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-      })
+      projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
 
     const readTicket = (
       orgSlug: string,
@@ -301,9 +301,7 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
         const baseBranch =
@@ -349,9 +347,7 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
 
@@ -362,7 +358,7 @@ export const TicketsLive = Layer.effect(
           userId
         )
         if (!exists) {
-          return yield* Effect.fail(new BranchNotFound({ name: input.name }))
+          return yield* new BranchNotFound({ name: input.name })
         }
 
         const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
@@ -397,15 +393,11 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
         if (!ticket.branch) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_branch_on_ticket" })
-          )
+          return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
 
         const base = project.github.defaultBaseBranch ?? "main"

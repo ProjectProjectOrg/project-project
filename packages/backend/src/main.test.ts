@@ -44,7 +44,8 @@ import {
   HttpServer
 } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 import { BetterAuth, type BetterAuthShape } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"

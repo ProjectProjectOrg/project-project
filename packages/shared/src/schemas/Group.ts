@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { TicketId } from "./Ticket"
 
 export const GroupId = Schema.String.pipe(

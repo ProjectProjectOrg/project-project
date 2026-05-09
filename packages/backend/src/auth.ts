@@ -205,8 +205,8 @@ export const auth = betterAuth({
       },
       sendInvitationEmail: async (data) => {
         const acceptUrl = `${process.env.BETTER_AUTH_URL}/invite/${data.invitation.id}`
-        console.log(
-          `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}`
+        process.stdout.write(
+          `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}\n`
         )
       }
     }),

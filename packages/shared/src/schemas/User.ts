@@ -35,7 +35,7 @@
 // parses some YAML date forms into `Date`, others into strings. The fix is
 // to be strict at the schema boundary — declare ISO strings, validate, done.
 
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export const User = Schema.Struct({
   id: Schema.String,

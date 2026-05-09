@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   AddMemberInput,
   AssignableRole,
@@ -99,7 +100,7 @@ export interface ProjectsShape {
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
 }
 
-export class Projects extends Context.Tag("Projects")<
+export class Projects extends Context.Tag("@projectproject/backend/Services/Projects")<
   Projects,
   ProjectsShape
 >() {}

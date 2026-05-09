@@ -1,4 +1,5 @@
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
@@ -40,7 +41,7 @@ export const BetterAuthLive = Layer.effect(
               }),
             catch: (cause) => new BetterAuthError({ cause })
           })
-          if (!row?.accessToken) return yield* Effect.fail(new NoGithubToken())
+          if (!row?.accessToken) return yield* new NoGithubToken()
           return row.accessToken
         }),
       getOrgSlugById: (organizationId) =>

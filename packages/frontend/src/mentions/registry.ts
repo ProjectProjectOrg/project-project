@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { Effect } from "effect"
+import type * as Effect from "effect/Effect"
 import type { MentionType } from "@projectproject/shared"
 import type { MentionScope } from "./scope"
 

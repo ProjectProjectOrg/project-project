@@ -5,7 +5,7 @@ import {
   useAtomValue
 } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { useRef, useState, type FormEvent } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {

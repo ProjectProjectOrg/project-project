@@ -12,7 +12,10 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
-import { Cause, Exit, Match, Option } from "effect"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"

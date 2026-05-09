@@ -1,4 +1,6 @@
-import { Context, Data, type Effect } from "effect"
+import * as Context from "effect/Context"
+import * as Data from "effect/Data"
+import type * as Effect from "effect/Effect"
 import { NotFound } from "@projectproject/shared"
 
 export class MarkdownError extends Data.TaggedError("MarkdownError")<{
@@ -116,7 +118,7 @@ export interface MarkdownShape {
   ) => Effect.Effect<ReadonlyArray<string>, MarkdownError>
 }
 
-export class Markdown extends Context.Tag("Markdown")<
+export class Markdown extends Context.Tag("@projectproject/backend/Services/Markdown")<
   Markdown,
   MarkdownShape
 >() {}

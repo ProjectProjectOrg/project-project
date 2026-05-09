@@ -1,5 +1,7 @@
 import { it } from "@effect/vitest"
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { GroupColor, GroupId, TagName, TicketId } from "@projectproject/shared"
 import { GroupDocsLive } from "../Layers/GroupDocs"

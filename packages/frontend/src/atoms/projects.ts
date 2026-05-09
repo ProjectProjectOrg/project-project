@@ -1,5 +1,5 @@
 import { Atom } from "@effect-atom/atom-react"
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 

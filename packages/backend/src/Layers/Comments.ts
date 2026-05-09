@@ -1,4 +1,6 @@
-import { Data, Effect, Layer } from "effect"
+import * as Data from "effect/Data"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { and, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
@@ -193,8 +195,8 @@ export const CommentsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!row) return yield* Effect.fail(new NotFound())
-        if (row.authorId !== userId) return yield* Effect.fail(new Forbidden())
+        if (!row) return yield* new NotFound()
+        if (row.authorId !== userId) return yield* new Forbidden()
         return { authorId: row.authorId, createdAt: row.createdAt }
       })
 

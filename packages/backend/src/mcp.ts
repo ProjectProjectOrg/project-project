@@ -33,7 +33,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
-import { Cause, Effect, Exit, ManagedRuntime, Option } from "effect"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as ManagedRuntime from "effect/ManagedRuntime"
+import * as Option from "effect/Option"
 import { z } from "zod"
 import * as schema from "./db/schema"
 import { session } from "./db/schema"
@@ -100,9 +104,9 @@ function describeCause<E extends TaggedFailure>(cause: Cause.Cause<E>): string {
 async function main(): Promise<void> {
   const token = process.env.MARKMATE_MCP_TOKEN
   if (!token) {
-    console.error(
+    process.stderr.write(
       "MARKMATE_MCP_TOKEN is not set. The MCP server needs a Better Auth " +
-        "session token to scope reads to one user."
+        "session token to scope reads to one user.\n"
     )
     process.exit(1)
   }
@@ -276,6 +280,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error("MCP server failed to start:", e)
+  process.stderr.write(`MCP server failed to start: ${String(e)}\n`)
   process.exit(1)
 })

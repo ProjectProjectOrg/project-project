@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { motion } from "motion/react"

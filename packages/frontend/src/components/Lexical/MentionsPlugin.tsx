@@ -15,7 +15,7 @@ import {
   COMMAND_PRIORITY_LOW,
   type LexicalNode
 } from "lexical"
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { AppLayer } from "@/runtime"
 import {
   type MentionCandidate,

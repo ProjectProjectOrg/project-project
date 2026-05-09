@@ -6,7 +6,7 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   FolderKanban,

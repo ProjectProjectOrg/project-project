@@ -31,7 +31,8 @@
 // row is missing entirely (`NoGithubToken`), we report `GitHubTokenExpired` —
 // the user-facing remedy is the same: reconnect via OAuth.
 
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { Octokit } from "octokit"
 import { graphql as graphqlRequest } from "@octokit/graphql"
 import {
@@ -253,7 +254,7 @@ export const GitHubLive = Layer.effect(
           // We require push access — branch creation needs it. permissions
           // is populated when the token can see the repo at all.
           if (data.data.permissions && !data.data.permissions.push) {
-            return yield* Effect.fail(new GitHubScopeInsufficient())
+            return yield* new GitHubScopeInsufficient()
           }
           return { defaultBranch: data.data.default_branch }
         })
@@ -518,7 +519,7 @@ export const GitHubLive = Layer.effect(
             }
           })
 
-          if (!data.repository) return yield* Effect.fail(new RepoGone())
+          if (!data.repository) return yield* new RepoGone()
 
           const existingBranches = new Set(
             data.repository.refs.nodes.map((r) => r.name)
@@ -669,7 +670,7 @@ export const GitHubLive = Layer.effect(
             }
           })
 
-          if (!data.repository) return yield* Effect.fail(new RepoGone())
+          if (!data.repository) return yield* new RepoGone()
 
           return {
             items: data.repository.refs.nodes.map((n) => ({
@@ -744,7 +745,7 @@ export const GitHubLive = Layer.effect(
             }
           })
 
-          if (!data.repository) return yield* Effect.fail(new RepoGone())
+          if (!data.repository) return yield* new RepoGone()
           return data.repository.ref !== null
         })
       )

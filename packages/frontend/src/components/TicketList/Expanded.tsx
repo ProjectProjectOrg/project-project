@@ -1,6 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
-import { Cause, Exit } from "effect"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { TagEditor } from "@/components/TagEditor"

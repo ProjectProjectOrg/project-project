@@ -1,4 +1,6 @@
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import {
   ADMIN_GATED_KINDS,
   CreateGroupInput,
@@ -64,7 +66,7 @@ export const GroupsLive = Layer.effect(
         const set = new Set<string>(existing)
         for (const id of ticketIds) {
           if (!set.has(id)) {
-            return yield* Effect.fail(new NotFound())
+            return yield* new NotFound()
           }
         }
       })

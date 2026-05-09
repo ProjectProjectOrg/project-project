@@ -1,6 +1,6 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { Comments } from "../Services/Comments"
 import { CurrentOrg } from "../Services/CurrentOrg"
 

@@ -1,4 +1,4 @@
-import { Layer } from "effect"
+import * as Layer from "effect/Layer"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"

@@ -1,4 +1,4 @@
-import { Match } from "effect"
+import * as Match from "effect/Match"
 import type {
   BranchExists,
   BranchNotFound,

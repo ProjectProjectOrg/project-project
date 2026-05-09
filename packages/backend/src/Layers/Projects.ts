@@ -27,7 +27,9 @@
 //   add/remove member   ✓      ✓      –   (admin can't touch admins)
 //   change role         ✓      –      –
 
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { and, asc, eq } from "drizzle-orm"
 import {
   Forbidden,
@@ -208,7 +210,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         const ctx = yield* requireMember(orgSlug, userId, slug)
         if (!allowed.includes(ctx.role)) {
-          return yield* Effect.fail(new Forbidden())
+          return yield* new Forbidden()
         }
         return ctx
       })
@@ -306,7 +308,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireMember(orgSlug, userId, slug)
         const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         return {
@@ -330,7 +332,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
 
         const nextName = input.name ?? indexRow.name
@@ -390,7 +392,7 @@ export const ProjectsLive = Layer.effect(
     ): Effect.Effect<ProjectDetail, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(
@@ -424,7 +426,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const target = yield* users.findByEmail(input.email)
-        if (target === null) return yield* Effect.fail(new NotFound())
+        if (target === null) return yield* new NotFound()
 
         const existing = yield* db.query.projectMember
           .findFirst({
@@ -441,7 +443,7 @@ export const ProjectsLive = Layer.effect(
           if (currentRole !== input.role) {
             const callerCtx = yield* requireMember(orgSlug, userId, slug)
             if (callerCtx.role !== "owner") {
-              return yield* Effect.fail(new Forbidden())
+              return yield* new Forbidden()
             }
             yield* db
               .update(projectMember)
@@ -486,9 +488,9 @@ export const ProjectsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!existing) return yield* Effect.fail(new NotFound())
+        if (!existing) return yield* new NotFound()
         if (makeRole(existing.role) === "owner") {
-          return yield* Effect.fail(new Forbidden())
+          return yield* new Forbidden()
         }
         yield* db
           .update(projectMember)
@@ -523,11 +525,11 @@ export const ProjectsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!existing) return yield* Effect.fail(new NotFound())
+        if (!existing) return yield* new NotFound()
         const targetRole = makeRole(existing.role)
-        if (targetRole === "owner") return yield* Effect.fail(new Forbidden())
+        if (targetRole === "owner") return yield* new Forbidden()
         if (targetRole === "admin" && callerCtx.role !== "owner") {
-          return yield* Effect.fail(new Forbidden())
+          return yield* new Forbidden()
         }
         yield* db
           .delete(projectMember)
@@ -561,7 +563,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
 
         yield* github.verifyAccess(input.repoOwner, input.repoName, userId)
@@ -607,7 +609,7 @@ export const ProjectsLive = Layer.effect(
       Effect.gen(function* () {
         yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
         const indexRow = yield* getIndexRow(slug)
-        if (!indexRow) return yield* Effect.fail(new NotFound())
+        if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
         yield* syncFrontmatter(

@@ -97,7 +97,7 @@
 // `Result.match` with `onFailure: (failure) => ...` is fine — just remember
 // the argument is the Failure variant, not the error.
 
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"

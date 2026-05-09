@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   GithubConnection,
   NotFound,
@@ -50,7 +51,7 @@ export interface ProjectDocsShape {
   ) => Effect.Effect<void, MarkdownError>
 }
 
-export class ProjectDocs extends Context.Tag("ProjectDocs")<
+export class ProjectDocs extends Context.Tag("@projectproject/backend/Services/ProjectDocs")<
   ProjectDocs,
   ProjectDocsShape
 >() {}

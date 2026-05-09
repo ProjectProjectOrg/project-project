@@ -6,7 +6,9 @@
 // org" lookup at this layer; callers (handlers via the Projects service)
 // thread it through.
 
-import { Config, Effect, Layer } from "effect"
+import * as Config from "effect/Config"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 import matter from "gray-matter"

@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { ApiClient } from "@/services/ApiClient"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import type { MentionProvider } from "./registry"

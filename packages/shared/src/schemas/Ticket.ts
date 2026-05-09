@@ -6,7 +6,7 @@
 //
 // IDs are sequential per project: T-1, T-2, ... — assigned by the server.
 
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { TagName } from "./Tag"
 
 export const TicketId = Schema.String.pipe(

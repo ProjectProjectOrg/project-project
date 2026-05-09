@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import { NotFound, type Role } from "@projectproject/shared"
 
 export interface CurrentOrgShape {
@@ -11,7 +12,7 @@ export interface CurrentOrgShape {
   >
 }
 
-export class CurrentOrg extends Context.Tag("CurrentOrg")<
+export class CurrentOrg extends Context.Tag("@projectproject/backend/Services/CurrentOrg")<
   CurrentOrg,
   CurrentOrgShape
 >() {}

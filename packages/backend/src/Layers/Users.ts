@@ -8,7 +8,8 @@
 // Surface stays small on purpose: only what Projects (and later Tickets'
 // assignee resolution) actually need.
 
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { eq, inArray } from "drizzle-orm"
 import type { User } from "@projectproject/shared"
 import { user } from "../db/schema"

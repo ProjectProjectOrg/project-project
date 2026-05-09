@@ -59,7 +59,7 @@
 // `runtime.ts` is *just* the Effect/Atom plumbing. The component layer is
 // where the React concerns live.
 
-import { Layer } from "effect"
+import * as Layer from "effect/Layer"
 import { ApiClient } from "@/services/ApiClient"
 import { Atom } from "@effect-atom/atom-react"
 

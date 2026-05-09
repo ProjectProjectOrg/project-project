@@ -1,5 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Cause, Exit, Schema } from "effect"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
