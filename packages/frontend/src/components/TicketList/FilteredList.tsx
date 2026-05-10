@@ -188,7 +188,9 @@ function Row({
         <span className="min-w-0 truncate text-sm font-medium">
           {ticket.title}
         </span>
-        <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        <div className="justify-self-end">
+          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        </div>
         <AssigneeRowTrigger
           orgSlug={orgSlug}
           slug={slug}
