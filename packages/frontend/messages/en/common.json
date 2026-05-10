@@ -2,6 +2,12 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_cancel_button": "Cancel",
   "common_save_button": "Save",
+  "error_conflict": "Conflict: {reason}",
+  "error_forbidden": "You don't have permission to do that.",
+  "error_not_found": "Not found.",
+  "error_rate_limited": "Rate limited. Please try again later.",
+  "error_unauthorized": "Sign in required.",
   "error_unknown": "Something went wrong.",
+  "error_validation": "Invalid input: {reason}",
   "validation_required": "Required"
 }

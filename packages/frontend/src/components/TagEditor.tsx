@@ -18,8 +18,8 @@ import {
   tagsAtom,
   tagsKey
 } from "@/atoms/tags"
+import { tagWriteKeys, ticketWriteKeys } from "@/atoms/reactivity-keys"
 import {
-  ticketKey,
   ticketsListAtom,
   ticketsListKey,
   updateTicketAtom
@@ -45,9 +45,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
   )
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const updateTicket = useAtomSet(updateTicketAtom)
   const createTag = useAtomSet(createTagAtom(key), { mode: "promiseExit" })
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key), { mode: "promiseExit" })
@@ -100,7 +98,11 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     : registry
 
   const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({ tags: next.map((name) => makeTagName(name)) })
+    updateTicket({
+      path: { orgSlug, slug, id: ticket.id },
+      payload: { tags: next.map((name) => makeTagName(name)) },
+      reactivityKeys: ticketWriteKeys
+    })
 
   const addTag = (name: string) => {
     if (displayed.includes(name)) return
@@ -116,7 +118,11 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const createAndApply = async () => {
     if (!isValidNewName || exactRegistered) return
     const name = lowered
-    const exit = await createTag({ name: makeTagName(name) })
+    const exit = await createTag({
+      path: { orgSlug, slug },
+      payload: { name: makeTagName(name) },
+      reactivityKeys: tagWriteKeys
+    })
     if (Exit.isSuccess(exit)) addTag(name)
   }
 
@@ -131,15 +137,21 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       registerRename(oldName, patch.nextName)
     }
     void renameTag({
-      oldName: makeTagName(oldName),
-      nextName: patch.nextName,
-      color: patch.color
+      path: { orgSlug, slug, name: makeTagName(oldName) },
+      payload: {
+        ...(patch.nextName ? { name: patch.nextName } : {}),
+        ...(patch.color ? { color: patch.color } : {})
+      },
+      reactivityKeys: tagWriteKeys
     })
   }
 
   const handleDelete = async (name: string) => {
     registerRemove(name)
-    const exit = await deleteTag({ name: makeTagName(name) })
+    const exit = await deleteTag({
+      path: { orgSlug, slug, name: makeTagName(name) },
+      reactivityKeys: tagWriteKeys
+    })
     if (Exit.isFailure(exit)) {
       unregisterRemove(name)
       throw Cause.squash(exit.cause)

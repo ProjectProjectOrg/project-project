@@ -14,6 +14,7 @@ import {
   ticketKey,
   updateTicketAtom
 } from "@/atoms/tickets"
+import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
@@ -85,9 +86,8 @@ function ExpandedDetail({
   focusBody: boolean
   onConsumeFocusBody: () => void
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey))
-  const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
+  const update = useAtomSet(updateTicketAtom)
+  const remove = useAtomSet(deleteTicketAtom, { mode: "promiseExit" })
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
@@ -111,7 +111,10 @@ function ExpandedDetail({
           disabled={deleting}
           onConfirm={async () => {
             setDeleting(true)
-            const exit = await remove()
+            const exit = await remove({
+              path: { orgSlug, slug, id: ticket.id },
+              reactivityKeys: ticketWriteKeys
+            })
             if (Exit.isSuccess(exit)) {
               navigate({
                 to: ".",
@@ -164,7 +167,13 @@ function ExpandedDetail({
           <LexicalEditor
             key={`${slug}/${ticket.id}`}
             markdown={ticket.body}
-            onChange={(next) => update({ body: next })}
+            onChange={(next) =>
+              update({
+                path: { orgSlug, slug, id: ticket.id },
+                payload: { body: next },
+                reactivityKeys: ticketWriteKeys
+              })
+            }
             onStatusChange={setBodyStatus}
             autoFocus={autoFocusBody}
           />
@@ -207,9 +216,8 @@ function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketAtom(tKey))
+  const update = useAtomSet(updateTicketAtom, { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketAtom)
   const saving = updateState.waiting
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)
@@ -224,7 +232,11 @@ function TitleField({
       setDraft(ticket.title)
       return
     }
-    await update({ title: trimmed })
+    await update({
+      path: { orgSlug, slug, id: ticket.id },
+      payload: { title: trimmed },
+      reactivityKeys: ticketWriteKeys
+    })
     setEditing(false)
   }
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {

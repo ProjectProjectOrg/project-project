@@ -10,7 +10,8 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import type { Member, TicketId } from "@projectproject/shared"
 
 function AssigneeMenuContent({
@@ -24,12 +25,14 @@ function AssigneeMenuContent({
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const update = useAtomSet(updateTicketAtom)
   const assignees = ticket.assignees
   const setAssignees = (next: ReadonlyArray<string>) => {
-    update({ assignees: next })
+    update({
+      path: { orgSlug, slug, id: ticket.id },
+      payload: { assignees: next },
+      reactivityKeys: ticketWriteKeys
+    })
   }
   const toggle = (id: string) => {
     setAssignees(

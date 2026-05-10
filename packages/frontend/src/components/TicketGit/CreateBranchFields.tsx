@@ -10,7 +10,8 @@ import {
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -88,9 +89,7 @@ export function CreateBranchFields({
   const pKey = projectKey(orgSlug, slug)
   const create = useAtomSet(createBranchAtom(pKey), { mode: "promiseExit" })
   const createState = useAtomValue(createBranchAtom(pKey))
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const updateTicket = useAtomSet(updateTicketAtom)
 
   const errorString =
     didSubmit && !createState.waiting
@@ -130,7 +129,12 @@ export function CreateBranchFields({
       baseBranch: base.trim() || undefined
     })
     if (Exit.isSuccess(exit)) {
-      if (status !== ticket.status) updateTicket({ status })
+      if (status !== ticket.status)
+        updateTicket({
+          path: { orgSlug, slug, id: ticket.id },
+          payload: { status },
+          reactivityKeys: ticketWriteKeys
+        })
       close()
     } else {
       setBusy(false)

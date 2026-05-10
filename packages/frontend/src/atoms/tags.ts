@@ -1,130 +1,81 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import { Effect, Schema } from "effect"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import {
-  TagColor,
-  type CreateTagInput,
-  type Tag,
-  type TagName,
-  type UpdateTagInput
-} from "@projectproject/shared"
+import { Schema } from "effect"
+import { AppApiClient } from "@/services/AppApiClient"
+import { ReactivityKey } from "@/atoms/reactivity-keys"
+import { TagColor, type Tag } from "@projectproject/shared"
 
 export const tagsKey = (orgSlug: string, slug: string) => `${orgSlug}/${slug}`
+
+const splitTagsKey = (key: string) => {
+  const idx = key.indexOf("/")
+  return { orgSlug: key.slice(0, idx), slug: key.slice(idx + 1) }
+}
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 const tagsBaseAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.tags.list({ path: { orgSlug, slug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("2 minutes"))
+  const { orgSlug, slug } = splitTagsKey(key)
+  return AppApiClient.query("tags", "list", {
+    path: { orgSlug, slug },
+    reactivityKeys: [ReactivityKey.tags]
+  })
 })
 
 export const tagsAtom = Atom.family((key: string) =>
   Atom.optimistic(tagsBaseAtom(key))
 )
 
-export const createTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, input: CreateTagInput) => {
-      if (!Result.isSuccess(current)) return current
-      const synthetic: Tag = {
-        name: input.name,
-        color: input.color ?? makeTagColor("#7c3aed"),
-        createdBy: "",
-        createdAt: new Date()
-      }
-      return Result.success([...current.value, synthetic], { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: CreateTagInput, get) {
-        const client = yield* ApiClient
-        const tag = yield* client.tags.create({
-          path: { orgSlug, slug },
-          payload: input
-        })
-        get.refresh(tagsBaseAtom(key))
-        return tag
-      })
-    )
-  })
-})
+const createTag = AppApiClient.mutation("tags", "create")
+const updateTag = AppApiClient.mutation("tags", "update")
+const removeTag = AppApiClient.mutation("tags", "delete")
 
-type RenameInput = {
-  oldName: TagName
-  nextName?: TagName
-  color?: Tag["color"]
-}
-export const renameTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, input: RenameInput) => {
-      if (!Result.isSuccess(current)) return current
-      const next = current.value.map((t) =>
-        t.name === input.oldName
-          ? {
-              ...t,
-              name: input.nextName ?? t.name,
-              color: input.color ?? t.color
-            }
-          : t
-      )
-      return Result.success(next, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: RenameInput, get) {
-        const client = yield* ApiClient
-        const patch: UpdateTagInput = {
-          ...(input.nextName ? { name: input.nextName } : {}),
-          ...(input.color ? { color: input.color } : {})
+export const createTagAtom = Atom.family((key: string) =>
+  tagsAtom(key).pipe(
+    Atom.optimisticFn({
+      reducer: (current, arg) => {
+        if (!Result.isSuccess(current)) return current
+        const synthetic: Tag = {
+          name: arg.payload.name,
+          color: arg.payload.color ?? makeTagColor("#7c3aed"),
+          createdBy: "",
+          createdAt: new Date()
         }
-        const tag = yield* client.tags.update({
-          path: { orgSlug, slug, name: input.oldName },
-          payload: patch
-        })
-        get.refresh(tagsBaseAtom(key))
-        if (input.nextName) {
-          get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
-        }
-        return tag
-      })
-    )
-  })
-})
+        return Result.success([...current.value, synthetic], { waiting: true })
+      },
+      fn: createTag
+    })
+  )
+)
 
-type DeleteInput = { name: TagName }
-export const deleteTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, _input: DeleteInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: DeleteInput, get) {
-        const client = yield* ApiClient
-        yield* client.tags.delete({
-          path: { orgSlug, slug, name: input.name }
-        })
-        get.refresh(tagsBaseAtom(key))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
-      })
-    )
-  })
-})
+export const renameTagAtom = Atom.family((key: string) =>
+  tagsAtom(key).pipe(
+    Atom.optimisticFn({
+      reducer: (current, arg) => {
+        if (!Result.isSuccess(current)) return current
+        const next = current.value.map((t) =>
+          t.name === arg.path.name
+            ? {
+                ...t,
+                name: arg.payload.name ?? t.name,
+                color: arg.payload.color ?? t.color
+              }
+            : t
+        )
+        return Result.success(next, { waiting: true })
+      },
+      fn: updateTag
+    })
+  )
+)
+
+export const deleteTagAtom = Atom.family((key: string) =>
+  tagsAtom(key).pipe(
+    Atom.optimisticFn({
+      reducer: (current, _arg) =>
+        Result.isSuccess(current)
+          ? Result.success(current.value, { waiting: true })
+          : current,
+      fn: removeTag
+    })
+  )
+)

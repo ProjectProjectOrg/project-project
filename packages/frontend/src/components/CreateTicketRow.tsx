@@ -24,6 +24,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { createTicketAtom } from "@/atoms/tickets"
+import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -38,8 +39,8 @@ export function CreateTicketRow({
   slug: string
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(createTicketAtom(projKey))
+  const create = useAtomSet(createTicketAtom, { mode: "promiseExit" })
+  const createState = useAtomValue(createTicketAtom)
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
@@ -61,7 +62,11 @@ export function CreateTicketRow({
     if (!trimmed || submitting) return
     inputRef.current?.blur()
     setFocused(false)
-    const exit = await create({ title: trimmed, type })
+    const exit = await create({
+      path: { orgSlug, slug },
+      payload: { title: trimmed, type },
+      reactivityKeys: ticketWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       setTitle("")
