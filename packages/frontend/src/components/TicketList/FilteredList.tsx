@@ -236,7 +236,9 @@ function Row({
             membership={sprintMembership}
           />
         )}
-        <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        <div className="justify-self-end">
+          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        </div>
         <AssigneeRowTrigger
           orgSlug={orgSlug}
           slug={slug}
