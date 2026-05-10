@@ -161,13 +161,19 @@ export const GroupsLive = Layer.effect(
         let color: GroupColor
         if (input.color !== undefined) {
           color = input.color
+        } else if (kind === "sprint") {
+          color = makeGroupColor("#777777")
         } else {
           const existingGroups = yield* Effect.forEach(
             ids,
             (id) => groupDocs.read(orgSlug, slug, id),
             { concurrency: 8 }
           )
-          color = pickColor(existingGroups.map((g) => g.color))
+          color = pickColor(
+            existingGroups
+              .filter((g) => g.kind !== "sprint")
+              .map((g) => g.color)
+          )
         }
 
         const now = new Date()
