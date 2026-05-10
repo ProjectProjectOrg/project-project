@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Effect, Exit, Schema } from "effect"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { motion } from "motion/react"
@@ -11,12 +11,15 @@ import {
 } from "@/components/ui/popover"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
+import {
+  normalizeTagNameInput,
+  validateTagName,
+  validateUpdateTagInput
+} from "@/lib/tags"
 import { m } from "@/paraglide/messages"
-import { TagColor, TagName, type Tag } from "@projectproject/shared"
+import { TagColor, type Tag, type TagName } from "@projectproject/shared"
 
-const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
-const makeTagName = Schema.decodeUnknownSync(TagName)
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 type Props = {
@@ -116,12 +119,18 @@ function Editor({
   const { open: openConfirm } = useConfirmButton()
   const [draftName, setDraftName] = useState<string>(tag.name)
 
-  const trimmed = draftName.trim()
-  const invalid = trimmed.length > 0 && !VALID.test(trimmed)
+  const normalizedDraftName = normalizeTagNameInput(draftName)
+  const tagNameExit = Effect.runSyncExit(validateTagName(draftName))
+  const invalid = normalizedDraftName.length > 0 && Exit.isFailure(tagNameExit)
 
   const commit = () => {
-    if (trimmed === tag.name || invalid || trimmed.length === 0) return
-    onPatch({ nextName: makeTagName(trimmed) })
+    if (normalizedDraftName === tag.name || normalizedDraftName.length === 0)
+      return
+    const patchExit = Effect.runSyncExit(
+      validateUpdateTagInput({ name: draftName })
+    )
+    if (Exit.isFailure(patchExit) || !patchExit.value.name) return
+    onPatch({ nextName: patchExit.value.name })
   }
 
   return (

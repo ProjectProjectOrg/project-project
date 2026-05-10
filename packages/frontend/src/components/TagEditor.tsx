@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Cause, Exit, Schema } from "effect"
+import { Cause, Effect, Exit } from "effect"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,11 @@ import {
   updateTicketAtom
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
+import {
+  normalizeTagNameInput,
+  validateCreateTagInput,
+  validateTagName
+} from "@/lib/tags"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
 
@@ -35,9 +40,7 @@ type Props = {
   canManageTags: boolean
 }
 
-const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const NEUTRAL = "#94a3b8"
-const makeTagName = Schema.decodeUnknownSync(TagName)
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
@@ -90,34 +93,43 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     return map
   }, [registry])
 
-  const lowered = draft.trim().toLowerCase()
-  const exactRegistered = registry.find((t) => t.name === lowered)
-  const isValidNewName = VALID.test(lowered)
+  const normalizedDraft = normalizeTagNameInput(draft)
+  const tagNameExit = useMemo(
+    () => Effect.runSyncExit(validateTagName(draft)),
+    [draft]
+  )
+  const exactRegistered = registry.find((t) => t.name === normalizedDraft)
+  const isValidNewName = Exit.isSuccess(tagNameExit)
   const showValidationError =
-    canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
-  const filtered = lowered
-    ? registry.filter((t) => t.name.includes(lowered))
+    canManageTags &&
+    normalizedDraft.length > 0 &&
+    !exactRegistered &&
+    !isValidNewName
+  const filtered = normalizedDraft
+    ? registry.filter((t) => t.name.includes(normalizedDraft))
     : registry
 
-  const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({ tags: next.map((name) => makeTagName(name)) })
-
-  const addTag = (name: string) => {
+  const addTag = (name: TagName) => {
     if (displayed.includes(name)) return
-    apply([...ticket.tags.filter((t) => !removed.has(t)), name])
+    updateTicket({
+      tags: [...ticket.tags.filter((t) => !removed.has(t)), name]
+    })
     setDraft("")
     setOpen(false)
   }
 
   const removeFromTicket = (name: string) => {
-    apply(ticket.tags.filter((t) => t !== name))
+    updateTicket({ tags: ticket.tags.filter((t) => t !== name) })
   }
 
   const createAndApply = async () => {
     if (!isValidNewName || exactRegistered) return
-    const name = lowered
-    const exit = await createTag({ name: makeTagName(name) })
-    if (Exit.isSuccess(exit)) addTag(name)
+    const payloadExit = Effect.runSyncExit(
+      validateCreateTagInput({ name: draft })
+    )
+    if (Exit.isFailure(payloadExit)) return
+    const exit = await createTag(payloadExit.value)
+    if (Exit.isSuccess(exit)) addTag(payloadExit.value.name)
   }
 
   const ticketHasTag = (name: string) =>
@@ -127,19 +139,23 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     oldName: string,
     patch: { nextName?: TagName; color?: Tag["color"] }
   ) => {
+    const oldNameExit = Effect.runSyncExit(validateTagName(oldName))
+    if (Exit.isFailure(oldNameExit)) return
     if (patch.nextName && patch.nextName !== oldName) {
       registerRename(oldName, patch.nextName)
     }
     void renameTag({
-      oldName: makeTagName(oldName),
+      oldName: oldNameExit.value,
       nextName: patch.nextName,
       color: patch.color
     })
   }
 
   const handleDelete = async (name: string) => {
+    const nameExit = Effect.runSyncExit(validateTagName(name))
+    if (Exit.isFailure(nameExit)) return
     registerRemove(name)
-    const exit = await deleteTag({ name: makeTagName(name) })
+    const exit = await deleteTag({ name: nameExit.value })
     if (Exit.isFailure(exit)) {
       unregisterRemove(name)
       throw Cause.squash(exit.cause)
@@ -259,7 +275,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                 )
               })}
               {canManageTags &&
-              lowered &&
+              normalizedDraft &&
               !exactRegistered &&
               isValidNewName ? (
                 <button
@@ -268,7 +284,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                   className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.99]"
                 >
                   <Plus className="size-3.5" strokeWidth={2} />
-                  {m.tags_create_button({ name: lowered })}
+                  {m.tags_create_button({ name: normalizedDraft })}
                 </button>
               ) : null}
             </div>
