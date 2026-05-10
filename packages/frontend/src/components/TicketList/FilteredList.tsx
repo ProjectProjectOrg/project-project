@@ -229,12 +229,14 @@ function Row({
           {ticket.title}
         </span>
         {showSprintCol && (
-          <SprintField
-            orgSlug={orgSlug}
-            slug={slug}
-            ticketId={ticket.id}
-            membership={sprintMembership}
-          />
+          <div className="justify-self-end">
+            <SprintField
+              orgSlug={orgSlug}
+              slug={slug}
+              ticketId={ticket.id}
+              membership={sprintMembership}
+            />
+          </div>
         )}
         <div className="justify-self-end">
           <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
