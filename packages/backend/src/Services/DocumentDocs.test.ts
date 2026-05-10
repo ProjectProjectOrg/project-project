@@ -155,13 +155,7 @@ it.effect(
             makeMarkdown({
               readTicketParts: () =>
                 Effect.succeed({ data: {}, description: "", region: "" }),
-              writeTicketWithRegion: (
-                _org,
-                _slug,
-                id,
-                frontmatter,
-                body
-              ) => {
+              writeTicketWithRegion: (_org, _slug, id, frontmatter, body) => {
                 written = { id, frontmatter, body }
                 return Effect.void
               }

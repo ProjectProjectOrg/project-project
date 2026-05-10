@@ -401,6 +401,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addSuccess(Comment)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -413,6 +414,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.del(

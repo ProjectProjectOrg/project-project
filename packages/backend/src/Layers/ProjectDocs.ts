@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema } from "effect"
+import { Cause, Effect, Layer, Schema } from "effect"
 import { GithubConnection, NotFound, Role, Slug } from "@projectproject/shared"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import {
@@ -111,6 +111,11 @@ export const ProjectDocsLive = Layer.effect(
           const file = yield* markdown.readProjectFile(orgSlug, slug)
           yield* checkOrgFrontmatter(orgSlug, file.data)
           const frontmatter = yield* decodeProjectFrontmatter(file.data).pipe(
+            Effect.tapErrorCause((cause) =>
+              Effect.logWarning("project frontmatter decode failed").pipe(
+                Effect.annotateLogs({ cause: Cause.pretty(cause) })
+              )
+            ),
             Effect.orDie
           )
           return { ...frontmatter, body: file.body }

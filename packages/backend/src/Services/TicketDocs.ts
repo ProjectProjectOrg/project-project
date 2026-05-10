@@ -1,8 +1,30 @@
 import { Context, type Effect } from "effect"
-import type { NotFound, TicketDetail, TicketId } from "@projectproject/shared"
+import type {
+  NotFound,
+  TagName,
+  TicketId,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from "@projectproject/shared"
 import type { MarkdownError, TicketIdTaken } from "./Markdown"
 
-export type TicketDocument = TicketDetail
+export interface TicketDocument {
+  readonly id: TicketId
+  readonly title: string
+  readonly status: TicketStatus
+  readonly type: TicketType
+  readonly priority: TicketPriority
+  readonly tags: ReadonlyArray<TagName>
+  readonly branch: string | null
+  readonly pr: number | null
+  readonly lastTransitionedPr: number | null
+  readonly assignees: ReadonlyArray<string>
+  readonly createdBy: string
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly body: string
+}
 
 export interface TicketDocsShape {
   readonly listIds: (
