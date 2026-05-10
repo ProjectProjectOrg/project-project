@@ -30,6 +30,7 @@ import {
   removeMemberAtom,
   updateMemberAtom
 } from "@/atoms/projects"
+import { projectWriteKeys } from "@/atoms/reactivity-keys"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -146,7 +147,11 @@ function AddMemberRow({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    const exit = await add({ email: trimmed, role })
+    const exit = await add({
+      path: { orgSlug, slug },
+      payload: { email: trimmed, role },
+      reactivityKeys: projectWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       setEmail("")
     }
@@ -312,7 +317,10 @@ function MemberMenu({
   if (!canChangeRole && !canRemove) return <span className="size-8 shrink-0" />
 
   async function onRemove() {
-    await remove()
+    await remove({
+      path: { orgSlug, slug, userId: member.id },
+      reactivityKeys: projectWriteKeys
+    })
   }
 
   return (
@@ -371,7 +379,13 @@ function MemberMenu({
                   return (
                     <DropdownMenuItem
                       key={r}
-                      onSelect={() => update({ role: r })}
+                      onSelect={() =>
+                        update({
+                          path: { orgSlug, slug, userId: member.id },
+                          payload: { role: r },
+                          reactivityKeys: projectWriteKeys
+                        })
+                      }
                       className="cursor-pointer"
                     >
                       <RIcon className="size-4" strokeWidth={1.75} />

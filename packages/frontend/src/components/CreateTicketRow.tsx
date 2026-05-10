@@ -23,7 +23,7 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { createTicketAtom } from "@/atoms/tickets"
+import { createTicketAtom, ticketsListKey } from "@/atoms/tickets"
 import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
@@ -39,8 +39,9 @@ export function CreateTicketRow({
   slug: string
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(createTicketAtom, { mode: "promiseExit" })
-  const createState = useAtomValue(createTicketAtom)
+  const listKey = ticketsListKey(orgSlug, slug)
+  const create = useAtomSet(createTicketAtom(listKey), { mode: "promiseExit" })
+  const createState = useAtomValue(createTicketAtom(listKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()

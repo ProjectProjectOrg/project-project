@@ -25,6 +25,7 @@ import {
   projectKey,
   updateProjectAtom
 } from "@/atoms/projects"
+import { projectWriteKeys } from "@/atoms/reactivity-keys"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
@@ -173,7 +174,11 @@ function NameField({
       setDraft(name)
       return
     }
-    await update({ name: trimmed })
+    await update({
+      path: { orgSlug, slug },
+      payload: { name: trimmed },
+      reactivityKeys: projectWriteKeys
+    })
     setEditing(false)
   }
 
@@ -223,7 +228,10 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const [confirming, setConfirming] = useState(false)
 
   async function onDelete() {
-    const exit = await remove()
+    const exit = await remove({
+      path: { orgSlug, slug },
+      reactivityKeys: projectWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
     }

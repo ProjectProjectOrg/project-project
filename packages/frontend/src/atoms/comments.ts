@@ -1,128 +1,74 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import { Effect } from "effect"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import type {
-  CommentId,
-  CreateCommentInput,
-  TicketId,
-  UpdateCommentInput
-} from "@projectproject/shared"
+import { AppApiClient } from "@/services/AppApiClient"
+import { ReactivityKey } from "@/atoms/reactivity-keys"
+import {
+  commentKey,
+  commentsKey,
+  type CommentKey,
+  type TicketKey
+} from "@/atoms/keys"
 
-export const commentsKey = (orgSlug: string, slug: string, id: TicketId) =>
-  `${orgSlug}/${slug}/${id}`
+export { commentKey, commentsKey }
+export type { CommentKey }
 
-export const commentKey = (
-  orgSlug: string,
-  slug: string,
-  id: TicketId,
-  commentId: CommentId
-) => `${orgSlug}/${slug}/${id}/${commentId}`
+const commentsBaseAtom = Atom.family(({ orgSlug, slug, id }: TicketKey) =>
+  AppApiClient.query("ticketComments", "list", {
+    path: { orgSlug, slug, id },
+    reactivityKeys: [ReactivityKey.comments]
+  })
+)
 
-const splitKey = (key: string) => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    id: parts.slice(2).join("/") as TicketId
-  }
-}
-
-const splitCommentKey = (key: string) => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    id: parts[2] as TicketId,
-    commentId: parts.slice(3).join("/") as CommentId
-  }
-}
-
-const commentsBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.ticketComments.list({
-          path: { orgSlug, slug, id }
-        })
-      })
-    )
-    .pipe(Atom.setIdleTTL("5 minutes"))
-})
-
-export const commentsAtom = Atom.family((key: string) =>
+export const commentsAtom = Atom.family((key: TicketKey) =>
   Atom.optimistic(commentsBaseAtom(key))
 )
 
-export const createCommentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitKey(key)
-  return Atom.optimisticFn(commentsAtom(key), {
-    reducer: (current, _input: CreateCommentInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: CreateCommentInput, get) {
-        const client = yield* ApiClient
-        const created = yield* client.ticketComments.create({
-          path: { orgSlug, slug, id },
-          payload: input
-        })
-        get.refresh(commentsBaseAtom(key))
-        return created
-      })
-    )
-  })
+const createComment = AppApiClient.mutation("ticketComments", "create")
+const updateComment = AppApiClient.mutation("ticketComments", "update")
+const removeComment = AppApiClient.mutation("ticketComments", "delete")
+
+export const createCommentAtom = Atom.family((key: TicketKey) =>
+  commentsAtom(key).pipe(
+    Atom.optimisticFn({
+      reducer: (current, _arg) =>
+        Result.isSuccess(current)
+          ? Result.success(current.value, { waiting: true })
+          : current,
+      fn: createComment
+    })
+  )
+)
+
+export const editCommentAtom = Atom.family((key: CommentKey) => {
+  const listKey = commentsKey(key.orgSlug, key.slug, key.id)
+  return commentsAtom(listKey).pipe(
+    Atom.optimisticFn({
+      reducer: (current, arg) => {
+        if (!Result.isSuccess(current)) return current
+        const editedAt = new Date()
+        const next = current.value.map((c) =>
+          c.id === key.commentId
+            ? { ...c, body: arg.payload.body, editedAt }
+            : c
+        )
+        return Result.success([...next], { waiting: true })
+      },
+      fn: updateComment
+    })
+  )
 })
 
-export const editCommentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id, commentId } = splitCommentKey(key)
-  const listKey = commentsKey(orgSlug, slug, id)
-  return Atom.optimisticFn(commentsAtom(listKey), {
-    reducer: (current, input: UpdateCommentInput) => {
-      if (!Result.isSuccess(current)) return current
-      const editedAt = new Date()
-      const next = current.value.map((c) =>
-        c.id === commentId ? { ...c, body: input.body, editedAt } : c
-      )
-      return Result.success([...next], { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: UpdateCommentInput, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.ticketComments.update({
-          path: { orgSlug, slug, id, commentId },
-          payload: { body: input.body }
-        })
-        get.refresh(commentsBaseAtom(listKey))
-        return updated
-      })
-    )
-  })
-})
-
-export const deleteCommentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id, commentId } = splitCommentKey(key)
-  const listKey = commentsKey(orgSlug, slug, id)
-  return Atom.optimisticFn(commentsAtom(listKey), {
-    reducer: (current, _input: void) => {
-      if (!Result.isSuccess(current)) return current
-      return Result.success(
-        [...current.value.filter((c) => c.id !== commentId)],
-        { waiting: true }
-      )
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        yield* client.ticketComments.delete({
-          path: { orgSlug, slug, id, commentId }
-        })
-        get.refresh(commentsBaseAtom(listKey))
-        return commentId
-      })
-    )
-  })
+export const deleteCommentAtom = Atom.family((key: CommentKey) => {
+  const listKey = commentsKey(key.orgSlug, key.slug, key.id)
+  return commentsAtom(listKey).pipe(
+    Atom.optimisticFn({
+      reducer: (current, _arg) => {
+        if (!Result.isSuccess(current)) return current
+        return Result.success(
+          [...current.value.filter((c) => c.id !== key.commentId)],
+          { waiting: true }
+        )
+      },
+      fn: removeComment
+    })
+  )
 })

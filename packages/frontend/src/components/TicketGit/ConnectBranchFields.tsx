@@ -17,6 +17,7 @@ import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { githubWriteKeys } from "@/atoms/reactivity-keys"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
@@ -88,7 +89,11 @@ export function ConnectBranchFields({
     setBusy(true)
     setDidSubmit(true)
     setAttemptedName(branchName)
-    const exit = await attach({ id: ticket.id, name: branchName })
+    const exit = await attach({
+      path: { orgSlug, slug, id: ticket.id },
+      payload: { name: branchName },
+      reactivityKeys: githubWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       close()
       return

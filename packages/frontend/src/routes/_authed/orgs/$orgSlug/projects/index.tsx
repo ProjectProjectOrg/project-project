@@ -4,7 +4,12 @@ import { Exit } from "effect"
 import { useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
-import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
+import {
+  createProjectAtom,
+  orgKey,
+  projectsListAtom
+} from "@/atoms/projects"
+import { projectWriteKeys } from "@/atoms/reactivity-keys"
 import {
   InputGroup,
   InputGroupAddon,
@@ -31,7 +36,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
 
 function Projects() {
   const { orgSlug } = Route.useParams()
-  const list = useAtomValue(projectsListAtom(orgSlug))
+  const list = useAtomValue(projectsListAtom(orgKey(orgSlug)))
   const [creating, setCreating] = useState(false)
 
   return (
@@ -87,10 +92,11 @@ function CreateRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const create = useAtomSet(createProjectAtom(orgSlug), {
+  const oKey = orgKey(orgSlug)
+  const create = useAtomSet(createProjectAtom(oKey), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(createProjectAtom(orgSlug))
+  const createState = useAtomValue(createProjectAtom(oKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.projects_create_error_fallback()
@@ -102,7 +108,11 @@ function CreateRow({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    const exit = await create({ name: trimmed })
+    const exit = await create({
+      path: { orgSlug },
+      payload: { name: trimmed },
+      reactivityKeys: projectWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       setName("")
     }

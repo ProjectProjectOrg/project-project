@@ -2,6 +2,7 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import { projectWriteKeys } from "@/atoms/reactivity-keys"
 import {
   Card,
   CardContent,
@@ -47,7 +48,13 @@ function AboutTab() {
         <LexicalEditor
           key={project.slug}
           markdown={project.body}
-          onChange={(next) => update({ body: next })}
+          onChange={(next) =>
+            update({
+              path: { orgSlug, slug: project.slug },
+              payload: { body: next },
+              reactivityKeys: projectWriteKeys
+            })
+          }
           onStatusChange={setStatus}
         />
       </CardContent>

@@ -86,8 +86,9 @@ function ExpandedDetail({
   focusBody: boolean
   onConsumeFocusBody: () => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
-  const remove = useAtomSet(deleteTicketAtom, { mode: "promiseExit" })
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey))
+  const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
@@ -216,8 +217,9 @@ function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const update = useAtomSet(updateTicketAtom, { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketAtom)
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketAtom(tKey))
   const saving = updateState.waiting
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)

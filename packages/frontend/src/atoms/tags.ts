@@ -2,26 +2,21 @@ import { Atom, Result } from "@effect-atom/atom-react"
 import { Schema } from "effect"
 import { AppApiClient } from "@/services/AppApiClient"
 import { ReactivityKey } from "@/atoms/reactivity-keys"
+import { tagsKey, type ProjectKey } from "@/atoms/keys"
 import { TagColor, type Tag } from "@projectproject/shared"
 
-export const tagsKey = (orgSlug: string, slug: string) => `${orgSlug}/${slug}`
-
-const splitTagsKey = (key: string) => {
-  const idx = key.indexOf("/")
-  return { orgSlug: key.slice(0, idx), slug: key.slice(idx + 1) }
-}
+export { tagsKey }
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-const tagsBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitTagsKey(key)
-  return AppApiClient.query("tags", "list", {
+const tagsBaseAtom = Atom.family(({ orgSlug, slug }: ProjectKey) =>
+  AppApiClient.query("tags", "list", {
     path: { orgSlug, slug },
     reactivityKeys: [ReactivityKey.tags]
   })
-})
+)
 
-export const tagsAtom = Atom.family((key: string) =>
+export const tagsAtom = Atom.family((key: ProjectKey) =>
   Atom.optimistic(tagsBaseAtom(key))
 )
 
@@ -29,7 +24,7 @@ const createTag = AppApiClient.mutation("tags", "create")
 const updateTag = AppApiClient.mutation("tags", "update")
 const removeTag = AppApiClient.mutation("tags", "delete")
 
-export const createTagAtom = Atom.family((key: string) =>
+export const createTagAtom = Atom.family((key: ProjectKey) =>
   tagsAtom(key).pipe(
     Atom.optimisticFn({
       reducer: (current, arg) => {
@@ -47,7 +42,7 @@ export const createTagAtom = Atom.family((key: string) =>
   )
 )
 
-export const renameTagAtom = Atom.family((key: string) =>
+export const renameTagAtom = Atom.family((key: ProjectKey) =>
   tagsAtom(key).pipe(
     Atom.optimisticFn({
       reducer: (current, arg) => {
@@ -68,7 +63,7 @@ export const renameTagAtom = Atom.family((key: string) =>
   )
 )
 
-export const deleteTagAtom = Atom.family((key: string) =>
+export const deleteTagAtom = Atom.family((key: ProjectKey) =>
   tagsAtom(key).pipe(
     Atom.optimisticFn({
       reducer: (current, _arg) =>

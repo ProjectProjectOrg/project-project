@@ -5,6 +5,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { commentsKey, createCommentAtom } from "@/atoms/comments"
+import { commentWriteKeys } from "@/atoms/reactivity-keys"
 import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 
@@ -31,7 +32,11 @@ export function CommentComposer({
 
   const submit = async () => {
     if (!body.trim() || submitting) return
-    const exit = await create({ body })
+    const exit = await create({
+      path: { orgSlug, slug, id: ticketId },
+      payload: { body },
+      reactivityKeys: commentWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       setBody("")
       setEditorVersion((v) => v + 1)

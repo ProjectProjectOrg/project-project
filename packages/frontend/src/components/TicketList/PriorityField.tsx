@@ -13,7 +13,7 @@ import {
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
 import { m } from "@/paraglide/messages"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { ticketWriteKeys } from "@/atoms/reactivity-keys"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketPriority } from "@projectproject/shared"
@@ -29,7 +29,7 @@ export function PriorityButton({
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -102,7 +102,7 @@ export function PriorityBadgeTrigger({
   ticket: { id: TicketId; priority: TicketPriority }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()

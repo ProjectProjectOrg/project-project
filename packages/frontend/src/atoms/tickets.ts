@@ -1,49 +1,53 @@
-import { Atom } from "@effect-atom/atom-react"
-import { Schema } from "effect"
-import { AppApiClient } from "@/services/AppApiClient"
+import { Atom, Result } from "@effect-atom/atom-react"
 import { ReactivityKey } from "@/atoms/reactivity-keys"
-import { TicketId } from "@projectproject/shared"
+import {
+  ticketKey,
+  ticketsListKey,
+  type ProjectKey,
+  type TicketKey
+} from "@/atoms/keys"
+import { AppApiClient } from "@/services/AppApiClient"
 
-export const ticketsListKey = (orgSlug: string, slug: string) =>
-  `${orgSlug}/${slug}`
+export { ticketKey, ticketsListKey }
+export type { ProjectKey, TicketKey }
 
-export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>
-  `${orgSlug}/${slug}/${id}`
-
-const splitProjectKey = (key: string) => {
-  const idx = key.indexOf("/")
-  return { orgSlug: key.slice(0, idx), slug: key.slice(idx + 1) }
-}
-
-const makeTicketId = Schema.decodeUnknownSync(TicketId)
-
-const splitTicketKey = (key: string) => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    id: makeTicketId(parts.slice(2).join("/"))
-  }
-}
-
-export const ticketsListAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return AppApiClient.query("tickets", "list", {
+export const ticketsListAtom = Atom.family(({ orgSlug, slug }: ProjectKey) =>
+  AppApiClient.query("tickets", "list", {
     path: { orgSlug, slug },
     reactivityKeys: [ReactivityKey.tickets]
   })
-})
+)
 
-export const ticketAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitTicketKey(key)
-  return AppApiClient.query("tickets", "get", {
+const ticketBaseAtom = Atom.family(({ orgSlug, slug, id }: TicketKey) =>
+  AppApiClient.query("tickets", "get", {
     path: { orgSlug, slug, id },
     reactivityKeys: [ReactivityKey.tickets]
   })
-})
+)
 
-export const createTicketAtom = AppApiClient.mutation("tickets", "create")
+export const ticketAtom = Atom.family((key: TicketKey) =>
+  Atom.optimistic(ticketBaseAtom(key))
+)
 
-export const updateTicketAtom = AppApiClient.mutation("tickets", "update")
+export const updateTicketAtom = Atom.family((key: TicketKey) =>
+  ticketAtom(key).pipe(
+    Atom.optimisticFn({
+      reducer: (current, arg) => {
+        if (!Result.isSuccess(current)) return current
+        return Result.success(
+          { ...current.value, ...arg.payload } as typeof current.value,
+          { waiting: true }
+        )
+      },
+      fn: AppApiClient.mutation("tickets", "update")
+    })
+  )
+)
 
-export const deleteTicketAtom = AppApiClient.mutation("tickets", "delete")
+export const deleteTicketAtom = Atom.family((_key: TicketKey) =>
+  AppApiClient.mutation("tickets", "delete")
+)
+
+export const createTicketAtom = Atom.family((_key: ProjectKey) =>
+  AppApiClient.mutation("tickets", "create")
+)

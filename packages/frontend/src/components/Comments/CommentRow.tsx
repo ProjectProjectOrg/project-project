@@ -14,6 +14,7 @@ import {
   deleteCommentAtom,
   editCommentAtom
 } from "@/atoms/comments"
+import { commentWriteKeys } from "@/atoms/reactivity-keys"
 import type { Comment, TicketId } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 
@@ -67,7 +68,15 @@ export function CommentRow({
                 ariaLabel={m.comments_delete_aria_label()}
                 message={m.comments_delete_confirm()}
                 onConfirm={async () => {
-                  await deleteComment()
+                  await deleteComment({
+                    path: {
+                      orgSlug,
+                      slug,
+                      id: ticketId,
+                      commentId: comment.id
+                    },
+                    reactivityKeys: commentWriteKeys
+                  })
                 }}
               />
             </div>
@@ -113,7 +122,11 @@ function EditForm({
     setBusy(true)
     setError(null)
     try {
-      await edit({ body })
+      await edit({
+        path: { orgSlug, slug, id: ticketId, commentId: comment.id },
+        payload: { body },
+        reactivityKeys: commentWriteKeys
+      })
       close()
     } catch (e) {
       setError(e instanceof Error ? e.message : m.comments_save_failed())

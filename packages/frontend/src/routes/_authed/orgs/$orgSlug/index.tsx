@@ -2,7 +2,7 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ArrowRight, FolderKanban, Plus } from "lucide-react"
 import { meAtom } from "@/atoms/auth"
-import { projectsListAtom } from "@/atoms/projects"
+import { orgKey, projectsListAtom } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
 function Dashboard() {
   const { orgSlug } = Route.useParams()
   const me = useAtomValue(meAtom)
-  const list = useAtomValue(projectsListAtom(orgSlug))
+  const list = useAtomValue(projectsListAtom(orgKey(orgSlug)))
   const name = Result.isSuccess(me)
     ? me.value.name.split(" ")[0]
     : m.org_dashboard_greeting_fallback_name()

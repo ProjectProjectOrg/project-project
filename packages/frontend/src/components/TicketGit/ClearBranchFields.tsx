@@ -2,6 +2,7 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import { Exit } from "effect"
 import { clearBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { githubWriteKeys } from "@/atoms/reactivity-keys"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { m } from "@/paraglide/messages"
@@ -23,7 +24,10 @@ export function ClearBranchFields({
 
   async function submit() {
     setBusy(true)
-    const exit = await clear({ id })
+    const exit = await clear({
+      path: { orgSlug, slug, id },
+      reactivityKeys: githubWriteKeys
+    })
     if (Exit.isSuccess(exit)) {
       close()
     } else {

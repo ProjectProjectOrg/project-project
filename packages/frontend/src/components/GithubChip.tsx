@@ -21,9 +21,11 @@ import {
   connectGithubAtom,
   disconnectGithubAtom,
   githubReposAtom,
-  projectGitStatesAtom
+  projectGitStatesAtom,
+  reposKey
 } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { githubWriteKeys } from "@/atoms/reactivity-keys"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -179,7 +181,7 @@ function ConnectedChip({
 
 function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const [query, setQuery] = useState("")
-  const repos = useAtomValue(githubReposAtom(query))
+  const repos = useAtomValue(githubReposAtom(reposKey(query)))
   const pKey = projectKey(orgSlug, slug)
   const connect = useAtomSet(connectGithubAtom(pKey))
   const connectState = useAtomValue(connectGithubAtom(pKey))
@@ -205,9 +207,13 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
 
   function pick(repo: GithubRepo) {
     connect({
-      repoOwner: repo.owner,
-      repoName: repo.name,
-      defaultBaseBranch: null
+      path: { orgSlug, slug },
+      payload: {
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        defaultBaseBranch: null
+      },
+      reactivityKeys: githubWriteKeys
     })
   }
 
@@ -302,9 +308,13 @@ function ManagePanel({
 
   async function saveBase() {
     await connect({
-      repoOwner: github.repoOwner,
-      repoName: github.repoName,
-      defaultBaseBranch: base.trim() || null
+      path: { orgSlug, slug },
+      payload: {
+        repoOwner: github.repoOwner,
+        repoName: github.repoName,
+        defaultBaseBranch: base.trim() || null
+      },
+      reactivityKeys: githubWriteKeys
     })
   }
 
@@ -360,7 +370,12 @@ function ManagePanel({
               type="button"
               size="sm"
               variant="primary"
-              onClick={() => void disconnect()}
+              onClick={() =>
+                void disconnect({
+                  path: { orgSlug, slug },
+                  reactivityKeys: githubWriteKeys
+                })
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {m.github_chip_disconnect_button()}

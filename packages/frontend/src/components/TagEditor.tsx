@@ -20,6 +20,7 @@ import {
 } from "@/atoms/tags"
 import { tagWriteKeys, ticketWriteKeys } from "@/atoms/reactivity-keys"
 import {
+  ticketKey,
   ticketsListAtom,
   ticketsListKey,
   updateTicketAtom
@@ -45,7 +46,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
   )
-  const updateTicket = useAtomSet(updateTicketAtom)
+  const updateTicket = useAtomSet(updateTicketAtom(ticketKey(orgSlug, slug, ticket.id)))
   const createTag = useAtomSet(createTagAtom(key), { mode: "promiseExit" })
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key), { mode: "promiseExit" })
