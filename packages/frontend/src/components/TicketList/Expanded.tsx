@@ -21,6 +21,7 @@ import { useProjectRole } from "@/lib/projectRole"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
 import { PriorityBadgeTrigger } from "./PriorityField"
+import { SprintBadgeTrigger } from "./SprintField"
 import { TypeBadgeTrigger } from "./TypeField"
 
 export function Expanded({
@@ -129,6 +130,11 @@ function ExpandedDetail({
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <PriorityBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
         <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
+        <SprintBadgeTrigger
+          orgSlug={orgSlug}
+          slug={slug}
+          ticketId={ticket.id}
+        />
         <AssigneePicker
           orgSlug={orgSlug}
           slug={slug}

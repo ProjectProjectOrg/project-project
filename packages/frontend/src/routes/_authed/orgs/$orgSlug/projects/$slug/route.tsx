@@ -138,7 +138,7 @@ function ProjectHeader({
       <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
       </div>
@@ -367,10 +367,6 @@ function TabsNav({
     ? activeAndPlannedCount(sprintsResult.value)
     : null
 
-  const summary = Result.isSuccess(ticketsResult)
-    ? summarize(ticketsResult.value)
-    : null
-
   const isActive = (key: TabKey): boolean => {
     const t = TABS.find((x) => x.key === key)!
     const target = t.to.replace("$orgSlug", orgSlug).replace("$slug", slug)
@@ -452,9 +448,6 @@ function TabsNav({
         }}
       />
 
-      {summary && (
-        <span className="text-xs text-muted-foreground">{summary}</span>
-      )}
     </div>
   )
 }
@@ -495,18 +488,6 @@ function BadgeStat({
   )
 }
 
-function summarize(tickets: ReadonlyArray<Ticket>): string | null {
-  if (tickets.length === 0) return null
-  let todo = 0
-  let inProgress = 0
-  let done = 0
-  for (const t of tickets) {
-    if (t.status === "todo") todo++
-    else if (t.status === "in_progress") inProgress++
-    else done++
-  }
-  return m.project_detail_tickets_summary({ todo, inProgress, done })
-}
 
 function Skeleton() {
   return (

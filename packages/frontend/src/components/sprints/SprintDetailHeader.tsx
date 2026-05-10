@@ -1,8 +1,23 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import { Exit } from "effect"
-import { MoreHorizontal, Trash2, CheckCircle2 } from "lucide-react"
+import {
+  MoreHorizontal,
+  Trash2,
+  CheckCircle2
+} from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
+import type { DateRange } from "react-day-picker"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger
+} from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { MentionScopeProvider } from "@/mentions/scope"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +25,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
@@ -21,9 +41,11 @@ import {
   daysLeft,
   sprintState,
   type Group,
+  type GroupDetail,
   type GroupId
 } from "@projectproject/shared"
-import { SprintStateDot } from "./SprintChip"
+import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { SprintStateIcon } from "./SprintChip"
 
 const DATE_FMT = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -31,14 +53,10 @@ const DATE_FMT = new Intl.DateTimeFormat(undefined, {
   year: "numeric"
 })
 
-function toDateInputValue(d: Date | null): string {
-  if (!d) return ""
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-function parseDateInput(value: string): Date {
-  const [y, m, d] = value.split("-").map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
-}
+const SHORT_DATE_FMT = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric"
+})
 
 export function SprintDetailHeader({
   orgSlug,
@@ -48,7 +66,7 @@ export function SprintDetailHeader({
 }: {
   orgSlug: string
   slug: string
-  sprint: Group
+  sprint: GroupDetail
   onRequestComplete?: () => void
 }) {
   const isCompleted = sprint.completedAt !== null
@@ -56,25 +74,15 @@ export function SprintDetailHeader({
   const state = sprintState(sprint)
 
   return (
-    <header className="flex flex-col gap-2 border-b border-border pb-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <SprintStateDot sprint={sprint} className="size-2" />
-          <NameField
-            orgSlug={orgSlug}
-            slug={slug}
-            sprint={sprint}
-            disabled={isCompleted}
-          />
-        </div>
-        <SprintMenu
+    <header className="flex flex-col gap-2">
+      <div className="flex min-w-0 items-center gap-2 px-3">
+        <SprintStateIcon sprint={sprint} />
+        <NameField
           orgSlug={orgSlug}
           slug={slug}
           sprint={sprint}
-          onRequestComplete={onRequestComplete}
+          disabled={isCompleted}
         />
-      </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <DateRangeField
           orgSlug={orgSlug}
           slug={slug}
@@ -82,23 +90,35 @@ export function SprintDetailHeader({
           disabled={isCompleted}
         />
         {state === "active" && left !== null && left >= 0 && (
-          <span className="font-mono tabular-nums">
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {m.sprints_active_with_days_left({ days: left })}
           </span>
         )}
         {state === "active" && left !== null && left < 0 && (
-          <span className="font-mono tabular-nums text-foreground">
+          <span className="font-mono text-[11px] tabular-nums text-foreground">
             {m.sprints_overdue_with_days({ days: -left })}
           </span>
         )}
         {state === "completed" && sprint.completedAt && (
-          <span>
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {m.sprints_completed_at({
-              date: DATE_FMT.format(sprint.completedAt)
+              date: SHORT_DATE_FMT.format(sprint.completedAt)
             })}
           </span>
         )}
+        <SprintMenu
+          orgSlug={orgSlug}
+          slug={slug}
+          sprint={sprint}
+          onRequestComplete={onRequestComplete}
+        />
       </div>
+      <DescriptionField
+        orgSlug={orgSlug}
+        slug={slug}
+        sprint={sprint}
+        disabled={isCompleted}
+      />
     </header>
   )
 }
@@ -154,7 +174,7 @@ function NameField({
         onClick={() => !disabled && setEditing(true)}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight",
+          "-mx-1 self-start truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors",
           !disabled && "hover:bg-accent/40"
         )}
       >
@@ -189,62 +209,145 @@ function DateRangeField({
 }) {
   const key = projectKey(orgSlug, slug)
   const update = useAtomSet(updateSprintAtom(key))
-  const [editing, setEditing] = useState(false)
-  const [start, setStart] = useState(toDateInputValue(sprint.startsAt))
-  const [end, setEnd] = useState(toDateInputValue(sprint.endsAt))
+  const [open, setOpen] = useState(false)
+  const initialRange: DateRange = {
+    from: sprint.startsAt ?? undefined,
+    to: sprint.endsAt ?? undefined
+  }
+  const [draft, setDraft] = useState<DateRange>(initialRange)
 
   useEffect(() => {
-    if (!editing) {
-      setStart(toDateInputValue(sprint.startsAt))
-      setEnd(toDateInputValue(sprint.endsAt))
+    if (!open) {
+      setDraft({
+        from: sprint.startsAt ?? undefined,
+        to: sprint.endsAt ?? undefined
+      })
     }
-  }, [editing, sprint.startsAt, sprint.endsAt])
+  }, [open, sprint.startsAt, sprint.endsAt])
 
-  function commit() {
-    const next = {
-      startsAt: start ? parseDateInput(start) : null,
-      endsAt: end ? parseDateInput(end) : null
-    }
-    update({ groupId: sprint.id, patch: next })
-    setEditing(false)
-  }
+  const label =
+    sprint.startsAt && sprint.endsAt
+      ? `${DATE_FMT.format(sprint.startsAt)} – ${DATE_FMT.format(sprint.endsAt)}`
+      : m.sprints_date_range_label()
 
-  if (disabled || !editing) {
+  if (disabled) {
     return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setEditing(true)}
-        className={cn(
-          "rounded px-1 font-mono text-[11px] tabular-nums",
-          !disabled && "hover:bg-accent/40"
-        )}
-      >
-        {sprint.startsAt && sprint.endsAt
-          ? `${DATE_FMT.format(sprint.startsAt)} – ${DATE_FMT.format(sprint.endsAt)}`
-          : m.sprints_date_range_label()}
-      </button>
+      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        {label}
+      </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded px-1">
-      <input
-        autoFocus
-        type="date"
-        value={start}
-        onChange={(e) => setStart(e.target.value)}
-        onBlur={commit}
-        className="bg-transparent font-mono text-[11px] outline-none"
-      />
-      <span>–</span>
-      <input
-        type="date"
-        value={end}
-        onChange={(e) => setEnd(e.target.value)}
-        onBlur={commit}
-        className="bg-transparent font-mono text-[11px] outline-none"
-      />
-    </span>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) {
+          const nextStart = draft.from ?? null
+          const nextEnd = draft.to ?? null
+          const prevStart = sprint.startsAt ?? null
+          const prevEnd = sprint.endsAt ?? null
+          if (
+            nextStart?.getTime() !== prevStart?.getTime() ||
+            nextEnd?.getTime() !== prevEnd?.getTime()
+          ) {
+            update({
+              groupId: sprint.id,
+              patch: { startsAt: nextStart, endsAt: nextEnd }
+            })
+          }
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="chip"
+          className="ml-auto text-muted-foreground hover:text-foreground"
+        >
+          <span className="font-mono text-[11px] tabular-nums">{label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        <Calendar
+          mode="range"
+          selected={draft}
+          onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
+          numberOfMonths={1}
+          defaultMonth={draft.from ?? new Date()}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function DescriptionField({
+  orgSlug,
+  slug,
+  sprint,
+  disabled
+}: {
+  orgSlug: string
+  slug: string
+  sprint: GroupDetail
+  disabled: boolean
+}) {
+  const project = useProject()
+  const key = projectKey(orgSlug, slug)
+  const update = useAtomSet(updateSprintAtom(key))
+  const [status, setStatus] = useState<SaveStatus>("idle")
+
+  if (disabled && sprint.body.trim().length === 0) return null
+
+  const preview = sprint.body.trim().split(/\s+/).slice(0, 16).join(" ")
+
+  return (
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="desc" className="border-b-0">
+        <AccordionTrigger className="items-center gap-2 rounded pl-3 pr-5 py-1 text-left text-sm font-normal text-muted-foreground transition-colors hover:bg-accent/40 hover:no-underline hover:text-foreground [&>svg]:size-3.5 [&>svg]:translate-y-0">
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span>{m.sprints_description_label()}</span>
+            {preview.length > 0 && (
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/70">
+                {preview}
+              </span>
+            )}
+            {status !== "idle" && (
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {status === "saving"
+                  ? m.tickets_save_status_saving()
+                  : status === "dirty"
+                    ? m.tickets_save_status_dirty()
+                    : m.tickets_save_status_saved()}
+              </span>
+            )}
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="pt-2 pb-0">
+          <div
+            className={cn(
+              "rounded-lg border border-border bg-background px-3 py-2",
+              disabled && "opacity-70"
+            )}
+          >
+            <MentionScopeProvider
+              scope={{ orgSlug, slug, members: project.members }}
+            >
+              <LexicalEditor
+                key={`sprint:${sprint.id}`}
+                markdown={sprint.body}
+                onChange={(next) => {
+                  if (disabled) return
+                  update({ groupId: sprint.id, patch: { body: next } })
+                }}
+                onStatusChange={setStatus}
+                placeholder={m.sprints_description_placeholder()}
+              />
+            </MentionScopeProvider>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   )
 }
 
@@ -252,12 +355,14 @@ function SprintMenu({
   orgSlug,
   slug,
   sprint,
-  onRequestComplete
+  onRequestComplete,
+  className
 }: {
   orgSlug: string
   slug: string
   sprint: Group
   onRequestComplete?: () => void
+  className?: string
 }) {
   const navigate = useNavigate()
   const key = projectKey(orgSlug, slug)
@@ -287,7 +392,10 @@ function SprintMenu({
         <button
           type="button"
           aria-label={m.sprints_actions_aria_label()}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none",
+            className
+          )}
         >
           <MoreHorizontal className="size-4" strokeWidth={1.75} />
         </button>

@@ -1,34 +1,43 @@
+import { Check, CircleDashed, CircleDot } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sprintState } from "@projectproject/shared"
 import type { Group } from "@projectproject/shared"
 
-export const SPRINT_DOT_CLASS: Record<
-  ReturnType<typeof sprintState>,
-  string
+type SprintStateName = ReturnType<typeof sprintState>
+
+export const SPRINT_STATE_META: Record<
+  SprintStateName,
+  { icon: LucideIcon; className: string }
 > = {
-  active: "bg-foreground",
-  planned: "bg-muted-foreground/40",
-  completed: "bg-muted-foreground"
+  planned: { icon: CircleDashed, className: "text-muted-foreground" },
+  active: { icon: CircleDot, className: "text-blue-500" },
+  completed: { icon: Check, className: "text-emerald-500" }
 }
 
-export function SprintStateDot({
+export function SprintStateIcon({
   sprint,
   now,
-  className
+  className,
+  size = "sm"
 }: {
   sprint: Group
   now?: Date
   className?: string
+  size?: "xs" | "sm"
 }) {
   const state = sprintState(sprint, now)
+  const { icon: Icon, className: stateClass } = SPRINT_STATE_META[state]
   return (
-    <span
-      aria-hidden
+    <Icon
       className={cn(
-        "size-1.5 shrink-0 rounded-full",
-        SPRINT_DOT_CLASS[state],
+        "shrink-0",
+        size === "xs" ? "size-3" : "size-3.5",
+        stateClass,
         className
       )}
+      strokeWidth={1.75}
+      aria-hidden
     />
   )
 }
@@ -47,7 +56,7 @@ export function SprintChip({
         className
       )}
     >
-      <SprintStateDot sprint={sprint} />
+      <SprintStateIcon sprint={sprint} size="xs" />
       <span className="truncate">{sprint.name}</span>
     </span>
   )

@@ -501,7 +501,7 @@ function FiltersMenu({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pt-1 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+    <div className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
       {children}
     </div>
   )

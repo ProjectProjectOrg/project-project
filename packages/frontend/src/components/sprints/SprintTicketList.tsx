@@ -1,11 +1,9 @@
-import { useAtomSet } from "@effect-atom/atom-react"
-import { X } from "lucide-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { TicketList } from "@/components/TicketList"
-import { Hitbox } from "@/components/ui/hitbox"
-import { m } from "@/paraglide/messages"
+import { SprintTicketCreator } from "@/components/TicketList/SprintTicketCreator"
 import {
   projectKey,
-  removeTicketsFromSprintAtom
+  sprintMembershipAtom
 } from "@/atoms/sprints"
 import type {
   GroupId,
@@ -30,8 +28,8 @@ export function SprintTicketList({
   uiKey: string
   isCompleted: boolean
 }) {
-  const remove = useAtomSet(
-    removeTicketsFromSprintAtom(projectKey(orgSlug, slug))
+  const membership = useAtomValue(
+    sprintMembershipAtom(projectKey(orgSlug, slug))
   )
   const filterIds = new Set(ticketIds)
 
@@ -42,26 +40,16 @@ export function SprintTicketList({
       members={members}
       uiKey={uiKey}
       filterIds={filterIds}
-      extraRowActions={
-        isCompleted
-          ? undefined
-          : (ticket) => (
-              <Hitbox
-                mode="inline"
-                margin="2"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  remove({ groupId, ticketIds: [ticket.id] })
-                }}
-                aria-label={m.sprints_remove_from_sprint_action()}
-                className="opacity-0 transition-opacity group-hover/list-row:opacity-100 focus-visible:opacity-100"
-              >
-                <X
-                  className="size-3.5 text-muted-foreground transition-colors group-hover/hitbox:text-foreground"
-                  strokeWidth={1.75}
-                />
-              </Hitbox>
-            )
+      sprintMembership={membership}
+      creator={
+        isCompleted ? null : (
+          <SprintTicketCreator
+            orgSlug={orgSlug}
+            slug={slug}
+            groupId={groupId}
+            excludeIds={filterIds}
+          />
+        )
       }
     />
   )

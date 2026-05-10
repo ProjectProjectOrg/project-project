@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/empty"
 import { sprintState, type GroupId, type TicketId } from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
-import { SprintAddTicketsPicker } from "./SprintAddTicketsPicker"
 import { SprintDetailHeader } from "./SprintDetailHeader"
 import { SprintTicketList } from "./SprintTicketList"
 
@@ -84,17 +83,6 @@ export function SprintDetail({
               isCompleted ? undefined : () => setShowCompleteForm(true)
             }
           />
-
-          {!isCompleted && (
-            <div className="flex items-center gap-2">
-              <SprintAddTicketsPicker
-                orgSlug={orgSlug}
-                slug={slug}
-                groupId={value.id}
-                excludeIds={new Set(ticketIds)}
-              />
-            </div>
-          )}
 
           {showCompleteForm && state === "active" && (
             <CompleteSprintForm

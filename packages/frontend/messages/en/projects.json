@@ -44,7 +44,6 @@
   "project_detail_tab_backlog": "Backlog",
   "project_detail_tab_members": "Members",
   "project_detail_tab_sprints": "Sprints",
-  "project_detail_tickets_summary": "{todo} todo · {inProgress} in progress · {done} done",
   "project_header_active_sprint_overdue": "{name} · {days}d overdue",
   "project_header_active_sprint_summary": "{name} · {days}d left",
   "members_actions_aria_label": "Member actions",

@@ -1,4 +1,6 @@
 import { Outlet } from "@tanstack/react-router"
+import { useMemo } from "react"
+import { useSidebarSlot } from "@/components/SidebarSlot"
 import { SprintRail } from "./SprintRail"
 
 export function SprintsLayout({
@@ -8,12 +10,10 @@ export function SprintsLayout({
   orgSlug: string
   slug: string
 }) {
-  return (
-    <div className="flex gap-6">
-      <SprintRail orgSlug={orgSlug} slug={slug} />
-      <div className="min-w-0 flex-1">
-        <Outlet />
-      </div>
-    </div>
+  const rail = useMemo(
+    () => <SprintRail orgSlug={orgSlug} slug={slug} />,
+    [orgSlug, slug]
   )
+  useSidebarSlot(`sprints:${orgSlug}/${slug}`, rail)
+  return <Outlet />
 }

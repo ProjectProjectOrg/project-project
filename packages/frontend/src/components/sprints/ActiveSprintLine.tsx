@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { m } from "@/paraglide/messages"
 import { projectKey, sprintsListAtom } from "@/atoms/sprints"
 import { daysLeft, pickActiveSprint } from "@projectproject/shared"
+import { SprintStateIcon } from "./SprintChip"
 
 export function ActiveSprintLine({
   orgSlug,
@@ -38,9 +39,9 @@ export function ActiveSprintLine({
     <Link
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: active.id }}
-      className="-mx-1 inline-flex items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+      className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
     >
-      <span className="size-1.5 rounded-full bg-foreground" aria-hidden />
+      <SprintStateIcon sprint={active} size="xs" />
       <span className="font-mono">{summary}</span>
     </Link>
   )

@@ -1,14 +1,13 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Schema } from "effect"
-import { useCallback, useEffect } from "react"
-import { CreateTicketRow } from "@/components/CreateTicketRow"
+import { useCallback, useEffect, type ReactNode } from "react"
 import { Empty } from "@/components/ui/empty"
+import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import { ticketListUiKey } from "@/atoms/ticketListUi"
 import { TicketId, type Group, type Member } from "@projectproject/shared"
-import type { ReactNode } from "react"
 import type { Ticket } from "@projectproject/shared"
 import { FilteredList } from "./FilteredList"
 import { Toolbar } from "./Toolbar"
@@ -31,7 +30,8 @@ export function TicketList({
   uiKey,
   filterIds,
   extraRowActions,
-  sprintMembership
+  sprintMembership,
+  creator
 }: {
   orgSlug: string
   slug: string
@@ -40,6 +40,7 @@ export function TicketList({
   filterIds?: ReadonlySet<TicketId>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
+  creator?: ReactNode
 }) {
   const resolvedUiKey = uiKey ?? ticketListUiKey(orgSlug, slug)
   const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
@@ -95,7 +96,7 @@ export function TicketList({
 
   return (
     <div className="group/list flex flex-col gap-3">
-      <CreateTicketRow orgSlug={orgSlug} slug={slug} />
+      {creator ?? <BacklogTicketCreator orgSlug={orgSlug} slug={slug} />}
 
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {Result.isSuccess(list) && list.value.length > 0 && (

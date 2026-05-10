@@ -10,6 +10,10 @@ import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
+import {
+  SidebarSlotProvider,
+  useSidebarSlotContent
+} from "@/components/SidebarSlot"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -50,20 +54,40 @@ function AuthedLayout() {
           />
         )
       }
-      return <Shell user={value} />
+      return (
+        <SidebarSlotProvider>
+          <Shell user={value} />
+        </SidebarSlotProvider>
+      )
     }
   })
 }
 
 function Shell({ user }: { user: User }) {
+  const slot = useSidebarSlotContent()
   return (
     <div className="h-full p-3">
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
-        <main className="m-2 ml-0 mt-0 overflow-auto rounded-xl bg-muted/60">
-          <div className="p-6">
-            <Outlet />
+        <main className="flex min-h-0 overflow-hidden p-2 pl-0 pt-0">
+          <aside
+            aria-hidden={slot ? undefined : true}
+            className={cn(
+              "shrink-0 overflow-hidden transition-[width,margin] duration-300 ease-out",
+              slot
+                ? "mr-2 ml-2 w-56"
+                : "pointer-events-none m-0 w-0"
+            )}
+          >
+            <div className="h-full w-56 overflow-y-auto rounded-xl bg-muted/60 p-2">
+              {slot}
+            </div>
+          </aside>
+          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60">
+            <div className="p-6">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

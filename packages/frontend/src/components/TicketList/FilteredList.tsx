@@ -228,7 +228,6 @@ function Row({
         <span className="min-w-0 truncate text-sm font-medium">
           {ticket.title}
         </span>
-        <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         {showSprintCol && (
           <SprintField
             orgSlug={orgSlug}
@@ -237,6 +236,7 @@ function Row({
             membership={sprintMembership}
           />
         )}
+        <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         <AssigneeRowTrigger
           orgSlug={orgSlug}
           slug={slug}

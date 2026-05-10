@@ -1,5 +1,7 @@
+import { useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { TicketList } from "@/components/TicketList"
+import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
 import { useProject } from "./-context"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
@@ -15,5 +17,15 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
 function TicketsTab() {
   const { orgSlug, slug } = Route.useParams()
   const project = useProject()
-  return <TicketList orgSlug={orgSlug} slug={slug} members={project.members} />
+  const sprintMembership = useAtomValue(
+    sprintMembershipAtom(projectKey(orgSlug, slug))
+  )
+  return (
+    <TicketList
+      orgSlug={orgSlug}
+      slug={slug}
+      members={project.members}
+      sprintMembership={sprintMembership}
+    />
+  )
 }

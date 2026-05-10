@@ -3,11 +3,19 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { Exit } from "effect"
-import { Plus } from "lucide-react"
-import { useState, type FormEvent } from "react"
+import { CheckCircle2, Plus } from "lucide-react"
+import { useEffect, useState, type FormEvent } from "react"
+import type { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
@@ -20,28 +28,23 @@ import {
   sprintState,
   type Group
 } from "@projectproject/shared"
-import { SprintStateDot } from "./SprintChip"
+import { SprintStateIcon } from "./SprintChip"
 
-const DATE_FMT = new Intl.DateTimeFormat(undefined, {
+const RAIL_DATE_FMT = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric"
 })
 
 function formatRange(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
-  return `${DATE_FMT.format(s.startsAt)} – ${DATE_FMT.format(s.endsAt)}`
+  return `${RAIL_DATE_FMT.format(s.startsAt)} – ${RAIL_DATE_FMT.format(s.endsAt)}`
 }
 
-function toDateInputValue(d: Date): string {
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function parseDateInput(value: string): Date {
-  const [y, m, d] = value.split("-").map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
+function defaultSprintRange(): DateRange {
+  const today = new Date()
+  const end = new Date(today)
+  end.setDate(end.getDate() + 14)
+  return { from: today, to: end }
 }
 
 export function SprintRail({
@@ -75,31 +78,33 @@ export function SprintRail({
   )
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col gap-5 border-r border-border pr-4">
+    <div className="flex h-full flex-col gap-4">
       <NewSprintForm orgSlug={orgSlug} slug={slug} />
-      <Section
-        label={m.sprints_active_label()}
-        count={active.length}
-        sprints={active}
-        orgSlug={orgSlug}
-        slug={slug}
-      />
-      <Section
-        label={m.sprints_planned_label()}
-        count={planned.length}
-        sprints={planned}
-        orgSlug={orgSlug}
-        slug={slug}
-      />
-      <Section
-        label={m.sprints_completed_label()}
-        count={completed.length}
-        sprints={completed}
-        orgSlug={orgSlug}
-        slug={slug}
-        dim
-      />
-    </aside>
+      <div className="flex flex-col gap-5 overflow-y-auto">
+        <Section
+          label={m.sprints_active_label()}
+          count={active.length}
+          sprints={active}
+          orgSlug={orgSlug}
+          slug={slug}
+        />
+        <Section
+          label={m.sprints_planned_label()}
+          count={planned.length}
+          sprints={planned}
+          orgSlug={orgSlug}
+          slug={slug}
+        />
+        <Section
+          label={m.sprints_completed_label()}
+          count={completed.length}
+          sprints={completed}
+          orgSlug={orgSlug}
+          slug={slug}
+          dim
+        />
+      </div>
+    </div>
   )
 }
 
@@ -121,7 +126,7 @@ function Section({
   if (count === 0) return null
   return (
     <section className="flex flex-col gap-1">
-      <header className="flex items-center justify-between px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <header className="flex items-center justify-between px-2 text-[11px] text-muted-foreground">
         <span>{label}</span>
         <span className="font-mono text-[10px] tabular-nums">{count}</span>
       </header>
@@ -154,18 +159,15 @@ function RailRow({
       className={cn(
         "group/list-row flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
         isSelected
-          ? "bg-accent/40 text-foreground"
-          : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+          ? "bg-background text-foreground"
+          : "text-muted-foreground hover:bg-background hover:text-foreground"
       )}
       aria-current={isSelected ? "page" : undefined}
     >
-      <SprintStateDot sprint={sprint} />
+      <SprintStateIcon sprint={sprint} />
       <span className="min-w-0 flex-1 truncate text-sm">{sprint.name}</span>
-      <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-        {formatRange(sprint)}
-      </span>
       <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-        {sprint.tickets.length}
+        {formatRange(sprint)}
       </span>
     </Link>
   )
@@ -178,104 +180,121 @@ function NewSprintForm({
   orgSlug: string
   slug: string
 }) {
+  const Root = InlineForm.Root<"create">
+  return (
+    <Root className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0">
+      <InlineForm.Idle block>
+        <InlineForm.Trigger
+          action="create"
+          variant="primary"
+          size="sm"
+          className="w-full justify-start"
+          leadingIcon={Plus}
+        >
+          {m.sprints_new_button()}
+        </InlineForm.Trigger>
+      </InlineForm.Idle>
+      <InlineForm.Form action="create">
+        <CreateSprintFields orgSlug={orgSlug} slug={slug} />
+      </InlineForm.Form>
+    </Root>
+  )
+}
+
+function CreateSprintFields({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
   const key = projectKey(orgSlug, slug)
   const create = useAtomSet(createSprintAtom(key), { mode: "promiseExit" })
   const state = useAtomValue(createSprintAtom(key))
-  const submitting = state.waiting
   const error = Result.isFailure(state)
     ? m.sprints_create_error_fallback()
     : null
+  const navigate = useNavigate()
+  const { busy, setBusy, close } = useInlineForm<"create">()
 
-  const today = new Date()
-  const defaultEnd = new Date(today)
-  defaultEnd.setDate(defaultEnd.getDate() + 14)
-
-  const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
-  const [startsAt, setStartsAt] = useState(toDateInputValue(today))
-  const [endsAt, setEndsAt] = useState(toDateInputValue(defaultEnd))
+  const [range, setRange] = useState<DateRange>(defaultSprintRange)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => {
+    setBusy(state.waiting)
+  }, [state.waiting, setBusy])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     const trimmed = name.trim()
-    if (!trimmed || submitting) return
+    if (!trimmed || busy || !range.from || !range.to) return
     const exit = await create({
       name: trimmed,
-      startsAt: parseDateInput(startsAt),
-      endsAt: parseDateInput(endsAt)
+      startsAt: range.from,
+      endsAt: range.to
     })
     if (Exit.isSuccess(exit)) {
-      setName("")
-      setOpen(false)
+      const created = exit.value
+      close()
+      navigate({
+        to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+        params: { orgSlug, slug, groupId: created.id }
+      })
     }
   }
 
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="tertiary"
-        size="sm"
-        className="justify-start"
-        leadingIcon={Plus}
-        onClick={() => setOpen(true)}
-      >
-        {m.sprints_new_button()}
-      </Button>
-    )
-  }
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-2 rounded-md border border-border bg-background p-2"
-    >
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
       <input
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={m.sprints_new_name_placeholder()}
-        disabled={submitting}
+        disabled={busy}
         className="w-full bg-transparent text-sm outline-none"
         maxLength={120}
       />
-      <div className="flex items-center gap-1.5">
-        <input
-          type="date"
-          value={startsAt}
-          onChange={(e) => setStartsAt(e.target.value)}
-          disabled={submitting}
-          className="flex-1 rounded bg-transparent font-mono text-[11px] text-muted-foreground outline-none"
-        />
-        <span className="text-muted-foreground">–</span>
-        <input
-          type="date"
-          value={endsAt}
-          onChange={(e) => setEndsAt(e.target.value)}
-          disabled={submitting}
-          className="flex-1 rounded bg-transparent font-mono text-[11px] text-muted-foreground outline-none"
-        />
-      </div>
+      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="chip"
+            disabled={busy}
+            className="self-start text-muted-foreground hover:text-foreground"
+          >
+            <span className="font-mono text-[11px] tabular-nums">
+              {range.from && range.to
+                ? `${RAIL_DATE_FMT.format(range.from)} – ${RAIL_DATE_FMT.format(range.to)}`
+                : m.sprints_date_range_label()}
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-0">
+          <Calendar
+            mode="range"
+            selected={range}
+            onSelect={(r) => {
+              if (r) setRange(r)
+            }}
+            numberOfMonths={1}
+            defaultMonth={range.from ?? new Date()}
+          />
+        </PopoverContent>
+      </Popover>
       {error && <p className="text-xs text-destructive">{error}</p>}
       <div className="flex justify-end gap-1">
-        <Button
-          type="button"
-          variant="tertiary"
-          size="xs"
-          onClick={() => {
-            setOpen(false)
-            setName("")
-          }}
-          disabled={submitting}
-        >
+        <InlineForm.Cancel size="xs" variant="tertiary" leadingIcon={undefined}>
           {m.common_cancel_button()}
-        </Button>
+        </InlineForm.Cancel>
         <Button
           type="submit"
           variant="primary"
           size="xs"
-          disabled={!name.trim() || submitting}
+          leadingIcon={CheckCircle2}
+          disabled={!name.trim() || !range.from || !range.to || busy}
         >
-          {submitting
+          {busy
             ? m.sprints_create_in_progress()
             : m.sprints_create_button()}
         </Button>
