@@ -11,6 +11,7 @@ import {
   InputGroupHint,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
@@ -97,6 +98,7 @@ function CreateRow({
     ? m.projects_create_error_fallback()
     : null
   const [name, setName] = useState("")
+  const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("c", inputRef)
   const trimmed = name.trim()
@@ -121,8 +123,14 @@ function CreateRow({
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => onFocusChange?.(false)}
+          onFocus={() => {
+            setFocused(true)
+            onFocusChange?.(true)
+          }}
+          onBlur={() => {
+            setFocused(false)
+            onFocusChange?.(false)
+          }}
           placeholder={m.projects_create_name_placeholder()}
           aria-label={m.projects_create_name_aria_label()}
           disabled={submitting}
@@ -136,6 +144,7 @@ function CreateRow({
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
+        {!focused && !trimmed && !error && <Kbd>c</Kbd>}
       </InputGroup>
     </form>
   )
