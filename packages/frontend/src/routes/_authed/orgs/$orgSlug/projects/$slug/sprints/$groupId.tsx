@@ -14,6 +14,14 @@ export const Route = createFileRoute(
   ): { ticket?: string; focusBody?: number } => ({
     ticket: typeof search.ticket === "string" ? search.ticket : undefined,
     focusBody: search.focusBody === 1 ? 1 : undefined
+  }),
+  loader: ({ params }) => ({
+    crumb: {
+      type: "sprint" as const,
+      orgSlug: params.orgSlug,
+      slug: params.slug,
+      groupId: decodeGroupId(params.groupId)
+    }
   })
 })
 

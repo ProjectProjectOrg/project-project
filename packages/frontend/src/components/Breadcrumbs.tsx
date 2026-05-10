@@ -21,10 +21,11 @@ import { Link, useMatches } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { Fragment } from "react"
 import { projectAtom, projectKey } from "@/atoms/projects"
+import { sprintAtom, sprintKey } from "@/atoms/sprints"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type { TicketId } from "@projectproject/shared"
+import type { GroupId, TicketId } from "@projectproject/shared"
 
 export type Crumb =
   | {
@@ -35,6 +36,7 @@ export type Crumb =
     }
   | { type: "project"; orgSlug: string; slug: string }
   | { type: "ticket"; orgSlug: string; slug: string; id: TicketId }
+  | { type: "sprint"; orgSlug: string; slug: string; groupId: GroupId }
 
 export type CrumbData = Crumb | ReadonlyArray<Crumb>
 
@@ -89,6 +91,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
 function crumbKey(c: Crumb, i: number) {
   if (c.type === "static") return `s-${i}-${c.label}`
   if (c.type === "project") return `p-${c.orgSlug}-${c.slug}`
+  if (c.type === "sprint") return `g-${c.orgSlug}-${c.slug}-${c.groupId}`
   return `t-${c.orgSlug}-${c.slug}-${c.id}`
 }
 
@@ -117,7 +120,48 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
           isLast={isLast}
         />
       )
+    case "sprint":
+      return (
+        <SprintCrumb
+          orgSlug={crumb.orgSlug}
+          slug={crumb.slug}
+          groupId={crumb.groupId}
+          isLast={isLast}
+        />
+      )
   }
+}
+
+function SprintCrumb({
+  orgSlug,
+  slug,
+  groupId,
+  isLast
+}: {
+  orgSlug: string
+  slug: string
+  groupId: GroupId
+  isLast: boolean
+}) {
+  const result = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
+  if (!Result.isSuccess(result)) {
+    return (
+      <span
+        className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"
+        style={{ width: `${Math.max(groupId.length, 4)}ch` }}
+        aria-label={m.nav_crumb_loading({ slug: groupId })}
+      />
+    )
+  }
+  return (
+    <CrumbText
+      to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+      params={{ orgSlug, slug, groupId }}
+      isLast={isLast}
+    >
+      {result.value.name}
+    </CrumbText>
+  )
 }
 
 function ProjectCrumb({
