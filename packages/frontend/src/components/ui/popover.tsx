@@ -1,10 +1,10 @@
 import * as React from "react"
-import { Popover as PopoverPrimitive } from "radix-ui"
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
 import { cn } from "@/lib/utils"
 
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+  return <PopoverPrimitive.Root {...props} />
 }
 
 function PopoverTrigger(
@@ -13,33 +13,42 @@ function PopoverTrigger(
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
-function PopoverAnchor(
-  props: React.ComponentProps<typeof PopoverPrimitive.Anchor>
-) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
-}
+type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
+  Pick<
+    React.ComponentProps<typeof PopoverPrimitive.Positioner>,
+    "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
+  >
 
 function PopoverContent({
   className,
   align = "end",
+  alignOffset,
+  side,
   sideOffset = 6,
+  anchor,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: PopoverContentProps) {
   return (
     <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-slot="popover-content"
+      <PopoverPrimitive.Positioner
         align={align}
+        alignOffset={alignOffset}
+        side={side}
         sideOffset={sideOffset}
-        className={cn(
-          "z-50 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          className
-        )}
-        {...props}
-      />
+        anchor={anchor}
+      >
+        <PopoverPrimitive.Popup
+          data-slot="popover-content"
+          className={cn(
+            "z-50 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none",
+            "data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95",
+            className
+          )}
+          {...props}
+        />
+      </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
   )
 }
 
-export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent }
+export { Popover, PopoverTrigger, PopoverContent }

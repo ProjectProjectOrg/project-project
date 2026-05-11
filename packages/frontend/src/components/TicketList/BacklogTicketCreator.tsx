@@ -112,44 +112,48 @@ export function BacklogTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.tickets_create_type_aria_label({
-            type: TYPE_LABELS[type]()
-          })}
-          className={cn(
-            "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
-            expanded
-              ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
-              : "px-1 hover:bg-accent hover:text-foreground"
-          )}
-        >
-          <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-          <CollapsingLabel show={expanded}>
-            <span className="text-xs">{TYPE_LABELS[type]()}</span>
-          </CollapsingLabel>
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.tickets_create_type_aria_label({
+              type: TYPE_LABELS[type]()
+            })}
+            className={cn(
+              "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
+              expanded
+                ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
+                : "px-1 hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
+            <CollapsingLabel show={expanded} contentKey={type}>
+              <span className="text-xs">{TYPE_LABELS[type]()}</span>
+            </CollapsingLabel>
+          </button>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-40"
-        onCloseAutoFocus={(e) => {
-          e.preventDefault()
-          inputRef.current?.focus()
-          setClosingMenu(false)
-        }}
+        finalFocus={false}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const TIcon = TYPE_META[t].icon
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => setType(t)}
+              onClick={() => setType(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -166,12 +170,13 @@ export function BacklogTicketCreator({
       open={sprintMenuOpen}
       onOpenChange={(open) => {
         setSprintMenuOpen(open)
-        if (!open) setClosingMenu(true)
-      }}
-      onCloseAutoFocus={(e) => {
-        e.preventDefault()
-        inputRef.current?.focus()
-        setClosingMenu(false)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
       sprints={sprints}
       selectedId={selectedSprint?.id ?? null}
@@ -200,11 +205,14 @@ export function BacklogTicketCreator({
           )}
         >
           {selectedSprint ? (
-            <SprintStateIcon sprint={selectedSprint} size="xs" />
+            <SprintStateIcon sprint={selectedSprint} size="md" />
           ) : (
             <Plus className="size-4 shrink-0" strokeWidth={1.75} />
           )}
-          <CollapsingLabel show={expanded}>
+          <CollapsingLabel
+            show={expanded}
+            contentKey={selectedSprint?.id ?? "none"}
+          >
             <span className="max-w-[10ch] truncate text-xs">
               {selectedSprint
                 ? selectedSprint.name

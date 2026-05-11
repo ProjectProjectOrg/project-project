@@ -24,7 +24,7 @@ export function SprintStateIcon({
   sprint: Group
   now?: Date
   className?: string
-  size?: "xs" | "sm"
+  size?: "xs" | "sm" | "md"
 }) {
   const state = sprintState(sprint, now)
   const { icon: Icon, className: stateClass } = SPRINT_STATE_META[state]
@@ -32,7 +32,7 @@ export function SprintStateIcon({
     <Icon
       className={cn(
         "shrink-0",
-        size === "xs" ? "size-3" : "size-3.5",
+        size === "xs" ? "size-3" : size === "sm" ? "size-3.5" : "size-4",
         stateClass,
         className
       )}

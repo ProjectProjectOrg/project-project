@@ -61,15 +61,17 @@ export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
   if (!github) {
     return (
       <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <GithubIcon className="size-3.5" strokeWidth={1.75} />
-            {m.github_chip_connect_repo_button()}
-          </button>
-        </PopoverTrigger>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <GithubIcon className="size-3.5" strokeWidth={1.75} />
+              {m.github_chip_connect_repo_button()}
+            </button>
+          }
+        />
         <PopoverContent className="w-80 p-0">
           <ConnectPanel orgSlug={orgSlug} slug={slug} />
         </PopoverContent>
@@ -118,14 +120,16 @@ function ConnectedChip({
         <span>{warning}</span>
         {canManage && (
           <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="ml-1 underline-offset-2 hover:underline"
-              >
-                {m.github_chip_manage_button()}
-              </button>
-            </PopoverTrigger>
+            <PopoverTrigger
+              render={
+                <button
+                  type="button"
+                  className="ml-1 underline-offset-2 hover:underline"
+                >
+                  {m.github_chip_manage_button()}
+                </button>
+              }
+            />
             <PopoverContent className="w-80 p-3">
               <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
             </PopoverContent>
@@ -150,24 +154,26 @@ function ConnectedChip({
       </a>
       {canManage && (
         <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={m.github_chip_manage_connection_aria_label()}
-              className={cn(
-                "grid size-5 place-items-center rounded transition-colors hover:bg-accent",
-                "data-[state=open]:bg-accent"
-              )}
-            >
-              <ChevronDown
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={m.github_chip_manage_connection_aria_label()}
                 className={cn(
-                  "size-3 transition-transform",
-                  "group-data-[state=open]:rotate-180"
+                  "group grid size-5 place-items-center rounded transition-colors hover:bg-accent",
+                  "data-[popup-open]:bg-accent"
                 )}
-                strokeWidth={1.75}
-              />
-            </button>
-          </PopoverTrigger>
+              >
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform",
+                    "group-data-[popup-open]:rotate-180"
+                  )}
+                  strokeWidth={1.75}
+                />
+              </button>
+            }
+          />
           <PopoverContent className="w-80 p-3">
             <ManagePanel orgSlug={orgSlug} slug={slug} github={github} />
           </PopoverContent>

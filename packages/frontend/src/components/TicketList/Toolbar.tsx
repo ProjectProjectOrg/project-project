@@ -366,44 +366,44 @@ function FiltersMenu({
   const active = activeCount > 0
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            TOOLBAR_BUTTON_CLASS,
-            active && "bg-accent text-foreground hover:text-foreground"
-          )}
-          aria-label={
-            compact && activeCount > 0
-              ? m.tickets_filters_active_aria_label({ count: activeCount })
-              : m.tickets_filters_aria_label()
-          }
-          aria-pressed={active}
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>
-            {m.tickets_filters_label()}
-          </CollapsingLabel>
-          {activeCount > 0 && (
-            <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
-              {activeCount}
-            </span>
-          )}
-          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BUTTON_CLASS,
+              active && "bg-accent text-foreground hover:text-foreground"
+            )}
+            aria-label={
+              compact && activeCount > 0
+                ? m.tickets_filters_active_aria_label({ count: activeCount })
+                : m.tickets_filters_aria_label()
+            }
+            aria-pressed={active}
+          >
+            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {m.tickets_filters_label()}
+            </CollapsingLabel>
+            {activeCount > 0 && (
+              <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums text-foreground">
+                {activeCount}
+              </span>
+            )}
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         sideOffset={6}
         className="w-56"
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        finalFocus={false}
       >
         <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setTypeFilter("all")
-          }}
+          closeOnClick={false}
+          onClick={() => setTypeFilter("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_all_types()}
@@ -417,10 +417,8 @@ function FiltersMenu({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={(e) => {
-                e.preventDefault()
-                setTypeFilter(t)
-              }}
+              closeOnClick={false}
+              onClick={() => setTypeFilter(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -435,10 +433,8 @@ function FiltersMenu({
         <div className="my-1 h-px bg-border" />
         <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setAssigneeFilter("all")
-          }}
+          closeOnClick={false}
+          onClick={() => setAssigneeFilter("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_anyone()}
@@ -448,10 +444,8 @@ function FiltersMenu({
         </DropdownMenuItem>
         {myId && (
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setAssigneeFilter("mine")
-            }}
+            closeOnClick={false}
+            onClick={() => setAssigneeFilter("mine")}
             className="cursor-pointer"
           >
             <UserRound className="size-4" strokeWidth={1.75} />
@@ -462,10 +456,8 @@ function FiltersMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setAssigneeFilter("unassigned")
-          }}
+          closeOnClick={false}
+          onClick={() => setAssigneeFilter("unassigned")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_unassigned()}
@@ -477,10 +469,8 @@ function FiltersMenu({
         {members.map((member) => (
           <DropdownMenuItem
             key={member.id}
-            onSelect={(e) => {
-              e.preventDefault()
-              setAssigneeFilter(member.id)
-            }}
+            closeOnClick={false}
+            onClick={() => setAssigneeFilter(member.id)}
             className="cursor-pointer"
           >
             <MemberAvatar member={member} size={20} />
@@ -496,10 +486,8 @@ function FiltersMenu({
             <div className="my-1 h-px bg-border" />
             <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setSprintFilter("all")
-              }}
+              closeOnClick={false}
+              onClick={() => setSprintFilter("all")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_any()}
@@ -508,10 +496,8 @@ function FiltersMenu({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setSprintFilter("unassigned")
-              }}
+              closeOnClick={false}
+              onClick={() => setSprintFilter("unassigned")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_none()}
@@ -528,10 +514,8 @@ function FiltersMenu({
               return (
                 <DropdownMenuItem
                   key={s.id}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setSprintFilter(s.id)
-                  }}
+                  closeOnClick={false}
+                  onClick={() => setSprintFilter(s.id)}
                   className="cursor-pointer"
                 >
                   <SIcon
@@ -603,26 +587,28 @@ function SortMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={TOOLBAR_BUTTON_CLASS}
-          aria-label={m.tickets_sort_aria_label({
-            label: SORTS[value].label()
-          })}
-        >
-          <ArrowDownAZ className="size-4" strokeWidth={1.75} />
-          <CollapsingLabel show={!compact}>
-            {SORTS[value].label()}
-          </CollapsingLabel>
-          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={TOOLBAR_BUTTON_CLASS}
+            aria-label={m.tickets_sort_aria_label({
+              label: SORTS[value].label()
+            })}
+          >
+            <ArrowDownAZ className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {SORTS[value].label()}
+            </CollapsingLabel>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-44">
         {(Object.keys(SORTS) as SortKey[]).map((k) => (
           <DropdownMenuItem
             key={k}
-            onSelect={() => onChange(k)}
+            onClick={() => onChange(k)}
             className="cursor-pointer"
           >
             {SORTS[k].label()}

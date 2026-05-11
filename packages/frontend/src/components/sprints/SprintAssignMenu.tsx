@@ -1,5 +1,5 @@
 import { Plus, X } from "lucide-react"
-import { type ReactNode } from "react"
+import { type ComponentProps } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,6 +7,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+
+type TriggerRender = ComponentProps<typeof DropdownMenuTrigger>["render"]
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -28,7 +30,7 @@ function rangeText(s: Group): string {
 }
 
 export type SprintAssignMenuProps = {
-  trigger: ReactNode
+  trigger: TriggerRender
   sprints: ReadonlyArray<Group>
   selectedId: Group["id"] | null
   onSelect: (sprint: Group) => void
@@ -36,7 +38,7 @@ export type SprintAssignMenuProps = {
   onRequestNewSprint?: () => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  onCloseAutoFocus?: (e: Event) => void
+  finalFocus?: ComponentProps<typeof DropdownMenuContent>["finalFocus"]
   clearLabel?: string
 }
 
@@ -60,7 +62,7 @@ export function SprintAssignMenu({
   onRequestNewSprint,
   open,
   onOpenChange,
-  onCloseAutoFocus,
+  finalFocus,
   clearLabel
 }: SprintAssignMenuProps) {
   const now = new Date()
@@ -77,15 +79,13 @@ export function SprintAssignMenu({
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-64"
         onClick={(e) => e.stopPropagation()}
-        onCloseAutoFocus={
-          onCloseAutoFocus ?? ((e) => e.preventDefault())
-        }
+        finalFocus={finalFocus ?? false}
       >
         <div className="px-2 pb-1.5 pt-1 text-[11px] text-muted-foreground">
           {m.tickets_sprint_popover_title()}
@@ -95,7 +95,7 @@ export function SprintAssignMenu({
           return (
             <DropdownMenuItem
               key={s.id}
-              onSelect={() => {
+              onClick={() => {
                 if (!isCurrent) onSelect(s)
               }}
               className={cn(
@@ -116,7 +116,7 @@ export function SprintAssignMenu({
         {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
         {onRequestNewSprint && (
           <DropdownMenuItem
-            onSelect={() => onRequestNewSprint()}
+            onClick={() => onRequestNewSprint()}
             className="cursor-pointer"
           >
             <Plus className="size-3.5" strokeWidth={1.75} />
@@ -125,7 +125,7 @@ export function SprintAssignMenu({
         )}
         {onClear && (
           <DropdownMenuItem
-            onSelect={() => onClear()}
+            onClick={() => onClear()}
             className={cn(
               "flex cursor-pointer items-center gap-2 text-muted-foreground",
               !selectedId && "bg-accent/40 text-foreground"

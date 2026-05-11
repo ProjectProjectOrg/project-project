@@ -32,24 +32,26 @@ export function StatusButton({
   const statusLabel = STATUS_LABELS[ticket.status]()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={m.tickets_status_aria_label({ label: statusLabel })}
-          title={statusLabel}
-        >
-          <span
-            className={cn(
-              "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
-              meta.className
-            )}
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => stopPropagation && e.stopPropagation()}
+            aria-label={m.tickets_status_aria_label({ label: statusLabel })}
+            title={statusLabel}
           >
-            <Icon className="size-4" strokeWidth={1.75} />
-          </span>
-        </Hitbox>
-      </DropdownMenuTrigger>
+            <span
+              className={cn(
+                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
+                meta.className
+              )}
+            >
+              <Icon className="size-4" strokeWidth={1.75} />
+            </span>
+          </Hitbox>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
@@ -62,7 +64,7 @@ export function StatusButton({
           return (
             <DropdownMenuItem
               key={status}
-              onSelect={() => {
+              onClick={() => {
                 if (status === ticket.status) return
                 update({ status })
               }}
