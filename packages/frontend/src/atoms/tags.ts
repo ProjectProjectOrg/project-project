@@ -66,11 +66,16 @@ export const renameTagAtom = Atom.family((key: ProjectKey) =>
 export const deleteTagAtom = Atom.family((key: ProjectKey) =>
   tagsAtom(key).pipe(
     Atom.optimisticFn({
-      reducer: (current, _arg) =>
+      reducer: (current, arg) =>
         Result.isSuccess(current)
-          ? Result.success(current.value, { waiting: true })
+          ? Result.success(
+              current.value.filter((tag) => tag.name !== arg.path.name),
+              { waiting: true }
+            )
           : current,
       fn: removeTag
     })
+  )
+)
   )
 )
