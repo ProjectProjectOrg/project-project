@@ -70,14 +70,14 @@ function Shell({ user }: { user: User }) {
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
-        <main className="flex min-h-0 overflow-hidden p-2 pl-0 pt-0">
+        <main className="flex min-h-0 overflow-hidden p-2 pt-0">
           <aside
             aria-hidden={slot ? undefined : true}
             className={cn(
               "shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-out",
               slot
-                ? "mr-2 ml-2 w-56"
-                : "pointer-events-none m-0 w-0"
+                ? "mr-2 w-56"
+                : "pointer-events-none mr-0 w-0"
             )}
           >
             <div className="h-full w-56 overflow-y-auto rounded-xl bg-muted/60 p-2">
