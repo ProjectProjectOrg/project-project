@@ -15,6 +15,7 @@ export type DitherDirection =
   | "bl"
 
 export type DitherStops = readonly [number, number]
+export type DitherMatrix = "2x2" | "4x4" | "8x8"
 
 export interface DitherBackdropProps {
   from?: string
@@ -24,6 +25,7 @@ export interface DitherBackdropProps {
   hoverStops?: DitherStops
   hoverDuration?: number
   hover?: boolean
+  matrix?: DitherMatrix
   image?: string
 }
 
@@ -38,28 +40,61 @@ const DIRECTION_TO_CSS_ANGLE: Record<DitherDirection, string> = {
   bl: "to bottom left"
 }
 
-const DIRECTION_TO_SVG_VECTOR: Record<
-  DitherDirection,
-  { x1: string; y1: string; x2: string; y2: string }
-> = {
-  r: { x1: "0", y1: "0", x2: "1", y2: "0" },
-  l: { x1: "1", y1: "0", x2: "0", y2: "0" },
-  t: { x1: "0", y1: "1", x2: "0", y2: "0" },
-  b: { x1: "0", y1: "0", x2: "0", y2: "1" },
-  tr: { x1: "0", y1: "1", x2: "1", y2: "0" },
-  tl: { x1: "1", y1: "1", x2: "0", y2: "0" },
-  br: { x1: "0", y1: "0", x2: "1", y2: "1" },
-  bl: { x1: "1", y1: "0", x2: "0", y2: "1" }
+const DIRECTION_TO_VECTOR: Record<DitherDirection, [number, number]> = {
+  r: [1, 0],
+  l: [-1, 0],
+  t: [0, -1],
+  b: [0, 1],
+  tr: [1, -1],
+  tl: [-1, -1],
+  br: [1, 1],
+  bl: [-1, 1]
 }
 
 const DEFAULT_FROM = "#000000"
 const DEFAULT_TO = "#ffffff"
 const DEFAULT_DIRECTION: DitherDirection = "r"
 const DEFAULT_STOPS: DitherStops = [0, 1]
+const DEFAULT_MATRIX: DitherMatrix = "4x4"
+
+const BAYER_2X2 = [0, 2, 3, 1].map((v) => (v + 0.5) / 4)
+const BAYER_4X4 = [
+  0, 8, 2, 10,
+  12, 4, 14, 6,
+  3, 11, 1, 9,
+  15, 7, 13, 5
+].map((v) => (v + 0.5) / 16)
+const BAYER_8X8 = [
+  0, 32, 8, 40, 2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44, 4, 36, 14, 46, 6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+  3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25,
+  15, 47, 7, 39, 13, 45, 5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21
+].map((v) => (v + 0.5) / 64)
+
+const MATRIX_SIZE: Record<DitherMatrix, number> = {
+  "2x2": 2,
+  "4x4": 4,
+  "8x8": 8
+}
+const MATRIX_DATA: Record<DitherMatrix, ReadonlyArray<number>> = {
+  "2x2": BAYER_2X2,
+  "4x4": BAYER_4X4,
+  "8x8": BAYER_8X8
+}
+
+interface RGB {
+  r: number
+  g: number
+  b: number
+}
 
 function clampStops(stops: DitherStops): DitherStops {
   const start = Math.min(Math.max(stops[0], 0), 1)
-  const end = Math.min(Math.max(stops[1], start), 1)
+  const end = Math.min(Math.max(stops[1], start + 0.0001), 1)
   return [start, end]
 }
 
@@ -87,74 +122,18 @@ function resolveColor(value: string): string {
   return resolved || value
 }
 
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t
-}
-
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3)
-}
-
-function useAnimatedStops(
-  stops: DitherStops,
-  hoverStops: DitherStops | undefined,
-  hover: boolean,
-  duration: number
-): DitherStops {
-  const [current, setCurrent] = useState<DitherStops>(stops)
-  const currentRef = useRef<DitherStops>(stops)
-  const rafRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    currentRef.current = current
-  }, [current])
-
-  useEffect(() => {
-    if (!hoverStops) {
-      currentRef.current = stops
-      setCurrent(stops)
-      return
-    }
-    const target = hover ? hoverStops : stops
-    const start: DitherStops = [
-      currentRef.current[0],
-      currentRef.current[1]
-    ]
-    const startTime = performance.now()
-    const tick = (now: number) => {
-      const elapsed = now - startTime
-      const t = Math.min(elapsed / duration, 1)
-      const e = easeOutCubic(t)
-      const next: DitherStops = [
-        lerp(start[0], target[0], e),
-        lerp(start[1], target[1], e)
-      ]
-      currentRef.current = next
-      setCurrent(next)
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick)
-      } else {
-        rafRef.current = null
-      }
-    }
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(tick)
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [
-    hover,
-    hoverStops?.[0],
-    hoverStops?.[1],
-    stops[0],
-    stops[1],
-    duration
-  ])
-
-  return current
+function parseColorToRgb(value: string): RGB {
+  if (typeof window === "undefined") return { r: 0, g: 0, b: 0 }
+  const probe = document.createElement("span")
+  probe.style.color = value
+  probe.style.display = "none"
+  document.body.appendChild(probe)
+  const computed = getComputedStyle(probe).color
+  document.body.removeChild(probe)
+  const m = computed.match(/rgba?\(([^)]+)\)/)
+  if (!m) return { r: 0, g: 0, b: 0 }
+  const parts = m[1].split(",").map((p) => parseFloat(p.trim()))
+  return { r: parts[0] || 0, g: parts[1] || 0, b: parts[2] || 0 }
 }
 
 function useThemeRevision(): number {
@@ -171,25 +150,58 @@ function useThemeRevision(): number {
   return rev
 }
 
-function gradientDataUrl(
-  from: string,
-  to: string,
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+function drawDither(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  fromRgb: RGB,
+  toRgb: RGB,
   direction: DitherDirection,
-  stops: DitherStops
-): string {
-  const v = DIRECTION_TO_SVG_VECTOR[direction]
+  stops: DitherStops,
+  matrix: DitherMatrix
+) {
+  if (width <= 0 || height <= 0) return
+  const img = ctx.createImageData(width, height)
+  const data = img.data
+  const [vx, vy] = DIRECTION_TO_VECTOR[direction]
   const [start, end] = clampStops(stops)
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="none">` +
-    `<defs><linearGradient id="g" x1="${v.x1}" y1="${v.y1}" x2="${v.x2}" y2="${v.y2}">` +
-    `<stop offset="0" stop-color="${from}"/>` +
-    `<stop offset="${start}" stop-color="${from}"/>` +
-    `<stop offset="${end}" stop-color="${to}"/>` +
-    `<stop offset="1" stop-color="${to}"/>` +
-    `</linearGradient></defs>` +
-    `<rect width="200" height="200" fill="url(#g)"/>` +
-    `</svg>`
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  const span = end - start
+  const denomX = Math.max(width - 1, 1)
+  const denomY = Math.max(height - 1, 1)
+  const projMax = Math.abs(vx) + Math.abs(vy)
+  const m = MATRIX_DATA[matrix]
+  const mSize = MATRIX_SIZE[matrix]
+
+  let i = 0
+  for (let y = 0; y < height; y++) {
+    const ny = vy >= 0 ? y / denomY : (height - 1 - y) / denomY
+    const projY = Math.abs(vy) * ny
+    for (let x = 0; x < width; x++) {
+      const nx = vx >= 0 ? x / denomX : (width - 1 - x) / denomX
+      const projX = Math.abs(vx) * nx
+      const u = (projX + projY) / projMax
+      let t = (u - start) / span
+      if (t < 0) t = 0
+      else if (t > 1) t = 1
+      const threshold = m[(y % mSize) * mSize + (x % mSize)]
+      const useTo = t > threshold
+      const c = useTo ? toRgb : fromRgb
+      data[i] = c.r
+      data[i + 1] = c.g
+      data[i + 2] = c.b
+      data[i + 3] = 255
+      i += 4
+    }
+  }
+  ctx.putImageData(img, 0, 0)
 }
 
 export function DitherBackdrop({
@@ -200,63 +212,165 @@ export function DitherBackdrop({
   hoverStops,
   hoverDuration = 250,
   hover = false,
+  matrix = DEFAULT_MATRIX,
   image
 }: DitherBackdropProps) {
-  const [ref, inView] = useInViewport<HTMLSpanElement>()
+  const [wrapRef, inView] = useInViewport<HTMLSpanElement>()
   const themeRevision = useThemeRevision()
-  const animatedStops = useAnimatedStops(
-    stops,
-    hoverStops,
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
+  const stopsRef = useRef<DitherStops>(stops)
+  const rafRef = useRef<number | null>(null)
+  const animStartRef = useRef<number>(0)
+  const animFromRef = useRef<DitherStops>(stops)
+  const animToRef = useRef<DitherStops>(stops)
+
+  const colors = useMemo(() => {
+    const fromRgb = parseColorToRgb(resolveColor(from))
+    const toRgb = parseColorToRgb(resolveColor(to))
+    return { fromRgb, toRgb }
+  }, [from, to, themeRevision])
+
+  const colorsRef = useRef(colors)
+  useEffect(() => {
+    colorsRef.current = colors
+  }, [colors])
+
+  const directionRef = useRef(direction)
+  useEffect(() => {
+    directionRef.current = direction
+  }, [direction])
+
+  const matrixRef = useRef(matrix)
+  useEffect(() => {
+    matrixRef.current = matrix
+  }, [matrix])
+
+  const paint = (currentStops: DitherStops) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    const { w, h } = sizeRef.current
+    drawDither(
+      ctx,
+      w,
+      h,
+      colorsRef.current.fromRgb,
+      colorsRef.current.toRgb,
+      directionRef.current,
+      currentStops,
+      matrixRef.current
+    )
+  }
+
+  useEffect(() => {
+    if (image) return
+    const wrap = wrapRef.current
+    const canvas = canvasRef.current
+    if (!wrap || !canvas) return
+
+    const resize = () => {
+      const rect = wrap.getBoundingClientRect()
+      const w = Math.max(1, Math.round(rect.width))
+      const h = Math.max(1, Math.round(rect.height))
+      if (sizeRef.current.w === w && sizeRef.current.h === h) return
+      sizeRef.current = { w, h }
+      canvas.width = w
+      canvas.height = h
+      paint(stopsRef.current)
+    }
+    resize()
+    const ro = new ResizeObserver(resize)
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, [image])
+
+  useEffect(() => {
+    if (image) return
+    paint(stopsRef.current)
+  }, [image, colors, direction, matrix])
+
+  useEffect(() => {
+    if (image) return
+    const target: DitherStops = hover && hoverStops ? hoverStops : stops
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (!hoverStops || reduceMotion) {
+      stopsRef.current = target
+      paint(target)
+      return
+    }
+    animFromRef.current = [stopsRef.current[0], stopsRef.current[1]]
+    animToRef.current = target
+    animStartRef.current = performance.now()
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    const tick = (now: number) => {
+      const elapsed = now - animStartRef.current
+      const t = Math.min(elapsed / hoverDuration, 1)
+      const e = easeOutCubic(t)
+      const next: DitherStops = [
+        lerp(animFromRef.current[0], animToRef.current[0], e),
+        lerp(animFromRef.current[1], animToRef.current[1], e)
+      ]
+      stopsRef.current = next
+      paint(next)
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        rafRef.current = null
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [
     hover,
-    hoverDuration
-  )
+    hoverStops?.[0],
+    hoverStops?.[1],
+    stops[0],
+    stops[1],
+    hoverDuration,
+    image
+  ])
+
   const fallbackCss = image
     ? undefined
-    : cssGradient(from, to, direction, animatedStops)
-  const shaderImage = useMemo(
-    () => {
-      if (image) return image
-      return gradientDataUrl(
-        resolveColor(from),
-        resolveColor(to),
-        direction,
-        animatedStops
-      )
-    },
-    [
-      image,
-      from,
-      to,
-      direction,
-      animatedStops[0],
-      animatedStops[1],
-      themeRevision
-    ]
-  )
+    : cssGradient(from, to, direction, stops)
 
   return (
     <span
-      ref={ref}
+      ref={wrapRef}
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
       style={{
-        backgroundImage: fallbackCss,
+        backgroundImage: image ? undefined : fallbackCss,
         backgroundSize: image ? "cover" : undefined,
         backgroundPosition: image ? "center" : undefined,
         backgroundColor: image ? "#000" : undefined
       }}
     >
-      {inView && (
+      {!image && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full"
+          style={{ imageRendering: "pixelated" }}
+        />
+      )}
+      {image && inView && (
         <ImageDithering
-          image={shaderImage}
-          type="8x8"
+          image={image}
+          type="4x4"
           size={2}
-          colorSteps={3}
+          colorSteps={2}
           fit="cover"
           originalColors
           colorBack="#00000000"
-          colorFront={to}
-          colorHighlight={from}
           style={{ width: "100%", height: "100%" }}
         />
       )}
