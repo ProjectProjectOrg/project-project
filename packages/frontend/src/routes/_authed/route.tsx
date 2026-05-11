@@ -7,6 +7,7 @@ import {
   useLocation
 } from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
@@ -64,26 +65,12 @@ function AuthedLayout() {
 }
 
 function Shell({ user }: { user: User }) {
-  const slot = useSidebarSlotContent()
   return (
     <div className="h-full p-3">
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <aside
-            aria-hidden={slot ? undefined : true}
-            className={cn(
-              "shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-out",
-              slot
-                ? "mr-2 w-56"
-                : "pointer-events-none mr-0 w-0"
-            )}
-          >
-            <div className="h-full w-56 overflow-y-auto rounded-xl bg-muted/60 p-2">
-              {slot}
-            </div>
-          </aside>
           <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60">
             <div className="p-6">
               <Outlet />
@@ -97,6 +84,7 @@ function Shell({ user }: { user: User }) {
 
 function Sidebar({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
+  const slot = useSidebarSlotContent()
 
   return (
     <aside className="row-span-2 flex flex-col">
@@ -104,26 +92,58 @@ function Sidebar({ user }: { user: User }) {
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
       </div>
-      <nav className="flex flex-col gap-1 px-3 py-2">
-        <NavItem
-          to="/"
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-        {orgSlug && (
-          <NavItem
-            to="/orgs/$orgSlug/projects"
-            params={{ orgSlug }}
-            icon={FolderKanban}
-            label={m.chrome_sidebar_projects()}
-          />
-        )}
-      </nav>
-      <div className="mt-auto p-3">
+      <div className="relative min-h-0 flex-1">
+        <AnimatePresence initial={false} mode="popLayout">
+          {slot ? (
+            <motion.div
+              key="rail"
+              initial={{ opacity: 0, scale: 1.02 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.02 }}
+              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              className="absolute inset-0 overflow-y-auto px-3 py-2"
+            >
+              {slot}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="nav"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              className="absolute inset-0 overflow-y-auto"
+            >
+              <PrimaryNav orgSlug={orgSlug} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="p-3">
         <ThemeSwitcher />
       </div>
     </aside>
+  )
+}
+
+function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
+  return (
+    <nav className="flex flex-col gap-1 px-3 py-2">
+      <NavItem
+        to="/"
+        icon={LayoutDashboard}
+        label={m.chrome_sidebar_dashboard()}
+        exact
+      />
+      {orgSlug && (
+        <NavItem
+          to="/orgs/$orgSlug/projects"
+          params={{ orgSlug }}
+          icon={FolderKanban}
+          label={m.chrome_sidebar_projects()}
+        />
+      )}
+    </nav>
   )
 }
 
