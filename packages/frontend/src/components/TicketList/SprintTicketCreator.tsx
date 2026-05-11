@@ -200,7 +200,7 @@ export function SprintTicketCreator({
             )}
           >
             <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-            <CollapsingLabel show={expanded}>
+            <CollapsingLabel show={expanded} contentKey={type}>
               <span className="text-xs">{TYPE_LABELS[type]()}</span>
             </CollapsingLabel>
           </button>
