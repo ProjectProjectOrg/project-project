@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { and, eq } from "drizzle-orm"
 import {
   Conflict,
+  encodeCursor,
   Forbidden,
   NotFound,
   Tag,
@@ -11,6 +12,7 @@ import {
   TagName,
   TAG_DEFAULT_PALETTE,
   type CreateTagInput,
+  type CursorPayload,
   type UpdateTagInput
 } from "@projectproject/shared"
 import { projectIndex, projectTag } from "../db/schema"
@@ -87,6 +89,37 @@ export const TagsLive = Layer.effect(
             createdAt: r.createdAt
           })
         )
+      })
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Tag>; nextCursor: string | null },
+      NotFound
+    > =>
+      Effect.gen(function* () {
+        const all = yield* list(orgSlug, userId, slug)
+        const sorted = [...all].toSorted((a, b) => a.name.localeCompare(b.name))
+        const startIdx =
+          cursor === undefined
+            ? 0
+            : (() => {
+                const idx = sorted.findIndex((t) => t.name > cursor.sort)
+                return idx < 0 ? sorted.length : idx
+              })()
+        const slice = sorted.slice(startIdx, startIdx + limit + 1)
+        const hasMore = slice.length > limit
+        const items = hasMore ? slice.slice(0, limit) : slice
+        const last = items[items.length - 1]
+        const nextCursor =
+          hasMore && last
+            ? encodeCursor({ id: last.name, sort: last.name })
+            : null
+        return { items, nextCursor }
       })
 
     const create = (
@@ -228,6 +261,6 @@ export const TagsLive = Layer.effect(
           .pipe(Effect.orDie)
       })
 
-    return { list, create, update, remove } satisfies TagsShape
+    return { list, listPaged, create, update, remove } satisfies TagsShape
   })
 )

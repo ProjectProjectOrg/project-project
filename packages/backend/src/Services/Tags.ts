@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type {
   Conflict,
   CreateTagInput,
+  CursorPayload,
   Forbidden,
   NotFound,
   Tag,
@@ -16,6 +17,16 @@ export interface TagsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<ReadonlyArray<Tag>, NotFound>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Tag>; nextCursor: string | null },
+    NotFound
+  >
   readonly create: (
     orgSlug: string,
     userId: string,
