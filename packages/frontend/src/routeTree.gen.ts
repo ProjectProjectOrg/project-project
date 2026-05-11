@@ -13,6 +13,9 @@ import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as publicSpikeRouteRouteImport } from './routes/(public)/spike/route'
+import { Route as publicSpikeIndexRouteImport } from './routes/(public)/spike/index'
+import { Route as publicSpikePragmaticRouteImport } from './routes/(public)/spike/pragmatic'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
@@ -42,6 +45,21 @@ const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const publicSpikeRouteRoute = publicSpikeRouteRouteImport.update({
+  id: '/(public)/spike',
+  path: '/spike',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicSpikeIndexRoute = publicSpikeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => publicSpikeRouteRoute,
+} as any)
+const publicSpikePragmaticRoute = publicSpikePragmaticRouteImport.update({
+  id: '/pragmatic',
+  path: '/pragmatic',
+  getParentRoute: () => publicSpikeRouteRoute,
 } as any)
 const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
   id: '/orgs/$orgSlug',
@@ -104,9 +122,12 @@ const AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
+  '/spike': typeof publicSpikeRouteRouteWithChildren
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/spike/pragmatic': typeof publicSpikePragmaticRoute
+  '/spike/': typeof publicSpikeIndexRoute
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -121,6 +142,8 @@ export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/': typeof AuthedIndexRoute
+  '/spike/pragmatic': typeof publicSpikePragmaticRoute
+  '/spike': typeof publicSpikeIndexRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -132,10 +155,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteRouteWithChildren
+  '/(public)/spike': typeof publicSpikeRouteRouteWithChildren
   '/(public)/login': typeof publicLoginRoute
   '/_authed/profile': typeof AuthedProfileRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/(public)/spike/pragmatic': typeof publicSpikePragmaticRoute
+  '/(public)/spike/': typeof publicSpikeIndexRoute
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -150,9 +176,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/spike'
     | '/login'
     | '/profile'
     | '/orgs/$orgSlug'
+    | '/spike/pragmatic'
+    | '/spike/'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/'
@@ -167,6 +196,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/'
+    | '/spike/pragmatic'
+    | '/spike'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -177,10 +208,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authed'
+    | '/(public)/spike'
     | '/(public)/login'
     | '/_authed/profile'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
+    | '/(public)/spike/pragmatic'
+    | '/(public)/spike/'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/projects/'
@@ -194,6 +228,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
+  publicSpikeRouteRoute: typeof publicSpikeRouteRouteWithChildren
   publicLoginRoute: typeof publicLoginRoute
 }
 
@@ -226,6 +261,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof publicLoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/(public)/spike': {
+      id: '/(public)/spike'
+      path: '/spike'
+      fullPath: '/spike'
+      preLoaderRoute: typeof publicSpikeRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/spike/': {
+      id: '/(public)/spike/'
+      path: '/'
+      fullPath: '/spike/'
+      preLoaderRoute: typeof publicSpikeIndexRouteImport
+      parentRoute: typeof publicSpikeRouteRoute
+    }
+    '/(public)/spike/pragmatic': {
+      id: '/(public)/spike/pragmatic'
+      path: '/pragmatic'
+      fullPath: '/spike/pragmatic'
+      preLoaderRoute: typeof publicSpikePragmaticRouteImport
+      parentRoute: typeof publicSpikeRouteRoute
     }
     '/_authed/orgs/$orgSlug': {
       id: '/_authed/orgs/$orgSlug'
@@ -377,8 +433,22 @@ const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
   AuthedRouteRouteChildren,
 )
 
+interface publicSpikeRouteRouteChildren {
+  publicSpikePragmaticRoute: typeof publicSpikePragmaticRoute
+  publicSpikeIndexRoute: typeof publicSpikeIndexRoute
+}
+
+const publicSpikeRouteRouteChildren: publicSpikeRouteRouteChildren = {
+  publicSpikePragmaticRoute: publicSpikePragmaticRoute,
+  publicSpikeIndexRoute: publicSpikeIndexRoute,
+}
+
+const publicSpikeRouteRouteWithChildren =
+  publicSpikeRouteRoute._addFileChildren(publicSpikeRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
+  publicSpikeRouteRoute: publicSpikeRouteRouteWithChildren,
   publicLoginRoute: publicLoginRoute,
 }
 export const routeTree = rootRouteImport
