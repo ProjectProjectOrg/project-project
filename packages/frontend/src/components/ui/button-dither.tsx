@@ -124,16 +124,16 @@ function resolveColor(value: string): string {
 
 function parseColorToRgb(value: string): RGB {
   if (typeof window === "undefined") return { r: 0, g: 0, b: 0 }
-  const probe = document.createElement("span")
-  probe.style.color = value
-  probe.style.display = "none"
-  document.body.appendChild(probe)
-  const computed = getComputedStyle(probe).color
-  document.body.removeChild(probe)
-  const m = computed.match(/rgba?\(([^)]+)\)/)
-  if (!m) return { r: 0, g: 0, b: 0 }
-  const parts = m[1].split(",").map((p) => parseFloat(p.trim()))
-  return { r: parts[0] || 0, g: parts[1] || 0, b: parts[2] || 0 }
+  const canvas = document.createElement("canvas")
+  canvas.width = 1
+  canvas.height = 1
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })
+  if (!ctx) return { r: 0, g: 0, b: 0 }
+  ctx.clearRect(0, 0, 1, 1)
+  ctx.fillStyle = value
+  ctx.fillRect(0, 0, 1, 1)
+  const data = ctx.getImageData(0, 0, 1, 1).data
+  return { r: data[0], g: data[1], b: data[2] }
 }
 
 function useThemeRevision(): number {
