@@ -61,10 +61,10 @@
 // reads are appropriate. If a required var is missing, throwing at boot is
 // the right behavior.
 
-// TODO: add imports
 import { betterAuth } from "better-auth"
 import { admin, mcp, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import * as schema from "./db/schema"
@@ -137,6 +137,35 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60
     }
+  },
+  // Better Auth's MCP plugin only honours `prompt=consent` on /mcp/authorize
+  // — its own gate is `requireConsent: query.prompt === "consent"`, with no
+  // first-time-consent check against the oauthConsent table. Without this
+  // hook, every MCP client (Claude Code, MCP Inspector, ...) silently
+  // exchanges a code for tokens and the user never sees a consent screen.
+  // We inject `prompt=consent` when no oauthConsent row exists for this
+  // (client, user) pair so the styled /oauth/consent page renders the first
+  // time. Subsequent re-auths read the persisted row and stay silent.
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/mcp/authorize") return
+      const clientId = (ctx.query as { client_id?: string } | undefined)
+        ?.client_id
+      if (!clientId) return
+      const session = await getSessionFromCtx(ctx)
+      if (!session) return
+      const existing = await ctx.context.adapter.findOne<{
+        consentGiven?: boolean
+      }>({
+        model: "oauthConsent",
+        where: [
+          { field: "clientId", value: clientId },
+          { field: "userId", value: session.user.id }
+        ]
+      })
+      if (existing?.consentGiven) return
+      ctx.query = { ...(ctx.query ?? {}), prompt: "consent" }
+    })
   },
   // On sign-in, return the user to the org they were last in. We persist
   // that on `user.lastActiveOrganizationId` (a column on the user table)
@@ -219,13 +248,12 @@ export const auth = betterAuth({
     admin(),
     mcp({
       loginPage: "/login",
-      // The OAuth resource indicator (RFC 8707) for this MCP endpoint. Must
-      // be the URL of the protected resource itself, not BETTER_AUTH_URL —
-      // the latter points at the frontend (where consent lives), the
-      // former is where /mcp actually serves. Clients (Claude Code SDK,
-      // MCP Inspector) reject the auth flow if these don't match.
       resource:
-        (process.env.MCP_RESOURCE_URL ?? "http://localhost:3000") + "/mcp"
+        (process.env.MCP_RESOURCE_URL ?? "http://localhost:3000") + "/mcp",
+      oidcConfig: {
+        loginPage: "/login",
+        consentPage: "/oauth/consent"
+      }
     })
   ]
 })

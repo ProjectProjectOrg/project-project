@@ -67,21 +67,30 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true
       },
-      // OAuth 2.1 discovery (RFC 8414, RFC 9728): MCP clients look up the
-      // AS / protected-resource metadata at `<issuer-origin>/.well-known/...`,
-      // but Better Auth mounts these under `/api/auth/.well-known/...`. The
-      // issuer in our dev config is `http://localhost:5173` (BETTER_AUTH_URL),
-      // so clients fetch them on this origin — proxy them through to the
-      // backend's actual well-known endpoints rather than mirroring routes.
+      // OAuth 2.1 discovery (RFC 8414, RFC 9728) mandates that clients fetch
+      // AS and protected-resource metadata at `<issuer>/.well-known/...` —
+      // at the issuer origin's root, not under any handler path. Better
+      // Auth mounts these endpoints only under `/api/auth/.well-known/...`,
+      // so we forward the root paths to the backend's actual endpoints.
+      //
+      // The issuer is `BETTER_AUTH_URL=http://localhost:5173` (the frontend
+      // origin) — this is deliberate: OIDC redirects (login page, consent
+      // page) need to land on routes the frontend serves. If we moved the
+      // issuer to `:3000`, those redirects would land on the backend with
+      // no UI to render them.
+      //
+      // PRODUCTION: mirror these two rules in your reverse proxy (nginx,
+      // Caddy, Cloudflare, ...) so MCP clients can discover the AS in prod
+      // too. This vite config only matters in dev.
       "/.well-known/oauth-authorization-server": {
-        target: "http://localhost:3000/api/auth/.well-known/oauth-authorization-server",
+        target: "http://localhost:3000",
         changeOrigin: true,
-        rewrite: () => ""
+        rewrite: () => "/api/auth/.well-known/oauth-authorization-server"
       },
       "/.well-known/oauth-protected-resource": {
-        target: "http://localhost:3000/api/auth/.well-known/oauth-protected-resource",
+        target: "http://localhost:3000",
         changeOrigin: true,
-        rewrite: () => ""
+        rewrite: () => "/api/auth/.well-known/oauth-protected-resource"
       }
     }
   }
