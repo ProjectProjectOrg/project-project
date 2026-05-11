@@ -7,7 +7,7 @@ import {
   useLocation
 } from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
@@ -85,6 +85,9 @@ function Shell({ user }: { user: User }) {
 function Sidebar({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
   const slot = useSidebarSlotContent()
+  const reduceMotion = useReducedMotion()
+  const railScale = reduceMotion ? 1 : 1.02
+  const navScale = reduceMotion ? 1 : 0.98
 
   return (
     <aside className="row-span-2 flex flex-col">
@@ -97,9 +100,9 @@ function Sidebar({ user }: { user: User }) {
           {slot ? (
             <motion.div
               key="rail"
-              initial={{ opacity: 0, scale: 1.02 }}
+              initial={{ opacity: 0, scale: railScale }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
+              exit={{ opacity: 0, scale: railScale }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
               className="absolute inset-0 overflow-y-auto px-3 py-2"
             >
@@ -108,9 +111,9 @@ function Sidebar({ user }: { user: User }) {
           ) : (
             <motion.div
               key="nav"
-              initial={{ opacity: 0, scale: 0.98 }}
+              initial={{ opacity: 0, scale: navScale }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
+              exit={{ opacity: 0, scale: navScale }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
               className="absolute inset-0 overflow-y-auto"
             >
