@@ -9,6 +9,7 @@ import { GitHubLive } from "./Layers/GitHub"
 import { GroupDocsLive } from "./Layers/GroupDocs"
 import { GroupsLive } from "./Layers/Groups"
 import { MarkdownLive } from "./Layers/Markdown"
+import { OAuthApplicationsLive } from "./Layers/OAuthApplications"
 import { ProjectDocsLive } from "./Layers/ProjectDocs"
 import { ProjectsLive } from "./Layers/Projects"
 import { TagsLive } from "./Layers/Tags"
@@ -33,7 +34,8 @@ export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectDocsLive),
   Layer.provideMerge(TicketDocsLive),
   Layer.provideMerge(GroupDocsLive),
-  Layer.provideMerge(MarkdownLive)
+  Layer.provideMerge(MarkdownLive),
+  Layer.provideMerge(OAuthApplicationsLive)
 )
 
 export const BackendHttpServicesLive = BackendServicesLive.pipe(

@@ -70,6 +70,7 @@ import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
+import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
@@ -118,6 +119,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
   Layer.provide(GroupsHandlerLive),
+  Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(BackendHttpServicesLive)
 )
 
