@@ -14,6 +14,7 @@
   "sprints_complete_in_progress": "Completing…",
   "sprints_complete_no_carryover": "Nothing to carry over.",
   "sprints_completed_at": "Completed {date}",
+  "sprints_completed_closed_notice": "This sprint is closed — tickets are frozen.",
   "sprints_completed_label": "Completed",
   "sprints_create_button": "Create",
   "sprints_create_error_fallback": "Failed to create sprint",

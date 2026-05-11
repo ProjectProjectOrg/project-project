@@ -5,6 +5,7 @@ import {
   projectKey,
   sprintMembershipAtom
 } from "@/atoms/sprints"
+import { m } from "@/paraglide/messages"
 import type {
   GroupId,
   Member,
@@ -42,7 +43,11 @@ export function SprintTicketList({
       filterIds={filterIds}
       sprintMembership={membership}
       creator={
-        isCompleted ? null : (
+        isCompleted ? (
+          <p className="px-3 py-2 text-xs text-muted-foreground">
+            {m.sprints_completed_closed_notice()}
+          </p>
+        ) : (
           <SprintTicketCreator
             orgSlug={orgSlug}
             slug={slug}
