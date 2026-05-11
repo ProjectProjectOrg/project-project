@@ -23,8 +23,26 @@ export interface CursorPayload {
   readonly sort: string
 }
 
+// base64url via the Web APIs so this module compiles for the browser too.
+// Cursor payloads are ASCII-only (ids + ISO dates) in practice, so the
+// String.fromCharCode dance over the UTF-8 bytes is sufficient.
+const toBase64Url = (bytes: Uint8Array): string => {
+  let bin = ""
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+const fromBase64Url = (s: string): Uint8Array => {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/")
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4)
+  const bin = atob(padded)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
 export const encodeCursor = (p: CursorPayload): string =>
-  Buffer.from(JSON.stringify(p), "utf8").toString("base64url")
+  toBase64Url(new TextEncoder().encode(JSON.stringify(p)))
 
 export const decodeCursor = (s: string): CursorPayload =>
-  JSON.parse(Buffer.from(s, "base64url").toString("utf8"))
+  JSON.parse(new TextDecoder().decode(fromBase64Url(s)))
