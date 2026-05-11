@@ -17,6 +17,7 @@ import {
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
+  UpdateTicketOrderInput,
   Validation
 } from "@projectproject/shared"
 import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
@@ -316,6 +317,64 @@ export const GroupsLive = Layer.effect(
         return { target, evicted } satisfies UpdateGroupTicketsOutput
       })
 
+    const updateTicketOrder = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      input: UpdateTicketOrderInput
+    ): Effect.Effect<
+      GroupDetail,
+      NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
+        const existing = yield* groupDocs.read(orgSlug, slug, id)
+        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+        if (existing.completedAt !== null) {
+          return yield* Effect.fail(new SprintCompletedImmutable())
+        }
+        if (input.after !== null && input.after === input.ticketId) {
+          return yield* Effect.fail(new Validation({ reason: "after_is_self" }))
+        }
+        if (!existing.tickets.includes(input.ticketId)) {
+          return yield* Effect.fail(new NotFound())
+        }
+        if (input.after !== null && !existing.tickets.includes(input.after)) {
+          return yield* Effect.fail(new NotFound())
+        }
+
+        const filtered = existing.tickets.filter((tid) => tid !== input.ticketId)
+        const insertAt =
+          input.after === null ? 0 : filtered.indexOf(input.after) + 1
+        const nextTickets: ReadonlyArray<TicketId> = [
+          ...filtered.slice(0, insertAt),
+          input.ticketId,
+          ...filtered.slice(insertAt)
+        ]
+
+        const now = new Date()
+
+        if (input.status !== undefined) {
+          const ticket = yield* ticketDocs.read(orgSlug, slug, input.ticketId)
+          if (ticket.status !== input.status) {
+            yield* ticketDocs.write(orgSlug, slug, input.ticketId, {
+              ...ticket,
+              status: input.status,
+              updatedAt: now
+            })
+          }
+        }
+
+        const target: GroupDocument = {
+          ...existing,
+          tickets: nextTickets,
+          updatedAt: now
+        }
+        yield* groupDocs.write(orgSlug, slug, id, target)
+        return target
+      })
+
     const complete = (
       orgSlug: string,
       userId: string,
@@ -448,6 +507,7 @@ export const GroupsLive = Layer.effect(
       create,
       update,
       updateTickets,
+      updateTicketOrder,
       complete,
       remove,
       removeTicketFromAllGroups

@@ -10,6 +10,7 @@ import type {
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
+  UpdateTicketOrderInput,
   Validation
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
@@ -51,6 +52,16 @@ export interface GroupsShape {
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly updateTicketOrder: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: UpdateTicketOrderInput
+  ) => Effect.Effect<
+    GroupDetail,
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
   >
   readonly complete: (
     orgSlug: string,

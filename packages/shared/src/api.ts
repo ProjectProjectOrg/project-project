@@ -63,7 +63,8 @@ import {
   GroupId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
-  UpdateGroupTicketsOutput
+  UpdateGroupTicketsOutput,
+  UpdateTicketOrderInput
 } from "./schemas/Group"
 import {
   BranchExists,
@@ -515,6 +516,20 @@ const GroupsGroup = HttpApiGroup.make("groups")
       .addError(NotFound)
       .addError(Forbidden)
       .addError(SprintCompletedImmutable)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateTicketOrder",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/ticket-order"
+    )
+      .setPath(GroupPath)
+      .setPayload(UpdateTicketOrderInput)
+      .addSuccess(GroupDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(SprintCompletedImmutable)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.post(
