@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   deleteSprintAtom,
   projectKey,
@@ -47,16 +48,18 @@ import {
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { SprintStateIcon } from "./SprintChip"
 
-const DATE_FMT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  year: "numeric"
-})
+const fullDateFormatter = () =>
+  new Intl.DateTimeFormat(getLocale(), {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  })
 
-const SHORT_DATE_FMT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric"
-})
+const shortDateFormatter = () =>
+  new Intl.DateTimeFormat(getLocale(), {
+    month: "short",
+    day: "numeric"
+  })
 
 export function SprintDetailHeader({
   orgSlug,
@@ -102,7 +105,7 @@ export function SprintDetailHeader({
         {state === "completed" && sprint.completedAt && (
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {m.sprints_completed_at({
-              date: SHORT_DATE_FMT.format(sprint.completedAt)
+              date: shortDateFormatter().format(sprint.completedAt)
             })}
           </span>
         )}
@@ -225,14 +228,15 @@ function DateRangeField({
     }
   }, [open, sprint.startsAt, sprint.endsAt])
 
+  const fmt = fullDateFormatter()
   const label =
     sprint.startsAt && sprint.endsAt
-      ? `${DATE_FMT.format(sprint.startsAt)} – ${DATE_FMT.format(sprint.endsAt)}`
+      ? `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
       : m.sprints_date_range_label()
 
   if (disabled) {
     return (
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+      <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
         {label}
       </span>
     )

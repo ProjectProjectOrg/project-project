@@ -1,4 +1,4 @@
-import { Check, CircleDashed, CircleDot } from "lucide-react"
+import { Flag, Trophy, Zap } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sprintState } from "@projectproject/shared"
@@ -10,9 +10,9 @@ export const SPRINT_STATE_META: Record<
   SprintStateName,
   { icon: LucideIcon; className: string }
 > = {
-  planned: { icon: CircleDashed, className: "text-muted-foreground" },
-  active: { icon: CircleDot, className: "text-blue-500" },
-  completed: { icon: Check, className: "text-emerald-500" }
+  planned: { icon: Flag, className: "text-muted-foreground" },
+  active: { icon: Zap, className: "text-blue-500" },
+  completed: { icon: Trophy, className: "text-emerald-500" }
 }
 
 export function SprintStateIcon({

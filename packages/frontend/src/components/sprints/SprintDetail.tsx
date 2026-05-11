@@ -17,6 +17,7 @@ import {
 import { sprintState, type GroupId, type TicketId } from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
 import { SprintDetailHeader } from "./SprintDetailHeader"
+import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 
 export function SprintDetail({
@@ -34,9 +35,7 @@ export function SprintDetail({
   const [showCompleteForm, setShowCompleteForm] = useState(false)
 
   return Result.matchWithError(sprint, {
-    onInitial: () => (
-      <div className="skeleton h-40 rounded-xl border border-border" />
-    ),
+    onInitial: () => <SprintDetailSkeleton />,
     onError: (error) =>
       error._tag === "NotFound" ? (
         <Empty className="rounded-xl border border-dashed border-border p-6">
@@ -67,10 +66,23 @@ export function SprintDetail({
       </Empty>
     ),
     onSuccess: ({ value }) => {
-      const isCompleted = value.completedAt !== null
-      const state = sprintState(value)
-      const ticketIds = value.tickets as ReadonlyArray<TicketId>
       const allSprints = Result.isSuccess(list) ? list.value : []
+      const fromList = allSprints.find((s) => s.id === value.id)
+      const display = fromList
+        ? {
+            ...value,
+            name: fromList.name,
+            color: fromList.color,
+            startsAt: fromList.startsAt,
+            endsAt: fromList.endsAt,
+            completedAt: fromList.completedAt,
+            updatedAt: fromList.updatedAt,
+            tickets: fromList.tickets
+          }
+        : value
+      const isCompleted = display.completedAt !== null
+      const state = sprintState(display)
+      const ticketIds = display.tickets as ReadonlyArray<TicketId>
       const uiKey = `${orgSlug}/${slug}/sprints/${groupId}`
 
       return (
@@ -78,7 +90,7 @@ export function SprintDetail({
           <SprintDetailHeader
             orgSlug={orgSlug}
             slug={slug}
-            sprint={value}
+            sprint={display}
             onRequestComplete={
               isCompleted ? undefined : () => setShowCompleteForm(true)
             }
@@ -88,7 +100,7 @@ export function SprintDetail({
             <CompleteSprintForm
               orgSlug={orgSlug}
               slug={slug}
-              sprint={value}
+              sprint={display}
               sprints={allSprints}
               onDone={() => setShowCompleteForm(false)}
             />
@@ -97,7 +109,7 @@ export function SprintDetail({
           <SprintTicketList
             orgSlug={orgSlug}
             slug={slug}
-            groupId={value.id}
+            groupId={display.id}
             ticketIds={ticketIds}
             members={project.members}
             uiKey={uiKey}

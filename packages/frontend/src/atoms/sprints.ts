@@ -5,7 +5,6 @@ import { ApiClient } from "@/services/ApiClient"
 import {
   GroupColor,
   GroupId,
-  isCarryover,
   type CompleteSprintDestination,
   type CreateGroupInput,
   type Group,
@@ -14,21 +13,15 @@ import {
   type UpdateGroupInput,
   type UpdateGroupTicketsOutput
 } from "@projectproject/shared"
+import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 
 export type { CompleteSprintDestination }
-import {
-  ticketsListAtom,
-  ticketsListKey
-} from "@/atoms/tickets"
 
 export const projectKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
 
-export const sprintKey = (
-  orgSlug: string,
-  slug: string,
-  groupId: GroupId
-) => `${orgSlug}/${slug}/${groupId}`
+export const sprintKey = (orgSlug: string, slug: string, groupId: GroupId) =>
+  `${orgSlug}/${slug}/${groupId}`
 
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const idx = key.indexOf("/")
@@ -90,13 +83,9 @@ type CreateSprintReducerInput = {
   endsAt: Date
 }
 
-const PENDING_PREFIX = "G-pending-"
 let pendingNonce = 0
 const nextPendingId = (): GroupId =>
-  makeGroupId(`G-${++pendingNonce + 9_999_000}`) // far above realistic G-N ids; never collides
-
-export const isPendingSprintId = (id: string): boolean =>
-  id.startsWith(PENDING_PREFIX)
+  makeGroupId(`G-${++pendingNonce + 9_999_000}`)
 
 export const createSprintAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
@@ -216,7 +205,6 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
       Effect.fn(function* (input: AddTicketsReducerInput, get) {
         const client = yield* ApiClient
         const targetKey = sprintKey(orgSlug, slug, input.groupId)
-        // Read current target tickets so we can full-replace with union.
         const list = get(sprintsListAtom(key))
         const currentTickets = Result.isSuccess(list)
           ? (list.value.find((g) => g.id === input.groupId)?.tickets ?? [])
@@ -225,10 +213,11 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
         for (const tid of input.ticketIds) {
           if (!union.includes(tid)) union.push(tid)
         }
-        const result: UpdateGroupTicketsOutput = yield* client.groups.updateTickets({
-          path: { orgSlug, slug, id: input.groupId },
-          payload: { tickets: union }
-        })
+        const result: UpdateGroupTicketsOutput =
+          yield* client.groups.updateTickets({
+            path: { orgSlug, slug, id: input.groupId },
+            payload: { tickets: union }
+          })
         get.refresh(sprintsListBaseAtom(key))
         get.refresh(sprintBaseAtom(targetKey))
         for (const ev of result.evicted) {
@@ -286,12 +275,12 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
 type CompleteSprintReducerInput = {
   groupId: GroupId
   destination: CompleteSprintDestination
-  ticketStatuses: ReadonlyMap<TicketId, GroupDetail["tickets"][number] extends infer _ ? string : never>
+  ticketStatuses: ReadonlyMap<
+    TicketId,
+    GroupDetail["tickets"][number] extends infer _ ? string : never
+  >
 }
 
-// Pure helper: split a sprint's tickets into "stay" (status === done) and
-// "carry" (status !== done) using the supplied status map. Tickets whose
-// status is unknown are conservatively treated as carryover.
 export function splitCarryover(
   ticketIds: ReadonlyArray<TicketId>,
   statuses: ReadonlyMap<string, string>
@@ -348,9 +337,7 @@ export const completeSprintAtom = Atom.family((key: string) => {
         get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
         if (input.destination.kind === "sprint") {
           get.refresh(
-            sprintBaseAtom(
-              sprintKey(orgSlug, slug, input.destination.groupId)
-            )
+            sprintBaseAtom(sprintKey(orgSlug, slug, input.destination.groupId))
           )
         }
         get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
@@ -399,5 +386,3 @@ export const sprintMembershipAtom = Atom.family((key: string) =>
     return map
   })
 )
-
-export { isCarryover }

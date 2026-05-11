@@ -31,8 +31,9 @@ import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { activeAndPlannedCount } from "@projectproject/shared"
+import { activeAndPlannedCount, sprintState } from "@projectproject/shared"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
+import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
@@ -59,6 +60,7 @@ import { m } from "@/paraglide/messages"
 import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type {
+  Group,
   Ticket,
   ProjectDetail as ProjectDetailType
 } from "@projectproject/shared"
@@ -380,6 +382,7 @@ function TabsNav({
   }
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+  const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label(),
@@ -436,6 +439,40 @@ function TabsNav({
               </Link>
             )
           }
+          if (item.key === "sprints" && sprintsCount !== null) {
+            return (
+              <Link
+                to={def.to}
+                params={{ orgSlug, slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {active && (
+                  <motion.span
+                    layoutId={`project-tabs-${slug}-active`}
+                    transition={springs.moderate}
+                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  />
+                )}
+                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
+                  <CalendarRange className="size-3.5" strokeWidth={1.75} />
+                  <span>{m.project_detail_tab_sprints()}</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                      active
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {sprintsCount}
+                  </span>
+                </span>
+                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <SprintsBreakdown sprints={sprints} />
+                </span>
+              </Link>
+            )
+          }
           return (
             <Link
               to={def.to}
@@ -467,6 +504,29 @@ function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
           />
         )
       )}
+    </>
+  )
+}
+
+function SprintsBreakdown({ sprints }: { sprints: ReadonlyArray<Group> }) {
+  const counts = { active: 0, planned: 0, completed: 0 }
+  const now = new Date()
+  for (const s of sprints) counts[sprintState(s, now)]++
+  const order: ReadonlyArray<keyof typeof counts> = [
+    "active",
+    "planned",
+    "completed"
+  ]
+  return (
+    <>
+      {order.map((state) => (
+        <BadgeStat
+          key={state}
+          count={counts[state]}
+          icon={SPRINT_STATE_META[state].icon}
+          className={SPRINT_STATE_META[state].className}
+        />
+      ))}
     </>
   )
 }

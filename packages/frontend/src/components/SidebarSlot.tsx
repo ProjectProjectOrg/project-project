@@ -36,12 +36,12 @@ export function useSidebarSlotContent(): ReactNode | null {
   return ctx.content
 }
 
-export function useSidebarSlot(key: string, node: ReactNode) {
+export function useSidebarSlot(key: string, render: () => ReactNode) {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error("useSidebarSlot outside provider")
   const { setContent } = ctx
   useEffect(() => {
-    setContent(key, node)
+    setContent(key, render())
     return () => setContent(key, null)
-  }, [key, node, setContent])
+  }, [key, render, setContent])
 }

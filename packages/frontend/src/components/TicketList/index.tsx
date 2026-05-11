@@ -31,7 +31,8 @@ export function TicketList({
   filterIds,
   extraRowActions,
   sprintMembership,
-  creator
+  creator,
+  showSprintFilter
 }: {
   orgSlug: string
   slug: string
@@ -41,6 +42,7 @@ export function TicketList({
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
+  showSprintFilter?: boolean
 }) {
   const resolvedUiKey = uiKey ?? ticketListUiKey(orgSlug, slug)
   const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
@@ -106,6 +108,7 @@ export function TicketList({
             uiKey={resolvedUiKey}
             tickets={list.value}
             members={members}
+            showSprintFilter={showSprintFilter}
           />
         )}
 

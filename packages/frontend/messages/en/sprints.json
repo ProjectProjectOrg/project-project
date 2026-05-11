@@ -14,6 +14,7 @@
   "sprints_complete_in_progress": "Completing…",
   "sprints_complete_no_carryover": "Nothing to carry over.",
   "sprints_completed_at": "Completed {date}",
+  "sprints_completed_closed_notice": "This sprint is closed — tickets are frozen.",
   "sprints_completed_label": "Completed",
   "sprints_create_button": "Create",
   "sprints_create_error_fallback": "Failed to create sprint",
@@ -34,6 +35,7 @@
   "sprints_not_found_title": "Sprint not found",
   "sprints_overdue_with_days": "{days}d overdue",
   "sprints_planned_label": "Planned",
+  "sprints_rail_section_label": "Sprints",
   "sprints_remove_from_sprint_action": "Remove from sprint",
   "error_sprint_completed_immutable": "This sprint is completed; its membership is frozen.",
   "error_sprint_not_found": "Sprint not found"

@@ -61,6 +61,7 @@
         "@lexical/rich-text": "^0.44.0",
         "@lexical/selection": "^0.44.0",
         "@lexical/utils": "^0.44.0",
+        "@paper-design/shaders-react": "^0.0.76",
         "@phosphor-icons/react": "^2.1.10",
         "@projectproject/shared": "workspace:*",
         "@radix-ui/react-slot": "^1.2.4",
@@ -567,6 +568,10 @@
     "@oxlint/binding-win32-ia32-msvc": ["@oxlint/binding-win32-ia32-msvc@1.62.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-IgOFvL73li1bFgab+hThXYA0N2Xms2kV2MvZN95cebV+fmrZ9AVui1JSxfeeqRLo3CpPxKZlzhyq4G0cnaAvIw=="],
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.62.0", "", { "os": "win32", "cpu": "x64" }, "sha512-6hMpyDWQ2zGA1OXFKBrdYMUveUCO8UJhkO6JdwZPd78xIdHZNhjx+pib+4fC2Cljuhjyl0QwA2F3df/bs4Bp6A=="],
+
+    "@paper-design/shaders": ["@paper-design/shaders@0.0.76", "", {}, "sha512-AcNDY4J66YQHUfQYFInkCP7M9VOje0od7wLpOR7LtCmc532opJy6ll+h1W9zBovz8tt9U7OADUmJ/qKEXyOX/A=="],
+
+    "@paper-design/shaders-react": ["@paper-design/shaders-react@0.0.76", "", { "dependencies": { "@paper-design/shaders": "0.0.76" }, "peerDependencies": { "@types/react": "^18 || ^19", "react": "^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-uPJWrYRf6cJdO2H+fuXlahaqz0QjYglNAyUTaRfIInpzCa/d6guxBIK003soAZQFuQ035yg9FhtfFzKNWm+a5A=="],
 
     "@parcel/watcher": ["@parcel/watcher@2.5.6", "", { "dependencies": { "detect-libc": "^2.0.3", "is-glob": "^4.0.3", "node-addon-api": "^7.0.0", "picomatch": "^4.0.3" }, "optionalDependencies": { "@parcel/watcher-android-arm64": "2.5.6", "@parcel/watcher-darwin-arm64": "2.5.6", "@parcel/watcher-darwin-x64": "2.5.6", "@parcel/watcher-freebsd-x64": "2.5.6", "@parcel/watcher-linux-arm-glibc": "2.5.6", "@parcel/watcher-linux-arm-musl": "2.5.6", "@parcel/watcher-linux-arm64-glibc": "2.5.6", "@parcel/watcher-linux-arm64-musl": "2.5.6", "@parcel/watcher-linux-x64-glibc": "2.5.6", "@parcel/watcher-linux-x64-musl": "2.5.6", "@parcel/watcher-win32-arm64": "2.5.6", "@parcel/watcher-win32-ia32": "2.5.6", "@parcel/watcher-win32-x64": "2.5.6" } }, "sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ=="],
 

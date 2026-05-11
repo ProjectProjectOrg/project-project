@@ -16,28 +16,29 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { RailBackLink } from "@/components/RailBackLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   createSprintAtom,
   projectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import {
-  pickActiveSprint,
-  sprintState,
-  type Group
-} from "@projectproject/shared"
+import { sprintState, type Group } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
-const RAIL_DATE_FMT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric"
-})
+function railDateFormatter() {
+  return new Intl.DateTimeFormat(getLocale(), {
+    month: "short",
+    day: "numeric"
+  })
+}
 
 function formatRange(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
-  return `${RAIL_DATE_FMT.format(s.startsAt)} – ${RAIL_DATE_FMT.format(s.endsAt)}`
+  const fmt = railDateFormatter()
+  return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
 }
 
 function defaultSprintRange(): DateRange {
@@ -79,6 +80,11 @@ export function SprintRail({
 
   return (
     <div className="flex h-full flex-col gap-4">
+      <RailBackLink
+        to="/orgs/$orgSlug/projects/$slug"
+        params={{ orgSlug, slug }}
+        label={m.sprints_rail_section_label()}
+      />
       <NewSprintForm orgSlug={orgSlug} slug={slug} />
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
@@ -157,15 +163,15 @@ function RailRow({
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: sprint.id }}
       className={cn(
-        "group/list-row flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
         isSelected
-          ? "bg-background text-foreground"
-          : "text-muted-foreground hover:bg-background hover:text-foreground"
+          ? "bg-accent text-foreground font-medium"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       )}
       aria-current={isSelected ? "page" : undefined}
     >
       <SprintStateIcon sprint={sprint} />
-      <span className="min-w-0 flex-1 truncate text-sm">{sprint.name}</span>
+      <span className="min-w-0 flex-1 truncate">{sprint.name}</span>
       <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
         {formatRange(sprint)}
       </span>
@@ -186,10 +192,14 @@ function NewSprintForm({
       <InlineForm.Idle block>
         <InlineForm.Trigger
           action="create"
-          variant="primary"
-          size="sm"
-          className="w-full justify-start"
+          variant="dither"
+          className="w-full justify-start text-primary-foreground"
           leadingIcon={Plus}
+          ditherFrom="var(--primary)"
+          ditherTo="var(--background)"
+          ditherDirection="r"
+          ditherStops={[0.7, 1]}
+          ditherHoverStops={[0.5, 1]}
         >
           {m.sprints_new_button()}
         </InlineForm.Trigger>
@@ -265,7 +275,10 @@ function CreateSprintFields({
           >
             <span className="font-mono text-[11px] tabular-nums">
               {range.from && range.to
-                ? `${RAIL_DATE_FMT.format(range.from)} – ${RAIL_DATE_FMT.format(range.to)}`
+                ? (() => {
+                    const fmt = railDateFormatter()
+                    return `${fmt.format(range.from)} – ${fmt.format(range.to)}`
+                  })()
                 : m.sprints_date_range_label()}
             </span>
           </Button>
@@ -303,4 +316,3 @@ function CreateSprintFields({
   )
 }
 
-export { pickActiveSprint }

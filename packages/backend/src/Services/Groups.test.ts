@@ -36,7 +36,7 @@ function makeTicketDocument(
     title: id,
     status,
     type: "other",
-    priority: "p3",
+    priority: "med",
     tags: [],
     branch: null,
     pr: null,
