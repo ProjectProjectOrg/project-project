@@ -308,7 +308,7 @@ function DescriptionField({
   const preview = sprint.body.trim().split(/\s+/).slice(0, 16).join(" ")
 
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion type="single" className="w-full">
       <AccordionItem value="desc" className="border-b-0">
         <AccordionTrigger className="items-center gap-2 rounded pl-3 pr-5 py-1 text-left text-sm font-normal text-muted-foreground transition-colors hover:bg-accent/40 hover:no-underline hover:text-foreground [&>svg]:size-3.5 [&>svg]:translate-y-0">
           <span className="flex min-w-0 flex-1 items-center gap-2">

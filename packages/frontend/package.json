@@ -12,7 +12,7 @@
     "favicons": "bun scripts/generate-favicons.ts"
   },
   "dependencies": {
-    "@base-ui-components/react": "^1.0.0-rc.0",
+    "@base-ui/react": "^1.4.1",
     "@effect-atom/atom-react": "^0.5.0",
     "@effect/platform": "latest",
     "@hugeicons/core-free-icons": "^4.1.1",
