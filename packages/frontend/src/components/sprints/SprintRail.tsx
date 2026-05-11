@@ -163,15 +163,15 @@ function RailRow({
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: sprint.id }}
       className={cn(
-        "group/list-row flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
         isSelected
-          ? "bg-background text-foreground"
-          : "text-muted-foreground hover:bg-background hover:text-foreground"
+          ? "bg-accent text-foreground font-medium"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       )}
       aria-current={isSelected ? "page" : undefined}
     >
       <SprintStateIcon sprint={sprint} />
-      <span className="min-w-0 flex-1 truncate text-sm">{sprint.name}</span>
+      <span className="min-w-0 flex-1 truncate">{sprint.name}</span>
       <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
         {formatRange(sprint)}
       </span>
