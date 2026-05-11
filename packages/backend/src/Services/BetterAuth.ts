@@ -24,6 +24,17 @@ export interface BetterAuthShape {
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
   ) => Effect.Effect<string | null, BetterAuthError>
+  // Org membership list for a user. Returns the org slug + the user's role
+  // in that org. Used by the MCP `me` tool to populate `roles`. We hit the
+  // `member` + `organization` tables directly rather than going through
+  // `auth.api.listOrganizations` because that API is headers-based — here we
+  // already have the resolved userId from `CurrentUser`.
+  readonly listOrganizations: (
+    userId: string
+  ) => Effect.Effect<
+    ReadonlyArray<{ orgSlug: string; role: "owner" | "admin" | "member" }>,
+    BetterAuthError
+  >
 }
 
 export class BetterAuth extends Context.Tag("@projectproject/backend/Services/BetterAuth")<

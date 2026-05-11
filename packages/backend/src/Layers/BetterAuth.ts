@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import * as schema from "../db/schema"
-import { account, organization } from "../db/schema"
+import { account, member, organization } from "../db/schema"
 import {
   BetterAuth,
   BetterAuthError,
@@ -43,6 +43,26 @@ export const BetterAuthLive = Layer.effect(
           })
           if (!row?.accessToken) return yield* new NoGithubToken()
           return row.accessToken
+        }),
+      listOrganizations: (userId) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({ slug: organization.slug, role: member.role })
+                .from(member)
+                .innerJoin(organization, eq(member.organizationId, organization.id))
+                .where(eq(member.userId, userId)),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          // `member.role` is a free-form text column in Better Auth's schema;
+          // we coerce to the three-tier literal and drop anything unexpected.
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          return rows.flatMap((r) =>
+            allowed.has(r.role as "owner" | "admin" | "member")
+              ? [{ orgSlug: r.slug, role: r.role as "owner" | "admin" | "member" }]
+              : []
+          )
         }),
       getOrgSlugById: (organizationId) =>
         Effect.gen(function* () {
