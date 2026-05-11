@@ -412,10 +412,8 @@ function SprintMenu({
         {!isCompleted && onRequestComplete && (
           <>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                onRequestComplete()
-              }}
+              closeOnClick={false}
+              onClick={() => onRequestComplete()}
               className="cursor-pointer"
             >
               <CheckCircle2 className="size-4" strokeWidth={1.75} />
@@ -426,10 +424,8 @@ function SprintMenu({
         )}
         {!confirming ? (
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setConfirming(true)
-            }}
+            closeOnClick={false}
+            onClick={() => setConfirming(true)}
             className="cursor-pointer text-destructive focus:text-destructive"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />

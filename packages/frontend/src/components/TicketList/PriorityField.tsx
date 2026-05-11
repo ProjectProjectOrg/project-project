@@ -69,7 +69,7 @@ export function PriorityButton({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
+              onClick={() => {
                 if (p === ticket.priority) return
                 update({ priority: p })
               }}
@@ -140,7 +140,7 @@ export function PriorityBadgeTrigger({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
+              onClick={() => {
                 if (p === ticket.priority) return
                 update({ priority: p })
               }}

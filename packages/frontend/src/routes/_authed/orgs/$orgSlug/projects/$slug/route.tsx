@@ -258,10 +258,8 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!confirming ? (
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setConfirming(true)
-            }}
+            closeOnClick={false}
+            onClick={() => setConfirming(true)}
             className="cursor-pointer text-destructive focus:text-destructive"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />

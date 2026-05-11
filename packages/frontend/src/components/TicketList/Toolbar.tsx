@@ -402,10 +402,8 @@ function FiltersMenu({
       >
         <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setTypeFilter("all")
-          }}
+          closeOnClick={false}
+          onClick={() => setTypeFilter("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_all_types()}
@@ -419,10 +417,8 @@ function FiltersMenu({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={(e) => {
-                e.preventDefault()
-                setTypeFilter(t)
-              }}
+              closeOnClick={false}
+              onClick={() => setTypeFilter(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -437,10 +433,8 @@ function FiltersMenu({
         <div className="my-1 h-px bg-border" />
         <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setAssigneeFilter("all")
-          }}
+          closeOnClick={false}
+          onClick={() => setAssigneeFilter("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_anyone()}
@@ -450,10 +444,8 @@ function FiltersMenu({
         </DropdownMenuItem>
         {myId && (
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setAssigneeFilter("mine")
-            }}
+            closeOnClick={false}
+            onClick={() => setAssigneeFilter("mine")}
             className="cursor-pointer"
           >
             <UserRound className="size-4" strokeWidth={1.75} />
@@ -464,10 +456,8 @@ function FiltersMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            setAssigneeFilter("unassigned")
-          }}
+          closeOnClick={false}
+          onClick={() => setAssigneeFilter("unassigned")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_unassigned()}
@@ -479,10 +469,8 @@ function FiltersMenu({
         {members.map((member) => (
           <DropdownMenuItem
             key={member.id}
-            onSelect={(e) => {
-              e.preventDefault()
-              setAssigneeFilter(member.id)
-            }}
+            closeOnClick={false}
+            onClick={() => setAssigneeFilter(member.id)}
             className="cursor-pointer"
           >
             <MemberAvatar member={member} size={20} />
@@ -498,10 +486,8 @@ function FiltersMenu({
             <div className="my-1 h-px bg-border" />
             <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setSprintFilter("all")
-              }}
+              closeOnClick={false}
+              onClick={() => setSprintFilter("all")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_any()}
@@ -510,10 +496,8 @@ function FiltersMenu({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setSprintFilter("unassigned")
-              }}
+              closeOnClick={false}
+              onClick={() => setSprintFilter("unassigned")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_none()}
@@ -530,10 +514,8 @@ function FiltersMenu({
               return (
                 <DropdownMenuItem
                   key={s.id}
-                  onSelect={(e) => {
-                    e.preventDefault()
-                    setSprintFilter(s.id)
-                  }}
+                  closeOnClick={false}
+                  onClick={() => setSprintFilter(s.id)}
                   className="cursor-pointer"
                 >
                   <SIcon
@@ -626,7 +608,7 @@ function SortMenu({
         {(Object.keys(SORTS) as SortKey[]).map((k) => (
           <DropdownMenuItem
             key={k}
-            onSelect={() => onChange(k)}
+            onClick={() => onChange(k)}
             className="cursor-pointer"
           >
             {SORTS[k].label()}

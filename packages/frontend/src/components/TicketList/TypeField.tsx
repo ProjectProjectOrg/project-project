@@ -59,7 +59,7 @@ export function TypeBadgeTrigger({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
+              onClick={() => {
                 if (t === ticket.type) return
                 update({ type: t })
               }}
@@ -125,7 +125,7 @@ export function TypeButton({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
+              onClick={() => {
                 if (t === ticket.type) return
                 update({ type: t })
               }}

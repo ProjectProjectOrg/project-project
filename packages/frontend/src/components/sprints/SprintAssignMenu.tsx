@@ -95,7 +95,7 @@ export function SprintAssignMenu({
           return (
             <DropdownMenuItem
               key={s.id}
-              onSelect={() => {
+              onClick={() => {
                 if (!isCurrent) onSelect(s)
               }}
               className={cn(
@@ -116,7 +116,7 @@ export function SprintAssignMenu({
         {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
         {onRequestNewSprint && (
           <DropdownMenuItem
-            onSelect={() => onRequestNewSprint()}
+            onClick={() => onRequestNewSprint()}
             className="cursor-pointer"
           >
             <Plus className="size-3.5" strokeWidth={1.75} />
@@ -125,7 +125,7 @@ export function SprintAssignMenu({
         )}
         {onClear && (
           <DropdownMenuItem
-            onSelect={() => onClear()}
+            onClick={() => onClear()}
             className={cn(
               "flex cursor-pointer items-center gap-2 text-muted-foreground",
               !selectedId && "bg-accent/40 text-foreground"
