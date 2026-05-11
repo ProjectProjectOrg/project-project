@@ -49,6 +49,10 @@ export interface ProjectDocsShape {
     orgSlug: string,
     slug: string
   ) => Effect.Effect<void, MarkdownError>
+  readonly readRaw: (
+    orgSlug: string,
+    slug: string
+  ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
 export class ProjectDocs extends Context.Tag("@projectproject/backend/Services/ProjectDocs")<

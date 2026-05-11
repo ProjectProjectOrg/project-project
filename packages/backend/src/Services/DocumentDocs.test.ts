@@ -30,10 +30,12 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     projectDir: (orgSlug: string, projectSlug: string) =>
       `/tmp/projectproject-test/orgs/${orgSlug}/projects/${projectSlug}`,
     readProjectFile: () => unexpectedMarkdownCall("readProjectFile"),
+    readProjectFileRaw: () => unexpectedMarkdownCall("readProjectFileRaw"),
     writeProjectFile: () => unexpectedMarkdownCall("writeProjectFile"),
     removeProjectDir: () => unexpectedMarkdownCall("removeProjectDir"),
     readTicketFile: () => unexpectedMarkdownCall("readTicketFile"),
     readTicketParts: () => unexpectedMarkdownCall("readTicketParts"),
+    readTicketFileRaw: () => unexpectedMarkdownCall("readTicketFileRaw"),
     createTicketFile: () => unexpectedMarkdownCall("createTicketFile"),
     writeTicketFile: () => unexpectedMarkdownCall("writeTicketFile"),
     writeTicketWithRegion: () =>
@@ -41,6 +43,7 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     removeTicketFile: () => unexpectedMarkdownCall("removeTicketFile"),
     listTicketIds: () => unexpectedMarkdownCall("listTicketIds"),
     readGroupFile: () => unexpectedMarkdownCall("readGroupFile"),
+    readGroupFileRaw: () => unexpectedMarkdownCall("readGroupFileRaw"),
     createGroupFile: () => unexpectedMarkdownCall("createGroupFile"),
     writeGroupFile: () => unexpectedMarkdownCall("writeGroupFile"),
     writeGroupFileIfExists: () =>
@@ -370,4 +373,85 @@ it.effect(
       )
     )
   }
+)
+
+it.effect(
+  "ProjectDocs.readRaw returns the on-disk path and raw file contents",
+  () =>
+    Effect.gen(function* () {
+      const docs = yield* ProjectDocs
+      const file = yield* docs.readRaw("acme", "web")
+      expect(file).toEqual({
+        path: "orgs/acme/projects/web/project.md",
+        content: "---\nslug: web\n---\n# Web\n"
+      })
+    }).pipe(
+      Effect.provide(
+        ProjectDocsLive.pipe(
+          Layer.provide(
+            makeMarkdown({
+              readProjectFileRaw: (_org, _slug) =>
+                Effect.succeed({
+                  path: "orgs/acme/projects/web/project.md",
+                  content: "---\nslug: web\n---\n# Web\n"
+                })
+            })
+          )
+        )
+      )
+    )
+)
+
+it.effect(
+  "TicketDocs.readRaw returns the on-disk path and raw file contents",
+  () =>
+    Effect.gen(function* () {
+      const docs = yield* TicketDocs
+      const file = yield* docs.readRaw("acme", "web", "T-12")
+      expect(file).toEqual({
+        path: "orgs/acme/projects/web/tickets/T-12.md",
+        content: "---\nid: T-12\n---\n# Fix it\n"
+      })
+    }).pipe(
+      Effect.provide(
+        TicketDocsLive.pipe(
+          Layer.provide(
+            makeMarkdown({
+              readTicketFileRaw: (_org, _slug, _id) =>
+                Effect.succeed({
+                  path: "orgs/acme/projects/web/tickets/T-12.md",
+                  content: "---\nid: T-12\n---\n# Fix it\n"
+                })
+            })
+          )
+        )
+      )
+    )
+)
+
+it.effect(
+  "GroupDocs.readRaw returns the on-disk path and raw file contents",
+  () =>
+    Effect.gen(function* () {
+      const docs = yield* GroupDocs
+      const file = yield* docs.readRaw("acme", "web", "G-3")
+      expect(file).toEqual({
+        path: "orgs/acme/projects/web/groups/G-3.md",
+        content: "---\nid: G-3\n---\n# Sprint 3\n"
+      })
+    }).pipe(
+      Effect.provide(
+        GroupDocsLive.pipe(
+          Layer.provide(
+            makeMarkdown({
+              readGroupFileRaw: (_org, _slug, _id) =>
+                Effect.succeed({
+                  path: "orgs/acme/projects/web/groups/G-3.md",
+                  content: "---\nid: G-3\n---\n# Sprint 3\n"
+                })
+            })
+          )
+        )
+      )
+    )
 )

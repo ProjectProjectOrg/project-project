@@ -53,6 +53,11 @@ export interface TicketDocsShape {
     slug: string,
     id: string
   ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly readRaw: (
+    orgSlug: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
 export class TicketDocs extends Context.Tag("@projectproject/backend/Services/TicketDocs")<

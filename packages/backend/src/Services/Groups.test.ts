@@ -67,7 +67,8 @@ function makeFakeDocs(initial?: {
       if (!groups.has(id)) return Effect.fail(new NotFound())
       groups.delete(id)
       return Effect.void
-    }
+    },
+    readRaw: () => Effect.die(new Error("unexpected GroupDocs.readRaw call"))
   } satisfies GroupDocsShape
 
   const ticketService = {
@@ -75,7 +76,8 @@ function makeFakeDocs(initial?: {
     read: () => unexpectedTicketDocsCall("read"),
     create: () => unexpectedTicketDocsCall("create"),
     write: () => unexpectedTicketDocsCall("write"),
-    remove: () => unexpectedTicketDocsCall("remove")
+    remove: () => unexpectedTicketDocsCall("remove"),
+    readRaw: () => unexpectedTicketDocsCall("readRaw")
   } satisfies TicketDocsShape
 
   return {
