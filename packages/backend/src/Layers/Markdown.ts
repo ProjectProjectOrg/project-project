@@ -517,9 +517,7 @@ export const MarkdownLive = Layer.effect(
                 new MarkdownError({ cause, message: `write failed: ${file}` })
             )
           )
-        if (!exists) {
-          return yield* Effect.fail(new NotFound())
-        }
+        if (!exists) return yield* new NotFound()
         yield* fs
           .writeFileString(file, content)
           .pipe(
@@ -528,7 +526,6 @@ export const MarkdownLive = Layer.effect(
                 new MarkdownError({ cause, message: `write failed: ${file}` })
             )
           )
-        return yield* Effect.void
       })
 
     const removeGroupFile = (

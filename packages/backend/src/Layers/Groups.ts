@@ -70,15 +70,14 @@ export const GroupsLive = Layer.effect(
       ticketIds: ReadonlyArray<string>
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        if (ticketIds.length === 0) return Effect.void
+        if (ticketIds.length === 0) return
         const existing = yield* ticketDocs.listIds(orgSlug, slug)
         const set = new Set<string>(existing)
         for (const id of ticketIds) {
           if (!set.has(id)) {
-            return yield* Effect.fail(new NotFound())
+            return yield* new NotFound()
           }
         }
-        return Effect.void
       })
 
     const validateInterval = (

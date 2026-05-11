@@ -4,8 +4,6 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-
-const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
 import type {
   GroupDetail,
