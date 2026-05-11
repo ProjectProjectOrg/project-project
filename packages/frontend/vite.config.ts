@@ -66,6 +66,22 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:3000",
         changeOrigin: true
+      },
+      // OAuth 2.1 discovery (RFC 8414, RFC 9728): MCP clients look up the
+      // AS / protected-resource metadata at `<issuer-origin>/.well-known/...`,
+      // but Better Auth mounts these under `/api/auth/.well-known/...`. The
+      // issuer in our dev config is `http://localhost:5173` (BETTER_AUTH_URL),
+      // so clients fetch them on this origin — proxy them through to the
+      // backend's actual well-known endpoints rather than mirroring routes.
+      "/.well-known/oauth-authorization-server": {
+        target: "http://localhost:3000/api/auth/.well-known/oauth-authorization-server",
+        changeOrigin: true,
+        rewrite: () => ""
+      },
+      "/.well-known/oauth-protected-resource": {
+        target: "http://localhost:3000/api/auth/.well-known/oauth-protected-resource",
+        changeOrigin: true,
+        rewrite: () => ""
       }
     }
   }
