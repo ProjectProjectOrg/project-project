@@ -59,7 +59,7 @@ export function registerAllTools<R>(
         // Collapse the error channel to `never` by mapping any failure to a
         // tool-error response inline, so runPromise resolves with the union.
         const program: Effect.Effect<JsonContentResult | McpToolErrorResult, never, R> =
-          (Schema.decodeUnknown(spec.input)(input) as Effect.Effect<unknown, unknown, never>).pipe(
+          (Schema.decodeUnknown(spec.input as Schema.Schema<unknown, unknown, never>)(input) as Effect.Effect<unknown, unknown, never>).pipe(
             Effect.flatMap((parsed) => handler(parsed) as Effect.Effect<unknown, unknown, R>),
             Effect.flatMap((out) =>
               Schema.encode(spec.output as Schema.Schema<unknown, unknown, never>)(out),
