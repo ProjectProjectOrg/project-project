@@ -15,6 +15,7 @@ import { useShape } from "@/lib/shape-context"
 import {
   DitherBackdrop,
   type DitherDirection,
+  type DitherMatrix,
   type DitherStops
 } from "./button-dither"
 
@@ -89,6 +90,8 @@ interface ButtonProps
   ditherStops?: DitherStops
   ditherHoverStops?: DitherStops
   ditherHoverDuration?: number
+  ditherMatrix?: DitherMatrix
+  ditherPixelSize?: number
   ditherImage?: string
 }
 
@@ -111,6 +114,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ditherStops,
       ditherHoverStops,
       ditherHoverDuration,
+      ditherMatrix,
+      ditherPixelSize,
       ditherImage,
       onMouseEnter,
       onMouseLeave,
@@ -195,6 +200,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         hoverStops={ditherHoverStops}
         hoverDuration={ditherHoverDuration}
         hover={ditherHover}
+        matrix={ditherMatrix}
+        pixelSize={ditherPixelSize}
         image={ditherImage}
       />
     )

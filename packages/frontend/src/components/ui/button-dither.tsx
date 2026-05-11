@@ -26,6 +26,7 @@ export interface DitherBackdropProps {
   hoverDuration?: number
   hover?: boolean
   matrix?: DitherMatrix
+  pixelSize?: number
   image?: string
 }
 
@@ -56,6 +57,7 @@ const DEFAULT_TO = "#ffffff"
 const DEFAULT_DIRECTION: DitherDirection = "r"
 const DEFAULT_STOPS: DitherStops = [0, 1]
 const DEFAULT_MATRIX: DitherMatrix = "4x4"
+const DEFAULT_PIXEL_SIZE = 3
 
 const BAYER_2X2 = [0, 2, 3, 1].map((v) => (v + 0.5) / 4)
 const BAYER_4X4 = [
@@ -213,6 +215,7 @@ export function DitherBackdrop({
   hoverDuration = 250,
   hover = false,
   matrix = DEFAULT_MATRIX,
+  pixelSize = DEFAULT_PIXEL_SIZE,
   image
 }: DitherBackdropProps) {
   const [wrapRef, inView] = useInViewport<HTMLSpanElement>()
@@ -272,8 +275,9 @@ export function DitherBackdrop({
 
     const resize = () => {
       const rect = wrap.getBoundingClientRect()
-      const w = Math.max(1, Math.round(rect.width))
-      const h = Math.max(1, Math.round(rect.height))
+      const scale = Math.max(1, pixelSize)
+      const w = Math.max(1, Math.round(rect.width / scale))
+      const h = Math.max(1, Math.round(rect.height / scale))
       if (sizeRef.current.w === w && sizeRef.current.h === h) return
       sizeRef.current = { w, h }
       canvas.width = w
@@ -284,12 +288,12 @@ export function DitherBackdrop({
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
     return () => ro.disconnect()
-  }, [image])
+  }, [image, pixelSize])
 
   useEffect(() => {
     if (image) return
     paint(stopsRef.current)
-  }, [image, colors, direction, matrix])
+  }, [image, colors, direction, matrix, pixelSize])
 
   useEffect(() => {
     if (image) return
