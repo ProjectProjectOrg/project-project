@@ -16,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { RailBackLink } from "@/components/RailBackLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -79,6 +80,11 @@ export function SprintRail({
 
   return (
     <div className="flex h-full flex-col gap-4">
+      <RailBackLink
+        to="/orgs/$orgSlug/projects/$slug"
+        params={{ orgSlug, slug }}
+        label={m.sprints_rail_section_label()}
+      />
       <NewSprintForm orgSlug={orgSlug} slug={slug} />
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
