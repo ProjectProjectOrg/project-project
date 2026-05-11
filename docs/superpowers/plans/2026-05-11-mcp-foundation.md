@@ -12,7 +12,7 @@
 
 **Prerequisites:**
 
-- Branches `chore/improve-atom-handling` and `chore/better-lsp-settings` are merged into the working branch (or rebased onto). The plan assumes the post-merge shape: backend services live under `packages/backend/src/Services/*`, Layers under `packages/backend/src/Layers/*`, normalized Effect imports, the `Groups` / `CurrentOrg` services exist, etc. If the merge hasn't happened, Task 0 covers it.
+- This branch must be **rebased onto `chore/better-lsp-settings`** (the load-bearing prep branch that introduces the `Services/` + `Layers/` split, `Groups`, `CurrentOrg`, normalized Effect imports, etc.). `chore/improve-atom-handling` is *not* a prerequisite — it may not land at all; Task 14's UI uses whatever atom pattern is on the target branch when implementation reaches it. Task 0 covers the rebase.
 
 ---
 
@@ -57,44 +57,66 @@
 
 Run:
 ```bash
-git status && git log --oneline -5
+git status && git log --oneline -8
 ```
-Expected: clean tree on `feat/T-6-mcp-simple-ai-chat` (or whatever branch this plan is executed on).
+Expected: clean tree on `feat/T-6-mcp-simple-ai-chat`.
 
-- [ ] **Step 2: Merge the two preparatory branches if not already merged.**
+- [ ] **Step 2: Fetch the prep branch.**
 
-Run:
 ```bash
-git merge --no-ff origin/chore/better-lsp-settings
-git merge --no-ff origin/chore/improve-atom-handling
+git fetch origin chore/better-lsp-settings
 ```
 
-If merge conflicts surface, resolve manually preferring the structure from `better-lsp-settings` (Services/Layers split, normalized imports). If both are already in, the merges are fast-forwards or no-ops — fine.
+- [ ] **Step 3: Inspect divergence before rebasing.**
 
-- [ ] **Step 3: Verify post-merge structure.**
+```bash
+git log --oneline --left-right HEAD...origin/chore/better-lsp-settings | head -40
+```
 
-Run:
+This shows what's only on each side. Confirm the docs commits added during brainstorming (`53f83fd`, `d90acc5`, `cb10821`) and any other feature-branch commits are the ones to replay.
+
+- [ ] **Step 4: Rebase the feature branch onto `chore/better-lsp-settings`.**
+
+```bash
+git rebase origin/chore/better-lsp-settings
+```
+
+If conflicts surface, resolve them preferring the `better-lsp-settings` structure (Services/Layers split, normalized imports, tightened tags). The conflict-prone files are most likely `packages/backend/src/main.ts`, `packages/backend/src/auth.ts`, and `tsconfig.base.json`. Continue with `git rebase --continue` after each. If the rebase produces a tangle that loses meaningful work, abort with `git rebase --abort` and escalate.
+
+- [ ] **Step 5: Verify post-rebase structure.**
+
 ```bash
 ls packages/backend/src/Services packages/backend/src/Layers
 ```
 Expected: both directories exist; `Services/` includes `Groups.ts`, `CurrentOrg.ts`, `Tickets.ts`, `Projects.ts`; `Layers/` mirrors them.
 
-- [ ] **Step 4: Install the Better Auth MCP plugin and the MCP SDK.**
+```bash
+bun install
+bun --filter=@projectproject/backend tsc --noEmit
+```
+Expected: install completes; type-check passes.
 
-The plugin is bundled inside `better-auth` itself (exported from `better-auth/plugins`). The MCP SDK is a separate package.
+- [ ] **Step 6: Install the MCP SDK and refresh Better Auth to a version that ships the `mcp` plugin.**
 
-Run:
 ```bash
 bun add @modelcontextprotocol/sdk
 bun update better-auth
 ```
 
-- [ ] **Step 5: Commit.**
+- [ ] **Step 7: Commit the dependency bump.**
 
 ```bash
 git add bun.lock package.json packages/*/package.json
-git commit -m "chore: prepare MCP foundation — merge prerequisites + add SDK"
+git commit -m "chore: add MCP SDK and refresh Better Auth for MCP plugin"
 ```
+
+- [ ] **Step 8: Force-push the rebased branch (rewrites history on the remote feature branch only).**
+
+```bash
+git push --force-with-lease origin feat/T-6-mcp-simple-ai-chat
+```
+
+Use `--force-with-lease` rather than `--force` to abort safely if anyone else pushed in the meantime.
 
 ---
 
