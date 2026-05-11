@@ -1,6 +1,6 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { useCallback, useEffect, type ReactNode } from "react"
 import { Empty } from "@/components/ui/empty"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"

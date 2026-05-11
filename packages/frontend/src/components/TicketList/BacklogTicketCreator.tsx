@@ -5,7 +5,7 @@ import {
   useAtomValue
 } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
@@ -114,6 +114,7 @@ export function BacklogTicketCreator({
         setTypeMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)
@@ -172,6 +173,7 @@ export function BacklogTicketCreator({
         setSprintMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)

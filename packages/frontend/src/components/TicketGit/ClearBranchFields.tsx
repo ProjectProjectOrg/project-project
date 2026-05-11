@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { clearBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"

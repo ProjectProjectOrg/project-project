@@ -4,7 +4,8 @@ import {
   useAtomValue
 } from "@effect-atom/atom-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import { CheckCircle2, Plus } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 import type { DateRange } from "react-day-picker"
@@ -42,9 +43,9 @@ function formatRange(s: Group): string {
 }
 
 function defaultSprintRange(): DateRange {
-  const today = new Date()
-  const end = new Date(today)
-  end.setDate(end.getDate() + 14)
+  const now = DateTime.unsafeNow()
+  const today = DateTime.toDate(now)
+  const end = DateTime.toDate(DateTime.add(now, { days: 14 }))
   return { from: today, to: end }
 }
 
@@ -58,7 +59,7 @@ export function SprintRail({
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
   const sprints = Result.isSuccess(list) ? list.value : []
-  const now = new Date()
+  const now = DateTime.toDate(DateTime.unsafeNow())
 
   const active: Array<Group> = []
   const planned: Array<Group> = []
@@ -293,7 +294,7 @@ function CreateSprintFields({
               if (r) setRange(r)
             }}
             numberOfMonths={1}
-            defaultMonth={range.from ?? new Date()}
+            defaultMonth={range.from ?? DateTime.toDate(DateTime.unsafeNow())}
           />
         </PopoverContent>
       </Popover>

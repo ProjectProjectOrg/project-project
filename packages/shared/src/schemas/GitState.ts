@@ -13,7 +13,7 @@
 //
 // All variants carry just enough to render the chip without a follow-up call.
 
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export const ChecksStatus = Schema.Literal(
   "passing",

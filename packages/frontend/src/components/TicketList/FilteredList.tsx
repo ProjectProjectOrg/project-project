@@ -104,7 +104,7 @@ export function FilteredList({
         )
       })
       .slice()
-      .sort(SORTS[sortKey].compare)
+      .toSorted(SORTS[sortKey].compare)
   }, [
     tickets,
     query,

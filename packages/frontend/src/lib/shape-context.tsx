@@ -1,5 +1,6 @@
 "use client"
 
+import * as Effect from "effect/Effect"
 import {
   createContext,
   useContext,
@@ -70,7 +71,11 @@ function transitionShape(callback: () => void) {
   root.classList.add("transitioning")
   void root.offsetHeight
   callback()
-  setTimeout(() => root.classList.remove("transitioning"), 200)
+  Effect.runFork(
+    Effect.sleep(200).pipe(
+      Effect.tap(() => Effect.sync(() => root.classList.remove("transitioning")))
+    )
+  )
 }
 
 function ShapeProvider({

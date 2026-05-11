@@ -12,7 +12,10 @@
 // concurrent creates, the markdown layer writes with the `wx` flag (fail on
 // exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
 
-import { Effect, Layer, Schema } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import {
   AttachBranchInput,
   BranchExists,
@@ -75,9 +78,7 @@ export const TicketsLive = Layer.effect(
       userId: string,
       slug: string
     ): Effect.Effect<void, NotFound> =>
-      Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-      })
+      projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
 
     const readTicket = (
       orgSlug: string,
@@ -99,7 +100,7 @@ export const TicketsLive = Layer.effect(
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...tickets.map(documentToTicket)].sort(
+        return tickets.map(documentToTicket).toSorted(
           (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
         )
       })
@@ -126,7 +127,7 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         let candidate = nextIdFrom(ids)
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const document: TicketDocument = {
           id: candidate,
           title: input.title,
@@ -200,7 +201,7 @@ export const TicketsLive = Layer.effect(
               : existing.assignees,
           createdBy: existing.createdBy,
           createdAt: existing.createdAt,
-          updatedAt: new Date(),
+          updatedAt: yield* DateTime.nowAsDate,
           body: input.body ?? existing.body
         }
 
@@ -240,7 +241,7 @@ export const TicketsLive = Layer.effect(
         const next: TicketDocument = {
           ...existing,
           tags: nextTags,
-          updatedAt: new Date()
+          updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
@@ -270,7 +271,7 @@ export const TicketsLive = Layer.effect(
               ? patch.lastTransitionedPr
               : existing.lastTransitionedPr,
           status: patch.status ?? existing.status,
-          updatedAt: new Date()
+          updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return next
@@ -301,9 +302,7 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
         const baseBranch =
@@ -349,9 +348,7 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
 
@@ -362,7 +359,7 @@ export const TicketsLive = Layer.effect(
           userId
         )
         if (!exists) {
-          return yield* Effect.fail(new BranchNotFound({ name: input.name }))
+          return yield* new BranchNotFound({ name: input.name })
         }
 
         const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
@@ -397,15 +394,11 @@ export const TicketsLive = Layer.effect(
           .get(orgSlug, userId, slug)
           .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         if (!project.github) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_github_connection" })
-          )
+          return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
         if (!ticket.branch) {
-          return yield* Effect.fail(
-            new Conflict({ reason: "no_branch_on_ticket" })
-          )
+          return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
 
         const base = project.github.defaultBaseBranch ?? "main"
@@ -531,7 +524,11 @@ export const TicketsLive = Layer.effect(
         }
 
         const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
-        const plan = planTicketGitStates(tickets, result.raw, new Date())
+        const plan = planTicketGitStates(
+          tickets,
+          result.raw,
+          yield* DateTime.nowAsDate
+        )
 
         for (const write of plan.writes) {
           const ticket = ticketById.get(write.ticketId)

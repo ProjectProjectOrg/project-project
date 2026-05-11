@@ -1,3 +1,5 @@
+import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
 import matter from "gray-matter"
 
 export const COMMENTS_START = "<!-- comments:start -->"
@@ -105,8 +107,10 @@ function stripOuterMarkers(region: string): string | null {
 function parseDate(v: unknown): Date | null {
   if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null
   if (typeof v === "string") {
-    const d = new Date(v)
-    return Number.isFinite(d.getTime()) ? d : null
+    return Option.match(DateTime.make(v), {
+      onNone: () => null,
+      onSome: DateTime.toDate
+    })
   }
   return null
 }

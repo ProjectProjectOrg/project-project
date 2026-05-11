@@ -1,8 +1,11 @@
+import * as DateTime from "effect/DateTime"
 import type { Group } from "./schemas/Group"
+
+const nowDate = (): Date => DateTime.toDate(DateTime.unsafeNow())
 
 export type SprintState = "active" | "planned" | "completed"
 
-export function sprintState(sprint: Group, now: Date = new Date()): SprintState {
+export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
   if (sprint.completedAt !== null) return "completed"
   if (sprint.startsAt !== null && sprint.startsAt > now) return "planned"
   return "active"
@@ -23,7 +26,7 @@ const onlySprints = (groups: ReadonlyArray<Group>): ReadonlyArray<Group> =>
 
 export function pickActiveSprint(
   groups: ReadonlyArray<Group>,
-  now: Date = new Date()
+  now: Date = nowDate()
 ): Group | null {
   const active = onlySprints(groups).filter(
     (g) => sprintState(g, now) === "active"
@@ -34,7 +37,7 @@ export function pickActiveSprint(
 
 export function pickEarliestPlannedSprint(
   groups: ReadonlyArray<Group>,
-  now: Date = new Date()
+  now: Date = nowDate()
 ): Group | null {
   const planned = onlySprints(groups).filter(
     (g) => sprintState(g, now) === "planned"
@@ -45,13 +48,13 @@ export function pickEarliestPlannedSprint(
 
 export function activeAndPlannedCount(
   groups: ReadonlyArray<Group>,
-  now: Date = new Date()
+  now: Date = nowDate()
 ): number {
   return onlySprints(groups).filter((g) => sprintState(g, now) !== "completed")
     .length
 }
 
-export function daysLeft(endsAt: Date | null, now: Date = new Date()): number | null {
+export function daysLeft(endsAt: Date | null, now: Date = nowDate()): number | null {
   if (endsAt === null) return null
   const ms = endsAt.getTime() - now.getTime()
   return Math.ceil(ms / (1000 * 60 * 60 * 24))

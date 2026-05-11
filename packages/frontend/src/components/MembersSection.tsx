@@ -11,7 +11,7 @@
 //     The server still enforces; this just keeps the UI honest.
 
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import {

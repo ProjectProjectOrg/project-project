@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"

@@ -1,4 +1,6 @@
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { NotFound, TagName, TicketId } from "@projectproject/shared"
 import {
   Markdown,

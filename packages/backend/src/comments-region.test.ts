@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime"
 import { describe, expect, it } from "vitest"
 import type { CommentBlock } from "./comments-region"
 import {
@@ -9,18 +10,20 @@ import {
   validateCommentBody
 } from "./comments-region"
 
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
+
 const sample = (): ReadonlyArray<CommentBlock> => [
   {
     id: "c_a",
     author: "github_42",
-    createdAt: new Date("2026-05-07T10:00:00.000Z"),
-    editedAt: new Date("2026-05-07T10:04:00.000Z"),
+    createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+    editedAt: isoDate("2026-05-07T10:04:00.000Z"),
     body: "Looks good. cc [Wouter](mention:user/github_88)."
   },
   {
     id: "c_b",
     author: "github_88",
-    createdAt: new Date("2026-05-07T10:06:00.000Z"),
+    createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
   }

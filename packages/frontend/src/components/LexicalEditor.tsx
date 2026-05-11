@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react"
+import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
@@ -177,7 +179,7 @@ export function LexicalEditor({
     namespace: "ProjectBody",
     theme: lexicalTheme,
     onError: (error: Error) => {
-      console.error("[Lexical]", error)
+      Effect.runFork(Effect.logError("[Lexical]", error))
     },
     nodes: [
       HeadingNode,
@@ -203,10 +205,8 @@ export function LexicalEditor({
   // rather than as a user edit, so we don't autosave on page open.
   const isFirstChange = useRef(true)
 
-  // Debounced save. Lexical fires onChange synchronously per keystroke; we
-  // hold the latest serialized markdown and flush it on the trailing edge.
   const pending = useRef<string | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
 
   function setStatus(s: SaveStatus) {
@@ -223,24 +223,25 @@ export function LexicalEditor({
     Promise.resolve(onChange(next))
       .then(() => setStatus("saved"))
       .catch((err) => {
-        console.error("[LexicalEditor] save failed", err)
+        Effect.runFork(Effect.logError("[LexicalEditor] save failed", err))
         setStatus("dirty")
       })
       .finally(() => {
         inflight.current = false
-        // If more input came in while saving, schedule another flush.
         if (pending.current !== null) schedule()
       })
   }
 
   function schedule() {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(flush, debounceMs)
+    if (timer.current) Effect.runFork(Fiber.interrupt(timer.current))
+    timer.current = Effect.runFork(
+      Effect.sleep(debounceMs).pipe(Effect.tap(() => Effect.sync(flush)))
+    )
   }
 
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current)
+      if (timer.current) Effect.runFork(Fiber.interrupt(timer.current))
     },
     []
   )

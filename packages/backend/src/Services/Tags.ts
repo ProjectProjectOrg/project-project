@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   Conflict,
   CreateTagInput,
@@ -36,4 +37,4 @@ export interface TagsShape {
   ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
 }
 
-export class Tags extends Context.Tag("Tags")<Tags, TagsShape>() {}
+export class Tags extends Context.Tag("@projectproject/backend/Services/Tags")<Tags, TagsShape>() {}

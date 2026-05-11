@@ -33,7 +33,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, gt } from "drizzle-orm"
-import { Cause, Effect, Exit, ManagedRuntime, Option } from "effect"
+import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
+import * as ManagedRuntime from "effect/ManagedRuntime"
+import * as Option from "effect/Option"
 import { z } from "zod"
 import * as schema from "./db/schema"
 import { session } from "./db/schema"
@@ -52,7 +57,10 @@ async function resolveUserId(token: string): Promise<string> {
   const db = drizzle(process.env.DATABASE_URL!, { schema })
   const row = await db.query.session.findFirst({
     columns: { userId: true },
-    where: and(eq(session.token, token), gt(session.expiresAt, new Date()))
+    where: and(
+      eq(session.token, token),
+      gt(session.expiresAt, DateTime.toDate(DateTime.unsafeNow()))
+    )
   })
   if (!row) {
     throw new Error(
@@ -100,9 +108,9 @@ function describeCause<E extends TaggedFailure>(cause: Cause.Cause<E>): string {
 async function main(): Promise<void> {
   const token = process.env.MARKMATE_MCP_TOKEN
   if (!token) {
-    console.error(
+    process.stderr.write(
       "MARKMATE_MCP_TOKEN is not set. The MCP server needs a Better Auth " +
-        "session token to scope reads to one user."
+        "session token to scope reads to one user.\n"
     )
     process.exit(1)
   }
@@ -111,7 +119,7 @@ async function main(): Promise<void> {
 
   const runtime = ManagedRuntime.make(BackendRuntimeLive)
   const run = <A, E>(eff: Effect.Effect<A, E, Projects | Tickets>) =>
-    runtime.runPromiseExit(eff as Effect.Effect<A, E, never>)
+    runtime.runPromiseExit(eff as Effect.Effect<A, E>)
   const runTool = async <A, E extends TaggedFailure>(
     name: string,
     eff: Effect.Effect<A, E, Projects | Tickets>
@@ -270,6 +278,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error("MCP server failed to start:", e)
+  process.stderr.write(`MCP server failed to start: ${String(e)}\n`)
   process.exit(1)
 })

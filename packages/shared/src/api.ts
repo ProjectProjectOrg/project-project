@@ -20,7 +20,7 @@ import {
   HttpApiGroup,
   OpenApi
 } from "@effect/platform"
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { User } from "./schemas/User"
 import {
   AddMemberInput,

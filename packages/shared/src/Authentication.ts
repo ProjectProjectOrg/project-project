@@ -51,15 +51,14 @@
 // The middleware Layer (in backend) is responsible for ensuring the value
 // it provides matches the shared `User` shape.
 
-import { Context } from "effect"
+import * as Context from "effect/Context"
 import type { User } from "./schemas/User"
 import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { Unauthorized } from "./errors"
 
-export class CurrentUser extends Context.Tag("CurrentUser")<
-  CurrentUser,
-  User
->() {}
+export class CurrentUser extends Context.Tag(
+  "@projectproject/shared/Authentication/CurrentUser"
+)<CurrentUser, User>() {}
 
 const sessionCookie = HttpApiSecurity.apiKey({
   in: "cookie",

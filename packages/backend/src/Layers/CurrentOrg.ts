@@ -20,7 +20,9 @@
 // will be the first consumer; sync gets added there.
 
 import { and, eq } from "drizzle-orm"
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { NotFound, Role } from "@projectproject/shared"
 import { member, organization } from "../db/schema"
 import { Db } from "../Services/Db"

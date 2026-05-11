@@ -6,7 +6,8 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
@@ -510,7 +511,7 @@ function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
 
 function SprintsBreakdown({ sprints }: { sprints: ReadonlyArray<Group> }) {
   const counts = { active: 0, planned: 0, completed: 0 }
-  const now = new Date()
+  const now = DateTime.toDate(DateTime.unsafeNow())
   for (const s of sprints) counts[sprintState(s, now)]++
   const order: ReadonlyArray<keyof typeof counts> = [
     "active",

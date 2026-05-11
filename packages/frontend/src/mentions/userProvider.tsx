@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { ApiClient } from "@/services/ApiClient"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import type { MentionProvider } from "./registry"
@@ -37,7 +37,7 @@ export const userMentionProvider: MentionProvider = {
         return []
       }
       return [{ id: me.id, label, image: null }]
-    }),
+    }).pipe(Effect.orElseSucceed(() => [])),
   renderRow: (c) => (
     <div className="flex items-center gap-2 min-w-0">
       <MemberAvatar

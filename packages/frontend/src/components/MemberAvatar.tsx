@@ -41,7 +41,7 @@ export function MemberAvatar({
     >
       {showImage ? (
         <img
-          src={member.image!}
+          src={member.image}
           alt=""
           loading="lazy"
           decoding="async"

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { SprintDetail } from "@/components/sprints/SprintDetail"
 import { GroupId } from "@projectproject/shared"
 

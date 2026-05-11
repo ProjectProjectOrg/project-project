@@ -1,4 +1,7 @@
-import { Effect, Layer, Schema } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import {
   ADMIN_GATED_KINDS,
   CompleteSprintInput,
@@ -69,7 +72,7 @@ export const GroupsLive = Layer.effect(
         const set = new Set<string>(existing)
         for (const id of ticketIds) {
           if (!set.has(id)) {
-            return yield* Effect.fail(new NotFound())
+            return yield* new NotFound()
           }
         }
       })
@@ -124,7 +127,7 @@ export const GroupsLive = Layer.effect(
           (id) => groupDocs.read(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return [...results.map(documentToGroup)].sort(
+        return results.map(documentToGroup).toSorted(
           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
         )
       })
@@ -178,7 +181,7 @@ export const GroupsLive = Layer.effect(
           )
         }
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const document: GroupDocument = {
           id: candidate,
           name: input.name,
@@ -229,7 +232,7 @@ export const GroupsLive = Layer.effect(
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const next: GroupDocument = {
           ...existing,
           name: input.name ?? existing.name,
@@ -269,11 +272,11 @@ export const GroupsLive = Layer.effect(
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         if (existing.completedAt !== null) {
-          return yield* Effect.fail(new SprintCompletedImmutable())
+          return yield* new SprintCompletedImmutable()
         }
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         const target: GroupDocument = {
           ...existing,
           tickets: input.tickets,
@@ -332,31 +335,27 @@ export const GroupsLive = Layer.effect(
         yield* requireKindRole(orgSlug, userId, slug, source.kind)
 
         if (source.kind !== "sprint") {
-          return yield* Effect.fail(new Validation({ reason: "not_a_sprint" }))
+          return yield* new Validation({ reason: "not_a_sprint" })
         }
         if (source.completedAt !== null) {
-          return yield* Effect.fail(new SprintCompletedImmutable())
+          return yield* new SprintCompletedImmutable()
         }
 
         let dest: GroupDocument | null = null
         if (input.destination.kind === "sprint") {
           if (input.destination.groupId === source.id) {
-            return yield* Effect.fail(
-              new Validation({ reason: "destination_is_source" })
-            )
+            return yield* new Validation({ reason: "destination_is_source" })
           }
           dest = yield* groupDocs.read(orgSlug, slug, input.destination.groupId)
           if (dest.kind !== "sprint") {
-            return yield* Effect.fail(
-              new Validation({ reason: "destination_not_sprint" })
-            )
+            return yield* new Validation({ reason: "destination_not_sprint" })
           }
           if (dest.completedAt !== null) {
-            return yield* Effect.fail(new SprintCompletedImmutable())
+            return yield* new SprintCompletedImmutable()
           }
         }
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
         yield* validateCompletion(now, source.startsAt, now)
 
         const tickets = yield* Effect.forEach(
@@ -432,7 +431,7 @@ export const GroupsLive = Layer.effect(
               const next: GroupDocument = {
                 ...group,
                 tickets: group.tickets.filter((t) => t !== ticketId),
-                updatedAt: new Date()
+                updatedAt: yield* DateTime.nowAsDate
               }
               yield* groupDocs
                 .writeIfExists(orgSlug, slug, id, next)

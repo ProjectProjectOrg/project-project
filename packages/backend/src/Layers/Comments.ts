@@ -1,4 +1,7 @@
-import { Effect, Layer } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { and, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
@@ -27,7 +30,8 @@ import {
   type CommentsShape
 } from "../Services/Comments"
 
-const newCommentId = (): CommentId => `c_${ulid()}` as CommentId
+const decodeCommentId = Schema.decodeUnknownSync(CommentId)
+const newCommentId = (): CommentId => decodeCommentId(`c_${ulid()}`)
 
 export const CommentsLive = Layer.effect(
   Comments,
@@ -95,9 +99,9 @@ export const CommentsLive = Layer.effect(
           if (!block || !author) return []
           return [
             {
-              id: r.id as CommentId,
+              id: decodeCommentId(r.id),
               ticketId,
-              projectSlug: slug as Comment["projectSlug"],
+              projectSlug: slug,
               author,
               body: block.body,
               createdAt: r.createdAt,
@@ -118,9 +122,7 @@ export const CommentsLive = Layer.effect(
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.fail(
-            new InvalidCommentBody({ reason: validation.reason })
-          )
+          return yield* new InvalidCommentBody({ reason: validation.reason })
         }
         const { description, frontmatter, blocks } = yield* readBlocks(
           orgSlug,
@@ -128,7 +130,7 @@ export const CommentsLive = Layer.effect(
           ticketId
         )
         const id = newCommentId()
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
 
         yield* db
           .insert(commentIndex)
@@ -166,7 +168,7 @@ export const CommentsLive = Layer.effect(
         return {
           id,
           ticketId,
-          projectSlug: slug as Comment["projectSlug"],
+          projectSlug: slug,
           author,
           body: input.body,
           createdAt: now,
@@ -193,8 +195,8 @@ export const CommentsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!row) return yield* Effect.fail(new NotFound())
-        if (row.authorId !== userId) return yield* Effect.fail(new Forbidden())
+        if (!row) return yield* new NotFound()
+        if (row.authorId !== userId) return yield* new Forbidden()
         return { authorId: row.authorId, createdAt: row.createdAt }
       })
 
@@ -213,12 +215,10 @@ export const CommentsLive = Layer.effect(
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
-          return yield* Effect.fail(
-            new InvalidCommentBody({ reason: validation.reason })
-          )
+          return yield* new InvalidCommentBody({ reason: validation.reason })
         }
         const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
-        const editedAt = new Date()
+        const editedAt = yield* DateTime.nowAsDate
         yield* db
           .update(commentIndex)
           .set({ editedAt })
@@ -246,7 +246,7 @@ export const CommentsLive = Layer.effect(
         return {
           id: commentId,
           ticketId,
-          projectSlug: slug as Comment["projectSlug"],
+          projectSlug: slug,
           author,
           body: input.body,
           createdAt: meta.createdAt,

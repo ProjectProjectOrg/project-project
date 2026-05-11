@@ -1,4 +1,5 @@
 import { Result, useAtom, useAtomValue } from "@effect-atom/atom-react"
+import * as DateTime from "effect/DateTime"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import {
@@ -344,7 +345,7 @@ function FiltersMenu({
     sprintsListAtom(sprintsProjectKey(orgSlug, slug))
   )
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
-  const now = new Date()
+  const now = DateTime.toDate(DateTime.unsafeNow())
   const sprintOptions = showSprintFilter
     ? allSprints.filter((s) => {
         const st = sprintState(s, now)

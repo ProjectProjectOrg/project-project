@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
