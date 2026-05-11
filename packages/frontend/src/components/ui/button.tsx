@@ -6,6 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
 import { useShape } from "@/lib/shape-context"
+import { DitherBackdrop, type DitherDirection } from "./button-dither"
 
 const buttonVariants = cva(
   [
@@ -25,7 +26,9 @@ const buttonVariants = cva(
           "border border-border text-foreground bg-transparent hover:bg-muted active:bg-muted/60",
         ghost:
           "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60",
-        chip: "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80"
+        chip:
+          "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80",
+        dither: "bg-transparent overflow-hidden"
       },
       size: {
         xs: "h-5 px-1.5 text-[11px] gap-1",
@@ -64,11 +67,16 @@ const buttonVariants = cva(
 interface ButtonProps
   extends
     ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+    VariantProps<typeof buttonVariants>
+{
   asChild?: boolean
   loading?: boolean
   leadingIcon?: IconComponent
   trailingIcon?: IconComponent
+  ditherFrom?: string
+  ditherTo?: string
+  ditherDirection?: DitherDirection
+  ditherImage?: string
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -84,10 +92,16 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       disabled,
       children,
       style,
-      ...props
+      ditherFrom,
+      ditherTo,
+      ditherDirection,
+      ditherImage,
+      ...htmlProps
     },
     ref
   ) => {
+    const isDither = variant === "dither"
+
     const Comp = asChild ? Slot : "button"
     const isIconOnly =
       size === "icon" ||
@@ -108,6 +122,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       shape.button,
       className
     )
+
     const leadingIconNode = LeadingIcon && (
       <LeadingIcon
         size={iconSize}
@@ -123,6 +138,15 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       />
     )
 
+    const ditherBackdrop = isDither && (
+      <DitherBackdrop
+        from={ditherFrom}
+        to={ditherTo}
+        direction={ditherDirection}
+        image={ditherImage}
+      />
+    )
+
     if (loading) {
       return (
         <Comp
@@ -130,9 +154,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           className={compClassName}
           disabled={disabled || loading}
           style={style}
-          {...props}
+          {...htmlProps}
         >
-          <span className="flex items-center justify-center gap-[inherit] opacity-0">
+          {ditherBackdrop}
+          <span className="relative z-10 flex items-center justify-center gap-[inherit] opacity-0">
             {LeadingIcon && !isIconOnly && (
               <LeadingIcon size={iconSize} strokeWidth={2} />
             )}
@@ -141,7 +166,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
               <TrailingIcon size={iconSize} strokeWidth={2} />
             )}
           </span>
-          <span className="absolute inset-0 flex items-center justify-center">
+          <span className="absolute inset-0 z-10 flex items-center justify-center">
             <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
               <path
                 d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
@@ -168,9 +193,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           className={compClassName}
           disabled={disabled}
           style={style}
-          {...props}
+          {...htmlProps}
         >
-          <span className="[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
+          {ditherBackdrop}
+          <span className="relative z-10 [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
             {children}
           </span>
         </Comp>
@@ -183,11 +209,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={compClassName}
         disabled={disabled}
         style={style}
-        {...props}
+        {...htmlProps}
       >
-        {leadingIconNode}
-        <Slottable>{children}</Slottable>
-        {trailingIconNode}
+        {ditherBackdrop}
+        <span className="relative z-10 inline-flex items-center gap-[inherit]">
+          {leadingIconNode}
+          <Slottable>{children}</Slottable>
+          {trailingIconNode}
+        </span>
       </Comp>
     )
   }
