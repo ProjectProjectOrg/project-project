@@ -73,9 +73,11 @@ import { GroupsHandlerLive } from "./handlers/groups"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
+import { McpHttp, McpHttpLive } from "./mcp/route"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
+import { McpServerLive } from "./Layers/McpServer"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -125,9 +127,25 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
 // extra mountApp call needed; the layer adds routes to the api group.
 const SwaggerLive = HttpApiSwagger.layer({ path: "/docs" })
 
+// /mcp is mounted as an HttpRouter.all route so any HTTP method (POST for
+// JSON-RPC, GET for SSE, DELETE for session teardown) reaches the SDK
+// transport. We bridge by converting the Effect-platform request to a Web
+// standard Request, delegating to the McpHttp handler, and translating its
+// Response back into an HttpServerResponse via fromWeb.
+const mcpRoute = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const mcpHttp = yield* McpHttp
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const webRes = yield* Effect.promise(() => mcpHttp.handle(webReq))
+  return HttpServerResponse.fromWeb(webRes)
+}).pipe(
+  Effect.catchAll(() => HttpServerResponse.text("MCP error", { status: 500 }))
+)
+
 const ServerLive = HttpApiBuilder.serve((apiApp) =>
   HttpRouter.empty.pipe(
     HttpRouter.mountApp("/api/auth", betterAuthApp),
+    HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
       HttpServerResponse.text("Not Found", { status: 404 })
@@ -136,6 +154,8 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
 ).pipe(
   Layer.provide(SwaggerLive),
   Layer.provide(ApiLive),
+  Layer.provide(McpHttpLive),
+  Layer.provide(McpServerLive),
   Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 )

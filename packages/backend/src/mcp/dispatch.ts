@@ -44,12 +44,16 @@ export function registerAllTools<R>(
     const spec = McpTools[name]
     const handler = handlers[name]
 
+    // NOTE: The SDK's registerTool only accepts Zod schemas / raw Zod shapes
+    // for inputSchema/outputSchema. We use Effect Schema as the source of
+    // truth and validate inside the callback below, so we deliberately omit
+    // the schema fields here. The cost is no advertised JSON Schema on the
+    // tool listing — acceptable for now; a future pass can pipe Effect
+    // Schema -> JSON Schema -> Zod if clients need it.
     server.registerTool(
       name,
       {
         description: spec.description,
-        inputSchema: Schema.standardSchemaV1(spec.input) as any,
-        outputSchema: Schema.standardSchemaV1(spec.output) as any,
       },
       (async (input: unknown) => {
         // Collapse the error channel to `never` by mapping any failure to a
