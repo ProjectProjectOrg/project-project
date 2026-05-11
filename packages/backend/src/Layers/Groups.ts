@@ -5,7 +5,6 @@ import * as Schema from "effect/Schema"
 import {
   ADMIN_GATED_KINDS,
   CreateGroupInput,
-  encodeCursor,
   Forbidden,
   Group,
   GroupColor,
@@ -14,6 +13,7 @@ import {
   GroupKind,
   NotFound,
   padNumericIdSort,
+  paginateSorted,
   TAG_DEFAULT_PALETTE,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
@@ -152,26 +152,12 @@ export const GroupsLive = Layer.effect(
           .map(documentToGroup)
           .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
 
-        const startIdx =
-          cursor === undefined
-            ? 0
-            : (() => {
-                const idx = sorted.findIndex(
-                  (g) => (padNumericIdSort(g.id) ?? "") > cursor.sort
-                )
-                return idx < 0 ? sorted.length : idx
-              })()
-
-        const slice = sorted.slice(startIdx, startIdx + limit + 1)
-        const hasMore = slice.length > limit
-        const items = hasMore ? slice.slice(0, limit) : slice
-        const last = items[items.length - 1]
-        const nextCursor =
-          hasMore && last
-            ? encodeCursor({ id: last.id, sort: padNumericIdSort(last.id) ?? last.id })
-            : null
-
-        return { items, nextCursor }
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (g) => padNumericIdSort(g.id) ?? "",
+          id: (g) => g.id
+        })
       })
 
     const get = (

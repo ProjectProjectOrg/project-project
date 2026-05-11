@@ -24,7 +24,6 @@ import {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
-  encodeCursor,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -33,6 +32,7 @@ import {
   OpenPrInput,
   OpenPrResult,
   padNumericIdSort,
+  paginateSorted,
   RateLimited,
   RepoGone,
   TagName,
@@ -278,26 +278,12 @@ export const TicketsLive = Layer.effect(
             (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
           )
 
-        const startIdx =
-          cursor === undefined
-            ? 0
-            : (() => {
-                const idx = sorted.findIndex(
-                  (t) => (padNumericIdSort(t.id) ?? "") > cursor.sort
-                )
-                return idx < 0 ? sorted.length : idx
-              })()
-
-        const slice = sorted.slice(startIdx, startIdx + limit + 1)
-        const hasMore = slice.length > limit
-        const items = hasMore ? slice.slice(0, limit) : slice
-        const last = items[items.length - 1]
-        const nextCursor =
-          hasMore && last
-            ? encodeCursor({ id: last.id, sort: padNumericIdSort(last.id) ?? last.id })
-            : null
-
-        return { items, nextCursor }
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (t) => padNumericIdSort(t.id) ?? "",
+          id: (t) => t.id
+        })
       })
 
     // --- Git operations -------------------------------------------------

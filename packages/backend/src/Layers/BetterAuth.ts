@@ -6,8 +6,8 @@ import { auth } from "../auth"
 import * as schema from "../db/schema"
 import { account, member, organization } from "../db/schema"
 import {
-  encodeCursor,
   NotFound,
+  paginateSorted,
   type CursorPayload,
   type Org,
   type OrgRole
@@ -96,23 +96,15 @@ export const BetterAuthLive = Layer.effect(
               ? [{ slug: r.slug as Org["slug"], name: r.name, role: r.role as OrgRole }]
               : []
           )
-          const sorted = [...orgs].toSorted((a, b) => a.name.localeCompare(b.name))
-          const startIdx =
-            cursor === undefined
-              ? 0
-              : (() => {
-                  const idx = sorted.findIndex((o) => o.name > cursor.sort)
-                  return idx < 0 ? sorted.length : idx
-                })()
-          const slice = sorted.slice(startIdx, startIdx + limit + 1)
-          const hasMore = slice.length > limit
-          const items = hasMore ? slice.slice(0, limit) : slice
-          const last = items[items.length - 1]
-          const nextCursor =
-            hasMore && last
-              ? encodeCursor({ id: last.slug, sort: last.name })
-              : null
-          return { items, nextCursor }
+          const sorted = [...orgs].toSorted((a, b) =>
+            a.name.localeCompare(b.name)
+          )
+          return paginateSorted(sorted, {
+            cursor,
+            limit,
+            sortKey: (o) => o.name,
+            id: (o) => o.slug
+          })
         }),
       getOrganization: (userId: string, orgSlug: string) =>
         Effect.gen(function* () {

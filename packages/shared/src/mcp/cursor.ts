@@ -1,9 +1,7 @@
-import { decodeCursor, type CursorPayload } from "./Pagination"
+import { decodeCursor, encodeCursor, type CursorPayload } from "./Pagination"
 
 export const CURSOR_NUMERIC_WIDTH = 10
 
-// Tickets and groups have ids like `T-7` / `G-42`. Sort lexically by a fixed-
-// width zero-padded numeric string so `"0000000002"` < `"0000000010"`.
 export const padNumericIdSort = (id: string): string | undefined => {
   const dash = id.indexOf("-")
   if (dash < 0) return undefined
@@ -21,4 +19,35 @@ export const tryDecodeCursor = (
   } catch {
     return undefined
   }
+}
+
+export interface PaginateSortedOptions<A> {
+  readonly cursor: CursorPayload | undefined
+  readonly limit: number
+  readonly sortKey: (item: A) => string
+  readonly id: (item: A) => string
+}
+
+export const paginateSorted = <A>(
+  sorted: ReadonlyArray<A>,
+  opts: PaginateSortedOptions<A>
+): { items: ReadonlyArray<A>; nextCursor: string | null } => {
+  const startIdx =
+    opts.cursor === undefined
+      ? 0
+      : (() => {
+          const idx = sorted.findIndex(
+            (item) => opts.sortKey(item) > opts.cursor!.sort
+          )
+          return idx < 0 ? sorted.length : idx
+        })()
+  const slice = sorted.slice(startIdx, startIdx + opts.limit + 1)
+  const hasMore = slice.length > opts.limit
+  const items = hasMore ? slice.slice(0, opts.limit) : slice
+  const last = items[items.length - 1]
+  const nextCursor =
+    hasMore && last
+      ? encodeCursor({ id: opts.id(last), sort: opts.sortKey(last) })
+      : null
+  return { items, nextCursor }
 }

@@ -33,12 +33,12 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { and, asc, eq } from "drizzle-orm"
 import {
-  encodeCursor,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
+  paginateSorted,
   RepoGone,
   Role
 } from "@projectproject/shared"
@@ -200,6 +200,11 @@ export const ProjectsLive = Layer.effect(
 
     // --- Paged list ----------------------------------------------------
 
+    const projectSortKey = (p: { createdAt: Date; slug: string }) =>
+      `${(Number.MAX_SAFE_INTEGER - p.createdAt.getTime())
+        .toString()
+        .padStart(20, "0")}|${p.slug}`
+
     const listPaged = (
       orgSlug: string,
       userId: string,
@@ -213,32 +218,12 @@ export const ProjectsLive = Layer.effect(
           if (dt !== 0) return dt
           return a.slug.localeCompare(b.slug)
         })
-        const startIdx =
-          cursor === undefined
-            ? 0
-            : (() => {
-                const idx = sorted.findIndex((p) => {
-                  const key = `${(Number.MAX_SAFE_INTEGER - p.createdAt.getTime())
-                    .toString()
-                    .padStart(20, "0")}|${p.slug}`
-                  return key > cursor.sort
-                })
-                return idx < 0 ? sorted.length : idx
-              })()
-        const slice = sorted.slice(startIdx, startIdx + limit + 1)
-        const hasMore = slice.length > limit
-        const items = hasMore ? slice.slice(0, limit) : slice
-        const last = items[items.length - 1]
-        const nextCursor =
-          hasMore && last
-            ? encodeCursor({
-                id: last.slug,
-                sort: `${(Number.MAX_SAFE_INTEGER - last.createdAt.getTime())
-                  .toString()
-                  .padStart(20, "0")}|${last.slug}`
-              })
-            : null
-        return { items, nextCursor }
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: projectSortKey,
+          id: (p) => p.slug
+        })
       })
 
     const listMembersPaged = (
@@ -259,24 +244,12 @@ export const ProjectsLive = Layer.effect(
           const byName = a.name.localeCompare(b.name)
           return byName !== 0 ? byName : a.id.localeCompare(b.id)
         })
-        const startIdx =
-          cursor === undefined
-            ? 0
-            : (() => {
-                const idx = sorted.findIndex(
-                  (m) => `${m.name}|${m.id}` > cursor.sort
-                )
-                return idx < 0 ? sorted.length : idx
-              })()
-        const slice = sorted.slice(startIdx, startIdx + limit + 1)
-        const hasMore = slice.length > limit
-        const items = hasMore ? slice.slice(0, limit) : slice
-        const last = items[items.length - 1]
-        const nextCursor =
-          hasMore && last
-            ? encodeCursor({ id: last.id, sort: `${last.name}|${last.id}` })
-            : null
-        return { items, nextCursor }
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (m) => `${m.name}|${m.id}`,
+          id: (m) => m.id
+        })
       })
 
     // --- Permission gates ----------------------------------------------
