@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
@@ -85,7 +86,7 @@ export const updateTicketAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(ticketsListAtom(listKey), {
     reducer: (current, input: UpdateTicketInput) => {
       if (!Result.isSuccess(current)) return current
-      const now = new Date()
+      const now = DateTime.toDate(DateTime.unsafeNow())
       const next = current.value.map((t) => {
         if (t.id !== id) return t
         return {

@@ -403,7 +403,7 @@ export const placeTicketAtom = Atom.family((key: string) => {
       nextSprints[sprintIdx] = {
         ...sprint,
         tickets: nextTickets,
-        updatedAt: new Date()
+        updatedAt: DateTime.toDate(DateTime.unsafeNow())
       }
       return Result.success(nextSprints, { waiting: true })
     },

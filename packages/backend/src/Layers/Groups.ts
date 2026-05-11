@@ -335,16 +335,16 @@ export const GroupsLive = Layer.effect(
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         if (existing.completedAt !== null) {
-          return yield* Effect.fail(new SprintCompletedImmutable())
+          return yield* new SprintCompletedImmutable()
         }
         if (input.after !== null && input.after === input.ticketId) {
-          return yield* Effect.fail(new Validation({ reason: "after_is_self" }))
+          return yield* new Validation({ reason: "after_is_self" })
         }
         if (!existing.tickets.includes(input.ticketId)) {
-          return yield* Effect.fail(new NotFound())
+          return yield* new NotFound()
         }
         if (input.after !== null && !existing.tickets.includes(input.after)) {
-          return yield* Effect.fail(new NotFound())
+          return yield* new NotFound()
         }
 
         const filtered = existing.tickets.filter((tid) => tid !== input.ticketId)
@@ -356,7 +356,7 @@ export const GroupsLive = Layer.effect(
           ...filtered.slice(insertAt)
         ]
 
-        const now = new Date()
+        const now = yield* DateTime.nowAsDate
 
         if (input.status !== undefined) {
           const ticket = yield* ticketDocs.read(orgSlug, slug, input.ticketId)
