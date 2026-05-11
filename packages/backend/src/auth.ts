@@ -72,6 +72,9 @@ import {
   account,
   invitation,
   member,
+  oauthAccessToken,
+  oauthApplication,
+  oauthConsent,
   organization as organizationTable,
   session,
   user,
@@ -91,7 +94,10 @@ export const auth = betterAuth({
       verification,
       organization: organizationTable,
       member,
-      invitation
+      invitation,
+      oauthApplication,
+      oauthAccessToken,
+      oauthConsent
     }
   }),
   secret: process.env.BETTER_AUTH_SECRET,
