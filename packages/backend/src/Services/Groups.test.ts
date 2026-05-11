@@ -4,8 +4,6 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-
-const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
 import type {
   GroupDetail,
@@ -23,6 +21,8 @@ import {
   type TicketDocsShape,
   type TicketDocument
 } from "./TicketDocs"
+
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -381,22 +381,14 @@ it.effect(
       expect(result.evicted[0].groupId).toBe(sprintA.id)
       expect(result.evicted[0].ticketIds).toEqual(["T-1"])
 
-      const sprintAAfter = yield* groups.get(
-        "org",
-        "user-1",
-        "p",
-        sprintA.id
-      )
+      const sprintAAfter = yield* groups.get("org", "user-1", "p", sprintA.id)
       expect(sprintAAfter.tickets).toEqual(["T-2"])
 
       const epicAfter = yield* groups.get("org", "user-1", "p", epic.id)
       expect(epicAfter.tickets).toEqual(["T-1"])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer(
-          { ticketIds: ["T-1", "T-2"] },
-          { role: "admin" }
-        )
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
       )
     )
 )
@@ -425,9 +417,7 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
     )
 )
 
@@ -468,9 +458,7 @@ it.effect(
       )
       expect(completedAfter.tickets).toEqual(["T-1"])
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
     )
 )
 
@@ -487,13 +475,9 @@ it.effect(
         tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
       })
 
-      const result = yield* groups.complete(
-        "org",
-        "user-1",
-        "p",
-        sprint.id,
-        { destination: { kind: "backlog" } }
-      )
+      const result = yield* groups.complete("org", "user-1", "p", sprint.id, {
+        destination: { kind: "backlog" }
+      })
 
       expect(result.completedAt).not.toBeNull()
       expect(result.tickets).toEqual(["T-2"])
@@ -502,7 +486,11 @@ it.effect(
         makeGroupsLayer(
           {
             ticketIds: ["T-1", "T-2", "T-3"],
-            ticketStatuses: { "T-1": "todo", "T-2": "done", "T-3": "in_progress" }
+            ticketStatuses: {
+              "T-1": "todo",
+              "T-2": "done",
+              "T-3": "in_progress"
+            }
           },
           { role: "admin" }
         )
@@ -585,9 +573,7 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: [] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
     )
 )
 
@@ -623,35 +609,29 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: [] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
     )
 )
 
-it.effect(
-  "complete fails with Validation when source is not a sprint",
-  () =>
-    Effect.gen(function* () {
-      const groups = yield* Groups
-      const epic = yield* groups.create("org", "user-1", "p", {
-        name: "Epic",
-        kind: "epic"
+it.effect("complete fails with Validation when source is not a sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const epic = yield* groups.create("org", "user-1", "p", {
+      name: "Epic",
+      kind: "epic"
+    })
+
+    const result = yield* Effect.either(
+      groups.complete("org", "user-1", "p", epic.id, {
+        destination: { kind: "backlog" }
       })
-
-      const result = yield* Effect.either(
-        groups.complete("org", "user-1", "p", epic.id, {
-          destination: { kind: "backlog" }
-        })
-      )
-
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("Validation")
-      }
-    }).pipe(
-      Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
     )
+
+    expect(result._tag).toBe("Left")
+    if (result._tag === "Left") {
+      expect(result.left._tag).toBe("Validation")
+    }
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
 )
 
 it.effect(
@@ -680,9 +660,7 @@ it.effect(
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("Validation")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
 )
 
 it.effect("complete fails for non-admin members", () =>
