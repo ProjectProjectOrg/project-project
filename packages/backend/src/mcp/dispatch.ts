@@ -18,8 +18,12 @@ import { mapToolError, type McpToolErrorResult } from "./errorMap"
 // The dispatcher is intentionally generic: per-tool input/output/error types
 // are validated at the boundary via Effect Schema, so the internal handler
 // signature here is necessarily wide. The `any`s are contained to this file.
-type AnyHandler = (input: any) => Effect.Effect<unknown, unknown, never>
-export type HandlersMap = { readonly [K in McpToolName]: AnyHandler }
+// `R` is the requirements channel the surrounding `ManagedRuntime` will
+// satisfy — handlers declare whatever services they pull (CurrentUser,
+// Users, Tickets, …) and the registerAllTools caller picks an `R` that
+// covers all of them.
+type AnyHandler<R> = (input: any) => Effect.Effect<unknown, unknown, R>
+export type HandlersMap<R> = { readonly [K in McpToolName]: AnyHandler<R> }
 
 type JsonContentResult = {
   readonly content: ReadonlyArray<{ readonly type: "text"; readonly text: string }>
@@ -34,7 +38,7 @@ const asJsonContent = (value: unknown): JsonContentResult => ({
 export function registerAllTools<R>(
   server: McpServer,
   runtime: ManagedRuntime.ManagedRuntime<R, never>,
-  handlers: HandlersMap,
+  handlers: HandlersMap<R>,
 ): void {
   for (const name of Object.keys(McpTools) as Array<McpToolName>) {
     const spec = McpTools[name]
