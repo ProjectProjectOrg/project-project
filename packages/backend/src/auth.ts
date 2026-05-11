@@ -218,7 +218,14 @@ export const auth = betterAuth({
     }),
     admin(),
     mcp({
-      loginPage: "/login"
+      loginPage: "/login",
+      // The OAuth resource indicator (RFC 8707) for this MCP endpoint. Must
+      // be the URL of the protected resource itself, not BETTER_AUTH_URL —
+      // the latter points at the frontend (where consent lives), the
+      // former is where /mcp actually serves. Clients (Claude Code SDK,
+      // MCP Inspector) reject the auth flow if these don't match.
+      resource:
+        (process.env.MCP_RESOURCE_URL ?? "http://localhost:3000") + "/mcp"
     })
   ]
 })
