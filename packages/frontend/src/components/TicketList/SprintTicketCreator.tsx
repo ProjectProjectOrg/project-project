@@ -182,6 +182,7 @@ export function SprintTicketCreator({
         setTypeMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)

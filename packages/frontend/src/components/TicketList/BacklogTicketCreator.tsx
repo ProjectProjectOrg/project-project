@@ -114,6 +114,7 @@ export function BacklogTicketCreator({
         setTypeMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)
@@ -172,6 +173,7 @@ export function BacklogTicketCreator({
         setSprintMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)
