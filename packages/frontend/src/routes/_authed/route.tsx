@@ -102,7 +102,7 @@ function Sidebar({ user }: { user: User }) {
               key="rail"
               initial={{ opacity: 0, scale: railScale }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: railScale }}
+              exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
               className="absolute inset-0 overflow-y-auto px-3 py-2"
             >
@@ -113,7 +113,7 @@ function Sidebar({ user }: { user: User }) {
               key="nav"
               initial={{ opacity: 0, scale: navScale }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: navScale }}
+              exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
               className="absolute inset-0 overflow-y-auto"
             >
