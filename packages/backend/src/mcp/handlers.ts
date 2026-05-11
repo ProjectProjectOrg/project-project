@@ -13,6 +13,9 @@ import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 import { Groups } from "../Services/Groups"
 import { Tags } from "../Services/Tags"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import { GroupDocs } from "../Services/GroupDocs"
+import { TicketDocs } from "../Services/TicketDocs"
 import type { HandlersMap } from "./dispatch"
 
 const DEFAULT_LIMIT = 50
@@ -25,6 +28,9 @@ type Env =
   | Tickets
   | Groups
   | Tags
+  | ProjectDocs
+  | GroupDocs
+  | TicketDocs
 
 const me = (
   _input: {}
@@ -192,6 +198,41 @@ const get_git_state = (input: {
     )
   })
 
+const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const projects = yield* Projects
+    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
+    const docs = yield* ProjectDocs
+    return yield* docs.readRaw(input.orgSlug, input.projectSlug)
+  })
+
+const get_group_doc = (input: {
+  orgSlug: string
+  projectSlug: string
+  id: string
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const projects = yield* Projects
+    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
+    const docs = yield* GroupDocs
+    return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
+  })
+
+const get_ticket_doc = (input: {
+  orgSlug: string
+  projectSlug: string
+  id: string
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const projects = yield* Projects
+    yield* projects.requireMember(input.orgSlug, current.id, input.projectSlug)
+    const docs = yield* TicketDocs
+    return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
+  })
+
 export const handlers: HandlersMap<Env> = {
   me,
   list_orgs,
@@ -204,5 +245,8 @@ export const handlers: HandlersMap<Env> = {
   get_ticket,
   list_tags,
   list_members,
-  get_git_state
+  get_git_state,
+  get_project_doc,
+  get_group_doc,
+  get_ticket_doc
 }

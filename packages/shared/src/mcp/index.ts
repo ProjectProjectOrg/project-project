@@ -6,6 +6,7 @@ import { Group, GroupDetail, GroupId } from "../schemas/Group"
 import { Ticket, TicketDetail, TicketId } from "../schemas/Ticket"
 import { Tag } from "../schemas/Tag"
 import { GitStatesResponse } from "../schemas/GitState"
+import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { Page, Pagination } from "./Pagination"
 import { TicketFilter } from "./filters/Ticket"
@@ -122,6 +123,35 @@ export const McpTools = {
       ticketId: Schema.optional(TicketId)
     }),
     output: GitStatesResponse,
+    errors: [Unauthorized, NotFound] as const
+  },
+  get_project_doc: {
+    description:
+      "Raw markdown source of a project's project.md (frontmatter + body).",
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: DocFile,
+    errors: [Unauthorized, NotFound] as const
+  },
+  get_group_doc: {
+    description:
+      "Raw markdown source of a group's .md file (frontmatter + body).",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: GroupId
+    }),
+    output: DocFile,
+    errors: [Unauthorized, NotFound] as const
+  },
+  get_ticket_doc: {
+    description:
+      "Raw markdown source of a ticket's .md file (frontmatter + body).",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: TicketId
+    }),
+    output: DocFile,
     errors: [Unauthorized, NotFound] as const
   }
 } as const satisfies Record<string, McpToolSpec<any, any, any>>
