@@ -19,6 +19,7 @@ function SprintBoardCardImpl({
   members: ReadonlyArray<Member>
 }) {
   const navigate = useNavigate()
+  // TODO: route to a dedicated ticket page once it exists; board has no room for the expanded panel.
   const open = () => {
     navigate({
       to: ".",
@@ -42,8 +43,8 @@ function SprintBoardCardImpl({
         }
       }}
       className={cn(
-        "group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition-colors hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring",
-        "active:scale-[0.97] transition-transform duration-100"
+        "group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition duration-100 hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring",
+        "active:scale-[0.97]"
       )}
     >
       <div className="flex items-start gap-1.5">

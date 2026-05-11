@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect-atom/atom-react"
 import { TicketList } from "@/components/TicketList"
 import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
-import type { GroupId, Member, TicketId } from "@projectproject/shared"
+import type { Member, TicketId } from "@projectproject/shared"
 
 export function SprintTicketList({
   orgSlug,
@@ -12,11 +12,9 @@ export function SprintTicketList({
 }: {
   orgSlug: string
   slug: string
-  groupId: GroupId
   ticketIds: ReadonlyArray<TicketId>
   members: ReadonlyArray<Member>
   uiKey: string
-  isCompleted: boolean
 }) {
   const membership = useAtomValue(
     sprintMembershipAtom(projectKey(orgSlug, slug))

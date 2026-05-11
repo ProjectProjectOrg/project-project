@@ -130,11 +130,9 @@ export function SprintDetail({
             <SprintTicketList
               orgSlug={orgSlug}
               slug={slug}
-              groupId={display.id}
               ticketIds={ticketIds}
               members={project.members}
               uiKey={uiKey}
-              isCompleted={isCompleted}
             />
           </PageContainer>
         )
