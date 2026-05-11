@@ -264,15 +264,17 @@ function DateRangeField({
         }
       }}
     >
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="chip"
-          className="ml-auto text-muted-foreground hover:text-foreground"
-        >
-          <span className="font-mono text-[11px] tabular-nums">{label}</span>
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            className="ml-auto text-muted-foreground hover:text-foreground"
+          >
+            <span className="font-mono text-[11px] tabular-nums">{label}</span>
+          </Button>
+        }
+      />
       <PopoverContent align="start" className="w-auto p-0">
         <Calendar
           mode="range"
@@ -307,7 +309,7 @@ function DescriptionField({
   const preview = sprint.body.trim().split(/\s+/).slice(0, 16).join(" ")
 
   return (
-    <Accordion type="single" collapsible className="w-full">
+    <Accordion type="single" className="w-full">
       <AccordionItem value="desc" className="border-b-0">
         <AccordionTrigger className="items-center gap-2 rounded pl-3 pr-5 py-1 text-left text-sm font-normal text-muted-foreground transition-colors hover:bg-accent/40 hover:no-underline hover:text-foreground [&>svg]:size-3.5 [&>svg]:translate-y-0">
           <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -393,26 +395,26 @@ function SprintMenu({
         if (!open) setConfirming(false)
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.sprints_actions_aria_label()}
-          className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none",
-            className
-          )}
-        >
-          <MoreHorizontal className="size-4" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.sprints_actions_aria_label()}
+            className={cn(
+              "grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none",
+              className
+            )}
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!isCompleted && onRequestComplete && (
           <>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                onRequestComplete()
-              }}
+              closeOnClick={false}
+              onClick={() => onRequestComplete()}
               className="cursor-pointer"
             >
               <CheckCircle2 className="size-4" strokeWidth={1.75} />
@@ -423,10 +425,8 @@ function SprintMenu({
         )}
         {!confirming ? (
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault()
-              setConfirming(true)
-            }}
+            closeOnClick={false}
+            onClick={() => setConfirming(true)}
             className="cursor-pointer text-destructive focus:text-destructive"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />

@@ -267,23 +267,25 @@ function CreateSprintFields({
         maxLength={120}
       />
       <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="chip"
-            disabled={busy}
-            className="self-start text-muted-foreground hover:text-foreground"
-          >
-            <span className="font-mono text-[11px] tabular-nums">
-              {range.from && range.to
-                ? (() => {
-                    const fmt = railDateFormatter()
-                    return `${fmt.format(range.from)} – ${fmt.format(range.to)}`
-                  })()
-                : m.sprints_date_range_label()}
-            </span>
-          </Button>
-        </PopoverTrigger>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="chip"
+              disabled={busy}
+              className="self-start text-muted-foreground hover:text-foreground"
+            >
+              <span className="font-mono text-[11px] tabular-nums">
+                {range.from && range.to
+                  ? (() => {
+                      const fmt = railDateFormatter()
+                      return `${fmt.format(range.from)} – ${fmt.format(range.to)}`
+                    })()
+                  : m.sprints_date_range_label()}
+              </span>
+            </Button>
+          }
+        />
         <PopoverContent align="start" className="w-auto p-0">
           <Calendar
             mode="range"

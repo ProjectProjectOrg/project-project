@@ -6,7 +6,13 @@ import {
 } from "@effect-atom/atom-react"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
+import {
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
   DropdownMenu,
@@ -104,13 +110,11 @@ export function SprintTicketCreator({
           t.id.toLowerCase().includes(lowered))
     )
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
-    const existing: Array<Item> = eligible
-      .slice(0, 8)
-      .map((t) => ({
-        kind: "existing" as const,
-        ticket: t,
-        otherSprintName: memberOfOtherSprint.get(t.id) ?? null
-      }))
+    const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({
+      kind: "existing" as const,
+      ticket: t,
+      otherSprintName: memberOfOtherSprint.get(t.id) ?? null
+    }))
     if (trimmed.length === 0 || exactTitle) return existing
     return [{ kind: "create" as const, label: trimmed }, ...existing]
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
@@ -176,44 +180,48 @@ export function SprintTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.tickets_create_type_aria_label({
-            type: TYPE_LABELS[type]()
-          })}
-          className={cn(
-            "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
-            expanded
-              ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
-              : "px-1 hover:bg-accent hover:text-foreground"
-          )}
-        >
-          <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-          <CollapsingLabel show={expanded}>
-            <span className="text-xs">{TYPE_LABELS[type]()}</span>
-          </CollapsingLabel>
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.tickets_create_type_aria_label({
+              type: TYPE_LABELS[type]()
+            })}
+            className={cn(
+              "inline-flex h-6 items-center gap-1.5 rounded-md transition-expand",
+              expanded
+                ? cn("px-2", BADGE_TONES[TYPE_META[type].tone])
+                : "px-1 hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
+            <CollapsingLabel show={expanded} contentKey={type}>
+              <span className="text-xs">{TYPE_LABELS[type]()}</span>
+            </CollapsingLabel>
+          </button>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-40"
-        onCloseAutoFocus={(e) => {
-          e.preventDefault()
-          inputRef.current?.focus()
-          setClosingMenu(false)
-        }}
+        finalFocus={false}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const TIcon = TYPE_META[t].icon
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => setType(t)}
+              onClick={() => setType(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -272,7 +280,7 @@ export function SprintTicketCreator({
         setHighlight(0)
       }}
       onFocus={() => setFocused(true)}
-      onBlur={() => window.setTimeout(() => setFocused(false), 100)}
+      onBlur={() => setFocused(false)}
       onKeyDown={onKeyDown}
       onSubmit={onSubmit}
       expanded={expanded}

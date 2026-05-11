@@ -70,7 +70,7 @@ export function SprintField({
           className={cn(
             "min-w-0",
             !membership &&
-              "opacity-0 transition-opacity group-hover/list-row:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              "opacity-0 transition-opacity group-hover/list-row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
           )}
         >
           {membership ? (

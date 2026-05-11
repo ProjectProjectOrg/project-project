@@ -533,5 +533,6 @@ html.dark .prose-md .token.coord {
   body,
   #root {
     height: 100%;
+    isolation: isolate;
   }
 }

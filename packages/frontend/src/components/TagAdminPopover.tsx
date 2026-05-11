@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 import { Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useState, type ReactElement } from "react"
 import { motion } from "motion/react"
 import { ColorPicker } from "@/components/ColorPicker"
 import { cn } from "@/lib/utils"
@@ -24,7 +24,7 @@ type Props = {
   usageCount: number
   onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onDelete: () => Promise<void> | void
-  children: React.ReactNode
+  children: ReactElement<Record<string, unknown>>
 }
 
 export function TagAdminPopover({
@@ -37,12 +37,12 @@ export function TagAdminPopover({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverTrigger render={children} />
       <PopoverContent
         align="start"
         sideOffset={6}
         className="w-64 p-2"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        initialFocus={true}
       >
         <ConfirmButton.Root className="w-full">
           <Body
