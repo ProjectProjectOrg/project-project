@@ -1,3 +1,14 @@
+// HAND-EDITED.
+//
+// `bunx @better-auth/cli generate` will overwrite this file with its own
+// opinions: adds semicolons, drops the `effect/DateTime` `$onUpdate`
+// helpers, drops `defaultNow().notNull()` on the project-managed
+// timestamps, and strips the `lastActiveOrganizationId` column on `user`.
+//
+// After regenerating, diff the CLI output against this file and hand-merge
+// only the *new* table definitions onto the existing customized base.
+// Don't blindly accept the CLI output.
+
 import { relations } from "drizzle-orm"
 import {
   pgTable,
