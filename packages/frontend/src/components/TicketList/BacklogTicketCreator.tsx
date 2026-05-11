@@ -112,7 +112,13 @@ export function BacklogTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
       <DropdownMenuTrigger
@@ -130,7 +136,7 @@ export function BacklogTicketCreator({
             )}
           >
             <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-            <CollapsingLabel show={expanded}>
+            <CollapsingLabel show={expanded} contentKey={type}>
               <span className="text-xs">{TYPE_LABELS[type]()}</span>
             </CollapsingLabel>
           </button>
@@ -200,11 +206,14 @@ export function BacklogTicketCreator({
           )}
         >
           {selectedSprint ? (
-            <SprintStateIcon sprint={selectedSprint} size="xs" />
+            <SprintStateIcon sprint={selectedSprint} size="md" />
           ) : (
             <Plus className="size-4 shrink-0" strokeWidth={1.75} />
           )}
-          <CollapsingLabel show={expanded}>
+          <CollapsingLabel
+            show={expanded}
+            contentKey={selectedSprint?.id ?? "none"}
+          >
             <span className="max-w-[10ch] truncate text-xs">
               {selectedSprint
                 ? selectedSprint.name

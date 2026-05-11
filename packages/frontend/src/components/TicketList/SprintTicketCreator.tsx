@@ -176,7 +176,13 @@ export function SprintTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
       <DropdownMenuTrigger
@@ -194,7 +200,7 @@ export function SprintTicketCreator({
             )}
           >
             <TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />
-            <CollapsingLabel show={expanded}>
+            <CollapsingLabel show={expanded} contentKey={type}>
               <span className="text-xs">{TYPE_LABELS[type]()}</span>
             </CollapsingLabel>
           </button>
@@ -273,7 +279,7 @@ export function SprintTicketCreator({
         setHighlight(0)
       }}
       onFocus={() => setFocused(true)}
-      onBlur={() => setTimeout(() => setFocused(false), 100)}
+      onBlur={() => setFocused(false)}
       onKeyDown={onKeyDown}
       onSubmit={onSubmit}
       expanded={expanded}
