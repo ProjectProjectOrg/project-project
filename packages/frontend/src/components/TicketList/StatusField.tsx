@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketStatus } from "@projectproject/shared"
 
@@ -24,7 +24,9 @@ export function StatusButton({
   ticket: { id: TicketId; status: TicketStatus }
   stopPropagation?: boolean
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = STATUS_META[ticket.status]
   const Icon = meta.icon
   const statusLabel = STATUS_LABELS[ticket.status]()
@@ -64,7 +66,7 @@ export function StatusButton({
               key={status}
               onSelect={() => {
                 if (status === ticket.status) return
-                update({ orgSlug, slug, id: ticket.id, status })
+                update({ status })
               }}
               className="cursor-pointer"
             >

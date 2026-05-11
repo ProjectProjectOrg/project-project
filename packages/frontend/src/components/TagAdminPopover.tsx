@@ -1,3 +1,4 @@
+import { Schema } from "effect"
 import { Trash2 } from "lucide-react"
 import { useState, type ReactElement } from "react"
 import { motion } from "motion/react"
@@ -11,10 +12,12 @@ import {
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
-import type { Tag, TagName } from "@projectproject/shared"
+import { TagColor, TagName, type Tag } from "@projectproject/shared"
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
+const makeTagName = Schema.decodeUnknownSync(TagName)
+const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 type Props = {
   tag: Tag
@@ -118,7 +121,7 @@ function Editor({
 
   const commit = () => {
     if (trimmed === tag.name || invalid || trimmed.length === 0) return
-    onPatch({ nextName: trimmed as TagName })
+    onPatch({ nextName: makeTagName(trimmed) })
   }
 
   return (
@@ -126,7 +129,7 @@ function Editor({
       <div className="flex items-center gap-1.5">
         <ColorPicker
           value={tag.color}
-          onChange={(hex) => onPatch({ color: hex as Tag["color"] })}
+          onChange={(hex) => onPatch({ color: makeTagColor(hex) })}
           ariaLabel={m.tags_color_aria_label({ name: tag.name })}
         />
         <input

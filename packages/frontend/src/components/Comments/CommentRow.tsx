@@ -10,7 +10,7 @@ import { meAtom } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
-  commentsKey,
+  commentKey,
   deleteCommentAtom,
   editCommentAtom
 } from "@/atoms/comments"
@@ -21,20 +21,21 @@ type Mode = "idle" | "edit"
 
 export function CommentRow({
   comment,
-  waiting,
   orgSlug,
   slug,
   ticketId
 }: {
   comment: Comment
-  waiting: boolean
   orgSlug: string
   slug: string
   ticketId: TicketId
 }) {
   const me = useAtomValue(meAtom)
   const isAuthor = Result.isSuccess(me) && me.value.id === comment.author.id
-  const key = commentsKey(orgSlug, slug, ticketId)
+  const key = commentKey(orgSlug, slug, ticketId, comment.id)
+  const editState = useAtomValue(editCommentAtom(key))
+  const deleteState = useAtomValue(deleteCommentAtom(key))
+  const waiting = editState.waiting || deleteState.waiting
   const deleteComment = useAtomSet(deleteCommentAtom(key), { mode: "promise" })
 
   return (
@@ -66,7 +67,7 @@ export function CommentRow({
                 ariaLabel={m.comments_delete_aria_label()}
                 message={m.comments_delete_confirm()}
                 onConfirm={async () => {
-                  await deleteComment({ commentId: comment.id })
+                  await deleteComment()
                 }}
               />
             </div>
@@ -102,7 +103,7 @@ function EditForm({
   const [body, setBody] = useState(comment.body)
   const [error, setError] = useState<string | null>(null)
   const edit = useAtomSet(
-    editCommentAtom(commentsKey(orgSlug, slug, ticketId)),
+    editCommentAtom(commentKey(orgSlug, slug, ticketId, comment.id)),
     { mode: "promise" }
   )
   const { close, busy, setBusy } = useInlineForm()
@@ -112,7 +113,7 @@ function EditForm({
     setBusy(true)
     setError(null)
     try {
-      await edit({ commentId: comment.id, body })
+      await edit({ body })
       close()
     } catch (e) {
       setError(e instanceof Error ? e.message : m.comments_save_failed())
@@ -122,7 +123,6 @@ function EditForm({
 
   return (
     <>
-      {/* mt-1.5 is to match idle state, which has slightly higher time text */}
       <header className="flex items-center gap-2 text-sm mt-1.5">
         <MemberAvatar member={comment.author} size={20} />
         <span className="font-medium">

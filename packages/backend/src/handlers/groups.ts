@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import { Effect } from "effect"
-import { CurrentOrg } from "../services/CurrentOrg"
-import { Groups } from "../services/Groups"
+import { CurrentOrg } from "../Services/CurrentOrg"
+import { Groups } from "../Services/Groups"
 
 const dieOnMarkdown = <A, R>(eff: Effect.Effect<A, any, R>) =>
   eff.pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
@@ -61,6 +61,21 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
           return yield* groups.updateTickets(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("complete", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const groups = yield* Groups
+          return yield* groups.complete(
             org.orgSlug,
             user.id,
             path.slug,

@@ -82,11 +82,9 @@ export function CommentsSection({
                   </p>
                 )}
                 {visibleSlice.map((c) => (
-                  <AnimatePresence initial={true}>
+                  <AnimatePresence key={c.id} initial={true}>
                     <CommentRow
-                      key={c.id}
                       comment={c}
-                      waiting={result.waiting}
                       orgSlug={orgSlug}
                       slug={slug}
                       ticketId={ticketId}

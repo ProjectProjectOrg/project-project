@@ -1,0 +1,60 @@
+import { Context, type Effect } from "effect"
+import type {
+  NotFound,
+  TagName,
+  TicketId,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from "@projectproject/shared"
+import type { MarkdownError, TicketIdTaken } from "./Markdown"
+
+export interface TicketDocument {
+  readonly id: TicketId
+  readonly title: string
+  readonly status: TicketStatus
+  readonly type: TicketType
+  readonly priority: TicketPriority
+  readonly tags: ReadonlyArray<TagName>
+  readonly branch: string | null
+  readonly pr: number | null
+  readonly lastTransitionedPr: number | null
+  readonly assignees: ReadonlyArray<string>
+  readonly createdBy: string
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly body: string
+}
+
+export interface TicketDocsShape {
+  readonly listIds: (
+    orgSlug: string,
+    slug: string
+  ) => Effect.Effect<ReadonlyArray<TicketId>, MarkdownError>
+  readonly read: (
+    orgSlug: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<TicketDocument, NotFound | MarkdownError>
+  readonly create: (
+    orgSlug: string,
+    slug: string,
+    document: TicketDocument
+  ) => Effect.Effect<void, MarkdownError | TicketIdTaken>
+  readonly write: (
+    orgSlug: string,
+    slug: string,
+    id: string,
+    document: TicketDocument
+  ) => Effect.Effect<void, MarkdownError>
+  readonly remove: (
+    orgSlug: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<void, NotFound | MarkdownError>
+}
+
+export class TicketDocs extends Context.Tag("TicketDocs")<
+  TicketDocs,
+  TicketDocsShape
+>() {}

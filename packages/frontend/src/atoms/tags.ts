@@ -1,16 +1,19 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import type {
-  CreateTagInput,
-  Tag,
-  TagName,
-  UpdateTagInput
+import {
+  TagColor,
+  type CreateTagInput,
+  type Tag,
+  type TagName,
+  type UpdateTagInput
 } from "@projectproject/shared"
 
 export const tagsKey = (orgSlug: string, slug: string) => `${orgSlug}/${slug}`
+
+const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
 const tagsBaseAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
@@ -39,7 +42,7 @@ export const createTagAtom = Atom.family((key: string) => {
       if (!Result.isSuccess(current)) return current
       const synthetic: Tag = {
         name: input.name,
-        color: (input.color ?? "#7c3aed") as Tag["color"],
+        color: input.color ?? makeTagColor("#7c3aed"),
         createdBy: "",
         createdAt: new Date()
       }

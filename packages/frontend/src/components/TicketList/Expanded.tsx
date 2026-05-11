@@ -1,5 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
+import { Cause, Exit } from "effect"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { TagEditor } from "@/components/TagEditor"
@@ -20,6 +21,7 @@ import { useProjectRole } from "@/lib/projectRole"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
 import { AssigneePicker } from "./AssigneeField"
 import { PriorityBadgeTrigger } from "./PriorityField"
+import { SprintBadgeTrigger } from "./SprintField"
 import { TypeBadgeTrigger } from "./TypeField"
 
 export function Expanded({
@@ -84,8 +86,9 @@ function ExpandedDetail({
   focusBody: boolean
   onConsumeFocusBody: () => void
 }) {
-  const update = useAtomSet(updateTicketAtom)
-  const remove = useAtomSet(deleteTicketAtom)
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey))
+  const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
@@ -109,17 +112,17 @@ function ExpandedDetail({
           disabled={deleting}
           onConfirm={async () => {
             setDeleting(true)
-            try {
-              await remove({ orgSlug, slug, id: ticket.id })
+            const exit = await remove()
+            if (Exit.isSuccess(exit)) {
               navigate({
                 to: ".",
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
                 replace: true
               })
-            } catch (e) {
-              setDeleting(false)
-              throw e
+              return
             }
+            setDeleting(false)
+            throw Cause.squash(exit.cause)
           }}
         />
       </div>
@@ -127,6 +130,11 @@ function ExpandedDetail({
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <PriorityBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
         <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
+        <SprintBadgeTrigger
+          orgSlug={orgSlug}
+          slug={slug}
+          ticketId={ticket.id}
+        />
         <AssigneePicker
           orgSlug={orgSlug}
           slug={slug}
@@ -162,9 +170,7 @@ function ExpandedDetail({
           <LexicalEditor
             key={`${slug}/${ticket.id}`}
             markdown={ticket.body}
-            onChange={(next) =>
-              update({ orgSlug, slug, id: ticket.id, body: next })
-            }
+            onChange={(next) => update({ body: next })}
             onStatusChange={setBodyStatus}
             autoFocus={autoFocusBody}
           />
@@ -207,10 +213,12 @@ function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketAtom(tKey))
+  const saving = updateState.waiting
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ticket.title)
-  const [saving, setSaving] = useState(false)
   useEffect(() => {
     if (!editing) setDraft(ticket.title)
   }, [editing, ticket.title])
@@ -222,18 +230,8 @@ function TitleField({
       setDraft(ticket.title)
       return
     }
-    setSaving(true)
-    try {
-      await update({
-        orgSlug,
-        slug,
-        id: ticket.id,
-        title: trimmed
-      })
-    } finally {
-      setSaving(false)
-      setEditing(false)
-    }
+    await update({ title: trimmed })
+    setEditing(false)
   }
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {

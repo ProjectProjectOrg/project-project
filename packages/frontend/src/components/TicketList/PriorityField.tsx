@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
@@ -13,7 +14,7 @@ import {
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
 import { m } from "@/paraglide/messages"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketPriority } from "@projectproject/shared"
 
@@ -28,7 +29,9 @@ export function PriorityButton({
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -68,7 +71,7 @@ export function PriorityButton({
               key={p}
               onSelect={() => {
                 if (p === ticket.priority) return
-                update({ orgSlug, slug, id: ticket.id, priority: p })
+                update({ priority: p })
               }}
               className="cursor-pointer"
             >
@@ -99,7 +102,9 @@ export function PriorityBadgeTrigger({
   ticket: { id: TicketId; priority: TicketPriority }
   className?: string
 }) {
-  const update = useAtomSet(updateTicketAtom)
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -107,18 +112,19 @@ export function PriorityBadgeTrigger({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
+          <Button
             type="button"
+            variant="chip"
             onClick={(e) => e.stopPropagation()}
             aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
-              className
-            )}
+            className={className}
           >
-            <Icon className="size-3.5" strokeWidth={1.75} />
+            <Icon
+              className={cn("size-3.5", meta.className)}
+              strokeWidth={1.75}
+            />
             <span>{priorityLabel}</span>
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent
@@ -136,7 +142,7 @@ export function PriorityBadgeTrigger({
               key={p}
               onSelect={() => {
                 if (p === ticket.priority) return
-                update({ orgSlug, slug, id: ticket.id, priority: p })
+                update({ priority: p })
               }}
               className="cursor-pointer"
             >

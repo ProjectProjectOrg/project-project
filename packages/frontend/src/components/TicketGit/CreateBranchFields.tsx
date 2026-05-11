@@ -1,4 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Exit, Match } from "effect"
 import {
   Check,
   CheckCircle2,
@@ -9,7 +10,7 @@ import {
 import { useEffect, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { updateTicketAtom } from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -82,42 +83,56 @@ export function CreateBranchFields({
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
   const [status, setStatus] = useState<TicketStatus>("in_progress")
-  const [error, setError] = useState<string | null>(null)
-  const create = useAtomSet(createBranchAtom(projectKey(orgSlug, slug)))
-  const updateTicket = useAtomSet(updateTicketAtom)
+  const [didSubmit, setDidSubmit] = useState(false)
+  const [attemptedName, setAttemptedName] = useState("")
+  const pKey = projectKey(orgSlug, slug)
+  const create = useAtomSet(createBranchAtom(pKey), { mode: "promiseExit" })
+  const createState = useAtomValue(createBranchAtom(pKey))
+  const updateTicket = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+
+  const errorString =
+    didSubmit && !createState.waiting
+      ? Result.matchWithError(createState, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) =>
+            Match.value(error).pipe(
+              Match.tag("BranchExists", () =>
+                m.git_branch_exists_error({ name: attemptedName })
+              ),
+              Match.tag("BranchProtected", () =>
+                m.git_branch_protected_error()
+              ),
+              Match.tag("GitHubTokenExpired", () =>
+                m.git_github_token_expired_error()
+              ),
+              Match.tag("GitHubScopeInsufficient", () =>
+                m.git_github_scope_insufficient_error()
+              ),
+              Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.orElse(() => m.git_create_branch_error())
+            ),
+          onDefect: () => m.git_create_branch_error()
+        })
+      : null
 
   async function submit() {
     if (!name.trim()) return
-    setError(null)
     setBusy(true)
-    try {
-      await Promise.all([
-        create({
-          id: ticket.id,
-          name: name.trim(),
-          baseBranch: base.trim() || undefined
-        }),
-        status !== ticket.status
-          ? updateTicket({ orgSlug, slug, id: ticket.id, status })
-          : Promise.resolve()
-      ])
+    setDidSubmit(true)
+    const branchName = name.trim()
+    setAttemptedName(branchName)
+    const exit = await create({
+      id: ticket.id,
+      name: branchName,
+      baseBranch: base.trim() || undefined
+    })
+    if (Exit.isSuccess(exit)) {
+      if (status !== ticket.status) updateTicket({ status })
       close()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      setError(
-        tag === "BranchExists"
-          ? m.git_branch_exists_error({ name: name.trim() })
-          : tag === "BranchProtected"
-            ? m.git_branch_protected_error()
-            : tag === "GitHubTokenExpired"
-              ? m.git_github_token_expired_error()
-              : tag === "GitHubScopeInsufficient"
-                ? m.git_github_scope_insufficient_error()
-                : tag === "RepoGone"
-                  ? m.git_repo_gone_error()
-                  : m.git_create_branch_error()
-      )
+    } else {
       setBusy(false)
     }
   }
@@ -152,9 +167,9 @@ export function CreateBranchFields({
           />
         </label>
       </div>
-      {error && (
+      {errorString && (
         <p className="text-xs text-destructive" role="alert">
-          {error}
+          {errorString}
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -393,7 +408,7 @@ function BaseBranchCombobox({
                     <GitBranch className="size-3" strokeWidth={1.75} />
                     <span className="truncate">{b.name}</span>
                     {b.isProtected && (
-                      <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <span className="ml-auto text-[10px] text-muted-foreground">
                         {m.git_branch_protected_pill()}
                       </span>
                     )}

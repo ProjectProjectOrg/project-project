@@ -8,8 +8,15 @@ export function useGlobalShortcut(
   const { selectOnFocus = true } = options
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== key) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = ref.current
+      if (!el) return
+      if (e.key === "Escape" && document.activeElement === el) {
+        e.preventDefault()
+        el.blur()
+        return
+      }
+      if (e.key !== key) return
       const t = e.target as HTMLElement | null
       if (
         t instanceof HTMLInputElement ||
@@ -18,8 +25,6 @@ export function useGlobalShortcut(
       ) {
         return
       }
-      const el = ref.current
-      if (!el) return
       e.preventDefault()
       el.focus()
       if (selectOnFocus) el.select?.()

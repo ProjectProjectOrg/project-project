@@ -1,6 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, type FormEvent } from "react"
+import { Exit } from "effect"
+import { useRef, useState, type FormEvent } from "react"
 import { motion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
@@ -10,10 +11,12 @@ import {
   InputGroupHint,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
+import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
@@ -86,27 +89,27 @@ function CreateRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const create = useAtomSet(createProjectAtom)
+  const create = useAtomSet(createProjectAtom(orgSlug), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(createProjectAtom(orgSlug))
+  const submitting = createState.waiting
+  const error = Result.isFailure(createState)
+    ? m.projects_create_error_fallback()
+    : null
   const [name, setName] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [focused, setFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useGlobalShortcut("c", inputRef)
   const trimmed = name.trim()
   const previewSlug = trimmed ? slugify(trimmed) : ""
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await create({ orgSlug, name: trimmed })
+    const exit = await create({ name: trimmed })
+    if (Exit.isSuccess(exit)) {
       setName("")
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : m.projects_create_error_fallback()
-      )
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -117,10 +120,17 @@ function CreateRow({
           <Plus className="size-4" strokeWidth={1.75} />
         </InputGroupAddon>
         <InputGroupInput
+          ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => onFocusChange?.(false)}
+          onFocus={() => {
+            setFocused(true)
+            onFocusChange?.(true)
+          }}
+          onBlur={() => {
+            setFocused(false)
+            onFocusChange?.(false)
+          }}
           placeholder={m.projects_create_name_placeholder()}
           aria-label={m.projects_create_name_aria_label()}
           disabled={submitting}
@@ -134,6 +144,7 @@ function CreateRow({
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
+        {!focused && !trimmed && !error && <Kbd>c</Kbd>}
       </InputGroup>
     </form>
   )

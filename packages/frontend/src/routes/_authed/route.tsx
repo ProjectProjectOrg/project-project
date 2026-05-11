@@ -7,9 +7,14 @@ import {
   useLocation
 } from "@tanstack/react-router"
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
+import {
+  SidebarSlotProvider,
+  useSidebarSlotContent
+} from "@/components/SidebarSlot"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -50,7 +55,11 @@ function AuthedLayout() {
           />
         )
       }
-      return <Shell user={value} />
+      return (
+        <SidebarSlotProvider>
+          <Shell user={value} />
+        </SidebarSlotProvider>
+      )
     }
   })
 }
@@ -61,9 +70,11 @@ function Shell({ user }: { user: User }) {
       <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
-        <main className="m-2 ml-0 mt-0 overflow-auto rounded-xl bg-muted/60">
-          <div className="p-6">
-            <Outlet />
+        <main className="flex min-h-0 overflow-hidden p-2 pt-0">
+          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60">
+            <div className="p-6">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
@@ -73,6 +84,10 @@ function Shell({ user }: { user: User }) {
 
 function Sidebar({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
+  const slot = useSidebarSlotContent()
+  const reduceMotion = useReducedMotion()
+  const railScale = reduceMotion ? 1 : 1.02
+  const navScale = reduceMotion ? 1 : 0.98
 
   return (
     <aside className="row-span-2 flex flex-col">
@@ -80,26 +95,58 @@ function Sidebar({ user }: { user: User }) {
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
       </div>
-      <nav className="flex flex-col gap-1 px-3 py-2">
-        <NavItem
-          to="/"
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-        {orgSlug && (
-          <NavItem
-            to="/orgs/$orgSlug/projects"
-            params={{ orgSlug }}
-            icon={FolderKanban}
-            label={m.chrome_sidebar_projects()}
-          />
-        )}
-      </nav>
-      <div className="mt-auto p-3">
+      <div className="relative min-h-0 flex-1">
+        <AnimatePresence initial={false} mode="popLayout">
+          {slot ? (
+            <motion.div
+              key="rail"
+              initial={{ opacity: 0, scale: railScale }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
+              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              className="absolute inset-0 overflow-y-auto px-3 py-2"
+            >
+              {slot}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="nav"
+              initial={{ opacity: 0, scale: navScale }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
+              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              className="absolute inset-0 overflow-y-auto"
+            >
+              <PrimaryNav orgSlug={orgSlug} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="p-3">
         <ThemeSwitcher />
       </div>
     </aside>
+  )
+}
+
+function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
+  return (
+    <nav className="flex flex-col gap-1 px-3 py-2">
+      <NavItem
+        to="/"
+        icon={LayoutDashboard}
+        label={m.chrome_sidebar_dashboard()}
+        exact
+      />
+      {orgSlug && (
+        <NavItem
+          to="/orgs/$orgSlug/projects"
+          params={{ orgSlug }}
+          icon={FolderKanban}
+          label={m.chrome_sidebar_projects()}
+        />
+      )}
+    </nav>
   )
 }
 

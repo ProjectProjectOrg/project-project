@@ -1,5 +1,10 @@
 import { Atom } from "@effect-atom/atom-react"
-import type { TagName, TicketStatus, TicketType } from "@projectproject/shared"
+import type {
+  GroupId,
+  TagName,
+  TicketStatus,
+  TicketType
+} from "@projectproject/shared"
 import type { SortKey } from "@/components/TicketList/sort"
 
 export const ticketListUiKey = (orgSlug: string, slug: string) =>
@@ -21,6 +26,12 @@ export const assigneeFilterAtom = Atom.family((_key: string) =>
 
 export const selectedTagsAtom = Atom.family((_key: string) =>
   Atom.make<ReadonlyArray<TagName>>([])
+)
+
+export type SprintFilter = "all" | "unassigned" | GroupId
+
+export const sprintFilterAtom = Atom.family((_key: string) =>
+  Atom.make<SprintFilter>("all")
 )
 
 export const sortKeyAtom = Atom.family((_key: string) =>

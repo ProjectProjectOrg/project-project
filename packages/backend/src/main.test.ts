@@ -46,8 +46,8 @@ import {
 import { AppApi } from "@projectproject/shared"
 import { Effect, Layer } from "effect"
 import { expect } from "vitest"
-import { BetterAuth } from "./services/BetterAuth"
-import { Db } from "./services/Db"
+import { BetterAuth, type BetterAuthShape } from "./Services/BetterAuth"
+import { Db } from "./Services/Db"
 import { ApiLive } from "./main"
 
 // `ApiLive` now includes `DbHandlerLive`, which carries `PgDrizzle` (the `Db`
@@ -57,10 +57,17 @@ import { ApiLive } from "./main"
 // failure mode (a test calling the DB through this handler should fail loudly).
 const FakeDbLive = Layer.succeed(Db, {} as never)
 
-// Same story for `BetterAuth`: `ApiLive` now carries `AuthenticationLive`
-// which requires it. None of the tests below exercise the auth middleware,
-// so a stub satisfies the type.
-const FakeBetterAuthLive = Layer.succeed(BetterAuth, {} as never)
+const unexpectedBetterAuthCall = (method: string): Effect.Effect<never> =>
+  Effect.die(new Error(`unexpected BetterAuth.${method} call`))
+
+const FakeBetterAuth = {
+  handler: () => unexpectedBetterAuthCall("handler"),
+  getSession: () => unexpectedBetterAuthCall("getSession"),
+  getGithubAccessToken: () => unexpectedBetterAuthCall("getGithubAccessToken"),
+  getOrgSlugById: () => unexpectedBetterAuthCall("getOrgSlugById")
+} satisfies BetterAuthShape
+
+const FakeBetterAuthLive = Layer.succeed(BetterAuth, FakeBetterAuth)
 
 // One shared web handler for the whole suite.
 const { handler } = HttpApiBuilder.toWebHandler(

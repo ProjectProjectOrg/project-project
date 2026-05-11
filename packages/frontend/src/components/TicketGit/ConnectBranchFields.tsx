@@ -12,6 +12,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
+import { Cause, Exit, Match, Option } from "effect"
 import { GitBranch } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
@@ -37,7 +38,8 @@ export function ConnectBranchFields({
   const [q, setQ] = useState("")
   const [selected, setSelected] = useState<string | null>(null)
   const [activeIdx, setActiveIdx] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  const [didSubmit, setDidSubmit] = useState(false)
+  const [attemptedName, setAttemptedName] = useState("")
 
   useEffect(() => {
     const t = setTimeout(() => setQ(input), 200)
@@ -47,7 +49,9 @@ export function ConnectBranchFields({
   const key = branchesKey(orgSlug, slug, q)
   const result = useAtomValue(branchesAtom(key))
   const refreshBranches = useAtomRefresh(branchesAtom(key))
-  const attach = useAtomSet(attachBranchAtom(projectKey(orgSlug, slug)))
+  const pKey = projectKey(orgSlug, slug)
+  const attach = useAtomSet(attachBranchAtom(pKey), { mode: "promiseExit" })
+  const attachState = useAtomValue(attachBranchAtom(pKey))
 
   const items = Result.isSuccess(result) ? result.value.items : []
   const listRef = useRef<HTMLDivElement>(null)
@@ -57,31 +61,45 @@ export function ConnectBranchFields({
     if (activeIdx >= items.length) setActiveIdx(0)
   }, [items.length, activeIdx])
 
+  const errorString =
+    didSubmit && !attachState.waiting
+      ? Result.matchWithError(attachState, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (error) =>
+            Match.value(error).pipe(
+              Match.tag("BranchNotFound", () =>
+                m.git_branch_not_found_error({ name: attemptedName })
+              ),
+              Match.tag("GitHubTokenExpired", () =>
+                m.git_github_token_expired_error()
+              ),
+              Match.tag("GitHubScopeInsufficient", () =>
+                m.git_github_scope_insufficient_error()
+              ),
+              Match.tag("RepoGone", () => m.git_repo_gone_error()),
+              Match.orElse(() => m.git_attach_branch_error())
+            ),
+          onDefect: () => m.git_attach_branch_error()
+        })
+      : null
+
   async function submit(branchName: string) {
-    setError(null)
     setBusy(true)
-    try {
-      await attach({ id: ticket.id, name: branchName })
+    setDidSubmit(true)
+    setAttemptedName(branchName)
+    const exit = await attach({ id: ticket.id, name: branchName })
+    if (Exit.isSuccess(exit)) {
       close()
-    } catch (e) {
-      const tag =
-        typeof e === "object" && e && "_tag" in e ? String(e._tag) : ""
-      if (tag === "BranchNotFound") {
-        setError(m.git_branch_not_found_error({ name: branchName }))
-        setSelected(null)
-        refreshBranches()
-      } else {
-        setError(
-          tag === "GitHubTokenExpired"
-            ? m.git_github_token_expired_error()
-            : tag === "GitHubScopeInsufficient"
-              ? m.git_github_scope_insufficient_error()
-              : tag === "RepoGone"
-                ? m.git_repo_gone_error()
-                : m.git_attach_branch_error()
-        )
-      }
-      setBusy(false)
+      return
+    }
+    setBusy(false)
+    // BranchNotFound: clear stale selection and refresh the branch list so
+    // the picker reflects what the server now believes exists.
+    const failure = Cause.failureOption(exit.cause)
+    if (Option.isSome(failure) && failure.value._tag === "BranchNotFound") {
+      setSelected(null)
+      refreshBranches()
     }
   }
 
@@ -158,7 +176,7 @@ export function ConnectBranchFields({
                     {b.name}
                   </span>
                   {b.isProtected && (
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       {m.git_branch_protected_pill()}
                     </span>
                   )}
@@ -168,9 +186,9 @@ export function ConnectBranchFields({
           </ul>
         )}
       </div>
-      {error && (
+      {errorString && (
         <p className="text-xs text-destructive" role="alert">
-          {error}
+          {errorString}
         </p>
       )}
       <div className="flex justify-end gap-2">
