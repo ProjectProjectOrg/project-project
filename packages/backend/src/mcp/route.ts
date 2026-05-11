@@ -6,13 +6,23 @@
 //   - the AsyncLocalStorage used by the MCP dispatcher to populate
 //     CurrentUser inside tool handlers.
 //
-// One transport per process: the SDK's transport multiplexes connections
-// internally — no need to create one per request. The transport is bound to
-// the McpServer instance at construction; we connect them inside an Effect
-// scope that lives for the lifetime of the Layer.
+// SESSION LIFECYCLE
+// =================
+// The SDK's WebStandardStreamableHTTPServerTransport refuses to be reused
+// across requests in stateless mode ("Stateless transport cannot be reused
+// across requests. Create a new transport per request."). The official
+// stateful pattern is:
+//   1. On `initialize` requests with no session header — create a fresh
+//      transport, generate an Mcp-Session-Id, register it in a map.
+//   2. On non-initialize requests — look up the transport by session id.
+//      If unknown, 404.
+//   3. On client DELETE — close and forget the transport.
+// The SDK server itself stays shared; transports are session-affine.
 
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
 import { withMcpAuth } from "better-auth/plugins"
+import { randomUUID } from "node:crypto"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -31,10 +41,6 @@ export class McpHttp extends Context.Tag(
   "@projectproject/backend/mcp/route/McpHttp"
 )<McpHttp, McpHttpHandler>() {}
 
-// A per-process ManagedRuntime providing the services the route handler
-// needs at request time (Users for the userId -> User lookup). We rebuild
-// the backend services stack with provideMerge so infrastructure stays
-// visible — see the same pattern in Layers/McpServer.ts.
 const RouteRuntimeLive = BackendServicesLive.pipe(
   Layer.provideMerge(BackendInfrastructureLive),
   Layer.orDie
@@ -45,17 +51,58 @@ export const McpHttpLive = Layer.scoped(
   Effect.gen(function* () {
     const { server } = yield* McpServer
 
-    // Stateless mode: no sessionIdGenerator. Each POST is self-contained
-    // — good fit for read-only tools and simpler horizontal scaling.
-    const transport = new WebStandardStreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-    })
-
-    yield* Effect.promise(() => server.connect(transport))
-    yield* Effect.addFinalizer(() => Effect.promise(() => transport.close()))
-
     const runtime = ManagedRuntime.make(RouteRuntimeLive)
     yield* Effect.addFinalizer(() => Effect.promise(() => runtime.dispose()))
+
+    // sessionId -> transport. New transport per initialize, looked up by
+    // Mcp-Session-Id on subsequent requests.
+    const transports = new Map<string, WebStandardStreamableHTTPServerTransport>()
+    yield* Effect.addFinalizer(() =>
+      Effect.promise(async () => {
+        for (const t of transports.values()) await t.close().catch(() => {})
+        transports.clear()
+      })
+    )
+
+    const resolveTransport = async (
+      req: Request,
+      body: unknown
+    ): Promise<WebStandardStreamableHTTPServerTransport | Response> => {
+      const sessionId = req.headers.get("mcp-session-id") ?? undefined
+
+      if (sessionId && transports.has(sessionId)) {
+        return transports.get(sessionId)!
+      }
+
+      // No session id. Only valid if this is the initialize request.
+      if (!sessionId && isInitializeRequest(body)) {
+        const transport = new WebStandardStreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (sid) => {
+            transports.set(sid, transport)
+          },
+          onsessionclosed: (sid) => {
+            transports.delete(sid)
+          },
+        })
+        await server.connect(transport)
+        return transport
+      }
+
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          error: {
+            code: -32000,
+            message: sessionId
+              ? "Unknown or expired Mcp-Session-Id"
+              : "Mcp-Session-Id header required for non-initialize requests",
+          },
+          id: null,
+        }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      )
+    }
 
     const handle = withMcpAuth(auth, async (req, session) => {
       const users = await runtime.runPromise(
@@ -64,11 +111,31 @@ export const McpHttpLive = Layer.scoped(
       const user = users[0]
       if (!user) return new Response("Unauthorized", { status: 401 })
 
-      // Bun preserves AsyncLocalStorage across awaits, so the dispatcher's
-      // callback (which runs inside transport.handleRequest) sees this user.
-      return await currentUserStorage.run(user, () =>
-        transport.handleRequest(req)
-      )
+      // Pre-parse the body once; we need it both to decide whether this is
+      // an initialize request AND to hand the already-parsed body to the
+      // transport (so it doesn't try to re-read a consumed stream).
+      let body: unknown
+      if (req.method === "POST") {
+        try {
+          body = await req.clone().json()
+        } catch {
+          body = undefined
+        }
+      }
+
+      const resolved = await resolveTransport(req, body)
+      if (resolved instanceof Response) return resolved
+
+      try {
+        return await currentUserStorage.run(user, () =>
+          resolved.handleRequest(req, { parsedBody: body })
+        )
+      } catch (e) {
+        return new Response(
+          `MCP transport error: ${e instanceof Error ? e.message : String(e)}`,
+          { status: 500 }
+        )
+      }
     })
 
     return { handle }
