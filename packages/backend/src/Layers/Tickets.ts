@@ -24,6 +24,7 @@ import {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
+  encodeCursor,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -31,14 +32,18 @@ import {
   NotFound,
   OpenPrInput,
   OpenPrResult,
+  padNumericIdSort,
   RateLimited,
   RepoGone,
   TagName,
   Ticket,
   TicketDetail,
   TicketId,
-  UpdateTicketInput
+  UpdateTicketInput,
+  type CursorPayload,
+  type TicketFilter
 } from "@projectproject/shared"
+import { matchesTicketFilter } from "../Services/TicketFilters"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
@@ -245,6 +250,54 @@ export const TicketsLive = Layer.effect(
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
+      })
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      filter: TicketFilter | undefined,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Ticket>; nextCursor: string | null },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const tickets = yield* Effect.forEach(
+          ids,
+          (id) => readTicket(orgSlug, slug, id),
+          { concurrency: 8 }
+        )
+        const sorted = tickets
+          .map(documentToTicket)
+          .filter((t) => matchesTicketFilter(t, filter))
+          .toSorted(
+            (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
+          )
+
+        const startIdx =
+          cursor === undefined
+            ? 0
+            : (() => {
+                const idx = sorted.findIndex(
+                  (t) => (padNumericIdSort(t.id) ?? "") > cursor.sort
+                )
+                return idx < 0 ? sorted.length : idx
+              })()
+
+        const slice = sorted.slice(startIdx, startIdx + limit + 1)
+        const hasMore = slice.length > limit
+        const items = hasMore ? slice.slice(0, limit) : slice
+        const last = items[items.length - 1]
+        const nextCursor =
+          hasMore && last
+            ? encodeCursor({ id: last.id, sort: padNumericIdSort(last.id) ?? last.id })
+            : null
+
+        return { items, nextCursor }
       })
 
     // --- Git operations -------------------------------------------------
@@ -550,8 +603,27 @@ export const TicketsLive = Layer.effect(
         }
       })
 
+    const getGitState = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: string | undefined
+    ): Effect.Effect<GitStatesResponse, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        const all = yield* listGitStates(orgSlug, userId, slug)
+        if (ticketId === undefined) return all
+        const single = all.states[ticketId]
+        return {
+          states: single ? { [ticketId]: single } : {},
+          transitioned: all.transitioned.filter((t) => t.ticketId === ticketId),
+          tokenStatus: all.tokenStatus,
+          repoStatus: all.repoStatus
+        }
+      })
+
     return {
       list,
+      listPaged,
       get,
       create,
       update,
@@ -561,7 +633,8 @@ export const TicketsLive = Layer.effect(
       attachBranch,
       openPr,
       clearBranch,
-      listGitStates
+      listGitStates,
+      getGitState
     } satisfies TicketsShape
   })
 )
