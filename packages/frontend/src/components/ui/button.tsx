@@ -257,7 +257,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           {...compHandlers}
         >
           {ditherBackdrop}
-          <span className="relative z-10 [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
+          <span className="z-10 [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
             {children}
           </span>
         </Comp>
