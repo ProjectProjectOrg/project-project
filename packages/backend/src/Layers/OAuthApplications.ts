@@ -1,17 +1,22 @@
-// OAuthApplications — Drizzle-backed implementation. Better Auth's MCP
-// plugin doesn't expose a "list user's apps" or "revoke" API, so we go
-// straight to the underlying tables it owns (`oauth_application`,
-// `oauth_access_token`, `oauth_consent`). The list query joins the access
-// tokens to surface `lastUsedAt` as the most recent token issuance.
+// OAuthApplications — Drizzle-backed implementation.
 //
-// Note: revoke does three deletes sequentially rather than in a transaction.
-// Db is a `PgRemoteDatabase` (proxy), which doesn't expose `.transaction`.
-// The deletes are idempotent enough that a partial failure leaves the system
-// in a recoverable state — the user can retry the revoke.
+// Better Auth's MCP plugin doesn't expose a "list user's apps" or "revoke"
+// API, so we query the underlying tables it owns directly. The user→client
+// linkage lives ONLY in `oauth_access_token` — `oauth_application.user_id`
+// is always null (DCR happens before any user is involved) and the
+// `oauth_consent` table isn't populated by Better Auth v1.6.10. So the list
+// query joins applications to access tokens and filters by token.user_id;
+// `lastUsedAt` falls out as the most recent token issuance.
+//
+// Revoke wipes access tokens + consent records for (user, client). We
+// deliberately do NOT delete the oauth_application row — applications are
+// shared across users by design (DCR registers a client, multiple users may
+// authorize it). Deleting one user's tokens removes their grant; the client
+// row stays.
 
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { and, desc, eq, isNull, max, or } from "drizzle-orm"
+import { and, desc, eq, max } from "drizzle-orm"
 import { NotFound, type OAuthApplication } from "@projectproject/shared"
 import {
   oauthAccessToken,
@@ -42,35 +47,21 @@ export const OAuthApplicationsLive = Layer.effect(
               createdAt: oauthApplication.createdAt,
               lastUsedAt: max(oauthAccessToken.createdAt)
             })
-            .from(oauthApplication)
-            .leftJoin(
-              oauthAccessToken,
-              and(
-                eq(oauthAccessToken.clientId, oauthApplication.clientId),
-                eq(oauthAccessToken.userId, oauthApplication.userId)
-              )
+            .from(oauthAccessToken)
+            .innerJoin(
+              oauthApplication,
+              eq(oauthAccessToken.clientId, oauthApplication.clientId)
             )
-            .where(
-              and(
-                eq(oauthApplication.userId, userId),
-                or(
-                  isNull(oauthApplication.disabled),
-                  eq(oauthApplication.disabled, false)
-                )
-              )
-            )
+            .where(eq(oauthAccessToken.userId, userId))
             .groupBy(
               oauthApplication.id,
               oauthApplication.name,
               oauthApplication.clientId,
               oauthApplication.createdAt
             )
-            .orderBy(desc(oauthApplication.createdAt))
+            .orderBy(desc(max(oauthAccessToken.createdAt)))
         ).pipe(Effect.orDie)
 
-        // Filter rows missing createdAt/clientId — Better Auth always
-        // populates them on insert; absence means corrupt state we'd rather
-        // hide than crash the response on.
         return rows.flatMap((r): ReadonlyArray<OAuthApplication> => {
           if (!r.createdAt || !r.clientId) return []
           return [
@@ -90,57 +81,48 @@ export const OAuthApplicationsLive = Layer.effect(
       applicationId: string
     ): Effect.Effect<void, NotFound> =>
       Effect.gen(function* () {
+        // The user is allowed to revoke an application iff they hold at
+        // least one access token against it. Verify via the join, then
+        // delete tokens + consents scoped to (this user, this client).
         const existing = yield* Effect.tryPromise(() =>
           db
-            .select({
-              id: oauthApplication.id,
-              clientId: oauthApplication.clientId
-            })
+            .select({ clientId: oauthApplication.clientId })
             .from(oauthApplication)
+            .innerJoin(
+              oauthAccessToken,
+              eq(oauthAccessToken.clientId, oauthApplication.clientId)
+            )
             .where(
               and(
                 eq(oauthApplication.id, applicationId),
-                eq(oauthApplication.userId, userId)
+                eq(oauthAccessToken.userId, userId)
               )
             )
             .limit(1)
         ).pipe(Effect.orDie)
 
         const row = existing[0]
-        if (!row) return yield* new NotFound()
-
+        if (!row || !row.clientId) return yield* new NotFound()
         const clientId = row.clientId
-        if (clientId) {
-          yield* Effect.tryPromise(() =>
-            db
-              .delete(oauthAccessToken)
-              .where(
-                and(
-                  eq(oauthAccessToken.clientId, clientId),
-                  eq(oauthAccessToken.userId, userId)
-                )
-              )
-          ).pipe(Effect.orDie)
-
-          yield* Effect.tryPromise(() =>
-            db
-              .delete(oauthConsent)
-              .where(
-                and(
-                  eq(oauthConsent.clientId, clientId),
-                  eq(oauthConsent.userId, userId)
-                )
-              )
-          ).pipe(Effect.orDie)
-        }
 
         yield* Effect.tryPromise(() =>
           db
-            .delete(oauthApplication)
+            .delete(oauthAccessToken)
             .where(
               and(
-                eq(oauthApplication.id, applicationId),
-                eq(oauthApplication.userId, userId)
+                eq(oauthAccessToken.clientId, clientId),
+                eq(oauthAccessToken.userId, userId)
+              )
+            )
+        ).pipe(Effect.orDie)
+
+        yield* Effect.tryPromise(() =>
+          db
+            .delete(oauthConsent)
+            .where(
+              and(
+                eq(oauthConsent.clientId, clientId),
+                eq(oauthConsent.userId, userId)
               )
             )
         ).pipe(Effect.orDie)
