@@ -236,7 +236,7 @@ function DateRangeField({
 
   if (disabled) {
     return (
-      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+      <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
         {label}
       </span>
     )

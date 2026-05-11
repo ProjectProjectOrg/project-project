@@ -198,8 +198,8 @@ function NewSprintForm({
           ditherFrom="var(--primary)"
           ditherTo="var(--background)"
           ditherDirection="r"
-          ditherStops={[0.8, 1]}
-          ditherHoverStops={[0.6, 1]}
+          ditherStops={[0.7, 1]}
+          ditherHoverStops={[0.5, 1]}
         >
           {m.sprints_new_button()}
         </InlineForm.Trigger>
