@@ -115,6 +115,8 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
   const role = opts.role ?? "member"
   const service = {
     list: () => Effect.succeed([]),
+    listPaged: () => unexpectedProjectCall("listPaged"),
+    listMembersPaged: () => unexpectedProjectCall("listMembersPaged"),
     create: () => unexpectedProjectCall("create"),
     requireMember: () => Effect.succeed({ role }),
     requireRole: (
