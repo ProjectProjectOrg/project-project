@@ -11,7 +11,7 @@ Expose ProjectProject's read surface to AI agents (Claude Code, Cursor, ChatGPT,
 ## Non-Goals (v1)
 
 - Writes of any kind (`create_ticket`, `update_status`, `add_comment`, …).
-- Comments, docs (group/project/ticket-level docs), full-text search.
+- Comments. Full-text search across docs.
 - MCP **resources** (`markmate://…` URIs). Tools cover the same data; the resource surface can land later if agents ask for it.
 - Multi-scope tokens — v1 uses a single `read` scope.
 - stdio transport. Streamable HTTP only. Clients without remote-MCP support can use `npx mcp-remote <url>` as a bridge; we don't ship it.
@@ -74,20 +74,32 @@ Membership filtering already lives in the services (`Projects.list(userId)`, `Ti
 
 The catalog is declared once, in `packages/shared/src/mcp.ts`, as a plain object keyed by tool name. Each entry is `{ description, input, output, errors }` using existing Effect Schemas from `packages/shared/src/schemas/*` for input/output.
 
-| Tool | Input | Output |
-|---|---|---|
-| `me` | `{}` | `User & { roles: Array<{ orgSlug, role }> }` |
-| `list_orgs` | `Pagination` | `Page<Org>` |
-| `get_org` | `{ orgSlug }` | `Org` |
-| `list_groups` | `{ orgSlug } & Pagination` | `Page<Group>` |
-| `get_group` | `{ orgSlug, groupSlug }` | `Group` |
-| `list_projects` | `{ orgSlug, groupSlug? } & Pagination` | `Page<Project>` |
-| `get_project` | `{ orgSlug, projectSlug }` | `Project` |
-| `list_tickets` | `{ orgSlug, projectSlug, filter? } & Pagination` | `Page<Ticket>` |
-| `get_ticket` | `{ orgSlug, projectSlug, ticketId }` | `Ticket` |
-| `list_tags` | `{ orgSlug, projectSlug }` | `Array<Tag>` |
-| `list_members` | `{ orgSlug, projectSlug? } & Pagination` | `Page<Member>` |
-| `get_git_state` | `{ orgSlug, projectSlug, ticketId? }` | `Array<GitState>` |
+Markdown is the whole point of the product: every entity that owns prose is stored as a `.md` file on disk, and the existing schemas already split each entity into a **list shape** (frontmatter fields only, cheap) and a **detail shape** (`= list shape + { body: string }`, where `body` is the raw markdown body after the frontmatter, passed through verbatim with no rendering). The MCP tools follow that split exactly:
+
+| Tool | Input | Output | Notes |
+|---|---|---|---|
+| `me` | `{}` | `User & { roles: Array<{ orgSlug, role }> }` | |
+| `list_orgs` | `Pagination` | `Page<Org>` | |
+| `get_org` | `{ orgSlug }` | `Org` | |
+| `list_groups` | `{ orgSlug } & Pagination` | `Page<Group>` | index shape |
+| `get_group` | `{ orgSlug, groupSlug }` | **`GroupDetail`** | includes `body` (raw markdown) |
+| `list_projects` | `{ orgSlug, groupSlug? } & Pagination` | `Page<Project>` | index shape |
+| `get_project` | `{ orgSlug, projectSlug }` | **`ProjectDetail`** | includes `body` (raw markdown), github connection, members |
+| `list_tickets` | `{ orgSlug, projectSlug, filter? } & Pagination` | `Page<Ticket>` | index shape — no body |
+| `get_ticket` | `{ orgSlug, projectSlug, ticketId }` | **`TicketDetail`** | includes `body` (raw markdown) |
+| `list_tags` | `{ orgSlug, projectSlug }` | `Array<Tag>` | |
+| `list_members` | `{ orgSlug, projectSlug? } & Pagination` | `Page<Member>` | |
+| `get_git_state` | `{ orgSlug, projectSlug, ticketId? }` | `Array<GitState>` | |
+| `list_group_docs` | `{ orgSlug, groupId } & Pagination` | `Page<DocIndex>` | index shape — path + title + tags |
+| `get_group_doc` | `{ orgSlug, groupId, path }` | **`DocDetail`** | raw markdown |
+| `list_project_docs` | `{ orgSlug, projectSlug, folder? } & Pagination` | `Page<DocIndex>` | optional folder filter |
+| `get_project_doc` | `{ orgSlug, projectSlug, path }` | **`DocDetail`** | raw markdown |
+| `list_ticket_docs` | `{ orgSlug, projectSlug, ticketId } & Pagination` | `Page<DocIndex>` | |
+| `get_ticket_doc` | `{ orgSlug, projectSlug, ticketId, path }` | **`DocDetail`** | raw markdown |
+
+The detail tools (`get_ticket`, `get_project`, `get_group`, and the three `get_*_doc` tools) return the raw markdown body verbatim — same string the user would see in `cat <file>.md` minus the YAML frontmatter block (which is already decoded into the structured fields of the same payload). Agents never see rendered HTML, and the markdown isn't reformatted on the way out.
+
+`DocIndex` and `DocDetail` are new schemas in `packages/shared/src/schemas/Doc.ts` if they don't already exist on the open branches — to be reconciled with `GroupDocs` / `ProjectDocs` / `TicketDocs` services during implementation. Existing service surfaces are the source of truth for the field shape.
 
 ### Pagination
 
@@ -218,7 +230,7 @@ The two open branches define the conventions everything new must follow:
 - `packages/backend/src/auth.ts` — add the `mcp` plugin to the Better Auth config.
 - `packages/backend/src/main.ts` — mount `/mcp` and the new `.well-known` routes.
 - `packages/shared/src/api.ts` — add the `oauthApplications` group.
-- Services that need a paginated, filterable list variant — at minimum `Tickets`, `Projects`, `Groups`, `Members`. Existing list methods stay; new `listPaged` methods sit next to them and the existing HttpApi handlers eventually migrate to use them too (out of scope for this PR — flagged as a follow-up).
+- Services that need a paginated, filterable list variant — at minimum `Tickets`, `Projects`, `Groups`, `Members`, plus the three `*Docs` services. Existing list methods stay; new `listPaged` methods sit next to them and the existing HttpApi handlers eventually migrate to use them too (out of scope for this PR — flagged as a follow-up).
 
 **Deleted:**
 
