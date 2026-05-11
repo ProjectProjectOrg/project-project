@@ -382,7 +382,7 @@ it.effect(
       const docs = yield* ProjectDocs
       const file = yield* docs.readRaw("acme", "web")
       expect(file).toEqual({
-        path: "orgs/acme/projects/web/project.md",
+        path: "project.md",
         content: "---\nslug: web\n---\n# Web\n"
       })
     }).pipe(
@@ -392,7 +392,7 @@ it.effect(
             makeMarkdown({
               readProjectFileRaw: (_org, _slug) =>
                 Effect.succeed({
-                  path: "orgs/acme/projects/web/project.md",
+                  path: "project.md",
                   content: "---\nslug: web\n---\n# Web\n"
                 })
             })
@@ -409,7 +409,7 @@ it.effect(
       const docs = yield* TicketDocs
       const file = yield* docs.readRaw("acme", "web", "T-12")
       expect(file).toEqual({
-        path: "orgs/acme/projects/web/tickets/T-12.md",
+        path: "tickets/T-12.md",
         content: "---\nid: T-12\n---\n# Fix it\n"
       })
     }).pipe(
@@ -419,7 +419,7 @@ it.effect(
             makeMarkdown({
               readTicketFileRaw: (_org, _slug, _id) =>
                 Effect.succeed({
-                  path: "orgs/acme/projects/web/tickets/T-12.md",
+                  path: "tickets/T-12.md",
                   content: "---\nid: T-12\n---\n# Fix it\n"
                 })
             })
@@ -436,7 +436,7 @@ it.effect(
       const docs = yield* GroupDocs
       const file = yield* docs.readRaw("acme", "web", "G-3")
       expect(file).toEqual({
-        path: "orgs/acme/projects/web/groups/G-3.md",
+        path: "groups/G-3.md",
         content: "---\nid: G-3\n---\n# Sprint 3\n"
       })
     }).pipe(
@@ -446,7 +446,7 @@ it.effect(
             makeMarkdown({
               readGroupFileRaw: (_org, _slug, _id) =>
                 Effect.succeed({
-                  path: "orgs/acme/projects/web/groups/G-3.md",
+                  path: "groups/G-3.md",
                   content: "---\nid: G-3\n---\n# Sprint 3\n"
                 })
             })

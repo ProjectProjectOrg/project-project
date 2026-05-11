@@ -22,18 +22,24 @@ type JsonSchemaNode = {
 
 const toZod = (
   node: JsonSchemaNode,
-  defs: Record<string, JsonSchemaNode>
+  defs: Record<string, JsonSchemaNode>,
+  seen: ReadonlySet<string> = new Set()
 ): z.ZodType => {
   if (node.$ref) {
     const name = node.$ref.replace(/^#\/\$defs\//, "")
+    if (seen.has(name)) return z.unknown()
     const target = defs[name]
     if (!target) return z.unknown()
-    return toZod({ ...target, ...node, $ref: undefined }, defs)
+    return toZod(
+      { ...target, ...node, $ref: undefined },
+      defs,
+      new Set([...seen, name])
+    )
   }
 
   if (node.anyOf || node.oneOf) {
     const branches = node.anyOf ?? node.oneOf!
-    const variants = branches.map((v) => toZod(v, defs))
+    const variants = branches.map((v) => toZod(v, defs, seen))
     if (variants.length === 2) {
       const nullIdx = branches.findIndex((v) => v.type === "null")
       if (nullIdx === 0) return variants[1]!.nullable()
@@ -81,13 +87,13 @@ const toZod = (
     case "null":
       return z.null()
     case "array":
-      return z.array(node.items ? toZod(node.items, defs) : z.unknown())
+      return z.array(node.items ? toZod(node.items, defs, seen) : z.unknown())
     case "object": {
       const properties = node.properties ?? {}
       const required = new Set(node.required ?? [])
       const shape: Record<string, z.ZodType> = {}
       for (const [key, value] of Object.entries(properties)) {
-        const inner = toZod(value, defs)
+        const inner = toZod(value, defs, seen)
         shape[key] = required.has(key) ? inner : inner.optional()
       }
       return z.object(shape)
@@ -103,7 +109,7 @@ export const effectToZodObject = <A, I, R>(
   const root = JSONSchema.make(schema) as JsonSchemaNode
   const defs = root.$defs ?? {}
   if (root.type === "object" || root.properties) {
-    const converted = toZod({ ...root, $defs: undefined }, defs)
+    const converted = toZod({ ...root, $defs: undefined }, defs, new Set())
     if (converted instanceof z.ZodObject) return converted
   }
   return z.object({})

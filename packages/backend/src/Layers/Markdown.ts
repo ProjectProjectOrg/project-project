@@ -123,7 +123,7 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
           )
         )
-        return { path: path.relative(absoluteRoot, file), content }
+        return { path: "project.md", content }
       })
 
     const writeProjectFile = (
@@ -240,7 +240,7 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
           )
         )
-        return { path: path.relative(absoluteRoot, file), content }
+        return { path: `tickets/${id}.md`, content }
       })
 
     const createTicketFile = (
@@ -418,7 +418,7 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
           )
         )
-        return { path: path.relative(absoluteRoot, file), content }
+        return { path: `groups/${id}.md`, content }
       })
 
     const createGroupFile = (

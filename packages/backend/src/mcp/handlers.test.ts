@@ -4,7 +4,8 @@ import * as DateTime from "effect/DateTime"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Schema from "effect/Schema"
-import { CurrentUser, NotFound, TicketId } from "@projectproject/shared"
+import { NotFound, TicketId, type User } from "@projectproject/shared"
+import { currentUserStorage } from "./currentUserStorage"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { Projects, type ProjectsShape } from "../Services/Projects"
 import { Groups } from "../Services/Groups"
@@ -41,7 +42,9 @@ const TicketsStub = Layer.succeed(Tickets, {
     Effect.succeed({ items: [fakeTicket], nextCursor: null })
 } as unknown as TicketsShape)
 
-const CurrentUserStub = Layer.succeed(CurrentUser, { id: "u-1" } as any)
+const fakeUser = { id: "u-1" } as User
+const withFakeUser = <T>(fn: () => Promise<T>) =>
+  currentUserStorage.run(fakeUser, fn)
 const EmptyStub = <T>(tag: T) => Layer.succeed(tag as any, {} as any)
 
 const ProjectsStub = Layer.succeed(Projects, {
@@ -74,7 +77,6 @@ const TicketDocsStub = Layer.succeed(TicketDocs, {
 } as unknown as TicketDocsShape)
 
 const TestLayer = Layer.mergeAll(
-  CurrentUserStub,
   TicketsStub,
   ProjectsStub,
   EmptyStub(Groups),
@@ -111,11 +113,9 @@ describe("MCP dispatcher → list_tickets", () => {
 
     const cb = registered.get("list_tickets")
     expect(cb).toBeDefined()
-    const result = await cb!({
-      orgSlug: "acme",
-      projectSlug: "demo",
-      limit: 10
-    })
+    const result = await withFakeUser(() =>
+      cb!({ orgSlug: "acme", projectSlug: "demo", limit: 10 })
+    )
 
     expect(result.isError).toBeUndefined()
     const text = result.content[0].text
@@ -152,7 +152,9 @@ describe("MCP dispatcher → doc tools", () => {
 
     const cb = registered.get("get_project_doc")
     expect(cb).toBeDefined()
-    const result = await cb!({ orgSlug: "acme", projectSlug: "demo" })
+    const result = await withFakeUser(() =>
+      cb!({ orgSlug: "acme", projectSlug: "demo" })
+    )
 
     expect(result.isError).toBeUndefined()
     const payload = JSON.parse(result.content[0].text)
@@ -176,11 +178,9 @@ describe("MCP dispatcher → doc tools", () => {
 
     const cb = registered.get("get_group_doc")
     expect(cb).toBeDefined()
-    const result = await cb!({
-      orgSlug: "acme",
-      projectSlug: "demo",
-      id: "G-1"
-    })
+    const result = await withFakeUser(() =>
+      cb!({ orgSlug: "acme", projectSlug: "demo", id: "G-1" })
+    )
 
     expect(result.isError).toBeUndefined()
     const payload = JSON.parse(result.content[0].text)
@@ -202,11 +202,9 @@ describe("MCP dispatcher → doc tools", () => {
 
     const cb = registered.get("get_ticket_doc")
     expect(cb).toBeDefined()
-    const result = await cb!({
-      orgSlug: "acme",
-      projectSlug: "demo",
-      id: "T-1"
-    })
+    const result = await withFakeUser(() =>
+      cb!({ orgSlug: "acme", projectSlug: "demo", id: "T-1" })
+    )
 
     expect(result.isError).toBeUndefined()
     const payload = JSON.parse(result.content[0].text)
@@ -223,7 +221,6 @@ describe("MCP dispatcher → doc tools", () => {
     } as unknown as ProjectsShape)
 
     const HiddenLayer = Layer.mergeAll(
-      CurrentUserStub,
       TicketsStub,
       HiddenProjectsStub,
       EmptyStub(Groups),
@@ -245,11 +242,9 @@ describe("MCP dispatcher → doc tools", () => {
     registerAllTools(fakeServer, runtime as any, handlers as any)
 
     const cb = registered.get("get_ticket_doc")
-    const result = await cb!({
-      orgSlug: "acme",
-      projectSlug: "demo",
-      id: "T-1"
-    })
+    const result = await withFakeUser(() =>
+      cb!({ orgSlug: "acme", projectSlug: "demo", id: "T-1" })
+    )
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text.toLowerCase()).toContain("not found")

@@ -1,0 +1,9 @@
+import * as Context from "effect/Context"
+
+export interface McpHttpHandler {
+  readonly handle: (req: Request) => Promise<Response>
+}
+
+export class McpHttp extends Context.Tag(
+  "@projectproject/backend/Services/McpHttp"
+)<McpHttp, McpHttpHandler>() {}

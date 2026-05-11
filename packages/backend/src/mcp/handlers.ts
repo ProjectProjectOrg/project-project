@@ -3,12 +3,11 @@ import {
   CurrentUser,
   Unauthorized,
   tryDecodeCursor,
-  type MeOutput,
   type Pagination,
   type TicketFilter
 } from "@projectproject/shared"
 import { Users } from "../Services/Users"
-import { BetterAuth, type BetterAuthError } from "../Services/BetterAuth"
+import { BetterAuth } from "../Services/BetterAuth"
 import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 import { Groups } from "../Services/Groups"
@@ -20,8 +19,33 @@ import type { HandlersMap } from "./dispatch"
 
 const DEFAULT_LIMIT = 50
 
+// MarkdownError (filesystem-level failure inside a *Docs / *Service read) and
+// BetterAuthError (failure inside the Better Auth wrapper) are backend-only
+// signals. The MCP catalog deliberately doesn't declare them — clients can't
+// act on either — so handlers `dieInternal` them. The dispatcher's defect
+// pipeline maps the result to a generic "Internal error" tool response and
+// logs the cause.
+const dieInternal = <A, E, R>(
+  eff: Effect.Effect<A, E, R>
+): Effect.Effect<
+  A,
+  Exclude<E, { readonly _tag: "MarkdownError" | "BetterAuthError" }>,
+  R
+> =>
+  eff.pipe(
+    Effect.catchTags({
+      MarkdownError: (e: unknown) => Effect.die(e),
+      BetterAuthError: (e: unknown) => Effect.die(e)
+    })
+  ) as Effect.Effect<
+    A,
+    Exclude<E, { readonly _tag: "MarkdownError" | "BetterAuthError" }>,
+    R
+  >
+
+// CurrentUser is intentionally absent — the dispatcher provides it per call
+// via `Effect.provideService`, so it shouldn't appear in the runtime's R.
 type Env =
-  | CurrentUser
   | Users
   | BetterAuth
   | Projects
@@ -32,9 +56,7 @@ type Env =
   | GroupDocs
   | TicketDocs
 
-const me = (
-  _input: {}
-): Effect.Effect<MeOutput, Unauthorized | BetterAuthError, CurrentUser | Users | BetterAuth> =>
+const me = (_input: {}) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const users = yield* Users
@@ -234,19 +256,19 @@ const get_ticket_doc = (input: {
   })
 
 export const handlers: HandlersMap<Env> = {
-  me,
-  list_orgs,
-  get_org,
-  list_projects,
-  get_project,
-  list_groups,
-  get_group,
-  list_tickets,
-  get_ticket,
-  list_tags,
-  list_members,
-  get_git_state,
-  get_project_doc,
-  get_group_doc,
-  get_ticket_doc
+  me: (i) => dieInternal(me(i)),
+  list_orgs: (i) => dieInternal(list_orgs(i)),
+  get_org: (i) => dieInternal(get_org(i)),
+  list_projects: (i) => dieInternal(list_projects(i)),
+  get_project: (i) => dieInternal(get_project(i)),
+  list_groups: (i) => dieInternal(list_groups(i)),
+  get_group: (i) => dieInternal(get_group(i)),
+  list_tickets: (i) => dieInternal(list_tickets(i)),
+  get_ticket: (i) => dieInternal(get_ticket(i)),
+  list_tags: (i) => dieInternal(list_tags(i)),
+  list_members: (i) => dieInternal(list_members(i)),
+  get_git_state: (i) => dieInternal(get_git_state(i)),
+  get_project_doc: (i) => dieInternal(get_project_doc(i)),
+  get_group_doc: (i) => dieInternal(get_group_doc(i)),
+  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i))
 }
