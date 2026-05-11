@@ -59,17 +59,15 @@ export const MarkdownLive = Layer.effect(
       ? root
       : path.resolve(process.cwd(), root)
 
-    yield* fs
-      .makeDirectory(absoluteRoot, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new MarkdownError({
-              cause,
-              message: "failed to create projects dir"
-            })
-        )
+    yield* fs.makeDirectory(absoluteRoot, { recursive: true }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new MarkdownError({
+            cause,
+            message: "failed to create projects dir"
+          })
       )
+    )
 
     const projectDir = (orgSlug: string, slug: string) =>
       path.join(absoluteRoot, "orgs", orgSlug, "projects", slug)
@@ -93,14 +91,15 @@ export const MarkdownLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const file = projectFilePath(orgSlug, slug)
-        const raw = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const raw = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         const parsed = matter(raw)
         return {
           data: parsed.data as Record<string, unknown>,
@@ -111,18 +110,22 @@ export const MarkdownLive = Layer.effect(
     const readProjectFileRaw = (
       orgSlug: string,
       slug: string
-    ): Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const file = projectFilePath(orgSlug, slug)
-        const content = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         return { path: "project.md", content }
       })
 
@@ -137,18 +140,22 @@ export const MarkdownLive = Layer.effect(
         const file = projectFilePath(orgSlug, slug)
         const dir = path.dirname(file)
         const content = matter.stringify(body, frontmatter)
-        yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .makeDirectory(dir, { recursive: true })
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
-        yield* fs.writeFileString(file, content).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .writeFileString(file, content)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
       })
 
     const removeProjectDir = (
@@ -158,12 +165,14 @@ export const MarkdownLive = Layer.effect(
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         const dir = projectDir(orgSlug, slug)
-        yield* fs.remove(dir, { recursive: true, force: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `remove failed: ${dir}` })
+        yield* fs
+          .remove(dir, { recursive: true, force: true })
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `remove failed: ${dir}` })
+            )
           )
-        )
       })
 
     const SAFE_TICKET_ID = /^T-[1-9][0-9]*$/
@@ -192,14 +201,15 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
-        const raw = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const raw = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         const parsed = matter(raw)
         return {
           data: parsed.data as Record<string, unknown>,
@@ -227,19 +237,23 @@ export const MarkdownLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
-        const content = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         return { path: `tickets/${id}.md`, content }
       })
 
@@ -256,21 +270,22 @@ export const MarkdownLive = Layer.effect(
         const file = ticketFilePath(orgSlug, slug, id)
         const dir = path.dirname(file)
         const content = matter.stringify(body, frontmatter)
-        yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `create failed: ${file}` })
+        yield* fs
+          .makeDirectory(dir, { recursive: true })
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `create failed: ${file}` })
+            )
           )
-        )
         yield* fs.writeFileString(file, content, { flag: "wx" }).pipe(
-          Effect.mapError(
-            (cause): MarkdownError | TicketIdTaken =>
-              isSystemAlreadyExists(cause)
-                ? new TicketIdTaken()
-                : new MarkdownError({
-                    cause,
-                    message: `create failed: ${file}`
-                  })
+          Effect.mapError((cause): MarkdownError | TicketIdTaken =>
+            isSystemAlreadyExists(cause)
+              ? new TicketIdTaken()
+              : new MarkdownError({
+                  cause,
+                  message: `create failed: ${file}`
+                })
           )
         )
       })
@@ -287,12 +302,14 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
         const content = matter.stringify(body, frontmatter)
-        yield* fs.writeFileString(file, content).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .writeFileString(file, content)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
       })
 
     const writeTicketWithRegion = (
@@ -321,14 +338,13 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeId(id)
         const file = ticketFilePath(orgSlug, slug, id)
         yield* fs.remove(file).pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
-              isSystemNotFound(cause)
-                ? new NotFound()
-                : new MarkdownError({
-                    cause,
-                    message: `remove failed: ${file}`
-                  })
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            isSystemNotFound(cause)
+              ? new NotFound()
+              : new MarkdownError({
+                  cause,
+                  message: `remove failed: ${file}`
+                })
           )
         )
       })
@@ -386,14 +402,15 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const raw = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const raw = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         const parsed = matter(raw)
         return {
           data: parsed.data as Record<string, unknown>,
@@ -405,19 +422,23 @@ export const MarkdownLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureSafeOrgAndProject(orgSlug, slug)
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
-        const content = yield* fs.readFileString(file, "utf8").pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
               isSystemNotFound(cause)
                 ? new NotFound()
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
           )
-        )
         return { path: `groups/${id}.md`, content }
       })
 
@@ -434,21 +455,22 @@ export const MarkdownLive = Layer.effect(
         const file = groupFilePath(orgSlug, slug, id)
         const dir = path.dirname(file)
         const content = matter.stringify(body, frontmatter)
-        yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `create failed: ${file}` })
+        yield* fs
+          .makeDirectory(dir, { recursive: true })
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `create failed: ${file}` })
+            )
           )
-        )
         yield* fs.writeFileString(file, content, { flag: "wx" }).pipe(
-          Effect.mapError(
-            (cause): MarkdownError | GroupIdTaken =>
-              isSystemAlreadyExists(cause)
-                ? new GroupIdTaken()
-                : new MarkdownError({
-                    cause,
-                    message: `create failed: ${file}`
-                  })
+          Effect.mapError((cause): MarkdownError | GroupIdTaken =>
+            isSystemAlreadyExists(cause)
+              ? new GroupIdTaken()
+              : new MarkdownError({
+                  cause,
+                  message: `create failed: ${file}`
+                })
           )
         )
       })
@@ -465,12 +487,14 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
         const content = matter.stringify(body, frontmatter)
-        yield* fs.writeFileString(file, content).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        yield* fs
+          .writeFileString(file, content)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
       })
 
     const writeGroupFileIfExists = (
@@ -485,19 +509,26 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
         const content = matter.stringify(body, frontmatter)
-        const exists = yield* fs.exists(file).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        const exists = yield* fs
+          .exists(file)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
-        if (!exists) return yield* new NotFound()
-        yield* fs.writeFileString(file, content).pipe(
-          Effect.mapError(
-            (cause) =>
-              new MarkdownError({ cause, message: `write failed: ${file}` })
+        if (!exists) {
+          return yield* Effect.fail(new NotFound())
+        }
+        yield* fs
+          .writeFileString(file, content)
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new MarkdownError({ cause, message: `write failed: ${file}` })
+            )
           )
-        )
+        return yield* Effect.void
       })
 
     const removeGroupFile = (
@@ -510,14 +541,13 @@ export const MarkdownLive = Layer.effect(
         yield* ensureSafeGroupId(id)
         const file = groupFilePath(orgSlug, slug, id)
         yield* fs.remove(file).pipe(
-          Effect.mapError(
-            (cause): NotFound | MarkdownError =>
-              isSystemNotFound(cause)
-                ? new NotFound()
-                : new MarkdownError({
-                    cause,
-                    message: `remove failed: ${file}`
-                  })
+          Effect.mapError((cause): NotFound | MarkdownError =>
+            isSystemNotFound(cause)
+              ? new NotFound()
+              : new MarkdownError({
+                  cause,
+                  message: `remove failed: ${file}`
+                })
           )
         )
       })

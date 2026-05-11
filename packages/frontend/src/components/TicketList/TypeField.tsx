@@ -32,23 +32,25 @@ export function TypeBadgeTrigger({
   const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="chip"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-          className={className}
-        >
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{typeLabel}</span>
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+            className={className}
+          >
+            <Icon className="size-3.5" strokeWidth={1.75} />
+            <span>{typeLabel}</span>
+          </Button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         sideOffset={6}
         className="w-40"
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
@@ -57,7 +59,7 @@ export function TypeBadgeTrigger({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
+              onClick={() => {
                 if (t === ticket.type) return
                 update({ type: t })
               }}
@@ -95,20 +97,22 @@ export function TypeButton({
   const typeLabel = TYPE_LABELS[ticket.type]()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-          className={className}
-        >
-          <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
-            <Icon className="size-3.5" strokeWidth={1.75} />
-            <span>{typeLabel}</span>
-          </span>
-        </Hitbox>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+            className={className}
+          >
+            <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+              <Icon className="size-3.5" strokeWidth={1.75} />
+              <span>{typeLabel}</span>
+            </span>
+          </Hitbox>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
@@ -121,7 +125,7 @@ export function TypeButton({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => {
+              onClick={() => {
                 if (t === ticket.type) return
                 update({ type: t })
               }}

@@ -188,24 +188,26 @@ function RoleSelect({
   const Icon = meta.icon
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Badge
-          asChild
-          tone={meta.tone}
-          size="sm"
-          className="cursor-pointer hover:bg-accent"
-        >
-          <button
-            type="button"
-            aria-label={m.members_role_select_aria_label({
-              role: meta.label()
-            })}
+      <DropdownMenuTrigger
+        render={
+          <Badge
+            tone={meta.tone}
+            size="sm"
+            className="cursor-pointer hover:bg-accent"
+            render={
+              <button
+                type="button"
+                aria-label={m.members_role_select_aria_label({
+                  role: meta.label()
+                })}
+              />
+            }
           >
             <Icon strokeWidth={1.75} />
             {meta.label()}
-          </button>
-        </Badge>
-      </DropdownMenuTrigger>
+          </Badge>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
         {ASSIGNABLE_ROLES.map((r) => {
           const roleMeta = ROLE_META[r]
@@ -213,7 +215,7 @@ function RoleSelect({
           return (
             <DropdownMenuItem
               key={r}
-              onSelect={() => onChange(r)}
+              onClick={() => onChange(r)}
               className="cursor-pointer"
             >
               <RIcon className="size-4" strokeWidth={1.75} />
@@ -254,7 +256,7 @@ function MemberRow({
         <div className="truncate text-sm font-medium">
           {member.name}
           {isSelf && (
-            <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="ml-2 text-[10px] text-muted-foreground">
               {m.members_self_indicator()}
             </span>
           )}
@@ -321,15 +323,17 @@ function MemberMenu({
         if (!open) setConfirming(false)
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={m.members_actions_aria_label()}
-          className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
-        >
-          <MoreHorizontal className="size-4" strokeWidth={1.75} />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.members_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
       <DropdownMenuContent align="end" sideOffset={6} className="w-52">
         {confirming ? (
           <div className="flex flex-col gap-2 p-1">
@@ -371,7 +375,7 @@ function MemberMenu({
                   return (
                     <DropdownMenuItem
                       key={r}
-                      onSelect={() => update({ role: r })}
+                      onClick={() => update({ role: r })}
                       className="cursor-pointer"
                     >
                       <RIcon className="size-4" strokeWidth={1.75} />
@@ -384,10 +388,8 @@ function MemberMenu({
             {canChangeRole && canRemove && <DropdownMenuSeparator />}
             {canRemove && (
               <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault()
-                  setConfirming(true)
-                }}
+                closeOnClick={false}
+                onClick={() => setConfirming(true)}
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
                 <Trash2 className="size-4" strokeWidth={1.75} />

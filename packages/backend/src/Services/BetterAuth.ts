@@ -50,7 +50,6 @@ export interface BetterAuthShape {
   ) => Effect.Effect<Org, BetterAuthError | NotFound>
 }
 
-export class BetterAuth extends Context.Tag("@projectproject/backend/Services/BetterAuth")<
-  BetterAuth,
-  BetterAuthShape
->() {}
+export class BetterAuth extends Context.Tag(
+  "@projectproject/backend/Services/BetterAuth"
+)<BetterAuth, BetterAuthShape>() {}

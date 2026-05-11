@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
@@ -36,24 +37,26 @@ export function PriorityButton({
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => stopPropagation && e.stopPropagation()}
-          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-          title={priorityLabel}
-        >
-          <span
-            className={cn(
-              "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
-              meta.className
-            )}
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => stopPropagation && e.stopPropagation()}
+            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+            title={priorityLabel}
           >
-            <Icon className="size-4" strokeWidth={1.75} />
-          </span>
-        </Hitbox>
-      </DropdownMenuTrigger>
+            <span
+              className={cn(
+                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
+                meta.className
+              )}
+            >
+              <Icon className="size-4" strokeWidth={1.75} />
+            </span>
+          </Hitbox>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
@@ -66,7 +69,7 @@ export function PriorityButton({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
+              onClick={() => {
                 if (p === ticket.priority) return
                 update({ priority: p })
               }}
@@ -107,25 +110,28 @@ export function PriorityBadgeTrigger({
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
-            className
-          )}
-        >
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{priorityLabel}</span>
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+            className={className}
+          >
+            <Icon
+              className={cn("size-3.5", meta.className)}
+              strokeWidth={1.75}
+            />
+            <span>{priorityLabel}</span>
+          </Button>
+        }
+      />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-40"
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
         {PRIORITY_ORDER.map((p) => {
@@ -134,7 +140,7 @@ export function PriorityBadgeTrigger({
           return (
             <DropdownMenuItem
               key={p}
-              onSelect={() => {
+              onClick={() => {
                 if (p === ticket.priority) return
                 update({ priority: p })
               }}

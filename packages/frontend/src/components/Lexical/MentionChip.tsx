@@ -16,57 +16,47 @@ export function MentionChip({
   const scope = useMentionScope()
   if (type === "user") {
     const member = scope?.members?.find((m) => m.id === id)
-    const inner = (
-      <>
-        {member && (
-          <MemberAvatar member={member} size={12} className="-ml-0.5" />
-        )}
-        <span>@{member?.name ?? label}</span>
-      </>
-    )
     return (
       <Badge
         tone="blue"
         size="xs"
-        asChild={!!scope}
+        render={
+          scope ? (
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/members"
+              params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
+              onMouseDown={(e) => e.preventDefault()}
+            />
+          ) : undefined
+        }
         className="align-middle"
         contentEditable={false}
       >
-        {scope ? (
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/members"
-            params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            {inner}
-          </Link>
-        ) : (
-          inner
+        {member && (
+          <MemberAvatar member={member} size={12} className="-ml-0.5" />
         )}
+        <span>@{member?.name ?? label}</span>
       </Badge>
     )
   }
-  const inner = <>{id}</>
   return (
     <Badge
       tone="muted"
       size="xs"
-      asChild={!!scope}
+      render={
+        scope ? (
+          <Link
+            to="/orgs/$orgSlug/projects/$slug"
+            params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
+            search={{ ticket: id }}
+            onMouseDown={(e) => e.preventDefault()}
+          />
+        ) : undefined
+      }
       className="font-mono align-middle"
       contentEditable={false}
     >
-      {scope ? (
-        <Link
-          to="/orgs/$orgSlug/projects/$slug"
-          params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
-          search={{ ticket: id }}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          {inner}
-        </Link>
-      ) : (
-        inner
-      )}
+      {id}
     </Badge>
   )
 }
