@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import type { Ticket, TicketFilter } from "@projectproject/shared"
 import { TagName, TicketId } from "@projectproject/shared"
@@ -6,6 +7,7 @@ import { matchesTicketFilter } from "./TicketFilters"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 
 const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   id: decodeTicketId("T-1"),
@@ -19,8 +21,8 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   lastTransitionedPr: null,
   assignees: [],
   createdBy: "user-1",
-  createdAt: new Date("2026-05-01T00:00:00.000Z"),
-  updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+  createdAt: isoDate("2026-05-01T00:00:00.000Z"),
+  updatedAt: isoDate("2026-05-10T00:00:00.000Z"),
   ...overrides
 })
 
@@ -85,10 +87,10 @@ describe("matchesTicketFilter", () => {
   })
 
   it("updatedAfter is strict greater-than", () => {
-    const t = baseTicket({ updatedAt: new Date("2026-05-10T00:00:00.000Z") })
-    expect(matchesTicketFilter(t, { updatedAfter: new Date("2026-05-09T00:00:00.000Z") })).toBe(true)
-    expect(matchesTicketFilter(t, { updatedAfter: new Date("2026-05-10T00:00:00.000Z") })).toBe(false)
-    expect(matchesTicketFilter(t, { updatedAfter: new Date("2026-05-11T00:00:00.000Z") })).toBe(false)
+    const t = baseTicket({ updatedAt: isoDate("2026-05-10T00:00:00.000Z") })
+    expect(matchesTicketFilter(t, { updatedAfter: isoDate("2026-05-09T00:00:00.000Z") })).toBe(true)
+    expect(matchesTicketFilter(t, { updatedAfter: isoDate("2026-05-10T00:00:00.000Z") })).toBe(false)
+    expect(matchesTicketFilter(t, { updatedAfter: isoDate("2026-05-11T00:00:00.000Z") })).toBe(false)
   })
 
   it("ANDs across fields", () => {
