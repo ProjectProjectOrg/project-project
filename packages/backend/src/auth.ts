@@ -63,7 +63,7 @@
 
 // TODO: add imports
 import { betterAuth } from "better-auth"
-import { admin, organization } from "better-auth/plugins"
+import { admin, mcp, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
@@ -210,7 +210,10 @@ export const auth = betterAuth({
         )
       }
     }),
-    admin()
+    admin(),
+    mcp({
+      loginPage: "/login"
+    })
   ]
 })
 
