@@ -176,7 +176,13 @@ export function SprintTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
       <DropdownMenuTrigger
@@ -204,10 +210,7 @@ export function SprintTicketCreator({
         align="start"
         sideOffset={6}
         className="w-40"
-        finalFocus={() => {
-          setClosingMenu(false)
-          return inputRef.current
-        }}
+        finalFocus={false}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const TIcon = TYPE_META[t].icon
@@ -273,7 +276,7 @@ export function SprintTicketCreator({
         setHighlight(0)
       }}
       onFocus={() => setFocused(true)}
-      onBlur={() => setTimeout(() => setFocused(false), 100)}
+      onBlur={() => setFocused(false)}
       onKeyDown={onKeyDown}
       onSubmit={onSubmit}
       expanded={expanded}

@@ -112,7 +112,13 @@ export function BacklogTicketCreator({
       open={typeMenuOpen}
       onOpenChange={(open) => {
         setTypeMenuOpen(open)
-        if (!open) setClosingMenu(true)
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
     >
       <DropdownMenuTrigger
@@ -140,10 +146,7 @@ export function BacklogTicketCreator({
         align="start"
         sideOffset={6}
         className="w-40"
-        finalFocus={() => {
-          setClosingMenu(false)
-          return inputRef.current
-        }}
+        finalFocus={false}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const TIcon = TYPE_META[t].icon
@@ -167,11 +170,13 @@ export function BacklogTicketCreator({
       open={sprintMenuOpen}
       onOpenChange={(open) => {
         setSprintMenuOpen(open)
-        if (!open) setClosingMenu(true)
-      }}
-      finalFocus={() => {
-        setClosingMenu(false)
-        return inputRef.current
+        if (!open) {
+          setClosingMenu(true)
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
       }}
       sprints={sprints}
       selectedId={selectedSprint?.id ?? null}
