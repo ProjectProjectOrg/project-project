@@ -16,6 +16,7 @@ import {
   queryAtom,
   selectedTagsAtom,
   sortKeyAtom,
+  sprintFilterAtom,
   statusFilterAtom,
   ticketListUiKey,
   typeFilterAtom
@@ -69,6 +70,7 @@ export function FilteredList({
   const typeFilter = useAtomValue(typeFilterAtom(key))
   const assigneeFilter = useAtomValue(assigneeFilterAtom(key))
   const selectedTags = useAtomValue(selectedTagsAtom(key))
+  const sprintFilter = useAtomValue(sprintFilterAtom(key))
   const sortKey = useAtomValue(sortKeyAtom(key))
   const me = useAtomValue(meAtom)
   const myId = Result.isSuccess(me) ? me.value.id : null
@@ -90,6 +92,12 @@ export function FilteredList({
       )
       .filter((t) => selectedTags.every((sel) => t.tags.includes(sel)))
       .filter((t) => {
+        if (sprintFilter === "all") return true
+        const m = sprintMembership?.get(t.id) ?? null
+        if (sprintFilter === "unassigned") return m === null
+        return m?.id === sprintFilter
+      })
+      .filter((t) => {
         if (!q) return true
         return (
           t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)
@@ -104,6 +112,8 @@ export function FilteredList({
     typeFilter,
     resolvedAssignee,
     selectedTags,
+    sprintFilter,
+    sprintMembership,
     sortKey
   ])
 

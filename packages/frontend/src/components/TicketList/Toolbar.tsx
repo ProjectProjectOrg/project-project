@@ -46,10 +46,17 @@ import {
   searchFocusedAtom,
   selectedTagsAtom,
   sortKeyAtom,
+  sprintFilterAtom,
   statusFilterAtom,
   ticketListUiKey,
   typeFilterAtom
 } from "@/atoms/ticketListUi"
+import {
+  projectKey as sprintsProjectKey,
+  sprintsListAtom
+} from "@/atoms/sprints"
+import { sprintState } from "@projectproject/shared"
+import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import type {
@@ -72,13 +79,15 @@ export function Toolbar({
   slug,
   tickets,
   members,
-  uiKey
+  uiKey,
+  showSprintFilter = false
 }: {
   orgSlug: string
   slug: string
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
   uiKey?: string
+  showSprintFilter?: boolean
 }) {
   const key = uiKey ?? ticketListUiKey(orgSlug, slug)
   const [query, setQuery] = useAtom(queryAtom(key))
@@ -86,6 +95,7 @@ export function Toolbar({
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
   const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
   const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
+  const [sprintFilter, setSprintFilter] = useAtom(sprintFilterAtom(key))
   const [sortKey, setSortKey] = useAtom(sortKeyAtom(key))
   const [searchFocused, setSearchFocused] = useAtom(searchFocusedAtom(key))
   const me = useAtomValue(meAtom)
@@ -115,6 +125,7 @@ export function Toolbar({
     typeFilter !== "all" ||
     assigneeFilter !== "all" ||
     selectedTags.length > 0 ||
+    (showSprintFilter && sprintFilter !== "all") ||
     query.length > 0
 
   const clearAll = () => {
@@ -123,6 +134,7 @@ export function Toolbar({
     setTypeFilter("all")
     setAssigneeFilter("all")
     setSelectedTags([])
+    if (showSprintFilter) setSprintFilter("all")
   }
 
   const counts = useMemo(() => {
@@ -219,6 +231,7 @@ export function Toolbar({
           members={members}
           myId={myId}
           compact={controlsCompact}
+          showSprintFilter={showSprintFilter}
         />
 
         <SortMenu
@@ -309,7 +322,8 @@ function FiltersMenu({
   uiKey,
   members,
   myId,
-  compact
+  compact,
+  showSprintFilter
 }: {
   orgSlug: string
   slug: string
@@ -317,13 +331,26 @@ function FiltersMenu({
   members: ReadonlyArray<Member>
   myId: string | null
   compact: boolean
+  showSprintFilter: boolean
 }) {
   const key = uiKey
   const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
   const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
   const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
+  const [sprintFilter, setSprintFilter] = useAtom(sprintFilterAtom(key))
   const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
   const tagList = Result.isSuccess(tags) ? tags.value : []
+  const sprintsList = useAtomValue(
+    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  )
+  const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
+  const now = new Date()
+  const sprintOptions = showSprintFilter
+    ? allSprints.filter((s) => {
+        const st = sprintState(s, now)
+        return st === "active" || st === "planned"
+      })
+    : []
   const toggleTag = (name: TagName) => {
     setSelectedTags(
       selectedTags.includes(name)
@@ -334,7 +361,8 @@ function FiltersMenu({
   const activeCount =
     (typeFilter !== "all" ? 1 : 0) +
     (assigneeFilter !== "all" ? 1 : 0) +
-    (selectedTags.length > 0 ? 1 : 0)
+    (selectedTags.length > 0 ? 1 : 0) +
+    (showSprintFilter && sprintFilter !== "all" ? 1 : 0)
   const active = activeCount > 0
   return (
     <DropdownMenu>
@@ -462,6 +490,63 @@ function FiltersMenu({
             )}
           </DropdownMenuItem>
         ))}
+
+        {showSprintFilter && (
+          <>
+            <div className="my-1 h-px bg-border" />
+            <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                setSprintFilter("all")
+              }}
+              className="cursor-pointer"
+            >
+              {m.tickets_filters_sprint_any()}
+              {sprintFilter === "all" && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                setSprintFilter("unassigned")
+              }}
+              className="cursor-pointer"
+            >
+              {m.tickets_filters_sprint_none()}
+              {sprintFilter === "unassigned" && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+            {sprintOptions.length > 0 && (
+              <div className="my-1 h-px bg-border" />
+            )}
+            {sprintOptions.map((s) => {
+              const meta = SPRINT_STATE_META[sprintState(s, now)]
+              const SIcon = meta.icon
+              return (
+                <DropdownMenuItem
+                  key={s.id}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    setSprintFilter(s.id)
+                  }}
+                  className="cursor-pointer"
+                >
+                  <SIcon
+                    className={cn("size-4", meta.className)}
+                    strokeWidth={1.75}
+                  />
+                  <span className="truncate">{s.name}</span>
+                  {sprintFilter === s.id && (
+                    <Check className="ml-auto size-3.5 text-muted-foreground" />
+                  )}
+                </DropdownMenuItem>
+              )
+            })}
+          </>
+        )}
 
         {tagList.length > 0 && (
           <>
