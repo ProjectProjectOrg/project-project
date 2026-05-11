@@ -1,6 +1,12 @@
 "use client"
 
-import { forwardRef, type ButtonHTMLAttributes } from "react"
+import {
+  forwardRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type FocusEvent,
+  type MouseEvent
+} from "react"
 import { Slot, Slottable } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import type { IconComponent } from "@/lib/icon-context"
@@ -81,6 +87,8 @@ interface ButtonProps
   ditherTo?: string
   ditherDirection?: DitherDirection
   ditherStops?: DitherStops
+  ditherHoverStops?: DitherStops
+  ditherHoverDuration?: number
   ditherImage?: string
 }
 
@@ -101,12 +109,39 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ditherTo,
       ditherDirection,
       ditherStops,
+      ditherHoverStops,
+      ditherHoverDuration,
       ditherImage,
+      onMouseEnter,
+      onMouseLeave,
+      onFocus,
+      onBlur,
       ...htmlProps
     },
     ref
   ) => {
     const isDither = variant === "dither"
+    const needsDitherHover = isDither && !!ditherHoverStops
+    const [isPointerOver, setIsPointerOver] = useState(false)
+    const [isFocused, setIsFocused] = useState(false)
+    const ditherHover = needsDitherHover && (isPointerOver || isFocused)
+
+    const handleMouseEnter = (e: MouseEvent<HTMLButtonElement>) => {
+      if (needsDitherHover) setIsPointerOver(true)
+      onMouseEnter?.(e)
+    }
+    const handleMouseLeave = (e: MouseEvent<HTMLButtonElement>) => {
+      if (needsDitherHover) setIsPointerOver(false)
+      onMouseLeave?.(e)
+    }
+    const handleFocus = (e: FocusEvent<HTMLButtonElement>) => {
+      if (needsDitherHover) setIsFocused(true)
+      onFocus?.(e)
+    }
+    const handleBlur = (e: FocusEvent<HTMLButtonElement>) => {
+      if (needsDitherHover) setIsFocused(false)
+      onBlur?.(e)
+    }
 
     const Comp = asChild ? Slot : "button"
     const isIconOnly =
@@ -144,12 +179,22 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       />
     )
 
+    const compHandlers = {
+      onMouseEnter: handleMouseEnter,
+      onMouseLeave: handleMouseLeave,
+      onFocus: handleFocus,
+      onBlur: handleBlur
+    }
+
     const ditherBackdrop = isDither && (
       <DitherBackdrop
         from={ditherFrom}
         to={ditherTo}
         direction={ditherDirection}
         stops={ditherStops}
+        hoverStops={ditherHoverStops}
+        hoverDuration={ditherHoverDuration}
+        hover={ditherHover}
         image={ditherImage}
       />
     )
@@ -162,6 +207,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           disabled={disabled || loading}
           style={style}
           {...htmlProps}
+          {...compHandlers}
         >
           {ditherBackdrop}
           <span className="relative z-10 flex items-center justify-center gap-[inherit] opacity-0">
@@ -201,6 +247,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           disabled={disabled}
           style={style}
           {...htmlProps}
+          {...compHandlers}
         >
           {ditherBackdrop}
           <span className="relative z-10 [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
@@ -217,6 +264,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled}
         style={style}
         {...htmlProps}
+        {...compHandlers}
       >
         {ditherBackdrop}
         <span className="relative z-10 inline-flex items-center gap-[inherit]">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { ImageDithering } from "@paper-design/shaders-react"
 import { useInViewport } from "@/lib/use-in-viewport"
 
@@ -21,6 +21,9 @@ export interface DitherBackdropProps {
   to?: string
   direction?: DitherDirection
   stops?: DitherStops
+  hoverStops?: DitherStops
+  hoverDuration?: number
+  hover?: boolean
   image?: string
 }
 
@@ -84,6 +87,76 @@ function resolveColor(value: string): string {
   return resolved || value
 }
 
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3)
+}
+
+function useAnimatedStops(
+  stops: DitherStops,
+  hoverStops: DitherStops | undefined,
+  hover: boolean,
+  duration: number
+): DitherStops {
+  const [current, setCurrent] = useState<DitherStops>(stops)
+  const currentRef = useRef<DitherStops>(stops)
+  const rafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    currentRef.current = current
+  }, [current])
+
+  useEffect(() => {
+    if (!hoverStops) {
+      currentRef.current = stops
+      setCurrent(stops)
+      return
+    }
+    const target = hover ? hoverStops : stops
+    const start: DitherStops = [
+      currentRef.current[0],
+      currentRef.current[1]
+    ]
+    const startTime = performance.now()
+    const tick = (now: number) => {
+      const elapsed = now - startTime
+      const t = Math.min(elapsed / duration, 1)
+      const e = easeOutCubic(t)
+      const next: DitherStops = [
+        lerp(start[0], target[0], e),
+        lerp(start[1], target[1], e)
+      ]
+      currentRef.current = next
+      setCurrent(next)
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        rafRef.current = null
+      }
+    }
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [
+    hover,
+    hoverStops?.[0],
+    hoverStops?.[1],
+    stops[0],
+    stops[1],
+    duration
+  ])
+
+  return current
+}
+
 function useThemeRevision(): number {
   const [rev, setRev] = useState(0)
   useEffect(() => {
@@ -124,13 +197,22 @@ export function DitherBackdrop({
   to = DEFAULT_TO,
   direction = DEFAULT_DIRECTION,
   stops = DEFAULT_STOPS,
+  hoverStops,
+  hoverDuration = 250,
+  hover = false,
   image
 }: DitherBackdropProps) {
   const [ref, inView] = useInViewport<HTMLSpanElement>()
   const themeRevision = useThemeRevision()
+  const animatedStops = useAnimatedStops(
+    stops,
+    hoverStops,
+    hover,
+    hoverDuration
+  )
   const fallbackCss = image
     ? undefined
-    : cssGradient(from, to, direction, stops)
+    : cssGradient(from, to, direction, animatedStops)
   const shaderImage = useMemo(
     () => {
       if (image) return image
@@ -138,10 +220,18 @@ export function DitherBackdrop({
         resolveColor(from),
         resolveColor(to),
         direction,
-        stops
+        animatedStops
       )
     },
-    [image, from, to, direction, stops[0], stops[1], themeRevision]
+    [
+      image,
+      from,
+      to,
+      direction,
+      animatedStops[0],
+      animatedStops[1],
+      themeRevision
+    ]
   )
 
   return (
@@ -159,9 +249,9 @@ export function DitherBackdrop({
       {inView && (
         <ImageDithering
           image={shaderImage}
-          type="4x4"
+          type="8x8"
           size={2}
-          colorSteps={2}
+          colorSteps={3}
           fit="cover"
           originalColors
           colorBack="#00000000"

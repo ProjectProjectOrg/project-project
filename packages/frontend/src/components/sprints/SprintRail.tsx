@@ -193,13 +193,13 @@ function NewSprintForm({
         <InlineForm.Trigger
           action="create"
           variant="dither"
-          size="sm"
-          className="w-full justify-start border border-border text-foreground [&_svg]:text-primary-foreground"
+          className="w-full justify-start border border-border text-primary-foreground"
           leadingIcon={Plus}
           ditherFrom="var(--primary)"
           ditherTo="var(--background)"
           ditherDirection="r"
-          ditherStops={[0.15, 0.6]}
+          ditherStops={[0.5, 1]}
+          ditherHoverStops={[0.1, 0.95]}
         >
           {m.sprints_new_button()}
         </InlineForm.Trigger>
