@@ -1,6 +1,4 @@
 import type { Group } from "./schemas/Group"
-import type { TicketStatus } from "./schemas/Ticket"
-import { isCarryover } from "./schemas/Ticket"
 
 export type SprintState = "active" | "planned" | "completed"
 
@@ -45,12 +43,6 @@ export function pickEarliestPlannedSprint(
   return [...planned].sort(compareStartsThenCreated)[0]
 }
 
-export function nonCompletedSprints(
-  groups: ReadonlyArray<Group>
-): ReadonlyArray<Group> {
-  return onlySprints(groups).filter((g) => g.completedAt === null)
-}
-
 export function activeAndPlannedCount(
   groups: ReadonlyArray<Group>,
   now: Date = new Date()
@@ -65,5 +57,3 @@ export function daysLeft(endsAt: Date | null, now: Date = new Date()): number | 
   return Math.ceil(ms / (1000 * 60 * 60 * 24))
 }
 
-export { isCarryover }
-export type { TicketStatus }

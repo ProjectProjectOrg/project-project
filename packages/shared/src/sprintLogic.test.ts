@@ -7,12 +7,11 @@ import {
   type GroupKind
 } from "./schemas/Group"
 import {
-  isCarryover,
   pickActiveSprint,
   pickEarliestPlannedSprint,
-  sprintState,
-  type TicketStatus
+  sprintState
 } from "./sprintLogic"
+import { isCarryover, type TicketStatus } from "./schemas/Ticket"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const groupColor = Schema.decodeUnknownSync(GroupColor)

@@ -74,7 +74,7 @@ function Shell({ user }: { user: User }) {
           <aside
             aria-hidden={slot ? undefined : true}
             className={cn(
-              "shrink-0 overflow-hidden transition-[width,margin] duration-300 ease-out",
+              "shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-out",
               slot
                 ? "mr-2 ml-2 w-56"
                 : "pointer-events-none m-0 w-0"

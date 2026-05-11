@@ -136,8 +136,6 @@ export class BranchNotFound extends Schema.TaggedError<BranchNotFound>()(
   HttpApiSchema.annotations({ status: 404 })
 ) {}
 
-// 409 — caller tried to mutate the membership of a sprint that has already
-// been completed. Completed sprints freeze their ticket list.
 export class SprintCompletedImmutable extends Schema.TaggedError<SprintCompletedImmutable>()(
   "SprintCompletedImmutable",
   {},

@@ -53,7 +53,6 @@
   "tickets_sort_title": "Title",
   "tickets_sort_updated": "Recently updated",
   "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
-  "tickets_sprint_popover_empty": "No sprints yet",
   "tickets_sprint_popover_new_sprint_action": "New sprint…",
   "tickets_sprint_popover_no_assignment_action": "Don't assign to a sprint",
   "tickets_sprint_popover_remove_action": "Remove from sprint",

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
@@ -17,14 +18,13 @@ import {
 } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
-const RANGE_FMT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric"
-})
-
 function rangeText(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
-  return `${RANGE_FMT.format(s.startsAt)} – ${RANGE_FMT.format(s.endsAt)}`
+  const fmt = new Intl.DateTimeFormat(getLocale(), {
+    month: "short",
+    day: "numeric"
+  })
+  return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
 }
 
 export type SprintAssignMenuProps = {
@@ -87,40 +87,32 @@ export function SprintAssignMenu({
           onCloseAutoFocus ?? ((e) => e.preventDefault())
         }
       >
-        {eligible.length === 0 ? (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            {m.tickets_sprint_popover_empty()}
-          </div>
-        ) : (
-          <>
-            <div className="px-2 pb-1.5 pt-1 text-[11px] text-muted-foreground">
-              {m.tickets_sprint_popover_title()}
-            </div>
-            {eligible.map((s) => {
-              const isCurrent = selectedId === s.id
-              return (
-                <DropdownMenuItem
-                  key={s.id}
-                  onSelect={() => {
-                    if (!isCurrent) onSelect(s)
-                  }}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2",
-                    isCurrent && "bg-accent/40"
-                  )}
-                >
-                  <SprintStateIcon sprint={s} size="xs" />
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    {s.name}
-                  </span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {rangeText(s)}
-                  </span>
-                </DropdownMenuItem>
-              )
-            })}
-          </>
-        )}
+        <div className="px-2 pb-1.5 pt-1 text-[11px] text-muted-foreground">
+          {m.tickets_sprint_popover_title()}
+        </div>
+        {eligible.map((s) => {
+          const isCurrent = selectedId === s.id
+          return (
+            <DropdownMenuItem
+              key={s.id}
+              onSelect={() => {
+                if (!isCurrent) onSelect(s)
+              }}
+              className={cn(
+                "flex cursor-pointer items-center gap-2",
+                isCurrent && "bg-accent/40"
+              )}
+            >
+              <SprintStateIcon sprint={s} size="xs" />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {s.name}
+              </span>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {rangeText(s)}
+              </span>
+            </DropdownMenuItem>
+          )
+        })}
         {(onRequestNewSprint || onClear) && <DropdownMenuSeparator />}
         {onRequestNewSprint && (
           <DropdownMenuItem

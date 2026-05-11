@@ -14,11 +14,7 @@ import {
   sprintMembershipAtom,
   sprintsListAtom
 } from "@/atoms/sprints"
-import {
-  pickActiveSprint,
-  type Group,
-  type TicketId
-} from "@projectproject/shared"
+import { type Group, type TicketId } from "@projectproject/shared"
 import { Result } from "@effect-atom/atom-react"
 
 export function SprintField({
@@ -157,5 +153,3 @@ export function SprintBadgeTrigger({
     />
   )
 }
-
-export { pickActiveSprint }

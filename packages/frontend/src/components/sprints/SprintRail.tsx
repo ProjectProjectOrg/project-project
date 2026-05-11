@@ -18,26 +18,26 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   createSprintAtom,
   projectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import {
-  pickActiveSprint,
-  sprintState,
-  type Group
-} from "@projectproject/shared"
+import { sprintState, type Group } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
-const RAIL_DATE_FMT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric"
-})
+function railDateFormatter() {
+  return new Intl.DateTimeFormat(getLocale(), {
+    month: "short",
+    day: "numeric"
+  })
+}
 
 function formatRange(s: Group): string {
   if (!s.startsAt || !s.endsAt) return ""
-  return `${RAIL_DATE_FMT.format(s.startsAt)} – ${RAIL_DATE_FMT.format(s.endsAt)}`
+  const fmt = railDateFormatter()
+  return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
 }
 
 function defaultSprintRange(): DateRange {
@@ -265,7 +265,10 @@ function CreateSprintFields({
           >
             <span className="font-mono text-[11px] tabular-nums">
               {range.from && range.to
-                ? `${RAIL_DATE_FMT.format(range.from)} – ${RAIL_DATE_FMT.format(range.to)}`
+                ? (() => {
+                    const fmt = railDateFormatter()
+                    return `${fmt.format(range.from)} – ${fmt.format(range.to)}`
+                  })()
                 : m.sprints_date_range_label()}
             </span>
           </Button>
@@ -303,4 +306,3 @@ function CreateSprintFields({
   )
 }
 
-export { pickActiveSprint }

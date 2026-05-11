@@ -1,5 +1,3 @@
-// 2-color stepped/dithered calendar mark using the project's brand vocabulary
-// (#FEFEFE foreground + #807F7F muted-foreground), drawn as ordered-dither squares.
 export function DitheredCalendar({
   size = 96,
   className
@@ -16,7 +14,6 @@ export function DitheredCalendar({
   const FG = "var(--foreground, #FEFEFE)"
   const MUTED = "var(--muted-foreground, #807F7F)"
 
-  // Bayer-ish 4x4 ordered dither mask
   const mask = [
     [0, 8, 2, 10],
     [12, 4, 14, 6],
@@ -30,11 +27,9 @@ export function DitheredCalendar({
   const tiles: Array<{ x: number; y: number; color: string }> = []
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      // Header band on row 0–1
       if (y < 2) {
         if (fill(x, y, 14)) tiles.push({ x, y, color: MUTED })
       } else {
-        // Dotted day grid: place a tile at every 2nd column / 2nd row
         if (x % 2 === 0 && y % 2 === 0) {
           tiles.push({ x, y, color: FG })
         } else if (fill(x, y, 4)) {
