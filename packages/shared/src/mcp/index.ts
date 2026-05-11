@@ -12,6 +12,7 @@ import { TicketFilter } from "./filters/Ticket"
 
 export * from "./Pagination"
 export * from "./cursor"
+export * from "./DocFile"
 export * from "./MeOutput"
 export * from "./filters/Ticket"
 
