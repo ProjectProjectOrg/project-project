@@ -1,5 +1,6 @@
 import { Context, type Effect } from "effect"
 import type {
+  CompleteSprintInput,
   CreateGroupInput,
   Forbidden,
   Group,
@@ -50,6 +51,16 @@ export interface GroupsShape {
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly complete: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: CompleteSprintInput
+  ) => Effect.Effect<
+    GroupDetail,
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
   >
   readonly remove: (
     orgSlug: string,

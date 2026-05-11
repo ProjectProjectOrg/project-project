@@ -2,6 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Exit } from "effect"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
@@ -35,6 +36,12 @@ export function CompleteSprintForm({
   })
   const completeState = useAtomValue(completeSprintAtom(key))
   const submitting = completeState.waiting
+  const failureMsg = Result.matchWithError(completeState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: (err) => errorMessage(err as AppError),
+    onDefect: () => null
+  })
 
   const planned = pickEarliestPlannedSprint(sprints)
   const tickets = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
@@ -93,6 +100,9 @@ export function CompleteSprintForm({
         <p className="text-xs text-muted-foreground">
           {m.sprints_complete_carry_to_backlog_static()}
         </p>
+      )}
+      {failureMsg && (
+        <p className="text-xs text-destructive">{failureMsg}</p>
       )}
       <div className="flex justify-end gap-1">
         {onDone && (

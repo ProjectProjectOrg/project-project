@@ -80,3 +80,14 @@ export const UpdateGroupTicketsOutput = Schema.Struct({
   evicted: Schema.Array(EvictedFromGroup)
 })
 export type UpdateGroupTicketsOutput = typeof UpdateGroupTicketsOutput.Type
+
+export const CompleteSprintDestination = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("sprint"), groupId: GroupId }),
+  Schema.Struct({ kind: Schema.Literal("backlog") })
+)
+export type CompleteSprintDestination = typeof CompleteSprintDestination.Type
+
+export const CompleteSprintInput = Schema.Struct({
+  destination: CompleteSprintDestination
+})
+export type CompleteSprintInput = typeof CompleteSprintInput.Type

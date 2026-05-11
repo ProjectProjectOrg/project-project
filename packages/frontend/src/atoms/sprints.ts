@@ -6,6 +6,7 @@ import {
   GroupColor,
   GroupId,
   isCarryover,
+  type CompleteSprintDestination,
   type CreateGroupInput,
   type Group,
   type GroupDetail,
@@ -13,6 +14,8 @@ import {
   type UpdateGroupInput,
   type UpdateGroupTicketsOutput
 } from "@projectproject/shared"
+
+export type { CompleteSprintDestination }
 import {
   ticketsListAtom,
   ticketsListKey
@@ -280,10 +283,6 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
   })
 })
 
-export type CompleteSprintDestination =
-  | { kind: "sprint"; groupId: GroupId }
-  | { kind: "backlog" }
-
 type CompleteSprintReducerInput = {
   groupId: GroupId
   destination: CompleteSprintDestination
@@ -340,53 +339,18 @@ export const completeSprintAtom = Atom.family((key: string) => {
     fn: runtime.fn(
       Effect.fn(function* (input: CompleteSprintReducerInput, get) {
         const client = yield* ApiClient
-        const sourceKey = sprintKey(orgSlug, slug, input.groupId)
-        const list = get(sprintsListAtom(key))
-        const source = Result.isSuccess(list)
-          ? list.value.find((g) => g.id === input.groupId)
-          : undefined
-        const sourceTickets: ReadonlyArray<TicketId> = source?.tickets ?? []
-        const { stay, carry } = splitCarryover(
-          sourceTickets,
-          new Map(
-            [...input.ticketStatuses].map(([k, v]) => [
-              k as string,
-              v as string
-            ])
-          )
-        )
-
-        const dest = input.destination
-        if (dest.kind === "sprint" && carry.length > 0) {
-          const destList = Result.isSuccess(list)
-            ? list.value.find((g) => g.id === dest.groupId)
-            : undefined
-          const destCurrent = destList?.tickets ?? []
-          const merged = [...destCurrent]
-          for (const tid of carry) {
-            if (!merged.includes(tid)) merged.push(tid)
-          }
-          yield* client.groups.updateTickets({
-            path: { orgSlug, slug, id: dest.groupId },
-            payload: { tickets: merged }
-          })
-        }
-
-        yield* client.groups.updateTickets({
+        const completed = yield* client.groups.complete({
           path: { orgSlug, slug, id: input.groupId },
-          payload: { tickets: stay }
-        })
-
-        const completed = yield* client.groups.update({
-          path: { orgSlug, slug, id: input.groupId },
-          payload: { completedAt: new Date() }
+          payload: { destination: input.destination }
         })
 
         get.refresh(sprintsListBaseAtom(key))
-        get.refresh(sprintBaseAtom(sourceKey))
-        if (dest.kind === "sprint") {
+        get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
+        if (input.destination.kind === "sprint") {
           get.refresh(
-            sprintBaseAtom(sprintKey(orgSlug, slug, dest.groupId))
+            sprintBaseAtom(
+              sprintKey(orgSlug, slug, input.destination.groupId)
+            )
           )
         }
         get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
