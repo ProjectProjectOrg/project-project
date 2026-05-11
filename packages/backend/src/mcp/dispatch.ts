@@ -12,8 +12,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import * as Effect from "effect/Effect"
 import type * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Schema from "effect/Schema"
+import { z } from "zod"
 import { McpTools, type McpToolName } from "@projectproject/shared"
 import { mapToolError, type McpToolErrorResult } from "./errorMap"
+
+const PassthroughInputSchema = z.looseObject({})
 
 // The dispatcher is intentionally generic: per-tool input/output/error types
 // are validated at the boundary via Effect Schema, so the internal handler
@@ -44,16 +47,15 @@ export function registerAllTools<R>(
     const spec = McpTools[name]
     const handler = handlers[name]
 
-    // NOTE: The SDK's registerTool only accepts Zod schemas / raw Zod shapes
-    // for inputSchema/outputSchema. We use Effect Schema as the source of
-    // truth and validate inside the callback below, so we deliberately omit
-    // the schema fields here. The cost is no advertised JSON Schema on the
-    // tool listing — acceptable for now; a future pass can pipe Effect
-    // Schema -> JSON Schema -> Zod if clients need it.
+    // The SDK only accepts Zod schemas for inputSchema. Without one, it passes
+    // `undefined` to the callback instead of the call args. We register a
+    // permissive loose-object schema so all properties flow through; the real
+    // shape validation happens via Effect Schema below.
     server.registerTool(
       name,
       {
         description: spec.description,
+        inputSchema: PassthroughInputSchema,
       },
       (async (input: unknown) => {
         // Collapse the error channel to `never` by mapping any failure to a
