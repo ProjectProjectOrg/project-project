@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
@@ -108,18 +109,19 @@ export function PriorityBadgeTrigger({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="chip"
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-accent hover:text-foreground",
-            className
-          )}
+          className={className}
         >
-          <Icon className="size-3.5" strokeWidth={1.75} />
+          <Icon
+            className={cn("size-3.5", meta.className)}
+            strokeWidth={1.75}
+          />
           <span>{priorityLabel}</span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"

@@ -14,7 +14,8 @@
       "./messages/{locale}/tickets.json",
       "./messages/{locale}/tags.json",
       "./messages/{locale}/git.json",
-      "./messages/{locale}/comments.json"
+      "./messages/{locale}/comments.json",
+      "./messages/{locale}/sprints.json"
     ]
   }
 }

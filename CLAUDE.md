@@ -4,6 +4,8 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
 
+**For any UI/frontend work**, also read `.impeccable.md` first — it's the design context (users, brand personality, aesthetic direction, design principles) and is binding for visual and interaction decisions. Invoke the `/impeccable` skill when working on UI so its checklist runs against the change.
+
 The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.
 
 ## Wouter
@@ -100,6 +102,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `packages/frontend/messages/en/tickets.json`  | `tickets_`                                             |
 | `packages/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |
 | `packages/frontend/messages/en/git.json`      | `git_`, `github_`                                      |
+| `packages/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 

@@ -69,6 +69,21 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("complete", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const groups = yield* Groups
+          return yield* groups.complete(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("delete", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

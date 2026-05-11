@@ -254,7 +254,7 @@ function MemberRow({
         <div className="truncate text-sm font-medium">
           {member.name}
           {isSelf && (
-            <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="ml-2 text-[10px] text-muted-foreground">
               {m.members_self_indicator()}
             </span>
           )}

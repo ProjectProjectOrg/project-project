@@ -1,6 +1,7 @@
 import { Effect, Layer, Schema } from "effect"
 import {
   ADMIN_GATED_KINDS,
+  CompleteSprintInput,
   CreateGroupInput,
   Forbidden,
   Group,
@@ -8,10 +9,14 @@ import {
   GroupDetail,
   GroupId,
   GroupKind,
+  isCarryover,
   NotFound,
+  SprintCompletedImmutable,
   TAG_DEFAULT_PALETTE,
+  TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput,
   Validation
 } from "@projectproject/shared"
 import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
@@ -158,13 +163,19 @@ export const GroupsLive = Layer.effect(
         let color: GroupColor
         if (input.color !== undefined) {
           color = input.color
+        } else if (kind === "sprint") {
+          color = makeGroupColor("#777777")
         } else {
           const existingGroups = yield* Effect.forEach(
             ids,
             (id) => groupDocs.read(orgSlug, slug, id),
             { concurrency: 8 }
           )
-          color = pickColor(existingGroups.map((g) => g.color))
+          color = pickColor(
+            existingGroups
+              .filter((g) => g.kind !== "sprint")
+              .map((g) => g.color)
+          )
         }
 
         const now = new Date()
@@ -249,20 +260,138 @@ export const GroupsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateGroupTicketsInput
-    ): Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+        if (existing.completedAt !== null) {
+          return yield* Effect.fail(new SprintCompletedImmutable())
+        }
         yield* validateTicketIds(orgSlug, slug, input.tickets)
 
-        const next: GroupDocument = {
+        const now = new Date()
+        const target: GroupDocument = {
           ...existing,
           tickets: input.tickets,
-          updatedAt: new Date()
+          updatedAt: now
         }
-        yield* groupDocs.write(orgSlug, slug, id, next)
-        return next
+
+        const evicted: Array<{
+          groupId: GroupId
+          ticketIds: ReadonlyArray<TicketId>
+        }> = []
+
+        if (existing.kind === "sprint" && input.tickets.length > 0) {
+          const incoming = new Set<string>(input.tickets)
+          const allIds = yield* groupDocs.listIds(orgSlug, slug)
+          const others = yield* Effect.forEach(
+            allIds.filter((otherId) => otherId !== id),
+            (otherId) => groupDocs.read(orgSlug, slug, otherId),
+            { concurrency: 8 }
+          )
+          for (const other of others) {
+            if (other.kind !== "sprint") continue
+            if (other.completedAt !== null) continue
+            const overlap = other.tickets.filter((tid) => incoming.has(tid))
+            if (overlap.length === 0) continue
+            const remaining = other.tickets.filter((tid) => !incoming.has(tid))
+            const nextOther: GroupDocument = {
+              ...other,
+              tickets: remaining,
+              updatedAt: now
+            }
+            yield* groupDocs.write(orgSlug, slug, other.id, nextOther)
+            evicted.push({
+              groupId: other.id,
+              ticketIds: overlap as ReadonlyArray<TicketId>
+            })
+          }
+        }
+
+        yield* groupDocs.write(orgSlug, slug, id, target)
+        return { target, evicted } satisfies UpdateGroupTicketsOutput
+      })
+
+    const complete = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      input: CompleteSprintInput
+    ): Effect.Effect<
+      GroupDetail,
+      NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
+        const source = yield* groupDocs.read(orgSlug, slug, id)
+        yield* requireKindRole(orgSlug, userId, slug, source.kind)
+
+        if (source.kind !== "sprint") {
+          return yield* Effect.fail(new Validation({ reason: "not_a_sprint" }))
+        }
+        if (source.completedAt !== null) {
+          return yield* Effect.fail(new SprintCompletedImmutable())
+        }
+
+        let dest: GroupDocument | null = null
+        if (input.destination.kind === "sprint") {
+          if (input.destination.groupId === source.id) {
+            return yield* Effect.fail(
+              new Validation({ reason: "destination_is_source" })
+            )
+          }
+          dest = yield* groupDocs.read(orgSlug, slug, input.destination.groupId)
+          if (dest.kind !== "sprint") {
+            return yield* Effect.fail(
+              new Validation({ reason: "destination_not_sprint" })
+            )
+          }
+          if (dest.completedAt !== null) {
+            return yield* Effect.fail(new SprintCompletedImmutable())
+          }
+        }
+
+        const now = new Date()
+        yield* validateCompletion(now, source.startsAt, now)
+
+        const tickets = yield* Effect.forEach(
+          source.tickets,
+          (tid) => ticketDocs.read(orgSlug, slug, tid),
+          { concurrency: 8 }
+        )
+        const stay: Array<TicketId> = []
+        const carry: Array<TicketId> = []
+        for (const ticket of tickets) {
+          if (isCarryover(ticket.status)) carry.push(ticket.id)
+          else stay.push(ticket.id)
+        }
+
+        if (dest !== null && carry.length > 0) {
+          const merged = [...dest.tickets]
+          for (const tid of carry) {
+            if (!merged.includes(tid)) merged.push(tid)
+          }
+          const nextDest: GroupDocument = {
+            ...dest,
+            tickets: merged,
+            updatedAt: now
+          }
+          yield* groupDocs.write(orgSlug, slug, dest.id, nextDest)
+        }
+
+        const nextSource: GroupDocument = {
+          ...source,
+          tickets: stay,
+          completedAt: now,
+          updatedAt: now
+        }
+        yield* groupDocs.write(orgSlug, slug, id, nextSource)
+        return nextSource
       })
 
     const remove = (
@@ -319,6 +448,7 @@ export const GroupsLive = Layer.effect(
       create,
       update,
       updateTickets,
+      complete,
       remove,
       removeTicketFromAllGroups
     } satisfies GroupsShape

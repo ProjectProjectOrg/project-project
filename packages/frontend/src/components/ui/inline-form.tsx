@@ -75,6 +75,7 @@ function Root<A extends string = string>({
   return (
     <InlineFormContext value={value as unknown as InlineFormContextValue}>
       <div
+        data-mode={mode === "idle" ? "idle" : "active"}
         className={cn(
           "rounded-lg border border-border bg-background px-3 py-2",
           className
@@ -230,6 +231,7 @@ function Cancel({
   const { close, busy } = useInlineForm()
   return (
     <Button
+      type="button"
       size="sm"
       variant="ghost"
       leadingIcon={X}
