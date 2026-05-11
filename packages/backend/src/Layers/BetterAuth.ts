@@ -6,6 +6,13 @@ import { auth } from "../auth"
 import * as schema from "../db/schema"
 import { account, member, organization } from "../db/schema"
 import {
+  encodeCursor,
+  NotFound,
+  type CursorPayload,
+  type Org,
+  type OrgRole
+} from "@projectproject/shared"
+import {
   BetterAuth,
   BetterAuthError,
   NoGithubToken,
@@ -63,6 +70,78 @@ export const BetterAuthLive = Layer.effect(
               ? [{ orgSlug: r.slug, role: r.role as "owner" | "admin" | "member" }]
               : []
           )
+        }),
+      listOrganizationsPaged: (
+        userId: string,
+        cursor: CursorPayload | undefined,
+        limit: number
+      ) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({
+                  slug: organization.slug,
+                  name: organization.name,
+                  role: member.role
+                })
+                .from(member)
+                .innerJoin(organization, eq(member.organizationId, organization.id))
+                .where(eq(member.userId, userId)),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          const orgs: ReadonlyArray<Org> = rows.flatMap((r) =>
+            allowed.has(r.role as OrgRole)
+              ? [{ slug: r.slug as Org["slug"], name: r.name, role: r.role as OrgRole }]
+              : []
+          )
+          const sorted = [...orgs].toSorted((a, b) => a.name.localeCompare(b.name))
+          const startIdx =
+            cursor === undefined
+              ? 0
+              : (() => {
+                  const idx = sorted.findIndex((o) => o.name > cursor.sort)
+                  return idx < 0 ? sorted.length : idx
+                })()
+          const slice = sorted.slice(startIdx, startIdx + limit + 1)
+          const hasMore = slice.length > limit
+          const items = hasMore ? slice.slice(0, limit) : slice
+          const last = items[items.length - 1]
+          const nextCursor =
+            hasMore && last
+              ? encodeCursor({ id: last.slug, sort: last.name })
+              : null
+          return { items, nextCursor }
+        }),
+      getOrganization: (userId: string, orgSlug: string) =>
+        Effect.gen(function* () {
+          const row = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({
+                  slug: organization.slug,
+                  name: organization.name,
+                  role: member.role
+                })
+                .from(member)
+                .innerJoin(
+                  organization,
+                  eq(member.organizationId, organization.id)
+                )
+                .where(and(eq(member.userId, userId), eq(organization.slug, orgSlug)))
+                .limit(1),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          const first = row[0]
+          if (!first) return yield* new NotFound()
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          if (!allowed.has(first.role as OrgRole)) return yield* new NotFound()
+          return {
+            slug: first.slug as Org["slug"],
+            name: first.name,
+            role: first.role as OrgRole
+          }
         }),
       getOrgSlugById: (organizationId) =>
         Effect.gen(function* () {

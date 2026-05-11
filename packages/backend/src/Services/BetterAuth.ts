@@ -2,6 +2,7 @@ import type { Session, User } from "../auth"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
+import type { CursorPayload, NotFound, Org } from "@projectproject/shared"
 
 export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -35,6 +36,18 @@ export interface BetterAuthShape {
     ReadonlyArray<{ orgSlug: string; role: "owner" | "admin" | "member" }>,
     BetterAuthError
   >
+  readonly listOrganizationsPaged: (
+    userId: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Org>; nextCursor: string | null },
+    BetterAuthError
+  >
+  readonly getOrganization: (
+    userId: string,
+    orgSlug: string
+  ) => Effect.Effect<Org, BetterAuthError | NotFound>
 }
 
 export class BetterAuth extends Context.Tag("@projectproject/backend/Services/BetterAuth")<

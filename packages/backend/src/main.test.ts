@@ -67,7 +67,9 @@ const FakeBetterAuth = {
   getSession: () => unexpectedBetterAuthCall("getSession"),
   getGithubAccessToken: () => unexpectedBetterAuthCall("getGithubAccessToken"),
   getOrgSlugById: () => unexpectedBetterAuthCall("getOrgSlugById"),
-  listOrganizations: () => unexpectedBetterAuthCall("listOrganizations")
+  listOrganizations: () => unexpectedBetterAuthCall("listOrganizations"),
+  listOrganizationsPaged: () => unexpectedBetterAuthCall("listOrganizationsPaged"),
+  getOrganization: () => unexpectedBetterAuthCall("getOrganization")
 } satisfies BetterAuthShape
 
 const FakeBetterAuthLive = Layer.succeed(BetterAuth, FakeBetterAuth)
