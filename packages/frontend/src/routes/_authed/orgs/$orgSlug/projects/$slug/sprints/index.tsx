@@ -1,5 +1,6 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Navigate, createFileRoute } from "@tanstack/react-router"
+import { SprintDetailSkeleton } from "@/components/sprints/SprintDetailSkeleton"
 import { SprintsEmpty } from "@/components/sprints/SprintsEmpty"
 import { projectKey, sprintsListAtom } from "@/atoms/sprints"
 import {
@@ -33,7 +34,7 @@ function SprintsIndex() {
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
 
   if (Result.isInitial(list)) {
-    return <div className="skeleton h-40 rounded-xl border border-border" />
+    return <SprintDetailSkeleton />
   }
   const sprints = Result.isSuccess(list) ? list.value : []
   const target = pickRedirectTarget(sprints)

@@ -17,6 +17,7 @@ import {
 import { sprintState, type GroupId, type TicketId } from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
 import { SprintDetailHeader } from "./SprintDetailHeader"
+import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 
 export function SprintDetail({
@@ -34,9 +35,7 @@ export function SprintDetail({
   const [showCompleteForm, setShowCompleteForm] = useState(false)
 
   return Result.matchWithError(sprint, {
-    onInitial: () => (
-      <div className="skeleton h-40 rounded-xl border border-border" />
-    ),
+    onInitial: () => <SprintDetailSkeleton />,
     onError: (error) =>
       error._tag === "NotFound" ? (
         <Empty className="rounded-xl border border-dashed border-border p-6">
