@@ -1,6 +1,6 @@
 import * as React from "react"
 import { ChevronDownIcon } from "lucide-react"
-import { Accordion as AccordionPrimitive } from "@base-ui-components/react/accordion"
+import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
 
 import { cn } from "@/lib/utils"
 
@@ -9,12 +9,10 @@ type AccordionRootProps = Omit<
   "multiple"
 > & {
   type?: "single" | "multiple"
-  collapsible?: boolean
 }
 
 function Accordion({
   type = "multiple",
-  collapsible: _collapsible,
   ...props
 }: AccordionRootProps) {
   return (

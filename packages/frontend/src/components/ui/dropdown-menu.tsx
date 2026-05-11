@@ -1,6 +1,6 @@
 import * as React from "react"
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
-import { Menu as MenuPrimitive } from "@base-ui-components/react/menu"
+import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
 
@@ -235,7 +235,7 @@ function DropdownMenuSubTrigger({
       className={cn(
         "flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-[13px] text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:bg-accent/40 dark:data-[highlighted]:bg-accent/25 data-[highlighted]:text-foreground",
-        "data-[open]:bg-accent/40 data-[open]:text-foreground",
+        "data-[popup-open]:bg-accent/40 data-[popup-open]:text-foreground",
         "data-[inset]:pl-8",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className

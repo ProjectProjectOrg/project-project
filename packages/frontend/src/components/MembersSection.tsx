@@ -215,7 +215,7 @@ function RoleSelect({
           return (
             <DropdownMenuItem
               key={r}
-              onSelect={() => onChange(r)}
+              onClick={() => onChange(r)}
               className="cursor-pointer"
             >
               <RIcon className="size-4" strokeWidth={1.75} />
@@ -375,7 +375,7 @@ function MemberMenu({
                   return (
                     <DropdownMenuItem
                       key={r}
-                      onSelect={() => update({ role: r })}
+                      onClick={() => update({ role: r })}
                       className="cursor-pointer"
                     >
                       <RIcon className="size-4" strokeWidth={1.75} />
@@ -388,10 +388,8 @@ function MemberMenu({
             {canChangeRole && canRemove && <DropdownMenuSeparator />}
             {canRemove && (
               <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault()
-                  setConfirming(true)
-                }}
+                closeOnClick={false}
+                onClick={() => setConfirming(true)}
                 className="cursor-pointer text-destructive focus:text-destructive"
               >
                 <Trash2 className="size-4" strokeWidth={1.75} />

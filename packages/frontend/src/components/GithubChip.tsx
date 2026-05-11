@@ -160,14 +160,14 @@ function ConnectedChip({
                 type="button"
                 aria-label={m.github_chip_manage_connection_aria_label()}
                 className={cn(
-                  "grid size-5 place-items-center rounded transition-colors hover:bg-accent",
-                  "data-[open]:bg-accent"
+                  "group grid size-5 place-items-center rounded transition-colors hover:bg-accent",
+                  "data-[popup-open]:bg-accent"
                 )}
               >
                 <ChevronDown
                   className={cn(
                     "size-3 transition-transform",
-                    "group-data-[open]:rotate-180"
+                    "group-data-[popup-open]:rotate-180"
                   )}
                   strokeWidth={1.75}
                 />

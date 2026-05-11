@@ -241,7 +241,7 @@ function UserMenu({ user }: { user: User }) {
         />
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => logout()}
+          onClick={() => logout()}
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="size-4" strokeWidth={1.75} />

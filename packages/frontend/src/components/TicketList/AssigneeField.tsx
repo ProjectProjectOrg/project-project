@@ -47,8 +47,8 @@ function AssigneeMenuContent({
       finalFocus={false}
     >
       <DropdownMenuItem
-        onSelect={(e) => {
-          e.preventDefault()
+        closeOnClick={false}
+        onClick={() => {
           if (assignees.length > 0) setAssignees([])
         }}
         className="cursor-pointer"
@@ -65,10 +65,8 @@ function AssigneeMenuContent({
         return (
           <DropdownMenuItem
             key={member.id}
-            onSelect={(e) => {
-              e.preventDefault()
-              toggle(member.id)
-            }}
+            closeOnClick={false}
+            onClick={() => toggle(member.id)}
             className="cursor-pointer"
           >
             <MemberAvatar member={member} size={20} />

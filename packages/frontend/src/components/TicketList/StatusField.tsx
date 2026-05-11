@@ -64,7 +64,7 @@ export function StatusButton({
           return (
             <DropdownMenuItem
               key={status}
-              onSelect={() => {
+              onClick={() => {
                 if (status === ticket.status) return
                 update({ status })
               }}

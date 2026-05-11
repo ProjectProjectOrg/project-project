@@ -214,7 +214,7 @@ export function SprintTicketCreator({
           return (
             <DropdownMenuItem
               key={t}
-              onSelect={() => setType(t)}
+              onClick={() => setType(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />

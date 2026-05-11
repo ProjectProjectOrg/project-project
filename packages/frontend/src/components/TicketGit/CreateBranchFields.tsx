@@ -303,7 +303,7 @@ function StatusDropdown({
           return (
             <DropdownMenuItem
               key={key}
-              onSelect={() => onChange(key)}
+              onClick={() => onChange(key)}
               className="cursor-pointer"
             >
               <SIcon
