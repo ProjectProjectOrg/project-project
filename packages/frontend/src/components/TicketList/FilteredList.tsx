@@ -211,12 +211,19 @@ function Row({
       ref={rowRef}
       className="group/list-row col-span-full grid grid-cols-subgrid"
     >
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
         aria-expanded={isExpanded}
         className={cn(
-          "col-span-full grid grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left transition-colors",
+          "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring",
           isExpanded ? "bg-accent/40" : "hover:bg-accent/30"
         )}
       >
@@ -279,7 +286,7 @@ function Row({
           )}
           strokeWidth={1.75}
         />
-      </button>
+      </div>
       {isExpanded && (
         <div className="col-span-full">
           <Expanded

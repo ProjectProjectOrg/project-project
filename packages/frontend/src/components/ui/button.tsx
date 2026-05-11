@@ -165,6 +165,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         iconLeft: !isIconOnly && !!LeadingIcon,
         iconRight: !isIconOnly && !!TrailingIcon
       }),
+      isIconOnly &&
+        "[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]",
       shape.button,
       className
     )
@@ -247,6 +249,36 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     }
 
     if (isIconOnly) {
+      if (isDither) {
+        return (
+          <Comp
+            ref={ref}
+            className={compClassName}
+            disabled={disabled}
+            style={style}
+            {...htmlProps}
+            {...compHandlers}
+          >
+            {ditherBackdrop}
+            <span className="z-10">{children}</span>
+          </Comp>
+        )
+      }
+      return (
+        <Comp
+          ref={ref}
+          className={compClassName}
+          disabled={disabled}
+          style={style}
+          {...htmlProps}
+          {...compHandlers}
+        >
+          {children}
+        </Comp>
+      )
+    }
+
+    if (isDither) {
       return (
         <Comp
           ref={ref}
@@ -257,8 +289,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           {...compHandlers}
         >
           {ditherBackdrop}
-          <span className="z-10 [&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]">
-            {children}
+          <span className="relative z-10 inline-flex items-center gap-[inherit]">
+            {leadingIconNode}
+            <Slottable>{children}</Slottable>
+            {trailingIconNode}
           </span>
         </Comp>
       )
@@ -273,12 +307,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...htmlProps}
         {...compHandlers}
       >
-        {ditherBackdrop}
-        <span className="relative z-10 inline-flex items-center gap-[inherit]">
-          {leadingIconNode}
-          <Slottable>{children}</Slottable>
-          {trailingIconNode}
-        </span>
+        {leadingIconNode}
+        <Slottable>{children}</Slottable>
+        {trailingIconNode}
       </Comp>
     )
   }
