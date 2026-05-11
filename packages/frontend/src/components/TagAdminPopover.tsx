@@ -42,7 +42,6 @@ export function TagAdminPopover({
         align="start"
         sideOffset={6}
         className="w-64 p-2"
-        initialFocus={true}
       >
         <ConfirmButton.Root className="w-full">
           <Body
@@ -133,6 +132,7 @@ function Editor({
           ariaLabel={m.tags_color_aria_label({ name: tag.name })}
         />
         <input
+          autoFocus
           value={draftName}
           onChange={(e) => setDraftName(e.target.value.toLowerCase())}
           onBlur={commit}

@@ -42,7 +42,8 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
-import { Badge, type BadgeTone } from "@/components/ui/badge"
+import { Badge, badgeVariants, type BadgeTone } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 import type { AssignableRole, Member, Role } from "@projectproject/shared"
@@ -190,22 +191,19 @@ function RoleSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Badge
-            tone={meta.tone}
-            size="sm"
-            className="cursor-pointer hover:bg-accent"
-            render={
-              <button
-                type="button"
-                aria-label={m.members_role_select_aria_label({
-                  role: meta.label()
-                })}
-              />
-            }
+          <button
+            type="button"
+            aria-label={m.members_role_select_aria_label({
+              role: meta.label()
+            })}
+            className={cn(
+              badgeVariants({ tone: meta.tone, size: "sm" }),
+              "cursor-pointer hover:bg-accent"
+            )}
           >
             <Icon strokeWidth={1.75} />
             {meta.label()}
-          </Badge>
+          </button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">

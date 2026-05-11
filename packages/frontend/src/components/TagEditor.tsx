@@ -198,11 +198,10 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
           align="start"
           sideOffset={6}
           className="w-60 p-1"
-          initialFocus={true}
         >
           <div className="flex flex-col gap-1">
             <input
-              autoFocus
+
               value={draft}
               onChange={(e) => setDraft(e.target.value.toLowerCase())}
               onKeyDown={(e) => {
