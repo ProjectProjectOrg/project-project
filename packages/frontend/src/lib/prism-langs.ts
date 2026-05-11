@@ -23,6 +23,7 @@ import "prismjs/components/prism-bash.js"
 import "prismjs/components/prism-yaml.js"
 import "prismjs/components/prism-json.js"
 import "prismjs/components/prism-go.js"
+import "prismjs/components/prism-toml.js"
 
 // --- Read side (refractor) --------------------------------------------------
 // Refractor's package.json maps `./*` to `./lang/*.js`, so the subpath import
