@@ -12,6 +12,7 @@ import { MeOutput } from "./MeOutput"
 // Re-exports so consumers can `import { Pagination, MeOutput } from "@projectproject/shared"`.
 export * from "./Pagination"
 export * from "./MeOutput"
+export * from "./filters/Ticket"
 
 export interface McpToolSpec<
   Input extends Schema.Schema.Any,
