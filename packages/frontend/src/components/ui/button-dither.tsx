@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ImageDithering } from "@paper-design/shaders-react"
 import { useInViewport } from "@/lib/use-in-viewport"
 
@@ -14,10 +14,13 @@ export type DitherDirection =
   | "br"
   | "bl"
 
+export type DitherStops = readonly [number, number]
+
 export interface DitherBackdropProps {
   from?: string
   to?: string
   direction?: DitherDirection
+  stops?: DitherStops
   image?: string
 }
 
@@ -49,25 +52,66 @@ const DIRECTION_TO_SVG_VECTOR: Record<
 const DEFAULT_FROM = "#000000"
 const DEFAULT_TO = "#ffffff"
 const DEFAULT_DIRECTION: DitherDirection = "r"
+const DEFAULT_STOPS: DitherStops = [0, 1]
+
+function clampStops(stops: DitherStops): DitherStops {
+  const start = Math.min(Math.max(stops[0], 0), 1)
+  const end = Math.min(Math.max(stops[1], start), 1)
+  return [start, end]
+}
 
 function cssGradient(
   from: string,
   to: string,
-  direction: DitherDirection
+  direction: DitherDirection,
+  stops: DitherStops
 ): string {
-  return `linear-gradient(${DIRECTION_TO_CSS_ANGLE[direction]}, ${from}, ${to})`
+  const [start, end] = clampStops(stops)
+  return (
+    `linear-gradient(${DIRECTION_TO_CSS_ANGLE[direction]}, ` +
+    `${from} ${start * 100}%, ${to} ${end * 100}%)`
+  )
+}
+
+function resolveColor(value: string): string {
+  if (!value.startsWith("var(")) return value
+  if (typeof window === "undefined") return value
+  const match = value.match(/var\(\s*(--[^,)\s]+)/)
+  if (!match) return value
+  const resolved = getComputedStyle(document.documentElement)
+    .getPropertyValue(match[1])
+    .trim()
+  return resolved || value
+}
+
+function useThemeRevision(): number {
+  const [rev, setRev] = useState(0)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const observer = new MutationObserver(() => setRev((r) => r + 1))
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"]
+    })
+    return () => observer.disconnect()
+  }, [])
+  return rev
 }
 
 function gradientDataUrl(
   from: string,
   to: string,
-  direction: DitherDirection
+  direction: DitherDirection,
+  stops: DitherStops
 ): string {
   const v = DIRECTION_TO_SVG_VECTOR[direction]
+  const [start, end] = clampStops(stops)
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="none">` +
     `<defs><linearGradient id="g" x1="${v.x1}" y1="${v.y1}" x2="${v.x2}" y2="${v.y2}">` +
     `<stop offset="0" stop-color="${from}"/>` +
+    `<stop offset="${start}" stop-color="${from}"/>` +
+    `<stop offset="${end}" stop-color="${to}"/>` +
     `<stop offset="1" stop-color="${to}"/>` +
     `</linearGradient></defs>` +
     `<rect width="200" height="200" fill="url(#g)"/>` +
@@ -79,13 +123,25 @@ export function DitherBackdrop({
   from = DEFAULT_FROM,
   to = DEFAULT_TO,
   direction = DEFAULT_DIRECTION,
+  stops = DEFAULT_STOPS,
   image
 }: DitherBackdropProps) {
   const [ref, inView] = useInViewport<HTMLSpanElement>()
-  const fallbackCss = image ? undefined : cssGradient(from, to, direction)
+  const themeRevision = useThemeRevision()
+  const fallbackCss = image
+    ? undefined
+    : cssGradient(from, to, direction, stops)
   const shaderImage = useMemo(
-    () => image ?? gradientDataUrl(from, to, direction),
-    [image, from, to, direction]
+    () => {
+      if (image) return image
+      return gradientDataUrl(
+        resolveColor(from),
+        resolveColor(to),
+        direction,
+        stops
+      )
+    },
+    [image, from, to, direction, stops[0], stops[1], themeRevision]
   )
 
   return (

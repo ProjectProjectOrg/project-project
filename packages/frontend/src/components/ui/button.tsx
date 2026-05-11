@@ -6,7 +6,11 @@ import { cva, type VariantProps } from "class-variance-authority"
 import type { IconComponent } from "@/lib/icon-context"
 import { cn } from "@/lib/utils"
 import { useShape } from "@/lib/shape-context"
-import { DitherBackdrop, type DitherDirection } from "./button-dither"
+import {
+  DitherBackdrop,
+  type DitherDirection,
+  type DitherStops
+} from "./button-dither"
 
 const buttonVariants = cva(
   [
@@ -76,6 +80,7 @@ interface ButtonProps
   ditherFrom?: string
   ditherTo?: string
   ditherDirection?: DitherDirection
+  ditherStops?: DitherStops
   ditherImage?: string
 }
 
@@ -95,6 +100,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ditherFrom,
       ditherTo,
       ditherDirection,
+      ditherStops,
       ditherImage,
       ...htmlProps
     },
@@ -143,6 +149,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         from={ditherFrom}
         to={ditherTo}
         direction={ditherDirection}
+        stops={ditherStops}
         image={ditherImage}
       />
     )
