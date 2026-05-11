@@ -2,9 +2,11 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import { Exit } from "effect"
 import {
+  CheckCircle2,
+  Columns3,
   MoreHorizontal,
-  Trash2,
-  CheckCircle2
+  Rows3,
+  Trash2
 } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
@@ -16,6 +18,11 @@ import {
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import {
+  SEGMENTED_ITEM_CLASS,
+  SegmentedTabs,
+  type SegmentedItem
+} from "@/components/SegmentedTabs"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MentionScopeProvider } from "@/mentions/scope"
 import {
@@ -65,11 +72,15 @@ export function SprintDetailHeader({
   orgSlug,
   slug,
   sprint,
+  view,
+  onChangeView,
   onRequestComplete
 }: {
   orgSlug: string
   slug: string
   sprint: GroupDetail
+  view: "list" | "board"
+  onChangeView: (next: "list" | "board") => void
   onRequestComplete?: () => void
 }) {
   const isCompleted = sprint.completedAt !== null
@@ -109,6 +120,7 @@ export function SprintDetailHeader({
             })}
           </span>
         )}
+        <ViewTabs sprintId={sprint.id} view={view} onChange={onChangeView} />
         <SprintMenu
           orgSlug={orgSlug}
           slug={slug}
@@ -123,6 +135,38 @@ export function SprintDetailHeader({
         disabled={isCompleted}
       />
     </header>
+  )
+}
+
+function ViewTabs({
+  sprintId,
+  view,
+  onChange
+}: {
+  sprintId: GroupId
+  view: "list" | "board"
+  onChange: (next: "list" | "board") => void
+}) {
+  const items: ReadonlyArray<SegmentedItem<"list" | "board">> = [
+    { key: "list", label: m.sprints_view_list(), icon: Rows3 },
+    { key: "board", label: m.sprints_view_board(), icon: Columns3 }
+  ]
+  return (
+    <SegmentedTabs
+      items={items}
+      layoutId={`sprint-view-${sprintId}`}
+      isActive={(k) => k === view}
+      renderItem={(item, content, { active }) => (
+        <button
+          type="button"
+          onClick={() => onChange(item.key)}
+          aria-pressed={active}
+          className={SEGMENTED_ITEM_CLASS(active)}
+        >
+          {content}
+        </button>
+      )}
+    />
   )
 }
 

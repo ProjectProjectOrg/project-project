@@ -88,24 +88,33 @@ function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
 
-  return (
-    <PageContainer>
-      {Result.matchWithError(project, {
-        onInitial: () => <Skeleton />,
-        onError: (error) =>
-          error._tag === "NotFound" ? (
-            <NotFoundCard slug={slug} />
-          ) : (
-            <ErrorCard
-              message={m.project_detail_load_error({ tag: error._tag })}
-            />
-          ),
-        onDefect: (defect) => (
-          <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
-        ),
-        onSuccess: ({ value }) => (
-          <ProjectContext.Provider value={value}>
-            <TagRenamesProvider>
+  return Result.matchWithError(project, {
+    onInitial: () => (
+      <PageContainer>
+        <Skeleton />
+      </PageContainer>
+    ),
+    onError: (error) => (
+      <PageContainer>
+        {error._tag === "NotFound" ? (
+          <NotFoundCard slug={slug} />
+        ) : (
+          <ErrorCard
+            message={m.project_detail_load_error({ tag: error._tag })}
+          />
+        )}
+      </PageContainer>
+    ),
+    onDefect: (defect) => (
+      <PageContainer>
+        <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
+      </PageContainer>
+    ),
+    onSuccess: ({ value }) => (
+      <ProjectContext.Provider value={value}>
+        <TagRenamesProvider>
+          <div className="flex flex-col gap-6">
+            <PageContainer>
               <ProjectHeader
                 orgSlug={orgSlug}
                 slug={value.slug}
@@ -113,13 +122,13 @@ function ProjectLayout() {
                 project={value}
               />
               <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-              <Outlet />
-            </TagRenamesProvider>
-          </ProjectContext.Provider>
-        )
-      })}
-    </PageContainer>
-  )
+            </PageContainer>
+            <Outlet />
+          </div>
+        </TagRenamesProvider>
+      </ProjectContext.Provider>
+    )
+  })
 }
 
 function ProjectHeader({

@@ -29,6 +29,7 @@
     "@lexical/rich-text": "^0.44.0",
     "@lexical/selection": "^0.44.0",
     "@lexical/utils": "^0.44.0",
+    "@number-flow/react": "^0.6.0",
     "@paper-design/shaders-react": "^0.0.76",
     "@phosphor-icons/react": "^2.1.10",
     "@projectproject/shared": "workspace:*",

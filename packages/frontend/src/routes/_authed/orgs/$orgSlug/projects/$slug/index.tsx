@@ -2,6 +2,7 @@ import { useAtom, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { TicketList } from "@/components/TicketList"
+import { PageContainer } from "@/components/page"
 import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
 import {
   assigneeFilterAtom,
@@ -95,7 +96,7 @@ function TicketsTab() {
     sprintMembershipAtom(projectKey(orgSlug, slug))
   )
   return (
-    <>
+    <PageContainer>
       <TicketListUrlSync orgSlug={orgSlug} slug={slug} />
       <TicketList
         orgSlug={orgSlug}
@@ -104,7 +105,7 @@ function TicketsTab() {
         sprintMembership={sprintMembership}
         showSprintFilter
       />
-    </>
+    </PageContainer>
   )
 }
 

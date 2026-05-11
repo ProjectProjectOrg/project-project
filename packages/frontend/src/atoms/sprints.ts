@@ -10,10 +10,12 @@ import {
   type Group,
   type GroupDetail,
   type TicketId,
+  type TicketStatus,
   type UpdateGroupInput,
-  type UpdateGroupTicketsOutput
+  type UpdateGroupTicketsOutput,
+  type UpdateTicketOrderInput
 } from "@projectproject/shared"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import { ticketsListBaseAtom, ticketsListKey } from "@/atoms/tickets"
 
 export type { CompleteSprintDestination }
 
@@ -340,7 +342,7 @@ export const completeSprintAtom = Atom.family((key: string) => {
             sprintBaseAtom(sprintKey(orgSlug, slug, input.destination.groupId))
           )
         }
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         return completed
       })
     )
@@ -365,6 +367,72 @@ export const deleteSprintAtom = Atom.family((key: string) => {
         })
         get.refresh(sprintsListBaseAtom(key))
         return undefined
+      })
+    )
+  })
+})
+
+export const pendingTicketStatusAtom = Atom.family((_sprintKey: string) =>
+  Atom.make<ReadonlyMap<TicketId, TicketStatus>>(new Map())
+)
+
+export const placeTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, groupId } = splitSprintKey(key)
+  const project = projectKey(orgSlug, slug)
+  return Atom.optimisticFn(sprintsListAtom(project), {
+    reducer: (current, input: UpdateTicketOrderInput) => {
+      if (!Result.isSuccess(current)) return current
+      const sprints = current.value
+      const sprintIdx = sprints.findIndex((s) => s.id === groupId)
+      if (sprintIdx === -1) return current
+      const sprint = sprints[sprintIdx]
+      const filtered = sprint.tickets.filter((tid) => tid !== input.ticketId)
+      const insertAt =
+        input.after === null ? 0 : filtered.indexOf(input.after) + 1
+      const nextTickets: ReadonlyArray<TicketId> = [
+        ...filtered.slice(0, insertAt),
+        input.ticketId,
+        ...filtered.slice(insertAt)
+      ]
+      const nextSprints = sprints.slice()
+      nextSprints[sprintIdx] = {
+        ...sprint,
+        tickets: nextTickets,
+        updatedAt: new Date()
+      }
+      return Result.success(nextSprints, { waiting: true })
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: UpdateTicketOrderInput, get) {
+        const overlay = pendingTicketStatusAtom(key)
+        if (input.status !== undefined) {
+          const next = new Map(get(overlay))
+          next.set(input.ticketId, input.status)
+          get.set(overlay, next)
+        }
+        const clearOverlay = Effect.sync(() => {
+          if (input.status === undefined) return
+          const next = new Map(get(overlay))
+          next.delete(input.ticketId)
+          get.set(overlay, next)
+        })
+        return yield* Effect.gen(function* () {
+          const client = yield* ApiClient
+          const result = yield* client.groups.updateTicketOrder({
+            path: { orgSlug, slug, id: groupId },
+            payload: input
+          })
+          get.refresh(sprintsListBaseAtom(project))
+          get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+          yield* get.result(sprintsListBaseAtom(project), {
+            suspendOnWaiting: true
+          })
+          yield* get.result(
+            ticketsListBaseAtom(ticketsListKey(orgSlug, slug)),
+            { suspendOnWaiting: true }
+          )
+          return result
+        }).pipe(Effect.ensuring(clearOverlay))
       })
     )
   })

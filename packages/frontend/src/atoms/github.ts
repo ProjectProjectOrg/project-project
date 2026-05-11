@@ -23,7 +23,7 @@ import { projectAtom } from "./projects"
 import {
   ticketAtom,
   ticketKey,
-  ticketsListAtom,
+  ticketsListBaseAtom,
   ticketsListKey
 } from "./tickets"
 
@@ -147,7 +147,7 @@ export const createBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         return updated
       })
     )
@@ -181,7 +181,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         return updated
       })
     )
@@ -209,7 +209,7 @@ export const clearBranchAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, id: input.id }
         })
         get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         get.refresh(projectGitStatesBaseAtom(key))
         return updated
       })

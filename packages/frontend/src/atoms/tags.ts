@@ -2,7 +2,7 @@ import { Atom, Result } from "@effect-atom/atom-react"
 import { Effect, Schema } from "effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import { ticketsListBaseAtom, ticketsListKey } from "@/atoms/tickets"
 import {
   TagColor,
   type CreateTagInput,
@@ -98,7 +98,7 @@ export const renameTagAtom = Atom.family((key: string) => {
         })
         get.refresh(tagsBaseAtom(key))
         if (input.nextName) {
-          get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+          get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         }
         return tag
       })
@@ -123,7 +123,7 @@ export const deleteTagAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, name: input.name }
         })
         get.refresh(tagsBaseAtom(key))
-        get.refresh(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
       })
     )
   })

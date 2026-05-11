@@ -37,6 +37,9 @@
   "sprints_planned_label": "Planned",
   "sprints_rail_section_label": "Sprints",
   "sprints_remove_from_sprint_action": "Remove from sprint",
+  "sprints_view_board": "Board",
+  "sprints_view_list": "List",
+  "sprints_view_tabs_aria_label": "Switch view",
   "error_sprint_completed_immutable": "This sprint is completed; its membership is frozen.",
   "error_sprint_not_found": "Sprint not found"
 }
