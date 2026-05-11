@@ -56,12 +56,14 @@ import {
   UpdateCommentInput
 } from "./schemas/Comment"
 import {
+  CompleteSprintInput,
   CreateGroupInput,
   Group,
   GroupDetail,
   GroupId,
   UpdateGroupInput,
-  UpdateGroupTicketsInput
+  UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput
 } from "./schemas/Group"
 import {
   BranchExists,
@@ -75,6 +77,7 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
+  SprintCompletedImmutable,
   Unauthorized,
   Validation
 } from "./errors"
@@ -507,10 +510,25 @@ const GroupsGroup = HttpApiGroup.make("groups")
     )
       .setPath(GroupPath)
       .setPayload(UpdateGroupTicketsInput)
+      .addSuccess(UpdateGroupTicketsOutput)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(SprintCompletedImmutable)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "complete",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/complete"
+    )
+      .setPath(GroupPath)
+      .setPayload(CompleteSprintInput)
       .addSuccess(GroupDetail)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+      .addError(SprintCompletedImmutable)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/groups/:id")

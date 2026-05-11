@@ -185,7 +185,7 @@ export function ConnectBranchFields({
                     {b.name}
                   </span>
                   {b.isProtected && (
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                       {m.git_branch_protected_pill()}
                     </span>
                   )}

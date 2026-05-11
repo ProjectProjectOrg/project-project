@@ -37,10 +37,14 @@ function LoginPage() {
         </div>
 
         <Button
+          variant="dither"
           onClick={handleSignIn}
           leadingIcon={GithubMark}
           size="lg"
-          className="w-full"
+          className="w-full text-white"
+          ditherFrom="#0a0a0a"
+          ditherTo="#737373"
+          ditherDirection="r"
         >
           {m.auth_continue_with_github_button()}
         </Button>

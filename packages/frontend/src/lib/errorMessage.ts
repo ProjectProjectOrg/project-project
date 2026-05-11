@@ -11,6 +11,7 @@ import type {
   NotFound,
   RateLimited,
   RepoGone,
+  SprintCompletedImmutable,
   Unauthorized
 } from "@projectproject/shared"
 import { m } from "@/paraglide/messages"
@@ -28,9 +29,13 @@ export type AppError =
   | RateLimited
   | GitHubError
   | BranchNotFound
+  | SprintCompletedImmutable
 
 export const errorMessage = (error: AppError): string =>
   Match.value(error).pipe(
+    Match.tag("SprintCompletedImmutable", () =>
+      m.error_sprint_completed_immutable()
+    ),
     Match.tag("Unauthorized", () => m.error_unknown()),
     Match.orElse(() => m.error_unknown())
   )

@@ -6,9 +6,11 @@ import {
   useLocation,
   useNavigate
 } from "@tanstack/react-router"
+import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
+  CalendarRange,
   FolderKanban,
   Info,
   ListChecks,
@@ -26,6 +28,13 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import {
+  projectKey as sprintsProjectKey,
+  sprintsListAtom
+} from "@/atoms/sprints"
+import { activeAndPlannedCount, sprintState } from "@projectproject/shared"
+import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
+import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
 import { cn } from "@/lib/utils"
@@ -52,6 +61,7 @@ import { m } from "@/paraglide/messages"
 import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type {
+  Group,
   Ticket,
   ProjectDetail as ProjectDetailType
 } from "@projectproject/shared"
@@ -131,9 +141,9 @@ function ProjectHeader({
       <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
-        <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
+        <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
       </div>
       <GithubChip
         orgSlug={orgSlug}
@@ -288,27 +298,36 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   )
 }
 
-type TabKey = "tickets" | "about" | "members"
+type TabKey = "tickets" | "sprints" | "about" | "members"
 type TabDef = {
   key: TabKey
   to:
     | "/orgs/$orgSlug/projects/$slug"
+    | "/orgs/$orgSlug/projects/$slug/sprints"
     | "/orgs/$orgSlug/projects/$slug/about"
     | "/orgs/$orgSlug/projects/$slug/members"
   label: () => string
   icon: typeof ListChecks
   exact: boolean
-  countFor?: "tickets" | "members"
+  countFor?: "tickets" | "sprints" | "members"
 }
 
 const TABS: ReadonlyArray<TabDef> = [
   {
     key: "tickets",
     to: "/orgs/$orgSlug/projects/$slug",
-    label: () => m.project_detail_tab_tickets(),
+    label: () => m.project_detail_tab_backlog(),
     icon: ListChecks,
     exact: true,
     countFor: "tickets"
+  },
+  {
+    key: "sprints",
+    to: "/orgs/$orgSlug/projects/$slug/sprints",
+    label: () => m.project_detail_tab_sprints(),
+    icon: CalendarRange,
+    exact: false,
+    countFor: "sprints"
   },
   {
     key: "about",
@@ -344,9 +363,11 @@ function TabsNav({
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.length
     : null
-
-  const summary = Result.isSuccess(ticketsResult)
-    ? summarize(ticketsResult.value)
+  const sprintsResult = useAtomValue(
+    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  )
+  const sprintsCount = Result.isSuccess(sprintsResult)
+    ? activeAndPlannedCount(sprintsResult.value)
     : null
 
   const isActive = (key: TabKey): boolean => {
@@ -362,6 +383,7 @@ function TabsNav({
   }
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+  const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label(),
@@ -369,9 +391,11 @@ function TabsNav({
     badge:
       t.countFor === "tickets"
         ? ticketsCount
-        : t.countFor === "members"
-          ? project.members.length
-          : null
+        : t.countFor === "sprints"
+          ? sprintsCount
+          : t.countFor === "members"
+            ? project.members.length
+            : null
   }))
 
   return (
@@ -398,7 +422,7 @@ function TabsNav({
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
                   <ListChecks className="size-3.5" strokeWidth={1.75} />
-                  <span>{m.project_detail_tab_tickets()}</span>
+                  <span>{m.project_detail_tab_backlog()}</span>
                   <span
                     className={cn(
                       "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
@@ -416,6 +440,40 @@ function TabsNav({
               </Link>
             )
           }
+          if (item.key === "sprints" && sprintsCount !== null) {
+            return (
+              <Link
+                to={def.to}
+                params={{ orgSlug, slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {active && (
+                  <motion.span
+                    layoutId={`project-tabs-${slug}-active`}
+                    transition={springs.moderate}
+                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                  />
+                )}
+                <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
+                  <CalendarRange className="size-3.5" strokeWidth={1.75} />
+                  <span>{m.project_detail_tab_sprints()}</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                      active
+                        ? "bg-foreground/10 text-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {sprintsCount}
+                  </span>
+                </span>
+                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <SprintsBreakdown sprints={sprints} />
+                </span>
+              </Link>
+            )
+          }
           return (
             <Link
               to={def.to}
@@ -428,9 +486,6 @@ function TabsNav({
         }}
       />
 
-      {summary && (
-        <span className="text-xs text-muted-foreground">{summary}</span>
-      )}
     </div>
   )
 }
@@ -454,6 +509,29 @@ function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
   )
 }
 
+function SprintsBreakdown({ sprints }: { sprints: ReadonlyArray<Group> }) {
+  const counts = { active: 0, planned: 0, completed: 0 }
+  const now = DateTime.toDate(DateTime.unsafeNow())
+  for (const s of sprints) counts[sprintState(s, now)]++
+  const order: ReadonlyArray<keyof typeof counts> = [
+    "active",
+    "planned",
+    "completed"
+  ]
+  return (
+    <>
+      {order.map((state) => (
+        <BadgeStat
+          key={state}
+          count={counts[state]}
+          icon={SPRINT_STATE_META[state].icon}
+          className={SPRINT_STATE_META[state].className}
+        />
+      ))}
+    </>
+  )
+}
+
 function BadgeStat({
   count,
   icon: Icon,
@@ -471,18 +549,6 @@ function BadgeStat({
   )
 }
 
-function summarize(tickets: ReadonlyArray<Ticket>): string | null {
-  if (tickets.length === 0) return null
-  let todo = 0
-  let inProgress = 0
-  let done = 0
-  for (const t of tickets) {
-    if (t.status === "todo") todo++
-    else if (t.status === "in_progress") inProgress++
-    else done++
-  }
-  return m.project_detail_tickets_summary({ todo, inProgress, done })
-}
 
 function Skeleton() {
   return (

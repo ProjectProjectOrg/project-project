@@ -1,13 +1,16 @@
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type {
+  CompleteSprintInput,
   CreateGroupInput,
   Forbidden,
   Group,
   GroupDetail,
   NotFound,
+  SprintCompletedImmutable,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput,
   Validation
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
@@ -46,7 +49,20 @@ export interface GroupsShape {
     slug: string,
     id: string,
     input: UpdateGroupTicketsInput
-  ) => Effect.Effect<GroupDetail, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly complete: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: CompleteSprintInput
+  ) => Effect.Effect<
+    GroupDetail,
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+  >
   readonly remove: (
     orgSlug: string,
     userId: string,

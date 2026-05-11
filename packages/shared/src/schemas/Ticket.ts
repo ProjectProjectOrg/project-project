@@ -18,6 +18,10 @@ export type TicketId = typeof TicketId.Type
 export const TicketStatus = Schema.Literal("todo", "in_progress", "done")
 export type TicketStatus = typeof TicketStatus.Type
 
+export function isCarryover(status: TicketStatus): boolean {
+  return status !== "done"
+}
+
 export const TicketType = Schema.Literal("feat", "bug", "chore", "other")
 export type TicketType = typeof TicketType.Type
 

@@ -411,7 +411,7 @@ function BaseBranchCombobox({
                     <GitBranch className="size-3" strokeWidth={1.75} />
                     <span className="truncate">{b.name}</span>
                     {b.isProtected && (
-                      <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <span className="ml-auto text-[10px] text-muted-foreground">
                         {m.git_branch_protected_pill()}
                       </span>
                     )}
