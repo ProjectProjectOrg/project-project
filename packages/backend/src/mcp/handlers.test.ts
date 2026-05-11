@@ -215,4 +215,45 @@ describe("MCP dispatcher → doc tools", () => {
 
     await runtime.dispose()
   })
+
+  test("get_ticket_doc returns NotFound when caller can't see the project", async () => {
+    const HiddenProjectsStub = Layer.succeed(Projects, {
+      requireMember: (_o: any, _u: any, _s: any) =>
+        Effect.fail(new NotFound())
+    } as unknown as ProjectsShape)
+
+    const HiddenLayer = Layer.mergeAll(
+      CurrentUserStub,
+      TicketsStub,
+      HiddenProjectsStub,
+      EmptyStub(Groups),
+      EmptyStub(Tags),
+      EmptyStub(Users),
+      EmptyStub(BetterAuth),
+      ProjectDocsStub,
+      GroupDocsStub,
+      TicketDocsStub
+    )
+
+    const runtime = ManagedRuntime.make(HiddenLayer)
+    const registered = new Map<string, (i: unknown) => Promise<any>>()
+    const fakeServer = {
+      registerTool: (name: string, _m: unknown, cb: any) => {
+        registered.set(name, cb)
+      }
+    } as any
+    registerAllTools(fakeServer, runtime as any, handlers as any)
+
+    const cb = registered.get("get_ticket_doc")
+    const result = await cb!({
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "T-1"
+    })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("not found")
+
+    await runtime.dispose()
+  })
 })
