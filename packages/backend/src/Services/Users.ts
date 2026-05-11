@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type { User } from "@projectproject/shared"
 
 export interface UserSummary {
@@ -18,4 +19,4 @@ export interface UsersShape {
   ) => Effect.Effect<ReadonlyArray<User>>
 }
 
-export class Users extends Context.Tag("Users")<Users, UsersShape>() {}
+export class Users extends Context.Tag("@projectproject/backend/Services/Users")<Users, UsersShape>() {}

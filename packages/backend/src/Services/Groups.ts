@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   CompleteSprintInput,
   CreateGroupInput,
@@ -86,4 +87,4 @@ export interface GroupsShape {
   ) => Effect.Effect<void, MarkdownError>
 }
 
-export class Groups extends Context.Tag("Groups")<Groups, GroupsShape>() {}
+export class Groups extends Context.Tag("@projectproject/backend/Services/Groups")<Groups, GroupsShape>() {}

@@ -1,5 +1,8 @@
 import { it } from "@effect/vitest"
-import { Effect, Layer, Schema } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
 import type {
@@ -19,6 +22,8 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 
+const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
+
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
@@ -30,7 +35,7 @@ function makeTicketDocument(
   id: string,
   status: TicketStatus = "todo"
 ): TicketDocument {
-  const now = new Date("2026-04-01T00:00:00.000Z")
+  const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
     title: id,
@@ -131,7 +136,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
     slug: "p",
     name: "Project",
     createdBy: "user-1",
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     github: null,
     body: "# Project\n",
     members: [
@@ -276,8 +281,8 @@ it.effect("create rejects endsAt before startsAt", () =>
     const result = yield* Effect.either(
       groups.create("org", "user-1", "p", {
         name: "G",
-        startsAt: new Date("2026-06-01"),
-        endsAt: new Date("2026-05-01")
+        startsAt: isoDate("2026-06-01"),
+        endsAt: isoDate("2026-05-01")
       })
     )
     expect(result._tag).toBe("Left")
@@ -292,12 +297,12 @@ it.effect("update rejects endsAt before existing startsAt", () =>
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", {
       name: "G",
-      startsAt: new Date("2026-06-01"),
-      endsAt: new Date("2026-07-01")
+      startsAt: isoDate("2026-06-01"),
+      endsAt: isoDate("2026-07-01")
     })
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
-        endsAt: new Date("2026-05-15")
+        endsAt: isoDate("2026-05-15")
       })
     )
     expect(result._tag).toBe("Left")
@@ -311,7 +316,9 @@ it.effect("update rejects completedAt in the future", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", { name: "G" })
-    const future = new Date(Date.now() + 1000 * 60 * 60 * 24)
+    const future = DateTime.toDate(
+      DateTime.add(DateTime.unsafeNow(), { days: 1 })
+    )
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
         completedAt: future
@@ -329,12 +336,12 @@ it.effect("update rejects completedAt before startsAt", () =>
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", {
       name: "G",
-      startsAt: new Date("2026-04-01"),
-      endsAt: new Date("2026-04-30")
+      startsAt: isoDate("2026-04-01"),
+      endsAt: isoDate("2026-04-30")
     })
     const result = yield* Effect.either(
       groups.update("org", "user-1", "p", created.id, {
-        completedAt: new Date("2026-03-01")
+        completedAt: isoDate("2026-03-01")
       })
     )
     expect(result._tag).toBe("Left")
@@ -377,22 +384,14 @@ it.effect(
       expect(result.evicted[0].groupId).toBe(sprintA.id)
       expect(result.evicted[0].ticketIds).toEqual(["T-1"])
 
-      const sprintAAfter = yield* groups.get(
-        "org",
-        "user-1",
-        "p",
-        sprintA.id
-      )
+      const sprintAAfter = yield* groups.get("org", "user-1", "p", sprintA.id)
       expect(sprintAAfter.tickets).toEqual(["T-2"])
 
       const epicAfter = yield* groups.get("org", "user-1", "p", epic.id)
       expect(epicAfter.tickets).toEqual(["T-1"])
     }).pipe(
       Effect.provide(
-        makeGroupsLayer(
-          { ticketIds: ["T-1", "T-2"] },
-          { role: "admin" }
-        )
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
       )
     )
 )
@@ -405,11 +404,11 @@ it.effect(
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
         kind: "sprint",
-        startsAt: new Date("2026-04-01"),
-        endsAt: new Date("2026-04-15")
+        startsAt: isoDate("2026-04-01"),
+        endsAt: isoDate("2026-04-15")
       })
       yield* groups.update("org", "user-1", "p", sprint.id, {
-        completedAt: new Date("2026-04-15")
+        completedAt: isoDate("2026-04-15")
       })
       const result = yield* Effect.either(
         groups.updateTickets("org", "user-1", "p", sprint.id, {
@@ -421,9 +420,7 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
     )
 )
 
@@ -435,12 +432,12 @@ it.effect(
       const completed = yield* groups.create("org", "user-1", "p", {
         name: "Completed",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15"),
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15"),
         tickets: [ticketId("T-1")]
       })
       yield* groups.update("org", "user-1", "p", completed.id, {
-        completedAt: new Date("2026-03-15")
+        completedAt: isoDate("2026-03-15")
       })
       const active = yield* groups.create("org", "user-1", "p", {
         name: "Active",
@@ -464,9 +461,7 @@ it.effect(
       )
       expect(completedAfter.tickets).toEqual(["T-1"])
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
     )
 )
 
@@ -478,18 +473,14 @@ it.effect(
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15"),
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15"),
         tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
       })
 
-      const result = yield* groups.complete(
-        "org",
-        "user-1",
-        "p",
-        sprint.id,
-        { destination: { kind: "backlog" } }
-      )
+      const result = yield* groups.complete("org", "user-1", "p", sprint.id, {
+        destination: { kind: "backlog" }
+      })
 
       expect(result.completedAt).not.toBeNull()
       expect(result.tickets).toEqual(["T-2"])
@@ -498,7 +489,11 @@ it.effect(
         makeGroupsLayer(
           {
             ticketIds: ["T-1", "T-2", "T-3"],
-            ticketStatuses: { "T-1": "todo", "T-2": "done", "T-3": "in_progress" }
+            ticketStatuses: {
+              "T-1": "todo",
+              "T-2": "done",
+              "T-3": "in_progress"
+            }
           },
           { role: "admin" }
         )
@@ -514,15 +509,15 @@ it.effect(
       const source = yield* groups.create("org", "user-1", "p", {
         name: "Source",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15"),
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15"),
         tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
       })
       const dest = yield* groups.create("org", "user-1", "p", {
         name: "Dest",
         kind: "sprint",
-        startsAt: new Date("2026-03-15"),
-        endsAt: new Date("2026-03-29"),
+        startsAt: isoDate("2026-03-15"),
+        endsAt: isoDate("2026-03-29"),
         tickets: [ticketId("T-3"), ticketId("T-4")]
       })
 
@@ -563,11 +558,11 @@ it.effect(
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15")
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15")
       })
       yield* groups.update("org", "user-1", "p", sprint.id, {
-        completedAt: new Date("2026-03-15")
+        completedAt: isoDate("2026-03-15")
       })
 
       const result = yield* Effect.either(
@@ -581,9 +576,7 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: [] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
     )
 )
 
@@ -595,17 +588,17 @@ it.effect(
       const source = yield* groups.create("org", "user-1", "p", {
         name: "Source",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15")
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15")
       })
       const dest = yield* groups.create("org", "user-1", "p", {
         name: "Dest",
         kind: "sprint",
-        startsAt: new Date("2026-03-15"),
-        endsAt: new Date("2026-03-29")
+        startsAt: isoDate("2026-03-15"),
+        endsAt: isoDate("2026-03-29")
       })
       yield* groups.update("org", "user-1", "p", dest.id, {
-        completedAt: new Date("2026-03-29")
+        completedAt: isoDate("2026-03-29")
       })
 
       const result = yield* Effect.either(
@@ -619,35 +612,29 @@ it.effect(
         expect(result.left._tag).toBe("SprintCompletedImmutable")
       }
     }).pipe(
-      Effect.provide(
-        makeGroupsLayer({ ticketIds: [] }, { role: "admin" })
-      )
+      Effect.provide(makeGroupsLayer({ ticketIds: [] }, { role: "admin" }))
     )
 )
 
-it.effect(
-  "complete fails with Validation when source is not a sprint",
-  () =>
-    Effect.gen(function* () {
-      const groups = yield* Groups
-      const epic = yield* groups.create("org", "user-1", "p", {
-        name: "Epic",
-        kind: "epic"
+it.effect("complete fails with Validation when source is not a sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const epic = yield* groups.create("org", "user-1", "p", {
+      name: "Epic",
+      kind: "epic"
+    })
+
+    const result = yield* Effect.either(
+      groups.complete("org", "user-1", "p", epic.id, {
+        destination: { kind: "backlog" }
       })
-
-      const result = yield* Effect.either(
-        groups.complete("org", "user-1", "p", epic.id, {
-          destination: { kind: "backlog" }
-        })
-      )
-
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("Validation")
-      }
-    }).pipe(
-      Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
     )
+
+    expect(result._tag).toBe("Left")
+    if (result._tag === "Left") {
+      expect(result.left._tag).toBe("Validation")
+    }
+  }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
 )
 
 it.effect(
@@ -658,8 +645,8 @@ it.effect(
       const source = yield* groups.create("org", "user-1", "p", {
         name: "Source",
         kind: "sprint",
-        startsAt: new Date("2026-03-01"),
-        endsAt: new Date("2026-03-15")
+        startsAt: isoDate("2026-03-01"),
+        endsAt: isoDate("2026-03-15")
       })
       const epic = yield* groups.create("org", "user-1", "p", {
         name: "Epic",
@@ -676,9 +663,7 @@ it.effect(
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("Validation")
       }
-    }).pipe(
-      Effect.provide(makeGroupsLayer(undefined, { role: "admin" }))
-    )
+    }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "admin" })))
 )
 
 it.effect("complete fails for non-admin members", () =>

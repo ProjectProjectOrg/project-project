@@ -36,7 +36,7 @@
 // add `NotFound`, `Forbidden`, `Conflict`, `ValidationError` here.
 
 import { HttpApiSchema } from "@effect/platform"
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",

@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime"
 import { Plus, X } from "lucide-react"
 import { type ComponentProps } from "react"
 import {
@@ -44,7 +45,7 @@ export type SprintAssignMenuProps = {
 
 export function pickDefaultSprint(
   sprints: ReadonlyArray<Group>,
-  now: Date = new Date()
+  now: Date = DateTime.toDate(DateTime.unsafeNow())
 ): Group | null {
   return (
     pickActiveSprint(sprints, now) ??
@@ -65,7 +66,7 @@ export function SprintAssignMenu({
   finalFocus,
   clearLabel
 }: SprintAssignMenuProps) {
-  const now = new Date()
+  const now = DateTime.toDate(DateTime.unsafeNow())
   const eligible = sprints
     .filter((s) => s.completedAt === null)
     .slice()

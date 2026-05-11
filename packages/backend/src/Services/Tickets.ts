@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   AttachBranchInput,
   BranchExists,
@@ -128,4 +129,4 @@ export interface TicketsShape {
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError>
 }
 
-export class Tickets extends Context.Tag("Tickets")<Tickets, TicketsShape>() {}
+export class Tickets extends Context.Tag("@projectproject/backend/Services/Tickets")<Tickets, TicketsShape>() {}

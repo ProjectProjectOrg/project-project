@@ -59,11 +59,14 @@
 // first call to `Effect.runPromise(program.pipe(Effect.provide(ApiClient.Default)))`
 // is when the layer is actually constructed.
 
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { FetchHttpClient, HttpApiClient } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
 
-export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
-  effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
-  dependencies: [FetchHttpClient.layer]
-}) {}
+export class ApiClient extends Effect.Service<ApiClient>()(
+  "@projectproject/frontend/services/ApiClient",
+  {
+    effect: HttpApiClient.make(AppApi, { baseUrl: "/api" }),
+    dependencies: [FetchHttpClient.layer]
+  }
+) {}

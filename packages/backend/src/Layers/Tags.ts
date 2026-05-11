@@ -1,4 +1,6 @@
-import { Effect, Layer, Schema } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { and, eq } from "drizzle-orm"
 import {
   Conflict,
@@ -116,7 +118,7 @@ export const TagsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (existingRow)
-          return yield* Effect.fail(new Conflict({ reason: "tag_exists" }))
+          return yield* new Conflict({ reason: "tag_exists" })
 
         const inserted = yield* db
           .insert(projectTag)
@@ -156,7 +158,7 @@ export const TagsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!existing) return yield* Effect.fail(new NotFound())
+        if (!existing) return yield* new NotFound()
 
         const nextName = patch.name ?? existing.name
         const nextColor = patch.color ?? existing.color
@@ -173,7 +175,7 @@ export const TagsLive = Layer.effect(
             })
             .pipe(Effect.orDie)
           if (collision)
-            return yield* Effect.fail(new Conflict({ reason: "tag_exists" }))
+            return yield* new Conflict({ reason: "tag_exists" })
         }
 
         yield* db
@@ -215,7 +217,7 @@ export const TagsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (!existingRow) return yield* Effect.fail(new NotFound())
+        if (!existingRow) return yield* new NotFound()
 
         yield* rewriteTagInTickets(orgSlug, slug, name, null)
         yield* db

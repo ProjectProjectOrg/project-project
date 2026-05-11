@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   BranchExists,
   BranchListResponse,
@@ -123,4 +124,4 @@ export interface GitHubShape {
   >
 }
 
-export class GitHub extends Context.Tag("GitHub")<GitHub, GitHubShape>() {}
+export class GitHub extends Context.Tag("@projectproject/backend/Services/GitHub")<GitHub, GitHubShape>() {}

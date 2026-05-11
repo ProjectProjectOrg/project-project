@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 import { User } from "./User"
 import { TicketId } from "./Ticket"
 import { Slug } from "./Project"

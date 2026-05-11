@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
-import { Exit } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import {
   CheckCircle2,
   Columns3,
@@ -324,7 +325,7 @@ function DateRangeField({
           selected={draft}
           onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
           numberOfMonths={1}
-          defaultMonth={draft.from ?? new Date()}
+          defaultMonth={draft.from ?? DateTime.toDate(DateTime.unsafeNow())}
         />
       </PopoverContent>
     </Popover>

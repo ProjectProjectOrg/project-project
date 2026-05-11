@@ -44,7 +44,8 @@
 
 import { HttpServerRequest } from "@effect/platform"
 import { Authentication, Unauthorized } from "@projectproject/shared"
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { BetterAuth } from "../Services/BetterAuth"
 
 export const AuthenticationLive = Layer.effect(
@@ -61,7 +62,7 @@ export const AuthenticationLive = Layer.effect(
             .pipe(Effect.mapError(() => new Unauthorized()))
 
           if (session === null) {
-            return yield* Effect.fail(new Unauthorized())
+            return yield* new Unauthorized()
           }
           // Shape Better Auth's user into the shared `User` schema. The fields
           // line up by name, but Better Auth types `image` as

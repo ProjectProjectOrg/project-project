@@ -1,5 +1,6 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
+import * as DateTime from "effect/DateTime"
 import { ArrowRight, FolderKanban, Plus } from "lucide-react"
 import { meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
@@ -48,7 +49,7 @@ function Dashboard() {
 }
 
 function greet(): string {
-  const h = new Date().getHours()
+  const h = DateTime.toDate(DateTime.unsafeNow()).getHours()
   if (h < 5) return m.org_dashboard_greeting_late()
   if (h < 12) return m.org_dashboard_greeting_morning()
   if (h < 18) return m.org_dashboard_greeting_afternoon()
@@ -62,7 +63,7 @@ function RecentProjects({
   orgSlug: string
   projects: ReadonlyArray<Project>
 }) {
-  const sorted = [...projects].sort(
+  const sorted = [...projects].toSorted(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   )
   const top = sorted.slice(0, 6)

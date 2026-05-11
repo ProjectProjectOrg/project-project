@@ -1,4 +1,5 @@
-import { Layer } from "effect"
+import { BunContext } from "@effect/platform-bun"
+import * as Layer from "effect/Layer"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"
@@ -15,7 +16,11 @@ import { TicketDocsLive } from "./Layers/TicketDocs"
 import { TicketsLive } from "./Layers/Tickets"
 import { UsersLive } from "./Layers/Users"
 
-export const BackendInfrastructureLive = Layer.mergeAll(BetterAuthLive, DbLive)
+export const BackendInfrastructureLive = Layer.mergeAll(
+  BetterAuthLive,
+  DbLive,
+  BunContext.layer
+)
 
 export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(CommentsLive),

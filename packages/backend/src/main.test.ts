@@ -43,8 +43,10 @@ import {
   HttpApiClient,
   HttpServer
 } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { AppApi } from "@projectproject/shared"
-import { Effect, Layer } from "effect"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 import { BetterAuth, type BetterAuthShape } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
@@ -71,9 +73,11 @@ const FakeBetterAuthLive = Layer.succeed(BetterAuth, FakeBetterAuth)
 
 // One shared web handler for the whole suite.
 const { handler } = HttpApiBuilder.toWebHandler(
-  Layer.mergeAll(ApiLive, HttpServer.layerContext).pipe(
+  ApiLive.pipe(
+    Layer.provideMerge(HttpServer.layerContext),
     Layer.provide(FakeDbLive),
-    Layer.provide(FakeBetterAuthLive)
+    Layer.provide(FakeBetterAuthLive),
+    Layer.provide(BunContext.layer)
   )
 )
 

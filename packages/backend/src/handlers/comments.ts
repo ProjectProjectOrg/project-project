@@ -1,11 +1,9 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser, Validation } from "@projectproject/shared"
-import { Effect } from "effect"
+import * as Effect from "effect/Effect"
 import { Comments } from "../Services/Comments"
 import { CurrentOrg } from "../Services/CurrentOrg"
-
-const dieOnMarkdown = <A, R>(eff: Effect.Effect<A, any, R>) =>
-  eff.pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+import { dieOnMarkdown } from "./lib"
 
 export const CommentsHandlerLive = HttpApiBuilder.group(
   AppApi,

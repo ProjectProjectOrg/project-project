@@ -4,9 +4,15 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
-import { Exit } from "effect"
+import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
+import {
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
   DropdownMenu,
@@ -104,13 +110,11 @@ export function SprintTicketCreator({
           t.id.toLowerCase().includes(lowered))
     )
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
-    const existing: Array<Item> = eligible
-      .slice(0, 8)
-      .map((t) => ({
-        kind: "existing" as const,
-        ticket: t,
-        otherSprintName: memberOfOtherSprint.get(t.id) ?? null
-      }))
+    const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({
+      kind: "existing" as const,
+      ticket: t,
+      otherSprintName: memberOfOtherSprint.get(t.id) ?? null
+    }))
     if (trimmed.length === 0 || exactTitle) return existing
     return [{ kind: "create" as const, label: trimmed }, ...existing]
   }, [trimmed, ticketsResult, excludeIds, memberOfOtherSprint])
@@ -178,6 +182,7 @@ export function SprintTicketCreator({
         setTypeMenuOpen(open)
         if (!open) {
           setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
           setTimeout(() => {
             inputRef.current?.focus()
             setClosingMenu(false)

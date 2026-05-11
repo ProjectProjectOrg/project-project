@@ -1,4 +1,6 @@
-import { Context, Data, type Effect } from "effect"
+import * as Context from "effect/Context"
+import * as Data from "effect/Data"
+import type * as Effect from "effect/Effect"
 import type {
   Comment,
   CommentId,
@@ -48,7 +50,7 @@ export interface CommentsShape {
   ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
 }
 
-export class Comments extends Context.Tag("Comments")<
+export class Comments extends Context.Tag("@projectproject/backend/Services/Comments")<
   Comments,
   CommentsShape
 >() {}

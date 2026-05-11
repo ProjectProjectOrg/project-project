@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export const TagName = Schema.String.pipe(
   Schema.pattern(/^[a-z0-9][a-z0-9 -]{0,30}$/),

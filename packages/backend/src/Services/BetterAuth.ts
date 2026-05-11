@@ -1,5 +1,7 @@
 import type { Session, User } from "../auth"
-import { Context, Data, type Effect } from "effect"
+import * as Context from "effect/Context"
+import * as Data from "effect/Data"
+import type * as Effect from "effect/Effect"
 
 export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -24,7 +26,7 @@ export interface BetterAuthShape {
   ) => Effect.Effect<string | null, BetterAuthError>
 }
 
-export class BetterAuth extends Context.Tag("BetterAuth")<
+export class BetterAuth extends Context.Tag("@projectproject/backend/Services/BetterAuth")<
   BetterAuth,
   BetterAuthShape
 >() {}

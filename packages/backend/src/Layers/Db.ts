@@ -1,6 +1,7 @@
 import { make } from "@effect/sql-drizzle/Pg"
 import { PgClient } from "@effect/sql-pg"
-import { Config, Layer } from "effect"
+import * as Config from "effect/Config"
+import * as Layer from "effect/Layer"
 import * as schema from "../db/schema"
 import { Db } from "../Services/Db"
 

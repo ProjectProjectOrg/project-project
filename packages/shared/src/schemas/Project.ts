@@ -9,7 +9,7 @@
 // `CreateProjectInput` is the inline-create payload — name only, slug is
 // derived on the server so the client doesn't have to deal with conflicts.
 
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export const Slug = Schema.String.pipe(
   Schema.pattern(/^[a-z0-9]+(-[a-z0-9]+)*$/),

@@ -1,4 +1,5 @@
-import { Context, type Effect } from "effect"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
 import type {
   NotFound,
   TagName,
@@ -54,7 +55,7 @@ export interface TicketDocsShape {
   ) => Effect.Effect<void, NotFound | MarkdownError>
 }
 
-export class TicketDocs extends Context.Tag("TicketDocs")<
+export class TicketDocs extends Context.Tag("@projectproject/backend/Services/TicketDocs")<
   TicketDocs,
   TicketDocsShape
 >() {}

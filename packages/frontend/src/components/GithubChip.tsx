@@ -9,7 +9,7 @@
 // Token / repo failure modes shown by the parent layout via gitStates response.
 
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match } from "effect"
+import * as Match from "effect/Match"
 import {
   AlertTriangle,
   ChevronDown,
@@ -366,7 +366,7 @@ function ManagePanel({
               type="button"
               size="sm"
               variant="primary"
-              onClick={() => void disconnect()}
+              onClick={() =>  disconnect()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {m.github_chip_disconnect_button()}

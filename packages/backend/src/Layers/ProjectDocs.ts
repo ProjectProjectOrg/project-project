@@ -1,4 +1,7 @@
-import { Cause, Effect, Layer, Schema } from "effect"
+import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { GithubConnection, NotFound, Role, Slug } from "@projectproject/shared"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import {

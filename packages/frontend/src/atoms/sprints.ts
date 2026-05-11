@@ -1,5 +1,7 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import { Effect, Schema } from "effect"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
@@ -94,7 +96,7 @@ export const createSprintAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(sprintsListAtom(key), {
     reducer: (current, input: CreateSprintReducerInput) => {
       if (!Result.isSuccess(current)) return current
-      const now = new Date()
+      const now = DateTime.toDate(DateTime.unsafeNow())
       const synthetic: Group = {
         id: nextPendingId(),
         name: input.name,
@@ -156,7 +158,7 @@ export const updateSprintAtom = Atom.family((key: string) => {
             input.patch.completedAt !== undefined
               ? input.patch.completedAt
               : g.completedAt,
-          updatedAt: new Date()
+          updatedAt: DateTime.toDate(DateTime.unsafeNow())
         }
       })
       return Result.success(next, { waiting: true })
@@ -187,7 +189,7 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
     reducer: (current, input: AddTicketsReducerInput) => {
       if (!Result.isSuccess(current)) return current
       const incoming = new Set<string>(input.ticketIds)
-      const now = new Date()
+      const now = DateTime.toDate(DateTime.unsafeNow())
       const next = current.value.map((g) => {
         if (g.id === input.groupId) {
           const merged = [...g.tickets]
@@ -242,7 +244,7 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
     reducer: (current, input: RemoveTicketsReducerInput) => {
       if (!Result.isSuccess(current)) return current
       const drop = new Set<string>(input.ticketIds)
-      const now = new Date()
+      const now = DateTime.toDate(DateTime.unsafeNow())
       const next = current.value.map((g) => {
         if (g.id !== input.groupId) return g
         return {
@@ -302,7 +304,7 @@ export const completeSprintAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(sprintsListAtom(key), {
     reducer: (current, input: CompleteSprintReducerInput) => {
       if (!Result.isSuccess(current)) return current
-      const now = new Date()
+      const now = DateTime.toDate(DateTime.unsafeNow())
       const source = current.value.find((g) => g.id === input.groupId)
       if (!source) return current
       const { stay, carry } = splitCarryover(
