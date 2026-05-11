@@ -153,21 +153,23 @@ function ViewTabs({
     { key: "board", label: m.sprints_view_board(), icon: Columns3 }
   ]
   return (
-    <SegmentedTabs
-      items={items}
-      layoutId={`sprint-view-${sprintId}`}
-      isActive={(k) => k === view}
-      renderItem={(item, content, { active }) => (
-        <button
-          type="button"
-          onClick={() => onChange(item.key)}
-          aria-pressed={active}
-          className={SEGMENTED_ITEM_CLASS(active)}
-        >
-          {content}
-        </button>
-      )}
-    />
+    <div role="group" aria-label={m.sprints_view_tabs_aria_label()}>
+      <SegmentedTabs
+        items={items}
+        layoutId={`sprint-view-${sprintId}`}
+        isActive={(k) => k === view}
+        renderItem={(item, content, { active }) => (
+          <button
+            type="button"
+            onClick={() => onChange(item.key)}
+            aria-pressed={active}
+            className={SEGMENTED_ITEM_CLASS(active)}
+          >
+            {content}
+          </button>
+        )}
+      />
+    </div>
   )
 }
 

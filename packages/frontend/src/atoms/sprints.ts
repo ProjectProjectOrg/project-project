@@ -389,6 +389,9 @@ export const placeTicketAtom = Atom.family((key: string) => {
       if (sprintIdx === -1) return current
       const sprint = sprints[sprintIdx]
       const filtered = sprint.tickets.filter((tid) => tid !== input.ticketId)
+      if (input.after !== null && !filtered.includes(input.after)) {
+        return current
+      }
       const insertAt =
         input.after === null ? 0 : filtered.indexOf(input.after) + 1
       const nextTickets: ReadonlyArray<TicketId> = [

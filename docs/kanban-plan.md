@@ -74,7 +74,7 @@ Two flavors of "absolute index":
 
 **Locked shape:**
 
-```
+```http
 PATCH /orgs/:orgSlug/projects/:slug/groups/:id/ticket-order
 
 payload: {
@@ -225,7 +225,7 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 
 ### Still to create
 
-```
+```text
 packages/frontend/src/components/sprints/SprintBoardColumn.tsx   ← column wrapper + tail drop zone
 packages/frontend/src/components/sprints/SprintBoardCard.tsx     ← draggable card
 packages/frontend/src/components/sprints/-board-utils.ts         ← edge math, neighbor lookup, grouping with overlay
@@ -238,7 +238,7 @@ packages/frontend/src/components/sprints/-board-utils.ts         ← edge math, 
 
 ### To delete in final cleanup
 
-```
+```text
 packages/frontend/src/routes/(public)/spike/-shared.tsx
 packages/frontend/src/routes/(public)/spike/route.tsx
 packages/frontend/src/routes/(public)/spike/index.tsx
