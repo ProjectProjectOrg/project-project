@@ -1,9 +1,11 @@
 import * as DateTime from "effect/DateTime"
+import * as Schema from "effect/Schema"
 import type { Group } from "./schemas/Group"
 
 const nowDate = (): Date => DateTime.toDate(DateTime.unsafeNow())
 
-export type SprintState = "active" | "planned" | "completed"
+export const SprintState = Schema.Literal("active", "planned", "completed")
+export type SprintState = typeof SprintState.Type
 
 export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
   if (sprint.completedAt !== null) return "completed"

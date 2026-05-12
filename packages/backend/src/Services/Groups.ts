@@ -7,8 +7,10 @@ import type {
   Forbidden,
   Group,
   GroupDetail,
+  GroupFilter,
   NotFound,
   SprintCompletedImmutable,
+  SprintState,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
@@ -27,6 +29,18 @@ export interface GroupsShape {
     orgSlug: string,
     userId: string,
     slug: string,
+    filter: GroupFilter | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
+  readonly listSprintsPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    state: SprintState | undefined,
     cursor: CursorPayload | undefined,
     limit: number
   ) => Effect.Effect<
