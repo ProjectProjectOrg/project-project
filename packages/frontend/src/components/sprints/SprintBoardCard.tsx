@@ -21,9 +21,8 @@ function SprintBoardCardImpl({
   const navigate = useNavigate()
   const open = () => {
     void navigate({
-      from: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      to: ".",
-      search: (prev) => ({ ...prev, view: "list", ticket: ticket.id })
+      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+      params: { orgSlug, slug, id: ticket.id }
     })
   }
 

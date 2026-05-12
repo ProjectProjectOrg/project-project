@@ -32,12 +32,15 @@ import type { TicketDetail } from "@projectproject/shared"
 export function ConnectBranchFields({
   orgSlug,
   slug,
-  ticket
+  ticket,
+  variant = "bordered"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
+  variant?: "bordered" | "ghost"
 }) {
+  const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [input, setInput] = useState("")
   const [q, setQ] = useState("")
@@ -201,9 +204,9 @@ export function ConnectBranchFields({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <InlineForm.Cancel />
+        <InlineForm.Cancel size={buttonSize} />
         <Button
-          size="sm"
+          size={buttonSize}
           leadingIcon={GitBranch}
           onClick={() => selected && void submit(selected)}
           disabled={busy || !selected}

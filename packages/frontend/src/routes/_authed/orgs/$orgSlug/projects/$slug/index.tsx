@@ -40,8 +40,6 @@ function parseTags(value: unknown): ReadonlyArray<TagName> {
 }
 
 interface ProjectIndexSearch {
-  ticket?: string
-  focusBody?: 1
   q?: string
   status?: TicketStatus | "all"
   type?: TicketType | "all"
@@ -55,8 +53,6 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   component: TicketsTab,
   validateSearch: (search: Record<string, unknown>): ProjectIndexSearch => {
     const out: ProjectIndexSearch = {}
-    if (typeof search.ticket === "string") out.ticket = search.ticket
-    if (search.focusBody === 1) out.focusBody = 1
     if (typeof search.q === "string" && search.q.length > 0) out.q = search.q
     if (
       typeof search.status === "string" &&

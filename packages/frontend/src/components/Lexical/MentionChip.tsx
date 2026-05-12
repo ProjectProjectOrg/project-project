@@ -46,9 +46,8 @@ export function MentionChip({
       render={
         scope ? (
           <Link
-            to="/orgs/$orgSlug/projects/$slug"
-            params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
-            search={{ ticket: id }}
+            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+            params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
             onMouseDown={(e) => e.preventDefault()}
           />
         ) : undefined

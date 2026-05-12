@@ -12,6 +12,7 @@ import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
+  ChevronLeft,
   Columns3,
   FolderKanban,
   Info,
@@ -90,7 +91,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
+  const location = useLocation()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const onTicketDetail = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/tickets/`
+  )
 
   return Result.matchWithError(project, {
     onInitial: () => (
@@ -119,13 +124,19 @@ function ProjectLayout() {
         <TagRenamesProvider>
           <div className="flex flex-col gap-6">
             <PageContainer>
-              <ProjectHeader
-                orgSlug={orgSlug}
-                slug={value.slug}
-                name={value.name}
-                project={value}
-              />
-              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+              {onTicketDetail ? (
+                <BackToBacklog orgSlug={orgSlug} slug={slug} />
+              ) : (
+                <>
+                  <ProjectHeader
+                    orgSlug={orgSlug}
+                    slug={value.slug}
+                    name={value.name}
+                    project={value}
+                  />
+                  <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+                </>
+              )}
             </PageContainer>
             <Outlet />
           </div>
@@ -357,6 +368,25 @@ const TABS: ReadonlyArray<TabDef> = [
     countFor: "members"
   }
 ]
+
+function BackToBacklog({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
+  return (
+    <Link
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug }}
+      className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+    >
+      <ChevronLeft className="size-4" strokeWidth={1.75} />
+      <span>{m.tickets_page_back_to_backlog()}</span>
+    </Link>
+  )
+}
 
 function TabsNav({
   orgSlug,

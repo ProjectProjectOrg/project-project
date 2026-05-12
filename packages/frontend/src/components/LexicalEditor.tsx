@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
@@ -208,6 +208,7 @@ export function LexicalEditor({
   const pending = useRef<string | null>(null)
   const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
+  const [focused, setFocused] = useState(false)
 
   function setStatus(s: SaveStatus) {
     onStatusChange?.(s)
@@ -249,10 +250,15 @@ export function LexicalEditor({
   return (
     <div className={cn("prose-md", className)}>
       <LexicalComposer initialConfig={initialConfig}>
-        <div className="relative">
+        <div
+          className="relative"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        >
           <RichTextPlugin
             contentEditable={
               <ContentEditable
+                spellCheck={focused}
                 className={cn(
                   "lexical-content outline-none",
                   compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
