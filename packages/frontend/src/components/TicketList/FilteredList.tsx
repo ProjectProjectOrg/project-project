@@ -134,13 +134,9 @@ export function FilteredList({
   const showExtraActionsCol = extraRowActions !== undefined
   const gridCols = cn(
     "grid divide-y divide-border rounded-xl border border-border bg-background",
-    showSprintCol && showExtraActionsCol
-      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto_auto]"
-      : showSprintCol
-        ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-        : showExtraActionsCol
-          ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-          : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto]"
+    showExtraActionsCol
+      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto]"
+      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
   )
   return (
     <ul className={gridCols}>
@@ -242,21 +238,25 @@ function Row({
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
-        <span className="min-w-0 truncate text-sm font-medium">
-          {ticket.title}
-        </span>
-        {showSprintCol && (
-          <div className="justify-self-end">
-            <SprintField
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="min-w-0 truncate text-sm font-medium">
+            {ticket.title}
+          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <TicketGitChip
               orgSlug={orgSlug}
               slug={slug}
               ticketId={ticket.id}
-              membership={sprintMembership}
             />
+            {showSprintCol && (
+              <SprintField
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+                membership={sprintMembership}
+              />
+            )}
           </div>
-        )}
-        <div className="justify-self-end">
-          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </div>
         <AssigneeRowTrigger
           orgSlug={orgSlug}
