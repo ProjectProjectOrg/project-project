@@ -331,9 +331,7 @@ function PanelForState({
             tone={state.draft ? "draft" : "open"}
             checks={state.checks}
           />
-          <span className="truncate text-xs text-muted-foreground">
-            {state.title}
-          </span>
+          <span className={WRAPPABLE_TEXT}>{state.title}</span>
         </div>
       </div>
     )
@@ -345,7 +343,7 @@ function PanelForState({
         <div className={cn(ROW_STACK, pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="merged" />
-          <span className="text-xs text-muted-foreground">
+          <span className={WRAPPABLE_TEXT}>
             {m.git_pr_merged_status_note()}
           </span>
         </div>
@@ -387,12 +385,17 @@ function PanelForState({
       <Root variant={variant} className={GIT_PANEL_CONTAINER}>
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
-            <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-              {m.git_stale_branch_prefix()}{" "}
-              <span className="font-mono">{state.name}</span>{" "}
-              {m.git_stale_branch_suffix()}
-            </span>
+            <div className="flex min-w-0 items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle
+                className="mt-0.5 size-3.5 shrink-0"
+                strokeWidth={1.75}
+              />
+              <span className="min-w-0 break-words">
+                {m.git_stale_branch_prefix()}{" "}
+                <span className="font-mono">{state.name}</span>{" "}
+                {m.git_stale_branch_suffix()}
+              </span>
+            </div>
           </InlineForm.Display>
           <InlineForm.Actions className={ACTIONS_STACK}>
             <InlineForm.Trigger
@@ -427,6 +430,8 @@ const ACTIONS_STACK =
   "@max-sm/git-panel:ml-0 @max-3xs/git-panel:flex-col @max-3xs/git-panel:items-stretch"
 const ROW_STACK =
   "flex flex-wrap items-center gap-2 @max-sm/git-panel:flex-col @max-sm/git-panel:items-start"
+const WRAPPABLE_TEXT =
+  "min-w-0 truncate text-xs text-muted-foreground @max-sm/git-panel:whitespace-normal @max-sm/git-panel:overflow-visible"
 
 export function BranchChip({
   slug,
