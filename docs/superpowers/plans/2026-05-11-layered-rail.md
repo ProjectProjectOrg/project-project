@@ -4,7 +4,7 @@
 
 **Goal:** Replace the third-column contextual rail with a crossfade+scale layer inside the primary sidebar column, so opening the rail no longer shifts main content horizontally.
 
-**Architecture:** Sidebar column splits into three vertical zones (logo header, stacking body, theme-switcher footer). The stacking body holds two layers driven by `useSidebarSlotContent()` — primary nav by default, rail when a section registers content. `AnimatePresence` (already used elsewhere in the repo) handles the enter/exit motion. `SidebarSlot`'s payload stays a plain `ReactNode`; the back row is rendered *by* the rail using a shared `<RailBackLink>` primitive, so no slot API change is required.
+**Architecture:** Sidebar column splits into three vertical zones (logo header, stacking body, theme-switcher footer). The stacking body holds two layers driven by `useSidebarSlotContent()` — primary nav by default, rail when a section registers content. `AnimatePresence` (already used elsewhere in the repo) handles the enter/exit motion. `SidebarSlot`'s payload stays a plain `ReactNode`; the back row is rendered _by_ the rail using a shared `<RailBackLink>` primitive, so no slot API change is required.
 
 **Tech Stack:** React 19, TanStack Router, `motion/react` (`AnimatePresence` + `motion.div`), Tailwind v4, paraglide for i18n.
 
@@ -23,6 +23,7 @@
 ## Task 1: Add the rail header translation key
 
 **Files:**
+
 - Modify: `packages/frontend/messages/en/sprints.json`
 
 - [ ] **Step 1: Add the key**
@@ -65,6 +66,7 @@ git commit -m "feat(sprints): add rail section label translation"
 This is the shared back-row used at the top of any contextual rail. It renders a chevron + section label, wrapped in a TanStack `Link` to the parent route. Generic over route type via TanStack's `Link` props.
 
 **Files:**
+
 - Create: `packages/frontend/src/components/RailBackLink.tsx`
 
 - [ ] **Step 1: Write the component**
@@ -80,7 +82,11 @@ type RailBackLinkProps = LinkComponentProps<"a"> & {
   label: string
 }
 
-export function RailBackLink({ label, className, ...linkProps }: RailBackLinkProps) {
+export function RailBackLink({
+  label,
+  className,
+  ...linkProps
+}: RailBackLinkProps) {
   return (
     <Link
       {...linkProps}
@@ -97,6 +103,7 @@ export function RailBackLink({ label, className, ...linkProps }: RailBackLinkPro
 ```
 
 Notes for the implementer:
+
 - We spread `LinkComponentProps<"a">` so callers pass `to`, `params`, `search`, etc. with full TanStack type-checking — no parallel typing.
 - `hover:text-foreground` paired with `transition-colors` is required for the project-wide hover-asymmetry rule in `CLAUDE.md` ("Hover feel — instant in, eased out").
 - Text size `text-[11px]` matches the existing rail section headers in `SprintRail` so the back row reads as peer chrome, not a button.
@@ -128,6 +135,7 @@ Three sub-changes in one file, committed together because they're inseparable ty
 3. Mount the slot inside the stacking body, with `AnimatePresence` driving crossfade+scale between the primary nav and the rail.
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/route.tsx`
 
 - [ ] **Step 1: Update imports**
@@ -165,6 +173,7 @@ function Shell({ user }: { user: User }) {
 ```
 
 Differences from before:
+
 - Inner `<aside>` for the rail is removed.
 - `useSidebarSlotContent()` is no longer called here — it moves into `Sidebar`.
 
@@ -240,8 +249,9 @@ function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
 ```
 
 Notes:
+
 - `mode="popLayout"` makes exiting children leave the layout flow so the entering child can occupy the absolute-positioned slot cleanly without layout jitter.
-- The footer (`<div className="p-3"><ThemeSwitcher /></div>`) is *outside* `AnimatePresence`, so the theme switcher stays visible at the column bottom in both states. This implements design choice "iii" from the spec.
+- The footer (`<div className="p-3"><ThemeSwitcher /></div>`) is _outside_ `AnimatePresence`, so the theme switcher stays visible at the column bottom in both states. This implements design choice "iii" from the spec.
 - Padding moves: previously `nav` lived in `Sidebar` directly. Now `PrimaryNav` owns its own `px-3 py-2`. The rail layer applies `px-3 py-2` on its motion wrapper so both layers have matching horizontal rhythm.
 - Outgoing-presence is handled by `AnimatePresence` — no manual `useEffect`/`useRef` trick needed.
 
@@ -262,8 +272,9 @@ bun run --filter @projectproject/frontend dev
 ```
 
 In the browser:
+
 1. Navigate to a project that has at least one sprint.
-2. Confirm the main content does *not* shift horizontally when entering `/sprints/*`.
+2. Confirm the main content does _not_ shift horizontally when entering `/sprints/*`.
 3. Confirm primary nav fades out while the rail fades in (you should see the brief overlap, not a hard cut).
 4. Confirm the logo header and theme switcher stay rock-still through the transition.
 
@@ -287,6 +298,7 @@ stay outside the stacking surface so they remain visible across states."
 The rail no longer lives inside `<main>` with its own `bg-muted/60 rounded-xl p-2` pill — it sits flush in the sidebar column. We strip that wrapper from the rail's root and add the back row at the top.
 
 **Files:**
+
 - Modify: `packages/frontend/src/components/sprints/SprintRail.tsx`
 
 - [ ] **Step 1: Update imports**
@@ -302,40 +314,40 @@ import { RailBackLink } from "@/components/RailBackLink"
 Replace the `return` block in `SprintRail` (currently `return ( <div className="flex h-full flex-col gap-4"> ... </div> )`) with:
 
 ```tsx
-  return (
-    <div className="flex h-full flex-col gap-4">
-      <RailBackLink
-        to="/orgs/$orgSlug/projects/$slug"
-        params={{ orgSlug, slug }}
-        label={m.sprints_rail_section_label()}
+return (
+  <div className="flex h-full flex-col gap-4">
+    <RailBackLink
+      to="/orgs/$orgSlug/projects/$slug"
+      params={{ orgSlug, slug }}
+      label={m.sprints_rail_section_label()}
+    />
+    <NewSprintForm orgSlug={orgSlug} slug={slug} />
+    <div className="flex flex-col gap-5 overflow-y-auto">
+      <Section
+        label={m.sprints_active_label()}
+        count={active.length}
+        sprints={active}
+        orgSlug={orgSlug}
+        slug={slug}
       />
-      <NewSprintForm orgSlug={orgSlug} slug={slug} />
-      <div className="flex flex-col gap-5 overflow-y-auto">
-        <Section
-          label={m.sprints_active_label()}
-          count={active.length}
-          sprints={active}
-          orgSlug={orgSlug}
-          slug={slug}
-        />
-        <Section
-          label={m.sprints_planned_label()}
-          count={planned.length}
-          sprints={planned}
-          orgSlug={orgSlug}
-          slug={slug}
-        />
-        <Section
-          label={m.sprints_completed_label()}
-          count={completed.length}
-          sprints={completed}
-          orgSlug={orgSlug}
-          slug={slug}
-          dim
-        />
-      </div>
+      <Section
+        label={m.sprints_planned_label()}
+        count={planned.length}
+        sprints={planned}
+        orgSlug={orgSlug}
+        slug={slug}
+      />
+      <Section
+        label={m.sprints_completed_label()}
+        count={completed.length}
+        sprints={completed}
+        orgSlug={orgSlug}
+        slug={slug}
+        dim
+      />
     </div>
-  )
+  </div>
+)
 ```
 
 Only the `<RailBackLink>` line is new; everything else stays as-is. The outer `<div>` keeps `flex h-full flex-col gap-4` — no pill chrome to drop here because `SprintRail` itself never had it (the chrome lived in `<main>`'s `<aside>` wrapper, which Task 3 already removed).
@@ -351,11 +363,12 @@ Expected: passes.
 - [ ] **Step 4: Visual verification**
 
 With the dev server running:
+
 1. Visit `/orgs/$slug/projects/$slug/sprints` (or any sprint detail). The back row appears at the top of the rail: `‹ Sprints` in muted color.
 2. Hover the back row — text goes from muted to foreground instantly, and eases back to muted ~150ms after leaving (CLAUDE.md hover rule).
 3. Click the back row — the rail crossfades out and the primary nav crossfades in. Route lands on `/orgs/$slug/projects/$slug`.
 4. Navigate back into sprints via the project page. Rail crossfades in.
-5. Toggle theme — both layers handle light *and* dark cleanly (design context demands light/dark parity).
+5. Toggle theme — both layers handle light _and_ dark cleanly (design context demands light/dark parity).
 
 - [ ] **Step 5: Commit**
 
@@ -368,9 +381,10 @@ git commit -m "feat(sprints): add back-row to rail header"
 
 ## Task 5: Reduced-motion verification
 
-`motion/react` respects `prefers-reduced-motion: reduce` by default for the *spring*/inertia animations, but explicit `transition` durations are still honored. We want a clean crossfade (no scale) under reduced motion.
+`motion/react` respects `prefers-reduced-motion: reduce` by default for the _spring_/inertia animations, but explicit `transition` durations are still honored. We want a clean crossfade (no scale) under reduced motion.
 
 **Files:**
+
 - Modify: `packages/frontend/src/routes/_authed/route.tsx` — only the motion props on the two `motion.div`s edited in Task 3.
 
 - [ ] **Step 1: Wrap the scale values in a reduced-motion-aware helper**
@@ -456,7 +470,7 @@ If the repo has a formatter wired into pre-commit hooks, the previous commits al
 
 - [ ] **Step 2: Manual interaction sweep**
 
-In the dev server, in *both* light and dark themes, verify:
+In the dev server, in _both_ light and dark themes, verify:
 
 1. **No horizontal shift** anywhere on the shell when entering/leaving a sprint route.
 2. **Logo header and theme switcher are immobile** during the crossfade.
@@ -489,4 +503,4 @@ If everything above passes, the feature is complete. Push and open the PR.
 - **Why not change the slot API.** The spec considered passing `{ label, parentTo, render }` through `SidebarSlot`. We went simpler: a shared `<RailBackLink>` primitive that owners drop into their rail's render output. Same end-user result, zero API surface change, zero typing fights with TanStack `Link`'s generics. If we ever grow a second or third contextual rail and find ourselves copy-pasting `<RailBackLink>` plumbing, that's the moment to lift it into the slot API.
 - **Why `motion/react`.** Already used in `SegmentedTabs`, `ColorPicker`, `inline-form`. Same dependency, same API. `AnimatePresence` with `mode="popLayout"` solves the outgoing-presence problem cleanly without a manual `useEffect` + `setTimeout` dance.
 - **Conventions.** No comments in committed code. Every user-facing string flows through paraglide. The hover rule in `CLAUDE.md` (`transition-colors` + `hover:` is mandatory for hover-affected elements) applies to `RailBackLink`.
-- **What `<main>` looks like after.** Single pane, no inner `<aside>`. If a future feature needs a *second* sidebar on the right of main, that's a separate design discussion — don't reintroduce the third-column pattern for it.
+- **What `<main>` looks like after.** Single pane, no inner `<aside>`. If a future feature needs a _second_ sidebar on the right of main, that's a separate design discussion — don't reintroduce the third-column pattern for it.

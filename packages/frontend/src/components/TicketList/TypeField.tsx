@@ -82,12 +82,14 @@ export function TypeButton({
   orgSlug,
   slug,
   ticket,
-  className
+  className,
+  iconOnly
 }: {
   orgSlug: string
   slug: string
   ticket: { id: TicketId; type: TicketType }
   className?: string
+  iconOnly?: boolean
 }) {
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -99,18 +101,32 @@ export function TypeButton({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Hitbox
-            mode="inline"
-            margin="2"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-            className={className}
-          >
-            <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
-              <Icon className="size-3.5" strokeWidth={1.75} />
-              <span>{typeLabel}</span>
-            </span>
-          </Hitbox>
+          iconOnly ? (
+            <Hitbox
+              mode="inline"
+              margin="2"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+              className={className}
+            >
+              <span className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+                <Icon className="size-4" strokeWidth={1.75} />
+              </span>
+            </Hitbox>
+          ) : (
+            <Hitbox
+              mode="inline"
+              margin="2"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+              className={className}
+            >
+              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+                <Icon className="size-3.5" strokeWidth={1.75} />
+                <span>{typeLabel}</span>
+              </span>
+            </Hitbox>
+          )
         }
       />
       <DropdownMenuContent

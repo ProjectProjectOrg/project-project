@@ -366,7 +366,7 @@ function ManagePanel({
               type="button"
               size="sm"
               variant="primary"
-              onClick={() =>  disconnect()}
+              onClick={() => disconnect()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {m.github_chip_disconnect_button()}

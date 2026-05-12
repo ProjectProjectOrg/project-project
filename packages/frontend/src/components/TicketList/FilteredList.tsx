@@ -23,12 +23,7 @@ import {
 } from "@/atoms/ticketListUi"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
-  Member,
-  Ticket,
-  TicketId
-} from "@projectproject/shared"
+import type { Group, Member, Ticket, TicketId } from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
 import { Expanded } from "./Expanded"
 import { PriorityButton } from "./PriorityField"

@@ -124,4 +124,6 @@ export interface GitHubShape {
   >
 }
 
-export class GitHub extends Context.Tag("@projectproject/backend/Services/GitHub")<GitHub, GitHubShape>() {}
+export class GitHub extends Context.Tag(
+  "@projectproject/backend/Services/GitHub"
+)<GitHub, GitHubShape>() {}

@@ -2,6 +2,7 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
 import { MembersSection } from "@/components/MembersSection"
+import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
 import { useProject } from "./-context"
 import type { Member, Role } from "@projectproject/shared"
@@ -25,13 +26,15 @@ function MembersTab() {
   if (!callerRole) return null
 
   return (
-    <MembersSection
-      orgSlug={orgSlug}
-      slug={project.slug}
-      members={project.members}
-      callerRole={callerRole}
-      callerId={callerId}
-    />
+    <PageContainer>
+      <MembersSection
+        orgSlug={orgSlug}
+        slug={project.slug}
+        members={project.members}
+        callerRole={callerRole}
+        callerId={callerId}
+      />
+    </PageContainer>
   )
 }
 

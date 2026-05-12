@@ -19,4 +19,6 @@ export interface UsersShape {
   ) => Effect.Effect<ReadonlyArray<User>>
 }
 
-export class Users extends Context.Tag("@projectproject/backend/Services/Users")<Users, UsersShape>() {}
+export class Users extends Context.Tag(
+  "@projectproject/backend/Services/Users"
+)<Users, UsersShape>() {}

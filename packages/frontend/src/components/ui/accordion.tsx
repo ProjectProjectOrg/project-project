@@ -11,10 +11,7 @@ type AccordionRootProps = Omit<
   type?: "single" | "multiple"
 }
 
-function Accordion({
-  type = "multiple",
-  ...props
-}: AccordionRootProps) {
+function Accordion({ type = "multiple", ...props }: AccordionRootProps) {
   return (
     <AccordionPrimitive.Root
       data-slot="accordion"

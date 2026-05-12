@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { TicketId } from "./Ticket"
+import { TicketId, TicketStatus } from "./Ticket"
 
 export const GroupId = Schema.String.pipe(
   Schema.pattern(/^G-[1-9][0-9]*$/),
@@ -80,6 +80,13 @@ export const UpdateGroupTicketsOutput = Schema.Struct({
   evicted: Schema.Array(EvictedFromGroup)
 })
 export type UpdateGroupTicketsOutput = typeof UpdateGroupTicketsOutput.Type
+
+export const UpdateTicketOrderInput = Schema.Struct({
+  ticketId: TicketId,
+  status: Schema.optional(TicketStatus),
+  after: Schema.NullOr(TicketId)
+})
+export type UpdateTicketOrderInput = typeof UpdateTicketOrderInput.Type
 
 export const CompleteSprintDestination = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("sprint"), groupId: GroupId }),

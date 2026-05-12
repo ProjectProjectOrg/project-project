@@ -72,7 +72,7 @@ function mapHttpError(cause: unknown, nowSeconds: number): GitHubFailure {
   const err = cause as Record<string, unknown> | undefined
   const status = err?.[HTTP_STATUS_KEY] as number | undefined
   const message =
-    typeof err?.message === "string" ? (err.message) : "GitHub error"
+    typeof err?.message === "string" ? err.message : "GitHub error"
   const headers = (
     err?.["response"] as { headers?: Record<string, string> } | undefined
   )?.headers

@@ -2,6 +2,7 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Navigate, createFileRoute } from "@tanstack/react-router"
 import { SprintDetailSkeleton } from "@/components/sprints/SprintDetailSkeleton"
 import { SprintsEmpty } from "@/components/sprints/SprintsEmpty"
+import { PageContainer } from "@/components/page"
 import { projectKey, sprintsListAtom } from "@/atoms/sprints"
 import {
   pickActiveSprint,
@@ -34,7 +35,11 @@ function SprintsIndex() {
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
 
   if (Result.isInitial(list)) {
-    return <SprintDetailSkeleton />
+    return (
+      <PageContainer>
+        <SprintDetailSkeleton />
+      </PageContainer>
+    )
   }
   const sprints = Result.isSuccess(list) ? list.value : []
   const target = pickRedirectTarget(sprints)
@@ -47,5 +52,9 @@ function SprintsIndex() {
       />
     )
   }
-  return <SprintsEmpty />
+  return (
+    <PageContainer>
+      <SprintsEmpty />
+    </PageContainer>
+  )
 }

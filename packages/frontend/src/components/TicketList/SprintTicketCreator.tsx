@@ -215,7 +215,10 @@ export function SprintTicketCreator({
         align="start"
         sideOffset={6}
         className="w-40"
-        finalFocus={false}
+        finalFocus={() => {
+          setClosingMenu(false)
+          return inputRef.current
+        }}
       >
         {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
           const TIcon = TYPE_META[t].icon
