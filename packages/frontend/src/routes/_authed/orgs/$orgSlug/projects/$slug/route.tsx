@@ -165,7 +165,7 @@ function ProjectHeader({
   const { role: myRole } = useProjectRole()
 
   return (
-    <header className="flex items-start gap-3">
+    <header className="flex items-start gap-3 px-4">
       <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
@@ -432,7 +432,7 @@ function TabsNav({
   }))
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3 px-4">
       <SegmentedTabs
         items={items}
         layoutId={`project-tabs-${slug}`}

@@ -71,7 +71,7 @@ function Shell({ user }: { user: User }) {
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60">
+          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60 [scrollbar-gutter:stable]">
             <div className="p-6">
               <Outlet />
             </div>
