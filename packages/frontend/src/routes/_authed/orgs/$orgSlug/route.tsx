@@ -49,7 +49,7 @@ function OrgNotFound() {
         </div>
         <Link
           to="/"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.97]"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors transition-transform duration-100 hover:bg-accent active:scale-[0.97]"
         >
           {m.common_not_found_home_link()}
         </Link>
