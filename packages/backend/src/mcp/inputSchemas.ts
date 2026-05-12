@@ -110,6 +110,11 @@ export const effectToZodObject = <A, I, R>(
   const defs = root.$defs ?? {}
   const converted = toZod({ ...root, $defs: undefined }, defs, new Set())
   if (converted instanceof z.ZodObject) return converted
+  const objectBranch = root.anyOf?.find((b) => b.type === "object")
+  if (objectBranch) {
+    const fromBranch = toZod(objectBranch, defs, new Set())
+    if (fromBranch instanceof z.ZodObject) return fromBranch
+  }
   throw new Error(
     `MCP input schema must resolve to a ZodObject (got ${root.type ?? "unknown"})`
   )
