@@ -106,7 +106,8 @@ function makeFakeDocs(initial?: {
       if (!groups.has(id)) return Effect.fail(new NotFound())
       groups.delete(id)
       return Effect.void
-    }
+    },
+    readRaw: () => Effect.die(new Error("unexpected GroupDocs.readRaw call"))
   } satisfies GroupDocsShape
 
   const ticketService = {
@@ -125,7 +126,8 @@ function makeFakeDocs(initial?: {
       ticketsById.set(id, document)
       return Effect.void
     },
-    remove: () => unexpectedTicketDocsCall("remove")
+    remove: () => unexpectedTicketDocsCall("remove"),
+    readRaw: () => unexpectedTicketDocsCall("readRaw")
   } satisfies TicketDocsShape
 
   return {
@@ -165,6 +167,8 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
   const role = opts.role ?? "member"
   const service = {
     list: () => Effect.succeed([]),
+    listPaged: () => unexpectedProjectCall("listPaged"),
+    listMembersPaged: () => unexpectedProjectCall("listMembersPaged"),
     create: () => unexpectedProjectCall("create"),
     requireMember: () => Effect.succeed({ role }),
     requireRole: (

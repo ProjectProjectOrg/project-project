@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
+import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
 
@@ -84,6 +85,8 @@ function Profile() {
           {m.profile_section_security_empty()}
         </CardContent>
       </Card>
+
+      <ConnectedAgentsSection />
     </PageContainer>
   )
 }

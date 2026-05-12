@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type {
   CompleteSprintInput,
   CreateGroupInput,
+  CursorPayload,
   Forbidden,
   Group,
   GroupDetail,
@@ -22,6 +23,16 @@ export interface GroupsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
   readonly get: (
     orgSlug: string,
     userId: string,

@@ -37,6 +37,11 @@ export interface GroupDocsShape {
     slug: string,
     id: string
   ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly readRaw: (
+    orgSlug: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
 export class GroupDocs extends Context.Tag(

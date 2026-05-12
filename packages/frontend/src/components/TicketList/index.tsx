@@ -56,7 +56,7 @@ export function TicketList({
 
   const setExpanded = useCallback(
     (id: TicketId | null) => {
-      navigate({
+      void navigate({
         to: ".",
         search: (prev) => ({
           ...prev,
@@ -70,7 +70,7 @@ export function TicketList({
   )
 
   const consumeFocusBody = useCallback(() => {
-    navigate({
+    void navigate({
       to: ".",
       search: (prev) => ({ ...prev, focusBody: undefined }),
       replace: true

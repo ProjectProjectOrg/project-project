@@ -55,6 +55,7 @@ import {
   CreateCommentInput,
   UpdateCommentInput
 } from "./schemas/Comment"
+import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   CompleteSprintInput,
   CreateGroupInput,
@@ -555,6 +556,33 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .middleware(Authentication)
 
+const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
+  .add(
+    HttpApiEndpoint.get("list", "/oauth-applications")
+      .addSuccess(Schema.Array(OAuthApplication))
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint.del("revoke", "/oauth-applications/:id")
+      .setPath(Schema.Struct({ id: Schema.String }))
+      .addSuccess(Schema.Struct({ ok: Schema.Literal(true) }))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("consent", "/oauth-applications/consent")
+      .setPayload(
+        Schema.Struct({
+          accept: Schema.Boolean,
+          consent_code: Schema.String
+        })
+      )
+      .addSuccess(Schema.Struct({ redirectURI: Schema.String }))
+      .addError(Unauthorized)
+      .addError(Validation)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -564,5 +592,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketCommentsGroup)
   .add(TagsGroup)
   .add(GroupsGroup)
+  .add(OAuthApplicationsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

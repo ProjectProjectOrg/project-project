@@ -195,13 +195,30 @@ export const GroupDocsLive = Layer.effect(
         markdown.removeGroupFile(orgSlug, slug, id)
       )
 
+    const readRaw = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      withGroupDocTelemetry(
+        "readRaw",
+        orgSlug,
+        slug,
+        { groupId: id },
+        markdown.readGroupFileRaw(orgSlug, slug, id)
+      )
+
     return {
       listIds,
       read,
       create,
       write,
       writeIfExists,
-      remove
+      remove,
+      readRaw
     } satisfies GroupDocsShape
   })
 )

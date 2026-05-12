@@ -2,6 +2,7 @@ import type { Session, User } from "../auth"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
+import type { CursorPayload, NotFound, Org } from "@projectproject/shared"
 
 export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -24,6 +25,33 @@ export interface BetterAuthShape {
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
   ) => Effect.Effect<string | null, BetterAuthError>
+  // Org membership list for a user. Returns the org slug + the user's role
+  // in that org. Used by the MCP `me` tool to populate `roles`. We hit the
+  // `member` + `organization` tables directly rather than going through
+  // `auth.api.listOrganizations` because that API is headers-based — here we
+  // already have the resolved userId from `CurrentUser`.
+  readonly listOrganizations: (
+    userId: string
+  ) => Effect.Effect<
+    ReadonlyArray<{ orgSlug: string; role: "owner" | "admin" | "member" }>,
+    BetterAuthError
+  >
+  readonly listOrganizationsPaged: (
+    userId: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Org>; nextCursor: string | null },
+    BetterAuthError
+  >
+  readonly getOrganization: (
+    userId: string,
+    orgSlug: string
+  ) => Effect.Effect<Org, BetterAuthError | NotFound>
+  readonly submitConsent: (
+    headers: Headers,
+    input: { accept: boolean; consent_code: string }
+  ) => Effect.Effect<{ redirectURI: string }, BetterAuthError>
 }
 
 export class BetterAuth extends Context.Tag(

@@ -201,6 +201,29 @@ export const TicketDocsLive = Layer.effect(
         markdown.removeTicketFile(orgSlug, slug, id)
       )
 
-    return { listIds, read, create, write, remove } satisfies TicketDocsShape
+    const readRaw = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      withTicketDocTelemetry(
+        "readRaw",
+        orgSlug,
+        slug,
+        { ticketId: id },
+        markdown.readTicketFileRaw(orgSlug, slug, id)
+      )
+
+    return {
+      listIds,
+      read,
+      create,
+      write,
+      remove,
+      readRaw
+    } satisfies TicketDocsShape
   })
 )

@@ -70,7 +70,7 @@ export function FilteredList({
   const me = useAtomValue(meAtom)
   const myId = Result.isSuccess(me) ? me.value.id : null
 
-  const resolvedAssignee: "all" | "unassigned" | string =
+  const resolvedAssignee: string =
     assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
 
   const filtered = useMemo(() => {

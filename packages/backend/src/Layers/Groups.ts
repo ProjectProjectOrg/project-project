@@ -14,11 +14,14 @@ import {
   GroupKind,
   isCarryover,
   NotFound,
+  encodeCursor,
+  padNumericIdSort,
   SprintCompletedImmutable,
   TAG_DEFAULT_PALETTE,
   TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
+  type CursorPayload,
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput,
   Validation
@@ -131,6 +134,55 @@ export const GroupsLive = Layer.effect(
         return results
           .map(documentToGroup)
           .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      })
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Group>; nextCursor: string | null },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
+        const ids = yield* groupDocs.listIds(orgSlug, slug)
+        const sortedIds = [...ids].toSorted((a, b) => {
+          const ka = padNumericIdSort(a) ?? ""
+          const kb = padNumericIdSort(b) ?? ""
+          return ka < kb ? -1 : ka > kb ? 1 : a < b ? -1 : a > b ? 1 : 0
+        })
+        const startIdx =
+          cursor === undefined
+            ? 0
+            : (() => {
+                const idx = sortedIds.findIndex((id) => {
+                  const s = padNumericIdSort(id) ?? ""
+                  if (s !== cursor.sort) return s > cursor.sort
+                  return id > cursor.id
+                })
+                return idx < 0 ? sortedIds.length : idx
+              })()
+        const pageIds = sortedIds.slice(startIdx, startIdx + limit + 1)
+        const hasMore = pageIds.length > limit
+        const visibleIds = hasMore ? pageIds.slice(0, limit) : pageIds
+        const docs = yield* Effect.forEach(
+          visibleIds,
+          (id) => groupDocs.read(orgSlug, slug, id),
+          { concurrency: 8 }
+        )
+        const items = docs.map(documentToGroup)
+        const lastId = visibleIds[visibleIds.length - 1]
+        const nextCursor =
+          hasMore && lastId !== undefined
+            ? encodeCursor({
+                id: lastId,
+                sort: padNumericIdSort(lastId) ?? ""
+              })
+            : null
+        return { items, nextCursor }
       })
 
     const get = (
@@ -512,6 +564,7 @@ export const GroupsLive = Layer.effect(
 
     return {
       list,
+      listPaged,
       get,
       create,
       update,

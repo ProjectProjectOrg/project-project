@@ -217,6 +217,7 @@ export function DitherBackdrop({
     const fromRgb = parseColorToRgb(resolveColor(from))
     const toRgb = parseColorToRgb(resolveColor(to))
     return { fromRgb, toRgb }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- themeRevision is the signal to re-resolve CSS vars
   }, [from, to, themeRevision])
 
   const colorsRef = useRef(colors)
@@ -273,13 +274,17 @@ export function DitherBackdrop({
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
     return () => ro.disconnect()
-  }, [image, pixelSize])
+  }, [image, pixelSize, wrapRef])
 
   useEffect(() => {
     if (image) return
     paint(stopsRef.current)
   }, [image, colors, direction, matrix, pixelSize])
 
+  const stops0 = stops[0]
+  const stops1 = stops[1]
+  const hoverStops0 = hoverStops?.[0]
+  const hoverStops1 = hoverStops?.[1]
   useEffect(() => {
     if (image) return
     const target: DitherStops = hover && hoverStops ? hoverStops : stops
@@ -318,15 +323,8 @@ export function DitherBackdrop({
         rafRef.current = null
       }
     }
-  }, [
-    hover,
-    hoverStops?.[0],
-    hoverStops?.[1],
-    stops[0],
-    stops[1],
-    hoverDuration,
-    image
-  ])
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- track stops/hoverStops by element to avoid array-identity churn
+  }, [hover, hoverStops0, hoverStops1, stops0, stops1, hoverDuration, image])
 
   const fallbackCss = image
     ? undefined

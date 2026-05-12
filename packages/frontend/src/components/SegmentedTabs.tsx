@@ -173,7 +173,7 @@ export function CollapsingLabel({
     if (innerRef.current) {
       setWidth(innerRef.current.scrollWidth)
     }
-  })
+  }, [show, contentKey])
 
   return (
     <AnimatePresence initial={false}>

@@ -153,6 +153,20 @@ export const ProjectDocsLive = Layer.effect(
         markdown.removeProjectDir(orgSlug, slug)
       )
 
-    return { read, write, removeDir } satisfies ProjectDocsShape
+    const readRaw = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      withProjectDocTelemetry(
+        "readRaw",
+        orgSlug,
+        slug,
+        markdown.readProjectFileRaw(orgSlug, slug)
+      )
+
+    return { read, write, removeDir, readRaw } satisfies ProjectDocsShape
   })
 )

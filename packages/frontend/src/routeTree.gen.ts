@@ -13,6 +13,7 @@ import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
@@ -41,6 +42,11 @@ const AuthedProfileRoute = AuthedProfileRouteImport.update({
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
+  id: '/(public)/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/': typeof AuthedIndexRoute
+  '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/_authed/profile': typeof AuthedProfileRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/(public)/oauth/consent': typeof publicOauthConsentRoute
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/orgs/$orgSlug'
+    | '/oauth/consent'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/'
+    | '/oauth/consent'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/_authed/profile'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
+    | '/(public)/oauth/consent'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/projects/'
@@ -195,6 +207,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
   publicLoginRoute: typeof publicLoginRoute
+  publicOauthConsentRoute: typeof publicOauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof publicLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/oauth/consent': {
+      id: '/(public)/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof publicOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/orgs/$orgSlug': {
@@ -380,6 +400,7 @@ const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
   publicLoginRoute: publicLoginRoute,
+  publicOauthConsentRoute: publicOauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

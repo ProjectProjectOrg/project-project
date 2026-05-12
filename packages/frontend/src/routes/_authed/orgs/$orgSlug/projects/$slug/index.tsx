@@ -144,6 +144,7 @@ function TicketListUrlSync({
     if (!tagsEqual) setTags(incomingTags)
     if (nextSprint !== sprint) setSprint(nextSprint)
     if (nextSort !== sort) setSort(nextSort)
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- one-way URL → state sync; including state in deps causes loops
   }, [
     search.q,
     search.status,
@@ -168,7 +169,7 @@ function TicketListUrlSync({
     const fingerprint = JSON.stringify(payload)
     if (fingerprint === lastWrittenRef.current) return
     lastWrittenRef.current = fingerprint
-    navigate({
+    void navigate({
       to: ".",
       search: (prev) => ({ ...prev, ...payload }),
       replace: true

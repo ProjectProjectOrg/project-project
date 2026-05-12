@@ -6,11 +6,13 @@ import {
   Conflict,
   Forbidden,
   NotFound,
+  paginateSorted,
   Tag,
   TagColor,
   TagName,
   TAG_DEFAULT_PALETTE,
   type CreateTagInput,
+  type CursorPayload,
   type UpdateTagInput
 } from "@projectproject/shared"
 import { projectIndex, projectTag } from "../db/schema"
@@ -87,6 +89,29 @@ export const TagsLive = Layer.effect(
             createdAt: r.createdAt
           })
         )
+      })
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Tag>; nextCursor: string | null },
+      NotFound
+    > =>
+      Effect.gen(function* () {
+        const all = yield* list(orgSlug, userId, slug)
+        const sorted = [...all].toSorted((a, b) =>
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0
+        )
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (t) => t.name,
+          id: (t) => t.name
+        })
       })
 
     const create = (
@@ -226,6 +251,6 @@ export const TagsLive = Layer.effect(
           .pipe(Effect.orDie)
       })
 
-    return { list, create, update, remove } satisfies TagsShape
+    return { list, listPaged, create, update, remove } satisfies TagsShape
   })
 )

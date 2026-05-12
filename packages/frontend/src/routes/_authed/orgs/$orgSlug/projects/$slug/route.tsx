@@ -247,7 +247,7 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   async function onDelete() {
     const exit = await remove()
     if (Exit.isSuccess(exit)) {
-      navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
     }
   }
 
@@ -429,7 +429,7 @@ function TabsNav({
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
                     transition={springs.moderate}
-                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                    className="absolute inset-0 z-0 rounded-lg bg-accent"
                   />
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
@@ -463,7 +463,7 @@ function TabsNav({
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
                     transition={springs.moderate}
-                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                    className="absolute inset-0 z-0 rounded-lg bg-accent"
                   />
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
@@ -522,7 +522,7 @@ function SprintViewSwitcher({
   const { groupId } = sprintMatch.params as { groupId: string }
   const setView = (next: "list" | "board") => {
     if (next === view) return
-    navigate({
+    void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId },
       search: (prev) => ({

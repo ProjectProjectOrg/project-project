@@ -4,7 +4,14 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq } from "drizzle-orm"
 import { auth } from "../auth"
 import * as schema from "../db/schema"
-import { account, organization } from "../db/schema"
+import { account, member, organization } from "../db/schema"
+import {
+  NotFound,
+  paginateSorted,
+  type CursorPayload,
+  type Org,
+  type OrgRole
+} from "@projectproject/shared"
 import {
   BetterAuth,
   BetterAuthError,
@@ -44,6 +51,90 @@ export const BetterAuthLive = Layer.effect(
           if (!row?.accessToken) return yield* new NoGithubToken()
           return row.accessToken
         }),
+      listOrganizations: (userId) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({ slug: organization.slug, role: member.role })
+                .from(member)
+                .innerJoin(organization, eq(member.organizationId, organization.id))
+                .where(eq(member.userId, userId)),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          // `member.role` is a free-form text column in Better Auth's schema;
+          // we coerce to the three-tier literal and drop anything unexpected.
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          return rows.flatMap((r) =>
+            allowed.has(r.role as "owner" | "admin" | "member")
+              ? [{ orgSlug: r.slug, role: r.role as "owner" | "admin" | "member" }]
+              : []
+          )
+        }),
+      listOrganizationsPaged: (
+        userId: string,
+        cursor: CursorPayload | undefined,
+        limit: number
+      ) =>
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({
+                  slug: organization.slug,
+                  name: organization.name,
+                  role: member.role
+                })
+                .from(member)
+                .innerJoin(organization, eq(member.organizationId, organization.id))
+                .where(eq(member.userId, userId)),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          const orgs: ReadonlyArray<Org> = rows.flatMap((r) =>
+            allowed.has(r.role as OrgRole)
+              ? [{ slug: r.slug as Org["slug"], name: r.name, role: r.role as OrgRole }]
+              : []
+          )
+          const sorted = [...orgs].toSorted(
+            (a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug)
+          )
+          return paginateSorted(sorted, {
+            cursor,
+            limit,
+            sortKey: (o) => o.name,
+            id: (o) => o.slug
+          })
+        }),
+      getOrganization: (userId: string, orgSlug: string) =>
+        Effect.gen(function* () {
+          const row = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .select({
+                  slug: organization.slug,
+                  name: organization.name,
+                  role: member.role
+                })
+                .from(member)
+                .innerJoin(
+                  organization,
+                  eq(member.organizationId, organization.id)
+                )
+                .where(and(eq(member.userId, userId), eq(organization.slug, orgSlug)))
+                .limit(1),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          const first = row[0]
+          if (!first) return yield* new NotFound()
+          const allowed = new Set(["owner", "admin", "member"] as const)
+          if (!allowed.has(first.role as OrgRole)) return yield* new NotFound()
+          return {
+            slug: first.slug as Org["slug"],
+            name: first.name,
+            role: first.role as OrgRole
+          }
+        }),
       getOrgSlugById: (organizationId) =>
         Effect.gen(function* () {
           if (!organizationId) return null
@@ -56,6 +147,15 @@ export const BetterAuthLive = Layer.effect(
             catch: (cause) => new BetterAuthError({ cause })
           })
           return row?.slug ?? null
+        }),
+      submitConsent: (headers, input) =>
+        Effect.tryPromise({
+          try: () =>
+            auth.api.oAuthConsent({
+              body: input,
+              headers
+            }),
+          catch: (cause) => new BetterAuthError({ cause })
         })
     } satisfies BetterAuthShape
   })
