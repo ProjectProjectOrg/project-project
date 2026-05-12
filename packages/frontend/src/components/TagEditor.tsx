@@ -63,7 +63,10 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
-  const registry = Result.isSuccess(tagsResult) ? tagsResult.value : []
+  const registry = useMemo<ReadonlyArray<Tag>>(
+    () => (Result.isSuccess(tagsResult) ? tagsResult.value : []),
+    [tagsResult]
+  )
   const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
   const registryNames = useMemo(
     () => new Set<string>(registry.map((t) => t.name as string)),

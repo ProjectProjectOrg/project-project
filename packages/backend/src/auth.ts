@@ -164,7 +164,7 @@ export const auth = betterAuth({
         ]
       })
       if (existing?.consentGiven) return
-      ctx.query = { ...(ctx.query ?? {}), prompt: "consent" }
+      ctx.query = { ...ctx.query, prompt: "consent" }
     })
   },
   // On sign-in, return the user to the org they were last in. We persist

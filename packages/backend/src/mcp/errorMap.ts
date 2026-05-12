@@ -10,10 +10,11 @@ const text = (s: string): McpToolErrorResult => ({
   isError: true,
 })
 
-const reasonOf = (e: unknown): string | undefined =>
-  typeof e === "object" && e !== null && "reason" in e
-    ? String((e as { reason?: unknown }).reason ?? "")
-    : undefined
+const reasonOf = (e: unknown): string | undefined => {
+  if (typeof e !== "object" || e === null || !("reason" in e)) return undefined
+  const reason = (e as { reason?: unknown }).reason
+  return typeof reason === "string" ? reason : undefined
+}
 
 export const mapToolError = (e: unknown): McpToolErrorResult => {
   if (typeof e !== "object" || e === null || !("_tag" in e)) {

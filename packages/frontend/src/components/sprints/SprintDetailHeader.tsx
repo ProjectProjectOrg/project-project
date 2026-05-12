@@ -374,7 +374,7 @@ function SprintMenu({
   async function onDelete(groupId: GroupId) {
     const exit = await remove({ groupId })
     if (Exit.isSuccess(exit)) {
-      navigate({
+      void navigate({
         to: "/orgs/$orgSlug/projects/$slug/sprints",
         params: { orgSlug, slug }
       })

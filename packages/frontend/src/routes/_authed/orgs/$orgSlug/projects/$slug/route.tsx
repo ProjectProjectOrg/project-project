@@ -522,7 +522,7 @@ function SprintViewSwitcher({
   const { groupId } = sprintMatch.params as { groupId: string }
   const setView = (next: "list" | "board") => {
     if (next === view) return
-    navigate({
+    void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId },
       search: (prev) => ({

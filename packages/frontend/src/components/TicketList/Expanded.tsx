@@ -115,7 +115,7 @@ function ExpandedDetail({
             setDeleting(true)
             const exit = await remove()
             if (Exit.isSuccess(exit)) {
-              navigate({
+              void navigate({
                 to: ".",
                 search: (prev) => ({ ...(prev as object), ticket: undefined }),
                 replace: true

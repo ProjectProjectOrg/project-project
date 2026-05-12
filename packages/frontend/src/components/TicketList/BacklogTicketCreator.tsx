@@ -7,7 +7,7 @@ import {
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import {
@@ -57,9 +57,10 @@ export function BacklogTicketCreator({
   const sprintListResult = useAtomValue(
     sprintsListAtom(sprintsKey(orgSlug, slug))
   )
-  const sprints: ReadonlyArray<Group> = Result.isSuccess(sprintListResult)
-    ? sprintListResult.value
-    : []
+  const sprints = useMemo<ReadonlyArray<Group>>(
+    () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
+    [sprintListResult]
+  )
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const addToSprint = useAtomSet(
     addTicketsToSprintAtom(sprintsKey(orgSlug, slug))
@@ -97,7 +98,7 @@ export function BacklogTicketCreator({
       }
       setTitle("")
       refreshGitStates()
-      navigate({
+      void navigate({
         to: ".",
         search: (prev) => ({
           ...(prev as object),
