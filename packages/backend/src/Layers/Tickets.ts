@@ -85,6 +85,25 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<void, NotFound> =>
       projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
 
+    const resolveGroupMembers = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      groupIds: ReadonlyArray<string> | undefined
+    ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        if (groupIds === undefined) return null
+        if (groupIds.length === 0) return new Set<string>()
+        const details = yield* Effect.forEach(
+          groupIds,
+          (id) => groups.get(orgSlug, userId, slug, id),
+          { concurrency: 8 }
+        )
+        const set = new Set<string>()
+        for (const g of details) for (const t of g.tickets) set.add(t)
+        return set
+      })
+
     const readTicket = (
       orgSlug: string,
       slug: string,
@@ -265,6 +284,12 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const groupMemberSet = yield* resolveGroupMembers(
+          orgSlug,
+          userId,
+          slug,
+          filter?.groupId
+        )
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
@@ -273,7 +298,11 @@ export const TicketsLive = Layer.effect(
         )
         const sorted = tickets
           .map(documentToTicket)
-          .filter((t) => matchesTicketFilter(t, filter))
+          .filter(
+            (t) =>
+              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
+              matchesTicketFilter(t, filter)
+          )
           .toSorted(
             (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
           )

@@ -849,6 +849,181 @@ it.effect("updateTicketOrder rejects on completed sprint", () =>
   )
 )
 
+function makeSprintDoc(
+  id: string,
+  overrides: Partial<GroupDocument> = {}
+): GroupDocument {
+  const now = isoDate("2026-05-01T00:00:00.000Z")
+  return {
+    id: groupId(id),
+    name: id,
+    kind: "sprint",
+    tickets: [],
+    color: "#abcdef" as GroupDocument["color"],
+    startsAt: null,
+    endsAt: null,
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: now,
+    updatedAt: now,
+    body: "",
+    ...overrides
+  }
+}
+
+it.effect("listPaged filters by kind", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const page = yield* groups.listPaged(
+      "org",
+      "user-1",
+      "p",
+      { kind: ["sprint"] },
+      undefined,
+      50
+    )
+    expect(page.items.map((g) => g.id)).toEqual(["G-1", "G-3"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          groups: {
+            "G-1": makeSprintDoc("G-1"),
+            "G-2": makeSprintDoc("G-2", { kind: "epic" }),
+            "G-3": makeSprintDoc("G-3")
+          }
+        },
+        { role: "admin" }
+      )
+    )
+  )
+)
+
+it.effect("listPaged active=true keeps only running sprints", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const page = yield* groups.listPaged(
+      "org",
+      "user-1",
+      "p",
+      { active: true },
+      undefined,
+      50
+    )
+    expect(page.items.map((g) => g.id)).toEqual(["G-1"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          groups: {
+            "G-1": makeSprintDoc("G-1"),
+            "G-2": makeSprintDoc("G-2", {
+              completedAt: isoDate("2026-04-15T00:00:00.000Z")
+            }),
+            "G-3": makeSprintDoc("G-3", { kind: "epic" })
+          }
+        },
+        { role: "admin" }
+      )
+    )
+  )
+)
+
+it.effect("listSprintsPaged filters by state=active", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const page = yield* groups.listSprintsPaged(
+      "org",
+      "user-1",
+      "p",
+      "active",
+      undefined,
+      50
+    )
+    expect(page.items.map((g) => g.id)).toEqual(["G-1"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          groups: {
+            "G-1": makeSprintDoc("G-1"),
+            "G-2": makeSprintDoc("G-2", {
+              completedAt: isoDate("2026-04-15T00:00:00.000Z")
+            }),
+            "G-3": makeSprintDoc("G-3", {
+              startsAt: isoDate("2099-01-01T00:00:00.000Z")
+            }),
+            "G-4": makeSprintDoc("G-4", { kind: "epic" })
+          }
+        },
+        { role: "admin" }
+      )
+    )
+  )
+)
+
+it.effect("listSprintsPaged filters by state=completed", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const page = yield* groups.listSprintsPaged(
+      "org",
+      "user-1",
+      "p",
+      "completed",
+      undefined,
+      50
+    )
+    expect(page.items.map((g) => g.id)).toEqual(["G-2"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          groups: {
+            "G-1": makeSprintDoc("G-1"),
+            "G-2": makeSprintDoc("G-2", {
+              completedAt: isoDate("2026-04-15T00:00:00.000Z")
+            }),
+            "G-3": makeSprintDoc("G-3", {
+              startsAt: isoDate("2099-01-01T00:00:00.000Z")
+            })
+          }
+        },
+        { role: "admin" }
+      )
+    )
+  )
+)
+
+it.effect("listSprintsPaged with no state returns all sprints, no epics", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const page = yield* groups.listSprintsPaged(
+      "org",
+      "user-1",
+      "p",
+      undefined,
+      undefined,
+      50
+    )
+    expect(page.items.map((g) => g.id)).toEqual(["G-1", "G-2"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer(
+        {
+          groups: {
+            "G-1": makeSprintDoc("G-1"),
+            "G-2": makeSprintDoc("G-2", {
+              completedAt: isoDate("2026-04-15T00:00:00.000Z")
+            }),
+            "G-3": makeSprintDoc("G-3", { kind: "epic" })
+          }
+        },
+        { role: "admin" }
+      )
+    )
+  )
+)
+
 it.effect("removeTicketFromAllGroups strips the id", () =>
   Effect.gen(function* () {
     const groups = yield* Groups

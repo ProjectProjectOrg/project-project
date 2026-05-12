@@ -14,14 +14,17 @@ import {
   GroupKind,
   isCarryover,
   NotFound,
-  encodeCursor,
+  paginateSorted,
   padNumericIdSort,
   SprintCompletedImmutable,
+  sprintState,
   TAG_DEFAULT_PALETTE,
   TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   type CursorPayload,
+  type GroupFilter,
+  type SprintState,
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput,
   Validation
@@ -136,10 +139,66 @@ export const GroupsLive = Layer.effect(
           .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       })
 
+    const matchesGroupFilter = (
+      group: Group,
+      filter: GroupFilter | undefined,
+      now: Date
+    ): boolean => {
+      if (!filter) return true
+      if (filter.kind !== undefined) {
+        if (filter.kind.length === 0) return false
+        if (!filter.kind.includes(group.kind)) return false
+      }
+      if (filter.active !== undefined) {
+        if (group.kind !== "sprint") return false
+        const isActive = sprintState(group, now) === "active"
+        if (filter.active !== isActive) return false
+      }
+      return true
+    }
+
+    const loadFilteredGroups = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      predicate: (group: Group, now: Date) => boolean
+    ): Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
+        const ids = yield* groupDocs.listIds(orgSlug, slug)
+        const docs = yield* Effect.forEach(
+          ids,
+          (id) => groupDocs.read(orgSlug, slug, id),
+          { concurrency: 8 }
+        )
+        const now = yield* DateTime.nowAsDate
+        return docs
+          .map(documentToGroup)
+          .filter((g) => predicate(g, now))
+          .toSorted((a, b) => {
+            const ka = padNumericIdSort(a.id) ?? ""
+            const kb = padNumericIdSort(b.id) ?? ""
+            return ka < kb ? -1 : ka > kb ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+          })
+      })
+
+    const paginateGroups = (
+      sorted: ReadonlyArray<Group>,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ) =>
+      paginateSorted(sorted, {
+        cursor,
+        limit,
+        sortKey: (g) => padNumericIdSort(g.id) ?? "",
+        id: (g) => g.id
+      })
+
     const listPaged = (
       orgSlug: string,
       userId: string,
       slug: string,
+      filter: GroupFilter | undefined,
       cursor: CursorPayload | undefined,
       limit: number
     ): Effect.Effect<
@@ -147,42 +206,36 @@ export const GroupsLive = Layer.effect(
       NotFound | MarkdownError
     > =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const ids = yield* groupDocs.listIds(orgSlug, slug)
-        const sortedIds = [...ids].toSorted((a, b) => {
-          const ka = padNumericIdSort(a) ?? ""
-          const kb = padNumericIdSort(b) ?? ""
-          return ka < kb ? -1 : ka > kb ? 1 : a < b ? -1 : a > b ? 1 : 0
-        })
-        const startIdx =
-          cursor === undefined
-            ? 0
-            : (() => {
-                const idx = sortedIds.findIndex((id) => {
-                  const s = padNumericIdSort(id) ?? ""
-                  if (s !== cursor.sort) return s > cursor.sort
-                  return id > cursor.id
-                })
-                return idx < 0 ? sortedIds.length : idx
-              })()
-        const pageIds = sortedIds.slice(startIdx, startIdx + limit + 1)
-        const hasMore = pageIds.length > limit
-        const visibleIds = hasMore ? pageIds.slice(0, limit) : pageIds
-        const docs = yield* Effect.forEach(
-          visibleIds,
-          (id) => groupDocs.read(orgSlug, slug, id),
-          { concurrency: 8 }
+        const sorted = yield* loadFilteredGroups(
+          orgSlug,
+          userId,
+          slug,
+          (g, now) => matchesGroupFilter(g, filter, now)
         )
-        const items = docs.map(documentToGroup)
-        const lastId = visibleIds[visibleIds.length - 1]
-        const nextCursor =
-          hasMore && lastId !== undefined
-            ? encodeCursor({
-                id: lastId,
-                sort: padNumericIdSort(lastId) ?? ""
-              })
-            : null
-        return { items, nextCursor }
+        return paginateGroups(sorted, cursor, limit)
+      })
+
+    const listSprintsPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      state: SprintState | undefined,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Group>; nextCursor: string | null },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        const sorted = yield* loadFilteredGroups(
+          orgSlug,
+          userId,
+          slug,
+          (g, now) =>
+            g.kind === "sprint" &&
+            (state === undefined || sprintState(g, now) === state)
+        )
+        return paginateGroups(sorted, cursor, limit)
       })
 
     const get = (
@@ -565,6 +618,7 @@ export const GroupsLive = Layer.effect(
     return {
       list,
       listPaged,
+      listSprintsPaged,
       get,
       create,
       update,

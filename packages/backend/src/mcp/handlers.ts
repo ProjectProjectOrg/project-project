@@ -3,7 +3,9 @@ import {
   CurrentUser,
   Unauthorized,
   tryDecodeCursor,
+  type GroupFilter,
   type Pagination,
+  type SprintState,
   type TicketFilter
 } from "@projectproject/shared"
 import { Users } from "../Services/Users"
@@ -108,7 +110,11 @@ const get_project = (input: { orgSlug: string; projectSlug: string }) =>
   })
 
 const list_groups = (
-  input: { orgSlug: string; projectSlug: string } & Pagination
+  input: {
+    orgSlug: string
+    projectSlug: string
+    filter?: GroupFilter
+  } & Pagination
 ) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
@@ -117,6 +123,27 @@ const list_groups = (
       input.orgSlug,
       current.id,
       input.projectSlug,
+      input.filter,
+      tryDecodeCursor(input.cursor),
+      input.limit ?? DEFAULT_LIMIT
+    )
+  })
+
+const list_sprints = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    state?: SprintState
+  } & Pagination
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    return yield* groups.listSprintsPaged(
+      input.orgSlug,
+      current.id,
+      input.projectSlug,
+      input.state,
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
@@ -262,6 +289,7 @@ export const handlers: HandlersMap<Env> = {
   list_projects: (i) => dieInternal(list_projects(i)),
   get_project: (i) => dieInternal(get_project(i)),
   list_groups: (i) => dieInternal(list_groups(i)),
+  list_sprints: (i) => dieInternal(list_sprints(i)),
   get_group: (i) => dieInternal(get_group(i)),
   list_tickets: (i) => dieInternal(list_tickets(i)),
   get_ticket: (i) => dieInternal(get_ticket(i)),

@@ -10,12 +10,15 @@ import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { Page, Pagination } from "./Pagination"
 import { TicketFilter } from "./filters/Ticket"
+import { GroupFilter } from "./filters/Group"
+import { SprintState } from "../sprintLogic"
 
 export * from "./Pagination"
 export * from "./cursor"
 export * from "./DocFile"
 export * from "./MeOutput"
 export * from "./filters/Ticket"
+export * from "./filters/Group"
 
 export interface McpToolSpec<
   Input extends Schema.Schema.Any,
@@ -61,10 +64,32 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   list_groups: {
-    description: "List groups (sprints, epics, milestones) in a project.",
+    description:
+      "List groups (sprints, epics, milestones) in a project, optionally " +
+      "filtered by kind or active state. `active` is a sprint-only filter " +
+      "(non-sprint groups are excluded when it is set); `active: true` keeps " +
+      "sprints that are currently running, `active: false` keeps planned or " +
+      "completed sprints.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
+      filter: Schema.optional(GroupFilter),
+      ...Pagination.fields
+    }),
+    output: Page(Group),
+    errors: [Unauthorized, NotFound] as const
+  },
+  list_sprints: {
+    description:
+      "List sprints in a project, optionally narrowed to a state. " +
+      "`state: 'active'` returns sprints that are currently running; " +
+      "'planned' returns future sprints; 'completed' returns past sprints; " +
+      "omitted returns all sprints. Uses the same active/planned/completed " +
+      "logic as the app's sprint page.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      state: Schema.optional(SprintState),
       ...Pagination.fields
     }),
     output: Page(Group),
