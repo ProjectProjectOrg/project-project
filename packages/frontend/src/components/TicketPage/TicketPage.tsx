@@ -1,8 +1,8 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import { ChevronLeft } from "lucide-react"
+import { BackButton } from "@/components/BackButton"
 import {
   useEffect,
   useLayoutEffect,
@@ -63,14 +63,12 @@ export function TicketPage({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
-        <Link
-          to="/orgs/$orgSlug/projects/$slug"
-          params={{ orgSlug, slug }}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" strokeWidth={1.75} />
-          <span>{m.tickets_page_back_to_backlog()}</span>
-        </Link>
+        <BackButton
+          fallback={{
+            to: "/orgs/$orgSlug/projects/$slug",
+            params: { orgSlug, slug }
+          }}
+        />
         <SaveIndicator status={bodyStatus} />
       </div>
       <header className="flex items-start gap-3">
