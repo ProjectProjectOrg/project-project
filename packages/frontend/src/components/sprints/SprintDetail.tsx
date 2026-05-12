@@ -119,14 +119,16 @@ export function SprintDetail({
 
       const body =
         view === "board" ? (
-          <SprintBoard
-            orgSlug={orgSlug}
-            slug={slug}
-            groupId={display.id}
-            ticketIds={ticketIds}
-            members={project.members}
-            isCompleted={isCompleted}
-          />
+          <PageContainer>
+            <SprintBoard
+              orgSlug={orgSlug}
+              slug={slug}
+              groupId={display.id}
+              ticketIds={ticketIds}
+              members={project.members}
+              isCompleted={isCompleted}
+            />
+          </PageContainer>
         ) : (
           <PageContainer>
             <SprintTicketList

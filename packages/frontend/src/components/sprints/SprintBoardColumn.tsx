@@ -58,7 +58,9 @@ export function SprintBoardColumn({
     const update = ({
       location
     }: {
-      location: { current: { dropTargets: ReadonlyArray<{ element: Element }> } }
+      location: {
+        current: { dropTargets: ReadonlyArray<{ element: Element }> }
+      }
     }) => {
       const el = columnRef.current
       const inner = location.current.dropTargets[0]?.element
@@ -75,7 +77,7 @@ export function SprintBoardColumn({
       ref={columnRef}
       className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
     >
-      <div className="flex items-center justify-between px-6 pt-3 pb-2">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <Icon className={cn("size-4", meta.className)} strokeWidth={1.75} />
           {STATUS_LABELS[status]()}
@@ -244,4 +246,3 @@ function CardSlot({
     </div>
   )
 }
-

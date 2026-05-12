@@ -49,7 +49,9 @@ export function SprintBoard({
     if (!el) return
     const update = () => {
       const rect = el.getBoundingClientRect()
-      setHeight(Math.max(240, window.innerHeight - rect.top - BOARD_BOTTOM_OFFSET))
+      setHeight(
+        Math.max(240, window.innerHeight - rect.top - BOARD_BOTTOM_OFFSET)
+      )
     }
     update()
     const ro = new ResizeObserver(update)
@@ -134,7 +136,7 @@ export function SprintBoard({
     <div
       ref={ref}
       style={{ height: height ? `${height}px` : undefined }}
-      className="overflow-x-auto px-4 pb-4"
+      className="overflow-x-auto pb-4"
     >
       <div className="flex h-full gap-3">
         {BOARD_STATUSES.map((status) => (
