@@ -5,7 +5,6 @@ import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import { SprintAssignMenu } from "@/components/sprints/SprintAssignMenu"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
   addTicketsToSprintAtom,
@@ -67,11 +66,7 @@ export function SprintField({
               ? m.tickets_sprint_chip_aria({ name: membership.name })
               : m.tickets_assign_sprint_chip()
           }
-          className={cn(
-            "min-w-0",
-            !membership &&
-              "opacity-0 transition-opacity group-hover/list-row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-          )}
+          className="min-w-0"
         >
           {membership ? (
             <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
