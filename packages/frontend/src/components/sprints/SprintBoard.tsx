@@ -15,6 +15,7 @@ import type {
   TicketId,
   TicketStatus
 } from "@projectproject/shared"
+import { cn } from "@/lib/utils"
 import {
   BOARD_STATUSES,
   groupTicketsByStatus,
@@ -43,6 +44,7 @@ export function SprintBoard({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | null>(null)
+  const [hasRightOverflow, setHasRightOverflow] = useState(true)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -60,6 +62,22 @@ export function SprintBoard({
     return () => {
       ro.disconnect()
       window.removeEventListener("resize", update)
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => {
+      setHasRightOverflow(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    }
+    update()
+    el.addEventListener("scroll", update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener("scroll", update)
+      ro.disconnect()
     }
   }, [])
 
@@ -136,7 +154,11 @@ export function SprintBoard({
     <div
       ref={ref}
       style={{ height: height ? `${height}px` : undefined }}
-      className="overflow-x-auto pb-4"
+      className={cn(
+        "overflow-x-auto pb-4",
+        hasRightOverflow &&
+          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+      )}
     >
       <div className="flex h-full gap-3">
         {BOARD_STATUSES.map((status) => (
@@ -152,6 +174,26 @@ export function SprintBoard({
             lastFlash={lastFlash}
           />
         ))}
+        {GHOST_COLUMNS.map((name) => (
+          <GhostColumn key={name} name={name} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const GHOST_COLUMNS = ["backlog", "in review", "blocked", "canceled"]
+
+function GhostColumn({ name }: { name: string }) {
+  return (
+    <div className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-dashed border-border bg-background/40">
+      <div className="flex items-center justify-between px-6 pt-3 pb-2">
+        <span className="text-sm font-medium text-muted-foreground">
+          {name}
+        </span>
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          0
+        </span>
       </div>
     </div>
   )
