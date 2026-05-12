@@ -104,7 +104,7 @@ export const TagsLive = Layer.effect(
       Effect.gen(function* () {
         const all = yield* list(orgSlug, userId, slug)
         const sorted = [...all].toSorted((a, b) =>
-          a.name.localeCompare(b.name)
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0
         )
         return paginateSorted(sorted, {
           cursor,

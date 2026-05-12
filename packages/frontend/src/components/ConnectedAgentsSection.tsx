@@ -66,8 +66,8 @@ export function ConnectedAgentsSection() {
 }
 
 function AgentRow({ app }: { app: OAuthApplication }) {
-  const revoke = useAtomSet(revokeOAuthApplicationAtom)
-  const revokeState = useAtomValue(revokeOAuthApplicationAtom)
+  const revoke = useAtomSet(revokeOAuthApplicationAtom(app.id))
+  const revokeState = useAtomValue(revokeOAuthApplicationAtom(app.id))
   const busy = revokeState.waiting
   const locale = getLocale()
 
@@ -96,7 +96,7 @@ function AgentRow({ app }: { app: OAuthApplication }) {
         variant="tertiary"
         size="sm"
         disabled={busy}
-        onClick={() => revoke({ id: app.id })}
+        onClick={() => revoke()}
         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
       >
         {m.profile_connected_agents_revoke()}

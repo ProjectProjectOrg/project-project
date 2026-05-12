@@ -554,6 +554,18 @@ const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
       .addError(Unauthorized)
       .addError(NotFound)
   )
+  .add(
+    HttpApiEndpoint.post("consent", "/oauth-applications/consent")
+      .setPayload(
+        Schema.Struct({
+          accept: Schema.Boolean,
+          consent_code: Schema.String
+        })
+      )
+      .addSuccess(Schema.Struct({ redirectURI: Schema.String }))
+      .addError(Unauthorized)
+      .addError(Validation)
+  )
   .middleware(Authentication)
 
 const AppApi = HttpApi.make("projectproject")

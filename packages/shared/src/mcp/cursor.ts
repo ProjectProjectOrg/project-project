@@ -36,9 +36,12 @@ export const paginateSorted = <A>(
     opts.cursor === undefined
       ? 0
       : (() => {
-          const idx = sorted.findIndex(
-            (item) => opts.sortKey(item) > opts.cursor!.sort
-          )
+          const { sort, id } = opts.cursor
+          const idx = sorted.findIndex((item) => {
+            const s = opts.sortKey(item)
+            if (s !== sort) return s > sort
+            return opts.id(item) > id
+          })
           return idx < 0 ? sorted.length : idx
         })()
   const slice = sorted.slice(startIdx, startIdx + opts.limit + 1)

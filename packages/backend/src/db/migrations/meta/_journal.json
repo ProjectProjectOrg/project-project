@@ -64,6 +64,13 @@
       "when": 1778501637786,
       "tag": "0008_mcp_plugin_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778581069294,
+      "tag": "0009_nice_black_tom",
+      "breakpoints": true
     }
   ]
 }

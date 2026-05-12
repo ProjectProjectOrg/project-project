@@ -126,7 +126,10 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        return { path: "project.md", content }
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/project.md`,
+          content
+        }
       })
 
     const writeProjectFile = (
@@ -254,7 +257,10 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        return { path: `tickets/${id}.md`, content }
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/tickets/${id}.md`,
+          content
+        }
       })
 
     const createTicketFile = (
@@ -439,7 +445,10 @@ export const MarkdownLive = Layer.effect(
                 : new MarkdownError({ cause, message: `read failed: ${file}` })
             )
           )
-        return { path: `groups/${id}.md`, content }
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/groups/${id}.md`,
+          content
+        }
       })
 
     const createGroupFile = (

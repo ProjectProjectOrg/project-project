@@ -51,7 +51,7 @@ export type DocFile = typeof DocFile.Type
 
 Re-exported from `packages/shared/src/mcp/index.ts`.
 
-**`path`** is relative to the markdown data root — e.g. `acme/web/tickets/T-12.md` — not absolute. Reasons:
+**`path`** is relative to the markdown data root and uses the canonical `orgs/<orgSlug>/projects/<projectSlug>/...` prefix — e.g. `orgs/acme/projects/web/tickets/T-12.md` — not absolute. Reasons:
 
 - Stable across deployments; the FS root differs between dev, prod, and CI.
 - Doesn't disclose internal layout (`/var/lib/...`, `/data/...`) to MCP clients.
@@ -157,6 +157,6 @@ No write tests; nothing in this plan writes.
 
 In any Claude Code session against this backend:
 
-- `get_ticket_doc({ orgSlug: "acme", projectSlug: "web", id: "T-12" })` returns the raw markdown of `data/acme/web/tickets/T-12.md`, frontmatter delimiters intact, body unchanged.
+- `get_ticket_doc({ orgSlug: "acme", projectSlug: "web", id: "T-12" })` returns the raw markdown of `orgs/acme/projects/web/tickets/T-12.md`, frontmatter delimiters intact, body unchanged.
 - Same for `get_project_doc` and `get_group_doc` against their respective on-disk files.
 - A call for a project the caller can't see returns `NotFound`, identical to the response for a non-existent file.

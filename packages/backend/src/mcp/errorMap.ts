@@ -1,8 +1,3 @@
-// Central mapper from tagged errors raised by handlers to MCP tool-error
-// responses. The MCP SDK accepts `{ content: [...], isError: true }` for
-// soft errors; tagged errors that map here keep the connection alive
-// instead of crashing the dispatcher with an unhandled defect.
-
 import * as ParseResult from "effect/ParseResult"
 
 export interface McpToolErrorResult {
@@ -32,10 +27,16 @@ export const mapToolError = (e: unknown): McpToolErrorResult => {
       return text("Forbidden.")
     case "NotFound":
       return text("Not found.")
-    case "Conflict":
-      return text(`Conflict (${reasonOf(e) ?? ""}).`)
-    case "Validation":
-      return text(`Validation error (${reasonOf(e) ?? ""}).`)
+    case "Conflict": {
+      const reason = reasonOf(e)
+      return text(reason ? `Conflict (${reason}).` : "Conflict.")
+    }
+    case "Validation": {
+      const reason = reasonOf(e)
+      return text(
+        reason ? `Validation error (${reason}).` : "Validation error."
+      )
+    }
     case "ParseError":
       return text(
         `Validation error: ${ParseResult.TreeFormatter.formatErrorSync(

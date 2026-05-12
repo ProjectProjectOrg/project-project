@@ -44,5 +44,17 @@ const fromBase64Url = (s: string): Uint8Array => {
 export const encodeCursor = (p: CursorPayload): string =>
   toBase64Url(new TextEncoder().encode(JSON.stringify(p)))
 
-export const decodeCursor = (s: string): CursorPayload =>
-  JSON.parse(new TextDecoder().decode(fromBase64Url(s)))
+export const decodeCursor = (s: string): CursorPayload => {
+  const parsed: unknown = JSON.parse(
+    new TextDecoder().decode(fromBase64Url(s))
+  )
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    typeof (parsed as { id?: unknown }).id !== "string" ||
+    typeof (parsed as { sort?: unknown }).sort !== "string"
+  ) {
+    throw new Error("Invalid cursor payload")
+  }
+  return parsed as CursorPayload
+}

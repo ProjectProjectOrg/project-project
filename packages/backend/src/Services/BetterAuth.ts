@@ -48,6 +48,10 @@ export interface BetterAuthShape {
     userId: string,
     orgSlug: string
   ) => Effect.Effect<Org, BetterAuthError | NotFound>
+  readonly submitConsent: (
+    headers: Headers,
+    input: { accept: boolean; consent_code: string }
+  ) => Effect.Effect<{ redirectURI: string }, BetterAuthError>
 }
 
 export class BetterAuth extends Context.Tag(

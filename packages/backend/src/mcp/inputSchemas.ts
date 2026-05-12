@@ -108,9 +108,9 @@ export const effectToZodObject = <A, I, R>(
 ): z.ZodObject => {
   const root = JSONSchema.make(schema) as JsonSchemaNode
   const defs = root.$defs ?? {}
-  if (root.type === "object" || root.properties) {
-    const converted = toZod({ ...root, $defs: undefined }, defs, new Set())
-    if (converted instanceof z.ZodObject) return converted
-  }
-  return z.object({})
+  const converted = toZod({ ...root, $defs: undefined }, defs, new Set())
+  if (converted instanceof z.ZodObject) return converted
+  throw new Error(
+    `MCP input schema must resolve to a ZodObject (got ${root.type ?? "unknown"})`
+  )
 }

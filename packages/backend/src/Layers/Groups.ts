@@ -14,8 +14,8 @@ import {
   GroupKind,
   isCarryover,
   NotFound,
+  encodeCursor,
   padNumericIdSort,
-  paginateSorted,
   SprintCompletedImmutable,
   TAG_DEFAULT_PALETTE,
   TicketId,
@@ -148,21 +148,40 @@ export const GroupsLive = Layer.effect(
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const ids = yield* groupDocs.listIds(orgSlug, slug)
-        const results = yield* Effect.forEach(
-          ids,
+        const sortedIds = [...ids].toSorted((a, b) => {
+          const ka = padNumericIdSort(a) ?? ""
+          const kb = padNumericIdSort(b) ?? ""
+          return ka < kb ? -1 : ka > kb ? 1 : a < b ? -1 : a > b ? 1 : 0
+        })
+        const startIdx =
+          cursor === undefined
+            ? 0
+            : (() => {
+                const idx = sortedIds.findIndex((id) => {
+                  const s = padNumericIdSort(id) ?? ""
+                  if (s !== cursor.sort) return s > cursor.sort
+                  return id > cursor.id
+                })
+                return idx < 0 ? sortedIds.length : idx
+              })()
+        const pageIds = sortedIds.slice(startIdx, startIdx + limit + 1)
+        const hasMore = pageIds.length > limit
+        const visibleIds = hasMore ? pageIds.slice(0, limit) : pageIds
+        const docs = yield* Effect.forEach(
+          visibleIds,
           (id) => groupDocs.read(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        const sorted = results
-          .map(documentToGroup)
-          .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
-
-        return paginateSorted(sorted, {
-          cursor,
-          limit,
-          sortKey: (g) => padNumericIdSort(g.id) ?? "",
-          id: (g) => g.id
-        })
+        const items = docs.map(documentToGroup)
+        const lastId = visibleIds[visibleIds.length - 1]
+        const nextCursor =
+          hasMore && lastId !== undefined
+            ? encodeCursor({
+                id: lastId,
+                sort: padNumericIdSort(lastId) ?? ""
+              })
+            : null
+        return { items, nextCursor }
       })
 
     const get = (

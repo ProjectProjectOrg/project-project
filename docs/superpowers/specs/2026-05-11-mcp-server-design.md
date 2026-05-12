@@ -72,7 +72,9 @@ Membership filtering already lives in the services (`Projects.list(userId)`, `Ti
 
 ## Tool catalog
 
-The catalog is declared once, in `packages/shared/src/mcp.ts`, as a plain object keyed by tool name. Each entry is `{ description, input, output, errors }` using existing Effect Schemas from `packages/shared/src/schemas/*` for input/output.
+The catalog is declared once, in `packages/shared/src/mcp/index.ts` (`McpTools`), as a plain object keyed by tool name. Each entry is `{ description, input, output, errors }` using existing Effect Schemas from `packages/shared/src/schemas/*` for input/output.
+
+> The table below is the original planning sketch. The shipped catalog lives in `packages/shared/src/mcp/index.ts` and is the source of truth — it diverges in places (no doc-listing tools, `list_tags` is paged, `get_git_state` returns `GitStatesResponse` instead of `Array<GitState>`, groups are addressed by `id` not `groupSlug`).
 
 Markdown is the whole point of the product: every entity that owns prose is stored as a `.md` file on disk, and the existing schemas already split each entity into a **list shape** (frontmatter fields only, cheap) and a **detail shape** (`= list shape + { body: string }`, where `body` is the raw markdown body after the frontmatter, passed through verbatim with no rendering). The MCP tools follow that split exactly:
 
@@ -200,7 +202,7 @@ for (const [name, spec] of Object.entries(McpTools)) {
 }
 ```
 
-Effect Schema implements Standard Schema v1, which the MCP SDK accepts directly — no Zod-conversion layer. Errors map centrally (`NotFound → isError + "Not found"`, `Forbidden → "Forbidden"`, `ValidationError → structured message`, unknown defects → logged and surfaced as a generic "Internal error").
+Effect Schema implements Standard Schema v1, but the MCP SDK's `inputSchema` expects a Zod object. `dispatch.ts` runs every tool's input through `effectToZodObject` — a small JSONSchema-to-Zod adapter (`packages/backend/src/mcp/inputSchemas.ts`) — at registration time so handlers stay defined in Effect Schema while the SDK sees Zod. Errors map centrally (`NotFound → isError + "Not found"`, `Forbidden → "Forbidden"`, `ValidationError → structured message`, unknown defects → logged and surfaced as a generic "Internal error").
 
 ## Effect best-practice alignment
 

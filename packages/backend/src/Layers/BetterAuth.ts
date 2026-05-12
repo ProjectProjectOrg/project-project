@@ -96,8 +96,8 @@ export const BetterAuthLive = Layer.effect(
               ? [{ slug: r.slug as Org["slug"], name: r.name, role: r.role as OrgRole }]
               : []
           )
-          const sorted = [...orgs].toSorted((a, b) =>
-            a.name.localeCompare(b.name)
+          const sorted = [...orgs].toSorted(
+            (a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug)
           )
           return paginateSorted(sorted, {
             cursor,
@@ -147,6 +147,15 @@ export const BetterAuthLive = Layer.effect(
             catch: (cause) => new BetterAuthError({ cause })
           })
           return row?.slug ?? null
+        }),
+      submitConsent: (headers, input) =>
+        Effect.tryPromise({
+          try: () =>
+            auth.api.oAuthConsent({
+              body: input,
+              headers
+            }),
+          catch: (cause) => new BetterAuthError({ cause })
         })
     } satisfies BetterAuthShape
   })

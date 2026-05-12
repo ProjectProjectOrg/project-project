@@ -240,14 +240,21 @@ export const ProjectsLive = Layer.effect(
         const detail = yield* get(orgSlug, userId, slug).pipe(
           Effect.catchTag("MarkdownError", (e) => Effect.die(e))
         )
-        const sorted = [...detail.members].toSorted((a, b) => {
-          const byName = a.name.localeCompare(b.name)
-          return byName !== 0 ? byName : a.id.localeCompare(b.id)
-        })
+        const sorted = [...detail.members].toSorted((a, b) =>
+          a.name < b.name
+            ? -1
+            : a.name > b.name
+              ? 1
+              : a.id < b.id
+                ? -1
+                : a.id > b.id
+                  ? 1
+                  : 0
+        )
         return paginateSorted(sorted, {
           cursor,
           limit,
-          sortKey: (m) => `${m.name}|${m.id}`,
+          sortKey: (m) => m.name,
           id: (m) => m.id
         })
       })
