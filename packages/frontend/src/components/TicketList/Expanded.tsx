@@ -42,7 +42,7 @@ export function Expanded({
 }) {
   const detail = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, id)))
   return (
-    <div className="border-t border-border/60 bg-muted/30 px-4 py-4">
+    <div className="border-t border-border/60 bg-muted/30 px-4 py-4 [li:last-child_&]:rounded-b-xl">
       {Result.matchWithError(detail, {
         onInitial: () => (
           <div className="skeleton h-24 rounded-lg bg-muted/60" />

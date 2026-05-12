@@ -131,13 +131,9 @@ export function FilteredList({
   const showExtraActionsCol = extraRowActions !== undefined
   const gridCols = cn(
     "grid divide-y divide-border rounded-xl border border-border bg-background",
-    showSprintCol && showExtraActionsCol
-      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto_auto]"
-      : showSprintCol
-        ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-        : showExtraActionsCol
-          ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-          : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto]"
+    showExtraActionsCol
+      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto]"
+      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
   )
   return (
     <ul className={gridCols}>
@@ -221,6 +217,8 @@ function Row({
         aria-expanded={isExpanded}
         className={cn(
           "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring",
+          "[li:first-child_&]:rounded-t-xl",
+          "[li:last-child:not([data-expanded])_&]:rounded-b-xl",
           isExpanded ? "bg-accent/40" : "hover:bg-accent/30"
         )}
       >
@@ -239,29 +237,33 @@ function Row({
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
-        <span className="min-w-0 truncate text-sm font-medium">
-          {ticket.title}
-        </span>
-        <div className="justify-self-end">
-          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
-        </div>
-        {showSprintCol && (
-          <div className="justify-self-end">
-            <SprintField
+        <div className="flex min-w-0 items-center">
+          <span className="min-w-0 truncate text-sm font-medium">
+            {ticket.title}
+          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
+            <TicketGitChip
               orgSlug={orgSlug}
               slug={slug}
               ticketId={ticket.id}
-              membership={sprintMembership}
+            />
+            {showSprintCol && (
+              <SprintField
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+                membership={sprintMembership}
+              />
+            )}
+            <AssigneeRowTrigger
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={ticket}
+              members={members}
+              className="hidden sm:inline-flex"
             />
           </div>
-        )}
-        <AssigneeRowTrigger
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          members={members}
-          className="hidden sm:inline-flex"
-        />
+        </div>
         <TypeButton
           orgSlug={orgSlug}
           slug={slug}
