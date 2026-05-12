@@ -44,7 +44,6 @@ export interface GroupDocsShape {
   ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
-export class GroupDocs extends Context.Tag("@projectproject/backend/Services/GroupDocs")<
-  GroupDocs,
-  GroupDocsShape
->() {}
+export class GroupDocs extends Context.Tag(
+  "@projectproject/backend/Services/GroupDocs"
+)<GroupDocs, GroupDocsShape>() {}

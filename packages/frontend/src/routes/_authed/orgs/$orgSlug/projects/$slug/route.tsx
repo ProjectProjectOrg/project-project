@@ -4,6 +4,7 @@ import {
   Link,
   Outlet,
   useLocation,
+  useMatches,
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
@@ -11,10 +12,12 @@ import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
+  Columns3,
   FolderKanban,
   Info,
   ListChecks,
   MoreHorizontal,
+  Rows3,
   Trash2,
   Users as UsersIcon,
   type LucideIcon
@@ -89,24 +92,33 @@ function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
 
-  return (
-    <PageContainer>
-      {Result.matchWithError(project, {
-        onInitial: () => <Skeleton />,
-        onError: (error) =>
-          error._tag === "NotFound" ? (
-            <NotFoundCard slug={slug} />
-          ) : (
-            <ErrorCard
-              message={m.project_detail_load_error({ tag: error._tag })}
-            />
-          ),
-        onDefect: (defect) => (
-          <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
-        ),
-        onSuccess: ({ value }) => (
-          <ProjectContext.Provider value={value}>
-            <TagRenamesProvider>
+  return Result.matchWithError(project, {
+    onInitial: () => (
+      <PageContainer>
+        <Skeleton />
+      </PageContainer>
+    ),
+    onError: (error) => (
+      <PageContainer>
+        {error._tag === "NotFound" ? (
+          <NotFoundCard slug={slug} />
+        ) : (
+          <ErrorCard
+            message={m.project_detail_load_error({ tag: error._tag })}
+          />
+        )}
+      </PageContainer>
+    ),
+    onDefect: (defect) => (
+      <PageContainer>
+        <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
+      </PageContainer>
+    ),
+    onSuccess: ({ value }) => (
+      <ProjectContext.Provider value={value}>
+        <TagRenamesProvider>
+          <div className="flex flex-col gap-6">
+            <PageContainer>
               <ProjectHeader
                 orgSlug={orgSlug}
                 slug={value.slug}
@@ -114,13 +126,13 @@ function ProjectLayout() {
                 project={value}
               />
               <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-              <Outlet />
-            </TagRenamesProvider>
-          </ProjectContext.Provider>
-        )
-      })}
-    </PageContainer>
-  )
+            </PageContainer>
+            <Outlet />
+          </div>
+        </TagRenamesProvider>
+      </ProjectContext.Provider>
+    )
+  })
 }
 
 function ProjectHeader({
@@ -484,6 +496,65 @@ function TabsNav({
             </Link>
           )
         }}
+      />
+      <SprintViewSwitcher orgSlug={orgSlug} slug={slug} />
+    </div>
+  )
+}
+
+function SprintViewSwitcher({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
+  const navigate = useNavigate()
+  const matches = useMatches()
+  const sprintMatch = matches.find(
+    (m) =>
+      m.routeId ===
+      "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+  )
+  if (!sprintMatch) return null
+  const search = sprintMatch.search as { view?: "list" | "board" }
+  const view: "list" | "board" = search.view ?? "board"
+  const { groupId } = sprintMatch.params as { groupId: string }
+  const setView = (next: "list" | "board") => {
+    if (next === view) return
+    navigate({
+      to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+      params: { orgSlug, slug, groupId },
+      search: (prev) => ({
+        ...prev,
+        view: next === "list" ? "list" : undefined
+      })
+    })
+  }
+  const items: ReadonlyArray<SegmentedItem<"list" | "board">> = [
+    { key: "list", label: m.sprints_view_list(), icon: Rows3 },
+    { key: "board", label: m.sprints_view_board(), icon: Columns3 }
+  ]
+  return (
+    <div
+      role="group"
+      aria-label={m.sprints_view_tabs_aria_label()}
+      className="ml-auto"
+    >
+      <SegmentedTabs
+        items={items}
+        layoutId={`sprint-view-${groupId}`}
+        isActive={(k) => k === view}
+        renderItem={(item, content, { active }) => (
+          <button
+            type="button"
+            onClick={() => setView(item.key)}
+            aria-pressed={active}
+            className={SEGMENTED_ITEM_CLASS(active)}
+          >
+            {content}
+          </button>
+        )}
       />
     </div>
   )

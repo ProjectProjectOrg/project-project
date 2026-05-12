@@ -48,4 +48,7 @@ export interface TagsShape {
   ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
 }
 
-export class Tags extends Context.Tag("@projectproject/backend/Services/Tags")<Tags, TagsShape>() {}
+export class Tags extends Context.Tag("@projectproject/backend/Services/Tags")<
+  Tags,
+  TagsShape
+>() {}

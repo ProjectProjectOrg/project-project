@@ -23,12 +23,7 @@ import {
 } from "@/atoms/ticketListUi"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
-  Member,
-  Ticket,
-  TicketId
-} from "@projectproject/shared"
+import type { Group, Member, Ticket, TicketId } from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
 import { Expanded } from "./Expanded"
 import { PriorityButton } from "./PriorityField"
@@ -130,7 +125,9 @@ export function FilteredList({
     )
   }
 
-  const showSprintCol = sprintMembership !== undefined
+  const showSprintCol =
+    sprintMembership !== undefined &&
+    filtered.some((t) => sprintMembership.get(t.id) !== undefined)
   const showExtraActionsCol = extraRowActions !== undefined
   const gridCols = cn(
     "grid divide-y divide-border rounded-xl border border-border bg-background",
@@ -245,6 +242,9 @@ function Row({
         <span className="min-w-0 truncate text-sm font-medium">
           {ticket.title}
         </span>
+        <div className="justify-self-end">
+          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+        </div>
         {showSprintCol && (
           <div className="justify-self-end">
             <SprintField
@@ -255,9 +255,6 @@ function Row({
             />
           </div>
         )}
-        <div className="justify-self-end">
-          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
-        </div>
         <AssigneeRowTrigger
           orgSlug={orgSlug}
           slug={slug}

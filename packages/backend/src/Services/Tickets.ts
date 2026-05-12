@@ -148,4 +148,6 @@ export interface TicketsShape {
   ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError>
 }
 
-export class Tickets extends Context.Tag("@projectproject/backend/Services/Tickets")<Tickets, TicketsShape>() {}
+export class Tickets extends Context.Tag(
+  "@projectproject/backend/Services/Tickets"
+)<Tickets, TicketsShape>() {}

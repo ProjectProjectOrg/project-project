@@ -6,7 +6,11 @@ type RailBackLinkProps = LinkComponentProps<"a"> & {
   label: string
 }
 
-export function RailBackLink({ label, className, ...linkProps }: RailBackLinkProps) {
+export function RailBackLink({
+  label,
+  className,
+  ...linkProps
+}: RailBackLinkProps) {
   return (
     <Link
       {...linkProps}

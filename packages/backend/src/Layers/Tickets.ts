@@ -105,9 +105,9 @@ export const TicketsLive = Layer.effect(
           (id) => readTicket(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return tickets.map(documentToTicket).toSorted(
-          (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
-        )
+        return tickets
+          .map(documentToTicket)
+          .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
       })
 
     const get = (

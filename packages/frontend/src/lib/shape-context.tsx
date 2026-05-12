@@ -73,7 +73,9 @@ function transitionShape(callback: () => void) {
   callback()
   Effect.runFork(
     Effect.sleep(200).pipe(
-      Effect.tap(() => Effect.sync(() => root.classList.remove("transitioning")))
+      Effect.tap(() =>
+        Effect.sync(() => root.classList.remove("transitioning"))
+      )
     )
   )
 }

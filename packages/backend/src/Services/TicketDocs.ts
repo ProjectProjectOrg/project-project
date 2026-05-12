@@ -60,7 +60,6 @@ export interface TicketDocsShape {
   ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
-export class TicketDocs extends Context.Tag("@projectproject/backend/Services/TicketDocs")<
-  TicketDocs,
-  TicketDocsShape
->() {}
+export class TicketDocs extends Context.Tag(
+  "@projectproject/backend/Services/TicketDocs"
+)<TicketDocs, TicketDocsShape>() {}

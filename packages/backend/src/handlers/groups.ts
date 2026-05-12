@@ -67,6 +67,21 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("updateTicketOrder", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const groups = yield* Groups
+          return yield* groups.updateTicketOrder(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("complete", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

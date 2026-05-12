@@ -37,8 +37,7 @@ const buttonVariants = cva(
           "border border-border text-foreground bg-transparent hover:bg-muted active:bg-muted/60",
         ghost:
           "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60",
-        chip:
-          "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80",
+        chip: "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80",
         dither: "bg-transparent overflow-hidden"
       },
       size: {
@@ -76,7 +75,8 @@ const buttonVariants = cva(
 )
 
 interface ButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color">,
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color">,
     VariantProps<typeof buttonVariants> {
   ref?: Ref<HTMLButtonElement>
   render?: useRender.RenderProp

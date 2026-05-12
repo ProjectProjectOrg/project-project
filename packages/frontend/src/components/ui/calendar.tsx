@@ -2,12 +2,12 @@ import * as React from "react"
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
-  ChevronRightIcon,
+  ChevronRightIcon
 } from "lucide-react"
 import {
   DayPicker,
   getDefaultClassNames,
-  type DayButton,
+  type DayButton
 } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
@@ -40,7 +40,7 @@ function Calendar({
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString("default", { month: "short" }),
-        ...formatters,
+        ...formatters
       }}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
@@ -126,7 +126,7 @@ function Calendar({
           defaultClassNames.disabled
         ),
         hidden: cn("invisible", defaultClassNames.hidden),
-        ...classNames,
+        ...classNames
       }}
       components={{
         Root: ({ className, rootRef, ...props }) => {
@@ -169,7 +169,7 @@ function Calendar({
             </td>
           )
         },
-        ...components,
+        ...components
       }}
       {...props}
     />

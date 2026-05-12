@@ -45,7 +45,7 @@ describe("isCarryover", () => {
     ["done", false]
   ] as ReadonlyArray<[TicketStatus, boolean]>)(
     "%s -> %s",
-    (status, expected) => {
+    (status: TicketStatus, expected: boolean) => {
       expect(isCarryover(status)).toBe(expected)
     }
   )

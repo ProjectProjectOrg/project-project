@@ -283,7 +283,9 @@ function StatusDropdown({
           <button
             type="button"
             disabled={disabled}
-            aria-label={m.git_status_select_aria_label({ status: currentLabel })}
+            aria-label={m.git_status_select_aria_label({
+              status: currentLabel
+            })}
             className={cn(
               "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs",
               "text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground",

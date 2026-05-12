@@ -90,7 +90,7 @@ function registerOne<R, K extends McpToolName>(
     name,
     {
       description: spec.description,
-      inputSchema: inputZod
+      inputSchema: inputZod.shape
     },
     (async (input: unknown) => {
       const user = currentUserStorage.getStore()

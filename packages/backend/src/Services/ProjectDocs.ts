@@ -55,7 +55,6 @@ export interface ProjectDocsShape {
   ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
 }
 
-export class ProjectDocs extends Context.Tag("@projectproject/backend/Services/ProjectDocs")<
-  ProjectDocs,
-  ProjectDocsShape
->() {}
+export class ProjectDocs extends Context.Tag(
+  "@projectproject/backend/Services/ProjectDocs"
+)<ProjectDocs, ProjectDocsShape>() {}

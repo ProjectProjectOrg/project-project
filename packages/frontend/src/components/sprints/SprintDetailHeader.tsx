@@ -2,11 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import {
-  MoreHorizontal,
-  Trash2,
-  CheckCircle2
-} from "lucide-react"
+import { CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import {
@@ -34,11 +30,7 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  deleteSprintAtom,
-  projectKey,
-  updateSprintAtom
-} from "@/atoms/sprints"
+import { deleteSprintAtom, projectKey, updateSprintAtom } from "@/atoms/sprints"
 import {
   daysLeft,
   sprintState,

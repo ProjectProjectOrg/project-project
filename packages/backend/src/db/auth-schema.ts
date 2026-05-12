@@ -29,10 +29,7 @@ export const user = pgTable("user", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(now)
-    .notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(now).notNull(),
   role: text("role"),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
@@ -48,10 +45,7 @@ export const session = pgTable(
     expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(now)
-      .notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().$onUpdate(now).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     userId: text("user_id")
@@ -80,10 +74,7 @@ export const account = pgTable(
     scope: text("scope"),
     password: text("password"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(now)
-      .notNull()
+    updatedAt: timestamp("updated_at").defaultNow().$onUpdate(now).notNull()
   },
   (table) => [index("account_userId_idx").on(table.userId)]
 )
@@ -96,10 +87,7 @@ export const verification = pgTable(
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(now)
-      .notNull()
+    updatedAt: timestamp("updated_at").defaultNow().$onUpdate(now).notNull()
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 )

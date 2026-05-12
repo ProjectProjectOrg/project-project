@@ -10,6 +10,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
 import { useProject } from "./-context"
 
@@ -31,27 +32,29 @@ function AboutTab() {
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-baseline justify-between gap-4">
-        <div>
-          <CardTitle>{m.project_detail_about_heading()}</CardTitle>
-          <CardDescription>
-            {m.project_detail_about_storage_prefix()}{" "}
-            <span className="font-mono">project.md</span>
-            {m.project_detail_about_storage_suffix()}
-          </CardDescription>
-        </div>
-        <SaveIndicator status={status} />
-      </CardHeader>
-      <CardContent>
-        <LexicalEditor
-          key={project.slug}
-          markdown={project.body}
-          onChange={(next) => update({ body: next })}
-          onStatusChange={setStatus}
-        />
-      </CardContent>
-    </Card>
+    <PageContainer>
+      <Card>
+        <CardHeader className="flex flex-row items-baseline justify-between gap-4">
+          <div>
+            <CardTitle>{m.project_detail_about_heading()}</CardTitle>
+            <CardDescription>
+              {m.project_detail_about_storage_prefix()}{" "}
+              <span className="font-mono">project.md</span>
+              {m.project_detail_about_storage_suffix()}
+            </CardDescription>
+          </div>
+          <SaveIndicator status={status} />
+        </CardHeader>
+        <CardContent>
+          <LexicalEditor
+            key={project.slug}
+            markdown={project.body}
+            onChange={(next) => update({ body: next })}
+            onStatusChange={setStatus}
+          />
+        </CardContent>
+      </Card>
+    </PageContainer>
   )
 }
 
