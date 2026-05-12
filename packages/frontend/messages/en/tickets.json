@@ -48,6 +48,8 @@
   "tickets_page_meta_tags": "tags",
   "tickets_page_meta_updated": "updated",
   "tickets_page_open_in_detail_view": "Open in detail view",
+  "tickets_page_read_more": "Read more",
+  "tickets_page_show_less": "Show less",
   "tickets_priority_aria_label": "Priority: {label}. Click to change.",
   "tickets_priority_high": "High",
   "tickets_priority_low": "Low",

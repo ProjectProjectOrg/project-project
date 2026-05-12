@@ -123,7 +123,7 @@ export function StatusButton({
   const statusLabel = STATUS_LABELS[ticket.status]()
   const wrapperClass =
     size === "lg"
-      ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-accent"
+      ? "-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-accent"
       : cn(
           "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
           meta.className
