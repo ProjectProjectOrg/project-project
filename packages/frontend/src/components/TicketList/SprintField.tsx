@@ -35,25 +35,22 @@ export function SprintField({
   const removeFromSprint = useAtomSet(removeTicketsFromSprintAtom(key))
   const [open, setOpen] = useState(false)
 
+  if (!membership) return null
+
   const sprints = Result.isSuccess(list) ? list.value : []
-  const hasAnyEligible = sprints.some((s) => s.completedAt === null)
-  if (!hasAnyEligible) return null
 
   return (
     <SprintAssignMenu
       open={open}
       onOpenChange={setOpen}
       sprints={sprints}
-      selectedId={membership?.id ?? null}
+      selectedId={membership.id}
       onSelect={(s) => addToSprint({ groupId: s.id, ticketIds: [ticketId] })}
-      onClear={
-        membership
-          ? () =>
-              removeFromSprint({
-                groupId: membership.id,
-                ticketIds: [ticketId]
-              })
-          : undefined
+      onClear={() =>
+        removeFromSprint({
+          groupId: membership.id,
+          ticketIds: [ticketId]
+        })
       }
       onRequestNewSprint={onRequestNewSprint}
       trigger={
@@ -61,24 +58,13 @@ export function SprintField({
           mode="inline"
           margin="2"
           onClick={(e) => e.stopPropagation()}
-          aria-label={
-            membership
-              ? m.tickets_sprint_chip_aria({ name: membership.name })
-              : m.tickets_assign_sprint_chip()
-          }
+          aria-label={m.tickets_sprint_chip_aria({ name: membership.name })}
           className="min-w-0"
         >
-          {membership ? (
-            <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
-              <SprintStateIcon sprint={membership} size="xs" />
-              <span className="truncate">{membership.name}</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
-              <Plus className="size-3" strokeWidth={1.75} />
-              {m.tickets_assign_sprint_chip()}
-            </span>
-          )}
+          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+            <SprintStateIcon sprint={membership} size="xs" />
+            <span className="truncate">{membership.name}</span>
+          </span>
         </Hitbox>
       }
     />
