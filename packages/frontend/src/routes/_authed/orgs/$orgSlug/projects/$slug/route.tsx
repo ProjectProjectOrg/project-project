@@ -93,18 +93,29 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   })
 })
 
+function useIsSprintBoardView() {
+  const matches = useMatches()
+  const sprintMatch = matches.find(
+    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+  )
+  if (!sprintMatch) return false
+  const search = sprintMatch.search as { view?: "list" | "board" }
+  return (search.view ?? "board") === "board"
+}
+
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
+  const wide = useIsSprintBoardView()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
 
   return Result.matchWithError(project, {
     onInitial: () => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <Skeleton />
       </PageContainer>
     ),
     onError: (error) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         {error._tag === "NotFound" ? (
           <NotFoundCard slug={slug} />
         ) : (
@@ -115,7 +126,7 @@ function ProjectLayout() {
       </PageContainer>
     ),
     onDefect: (defect) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
       </PageContainer>
     ),
@@ -123,7 +134,7 @@ function ProjectLayout() {
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <div className="flex flex-col gap-6">
-            <PageContainer>
+            <PageContainer wide={wide}>
               <ProjectHeader
                 orgSlug={orgSlug}
                 slug={value.slug}
