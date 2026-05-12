@@ -119,7 +119,7 @@ export function SprintDetail({
 
       const body =
         view === "board" ? (
-          <PageContainer>
+          <div className="min-w-0">
             <SprintBoard
               orgSlug={orgSlug}
               slug={slug}
@@ -128,7 +128,7 @@ export function SprintDetail({
               members={project.members}
               isCompleted={isCompleted}
             />
-          </PageContainer>
+          </div>
         ) : (
           <PageContainer>
             <SprintTicketList
