@@ -40,9 +40,16 @@ function SprintBoardCardImpl({
       }}
       className="group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition-colors duration-100 hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring"
     >
-      <div className="flex items-center gap-1.5">
-        <TypeButton orgSlug={orgSlug} slug={slug} ticket={ticket} iconOnly />
-        <span className="min-w-0 line-clamp-2 text-sm font-medium leading-snug">
+      <div className="flex items-start gap-1.5 text-sm leading-snug">
+        <div className="grid h-[1lh] shrink-0 place-items-center">
+          <TypeButton
+            orgSlug={orgSlug}
+            slug={slug}
+            ticket={ticket}
+            iconOnly
+          />
+        </div>
+        <span className="line-clamp-2 min-w-0 font-medium">
           {ticket.title}
         </span>
       </div>

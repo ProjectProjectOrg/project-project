@@ -249,7 +249,7 @@ function TitleField({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="-mx-1 truncate rounded px-1 text-left text-base font-semibold tracking-tight transition-colors hover:bg-accent/40"
+        className="-mx-1 max-w-full truncate rounded px-1 text-left text-base font-semibold tracking-tight transition-colors hover:bg-accent/40"
       >
         {ticket.title}
       </button>

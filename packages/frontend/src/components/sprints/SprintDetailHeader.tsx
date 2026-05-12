@@ -304,7 +304,7 @@ function DescriptionField({
     <Accordion type="single" className="w-full">
       <AccordionItem value="desc" className="border-b-0">
         <AccordionTrigger className="items-center gap-2 rounded pl-3 pr-5 py-1 text-left text-sm font-normal text-muted-foreground transition-colors hover:bg-accent/40 hover:no-underline hover:text-foreground [&>svg]:size-3.5 [&>svg]:translate-y-0">
-          <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
             <span>{m.sprints_description_label()}</span>
             {preview.length > 0 && (
               <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/70">

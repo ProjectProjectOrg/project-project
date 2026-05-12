@@ -157,13 +157,15 @@ function ProjectHeader({
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
       </div>
-      <GithubChip
-        orgSlug={orgSlug}
-        slug={slug}
-        github={project.github}
-        callerRole={myRole}
-      />
-      <ProjectMenu orgSlug={orgSlug} slug={slug} />
+      <div className="flex items-center gap-3">
+        <GithubChip
+          orgSlug={orgSlug}
+          slug={slug}
+          github={project.github}
+          callerRole={myRole}
+        />
+        <ProjectMenu orgSlug={orgSlug} slug={slug} />
+      </div>
     </header>
   )
 }

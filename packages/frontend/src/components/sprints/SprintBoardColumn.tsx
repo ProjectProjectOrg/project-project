@@ -4,7 +4,8 @@ import { motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 import {
   draggable,
-  dropTargetForElements
+  dropTargetForElements,
+  monitorForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
@@ -41,8 +42,39 @@ export function SprintBoardColumn({
   const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
   const meta = STATUS_META[status]
   const Icon = meta.icon
+  const columnRef = useRef<HTMLDivElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  useEffect(() => {
+    if (!isDraggable) return
+    const el = columnRef.current
+    if (!el) return
+    return dropTargetForElements({
+      element: el,
+      getData: (): ColumnDropData => ({ type: "column", status })
+    })
+  }, [isDraggable, status])
+  useEffect(() => {
+    if (!isDraggable) return
+    const update = ({
+      location
+    }: {
+      location: { current: { dropTargets: ReadonlyArray<{ element: Element }> } }
+    }) => {
+      const el = columnRef.current
+      const inner = location.current.dropTargets[0]?.element
+      setDragOver(el != null && inner != null && el.contains(inner))
+    }
+    return monitorForElements({
+      onDragStart: update,
+      onDrag: update,
+      onDrop: () => setDragOver(false)
+    })
+  }, [isDraggable])
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col rounded-xl border border-border bg-background">
+    <div
+      ref={columnRef}
+      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
+    >
       <div className="flex items-center justify-between px-6 pt-3 pb-2">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <Icon className={cn("size-4", meta.className)} strokeWidth={1.75} />
@@ -56,25 +88,32 @@ export function SprintBoardColumn({
           className="font-mono text-xs text-muted-foreground tabular-nums"
         />
       </div>
-      <div ref={listRef} className="flex flex-1 flex-col overflow-y-auto py-2">
-        {tickets.map((t) => (
-          <CardSlot
-            key={t.id}
-            orgSlug={orgSlug}
-            slug={slug}
-            ticket={t}
-            status={status}
-            members={members}
-            isDraggable={isDraggable}
-            pending={overlay.has(t.id)}
-            flashKey={lastFlash?.id === t.id ? lastFlash.tick : undefined}
-          />
-        ))}
-        <ColumnTail
-          status={status}
-          hasCards={tickets.length > 0}
-          enabled={isDraggable}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-x-2 inset-y-3 z-0 rounded-md border border-dashed border-transparent transition-colors duration-150",
+            dragOver && "border-border bg-accent/40"
+          )}
         />
+        <div
+          ref={listRef}
+          className="relative z-10 flex min-h-0 flex-col overflow-y-auto py-2"
+        >
+          {tickets.map((t) => (
+            <CardSlot
+              key={t.id}
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={t}
+              status={status}
+              members={members}
+              isDraggable={isDraggable}
+              pending={overlay.has(t.id)}
+              flashKey={lastFlash?.id === t.id ? lastFlash.tick : undefined}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -206,37 +245,3 @@ function CardSlot({
   )
 }
 
-function ColumnTail({
-  status,
-  hasCards,
-  enabled
-}: {
-  status: TicketStatus
-  hasCards: boolean
-  enabled: boolean
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [over, setOver] = useState(false)
-  useEffect(() => {
-    if (!enabled) return
-    const el = ref.current
-    if (!el) return
-    return dropTargetForElements({
-      element: el,
-      getData: (): ColumnDropData => ({ type: "column", status }),
-      onDragEnter: () => setOver(true),
-      onDragLeave: () => setOver(false),
-      onDrop: () => setOver(false)
-    })
-  }, [status, enabled])
-  return (
-    <div ref={ref} className="relative flex-1 min-h-4 px-2">
-      {over && hasCards && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-3 top-0 z-10 h-0.5 -translate-y-1/2 rounded-full bg-foreground/70"
-        />
-      )}
-    </div>
-  )
-}
