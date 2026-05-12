@@ -35,7 +35,12 @@ import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { activeAndPlannedCount, sprintState } from "@projectproject/shared"
+import {
+  activeAndPlannedCount,
+  pickActiveSprint,
+  pickEarliestPlannedSprint,
+  sprintState
+} from "@projectproject/shared"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
@@ -398,6 +403,9 @@ function TabsNav({
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
   const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
+  const sprintTarget = Result.isSuccess(sprintsResult)
+    ? pickSprintNavigationTarget(sprintsResult.value)
+    : null
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label(),
@@ -455,12 +463,8 @@ function TabsNav({
             )
           }
           if (item.key === "sprints" && sprintsCount !== null) {
-            return (
-              <Link
-                to={def.to}
-                params={{ orgSlug, slug }}
-                className={SEGMENTED_ITEM_CLASS(active)}
-              >
+            const children = (
+              <>
                 {active && (
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
@@ -485,6 +489,26 @@ function TabsNav({
                 <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
                   <SprintsBreakdown sprints={sprints} />
                 </span>
+              </>
+            )
+            if (sprintTarget) {
+              return (
+                <Link
+                  to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+                  params={{ orgSlug, slug, groupId: sprintTarget.id }}
+                  className={SEGMENTED_ITEM_CLASS(active)}
+                >
+                  {children}
+                </Link>
+              )
+            }
+            return (
+              <Link
+                to={def.to}
+                params={{ orgSlug, slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {children}
               </Link>
             )
           }
@@ -504,6 +528,22 @@ function TabsNav({
   )
 }
 
+function pickSprintNavigationTarget(
+  sprints: ReadonlyArray<Group>
+): Group | null {
+  const active = pickActiveSprint(sprints)
+  if (active) return active
+  const planned = pickEarliestPlannedSprint(sprints)
+  if (planned) return planned
+  const completed = sprints
+    .filter((s) => s.completedAt !== null)
+    .toSorted(
+      (a, b) =>
+        (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
+    )
+  return completed[0] ?? null
+}
+
 function SprintViewSwitcher({
   orgSlug,
   slug
@@ -515,8 +555,7 @@ function SprintViewSwitcher({
   const matches = useMatches()
   const sprintMatch = matches.find(
     (m) =>
-      m.routeId ===
-      "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+      m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
   if (!sprintMatch) return null
   const search = sprintMatch.search as { view?: "list" | "board" }

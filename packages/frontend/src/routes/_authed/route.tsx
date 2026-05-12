@@ -104,7 +104,7 @@ function Sidebar({ user }: { user: User }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
-              className="absolute inset-0 overflow-y-auto px-3 py-2"
+              className="absolute inset-0 overflow-y-auto px-3 py-2 will-change-transform"
             >
               {slot}
             </motion.div>
@@ -115,7 +115,7 @@ function Sidebar({ user }: { user: User }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
-              className="absolute inset-0 overflow-y-auto"
+              className="absolute inset-0 overflow-y-auto will-change-transform"
             >
               <PrimaryNav orgSlug={orgSlug} />
             </motion.div>

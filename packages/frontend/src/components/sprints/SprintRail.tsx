@@ -18,7 +18,12 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import { createSprintAtom, projectKey, sprintsListAtom } from "@/atoms/sprints"
-import { sprintState, type Group } from "@projectproject/shared"
+import {
+  pickActiveSprint,
+  pickEarliestPlannedSprint,
+  sprintState,
+  type Group
+} from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
 function railDateFormatter() {
@@ -41,6 +46,10 @@ function defaultSprintRange(): DateRange {
   return { from: today, to: end }
 }
 
+function sortByStart(a: Group, b: Group) {
+  return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+}
+
 export function SprintRail({
   orgSlug,
   slug
@@ -51,6 +60,9 @@ export function SprintRail({
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
   const sprints = Result.isSuccess(list) ? list.value : []
+  const params = useParams({ strict: false }) as { groupId?: string }
+  const selectedSprintId =
+    params.groupId ?? pickSprintNavigationTarget(sprints)?.id
   const now = DateTime.toDate(DateTime.unsafeNow())
 
   const active: Array<Group> = []
@@ -62,8 +74,6 @@ export function SprintRail({
     else if (state === "planned") planned.push(s)
     else completed.push(s)
   }
-  const sortByStart = (a: Group, b: Group) =>
-    (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
   active.sort(sortByStart)
   planned.sort(sortByStart)
   completed.sort(
@@ -83,6 +93,7 @@ export function SprintRail({
           label={m.sprints_active_label()}
           count={active.length}
           sprints={active}
+          selectedSprintId={selectedSprintId}
           orgSlug={orgSlug}
           slug={slug}
         />
@@ -90,6 +101,7 @@ export function SprintRail({
           label={m.sprints_planned_label()}
           count={planned.length}
           sprints={planned}
+          selectedSprintId={selectedSprintId}
           orgSlug={orgSlug}
           slug={slug}
         />
@@ -97,6 +109,7 @@ export function SprintRail({
           label={m.sprints_completed_label()}
           count={completed.length}
           sprints={completed}
+          selectedSprintId={selectedSprintId}
           orgSlug={orgSlug}
           slug={slug}
           dim
@@ -110,6 +123,7 @@ function Section({
   label,
   count,
   sprints,
+  selectedSprintId,
   orgSlug,
   slug,
   dim
@@ -117,6 +131,7 @@ function Section({
   label: string
   count: number
   sprints: ReadonlyArray<Group>
+  selectedSprintId?: string
   orgSlug: string
   slug: string
   dim?: boolean
@@ -131,7 +146,12 @@ function Section({
       <ul className={cn("flex flex-col", dim && "opacity-80")}>
         {sprints.map((s) => (
           <li key={s.id}>
-            <RailRow sprint={s} orgSlug={orgSlug} slug={slug} />
+            <RailRow
+              sprint={s}
+              selected={selectedSprintId === s.id}
+              orgSlug={orgSlug}
+              slug={slug}
+            />
           </li>
         ))}
       </ul>
@@ -141,26 +161,26 @@ function Section({
 
 function RailRow({
   sprint,
+  selected,
   orgSlug,
   slug
 }: {
   sprint: Group
+  selected: boolean
   orgSlug: string
   slug: string
 }) {
-  const params = useParams({ strict: false }) as { groupId?: string }
-  const isSelected = params.groupId === sprint.id
   return (
     <Link
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: sprint.id }}
       className={cn(
         "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
-        isSelected
+        selected
           ? "bg-accent text-foreground font-medium"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       )}
-      aria-current={isSelected ? "page" : undefined}
+      aria-current={selected ? "page" : undefined}
     >
       <SprintStateIcon sprint={sprint} />
       <span className="min-w-0 flex-1 truncate">{sprint.name}</span>
@@ -169,6 +189,22 @@ function RailRow({
       </span>
     </Link>
   )
+}
+
+function pickSprintNavigationTarget(
+  sprints: ReadonlyArray<Group>
+): Group | null {
+  const active = pickActiveSprint(sprints)
+  if (active) return active
+  const planned = pickEarliestPlannedSprint(sprints)
+  if (planned) return planned
+  const completed = sprints
+    .filter((s) => s.completedAt !== null)
+    .toSorted(
+      (a, b) =>
+        (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
+    )
+  return completed[0] ?? null
 }
 
 function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
