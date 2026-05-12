@@ -79,7 +79,9 @@ export function TicketPage({
           size="lg"
         />
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-          <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          <h1 className="w-full">
+            <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          </h1>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs tabular-nums text-muted-foreground">
               {ticket.id}
@@ -265,7 +267,7 @@ function TitleField({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="-mx-1.5 block w-full rounded px-1.5 text-left text-2xl font-semibold tracking-tight transition-colors hover:bg-accent/40"
+        className="-mx-1.5 block w-full rounded px-1.5 text-left text-2xl font-semibold tracking-tight transition-all duration-100 hover:bg-accent/40 active:scale-[0.97]"
       >
         <span className={saving || failed ? "animate-pulse" : undefined}>
           {ticket.title}
@@ -298,9 +300,19 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
   if (status === "idle") return null
   const label = SAVE_STATUS_LABELS[status]()
   return (
-    <span className="text-xs text-muted-foreground tabular-nums">{label}</span>
+    <span
+      className={cn(
+        "text-xs text-muted-foreground",
+        status === "saving" && "animate-pulse"
+      )}
+    >
+      {label}
+    </span>
   )
 }
+
+const COLLAPSE_THRESHOLD_VH = 0.5
+const DESCRIPTION_REGION_ID = "ticket-description-region"
 
 function DescriptionField({
   orgSlug,
@@ -323,48 +335,54 @@ function DescriptionField({
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const [contentHeight, setContentHeight] = useState(0)
-  const [viewportHeight, setViewportHeight] = useState(0)
+  const [collapsedPx, setCollapsedPx] = useState(0)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [focused, setFocused] = useState(false)
 
   useLayoutEffect(() => {
     const inner = contentRef.current
-    const outer = wrapperRef.current
-    if (!inner || !outer) return
+    if (!inner) return
+
+    let frame = 0
+    let lastVh = 0
+    let lastH = 0
     const measure = () => {
+      frame = 0
       const vh = window.innerHeight
-      const h = outer.scrollHeight + 2
-      setViewportHeight(vh)
-      setContentHeight(h)
-      setOverflows(h > vh * 0.5)
+      const h = inner.getBoundingClientRect().height
+      if (vh === lastVh && Math.abs(h - lastH) < 0.5) return
+      lastVh = vh
+      lastH = h
+      setCollapsedPx(Math.round(vh * COLLAPSE_THRESHOLD_VH))
+      setOverflows(h > vh * COLLAPSE_THRESHOLD_VH)
     }
+    const schedule = () => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(measure)
+    }
+
     measure()
-    const ro = new ResizeObserver(measure)
+    const ro = new ResizeObserver(schedule)
     ro.observe(inner)
-    window.addEventListener("resize", measure)
+    window.addEventListener("resize", schedule)
     return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
       ro.disconnect()
-      window.removeEventListener("resize", measure)
+      window.removeEventListener("resize", schedule)
     }
   }, [])
 
   const collapsed = overflows && !expanded && !focused
-  const targetPx = collapsed
-    ? Math.round(viewportHeight * 0.5)
-    : contentHeight
 
   return (
     <div>
       <div
         ref={wrapperRef}
-        className="relative overflow-hidden rounded-lg border border-transparent px-3 py-2 focus-within:border-border focus-within:bg-background"
+        id={DESCRIPTION_REGION_ID}
+        className="relative overflow-hidden rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background"
         style={{
-          maxHeight: targetPx > 0 ? `${targetPx}px` : undefined,
-          transition: focused
-            ? "background-color 150ms, border-color 150ms"
-            : "max-height 350ms cubic-bezier(0.2, 0, 0, 1), background-color 150ms, border-color 150ms"
+          maxHeight: collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
         }}
         onFocus={() => setFocused(true)}
         onBlur={(e) => {
@@ -394,7 +412,9 @@ function DescriptionField({
           <button
             type="button"
             onClick={() => setExpanded(collapsed)}
-            className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-all duration-150 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
+            aria-expanded={!collapsed}
+            aria-controls={DESCRIPTION_REGION_ID}
+            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
           >
             {collapsed ? m.tickets_page_read_more() : m.tickets_page_show_less()}
           </button>

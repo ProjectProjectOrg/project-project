@@ -51,9 +51,9 @@ function compareUrl(repoSlug: string, base: string, branch: string): string {
 }
 
 function checksColor(s: string): string {
-  if (s === "passing") return "text-emerald-500"
-  if (s === "failing") return "text-red-500"
-  if (s === "pending") return "text-amber-500"
+  if (s === "passing") return "text-state-success"
+  if (s === "failing") return "text-state-danger"
+  if (s === "pending") return "text-state-warning"
   return "text-muted-foreground"
 }
 
@@ -385,7 +385,7 @@ function PanelForState({
       <Root variant={variant} className={GIT_PANEL_CONTAINER}>
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
-            <div className="flex min-w-0 items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex min-w-0 items-start gap-1.5 text-xs text-state-warning">
               <AlertTriangle
                 className="mt-0.5 size-3.5 shrink-0"
                 strokeWidth={1.75}

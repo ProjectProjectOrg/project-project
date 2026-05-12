@@ -15,7 +15,7 @@ export function TicketPageSkeleton() {
           <div className="skeleton h-32 rounded-lg bg-muted/60" />
         </div>
         <div className="flex flex-col gap-5 lg:border-l lg:border-border/60 lg:pl-6">
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="flex flex-col gap-1.5">
               <div className="skeleton h-3 w-14 rounded bg-muted/60" />
               <div className="skeleton h-5 w-24 rounded bg-muted/60" />

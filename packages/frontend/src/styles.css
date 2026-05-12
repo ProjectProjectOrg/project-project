@@ -54,6 +54,11 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 1rem;
+  --state-success: oklch(0.5 0.15 135);
+  --state-danger: oklch(0.5 0.18 15);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.5 0.18 255);
+  --state-merged: oklch(0.5 0.18 285);
 }
 
 .dark {
@@ -78,6 +83,11 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --state-success: oklch(0.78 0.07 135);
+  --state-danger: oklch(0.78 0.07 15);
+  --state-warning: oklch(0.78 0.07 75);
+  --state-info: oklch(0.78 0.07 255);
+  --state-merged: oklch(0.78 0.07 285);
 }
 
 @theme inline {
@@ -102,6 +112,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-state-success: var(--state-success);
+  --color-state-danger: var(--state-danger);
+  --color-state-warning: var(--state-warning);
+  --color-state-info: var(--state-info);
+  --color-state-merged: var(--state-merged);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

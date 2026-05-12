@@ -11,8 +11,8 @@ export const SPRINT_STATE_META: Record<
   { icon: LucideIcon; className: string }
 > = {
   planned: { icon: Flag, className: "text-muted-foreground" },
-  active: { icon: Zap, className: "text-blue-500" },
-  completed: { icon: Trophy, className: "text-emerald-500" }
+  active: { icon: Zap, className: "text-state-info" },
+  completed: { icon: Trophy, className: "text-state-success" }
 }
 
 export function SprintStateIcon({
