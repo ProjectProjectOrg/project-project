@@ -105,9 +105,7 @@ export function SprintAssignMenu({
               )}
             >
               <SprintStateIcon sprint={s} size="xs" />
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {s.name}
-              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">{s.name}</span>
               <span className="font-mono text-[11px] text-muted-foreground">
                 {rangeText(s)}
               </span>

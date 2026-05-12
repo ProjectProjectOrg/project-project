@@ -17,9 +17,7 @@ export function ActiveSprintLine({
   const active = pickActiveSprint(sprints)
 
   if (!active) {
-    return (
-      <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
-    )
+    return <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
   }
   const left = daysLeft(active.endsAt)
   const summary =

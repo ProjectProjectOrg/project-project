@@ -54,9 +54,11 @@ export function activeAndPlannedCount(
     .length
 }
 
-export function daysLeft(endsAt: Date | null, now: Date = nowDate()): number | null {
+export function daysLeft(
+  endsAt: Date | null,
+  now: Date = nowDate()
+): number | null {
   if (endsAt === null) return null
   const ms = endsAt.getTime() - now.getTime()
   return Math.ceil(ms / (1000 * 60 * 60 * 24))
 }
-

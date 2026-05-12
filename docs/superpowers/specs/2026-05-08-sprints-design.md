@@ -9,18 +9,18 @@ Add a Sprints UI on top of the existing `Group` (kind=`sprint`) backend, without
 
 ## Decisions
 
-| Topic | Decision |
-| --- | --- |
-| Existing `Tickets` tab | Rename to **Backlog** |
-| Sprints surface | Sibling project tab next to Backlog |
-| Sprint cadence | Freeform manual sprints — no enforced rhythm; gaps and overlapping date ranges are allowed |
-| Membership rule | A ticket can belong to **at most one** active-or-planned sprint at a time. Once a sprint completes, its ticket list freezes (history) and members are free to be added to a new sprint |
-| Sprints page layout | Master/detail — rail of all sprints, detail pane shows the selected sprint |
-| Where the rail lives | Inside the **app sidebar**. Entering `/sprints` triggers a push-nav animation (default sidebar slides left + fades, sprint rail slides in from the right). Exiting reverses it |
-| Backlog row affordance | Sprint chip visible only when the ticket *is* in a sprint. Empty rows reveal a faint `+ assign sprint` only on hover |
-| Active-sprint ambient | Replace the `/slug` line under the project name with `Sprint X · N days left` (clickable → jumps to that sprint). When no sprint is active, fall back to `/slug` |
-| Sprint completion flow | Inline form modeled on `CreateBranchFields` — bulk choice "carry remaining → next planned sprint / Backlog", default = next planned sprint if any, else Backlog |
-| Sidebar slot mechanism | React-context-based slot (`SidebarSlotProvider` + `useSidebarSlot`). Animation is `AnimatePresence` keyed on slot presence |
+| Topic                  | Decision                                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Existing `Tickets` tab | Rename to **Backlog**                                                                                                                                                                  |
+| Sprints surface        | Sibling project tab next to Backlog                                                                                                                                                    |
+| Sprint cadence         | Freeform manual sprints — no enforced rhythm; gaps and overlapping date ranges are allowed                                                                                             |
+| Membership rule        | A ticket can belong to **at most one** active-or-planned sprint at a time. Once a sprint completes, its ticket list freezes (history) and members are free to be added to a new sprint |
+| Sprints page layout    | Master/detail — rail of all sprints, detail pane shows the selected sprint                                                                                                             |
+| Where the rail lives   | Inside the **app sidebar**. Entering `/sprints` triggers a push-nav animation (default sidebar slides left + fades, sprint rail slides in from the right). Exiting reverses it         |
+| Backlog row affordance | Sprint chip visible only when the ticket _is_ in a sprint. Empty rows reveal a faint `+ assign sprint` only on hover                                                                   |
+| Active-sprint ambient  | Replace the `/slug` line under the project name with `Sprint X · N days left` (clickable → jumps to that sprint). When no sprint is active, fall back to `/slug`                       |
+| Sprint completion flow | Inline form modeled on `CreateBranchFields` — bulk choice "carry remaining → next planned sprint / Backlog", default = next planned sprint if any, else Backlog                        |
+| Sidebar slot mechanism | React-context-based slot (`SidebarSlotProvider` + `useSidebarSlot`). Animation is `AnimatePresence` keyed on slot presence                                                             |
 
 ## Routes
 
@@ -32,7 +32,7 @@ Add a Sprints UI on top of the existing `Group` (kind=`sprint`) backend, without
 /orgs/$orgSlug/projects/$slug/members
 ```
 
-`TabsNav` adds a `sprints` tab between Backlog and About, with a count badge for *active + planned* (completed don't count).
+`TabsNav` adds a `sprints` tab between Backlog and About, with a count badge for _active + planned_ (completed don't count).
 
 ## Sidebar slot + drill-down animation
 
@@ -58,7 +58,7 @@ New under `packages/frontend/src/components/sprints/`:
 - `SprintDetail.tsx` — `SprintDetailHeader` + `SprintTicketList` + "Add tickets" trigger + completion CTA (active sprints only).
 - `SprintDetailHeader.tsx` — inline-editable name (matches `NameField` in project route), inline-editable date range, kebab menu (rename, delete, complete-now).
 - `SprintTicketList.tsx` — projects the sprint's `tickets[]` against the project's cached ticket list and renders the existing `TicketList` rows. Adds a row-level "Remove from sprint" action behind the existing per-row menu.
-- `SprintAddTicketsPicker.tsx` — `Command`-palette-style searchable list scoped to the project's tickets, multi-select, excludes tickets already in a *completed* sprint visibly less prominent (still selectable — moving from completed-history to a new sprint is fine because completion freezes the source group's record).
+- `SprintAddTicketsPicker.tsx` — `Command`-palette-style searchable list scoped to the project's tickets, multi-select, excludes tickets already in a _completed_ sprint visibly less prominent (still selectable — moving from completed-history to a new sprint is fine because completion freezes the source group's record).
 - `SprintEmptyState.tsx` — two flavors: "No sprints yet" (with a dithered Geist-Pixel mark and a "New sprint" CTA), and "No sprint selected" (quieter, just a hint to pick from the rail).
 - `CompleteSprintForm.tsx` — `InlineForm` with bulk carry-over destination as a `SegmentedTabs` (variant=`inline`) — items are `[NextPlannedSprintName | Backlog]`. Submit calls `completeSprintAtom`.
 
@@ -80,19 +80,19 @@ Touched (additive, small):
 New `packages/frontend/src/atoms/sprints.ts`:
 
 ```ts
-sprintsListAtom(projectKey)               // base, family-keyed, idle TTL
-sprintsListOptimisticAtom(projectKey)     // public — Atom.optimistic(sprintsListAtom)
-sprintAtom(projectKey, groupId)           // base, family-keyed, body + tickets
+sprintsListAtom(projectKey) // base, family-keyed, idle TTL
+sprintsListOptimisticAtom(projectKey) // public — Atom.optimistic(sprintsListAtom)
+sprintAtom(projectKey, groupId) // base, family-keyed, body + tickets
 sprintOptimisticAtom(projectKey, groupId) // public
 
-createSprintAtom(projectKey)              // optimisticFn against sprintsListAtom
-updateSprintAtom(projectKey)              // optimisticFn — name/dates/body
-addTicketsToSprintAtom(projectKey)        // optimisticFn — moves ids between groups
-removeTicketsFromSprintAtom(projectKey)   // optimisticFn
-completeSprintAtom(projectKey)            // optimisticFn — sets completedAt, applies carryover
-deleteSprintAtom(projectKey)              // optimisticFn
+createSprintAtom(projectKey) // optimisticFn against sprintsListAtom
+updateSprintAtom(projectKey) // optimisticFn — name/dates/body
+addTicketsToSprintAtom(projectKey) // optimisticFn — moves ids between groups
+removeTicketsFromSprintAtom(projectKey) // optimisticFn
+completeSprintAtom(projectKey) // optimisticFn — sets completedAt, applies carryover
+deleteSprintAtom(projectKey) // optimisticFn
 
-sprintMembershipAtom(projectKey)          // derived — Map<TicketId, Group> over non-completed sprints from sprintsListOptimisticAtom
+sprintMembershipAtom(projectKey) // derived — Map<TicketId, Group> over non-completed sprints from sprintsListOptimisticAtom
 ```
 
 All mutation atoms refresh the **base** atoms after `fn` resolves — never the optimistic wrappers — per CLAUDE.md mutation pattern.
@@ -101,21 +101,21 @@ All mutation atoms refresh the **base** atoms after `fn` resolves — never the 
 
 - `createSprintAtom.reducer` prepends a synthetic `Group` with a placeholder id `G-pending-<nonce>`; the real id arrives on refresh.
 - `updateSprintAtom.reducer` mutates the matching group in the list (and the single sprint atom if subscribed).
-- `addTicketsToSprintAtom.reducer` appends ids to the target group's `tickets`, removes those ids from any *other* non-completed group in the same list (mirrors the C-rule).
+- `addTicketsToSprintAtom.reducer` appends ids to the target group's `tickets`, removes those ids from any _other_ non-completed group in the same list (mirrors the C-rule).
 - `removeTicketsFromSprintAtom.reducer` drops ids from the target group.
 - `completeSprintAtom.reducer` marks `completedAt: now()` on the source. If carryover destination is a sprint id, moves remaining (status ≠ done) ticket ids from source to destination. If "backlog", just drops them from source.
 - `deleteSprintAtom.reducer` removes the group from the list.
 
 ### Affected refreshes
 
-| Mutation | Refresh |
-| --- | --- |
-| create | `sprintsListAtom` |
-| update | `sprintsListAtom`, `sprintAtom(groupId)` |
-| addTickets | `sprintsListAtom`, every affected `sprintAtom` (target + source-of-moves) |
-| removeTickets | `sprintsListAtom`, `sprintAtom(groupId)` |
-| complete | `sprintsListAtom`, source `sprintAtom`, destination `sprintAtom` (if any), project `ticketsListAtom` |
-| delete | `sprintsListAtom` |
+| Mutation      | Refresh                                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| create        | `sprintsListAtom`                                                                                    |
+| update        | `sprintsListAtom`, `sprintAtom(groupId)`                                                             |
+| addTickets    | `sprintsListAtom`, every affected `sprintAtom` (target + source-of-moves)                            |
+| removeTickets | `sprintsListAtom`, `sprintAtom(groupId)`                                                             |
+| complete      | `sprintsListAtom`, source `sprintAtom`, destination `sprintAtom` (if any), project `ticketsListAtom` |
+| delete        | `sprintsListAtom`                                                                                    |
 
 ## Backend dependency (the C-rule)
 

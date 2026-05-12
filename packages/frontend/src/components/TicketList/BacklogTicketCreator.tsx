@@ -54,12 +54,16 @@ export function BacklogTicketCreator({
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
   const navigate = useNavigate()
 
-  const sprintListResult = useAtomValue(sprintsListAtom(sprintsKey(orgSlug, slug)))
+  const sprintListResult = useAtomValue(
+    sprintsListAtom(sprintsKey(orgSlug, slug))
+  )
   const sprints: ReadonlyArray<Group> = Result.isSuccess(sprintListResult)
     ? sprintListResult.value
     : []
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintsKey(orgSlug, slug)))
+  const addToSprint = useAtomSet(
+    addTicketsToSprintAtom(sprintsKey(orgSlug, slug))
+  )
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -72,8 +76,7 @@ export function BacklogTicketCreator({
   const inputRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("c", inputRef)
   const trimmed = title.trim()
-  const expanded =
-    focused || typeMenuOpen || sprintMenuOpen || closingMenu
+  const expanded = focused || typeMenuOpen || sprintMenuOpen || closingMenu
 
   useEffect(() => {
     if (selectedSprint || sprintCleared) return

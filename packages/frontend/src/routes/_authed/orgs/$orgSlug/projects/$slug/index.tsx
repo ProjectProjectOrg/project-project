@@ -16,11 +16,7 @@ import {
   type SprintFilter
 } from "@/atoms/ticketListUi"
 import { SORTS, type SortKey } from "@/components/TicketList/sort"
-import type {
-  TagName,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
+import type { TagName, TicketStatus, TicketType } from "@projectproject/shared"
 import { useProject } from "./-context"
 
 const STATUS_VALUES: ReadonlyArray<TicketStatus | "all"> = [

@@ -4,4 +4,7 @@ import * as schema from "../db/schema"
 
 type Schema = typeof schema
 
-export class Db extends Context.Tag("@projectproject/backend/Services/Db")<Db, PgRemoteDatabase<Schema>>() {}
+export class Db extends Context.Tag("@projectproject/backend/Services/Db")<
+  Db,
+  PgRemoteDatabase<Schema>
+>() {}

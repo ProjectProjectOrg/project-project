@@ -12,7 +12,6 @@ export interface CurrentOrgShape {
   >
 }
 
-export class CurrentOrg extends Context.Tag("@projectproject/backend/Services/CurrentOrg")<
-  CurrentOrg,
-  CurrentOrgShape
->() {}
+export class CurrentOrg extends Context.Tag(
+  "@projectproject/backend/Services/CurrentOrg"
+)<CurrentOrg, CurrentOrgShape>() {}

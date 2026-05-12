@@ -41,11 +41,7 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  deleteSprintAtom,
-  projectKey,
-  updateSprintAtom
-} from "@/atoms/sprints"
+import { deleteSprintAtom, projectKey, updateSprintAtom } from "@/atoms/sprints"
 import {
   daysLeft,
   sprintState,

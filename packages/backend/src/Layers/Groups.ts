@@ -128,9 +128,9 @@ export const GroupsLive = Layer.effect(
           (id) => groupDocs.read(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return results.map(documentToGroup).toSorted(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-        )
+        return results
+          .map(documentToGroup)
+          .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       })
 
     const get = (
@@ -328,7 +328,11 @@ export const GroupsLive = Layer.effect(
       input: UpdateTicketOrderInput
     ): Effect.Effect<
       GroupDetail,
-      NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+      | NotFound
+      | Forbidden
+      | SprintCompletedImmutable
+      | Validation
+      | MarkdownError
     > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
@@ -347,7 +351,9 @@ export const GroupsLive = Layer.effect(
           return yield* new NotFound()
         }
 
-        const filtered = existing.tickets.filter((tid) => tid !== input.ticketId)
+        const filtered = existing.tickets.filter(
+          (tid) => tid !== input.ticketId
+        )
         const insertAt =
           input.after === null ? 0 : filtered.indexOf(input.after) + 1
         const nextTickets: ReadonlyArray<TicketId> = [
@@ -386,7 +392,11 @@ export const GroupsLive = Layer.effect(
       input: CompleteSprintInput
     ): Effect.Effect<
       GroupDetail,
-      NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+      | NotFound
+      | Forbidden
+      | SprintCompletedImmutable
+      | Validation
+      | MarkdownError
     > =>
       Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)

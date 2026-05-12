@@ -16,7 +16,11 @@ import {
   EmptyTitle
 } from "@/components/ui/empty"
 import { PageContainer } from "@/components/page"
-import { sprintState, type GroupId, type TicketId } from "@projectproject/shared"
+import {
+  sprintState,
+  type GroupId,
+  type TicketId
+} from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDetailHeader } from "./SprintDetailHeader"

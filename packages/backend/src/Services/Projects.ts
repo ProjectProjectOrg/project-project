@@ -100,7 +100,6 @@ export interface ProjectsShape {
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
 }
 
-export class Projects extends Context.Tag("@projectproject/backend/Services/Projects")<
-  Projects,
-  ProjectsShape
->() {}
+export class Projects extends Context.Tag(
+  "@projectproject/backend/Services/Projects"
+)<Projects, ProjectsShape>() {}

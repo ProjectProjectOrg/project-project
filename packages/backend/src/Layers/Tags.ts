@@ -117,8 +117,7 @@ export const TagsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        if (existingRow)
-          return yield* new Conflict({ reason: "tag_exists" })
+        if (existingRow) return yield* new Conflict({ reason: "tag_exists" })
 
         const inserted = yield* db
           .insert(projectTag)
@@ -174,8 +173,7 @@ export const TagsLive = Layer.effect(
               )
             })
             .pipe(Effect.orDie)
-          if (collision)
-            return yield* new Conflict({ reason: "tag_exists" })
+          if (collision) return yield* new Conflict({ reason: "tag_exists" })
         }
 
         yield* db

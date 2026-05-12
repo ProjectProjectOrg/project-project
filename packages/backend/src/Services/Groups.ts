@@ -87,4 +87,6 @@ export interface GroupsShape {
   ) => Effect.Effect<void, MarkdownError>
 }
 
-export class Groups extends Context.Tag("@projectproject/backend/Services/Groups")<Groups, GroupsShape>() {}
+export class Groups extends Context.Tag(
+  "@projectproject/backend/Services/Groups"
+)<Groups, GroupsShape>() {}

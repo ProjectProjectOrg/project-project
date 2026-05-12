@@ -101,9 +101,7 @@ export function CompleteSprintForm({
           {m.sprints_complete_carry_to_backlog_static()}
         </p>
       )}
-      {failureMsg && (
-        <p className="text-xs text-destructive">{failureMsg}</p>
-      )}
+      {failureMsg && <p className="text-xs text-destructive">{failureMsg}</p>}
       <div className="flex justify-end gap-1">
         {onDone && (
           <Button

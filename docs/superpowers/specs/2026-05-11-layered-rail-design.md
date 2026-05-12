@@ -60,7 +60,7 @@ Top row of the rail layer:
 ```
 
 - `ChevronLeft` from `lucide-react`, `size-4`, `strokeWidth={1.75}`.
-- Label `Sprints`, sentence case, `text-muted-foreground` at the section-header size already used by the rail (`text-[11px]` group headers). The label is the section's name; the *current page* is conveyed by the breadcrumbs in the topbar — the rail header is for orientation within the layer, not navigation state.
+- Label `Sprints`, sentence case, `text-muted-foreground` at the section-header size already used by the rail (`text-[11px]` group headers). The label is the section's name; the _current page_ is conveyed by the breadcrumbs in the topbar — the rail header is for orientation within the layer, not navigation state.
 - Wrapped in a single `Link` to the section's parent route. Hit target = the row.
 - Spacing: `flex items-center gap-2 px-2 py-1.5`. Hover lightens to `text-foreground` with `transition-colors` (matches the rest of the rail).
 - Sits at the top of the rail's flex column, above the inline new-sprint form.

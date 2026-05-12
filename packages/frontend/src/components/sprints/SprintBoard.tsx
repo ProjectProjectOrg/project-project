@@ -1,12 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import {
   pendingTicketStatusAtom,
@@ -73,16 +66,12 @@ export function SprintBoard({
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
 
-  const flashRef = useRef<Record<string, number>>({})
-  const [, setFlashTick] = useState(0)
-  const flash = useCallback((id: TicketId) => {
-    flashRef.current[id] = (flashRef.current[id] ?? 0) + 1
-    setFlashTick((n) => n + 1)
-  }, [])
-  const flashKeyOf = useCallback(
-    (id: TicketId): number | undefined => flashRef.current[id],
-    []
-  )
+  const [lastFlash, setLastFlash] = useState<{
+    id: TicketId
+    tick: number
+  } | null>(null)
+  const flash = (id: TicketId) =>
+    setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
   const ticketById = useMemo(() => {
     const m = new Map<TicketId, Ticket>()
@@ -132,7 +121,7 @@ export function SprintBoard({
         flash(src.id)
       }
     })
-  }, [isCompleted, place, flash])
+  }, [isCompleted, place])
 
   return (
     <div
@@ -151,7 +140,7 @@ export function SprintBoard({
             members={members}
             isDraggable={!isCompleted}
             overlay={overlay}
-            flashKeyOf={flashKeyOf}
+            lastFlash={lastFlash}
           />
         ))}
       </div>

@@ -132,9 +132,7 @@ export function TicketList({
               slug={slug}
               uiKey={resolvedUiKey}
               tickets={
-                filterIds
-                  ? value.filter((t) => filterIds.has(t.id))
-                  : value
+                filterIds ? value.filter((t) => filterIds.has(t.id)) : value
               }
               members={members}
               expandedId={expandedId}

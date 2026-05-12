@@ -19,15 +19,11 @@ function SprintBoardCardImpl({
   members: ReadonlyArray<Member>
 }) {
   const navigate = useNavigate()
-  // TODO: route to a dedicated ticket page once it exists; board has no room for the expanded panel.
   const open = () => {
-    navigate({
+    void navigate({
+      from: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       to: ".",
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        view: "list" as const,
-        ticket: ticket.id
-      })
+      search: (prev) => ({ ...prev, view: "list", ticket: ticket.id })
     })
   }
 
@@ -48,12 +44,7 @@ function SprintBoardCardImpl({
       )}
     >
       <div className="flex items-start gap-1.5">
-        <TypeButton
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          iconOnly
-        />
+        <TypeButton orgSlug={orgSlug} slug={slug} ticket={ticket} iconOnly />
         <span className="min-w-0 line-clamp-2 text-sm font-medium leading-snug">
           {ticket.title}
         </span>

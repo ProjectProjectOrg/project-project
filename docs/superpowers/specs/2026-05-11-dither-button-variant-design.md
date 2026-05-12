@@ -15,15 +15,13 @@ Decision: ship as a **variant on `Button`**, not a separate component. Rationale
 The variant adds three optional props that are only meaningful when `variant === "dither"`:
 
 ```ts
-type DitherDirection =
-  | "r" | "l" | "t" | "b"
-  | "tr" | "tl" | "br" | "bl"
+type DitherDirection = "r" | "l" | "t" | "b" | "tr" | "tl" | "br" | "bl"
 
 interface DitherProps {
-  ditherFrom?: string         // CSS color; default "#000000"
-  ditherTo?: string           // CSS color; default "#ffffff"
-  ditherDirection?: DitherDirection  // default "r"
-  ditherImage?: string        // image URL; mutually exclusive with from/to
+  ditherFrom?: string // CSS color; default "#000000"
+  ditherTo?: string // CSS color; default "#ffffff"
+  ditherDirection?: DitherDirection // default "r"
+  ditherImage?: string // image URL; mutually exclusive with from/to
 }
 ```
 

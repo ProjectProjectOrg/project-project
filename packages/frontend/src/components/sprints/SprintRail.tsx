@@ -1,8 +1,4 @@
-import {
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
@@ -21,11 +17,7 @@ import { RailBackLink } from "@/components/RailBackLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  createSprintAtom,
-  projectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { createSprintAtom, projectKey, sprintsListAtom } from "@/atoms/sprints"
 import { sprintState, type Group } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
@@ -75,8 +67,7 @@ export function SprintRail({
   active.sort(sortByStart)
   planned.sort(sortByStart)
   completed.sort(
-    (a, b) =>
-      (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
+    (a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
   )
 
   return (
@@ -180,13 +171,7 @@ function RailRow({
   )
 }
 
-function NewSprintForm({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function NewSprintForm({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const Root = InlineForm.Root<"create">
   return (
     <Root className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0">
@@ -310,12 +295,9 @@ function CreateSprintFields({
           leadingIcon={CheckCircle2}
           disabled={!name.trim() || !range.from || !range.to || busy}
         >
-          {busy
-            ? m.sprints_create_in_progress()
-            : m.sprints_create_button()}
+          {busy ? m.sprints_create_in_progress() : m.sprints_create_button()}
         </Button>
       </div>
     </form>
   )
 }
-

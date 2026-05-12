@@ -116,7 +116,12 @@ function makeFakeDocs(initial?: {
       return ticket ? Effect.succeed(ticket) : Effect.fail(new NotFound())
     },
     create: () => unexpectedTicketDocsCall("create"),
-    write: (_org: string, _slug: string, id: string, document: TicketDocument) => {
+    write: (
+      _org: string,
+      _slug: string,
+      id: string,
+      document: TicketDocument
+    ) => {
       ticketsById.set(id, document)
       return Effect.void
     },

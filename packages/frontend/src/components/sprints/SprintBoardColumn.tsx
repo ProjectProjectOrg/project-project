@@ -15,11 +15,7 @@ import type {
   TicketStatus
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
-import type {
-  CardDropData,
-  ColumnDropData,
-  DragData
-} from "./-board-utils"
+import type { CardDropData, ColumnDropData, DragData } from "./-board-utils"
 
 export function SprintBoardColumn({
   orgSlug,
@@ -29,7 +25,7 @@ export function SprintBoardColumn({
   members,
   isDraggable,
   overlay,
-  flashKeyOf
+  lastFlash
 }: {
   orgSlug: string
   slug: string
@@ -38,7 +34,7 @@ export function SprintBoardColumn({
   members: ReadonlyArray<Member>
   isDraggable: boolean
   overlay: ReadonlyMap<TicketId, TicketStatus>
-  flashKeyOf: (id: TicketId) => number | undefined
+  lastFlash: { id: TicketId; tick: number } | null
 }) {
   const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
   const meta = STATUS_META[status]
@@ -47,10 +43,7 @@ export function SprintBoardColumn({
     <div className="flex h-full w-72 shrink-0 flex-col rounded-xl border border-border bg-background">
       <div className="flex items-center justify-between px-6 pt-3 pb-2">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
-          <Icon
-            className={cn("size-4", meta.className)}
-            strokeWidth={1.75}
-          />
+          <Icon className={cn("size-4", meta.className)} strokeWidth={1.75} />
           {STATUS_LABELS[status]()}
         </span>
         <NumberFlow
@@ -72,7 +65,7 @@ export function SprintBoardColumn({
             members={members}
             isDraggable={isDraggable}
             pending={overlay.has(t.id)}
-            flashKey={flashKeyOf(t.id)}
+            flashKey={lastFlash?.id === t.id ? lastFlash.tick : undefined}
           />
         ))}
         <ColumnTail
@@ -156,9 +149,7 @@ function CardSlot({
       <motion.div
         key={flashKey ?? 0}
         initial={
-          flashKey
-            ? { boxShadow: "0 0 0 3px var(--foreground)" }
-            : false
+          flashKey ? { boxShadow: "0 0 0 3px var(--foreground)" } : false
         }
         animate={{ boxShadow: "0 0 0 0px transparent" }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -180,7 +171,9 @@ function CardSlot({
           aria-hidden
           className={cn(
             "pointer-events-none absolute inset-x-3 z-10 h-0.5 rounded-full bg-foreground/70",
-            edge === "top" ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2"
+            edge === "top"
+              ? "top-0 -translate-y-1/2"
+              : "bottom-0 translate-y-1/2"
           )}
         />
       )}

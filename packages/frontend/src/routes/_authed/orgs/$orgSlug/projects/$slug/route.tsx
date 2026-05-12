@@ -494,7 +494,6 @@ function TabsNav({
           )
         }}
       />
-
     </div>
   )
 }
@@ -557,7 +556,6 @@ function BadgeStat({
     </span>
   )
 }
-
 
 function Skeleton() {
   return (

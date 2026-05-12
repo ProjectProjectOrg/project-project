@@ -27,6 +27,7 @@ Q&A format, with reasoning preserved. Each question was asked one at a time, wit
 ### Q1 — Where does intra-column ordering live?
 
 **Options:**
+
 - A. Use sprint's existing `Group.tickets[]` array order. Filter by status preserves array order. Reorder via existing array operations. No schema change.
 - B. Add per-ticket `position` field. Independent of sprint membership.
 - C. Per-sprint join table with its own position. `sprint_ticket(sprint_id, ticket_id, position)`. Survives sprint rejoin.
@@ -40,6 +41,7 @@ Q&A format, with reasoning preserved. Each question was asked one at a time, wit
 A cross-column drag changes both status (ticket property) and order (sprint's `tickets[]`).
 
 **Options:**
+
 - A. Two sequential mutations (`updateTicketAtom` for status, then `updateTickets` for order). Both optimistic. Risk: status update succeeds but order doesn't, leaving partial state.
 - B. Extend/add an endpoint that takes both atomically.
 - C. Two parallel mutations.
@@ -51,6 +53,7 @@ A cross-column drag changes both status (ticket property) and order (sprint's `t
 ### Q3 — API shape for the atomic endpoint
 
 **Options:**
+
 - A. Extend `updateTickets` payload from `Array<TicketId>` to `Array<{ id, status? }>`. Whole-list replace, status changes ride along. 4 callsites to mechanically reshape.
 - B. New `boardMove` endpoint taking per-operation payload.
 - C. Keep `updateTickets` as-is, add `updateTicketsWithStatus` sibling.
@@ -65,6 +68,7 @@ A cross-column drag changes both status (ticket property) and order (sprint's `t
 **Reasoning given to user:** Both have a subtle off-by-one problem because removing the source shifts indices. Walked through an example with sprint `[T-1, T-2, T-3, T-4, T-5]` and showed that "drag T-1 below T-2 with index=2" naively gives wrong result.
 
 Two flavors of "absolute index":
+
 - A1. Index in post-remove array. Client simulates the splice.
 - A2. Neighbor reference: `after: TicketId | null`. No arithmetic.
 
@@ -132,12 +136,14 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 ### Q7 — Board card content & component relationship
 
 **Component:**
+
 - A. New `SprintBoardCard` component, reuses field sub-components (TagChip, MemberAvatar, GithubChip, type/priority icons).
 - B. Extend `TicketList`'s row with a `variant="card"`.
 
 **Reasoning:** Different shape (vertical card vs horizontal row) = different component. Sub-component reuse is the right reuse layer.
 
 **Content:**
+
 - A1. Minimal — line 1: type icon + title (2-line clamp). Line 2: priority dot + ID + git chip + assignee. Tags hidden.
 - A2. Plus always-visible tags. Bloats card height unevenly.
 - A3. Match list row exactly. Defeats the point.
@@ -145,6 +151,7 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 **User course-correction:** "A for sure, A1 sounds right, but we have icons for the priority, and I want the same dropdown inline edit functionality on the type, priority and assignees. The rest can be configured on click where it can navigate to the board view with that ticket expanded, making sure a 'back' press on the browser brings the user right back to the board where they were."
 
 **Locked refined:**
+
 - Use existing `TypeBadgeTrigger`, `PriorityButton`, assignee dropdown (they already support `stopPropagation`).
 - Use the existing priority **icons** from `PRIORITY_META`, not just dots.
 - Card body has `onClick` that navigates to `?view=board&ticket=T-X` (pushed, not replaced). TanStack `navigate({ search: prev => ({ ...prev, ticket: id }) })`.
@@ -152,40 +159,40 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 
 ### Q8 — Edge cases (batched defaults)
 
-| # | Edge case | Default |
-|---|---|---|
-| 1 | Completed sprint | Read-only: `draggable` not attached, `canDrop` false. Existing `sprints_completed_closed_notice` banner. |
-| 2 | Empty column | Empty space. Tail drop zone still works. No placeholder text. |
-| 3 | Create from board | ~~Skip for v1.~~ **User flipped this:** "We can have the ticket create input stay between views at the top." Creator lives in `SprintDetail` above the view tabs, visible in both views. |
-| 4 | Keyboard DnD / a11y | Pointer-only for v1. **User:** "fine, but make sure to document nicely with TODO and/or FIXME comments." |
-| 5 | Mobile / touch | Out of scope. Columns overflow horizontally. |
-| 6 | Ticket-not-found / unknown status | Skip rendering missing tickets. Bucket unknown status into hidden "other" group, surface only if non-empty. |
-| 7 | Optimistic failure rollback | `Atom.optimisticFn` auto-reverts. Clear the pending-status overlay in `Effect.ensuring` (handles both success and error paths). |
+| #   | Edge case                         | Default                                                                                                                                                                                  |
+| --- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Completed sprint                  | Read-only: `draggable` not attached, `canDrop` false. Existing `sprints_completed_closed_notice` banner.                                                                                 |
+| 2   | Empty column                      | Empty space. Tail drop zone still works. No placeholder text.                                                                                                                            |
+| 3   | Create from board                 | ~~Skip for v1.~~ **User flipped this:** "We can have the ticket create input stay between views at the top." Creator lives in `SprintDetail` above the view tabs, visible in both views. |
+| 4   | Keyboard DnD / a11y               | Pointer-only for v1. **User:** "fine, but make sure to document nicely with TODO and/or FIXME comments."                                                                                 |
+| 5   | Mobile / touch                    | Out of scope. Columns overflow horizontally.                                                                                                                                             |
+| 6   | Ticket-not-found / unknown status | Skip rendering missing tickets. Bucket unknown status into hidden "other" group, surface only if non-empty.                                                                              |
+| 7   | Optimistic failure rollback       | `Atom.optimisticFn` auto-reverts. Clear the pending-status overlay in `Effect.ensuring` (handles both success and error paths).                                                          |
 
 ---
 
 ## Part 2 — Locked decisions (consolidated)
 
-| # | Decision | Detail |
-|---|---|---|
-| 1 | **DnD lib** | `@atlaskit/pragmatic-drag-and-drop`. Installed. Pragmatic uses native HTML5 drag preview on the compositor — zero React renders during the drag. |
-| 2 | **Reorder animation** | `@formkit/auto-animate` on each column's list (180ms ease-out). `motion` drop-flash on the landed card. |
-| 3 | **Ordering source** | Sprint's existing `Group.tickets[]` array. No new `position` field on tickets, no join table. |
-| 4 | **API surface** | New endpoint `PATCH /orgs/:orgSlug/projects/:slug/groups/:id/ticket-order`, op id `updateTicketOrder`. Atomic on server. Payload: `{ ticketId, status?, after: TicketId \| null }`. Errors: Unauthorized, NotFound, Forbidden, SprintCompletedImmutable, Validation. |
-| 5 | **View toggle** | URL search param `?view=list \| board` on `/sprints/$groupId`. Default `list`. `SegmentedTabs` in `SprintDetailHeader` between days-left chip and SprintMenu. Use `default` variant + Rows3/Columns3 icons. `renderItem` is just `<button>{content}</button>` — SegmentedTabs renders the active motion indicator internally. |
-| 6 | **Sprint creator placement** | `SprintTicketCreator` (or completed-notice) lives in `SprintDetail` body above the view tabs. Visible in both views. |
-| 7 | **Board frame** | Measured height via `useLayoutEffect` + `ResizeObserver(document.body)` reading `window.innerHeight - rect.top - 56` with a 240px floor. Internal vertical scroll per column, internal horizontal scroll for overflow columns. Full width of `<main>` (escapes `PageContainer`). |
-| 8 | **Page chrome** | `PageContainer` moved out of `ProjectLayout`'s Outlet wrapper. Header + tabs nav still wrapped. Each tab opts in: tickets/about/members/sprints-index all wrap their content in PageContainer. Sprint detail wraps header + creator in PageContainer; body either wraps (list view) or goes full-bleed (board view). |
-| 9 | **Card component** | New `SprintBoardCard`, not a TicketList variant. Reuses `TypeBadgeTrigger`, `PriorityButton`, assignee dropdown, `GithubChip`, `TagChip`. |
-| 10 | **Card content** | Line 1: type icon (clickable dropdown) + title (`text-sm`, `font-medium`, 2-line clamp). Line 2: priority icon (clickable dropdown) + ID (mono, muted) + git chip + assignee avatar (clickable dropdown). Tags hidden in board view (v2). Card body onClick navigates to `?view=board&ticket=T-X` (pushed). |
-| 11 | **Optimism** | `placeTicketAtom` family-keyed by sprintKey (`orgSlug/slug/groupId`). `Atom.optimisticFn(sprintsListAtom(projectKey))` reducer reorders `tickets[]`. `pendingTicketStatusAtom = Atom.family(sprintKey → Map<TicketId, TicketStatus>)` overlay. Fn sets overlay before server call, clears in `Effect.ensuring`. Board grouping reads status as `overlay.get(t.id) ?? t.status`. |
-| 12 | **Failure** | Optimistic reducer auto-reverts on mutation error. Overlay cleared in `Effect.ensuring`. Surface error via existing toast pattern (errorMessage.ts). |
-| 13 | **Completed sprint** | Board read-only. `draggable` not attached. Existing notice banner visible. |
-| 14 | **Empty column** | Empty space. Tail drop zone active for "drop at end". No placeholder text. Header count of `0` does the work. |
-| 15 | **A11y** | Pointer-only v1. `// TODO(kanban-a11y): wire @atlaskit/pragmatic-drag-and-drop-keyboard adapter` at the board frame + each `draggable` attachment. |
-| 16 | **Mobile** | Out of scope. |
-| 17 | **Unknown statuses** | Bucket into hidden "other" group; surface only if non-empty. Future-proofs for configurable statuses. |
-| 18 | **Click navigation** | `navigate({ search: prev => ({ ...prev, ticket: id }) })`. Pushed history. |
+| #   | Decision                     | Detail                                                                                                                                                                                                                                                                                                                                                                          |
+| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **DnD lib**                  | `@atlaskit/pragmatic-drag-and-drop`. Installed. Pragmatic uses native HTML5 drag preview on the compositor — zero React renders during the drag.                                                                                                                                                                                                                                |
+| 2   | **Reorder animation**        | `@formkit/auto-animate` on each column's list (180ms ease-out). `motion` drop-flash on the landed card.                                                                                                                                                                                                                                                                         |
+| 3   | **Ordering source**          | Sprint's existing `Group.tickets[]` array. No new `position` field on tickets, no join table.                                                                                                                                                                                                                                                                                   |
+| 4   | **API surface**              | New endpoint `PATCH /orgs/:orgSlug/projects/:slug/groups/:id/ticket-order`, op id `updateTicketOrder`. Atomic on server. Payload: `{ ticketId, status?, after: TicketId \| null }`. Errors: Unauthorized, NotFound, Forbidden, SprintCompletedImmutable, Validation.                                                                                                            |
+| 5   | **View toggle**              | URL search param `?view=list \| board` on `/sprints/$groupId`. Default `list`. `SegmentedTabs` in `SprintDetailHeader` between days-left chip and SprintMenu. Use `default` variant + Rows3/Columns3 icons. `renderItem` is just `<button>{content}</button>` — SegmentedTabs renders the active motion indicator internally.                                                   |
+| 6   | **Sprint creator placement** | `SprintTicketCreator` (or completed-notice) lives in `SprintDetail` body above the view tabs. Visible in both views.                                                                                                                                                                                                                                                            |
+| 7   | **Board frame**              | Measured height via `useLayoutEffect` + `ResizeObserver(document.body)` reading `window.innerHeight - rect.top - 56` with a 240px floor. Internal vertical scroll per column, internal horizontal scroll for overflow columns. Full width of `<main>` (escapes `PageContainer`).                                                                                                |
+| 8   | **Page chrome**              | `PageContainer` moved out of `ProjectLayout`'s Outlet wrapper. Header + tabs nav still wrapped. Each tab opts in: tickets/about/members/sprints-index all wrap their content in PageContainer. Sprint detail wraps header + creator in PageContainer; body either wraps (list view) or goes full-bleed (board view).                                                            |
+| 9   | **Card component**           | New `SprintBoardCard`, not a TicketList variant. Reuses `TypeBadgeTrigger`, `PriorityButton`, assignee dropdown, `GithubChip`, `TagChip`.                                                                                                                                                                                                                                       |
+| 10  | **Card content**             | Line 1: type icon (clickable dropdown) + title (`text-sm`, `font-medium`, 2-line clamp). Line 2: priority icon (clickable dropdown) + ID (mono, muted) + git chip + assignee avatar (clickable dropdown). Tags hidden in board view (v2). Card body onClick navigates to `?view=board&ticket=T-X` (pushed).                                                                     |
+| 11  | **Optimism**                 | `placeTicketAtom` family-keyed by sprintKey (`orgSlug/slug/groupId`). `Atom.optimisticFn(sprintsListAtom(projectKey))` reducer reorders `tickets[]`. `pendingTicketStatusAtom = Atom.family(sprintKey → Map<TicketId, TicketStatus>)` overlay. Fn sets overlay before server call, clears in `Effect.ensuring`. Board grouping reads status as `overlay.get(t.id) ?? t.status`. |
+| 12  | **Failure**                  | Optimistic reducer auto-reverts on mutation error. Overlay cleared in `Effect.ensuring`. Surface error via existing toast pattern (errorMessage.ts).                                                                                                                                                                                                                            |
+| 13  | **Completed sprint**         | Board read-only. `draggable` not attached. Existing notice banner visible.                                                                                                                                                                                                                                                                                                      |
+| 14  | **Empty column**             | Empty space. Tail drop zone active for "drop at end". No placeholder text. Header count of `0` does the work.                                                                                                                                                                                                                                                                   |
+| 15  | **A11y**                     | Pointer-only v1. `// TODO(kanban-a11y): wire @atlaskit/pragmatic-drag-and-drop-keyboard adapter` at the board frame + each `draggable` attachment.                                                                                                                                                                                                                              |
+| 16  | **Mobile**                   | Out of scope.                                                                                                                                                                                                                                                                                                                                                                   |
+| 17  | **Unknown statuses**         | Bucket into hidden "other" group; surface only if non-empty. Future-proofs for configurable statuses.                                                                                                                                                                                                                                                                           |
+| 18  | **Click navigation**         | `navigate({ search: prev => ({ ...prev, ticket: id }) })`. Pushed history.                                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -194,19 +201,23 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 ### Already created / modified (steps 1–4)
 
 **Shared:**
+
 - `packages/shared/src/schemas/Group.ts` — `UpdateTicketOrderInput` added. Imports `TicketStatus`.
 - `packages/shared/src/api.ts` — `updateTicketOrder` endpoint added.
 
 **Backend:**
+
 - `packages/backend/src/services/Groups.ts` — service tag gained `updateTicketOrder` method.
 - `packages/backend/src/Layers/Groups.ts` — implementation. Splice logic + atomic ticket-status patch.
 - `packages/backend/src/handlers/groups.ts` — wired with existing `dieOnMarkdown` pattern.
 - `packages/backend/src/Services/Groups.test.ts` — 6 new tests. `ticketDocs.write` fake now supports writes.
 
 **Frontend atoms:**
+
 - `packages/frontend/src/atoms/sprints.ts` — added `pendingTicketStatusAtom` family + `placeTicketAtom` family (optimistic over `sprintsListAtom`, refreshes `sprintsListBaseAtom` + `ticketsListAtom`).
 
 **Frontend routes / layout:**
+
 - `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx` — `PageContainer` moved to wrap only header+tabs. Outlet renders bare in a `flex flex-col gap-6` wrapper.
 - `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx` — local `PageContainer` wrap.
 - `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/about.tsx` — local `PageContainer` wrap.
@@ -215,12 +226,14 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 - `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId.tsx` — `validateSearch` gained `view: "list" \| "board"`. Reads `view`, builds `setView`, passes to `SprintDetail`. No PageContainer wrapper (SprintDetail manages its own).
 
 **Frontend components:**
+
 - `packages/frontend/src/components/sprints/SprintDetail.tsx` — restructured. Header + creator in PageContainer. Body: PageContainer-wrapped list OR full-bleed `<SprintBoard>`.
 - `packages/frontend/src/components/sprints/SprintDetailHeader.tsx` — props `view` + `onChangeView`. `<ViewTabs>` renders between days-left chip and SprintMenu. Plain `<button>{content}</button>` renderItem.
 - `packages/frontend/src/components/sprints/SprintTicketList.tsx` — stripped inline creator (now `creator={null}`).
 - `packages/frontend/src/components/sprints/SprintBoard.tsx` — stub with measured height. TODO(kanban-a11y) comment.
 
 **i18n:**
+
 - `packages/frontend/messages/en/sprints.json` — `sprints_view_list`, `sprints_view_board`, `sprints_view_tabs_aria_label`.
 
 ### Still to create
@@ -254,6 +267,7 @@ packages/frontend/src/routes/(public)/spike/pragmatic.tsx
 Build in isolation. Vertical card layout. Inline-edit dropdowns nested via existing components. Click on card body (not on dropdowns) navigates to `?view=board&ticket=T-X`.
 
 Reuses:
+
 - `TypeBadgeTrigger` from `@/components/TicketList/TypeField` (already accepts `stopPropagation`)
 - `PriorityButton` from `@/components/TicketList/PriorityField` (already accepts `stopPropagation`)
 - Assignee inline editor from `@/components/TicketList/AssigneeField`
@@ -267,6 +281,7 @@ Verify: dropdowns work nested inside a draggable wrapper. Pragmatic respects HTM
 ### Step 6 — `SprintBoardColumn` + real `SprintBoard`
 
 Port spike logic from `routes/(public)/spike/pragmatic.tsx`:
+
 - Each card wrapper is draggable + drop target.
 - Drop target's `getData` computes `edge: "top" | "bottom"` from pointer Y vs card midpoint.
 - Insertion line via absolute-positioned 2px bar, centered on wrapper boundary.
@@ -277,6 +292,7 @@ Port spike logic from `routes/(public)/spike/pragmatic.tsx`:
 - Outer column container: NOT a drop target. This makes the scrollbar strip reject drops (snaps back instead of falling through to "append at end").
 
 Spike fixes that must be preserved (these were the iterations that took time):
+
 1. Vertical gutter dead zone — fix: `py-1` on wrapper, `gap-0` on list.
 2. Self-drop falling through to column → "append at end" — fix: `canDrop` returns true for self but indicator suppressed; monitor short-circuits when `dst.id === src.id`.
 3. Horizontal gutter dead zone (drops on column sides → "append at end") — fix: move horizontal padding from list to wrappers (`px-2` on wrapper, `py-2` only on list).
@@ -291,6 +307,7 @@ Read order: sprint's `tickets[]` filtered by `(overlay.get(t.id) ?? t.status) ==
 ### Step 7 — Wire `placeTicketAtom` to `onDrop`
 
 In the board's `monitorForElements` handler:
+
 ```ts
 const src: { type: "card", id: TicketId } = ...
 const dst: CardDropData | ColumnDropData = ...
