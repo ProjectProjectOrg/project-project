@@ -523,6 +523,7 @@ html.dark .prose-md .token.coord {
 @layer base {
   * {
     @apply border-border;
+
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
