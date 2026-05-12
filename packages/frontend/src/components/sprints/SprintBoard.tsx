@@ -1,6 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
+import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
   pendingTicketStatusAtom,
   placeTicketAtom,
@@ -20,11 +21,10 @@ import {
   type CardDropData,
   type ColumnDropData,
   type DragData
-} from "./-board-utils"
+} from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
 
-// TODO(kanban-a11y): wire @atlaskit/pragmatic-drag-and-drop-keyboard adapter
-// once the board is functional. v1 ships pointer-only.
+const BOARD_BOTTOM_OFFSET = 56
 
 export function SprintBoard({
   orgSlug,
@@ -49,7 +49,7 @@ export function SprintBoard({
     if (!el) return
     const update = () => {
       const rect = el.getBoundingClientRect()
-      setHeight(Math.max(240, window.innerHeight - rect.top - 56))
+      setHeight(Math.max(240, window.innerHeight - rect.top - BOARD_BOTTOM_OFFSET))
     }
     update()
     const ro = new ResizeObserver(update)
@@ -89,8 +89,10 @@ export function SprintBoard({
   groupedRef.current = grouped
 
   useEffect(() => {
-    if (isCompleted) return
-    return monitorForElements({
+    const el = ref.current
+    if (!el || isCompleted) return
+    const cleanupAutoScroll = autoScrollForElements({ element: el })
+    const cleanupMonitor = monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
@@ -121,6 +123,10 @@ export function SprintBoard({
         flash(src.id)
       }
     })
+    return () => {
+      cleanupAutoScroll()
+      cleanupMonitor()
+    }
   }, [isCompleted, place])
 
   return (

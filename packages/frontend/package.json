@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
+    "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "^2.1.5",
     "@base-ui/react": "^1.4.1",
     "@effect-atom/atom-react": "^0.5.0",
     "@effect/platform": "latest",

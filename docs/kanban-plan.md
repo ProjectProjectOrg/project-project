@@ -214,7 +214,7 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 
 **Frontend atoms:**
 
-- `packages/frontend/src/atoms/sprints.ts` — added `pendingTicketStatusAtom` family + `placeTicketAtom` family (optimistic over `sprintsListAtom`, refreshes `sprintsListBaseAtom` + `ticketsListAtom`).
+- `packages/frontend/src/atoms/sprints.ts` — added `pendingTicketStatusAtom` family + `placeTicketAtom` family (optimistic over `sprintsListAtom`, refreshes `sprintsListBaseAtom` + `ticketsListBaseAtom`).
 
 **Frontend routes / layout:**
 
@@ -241,7 +241,7 @@ User noted concern about visual stacking of nav tabs above view tabs — flagged
 ```text
 packages/frontend/src/components/sprints/SprintBoardColumn.tsx   ← column wrapper + tail drop zone
 packages/frontend/src/components/sprints/SprintBoardCard.tsx     ← draggable card
-packages/frontend/src/components/sprints/-board-utils.ts         ← edge math, neighbor lookup, grouping with overlay
+packages/frontend/src/components/sprints/board-utils.ts          ← edge math, neighbor lookup, grouping with overlay
 ```
 
 ### Still to modify
@@ -274,7 +274,7 @@ Reuses:
 - `GithubChip` from `@/components/GithubChip`
 - `PRIORITY_META` icons (not just dots)
 
-Reads ticket data from `ticketsListAtom`. Status read via overlay merge (helper from `-board-utils.ts`).
+Reads ticket data from `ticketsListAtom`. Status read via overlay merge (helper from `board-utils.ts`).
 
 Verify: dropdowns work nested inside a draggable wrapper. Pragmatic respects HTML5 drag semantics — buttons/inputs aren't draggable by default. Confirm by testing.
 

@@ -15,7 +15,7 @@ import type {
   TicketStatus
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
-import type { CardDropData, ColumnDropData, DragData } from "./-board-utils"
+import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
 
 export function SprintBoardColumn({
   orgSlug,
@@ -99,15 +99,17 @@ function CardSlot({
 }) {
   const ticketId = ticket.id
   const ref = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
   const [edge, setEdge] = useState<"top" | "bottom" | null>(null)
 
   useEffect(() => {
     if (!isDraggable) return
     const el = ref.current
-    if (!el) return
+    const card = cardRef.current
+    if (!el || !card) return
     const cleanupDrag = draggable({
-      element: el,
+      element: card,
       getInitialData: (): DragData => ({
         type: "card",
         id: ticketId,
@@ -147,6 +149,7 @@ function CardSlot({
   return (
     <div ref={ref} className="relative px-2 py-1">
       <motion.div
+        ref={cardRef}
         key={flashKey ?? 0}
         initial={
           flashKey ? { boxShadow: "0 0 0 3px var(--foreground)" } : false
