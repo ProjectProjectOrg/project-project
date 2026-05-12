@@ -135,6 +135,7 @@ export function SprintDetail({
               ticketIds={ticketIds}
               members={project.members}
               uiKey={uiKey}
+              creator={creator}
             />
           </PageContainer>
         )
@@ -143,7 +144,6 @@ export function SprintDetail({
         <div className="flex flex-col gap-4">
           <PageContainer>
             <div className="flex flex-col gap-4">
-              {creator}
               <SprintDetailHeader
                 orgSlug={orgSlug}
                 slug={slug}
@@ -152,6 +152,7 @@ export function SprintDetail({
                   isCompleted ? undefined : () => setShowCompleteForm(true)
                 }
               />
+              {view === "board" && creator}
               {showCompleteForm && state === "active" && (
                 <CompleteSprintForm
                   orgSlug={orgSlug}
