@@ -118,6 +118,7 @@ export function SprintBoard({
           const inColumn = current[dst.status]
           after = inColumn.length > 0 ? inColumn[inColumn.length - 1].id : null
         }
+        if (after === src.id) return
         const status = nextStatus !== src.status ? nextStatus : undefined
         place({ ticketId: src.id, status, after })
         flash(src.id)

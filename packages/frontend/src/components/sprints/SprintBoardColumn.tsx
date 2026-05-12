@@ -6,6 +6,8 @@ import {
   draggable,
   dropTargetForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
+import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
+import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import type {
@@ -115,6 +117,22 @@ function CardSlot({
         id: ticketId,
         status
       }),
+      onGenerateDragPreview: ({ location, nativeSetDragImage }) => {
+        setCustomNativeDragPreview({
+          nativeSetDragImage,
+          getOffset: preserveOffsetOnSource({
+            element: card,
+            input: location.current.input
+          }),
+          render: ({ container }) => {
+            const rect = card.getBoundingClientRect()
+            const clone = card.cloneNode(true) as HTMLElement
+            clone.style.width = `${rect.width}px`
+            clone.style.height = `${rect.height}px`
+            container.appendChild(clone)
+          }
+        })
+      },
       onDragStart: () => setDragging(true),
       onDrop: () => setDragging(false)
     })
@@ -148,27 +166,31 @@ function CardSlot({
 
   return (
     <div ref={ref} className="relative px-2 py-1">
-      <motion.div
+      <div
         ref={cardRef}
-        key={flashKey ?? 0}
-        initial={
-          flashKey ? { boxShadow: "0 0 0 3px var(--foreground)" } : false
-        }
-        animate={{ boxShadow: "0 0 0 0px transparent" }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
         className={cn(
           "rounded-md",
           dragging && "opacity-40",
           pending && "animate-pulse"
         )}
       >
-        <SprintBoardCard
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          members={members}
-        />
-      </motion.div>
+        <motion.div
+          key={flashKey ?? 0}
+          initial={
+            flashKey ? { boxShadow: "0 0 0 3px var(--foreground)" } : false
+          }
+          animate={{ boxShadow: "0 0 0 0px transparent" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="rounded-md"
+        >
+          <SprintBoardCard
+            orgSlug={orgSlug}
+            slug={slug}
+            ticket={ticket}
+            members={members}
+          />
+        </motion.div>
+      </div>
       {edge && (
         <div
           aria-hidden

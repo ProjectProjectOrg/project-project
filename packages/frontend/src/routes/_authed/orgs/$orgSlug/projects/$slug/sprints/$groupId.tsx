@@ -18,7 +18,7 @@ export const Route = createFileRoute(
   } => ({
     ticket: typeof search.ticket === "string" ? search.ticket : undefined,
     focusBody: search.focusBody === 1 ? 1 : undefined,
-    view: search.view === "board" ? "board" : undefined
+    view: search.view === "list" ? "list" : undefined
   }),
   loader: ({ params }) => ({
     crumb: {
@@ -33,25 +33,14 @@ export const Route = createFileRoute(
 function SprintDetailRoute() {
   const { orgSlug, slug, groupId } = Route.useParams()
   const { view } = Route.useSearch()
-  const navigate = Route.useNavigate()
   const id = decodeGroupId(groupId)
-  const currentView: "list" | "board" = view ?? "list"
-  const setView = (next: "list" | "board") => {
-    navigate({
-      to: ".",
-      search: (prev) => ({
-        ...prev,
-        view: next === "board" ? "board" : undefined
-      })
-    })
-  }
+  const currentView: "list" | "board" = view ?? "board"
   return (
     <SprintDetail
       orgSlug={orgSlug}
       slug={slug}
       groupId={id}
       view={currentView}
-      onChangeView={setView}
     />
   )
 }

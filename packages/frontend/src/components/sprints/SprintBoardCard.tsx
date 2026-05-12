@@ -38,10 +38,7 @@ function SprintBoardCardImpl({
           open()
         }
       }}
-      className={cn(
-        "group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition duration-100 hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring",
-        "active:scale-[0.97]"
-      )}
+      className="group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition-colors duration-100 hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring"
     >
       <div className="flex items-start gap-1.5">
         <TypeButton orgSlug={orgSlug} slug={slug} ticket={ticket} iconOnly />

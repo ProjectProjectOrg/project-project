@@ -31,14 +31,12 @@ export function SprintDetail({
   orgSlug,
   slug,
   groupId,
-  view,
-  onChangeView
+  view
 }: {
   orgSlug: string
   slug: string
   groupId: GroupId
   view: "list" | "board"
-  onChangeView: (next: "list" | "board") => void
 }) {
   const project = useProject()
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
@@ -150,8 +148,6 @@ export function SprintDetail({
                 orgSlug={orgSlug}
                 slug={slug}
                 sprint={display}
-                view={view}
-                onChangeView={onChangeView}
                 onRequestComplete={
                   isCompleted ? undefined : () => setShowCompleteForm(true)
                 }
