@@ -20,7 +20,7 @@ Expose ProjectProject's read surface to AI agents (Claude Code, Cursor, ChatGPT,
 
 One backend process, three coexisting listener trees sharing a single Effect runtime and one set of service Layers:
 
-```
+```text
 backend (Bun)
 ├── HttpApi tree at /api/*            (existing)
 ├── Better Auth handlers              (existing, plus new MCP plugin routes)

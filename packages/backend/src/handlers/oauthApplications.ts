@@ -1,8 +1,27 @@
 import { HttpApiBuilder, HttpServerRequest } from "@effect/platform"
 import { AppApi, CurrentUser, Validation } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
-import { BetterAuth } from "../Services/BetterAuth"
+import { toWebHeaders } from "../http/toWebHeaders"
+import { BetterAuth, type BetterAuthError } from "../Services/BetterAuth"
 import { OAuthApplications } from "../Services/OAuthApplications"
+
+const consentErrorToFailure = (e: BetterAuthError) => {
+  const cause = e.cause as
+    | { statusCode?: unknown; body?: { message?: unknown; code?: unknown } }
+    | undefined
+  const status =
+    cause && typeof cause.statusCode === "number" ? cause.statusCode : undefined
+  if (status !== undefined && status >= 400 && status < 500) {
+    const message =
+      cause?.body && typeof cause.body.message === "string"
+        ? cause.body.message
+        : typeof cause?.body?.code === "string"
+          ? cause.body.code
+          : "consent_failed"
+    return Effect.fail(new Validation({ reason: message }))
+  }
+  return Effect.die(e)
+}
 
 export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
   AppApi,
@@ -30,12 +49,8 @@ export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
           const ba = yield* BetterAuth
           const req = yield* HttpServerRequest.HttpServerRequest
           const result = yield* ba
-            .submitConsent(req.headers as unknown as Headers, payload)
-            .pipe(
-              Effect.mapError(
-                () => new Validation({ reason: "consent_rejected" })
-              )
-            )
+            .submitConsent(toWebHeaders(req.headers), payload)
+            .pipe(Effect.catchTag("BetterAuthError", consentErrorToFailure))
           return { redirectURI: result.redirectURI }
         })
       )
