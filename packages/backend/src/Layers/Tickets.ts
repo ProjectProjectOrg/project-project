@@ -48,13 +48,27 @@ import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
-import { TicketDocs, type TicketDocument } from "../Services/TicketDocs"
+import {
+  MalformedTicketDocument,
+  TicketDocs,
+  type TicketDocument
+} from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
+
+type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
+
+type TicketCollectionRead =
+  | { readonly _tag: "Readable"; readonly document: TicketDocument }
+  | {
+      readonly _tag: "Unreadable"
+      readonly ticketId: string
+      readonly error: MalformedTicketDocument
+    }
 
 function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
@@ -108,8 +122,39 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      TicketDocument,
+      NotFound | MarkdownError | MalformedTicketDocument
+    > =>
       ticketDocs.read(orgSlug, slug, id)
+
+    const readTicketForCollection = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<TicketCollectionRead, NotFound | MarkdownError> =>
+      readTicket(orgSlug, slug, id).pipe(
+        Effect.map((document) => ({ _tag: "Readable" as const, document })),
+        Effect.catchTag("MalformedTicketDocument", (error) =>
+          Effect.logWarning("Skipping unreadable ticket", {
+            orgSlug,
+            slug,
+            ticketId: id,
+            error
+          }).pipe(
+            Effect.as({
+              _tag: "Unreadable" as const,
+              ticketId: id,
+              error
+            })
+          )
+        )
+      )
+
+    const readableTickets = (
+      reads: ReadonlyArray<TicketCollectionRead>
+    ): ReadonlyArray<TicketDocument> =>
+      reads.flatMap((read) => (read._tag === "Readable" ? [read.document] : []))
 
     const list = (
       orgSlug: string,
@@ -121,10 +166,10 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(orgSlug, slug, id),
+          (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return tickets
+        return readableTickets(tickets)
           .map(documentToTicket)
           .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
       })
@@ -134,7 +179,7 @@ export const TicketsLive = Layer.effect(
       ownerId: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         return yield* readTicket(orgSlug, slug, id)
@@ -195,7 +240,7 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateTicketInput
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
@@ -252,7 +297,7 @@ export const TicketsLive = Layer.effect(
       id: string,
       oldName: string,
       newName: string | null
-    ): Effect.Effect<boolean, NotFound | MarkdownError> =>
+    ): Effect.Effect<boolean, TicketReadError> =>
       Effect.gen(function* () {
         const existing = yield* readTicket(orgSlug, slug, id)
         if (!existing.tags.some((tag) => tag === oldName)) return false
@@ -293,8 +338,10 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(orgSlug, slug, id),
+          (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
+        ).pipe(
+          Effect.map(readableTickets)
         )
         const sorted = tickets
           .map(documentToTicket)
@@ -363,6 +410,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -409,6 +457,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -455,6 +504,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -498,7 +548,7 @@ export const TicketsLive = Layer.effect(
       userId: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
         const ticket = yield* readTicket(orgSlug, slug, id)
@@ -533,9 +583,9 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(orgSlug, slug, id),
+          (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
-        )
+        ).pipe(Effect.map(readableTickets))
 
         const result = yield* github
           .fetchProjectStates(
