@@ -11,6 +11,7 @@ import type {
   NotFound,
   SprintCompletedImmutable,
   SprintState,
+  TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
@@ -75,6 +76,16 @@ export interface GroupsShape {
     slug: string,
     id: string,
     input: UpdateGroupTicketsInput
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly addTickets: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     NotFound | Forbidden | SprintCompletedImmutable | MarkdownError

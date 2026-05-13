@@ -6,7 +6,9 @@ import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Schema from "effect/Schema"
 import {
   BranchNotFound,
+  GroupId,
   NotFound,
+  SprintCompletedImmutable,
   TicketId,
   type User
 } from "@projectproject/shared"
@@ -430,6 +432,130 @@ describe("MCP dispatcher → write tools", () => {
   })
 
   test.skip("placeholder2", () => {})
+})
+
+describe("MCP dispatcher → add_tickets_to_group", () => {
+  const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+
+  const makeGroupsStub = (
+    behaviour: "ok" | "completed" = "ok"
+  ) => {
+    const captured: {
+      orgSlug?: string
+      userId?: string
+      slug?: string
+      groupId?: string
+      ticketIds?: ReadonlyArray<string>
+    } = {}
+    const stub = Layer.succeed(Groups, {
+      addTickets: (
+        orgSlug: any,
+        userId: any,
+        slug: any,
+        groupId: any,
+        ticketIds: ReadonlyArray<string>
+      ) => {
+        captured.orgSlug = orgSlug
+        captured.userId = userId
+        captured.slug = slug
+        captured.groupId = groupId
+        captured.ticketIds = ticketIds
+        if (behaviour === "completed") {
+          return Effect.fail(new SprintCompletedImmutable())
+        }
+        return Effect.succeed({
+          target: {
+            id: decodeGroupId(groupId),
+            name: "Sprint 1",
+            kind: "sprint" as const,
+            tickets: ticketIds.map((id) => decodeTicketId(id)),
+            color: "#3366ff" as any,
+            startsAt: null,
+            endsAt: null,
+            completedAt: null,
+            createdBy: "u-1",
+            createdAt: isoDate("2026-04-01T00:00:00.000Z"),
+            updatedAt: isoDate("2026-05-13T00:00:00.000Z"),
+            body: "# Sprint 1\n"
+          },
+          evicted: []
+        })
+      }
+    } as any)
+    return { stub, captured }
+  }
+
+  const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
+    Layer.mergeAll(
+      EmptyStub(Tickets),
+      groupsLayer,
+      EmptyStub(Comments),
+      ProjectsStub,
+      EmptyStub(Tags),
+      EmptyStub(Users),
+      EmptyStub(BetterAuth),
+      ProjectDocsStub,
+      GroupDocsStub,
+      TicketDocsStub
+    )
+
+  const registerAndCall = (
+    layer: Layer.Layer<any, never, never>,
+    input: unknown
+  ) => {
+    const runtime = ManagedRuntime.make(layer)
+    const registered = new Map<string, (i: unknown) => Promise<any>>()
+    const fakeServer = {
+      registerTool: (name: string, _m: unknown, cb: any) =>
+        registered.set(name, cb)
+    } as any
+    registerAllTools(fakeServer, runtime as any, handlers as any)
+    return {
+      runtime,
+      call: () =>
+        withFakeUser(() => registered.get("add_tickets_to_group")!(input))
+    }
+  }
+
+  test("delegates to groups.addTickets with the supplied path + ids", async () => {
+    const { stub, captured } = makeGroupsStub("ok")
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-2", "T-2", "T-3"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.orgSlug).toBe("acme")
+    expect(captured.slug).toBe("demo")
+    expect(captured.groupId).toBe("G-1")
+    expect(captured.userId).toBe("u-1")
+    // Handler forwards the raw payload — the service is responsible for
+    // dedup, merge, and write atomicity. Those are tested at the service
+    // layer (see Layers/Groups-addTickets.test.ts).
+    expect(captured.ticketIds).toEqual(["T-2", "T-2", "T-3"])
+
+    await runtime.dispose()
+  })
+
+  test("surfaces SprintCompletedImmutable from the service", async () => {
+    const { stub } = makeGroupsStub("completed")
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-2"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("sprint")
+    await runtime.dispose()
+  })
+
+  test.skip("placeholder", () => {})
 })
 
 describe("MCP dispatcher → NotFound retained", () => {

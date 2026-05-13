@@ -7,6 +7,7 @@ import {
   type AttachBranchInput,
   type CreateTicketInput,
   type GroupFilter,
+  type GroupId,
   type Pagination,
   type SprintState,
   type TicketFilter,
@@ -376,6 +377,24 @@ const attach_branch = (
     )
   })
 
+const add_tickets_to_group = (input: {
+  orgSlug: string
+  projectSlug: string
+  groupId: GroupId
+  ticketIds: ReadonlyArray<TicketId>
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    return yield* groups.addTickets(
+      input.orgSlug,
+      current.id,
+      input.projectSlug,
+      input.groupId,
+      input.ticketIds
+    )
+  })
+
 export const handlers: HandlersMap<Env> = {
   me: (i) => dieInternal(me(i)),
   list_orgs: (i) => dieInternal(list_orgs(i)),
@@ -396,5 +415,6 @@ export const handlers: HandlersMap<Env> = {
   create_ticket: (i) => dieInternal(create_ticket(i)),
   update_ticket: (i) => dieInternal(update_ticket(i)),
   create_comment: (i) => dieInternal(create_comment(i)),
-  attach_branch: (i) => dieInternal(attach_branch(i))
+  attach_branch: (i) => dieInternal(attach_branch(i)),
+  add_tickets_to_group: (i) => dieInternal(add_tickets_to_group(i))
 }

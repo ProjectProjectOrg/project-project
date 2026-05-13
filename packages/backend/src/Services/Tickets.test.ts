@@ -118,6 +118,7 @@ const GroupsStub = Layer.succeed(Groups, {
   create: () => unexpectedCall("Groups", "create"),
   update: () => unexpectedCall("Groups", "update"),
   updateTickets: () => unexpectedCall("Groups", "updateTickets"),
+  addTickets: () => unexpectedCall("Groups", "addTickets"),
   updateTicketOrder: () => unexpectedCall("Groups", "updateTicketOrder"),
   complete: () => unexpectedCall("Groups", "complete"),
   remove: () => unexpectedCall("Groups", "remove"),
