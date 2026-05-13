@@ -70,6 +70,8 @@ function makeFakeDocs(initial?: {
     ])
   )
 
+  const groupWrites: Array<{ id: string }> = []
+
   const groupService = {
     listIds: () => Effect.succeed([...groups.keys()].map((id) => groupId(id))),
     read: (_org: string, _slug: string, id: string) => {
@@ -89,6 +91,7 @@ function makeFakeDocs(initial?: {
       id: string,
       document: GroupDocument
     ) => {
+      groupWrites.push({ id })
       groups.set(id, document)
       return Effect.void
     },
@@ -99,6 +102,7 @@ function makeFakeDocs(initial?: {
       document: GroupDocument
     ) => {
       if (!groups.has(id)) return Effect.fail(new NotFound())
+      groupWrites.push({ id })
       groups.set(id, document)
       return Effect.void
     },
@@ -131,7 +135,7 @@ function makeFakeDocs(initial?: {
   } satisfies TicketDocsShape
 
   return {
-    state: { groups, ticketIds, ticketsById },
+    state: { groups, ticketIds, ticketsById, groupWrites },
     groupLayer: Layer.succeed(GroupDocs, groupService),
     ticketLayer: Layer.succeed(TicketDocs, ticketService)
   }
@@ -1041,15 +1045,6 @@ it.effect("removeTicketFromAllGroups strips the id", () =>
   )
 )
 
-// --- addTickets ----------------------------------------------------------
-//
-// Additive sprint-membership write. The service must:
-//   - dedup against existing membership AND within the request payload;
-//   - skip the write entirely when nothing new is being added;
-//   - refuse to mutate a completed sprint;
-//   - serialize concurrent calls per project so two interleaved calls can't
-//     both read "current = [T-1]" and clobber each other's appends.
-
 it.effect("addTickets appends novel ticket ids and preserves existing order", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
@@ -1123,29 +1118,30 @@ it.effect("addTickets deduplicates within the request payload", () =>
   )
 )
 
-it.effect("addTickets is a no-op when nothing new is added", () =>
-  Effect.gen(function* () {
+it.effect("addTickets is a no-op when nothing new is added — no group write happens", () => {
+  const fakeDocs = makeFakeDocs({ ticketIds: ["T-1", "T-2"] })
+  const layer = GroupsLive.pipe(
+    Layer.provide(fakeDocs.groupLayer),
+    Layer.provide(fakeDocs.ticketLayer),
+    Layer.provide(makeFakeProjects({ role: "admin" }))
+  )
+  return Effect.gen(function* () {
     const groups = yield* Groups
     const created = yield* groups.create("org", "user-1", "p", {
       name: "Sprint 1",
       kind: "sprint",
       tickets: [ticketId("T-1"), ticketId("T-2")]
     })
+    const writesAfterCreate = fakeDocs.state.groupWrites.length
     const result = yield* groups.addTickets("org", "user-1", "p", created.id, [
       ticketId("T-1"),
       ticketId("T-2")
     ])
     expect(result.target.tickets).toEqual(["T-1", "T-2"])
     expect(result.evicted).toEqual([])
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer(
-        { ticketIds: ["T-1", "T-2"] },
-        { role: "admin" }
-      )
-    )
-  )
-)
+    expect(fakeDocs.state.groupWrites.length).toBe(writesAfterCreate)
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("addTickets evicts overlap from other active sprints", () =>
   Effect.gen(function* () {
@@ -1214,10 +1210,6 @@ it.effect("addTickets serializes concurrent calls on the same project", () =>
       kind: "sprint",
       tickets: [ticketId("T-1")]
     })
-    // Fire two adds in parallel. Without the project-level lock the two
-    // reads would both see [T-1] and each would write its own merge,
-    // losing one of the additions. Under the lock the merged result has
-    // both new tickets.
     yield* Effect.all(
       [
         groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-2")]),

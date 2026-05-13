@@ -39,17 +39,7 @@ const MAX_CREATE_ATTEMPTS = 16
 const makeGroupId = Schema.decodeUnknownSync(GroupId)
 const makeGroupColor = Schema.decodeUnknownSync(GroupColor)
 
-// Process-level mutex per project. Every group-mutation entry point on
-// the service acquires this before reading-then-writing, so concurrent
-// callers serialize and the eviction logic (which writes the target
-// group AND any sprint it's evicting tickets from) sees a consistent
-// view of the project's group files. Single-permit semaphore = mutex.
-// The Map only grows with the set of active projects, which is bounded
-// in practice; no eviction is needed for the lifetime of one process.
-const projectMutationLocks = new Map<
-  string,
-  Effect.Semaphore
->()
+const projectMutationLocks = new Map<string, Effect.Semaphore>()
 
 const projectLockKey = (orgSlug: string, slug: string) => `${orgSlug}:${slug}`
 
@@ -397,11 +387,6 @@ export const GroupsLive = Layer.effect(
         return nextDocument
       }))
 
-    // Shared write path for both `updateTickets` (replace) and `addTickets`
-    // (additive). The caller is responsible for: (1) auth, (2) reading the
-    // current document, (3) deciding what `nextTickets` should be, (4)
-    // holding the project mutation lock. This helper just performs the
-    // resulting write and the cross-sprint eviction.
     const applyTicketsChange = (
       orgSlug: string,
       slug: string,
