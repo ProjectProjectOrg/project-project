@@ -1,52 +1,58 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
-import { LexicalComposer } from "@lexical/react/LexicalComposer"
+import {
+  configExtension,
+  defineExtension,
+  $createParagraphNode,
+  $getRoot,
+  type ElementNode,
+  type LexicalEditor as LexicalEditorType
+} from "lexical"
+import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
-import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary"
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin"
-import { ListPlugin } from "@lexical/react/LexicalListPlugin"
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin"
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  CHECK_LIST,
   TRANSFORMERS
 } from "@lexical/markdown"
-import { MentionNode } from "./Lexical/MentionNode"
+import { RichTextExtension } from "@lexical/rich-text"
+import { HistoryExtension } from "@lexical/history"
+import {
+  CheckListExtension,
+  ListExtension,
+  $isListItemNode
+} from "@lexical/list"
+import { LinkExtension } from "@lexical/link"
+import { CodeExtension, registerCodeHighlighting } from "@lexical/code"
+import {
+  AutoFocusExtension,
+  HorizontalRuleExtension,
+  TabIndentationExtension
+} from "@lexical/extension"
+import { MentionExtension } from "./Lexical/MentionExtension"
 import { MentionsPlugin } from "./Lexical/MentionsPlugin"
 import { MENTION_TRANSFORMER } from "./Lexical/mentionTransformer"
-import { $createParagraphNode, $getRoot } from "lexical"
 import {
-  CodeHighlightNode,
-  CodeNode,
-  registerCodeHighlighting
-} from "@lexical/code"
-import { HeadingNode, QuoteNode } from "@lexical/rich-text"
-import { ListItemNode, ListNode } from "@lexical/list"
-import { LinkNode } from "@lexical/link"
+  HORIZONTAL_RULE,
+  HorizontalRuleEnterExtension
+} from "./Lexical/horizontalRuleTransformer"
+import { ChecklistClickExtension } from "./Lexical/checklistClickExtension"
+import { ListTabExtension } from "./Lexical/listTabExtension"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const MARKDOWN_TRANSFORMERS = [MENTION_TRANSFORMER, ...TRANSFORMERS]
+const MARKDOWN_TRANSFORMERS = [
+  MENTION_TRANSFORMER,
+  CHECK_LIST,
+  HORIZONTAL_RULE,
+  ...TRANSFORMERS
+]
 
-// Lexical-backed markdown editor.
-//
-// Spec: read markdown on mount → Lexical state, edit in rich-text mode,
-// serialize → markdown on change, debounce-save through the parent.
-//
-// Code highlighting comes from `@lexical/code` (Prism under the hood). The
-// theme below maps Lexical's `codeHighlight.<token>` keys to the same
-// `.token.<name>` class names that `rehype-prism-plus` emits in the read
-// view — so the styles in styles.css cover both.
-
-// Lexical's theme is just a flat dictionary of node-type → CSS class. It's
-// applied at render time. We use the same .token classes the read renderer
-// uses so a single CSS palette covers both ends.
 const lexicalTheme = {
   paragraph: "lexical-paragraph",
   heading: {
@@ -61,8 +67,15 @@ const lexicalTheme = {
   list: {
     ul: "lexical-ul",
     ol: "lexical-ol",
-    listitem: "lexical-li"
+    listitem: "lexical-li",
+    checklist: "lexical-checklist",
+    listitemChecked: "lexical-li-checked",
+    listitemUnchecked: "lexical-li-unchecked",
+    nested: {
+      listitem: "lexical-li-nested"
+    }
   },
+  hr: "lexical-hr",
   link: "lexical-link",
   text: {
     bold: "lexical-bold",
@@ -102,8 +115,6 @@ const lexicalTheme = {
     tag: "token tag",
     url: "token url",
     variable: "token variable",
-    // Diff-specific token types emitted by @lexical/code-prism's inline diff
-    // grammar. Without these the +/- lines stay uncolored.
     "deleted-sign": "token deleted-sign",
     "deleted-arrow": "token deleted-arrow",
     "inserted-sign": "token inserted-sign",
@@ -116,52 +127,24 @@ const lexicalTheme = {
   }
 }
 
-// Plugin: registers Lexical's Prism-based code highlighter on mount. It's
-// shipped as a function call rather than a JSX plugin component, so we wrap
-// it ourselves.
-function CodeHighlightPlugin() {
-  const [editor] = useLexicalComposerContext()
-  useEffect(() => registerCodeHighlighting(editor), [editor])
-  return null
-}
+const CodeHighlightExtension = defineExtension({
+  name: "@projectproject/code-highlight",
+  dependencies: [CodeExtension],
+  register: (editor: LexicalEditorType) => registerCodeHighlighting(editor)
+})
 
-function AutoFocusPlugin() {
-  const [editor] = useLexicalComposerContext()
-  useEffect(() => {
-    editor.update(() => {
-      const root = $getRoot()
-      const last = root.getLastChild()
-      if (!last || last.getType() !== "paragraph") {
-        root.append($createParagraphNode())
-      }
-    })
-    editor.focus(undefined, { defaultSelection: "rootEnd" })
-  }, [editor])
-  return null
-}
-
-// We deliberately do NOT have an external-sync plugin. Once the editor
-// mounts, it owns the markdown until unmount — the autosave round-trip
-// (parent re-renders with the same body we typed) would otherwise re-apply
-// state and reset the cursor. To swap to a different project's body, the
-// caller must remount this component (e.g. `<LexicalEditor key={slug} />`).
+const $canIndentInsideLists = (node: ElementNode) => $isListItemNode(node)
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
 
 export interface LexicalEditorProps {
-  /** Initial markdown body. Re-applied to the editor when this prop changes. */
   markdown: string
-  /** Called with the serialized markdown on every change, debounced internally. */
   onChange: (markdown: string) => Promise<void> | void
-  /** Optional save-status sink so the parent can show "saving…"/"saved". */
   onStatusChange?: (status: SaveStatus) => void
-  /** Debounce delay for autosave in milliseconds. */
   debounceMs?: number
   className?: string
   placeholder?: string
-  /** Focus the editor on mount. */
   autoFocus?: boolean
-  /** Compact mode — single-line minimum height suitable for inline composers. */
   compact?: boolean
 }
 
@@ -175,36 +158,51 @@ export function LexicalEditor({
   autoFocus = false,
   compact = false
 }: LexicalEditorProps) {
-  const initialConfig = useRef({
-    namespace: "ProjectBody",
-    theme: lexicalTheme,
-    onError: (error: Error) => {
-      Effect.runFork(Effect.logError("[Lexical]", error))
-    },
-    nodes: [
-      HeadingNode,
-      QuoteNode,
-      ListNode,
-      ListItemNode,
-      CodeNode,
-      CodeHighlightNode,
-      LinkNode,
-      MentionNode
-    ],
-    editorState: () => {
-      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
-    }
-  }).current
+  const [extension] = useState(() => {
+    const initialMarkdown = markdown
+    const initialAutoFocus = autoFocus
+    return defineExtension({
+      name: "@projectproject/body-editor",
+      namespace: "ProjectBody",
+      theme: lexicalTheme,
+      onError: (error) => {
+        Effect.runFork(Effect.logError("[Lexical]", error))
+      },
+      $initialEditorState: () => {
+        $convertFromMarkdownString(initialMarkdown, MARKDOWN_TRANSFORMERS)
+        const root = $getRoot()
+        const last = root.getLastChild()
+        if (!last || last.getType() !== "paragraph") {
+          root.append($createParagraphNode())
+        }
+      },
+      dependencies: [
+        RichTextExtension,
+        HistoryExtension,
+        ListExtension,
+        CheckListExtension,
+        ChecklistClickExtension,
+        ListTabExtension,
+        LinkExtension,
+        CodeExtension,
+        CodeHighlightExtension,
+        HorizontalRuleExtension,
+        HorizontalRuleEnterExtension,
+        MentionExtension,
+        configExtension(TabIndentationExtension, {
+          $canIndent: $canIndentInsideLists,
+          maxIndent: 4
+        }),
+        configExtension(AutoFocusExtension, {
+          defaultSelection: "rootEnd",
+          disabled: !initialAutoFocus
+        })
+      ]
+    })
+  })
 
-  // The editor's current serialized markdown — updated on every change. Used
-  // to suppress no-op fires of OnChangePlugin.
   const liveRef = useRef(markdown)
-  // OnChangePlugin fires once on mount with whatever Lexical re-serializes
-  // the initial state to — which can drift from the source markdown by a
-  // trailing newline or two. We treat that first call as the new baseline
-  // rather than as a user edit, so we don't autosave on page open.
   const isFirstChange = useRef(true)
-
   const pending = useRef<string | null>(null)
   const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
@@ -246,33 +244,29 @@ export function LexicalEditor({
     []
   )
 
+  const [contentEditable] = useState(() => (
+    <div className="relative">
+      <ContentEditable
+        className={cn(
+          "lexical-content outline-none",
+          compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
+        )}
+        aria-placeholder={placeholder}
+        placeholder={
+          <div className="pointer-events-none absolute left-0 top-0 select-none text-muted-foreground">
+            {placeholder}
+          </div>
+        }
+      />
+    </div>
+  ))
+
   return (
     <div className={cn("prose-md", className)}>
-      <LexicalComposer initialConfig={initialConfig}>
-        <div className="relative">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                className={cn(
-                  "lexical-content outline-none",
-                  compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
-                )}
-                aria-placeholder={placeholder}
-                placeholder={
-                  <div className="pointer-events-none absolute left-0 top-0 select-none text-muted-foreground">
-                    {placeholder}
-                  </div>
-                }
-              />
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-        </div>
-        <HistoryPlugin />
-        <ListPlugin />
-        <LinkPlugin />
-        <CodeHighlightPlugin />
-        {autoFocus && <AutoFocusPlugin />}
+      <LexicalExtensionComposer
+        extension={extension}
+        contentEditable={contentEditable}
+      >
         <MentionsPlugin />
         <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin
@@ -293,7 +287,7 @@ export function LexicalEditor({
           }}
           ignoreSelectionChange
         />
-      </LexicalComposer>
+      </LexicalExtensionComposer>
     </div>
   )
 }
