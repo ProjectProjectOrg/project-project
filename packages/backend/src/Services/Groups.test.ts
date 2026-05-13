@@ -141,6 +141,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
   return {
     org: "org",
     slug: "p",
+    key: "FOO" as never,
     name: "Project",
     createdBy: "user-1",
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),

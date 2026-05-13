@@ -152,7 +152,12 @@ export function CreateBranchFields({
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="mt-0.5 font-mono"
-            placeholder="feat/T-12-add-button"
+            placeholder={defaultBranchName(
+              null,
+              ticket.type,
+              ticket.id,
+              ticket.title
+            )}
             disabled={busy}
           />
         </label>

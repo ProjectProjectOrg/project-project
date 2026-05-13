@@ -47,24 +47,35 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
 import { organization, user } from "./auth-schema"
 
-export const projectIndex = pgTable("project_index", {
-  id: uuid("id").defaultRandom().notNull().unique(),
-  slug: text("slug").primaryKey(),
-  organizationId: text("organization_id").references(() => organization.id, {
-    onDelete: "cascade"
-  }),
-  name: text("name").notNull(),
-  createdBy: text("created_by").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-})
+export const projectIndex = pgTable(
+  "project_index",
+  {
+    id: uuid("id").defaultRandom().notNull().unique(),
+    slug: text("slug").primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade"
+    }),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    uniqueIndex("project_index_organization_key_uidx").on(
+      table.organizationId,
+      table.key
+    )
+  ]
+)
 
 export const projectMember = pgTable(
   "project_member",

@@ -329,6 +329,7 @@ it.effect(
       yield* docs.write("org", "project", {
         org: "org",
         slug: "project",
+        key: "FOO" as never,
         name: "Project",
         createdBy: "user-1",
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
@@ -346,6 +347,7 @@ it.effect(
         frontmatter: {
           org: "org",
           slug: "project",
+          key: "FOO",
           name: "Project",
           createdBy: "user-1",
           createdAt: "2026-05-02T00:00:00.000Z",

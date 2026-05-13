@@ -1,7 +1,9 @@
 import { Atom } from "@effect-atom/atom-react"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { CreatableProjectKey } from "@projectproject/shared"
 
 // Atom.family keys must compare by value, not reference. Slugs are DNS-safe
 // (no `/`), so a slash is an unambiguous separator between org and project.
@@ -125,11 +127,12 @@ export const removeMemberAtom = Atom.family((key: string) => {
 
 export const createProjectAtom = Atom.family((orgSlug: string) =>
   runtime.fn(
-    Effect.fn(function* (input: { name: string }, get) {
+    Effect.fn(function* (input: { name: string; key: string }, get) {
       const client = yield* ApiClient
+      const key = yield* Schema.decodeUnknown(CreatableProjectKey)(input.key)
       const project = yield* client.projects.create({
         path: { orgSlug },
-        payload: { name: input.name }
+        payload: { name: input.name, key }
       })
       get.refresh(projectsListAtom(orgSlug))
       return project

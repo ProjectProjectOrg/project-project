@@ -1,15 +1,18 @@
 import { PRIORITY_META } from "@/lib/priority-meta"
 import { m } from "@/paraglide/messages"
-import type { Ticket } from "@projectproject/shared"
+import { padNumericIdSort, type Ticket } from "@projectproject/shared"
 
-function idNum(t: Ticket): number {
-  return Number(t.id.slice(2))
+function compareId(a: Ticket, b: Ticket): number {
+  const aSort = padNumericIdSort(a.id)
+  const bSort = padNumericIdSort(b.id)
+  if (aSort && bSort) return aSort.localeCompare(bSort)
+  return a.id.localeCompare(b.id)
 }
 
 export const SORTS = {
   id: {
     label: () => m.tickets_sort_id(),
-    compare: (a: Ticket, b: Ticket) => idNum(a) - idNum(b)
+    compare: compareId
   },
   updated: {
     label: () => m.tickets_sort_updated(),

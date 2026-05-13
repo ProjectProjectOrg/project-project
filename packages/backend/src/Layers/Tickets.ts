@@ -41,6 +41,7 @@ import {
   TicketId,
   UpdateTicketInput,
   type CursorPayload,
+  type ProjectKey,
   type TicketFilter
 } from "@projectproject/shared"
 import { matchesTicketFilter } from "../Services/TicketFilters"
@@ -56,13 +57,19 @@ const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 
-function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
+function numericTail(id: string): number {
+  const dash = id.lastIndexOf("-")
+  if (dash < 0) return Number.NaN
+  return Number(id.slice(dash + 1))
+}
+
+function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
   for (const id of ids) {
-    const n = Number(id.slice(2))
+    const n = numericTail(id)
     if (Number.isFinite(n) && n > max) max = n
   }
-  return makeTicketId(`T-${max + 1}`)
+  return makeTicketId(`${key}-${max + 1}`)
 }
 
 function documentToTicket(document: TicketDocument): Ticket {
@@ -126,7 +133,7 @@ export const TicketsLive = Layer.effect(
         )
         return tickets
           .map(documentToTicket)
-          .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
+          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
       })
 
     const get = (
@@ -148,8 +155,11 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const project = yield* projects
+          .get(orgSlug, ownerId, slug)
+          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
+        let candidate = nextIdFrom(project.key, ids)
 
         const now = yield* DateTime.nowAsDate
         const document: TicketDocument = {
@@ -182,7 +192,7 @@ export const TicketsLive = Layer.effect(
             return documentToTicket({ ...document, id: candidate })
           }
           const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(freshIds)
+          candidate = nextIdFrom(project.key, freshIds)
         }
         return yield* Effect.die(
           new Error(`could not allocate ticket id for "${slug}"`)
@@ -303,9 +313,7 @@ export const TicketsLive = Layer.effect(
               (groupMemberSet === null || groupMemberSet.has(t.id)) &&
               matchesTicketFilter(t, filter)
           )
-          .toSorted(
-            (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
-          )
+          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
 
         return paginateSorted(sorted, {
           cursor,

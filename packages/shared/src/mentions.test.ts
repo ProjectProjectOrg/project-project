@@ -9,6 +9,7 @@ describe("formatMentionHref", () => {
   })
   it("formats ticket mentions", () => {
     expect(formatMentionHref("ticket", "T-12")).toBe("mention:ticket/T-12")
+    expect(formatMentionHref("ticket", "FOO-12")).toBe("mention:ticket/FOO-12")
   })
 })
 
@@ -23,6 +24,10 @@ describe("parseMentionHref", () => {
     expect(parseMentionHref("mention:ticket/T-12")).toEqual({
       type: "ticket",
       id: "T-12"
+    })
+    expect(parseMentionHref("mention:ticket/FOO-12")).toEqual({
+      type: "ticket",
+      id: "FOO-12"
     })
   })
   it("returns null for non-mention hrefs", () => {
@@ -42,7 +47,7 @@ describe("parseMentionHref", () => {
   it("round-trips for every registered type", () => {
     const cases = [
       ["user", "github_42"],
-      ["ticket", "T-1"]
+      ["ticket", "FOO-1"]
     ] as const
     for (const [type, id] of cases) {
       expect(parseMentionHref(formatMentionHref(type, id))).toEqual({

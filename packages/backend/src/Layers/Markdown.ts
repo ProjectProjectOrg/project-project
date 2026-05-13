@@ -178,7 +178,7 @@ export const MarkdownLive = Layer.effect(
           )
       })
 
-    const SAFE_TICKET_ID = /^T-[1-9][0-9]*$/
+    const SAFE_TICKET_ID = /^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/
     const ensureSafeId = (id: string): Effect.Effect<void, MarkdownError> =>
       SAFE_TICKET_ID.test(id)
         ? Effect.void

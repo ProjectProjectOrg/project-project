@@ -4,6 +4,7 @@ import type {
   AddMemberInput,
   AssignableRole,
   ConnectGithubInput,
+  Conflict,
   CreateProjectInput,
   CursorPayload,
   Forbidden,
@@ -34,9 +35,10 @@ export interface ProjectsShape {
     userId: string,
     cursor: CursorPayload | undefined,
     limit: number
-  ) => Effect.Effect<
-    { items: ReadonlyArray<Project>; nextCursor: string | null }
-  >
+  ) => Effect.Effect<{
+    items: ReadonlyArray<Project>
+    nextCursor: string | null
+  }>
   readonly listMembersPaged: (
     orgSlug: string,
     userId: string,
@@ -51,7 +53,7 @@ export interface ProjectsShape {
     orgSlug: string,
     createdBy: string,
     input: CreateProjectInput
-  ) => Effect.Effect<Project, NotFound>
+  ) => Effect.Effect<Project, NotFound | Conflict>
   readonly get: (
     orgSlug: string,
     userId: string,

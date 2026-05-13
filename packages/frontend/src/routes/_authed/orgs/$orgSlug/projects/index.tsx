@@ -98,18 +98,22 @@ function CreateRow({
     ? m.projects_create_error_fallback()
     : null
   const [name, setName] = useState("")
+  const [key, setKey] = useState("")
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("c", inputRef)
   const trimmed = name.trim()
+  const trimmedKey = key.trim().toUpperCase()
   const previewSlug = trimmed ? slugify(trimmed) : ""
+  const canSubmit = Boolean(trimmed && /^[A-Z][A-Z0-9]{1,9}$/.test(trimmedKey))
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!trimmed || submitting) return
-    const exit = await create({ name: trimmed })
+    if (!canSubmit || submitting) return
+    const exit = await create({ name: trimmed, key: trimmedKey })
     if (Exit.isSuccess(exit)) {
       setName("")
+      setKey("")
     }
   }
 
@@ -136,9 +140,28 @@ function CreateRow({
           disabled={submitting}
           maxLength={120}
         />
+        <InputGroupInput
+          value={key}
+          onChange={(e) =>
+            setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+          }
+          onFocus={() => {
+            setFocused(true)
+            onFocusChange?.(true)
+          }}
+          onBlur={() => {
+            setFocused(false)
+            onFocusChange?.(false)
+          }}
+          placeholder={m.projects_create_key_placeholder()}
+          aria-label={m.projects_create_key_aria_label()}
+          disabled={submitting}
+          maxLength={10}
+          className="max-w-28 font-mono"
+        />
         {previewSlug && (
           <InputGroupHint className="hidden sm:inline">
-            /{previewSlug}
+            {trimmedKey ? `${trimmedKey}-1` : ""} /{previewSlug}
           </InputGroupHint>
         )}
         {error && (
@@ -155,7 +178,7 @@ function ProjectRow({
   project
 }: {
   orgSlug: string
-  project: { slug: string; name: string; createdAt: Date }
+  project: { slug: string; key: string; name: string; createdAt: Date }
 }) {
   return (
     <Link
@@ -172,7 +195,7 @@ function ProjectRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{project.name}</div>
         <div className="truncate font-mono text-xs text-muted-foreground">
-          /{project.slug}
+          {project.key} /{project.slug}
         </div>
       </div>
       <div className="hidden shrink-0 text-xs text-muted-foreground sm:block">
