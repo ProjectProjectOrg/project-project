@@ -392,8 +392,13 @@ const add_tickets_to_group = (input: {
       input.projectSlug,
       input.groupId
     )
-    const existing = new Set<string>(group.tickets)
-    const additions = input.ticketIds.filter((id) => !existing.has(id))
+    const seen = new Set<string>(group.tickets)
+    const additions: TicketId[] = []
+    for (const id of input.ticketIds) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      additions.push(id)
+    }
     const merged =
       additions.length === 0 ? group.tickets : [...group.tickets, ...additions]
     return yield* groups.updateTickets(

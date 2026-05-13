@@ -557,6 +557,22 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
     await runtime.dispose()
   })
 
+  test("deduplicates ids that repeat within the same request payload", async () => {
+    const { stub, captured } = makeGroupsStub(["T-1"])
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-2", "T-2", "T-3", "T-3", "T-2"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
+
+    await runtime.dispose()
+  })
+
   test("is a no-op when every supplied id is already a member", async () => {
     const { stub, captured } = makeGroupsStub(["T-1", "T-2"])
     const { runtime, call } = registerAndCall(makeLayer(stub), {
@@ -574,7 +590,7 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
   })
 
   test("surfaces SprintCompletedImmutable for completed sprints", async () => {
-    const { stub } = makeGroupsStub(["T-1"], { completed: true })
+    const { stub, captured } = makeGroupsStub(["T-1"], { completed: true })
     const { runtime, call } = registerAndCall(makeLayer(stub), {
       orgSlug: "acme",
       projectSlug: "demo",
@@ -584,6 +600,8 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
     const result = await call()
 
     expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("sprint")
+    expect(captured.lastWrite).toBeUndefined()
     await runtime.dispose()
   })
 

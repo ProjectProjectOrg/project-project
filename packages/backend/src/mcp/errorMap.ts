@@ -67,6 +67,8 @@ export const mapToolError = (e: unknown): McpToolErrorResult => {
     case "TicketIdTaken":
     case "GroupIdTaken":
       return text("Identifier already taken.")
+    case "SprintCompletedImmutable":
+      return text("Sprint is already completed and cannot be modified.")
     case "BranchNotFound": {
       const name =
         typeof e === "object" && e !== null && "name" in e
