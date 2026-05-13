@@ -8,6 +8,7 @@ import {
   type TicketIdTaken
 } from "../Services/Markdown"
 import {
+  MalformedTicketDocument,
   TicketDocs,
   type TicketDocsShape,
   type TicketDocument
@@ -128,7 +129,10 @@ export const TicketDocsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      TicketDocument,
+      NotFound | MarkdownError | MalformedTicketDocument
+    > =>
       withTicketDocTelemetry(
         "read",
         orgSlug,
@@ -137,7 +141,17 @@ export const TicketDocsLive = Layer.effect(
         Effect.gen(function* () {
           const file = yield* markdown.readTicketParts(orgSlug, slug, id)
           const frontmatter = yield* decodeFrontmatterCompat(file.data).pipe(
-            Effect.orDie
+            Effect.mapError(
+              (cause) =>
+                new MalformedTicketDocument({
+                  orgSlug,
+                  slug,
+                  ticketId: id,
+                  path: `orgs/${orgSlug}/projects/${slug}/tickets/${id}.md`,
+                  cause,
+                  reason: "invalid_frontmatter"
+                })
+            )
           )
           return toDocument(frontmatter, file.description)
         })

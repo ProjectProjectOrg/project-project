@@ -470,7 +470,13 @@ export const GroupsLive = Layer.effect(
         const now = yield* DateTime.nowAsDate
 
         if (input.status !== undefined) {
-          const ticket = yield* ticketDocs.read(orgSlug, slug, input.ticketId)
+          const ticket = yield* ticketDocs
+            .read(orgSlug, slug, input.ticketId)
+            .pipe(
+              Effect.catchTag("MalformedTicketDocument", () =>
+                Effect.fail(new NotFound())
+              )
+            )
           if (ticket.status !== input.status) {
             yield* ticketDocs.write(orgSlug, slug, input.ticketId, {
               ...ticket,
@@ -534,7 +540,12 @@ export const GroupsLive = Layer.effect(
 
         const tickets = yield* Effect.forEach(
           source.tickets,
-          (tid) => ticketDocs.read(orgSlug, slug, tid),
+          (tid) =>
+            ticketDocs.read(orgSlug, slug, tid).pipe(
+              Effect.catchTag("MalformedTicketDocument", () =>
+                Effect.fail(new NotFound())
+              )
+            ),
           { concurrency: 8 }
         )
         const stay: Array<TicketId> = []

@@ -11,6 +11,7 @@ import { Groups, type GroupsShape } from "./Groups"
 import { TicketIdTaken } from "./Markdown"
 import { Projects, type ProjectsShape } from "./Projects"
 import {
+  MalformedTicketDocument,
   TicketDocs,
   type TicketDocsShape,
   type TicketDocument
@@ -25,7 +26,10 @@ function unexpected(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected ${method} call`))
 }
 
-function makeTicketDocument(id: string): TicketDocument {
+function makeTicketDocument(
+  id: string,
+  overrides: Partial<TicketDocument> = {}
+): TicketDocument {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
@@ -41,7 +45,8 @@ function makeTicketDocument(id: string): TicketDocument {
     createdBy: "user-1",
     createdAt: now,
     updatedAt: now,
-    body: ""
+    body: "",
+    ...overrides
   }
 }
 
@@ -130,21 +135,28 @@ const FakeGitHub = Layer.succeed(GitHub, {
   branchExists: () => unexpected("GitHub.branchExists")
 } satisfies GitHubShape)
 
-function makeTicketsLayer(key: string, initialIds: ReadonlyArray<string>) {
+function makeTicketsLayer(
+  key: string,
+  ticketDocsLayer: Layer.Layer<TicketDocs>
+) {
+  return TicketsLive.pipe(
+    Layer.provide(ticketDocsLayer),
+    Layer.provide(makeFakeProjects(key)),
+    Layer.provide(FakeGroups),
+    Layer.provide(FakeGitHub)
+  )
+}
+
+function makeTicketsFixture(key: string, initialIds: ReadonlyArray<string>) {
   const docs = makeFakeTicketDocs(initialIds)
   return {
     documents: docs.documents,
-    layer: TicketsLive.pipe(
-      Layer.provide(docs.layer),
-      Layer.provide(makeFakeProjects(key)),
-      Layer.provide(FakeGroups),
-      Layer.provide(FakeGitHub)
-    )
+    layer: makeTicketsLayer(key, docs.layer)
   }
 }
 
 it.effect("create allocates the next id from the project key", () => {
-  const { documents, layer } = makeTicketsLayer("FOO", ["FOO-1", "FOO-3"])
+  const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const created = yield* tickets.create("org", "user-1", "p", {
@@ -157,7 +169,7 @@ it.effect("create allocates the next id from the project key", () => {
 })
 
 it.effect("create keeps legacy T project ids readable and sequential", () => {
-  const { documents, layer } = makeTicketsLayer("T", ["T-1", "T-35"])
+  const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-35"])
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const created = yield* tickets.create("org", "user-1", "p", {
@@ -167,4 +179,34 @@ it.effect("create keeps legacy T project ids readable and sequential", () => {
     expect(created.id).toBe("T-36")
     expect(documents.has("T-36")).toBe(true)
   }).pipe(Effect.provide(layer))
+})
+
+it.effect("list skips malformed ticket documents", () => {
+  const docs = Layer.succeed(TicketDocs, {
+    listIds: () => Effect.succeed([ticketId("T-1"), ticketId("T-2")]),
+    read: (_org, _slug, id) =>
+      id === "T-1"
+        ? Effect.succeed(makeTicketDocument("T-1"))
+        : Effect.fail(
+            new MalformedTicketDocument({
+              orgSlug: "org",
+              slug: "project",
+              ticketId: id,
+              path: `orgs/org/projects/project/tickets/${id}.md`,
+              reason: "invalid_frontmatter",
+              cause: undefined
+            })
+          ),
+    create: () => unexpected("TicketDocs.create"),
+    write: () => unexpected("TicketDocs.write"),
+    remove: () => unexpected("TicketDocs.remove"),
+    readRaw: () => unexpected("TicketDocs.readRaw")
+  } satisfies TicketDocsShape)
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.list("org", "user-1", "project")
+
+    expect(result.map((t) => t.id)).toEqual(["T-1"])
+  }).pipe(Effect.provide(makeTicketsLayer("T", docs)))
 })
