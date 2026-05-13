@@ -100,6 +100,7 @@ function CreateRow({
   const [keyOverride, setKeyOverride] = useState("")
   const [keyTouched, setKeyTouched] = useState(false)
   const [focused, setFocused] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const reduceMotion = useReducedMotion()
   useGlobalShortcut("c", inputRef)
@@ -138,26 +139,33 @@ function CreateRow({
     if (!canSubmit || submitting) return
     const exit = await create({ name: trimmed, key: effectiveKey })
     if (Exit.isSuccess(exit)) {
+      const activeElement = document.activeElement
+      if (
+        activeElement instanceof HTMLElement &&
+        formRef.current?.contains(activeElement)
+      ) {
+        activeElement.blur()
+      }
       setName("")
       setKeyOverride("")
       setKeyTouched(false)
-      inputRef.current?.blur()
       trackFocus(false)
     } else {
-      inputRef.current?.focus()
+      if (!formRef.current?.contains(document.activeElement)) {
+        inputRef.current?.focus()
+      }
     }
   }
 
   return (
-    <form onSubmit={onSubmit}>
+    <form ref={formRef} onSubmit={onSubmit}>
       <button type="submit" className="sr-only" tabIndex={-1} aria-hidden>
         {m.projects_create_name_aria_label()}
       </button>
       <div
         className={cn(
           "relative rounded-xl border border-border bg-background transition-[color,box-shadow]",
-          "ring-offset-background focus-within:ring-2 focus-within:ring-ring",
-          "has-[input:disabled]:opacity-50"
+          "ring-offset-background focus-within:ring-2 focus-within:ring-ring"
         )}
         onMouseDown={(e) => {
           const target = e.target as HTMLElement
@@ -185,9 +193,10 @@ function CreateRow({
             onBlur={() => trackFocus(false)}
             placeholder={m.projects_create_name_placeholder()}
             aria-label={m.projects_create_name_aria_label()}
-            disabled={submitting}
+            readOnly={submitting}
+            aria-disabled={submitting}
             maxLength={120}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
           />
           <AnimatePresence initial={false}>
             {trimmed && (
@@ -207,10 +216,11 @@ function CreateRow({
                   onBlur={() => trackFocus(false)}
                   placeholder={m.projects_create_key_placeholder()}
                   aria-label={m.projects_create_key_aria_label()}
-                  disabled={submitting}
+                  readOnly={submitting}
+                  aria-disabled={submitting}
                   maxLength={10}
                   style={{ width: "calc(4ch + 0.5rem)" }}
-                  className="shrink-0 bg-transparent pr-2 font-mono text-sm uppercase tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
+                  className="shrink-0 bg-transparent pr-2 font-mono text-sm uppercase tabular-nums text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
                 />
               </motion.div>
             )}
