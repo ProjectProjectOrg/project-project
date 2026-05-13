@@ -1,4 +1,5 @@
 import * as Context from "effect/Context"
+import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
 import type {
   NotFound,
@@ -9,6 +10,17 @@ import type {
   TicketType
 } from "@projectproject/shared"
 import type { MarkdownError, TicketIdTaken } from "./Markdown"
+
+export class MalformedTicketDocument extends Data.TaggedError(
+  "MalformedTicketDocument"
+)<{
+  readonly orgSlug: string
+  readonly slug: string
+  readonly ticketId: string
+  readonly path: string
+  readonly reason: string
+  readonly cause: unknown
+}> {}
 
 export interface TicketDocument {
   readonly id: TicketId
@@ -36,7 +48,10 @@ export interface TicketDocsShape {
     orgSlug: string,
     slug: string,
     id: string
-  ) => Effect.Effect<TicketDocument, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    TicketDocument,
+    NotFound | MarkdownError | MalformedTicketDocument
+  >
   readonly create: (
     orgSlug: string,
     slug: string,
