@@ -18,8 +18,11 @@ type BackButtonProps = {
 export function BackButton({ fallback, label, className }: BackButtonProps) {
   const router = useRouter()
   const canGoBack = useCanGoBack()
+  const fallbackOnClick = fallback.onClick
 
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
+    fallbackOnClick?.(e)
+    if (e.defaultPrevented) return
     if (!canGoBack) return
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
       return

@@ -1,18 +1,12 @@
-import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import { useState } from "react"
 import { BackButton } from "@/components/BackButton"
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type KeyboardEvent
-} from "react"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
-import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { type SaveStatus } from "@/components/LexicalEditor"
 import { cn } from "@/lib/utils"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
@@ -21,8 +15,9 @@ import { StatusButton } from "@/components/TicketList/StatusField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
+import { DescriptionField } from "@/components/TicketPage/DescriptionField"
+import { TitleField } from "@/components/TicketPage/TitleField"
 import { useProjectRole } from "@/lib/projectRole"
-import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
@@ -221,75 +216,6 @@ function MetaRow({
   )
 }
 
-function TitleField({
-  orgSlug,
-  slug,
-  ticket
-}: {
-  orgSlug: string
-  slug: string
-  ticket: TicketDetail
-}) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketAtom(tKey))
-  const saving = updateState.waiting
-  const failed = Result.isFailure(updateState)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(ticket.title)
-
-  useEffect(() => {
-    if (!editing) setDraft(ticket.title)
-  }, [editing, ticket.title])
-
-  async function commit() {
-    const trimmed = draft.trim()
-    if (!trimmed || trimmed === ticket.title) {
-      setEditing(false)
-      setDraft(ticket.title)
-      return
-    }
-    await update({ title: trimmed })
-    setEditing(false)
-  }
-  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      void commit()
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setDraft(ticket.title)
-      setEditing(false)
-    }
-  }
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="-mx-1.5 block w-full rounded px-1.5 text-left text-2xl font-semibold tracking-tight transition-all duration-100 hover:bg-accent/40 active:scale-[0.97]"
-      >
-        <span className={saving || failed ? "animate-pulse" : undefined}>
-          {ticket.title}
-        </span>
-      </button>
-    )
-  }
-  return (
-    <input
-      autoFocus
-      value={draft}
-      disabled={saving}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => void commit()}
-      onKeyDown={handleKey}
-      className="-mx-1.5 block w-full rounded bg-transparent px-1.5 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={200}
-      aria-label={m.tickets_title_aria_label()}
-    />
-  )
-}
-
 const SAVE_STATUS_LABELS = {
   saving: m.tickets_save_status_saving,
   dirty: m.tickets_save_status_dirty,
@@ -308,118 +234,5 @@ function SaveIndicator({ status }: { status: SaveStatus }) {
     >
       {label}
     </span>
-  )
-}
-
-const COLLAPSE_THRESHOLD_VH = 0.5
-const DESCRIPTION_REGION_ID = "ticket-description-region"
-
-function DescriptionField({
-  orgSlug,
-  slug,
-  members,
-  editorKey,
-  markdown,
-  autoFocus,
-  onChange,
-  onStatusChange
-}: {
-  orgSlug: string
-  slug: string
-  members: ReadonlyArray<Member>
-  editorKey: string
-  markdown: string
-  autoFocus: boolean
-  onChange: (next: string) => void
-  onStatusChange: (status: SaveStatus) => void
-}) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [collapsedPx, setCollapsedPx] = useState(0)
-  const [overflows, setOverflows] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const [focused, setFocused] = useState(false)
-
-  useLayoutEffect(() => {
-    const inner = contentRef.current
-    if (!inner) return
-
-    let frame = 0
-    let lastVh = 0
-    let lastH = 0
-    const measure = () => {
-      frame = 0
-      const vh = window.innerHeight
-      const h = inner.getBoundingClientRect().height
-      if (vh === lastVh && Math.abs(h - lastH) < 0.5) return
-      lastVh = vh
-      lastH = h
-      setCollapsedPx(Math.round(vh * COLLAPSE_THRESHOLD_VH))
-      setOverflows(h > vh * COLLAPSE_THRESHOLD_VH)
-    }
-    const schedule = () => {
-      if (frame !== 0) return
-      frame = requestAnimationFrame(measure)
-    }
-
-    measure()
-    const ro = new ResizeObserver(schedule)
-    ro.observe(inner)
-    window.addEventListener("resize", schedule)
-    return () => {
-      if (frame !== 0) cancelAnimationFrame(frame)
-      ro.disconnect()
-      window.removeEventListener("resize", schedule)
-    }
-  }, [])
-
-  const collapsed = overflows && !expanded && !focused
-
-  return (
-    <div>
-      <div
-        ref={wrapperRef}
-        id={DESCRIPTION_REGION_ID}
-        className="relative overflow-hidden rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background"
-        style={{
-          maxHeight: collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false)
-        }}
-      >
-        <div ref={contentRef}>
-          <MentionScopeProvider scope={{ orgSlug, slug, members }}>
-            <LexicalEditor
-              key={editorKey}
-              markdown={markdown}
-              onChange={onChange}
-              onStatusChange={onStatusChange}
-              autoFocus={autoFocus}
-            />
-          </MentionScopeProvider>
-        </div>
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-muted transition-opacity duration-200",
-            collapsed ? "opacity-100" : "opacity-0"
-          )}
-        />
-      </div>
-      {overflows && (
-        <div className="mt-2 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setExpanded(collapsed)}
-            aria-expanded={!collapsed}
-            aria-controls={DESCRIPTION_REGION_ID}
-            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
-          >
-            {collapsed ? m.tickets_page_read_more() : m.tickets_page_show_less()}
-          </button>
-        </div>
-      )}
-    </div>
   )
 }

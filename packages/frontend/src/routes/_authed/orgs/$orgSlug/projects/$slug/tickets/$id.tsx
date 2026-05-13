@@ -11,7 +11,7 @@ import {
   EmptyTitle
 } from "@/components/ui/empty"
 import { TicketId } from "@projectproject/shared"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { ticketAtom, ticketBaseAtom, ticketKey } from "@/atoms/tickets"
 import { m } from "@/paraglide/messages"
 import { CircleDashed } from "lucide-react"
 import { useProject } from "../-context"
@@ -30,14 +30,20 @@ export const Route = createFileRoute(
     if (search.focusBody === 1) return { focusBody: 1 }
     return {}
   },
-  loader: ({ params }) => ({
-    crumb: {
-      type: "ticket" as const,
-      orgSlug: params.orgSlug,
-      slug: params.slug,
-      id: decodeTicketId(params.id)
+  loader: ({ context, params }) => {
+    const id = decodeTicketId(params.id)
+    context.registry.mount(
+      ticketBaseAtom(ticketKey(params.orgSlug, params.slug, id))
+    )()
+    return {
+      crumb: {
+        type: "ticket" as const,
+        orgSlug: params.orgSlug,
+        slug: params.slug,
+        id
+      }
     }
-  })
+  }
 })
 
 function TicketDetailRoute() {

@@ -1,0 +1,120 @@
+import { useLayoutEffect, useRef, useState } from "react"
+import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { cn } from "@/lib/utils"
+import { MentionScopeProvider } from "@/mentions/scope"
+import { m } from "@/paraglide/messages"
+import type { Member } from "@projectproject/shared"
+
+const COLLAPSE_THRESHOLD_VH = 0.5
+const DESCRIPTION_REGION_ID = "ticket-description-region"
+
+export function DescriptionField({
+  orgSlug,
+  slug,
+  members,
+  editorKey,
+  markdown,
+  autoFocus,
+  onChange,
+  onStatusChange
+}: {
+  orgSlug: string
+  slug: string
+  members: ReadonlyArray<Member>
+  editorKey: string
+  markdown: string
+  autoFocus: boolean
+  onChange: (next: string) => void
+  onStatusChange: (status: SaveStatus) => void
+}) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [collapsedPx, setCollapsedPx] = useState(0)
+  const [overflows, setOverflows] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [focused, setFocused] = useState(false)
+
+  useLayoutEffect(() => {
+    const inner = contentRef.current
+    if (!inner) return
+
+    let frame = 0
+    let lastVh = 0
+    let lastH = 0
+    const measure = () => {
+      frame = 0
+      const vh = window.innerHeight
+      const h = inner.getBoundingClientRect().height
+      if (vh === lastVh && Math.abs(h - lastH) < 0.5) return
+      lastVh = vh
+      lastH = h
+      setCollapsedPx(Math.round(vh * COLLAPSE_THRESHOLD_VH))
+      setOverflows(h > vh * COLLAPSE_THRESHOLD_VH)
+    }
+    const schedule = () => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(measure)
+    }
+
+    measure()
+    const ro = new ResizeObserver(schedule)
+    ro.observe(inner)
+    window.addEventListener("resize", schedule)
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      ro.disconnect()
+      window.removeEventListener("resize", schedule)
+    }
+  }, [])
+
+  const collapsed = overflows && !expanded && !focused
+
+  return (
+    <div>
+      <div
+        ref={wrapperRef}
+        id={DESCRIPTION_REGION_ID}
+        className="relative overflow-hidden rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background"
+        style={{
+          maxHeight:
+            collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
+        }}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false)
+        }}
+      >
+        <div ref={contentRef}>
+          <MentionScopeProvider scope={{ orgSlug, slug, members }}>
+            <LexicalEditor
+              key={editorKey}
+              markdown={markdown}
+              onChange={onChange}
+              onStatusChange={onStatusChange}
+              autoFocus={autoFocus}
+            />
+          </MentionScopeProvider>
+        </div>
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-muted transition-opacity duration-200",
+            collapsed ? "opacity-100" : "opacity-0"
+          )}
+        />
+      </div>
+      {overflows && (
+        <div className="mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setExpanded(collapsed)}
+            aria-expanded={!collapsed}
+            aria-controls={DESCRIPTION_REGION_ID}
+            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
+          >
+            {collapsed ? m.tickets_page_read_more() : m.tickets_page_show_less()}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
