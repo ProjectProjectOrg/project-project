@@ -1,4 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Exit from "effect/Exit"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { m } from "@/paraglide/messages"
@@ -32,7 +33,8 @@ export function TitleField({
       setDraft(ticket.title)
       return
     }
-    await update({ title: trimmed })
+    const exit = await update({ title: trimmed })
+    if (Exit.isFailure(exit)) return
     setEditing(false)
   }
 
