@@ -151,8 +151,8 @@ function CreateRow({
           input.focus()
         }}
       >
-        <div className="flex w-full cursor-text items-center gap-2 px-3 py-1.5">
-          <div className="grid size-6 shrink-0 place-items-center text-muted-foreground">
+        <div className="flex w-full cursor-text items-center px-3 py-1.5">
+          <div className="mr-2 grid size-6 shrink-0 place-items-center text-muted-foreground">
             <Plus className="size-4" strokeWidth={1.75} />
           </div>
           <input
@@ -167,25 +167,17 @@ function CreateRow({
             maxLength={120}
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
           />
-          {error && (
-            <span className="shrink-0 text-xs text-destructive">{error}</span>
-          )}
-          {!focused && !trimmed && !error && <Kbd>c</Kbd>}
-        </div>
-
-        <AnimatePresence initial={false}>
-          {trimmed && (
-            <motion.div
-              key="key-row"
-              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2">
-                <div className="size-6 shrink-0" />
-                <span className="text-xs text-muted-foreground">key</span>
+          <AnimatePresence initial={false}>
+            {trimmed && (
+              <motion.div
+                key="key-cluster"
+                initial={reduceMotion ? false : { opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={reduceMotion ? undefined : { opacity: 0, width: 0 }}
+                transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
+                className="flex shrink-0 items-center overflow-hidden"
+              >
+                <div className="mx-3 h-5 w-px bg-border" />
                 <input
                   value={effectiveKey}
                   onChange={(e) => handleKeyChange(e.target.value)}
@@ -195,21 +187,46 @@ function CreateRow({
                   aria-label={m.projects_create_key_aria_label()}
                   disabled={submitting}
                   maxLength={10}
-                  className={cn(
-                    "field-sizing-content min-w-[3ch] rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs uppercase tabular-nums text-foreground outline-none transition-colors",
-                    "hover:border-foreground/30 focus:border-foreground/50",
-                    "placeholder:text-muted-foreground/60"
-                  )}
+                  className="field-sizing-content min-w-[3ch] bg-transparent font-mono text-sm uppercase tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
                 />
-                <span className="font-mono text-xs text-muted-foreground">
-                  {effectiveKey ? `${effectiveKey}-1 ` : ""}
-                  /{previewSlug}
-                </span>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {error && (
+            <span className="ml-2 shrink-0 text-xs text-destructive">
+              {error}
+            </span>
           )}
-        </AnimatePresence>
+          {!focused && !trimmed && !error && (
+            <span className="ml-2">
+              <Kbd>c</Kbd>
+            </span>
+          )}
+        </div>
       </div>
+      <AnimatePresence initial={false}>
+        {trimmed && (
+          <motion.div
+            key="hint"
+            initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+            transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 flex items-center gap-2 pl-3 font-mono text-[11px] text-muted-foreground">
+              <span className="text-muted-foreground/60">→</span>
+              {effectiveKey && (
+                <>
+                  <span>{effectiveKey}-1</span>
+                  <span className="text-muted-foreground/60">·</span>
+                </>
+              )}
+              <span>/{previewSlug}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </form>
   )
 }
