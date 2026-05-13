@@ -99,13 +99,9 @@ export function BacklogTicketCreator({
       setTitle("")
       refreshGitStates()
       void navigate({
-        to: ".",
-        search: (prev) => ({
-          ...(prev as object),
-          ticket: ticket.id,
-          focusBody: 1
-        }),
-        replace: true
+        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+        params: { orgSlug, slug, id: ticket.id },
+        search: { focusBody: 1 }
       })
     }
   }

@@ -1,13 +1,3 @@
-// GithubChip — header-bar chip for a project's GitHub connection.
-//
-// Three render states:
-//   1. not connected, owner/admin: "Connect repo" → popover with the picker
-//   2. not connected, member:      nothing
-//   3. connected:                  chip with repo, link to GitHub, optional
-//                                  manage popover for owner/admin
-//
-// Token / repo failure modes shown by the parent layout via gitStates response.
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Match from "effect/Match"
 import {
@@ -115,7 +105,7 @@ function ConnectedChip({
 
   if (warning) {
     return (
-      <Badge tone="amber" size="md" className="border border-amber-500/40">
+      <Badge tone="amber" size="md" className="border border-state-warning/40">
         <AlertTriangle strokeWidth={1.75} />
         <span>{warning}</span>
         {canManage && (

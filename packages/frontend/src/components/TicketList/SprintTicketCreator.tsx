@@ -4,6 +4,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
+import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
 import {
@@ -69,6 +70,7 @@ export function SprintTicketCreator({
     ? m.tickets_create_error_fallback()
     : null
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
+  const navigate = useNavigate()
 
   const ticketsResult = useAtomValue(
     ticketsListAtom(ticketsListKey(orgSlug, slug))
@@ -127,6 +129,14 @@ export function SprintTicketCreator({
     setHighlight(0)
   }
 
+  function openCreatedTicket(id: TicketId) {
+    void navigate({
+      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+      params: { orgSlug, slug, id },
+      search: { focusBody: 1 }
+    })
+  }
+
   async function commit(item: Item | undefined) {
     if (!item) return
     if (item.kind === "existing") {
@@ -140,6 +150,7 @@ export function SprintTicketCreator({
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
       reset()
+      openCreatedTicket(exit.value.id)
     }
   }
 
@@ -155,6 +166,7 @@ export function SprintTicketCreator({
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
       reset()
+      openCreatedTicket(exit.value.id)
     }
   }
 

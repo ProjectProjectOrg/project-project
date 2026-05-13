@@ -90,7 +90,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
+  const location = useLocation()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const onTicketDetail = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/tickets/`
+  )
 
   return Result.matchWithError(project, {
     onInitial: () => (
@@ -118,15 +122,17 @@ function ProjectLayout() {
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <div className="flex flex-col gap-6">
-            <PageContainer>
-              <ProjectHeader
-                orgSlug={orgSlug}
-                slug={value.slug}
-                name={value.name}
-                project={value}
-              />
-              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-            </PageContainer>
+            {!onTicketDetail && (
+              <PageContainer>
+                <ProjectHeader
+                  orgSlug={orgSlug}
+                  slug={value.slug}
+                  name={value.name}
+                  project={value}
+                />
+                <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+              </PageContainer>
+            )}
             <Outlet />
           </div>
         </TagRenamesProvider>
@@ -150,7 +156,7 @@ function ProjectHeader({
 
   return (
     <header className="flex items-start gap-3">
-      <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+      <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">

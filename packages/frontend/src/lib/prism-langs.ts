@@ -17,6 +17,7 @@
 // would be clobbered by the standard one.
 
 // --- Editor side (global Prism singleton) -----------------------------------
+import "prismjs"
 import "prismjs/components/prism-jsx.js"
 import "prismjs/components/prism-tsx.js"
 import "prismjs/components/prism-bash.js"
