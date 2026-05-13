@@ -59,9 +59,11 @@ export const projectIndex = pgTable(
   {
     id: uuid("id").defaultRandom().notNull().unique(),
     slug: text("slug").primaryKey(),
-    organizationId: text("organization_id").references(() => organization.id, {
-      onDelete: "cascade"
-    }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade"
+      }),
     key: text("key").notNull(),
     name: text("name").notNull(),
     createdBy: text("created_by").notNull(),

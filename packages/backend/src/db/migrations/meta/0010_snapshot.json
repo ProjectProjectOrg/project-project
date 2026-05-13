@@ -113,7 +113,7 @@
           "name": "organization_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "key": {
           "name": "key",

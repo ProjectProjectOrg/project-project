@@ -94,7 +94,12 @@ function uniqueConstraint(error: unknown, constraint: string): boolean {
   if (typeof error === "object" && error !== null) {
     const record = error as Record<string, unknown>
     if (record.constraint === constraint) return true
-    if (record.code === "23505") return true
+    if (
+      typeof record.message === "string" &&
+      record.message.includes(constraint)
+    ) {
+      return true
+    }
     return [
       record.cause,
       record.error,
@@ -477,19 +482,6 @@ export const ProjectsLive = Layer.effect(
           const file = yield* projectDocs.read(orgSlug, slug)
           const members = yield* loadMembers(slug)
           const key = makeProjectKey(indexRow.key)
-          if (file.key !== key) {
-            yield* syncFrontmatter(
-              orgSlug,
-              slug,
-              indexRow.name,
-              indexRow.createdBy,
-              indexRow.createdAt,
-              indexRow.key,
-              file.body,
-              members,
-              file.github
-            )
-          }
           return {
             org: orgSlug,
             slug: indexRow.slug,
@@ -538,7 +530,7 @@ export const ProjectsLive = Layer.effect(
             nextName,
             indexRow.createdBy,
             indexRow.createdAt,
-            indexRow.key,
+            makeProjectKey(indexRow.key),
             nextBody,
             members,
             file.github
@@ -594,7 +586,7 @@ export const ProjectsLive = Layer.effect(
           indexRow.name,
           indexRow.createdBy,
           indexRow.createdAt,
-          indexRow.key,
+          makeProjectKey(indexRow.key),
           file.body,
           members,
           file.github
@@ -803,7 +795,7 @@ export const ProjectsLive = Layer.effect(
             indexRow.name,
             indexRow.createdBy,
             indexRow.createdAt,
-            indexRow.key,
+            makeProjectKey(indexRow.key),
             file.body,
             members,
             next
@@ -844,7 +836,7 @@ export const ProjectsLive = Layer.effect(
             indexRow.name,
             indexRow.createdBy,
             indexRow.createdAt,
-            indexRow.key,
+            makeProjectKey(indexRow.key),
             file.body,
             members,
             null

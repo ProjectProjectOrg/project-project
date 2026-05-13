@@ -6,7 +6,13 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
-import { GroupColor, GroupId, TagName, TicketId } from "@projectproject/shared"
+import {
+  GroupColor,
+  GroupId,
+  ProjectKey,
+  TagName,
+  TicketId
+} from "@projectproject/shared"
 import { GroupDocsLive } from "../Layers/GroupDocs"
 import { ProjectDocsLive } from "../Layers/ProjectDocs"
 import { TicketDocsLive } from "../Layers/TicketDocs"
@@ -17,6 +23,7 @@ import { TicketDocs } from "./TicketDocs"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const tagName = Schema.decodeUnknownSync(TagName)
 const groupColor = Schema.decodeUnknownSync(GroupColor)
 
@@ -329,7 +336,7 @@ it.effect(
       yield* docs.write("org", "project", {
         org: "org",
         slug: "project",
-        key: "FOO" as never,
+        key: projectKey("FOO"),
         name: "Project",
         createdBy: "user-1",
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
