@@ -20,11 +20,7 @@ import { TitleField } from "@/components/TicketPage/TitleField"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  deleteTicketAtom,
-  ticketKey,
-  updateTicketAtom
-} from "@/atoms/tickets"
+import { deleteTicketAtom, ticketKey } from "@/atoms/tickets"
 import type {
   GithubConnection,
   Member,
@@ -52,7 +48,6 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const { canManageTags } = useProjectRole()
-  const update = useAtomSet(updateTicketAtom(tKey))
   const locale = getLocale()
 
   return (
@@ -115,11 +110,9 @@ export function TicketPage({
           <DescriptionField
             orgSlug={orgSlug}
             slug={slug}
+            ticket={ticket}
             members={members}
-            editorKey={`${slug}/${ticket.id}`}
-            markdown={ticket.body}
             autoFocus={autoFocusBody}
-            onChange={(next) => update({ body: next })}
             onStatusChange={setBodyStatus}
           />
 

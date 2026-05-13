@@ -1,9 +1,17 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  ticketBodyDraftAtom,
+  ticketKey,
+  updateTicketAtom
+} from "@/atoms/tickets"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { cn } from "@/lib/utils"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
-import type { Member } from "@projectproject/shared"
+import type { Member, TicketDetail } from "@projectproject/shared"
 
 const COLLAPSE_THRESHOLD_VH = 0.5
 const DESCRIPTION_REGION_ID = "ticket-description-region"
@@ -11,22 +19,27 @@ const DESCRIPTION_REGION_ID = "ticket-description-region"
 export function DescriptionField({
   orgSlug,
   slug,
+  ticket,
   members,
-  editorKey,
-  markdown,
   autoFocus,
-  onChange,
   onStatusChange
 }: {
   orgSlug: string
   slug: string
+  ticket: TicketDetail
   members: ReadonlyArray<Member>
-  editorKey: string
-  markdown: string
   autoFocus: boolean
-  onChange: (next: string) => void
   onStatusChange: (status: SaveStatus) => void
 }) {
+  const tKey = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
+  const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
+  const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
+
+  useEffect(() => {
+    if (bodyDraft !== null && ticket.body === bodyDraft) setBodyDraft(null)
+  }, [bodyDraft, setBodyDraft, ticket.body])
+
   const wrapperRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [collapsedPx, setCollapsedPx] = useState(0)
@@ -87,9 +100,13 @@ export function DescriptionField({
         <div ref={contentRef}>
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
             <LexicalEditor
-              key={editorKey}
-              markdown={markdown}
-              onChange={onChange}
+              key={`${slug}/${ticket.id}`}
+              markdown={bodyDraft ?? ticket.body}
+              onDraftChange={setBodyDraft}
+              onChange={async (next) => {
+                const exit = await update({ body: next })
+                if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+              }}
               onStatusChange={onStatusChange}
               autoFocus={autoFocus}
             />
