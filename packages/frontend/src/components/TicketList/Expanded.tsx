@@ -11,7 +11,6 @@ import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
   deleteTicketAtom,
-  ticketBodyDraftAtom,
   ticketAtom,
   ticketKey,
   updateTicketAtom
@@ -89,9 +88,7 @@ function ExpandedDetail({
   onConsumeFocusBody: () => void
 }) {
   const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
-  const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
-  const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
+  const update = useAtomSet(updateTicketAtom(tKey))
   const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
@@ -100,9 +97,6 @@ function ExpandedDetail({
   useEffect(() => {
     if (focusBody) onConsumeFocusBody()
   }, [focusBody, onConsumeFocusBody])
-  useEffect(() => {
-    if (bodyDraft !== null && ticket.body === bodyDraft) setBodyDraft(null)
-  }, [bodyDraft, setBodyDraft, ticket.body])
 
   const { canManageTags } = useProjectRole()
 
@@ -176,12 +170,8 @@ function ExpandedDetail({
         <MentionScopeProvider scope={{ orgSlug, slug, members }}>
           <LexicalEditor
             key={`${slug}/${ticket.id}`}
-            markdown={bodyDraft ?? ticket.body}
-            onDraftChange={setBodyDraft}
-            onChange={async (next) => {
-              const exit = await update({ body: next })
-              if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-            }}
+            markdown={ticket.body}
+            onChange={(next) => update({ body: next })}
             onStatusChange={setBodyStatus}
             autoFocus={autoFocusBody}
           />

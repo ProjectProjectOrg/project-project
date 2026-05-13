@@ -132,22 +132,12 @@ function Sidebar({ user }: { user: User }) {
 function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
   return (
     <nav className="flex flex-col gap-1 px-3 py-2">
-      {orgSlug ? (
-        <NavItem
-          to="/orgs/$orgSlug"
-          params={{ orgSlug }}
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-      ) : (
-        <NavItem
-          to="/"
-          icon={LayoutDashboard}
-          label={m.chrome_sidebar_dashboard()}
-          exact
-        />
-      )}
+      <NavItem
+        to="/"
+        icon={LayoutDashboard}
+        label={m.chrome_sidebar_dashboard()}
+        exact
+      />
       {orgSlug && (
         <NavItem
           to="/orgs/$orgSlug/projects"
@@ -170,13 +160,6 @@ type NavItemProps =
     }
   | {
       to: "/orgs/$orgSlug/projects"
-      params: { orgSlug: string }
-      icon: LucideIcon
-      label: string
-      exact?: boolean
-    }
-  | {
-      to: "/orgs/$orgSlug"
       params: { orgSlug: string }
       icon: LucideIcon
       label: string

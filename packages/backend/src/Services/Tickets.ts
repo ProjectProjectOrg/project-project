@@ -24,9 +24,6 @@ import type {
   UpdateTicketInput
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
-import type { MalformedTicketDocument } from "./TicketDocs"
-
-type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 export interface TicketsShape {
   readonly list: (
@@ -39,7 +36,7 @@ export interface TicketsShape {
     ownerId: string,
     slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
   readonly create: (
     orgSlug: string,
     ownerId: string,
@@ -52,7 +49,7 @@ export interface TicketsShape {
     slug: string,
     id: string,
     input: UpdateTicketInput
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
   readonly remove: (
     orgSlug: string,
     ownerId: string,
@@ -65,7 +62,7 @@ export interface TicketsShape {
     id: string,
     oldName: string,
     newName: string | null
-  ) => Effect.Effect<boolean, TicketReadError>
+  ) => Effect.Effect<boolean, NotFound | MarkdownError>
   readonly createBranch: (
     orgSlug: string,
     userId: string,
@@ -84,7 +81,6 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
-    | MalformedTicketDocument
   >
   readonly attachBranch: (
     orgSlug: string,
@@ -103,7 +99,6 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
-    | MalformedTicketDocument
   >
   readonly openPr: (
     orgSlug: string,
@@ -122,14 +117,13 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
-    | MalformedTicketDocument
   >
   readonly clearBranch: (
     orgSlug: string,
     userId: string,
     slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
   readonly listPaged: (
     orgSlug: string,
     userId: string,

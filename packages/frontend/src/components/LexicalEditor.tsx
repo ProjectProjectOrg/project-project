@@ -140,7 +140,6 @@ export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
 export interface LexicalEditorProps {
   markdown: string
   onChange: (markdown: string) => Promise<void> | void
-  onDraftChange?: (markdown: string) => void
   onStatusChange?: (status: SaveStatus) => void
   debounceMs?: number
   className?: string
@@ -152,7 +151,6 @@ export interface LexicalEditorProps {
 export function LexicalEditor({
   markdown,
   onChange,
-  onDraftChange,
   onStatusChange,
   debounceMs = 600,
   className,
@@ -208,39 +206,29 @@ export function LexicalEditor({
   const pending = useRef<string | null>(null)
   const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
-  const unmounted = useRef(false)
-  const onChangeRef = useRef(onChange)
-  const flushRef = useRef<(notify?: boolean) => void>(() => {})
-  onChangeRef.current = onChange
 
   function setStatus(s: SaveStatus) {
     onStatusChange?.(s)
   }
 
-  function flush(notify = true) {
+  function flush() {
     if (inflight.current) return
     const next = pending.current
     if (next === null) return
     pending.current = null
     inflight.current = true
-    if (notify) setStatus("saving")
-    Promise.resolve(onChangeRef.current(next))
-      .then(() => {
-        if (notify) setStatus("saved")
-      })
+    setStatus("saving")
+    Promise.resolve(onChange(next))
+      .then(() => setStatus("saved"))
       .catch((err) => {
         Effect.runFork(Effect.logError("[LexicalEditor] save failed", err))
-        if (notify) setStatus("dirty")
+        setStatus("dirty")
       })
       .finally(() => {
         inflight.current = false
-        if (pending.current !== null) {
-          if (unmounted.current) flush(false)
-          else schedule()
-        }
+        if (pending.current !== null) schedule()
       })
   }
-  flushRef.current = flush
 
   function schedule() {
     if (timer.current) Effect.runFork(Fiber.interrupt(timer.current))
@@ -251,12 +239,7 @@ export function LexicalEditor({
 
   useEffect(
     () => () => {
-      unmounted.current = true
-      if (timer.current) {
-        Effect.runFork(Fiber.interrupt(timer.current))
-        timer.current = null
-      }
-      flushRef.current(false)
+      if (timer.current) Effect.runFork(Fiber.interrupt(timer.current))
     },
     []
   )
@@ -297,7 +280,6 @@ export function LexicalEditor({
               }
               if (next === liveRef.current) return
               liveRef.current = next
-              onDraftChange?.(next)
               pending.current = next
               setStatus("dirty")
               schedule()

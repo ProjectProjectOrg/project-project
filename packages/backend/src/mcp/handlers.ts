@@ -31,34 +31,17 @@ const dieInternal = <A, E, R>(
   eff: Effect.Effect<A, E, R>
 ): Effect.Effect<
   A,
-  Exclude<
-    E,
-    {
-      readonly _tag:
-        | "MarkdownError"
-        | "BetterAuthError"
-        | "MalformedTicketDocument"
-    }
-  >,
+  Exclude<E, { readonly _tag: "MarkdownError" | "BetterAuthError" }>,
   R
 > =>
   eff.pipe(
     Effect.catchTags({
       MarkdownError: (e: unknown) => Effect.die(e),
-      BetterAuthError: (e: unknown) => Effect.die(e),
-      MalformedTicketDocument: (e: unknown) => Effect.die(e)
+      BetterAuthError: (e: unknown) => Effect.die(e)
     })
   ) as Effect.Effect<
     A,
-    Exclude<
-      E,
-      {
-        readonly _tag:
-          | "MarkdownError"
-          | "BetterAuthError"
-          | "MalformedTicketDocument"
-      }
-    >,
+    Exclude<E, { readonly _tag: "MarkdownError" | "BetterAuthError" }>,
     R
   >
 

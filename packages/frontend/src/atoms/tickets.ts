@@ -53,10 +53,6 @@ export const ticketsListAtom = Atom.family((key: string) =>
 export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>
   `${orgSlug}/${slug}/${id}`
 
-export const ticketBodyDraftAtom = Atom.family((_key: string) =>
-  Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
-)
-
 export const ticketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
   return runtime

@@ -66,12 +66,7 @@ export const TagsLive = Layer.effect(
         for (const id of ids) {
           yield* tickets
             .replaceTag(orgSlug, slug, id, oldName, newName)
-            .pipe(
-              Effect.catchTag("NotFound", () => Effect.succeed(false)),
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.succeed(false)
-              )
-            )
+            .pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
         }
       })
 
