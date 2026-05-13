@@ -10,8 +10,9 @@ import { FileSystem, Path } from "@effect/platform"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import matter from "gray-matter"
-import { NotFound } from "@projectproject/shared"
+import { NotFound, TicketId } from "@projectproject/shared"
 import { splitDescriptionAndCommentsRegion } from "../comments-region"
 import {
   GroupIdTaken,
@@ -178,9 +179,9 @@ export const MarkdownLive = Layer.effect(
           )
       })
 
-    const SAFE_TICKET_ID = /^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/
+    const isSafeTicketId = Schema.is(TicketId)
     const ensureSafeId = (id: string): Effect.Effect<void, MarkdownError> =>
-      SAFE_TICKET_ID.test(id)
+      isSafeTicketId(id)
         ? Effect.void
         : Effect.fail(
             new MarkdownError({
@@ -377,7 +378,7 @@ export const MarkdownLive = Layer.effect(
         return entries
           .filter((f) => f.endsWith(".md"))
           .map((f) => f.slice(0, -3))
-          .filter((id) => SAFE_TICKET_ID.test(id))
+          .filter(isSafeTicketId)
       })
 
     const SAFE_GROUP_ID = /^G-[1-9][0-9]*$/

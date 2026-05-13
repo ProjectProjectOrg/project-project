@@ -155,11 +155,9 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const project = yield* projects
-          .get(orgSlug, ownerId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+        const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(project.key, ids)
+        let candidate = nextIdFrom(projectKey, ids)
 
         const now = yield* DateTime.nowAsDate
         const document: TicketDocument = {
@@ -192,7 +190,7 @@ export const TicketsLive = Layer.effect(
             return documentToTicket({ ...document, id: candidate })
           }
           const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(project.key, freshIds)
+          candidate = nextIdFrom(projectKey, freshIds)
         }
         return yield* Effect.die(
           new Error(`could not allocate ticket id for "${slug}"`)

@@ -15,6 +15,7 @@ import type {
   NotFound,
   Project,
   ProjectDetail,
+  ProjectKey,
   RepoGone,
   Role,
   UpdateProjectInput
@@ -59,6 +60,11 @@ export interface ProjectsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError>
+  readonly getKey: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<ProjectKey, NotFound>
   readonly update: (
     orgSlug: string,
     userId: string,

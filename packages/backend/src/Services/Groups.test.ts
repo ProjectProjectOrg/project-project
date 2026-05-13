@@ -171,6 +171,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     listPaged: () => unexpectedProjectCall("listPaged"),
     listMembersPaged: () => unexpectedProjectCall("listMembersPaged"),
     create: () => unexpectedProjectCall("create"),
+    getKey: () => unexpectedProjectCall("getKey"),
     requireMember: () => Effect.succeed({ role }),
     requireRole: (
       _org: string,

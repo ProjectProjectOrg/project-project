@@ -5,7 +5,6 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { NotFound, ProjectKey, TicketId } from "@projectproject/shared"
-import type { ProjectDetail, Role } from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
 import { GitHub, type GitHubShape } from "./GitHub"
 import { Groups, type GroupsShape } from "./Groups"
@@ -24,29 +23,6 @@ const projectKey = Schema.decodeUnknownSync(ProjectKey)
 
 function unexpected(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected ${method} call`))
-}
-
-function makeProjectDetail(key: string, role: Role = "member"): ProjectDetail {
-  return {
-    org: "org",
-    slug: "p",
-    key: projectKey(key),
-    name: "Project",
-    createdBy: "user-1",
-    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-    github: null,
-    body: "# Project\n",
-    members: [
-      {
-        id: "user-1",
-        username: null,
-        name: "User One",
-        email: "user@example.com",
-        image: null,
-        role
-      }
-    ]
-  }
 }
 
 function makeTicketDocument(id: string): TicketDocument {
@@ -114,7 +90,8 @@ function makeFakeProjects(key: string) {
     listPaged: () => unexpected("Projects.listPaged"),
     listMembersPaged: () => unexpected("Projects.listMembersPaged"),
     create: () => unexpected("Projects.create"),
-    get: () => Effect.succeed(makeProjectDetail(key)),
+    get: () => unexpected("Projects.get"),
+    getKey: () => Effect.succeed(projectKey(key)),
     update: () => unexpected("Projects.update"),
     remove: () => unexpected("Projects.remove"),
     requireMember: () => Effect.succeed({ role: "member" as const }),

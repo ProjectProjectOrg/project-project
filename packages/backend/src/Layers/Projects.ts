@@ -90,6 +90,21 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
+function uniqueConstraint(error: unknown, constraint: string): boolean {
+  if (typeof error === "object" && error !== null) {
+    const record = error as Record<string, unknown>
+    if (record.constraint === constraint) return true
+    if (record.code === "23505") return true
+    return [
+      record.cause,
+      record.error,
+      record.originalError,
+      record.cause instanceof Error ? record.cause.cause : undefined
+    ].some((value) => uniqueConstraint(value, constraint))
+  }
+  return typeof error === "string" && error.includes(constraint)
+}
+
 export const ProjectsLive = Layer.effect(
   Projects,
   Effect.gen(function* () {
@@ -315,6 +330,23 @@ export const ProjectsLive = Layer.effect(
         return ctx
       })
 
+    const getKey = (
+      orgSlug: string,
+      userId: string,
+      slug: string
+    ): Effect.Effect<ProjectKey, NotFound> =>
+      withProjectTelemetry(
+        "getKey",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireMember(orgSlug, userId, slug)
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          return makeProjectKey(indexRow.key)
+        })
+      )
+
     // --- Frontmatter sync ----------------------------------------------
 
     const syncFrontmatter = (
@@ -323,7 +355,7 @@ export const ProjectsLive = Layer.effect(
       name: string,
       createdBy: string,
       createdAt: Date,
-      key: string,
+      key: ProjectKey,
       body: string,
       members: ReadonlyArray<Member>,
       connection: GithubConnection | null
@@ -358,6 +390,7 @@ export const ProjectsLive = Layer.effect(
           const organizationId = yield* orgIdFromSlug(orgSlug)
           const slug = yield* findFreeSlug(slugify(input.name))
           const createdAt = yield* DateTime.nowAsDate
+          const key = makeProjectKey(input.key)
           const existingKey = yield* db.query.projectIndex
             .findFirst({
               columns: { slug: true },
@@ -375,14 +408,20 @@ export const ProjectsLive = Layer.effect(
             .insert(projectIndex)
             .values({
               slug,
-              key: input.key,
+              key,
               name: input.name,
               createdBy,
               createdAt,
               organizationId
             })
             .returning()
-            .pipe(Effect.orDie)
+            .pipe(
+              Effect.catchAll((cause) =>
+                uniqueConstraint(cause, "project_index_organization_key_uidx")
+                  ? Effect.fail(new Conflict({ reason: "project_key_taken" }))
+                  : Effect.die(cause)
+              )
+            )
 
           yield* db
             .insert(projectMember)
@@ -401,7 +440,7 @@ export const ProjectsLive = Layer.effect(
             input.name,
             createdBy,
             createdAt,
-            input.key,
+            key,
             `# ${input.name}\n`,
             members,
             null
@@ -830,6 +869,7 @@ export const ProjectsLive = Layer.effect(
       listMembersPaged,
       create,
       get,
+      getKey,
       update,
       remove,
       requireMember,

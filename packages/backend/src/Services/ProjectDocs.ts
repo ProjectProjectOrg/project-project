@@ -29,7 +29,7 @@ export interface ProjectDocument {
 export interface ProjectDocumentWrite {
   readonly org: string
   readonly slug: string
-  readonly key: string
+  readonly key: ProjectKey
   readonly name: string
   readonly createdBy: string
   readonly createdAt: Date

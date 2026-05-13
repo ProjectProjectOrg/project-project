@@ -4,7 +4,6 @@
 // `<PROJECTS_DIR>/orgs/<org-slug>/projects/<project-slug>/tickets/<ticket-id>.md`.
 // The frontmatter is the structured data the API returns; the body is the description.
 //
-// IDs are sequential per project: {projectKey}-1, {projectKey}-2, ...
 
 import * as Schema from "effect/Schema"
 import { ProjectKey } from "./Project"

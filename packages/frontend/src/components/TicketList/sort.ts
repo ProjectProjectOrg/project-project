@@ -5,7 +5,10 @@ import { padNumericIdSort, type Ticket } from "@projectproject/shared"
 function compareId(a: Ticket, b: Ticket): number {
   const aSort = padNumericIdSort(a.id)
   const bSort = padNumericIdSort(b.id)
-  if (aSort && bSort) return aSort.localeCompare(bSort)
+  if (aSort && bSort) {
+    const byNumber = aSort.localeCompare(bSort)
+    if (byNumber !== 0) return byNumber
+  }
   return a.id.localeCompare(b.id)
 }
 

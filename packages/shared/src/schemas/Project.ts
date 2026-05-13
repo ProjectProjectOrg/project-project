@@ -6,8 +6,6 @@
 // only, can't start or end with a dash.
 //
 // `Project` is the full record (used by list responses for now; later by /get).
-// `CreateProjectInput` is the inline-create payload. Slug is derived on the
-// server; key is user-chosen and becomes the ticket ID namespace.
 
 import * as Schema from "effect/Schema"
 
@@ -24,8 +22,6 @@ export const CreatableProjectKey = Schema.String.pipe(
 )
 export type CreatableProjectKey = typeof CreatableProjectKey.Type
 
-// The legacy ProjectProject project keeps key `T` so existing `T-1` tickets
-// remain valid. New projects use `CreatableProjectKey`.
 export const ProjectKey = Schema.Union(
   CreatableProjectKey,
   Schema.Literal("T")

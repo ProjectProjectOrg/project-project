@@ -2,15 +2,9 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { useRef, useState, type FormEvent } from "react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupHint,
-  InputGroupInput
-} from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { slugify } from "@/lib/slug"
@@ -98,79 +92,138 @@ function CreateRow({
     ? m.projects_create_error_fallback()
     : null
   const [name, setName] = useState("")
-  const [key, setKey] = useState("")
+  const [keyOverride, setKeyOverride] = useState("")
+  const [keyTouched, setKeyTouched] = useState(false)
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const reduceMotion = useReducedMotion()
   useGlobalShortcut("c", inputRef)
   const trimmed = name.trim()
-  const trimmedKey = key.trim().toUpperCase()
   const previewSlug = trimmed ? slugify(trimmed) : ""
-  const canSubmit = Boolean(trimmed && /^[A-Z][A-Z0-9]{1,9}$/.test(trimmedKey))
+  const derivedKey = deriveKey(trimmed)
+  const effectiveKey = keyTouched ? keyOverride : derivedKey
+  const canSubmit = Boolean(trimmed && /^[A-Z][A-Z0-9]{1,9}$/.test(effectiveKey))
+
+  function trackFocus(next: boolean) {
+    setFocused(next)
+    onFocusChange?.(next)
+  }
+
+  function handleKeyChange(value: string) {
+    const sanitized = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 10)
+    setKeyOverride(sanitized)
+    setKeyTouched(sanitized !== "")
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canSubmit || submitting) return
-    const exit = await create({ name: trimmed, key: trimmedKey })
+    const exit = await create({ name: trimmed, key: effectiveKey })
     if (Exit.isSuccess(exit)) {
       setName("")
-      setKey("")
+      setKeyOverride("")
+      setKeyTouched(false)
     }
   }
 
   return (
     <form onSubmit={onSubmit}>
-      <InputGroup>
-        <InputGroupAddon>
-          <Plus className="size-4" strokeWidth={1.75} />
-        </InputGroupAddon>
-        <InputGroupInput
-          ref={inputRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onFocus={() => {
-            setFocused(true)
-            onFocusChange?.(true)
-          }}
-          onBlur={() => {
-            setFocused(false)
-            onFocusChange?.(false)
-          }}
-          placeholder={m.projects_create_name_placeholder()}
-          aria-label={m.projects_create_name_aria_label()}
-          disabled={submitting}
-          maxLength={120}
-        />
-        <InputGroupInput
-          value={key}
-          onChange={(e) =>
-            setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
-          }
-          onFocus={() => {
-            setFocused(true)
-            onFocusChange?.(true)
-          }}
-          onBlur={() => {
-            setFocused(false)
-            onFocusChange?.(false)
-          }}
-          placeholder={m.projects_create_key_placeholder()}
-          aria-label={m.projects_create_key_aria_label()}
-          disabled={submitting}
-          maxLength={10}
-          className="max-w-28 font-mono"
-        />
-        {previewSlug && (
-          <InputGroupHint className="hidden sm:inline">
-            {trimmedKey ? `${trimmedKey}-1` : ""} /{previewSlug}
-          </InputGroupHint>
+      <div
+        className={cn(
+          "relative rounded-xl border border-border bg-background transition-[color,box-shadow]",
+          "ring-offset-background focus-within:ring-2 focus-within:ring-ring",
+          "has-[input:disabled]:opacity-50"
         )}
-        {error && (
-          <span className="shrink-0 text-xs text-destructive">{error}</span>
-        )}
-        {!focused && !trimmed && !error && <Kbd>c</Kbd>}
-      </InputGroup>
+        onMouseDown={(e) => {
+          const target = e.target as HTMLElement
+          if (
+            target.closest(
+              "button, [role='button'], a, input, textarea, select, [contenteditable='true']"
+            )
+          )
+            return
+          const input = inputRef.current
+          if (!input || input === document.activeElement) return
+          e.preventDefault()
+          input.focus()
+        }}
+      >
+        <div className="flex w-full cursor-text items-center gap-2 px-3 py-1.5">
+          <div className="grid size-6 shrink-0 place-items-center text-muted-foreground">
+            <Plus className="size-4" strokeWidth={1.75} />
+          </div>
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onFocus={() => trackFocus(true)}
+            onBlur={() => trackFocus(false)}
+            placeholder={m.projects_create_name_placeholder()}
+            aria-label={m.projects_create_name_aria_label()}
+            disabled={submitting}
+            maxLength={120}
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+          />
+          {error && (
+            <span className="shrink-0 text-xs text-destructive">{error}</span>
+          )}
+          {!focused && !trimmed && !error && <Kbd>c</Kbd>}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {trimmed && (
+            <motion.div
+              key="key-row"
+              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2">
+                <div className="size-6 shrink-0" />
+                <span className="text-xs text-muted-foreground">key</span>
+                <input
+                  value={effectiveKey}
+                  onChange={(e) => handleKeyChange(e.target.value)}
+                  onFocus={() => trackFocus(true)}
+                  onBlur={() => trackFocus(false)}
+                  placeholder={m.projects_create_key_placeholder()}
+                  aria-label={m.projects_create_key_aria_label()}
+                  disabled={submitting}
+                  maxLength={10}
+                  className={cn(
+                    "field-sizing-content min-w-[3ch] rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs uppercase tabular-nums text-foreground outline-none transition-colors",
+                    "hover:border-foreground/30 focus:border-foreground/50",
+                    "placeholder:text-muted-foreground/60"
+                  )}
+                />
+                <span className="font-mono text-xs text-muted-foreground">
+                  {effectiveKey ? `${effectiveKey}-1 ` : ""}
+                  /{previewSlug}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </form>
   )
+}
+
+function deriveKey(name: string): string {
+  const cleaned = name.toUpperCase().replace(/[^A-Z0-9 ]/g, " ").trim()
+  if (!cleaned) return ""
+  const words = cleaned.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ""
+  const candidate =
+    words.length >= 2
+      ? words.slice(0, 6).map((w) => w[0]).join("")
+      : words[0].slice(0, 4)
+  return candidate.replace(/^[0-9]+/, "").slice(0, 10)
 }
 
 function ProjectRow({
