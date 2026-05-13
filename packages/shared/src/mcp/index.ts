@@ -10,12 +10,18 @@ import {
   NotFound,
   RateLimited,
   RepoGone,
+  SprintCompletedImmutable,
   Unauthorized,
   Validation
 } from "../errors"
 import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
-import { Group, GroupDetail, GroupId } from "../schemas/Group"
+import {
+  Group,
+  GroupDetail,
+  GroupId,
+  UpdateGroupTicketsOutput
+} from "../schemas/Group"
 import {
   CreateTicketInput,
   Ticket,
@@ -294,6 +300,34 @@ export const McpTools = {
       RepoGone,
       RateLimited,
       GitHubError
+    ] as const
+  },
+  add_tickets_to_group: {
+    description:
+      "Add one or more tickets to a group (sprint, epic, or milestone). " +
+      "Additive: existing membership is preserved, ids already in the " +
+      "group are deduplicated. The most common use is putting a newly " +
+      "created ticket on the active sprint — discover the active sprint " +
+      "via `list_sprints` with `state: 'active'`, then call this tool " +
+      "with its `id`. Sprint membership is exclusive across sprints, so " +
+      "if any of the supplied tickets belong to a different sprint they " +
+      "are evicted from that sprint and the eviction is reported in the " +
+      "`evicted` field of the response. Adding to a completed sprint " +
+      "fails with `SprintCompletedImmutable`. Returns the updated group " +
+      "and the list of evictions.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      groupId: GroupId,
+      ticketIds: Schema.Array(TicketId)
+    }),
+    output: UpdateGroupTicketsOutput,
+    errors: [
+      Unauthorized,
+      NotFound,
+      Forbidden,
+      SprintCompletedImmutable,
+      Validation
     ] as const
   }
 } as const satisfies Record<string, McpToolSpec<any, any, any>>

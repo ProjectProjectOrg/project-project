@@ -6,7 +6,9 @@ import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Schema from "effect/Schema"
 import {
   BranchNotFound,
+  GroupId,
   NotFound,
+  SprintCompletedImmutable,
   TicketId,
   type User
 } from "@projectproject/shared"
@@ -430,6 +432,162 @@ describe("MCP dispatcher → write tools", () => {
   })
 
   test.skip("placeholder2", () => {})
+})
+
+describe("MCP dispatcher → add_tickets_to_group", () => {
+  const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+
+  const makeGroupsStub = (
+    initialTickets: ReadonlyArray<string>,
+    options: { completed?: boolean } = {}
+  ) => {
+    let storedTickets: ReadonlyArray<string> = [...initialTickets]
+    const captured: { lastWrite?: ReadonlyArray<string> } = {}
+    const stub = Layer.succeed(Groups, {
+      get: (_o: any, _u: any, _s: any, id: any) =>
+        Effect.succeed({
+          id: decodeGroupId(id),
+          name: "Sprint 1",
+          kind: "sprint" as const,
+          tickets: storedTickets.map((id) => decodeTicketId(id)),
+          color: "#3366ff" as any,
+          startsAt: null,
+          endsAt: null,
+          completedAt: options.completed ? isoDate("2026-05-01T00:00:00.000Z") : null,
+          createdBy: "u-1",
+          createdAt: isoDate("2026-04-01T00:00:00.000Z"),
+          updatedAt: isoDate("2026-05-12T00:00:00.000Z"),
+          body: "# Sprint 1\n"
+        }),
+      updateTickets: (
+        _o: any,
+        _u: any,
+        _s: any,
+        groupId: any,
+        input: { tickets: ReadonlyArray<string> }
+      ) => {
+        if (options.completed) {
+          return Effect.fail(new SprintCompletedImmutable())
+        }
+        captured.lastWrite = input.tickets
+        storedTickets = [...input.tickets]
+        return Effect.succeed({
+          target: {
+            id: decodeGroupId(groupId),
+            name: "Sprint 1",
+            kind: "sprint" as const,
+            tickets: storedTickets.map((id) => decodeTicketId(id)),
+            color: "#3366ff" as any,
+            startsAt: null,
+            endsAt: null,
+            completedAt: null,
+            createdBy: "u-1",
+            createdAt: isoDate("2026-04-01T00:00:00.000Z"),
+            updatedAt: isoDate("2026-05-13T00:00:00.000Z"),
+            body: "# Sprint 1\n"
+          },
+          evicted: []
+        })
+      }
+    } as any)
+    return { stub, captured, getStored: () => storedTickets }
+  }
+
+  const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
+    Layer.mergeAll(
+      EmptyStub(Tickets),
+      groupsLayer,
+      EmptyStub(Comments),
+      ProjectsStub,
+      EmptyStub(Tags),
+      EmptyStub(Users),
+      EmptyStub(BetterAuth),
+      ProjectDocsStub,
+      GroupDocsStub,
+      TicketDocsStub
+    )
+
+  const registerAndCall = (
+    layer: Layer.Layer<any, never, never>,
+    input: unknown
+  ) => {
+    const runtime = ManagedRuntime.make(layer)
+    const registered = new Map<string, (i: unknown) => Promise<any>>()
+    const fakeServer = {
+      registerTool: (name: string, _m: unknown, cb: any) =>
+        registered.set(name, cb)
+    } as any
+    registerAllTools(fakeServer, runtime as any, handlers as any)
+    return {
+      runtime,
+      call: () => withFakeUser(() => registered.get("add_tickets_to_group")!(input))
+    }
+  }
+
+  test("appends ticket ids to the group's existing list", async () => {
+    const { stub, captured, getStored } = makeGroupsStub(["T-1"])
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-2", "T-3"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
+    expect(getStored()).toEqual(["T-1", "T-2", "T-3"])
+
+    await runtime.dispose()
+  })
+
+  test("deduplicates ids already in the group", async () => {
+    const { stub, captured } = makeGroupsStub(["T-1", "T-2"])
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-1", "T-3"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
+
+    await runtime.dispose()
+  })
+
+  test("is a no-op when every supplied id is already a member", async () => {
+    const { stub, captured } = makeGroupsStub(["T-1", "T-2"])
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-1"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.lastWrite).toEqual(["T-1", "T-2"])
+
+    await runtime.dispose()
+  })
+
+  test("surfaces SprintCompletedImmutable for completed sprints", async () => {
+    const { stub } = makeGroupsStub(["T-1"], { completed: true })
+    const { runtime, call } = registerAndCall(makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      groupId: "G-1",
+      ticketIds: ["T-2"]
+    })
+    const result = await call()
+
+    expect(result.isError).toBe(true)
+    await runtime.dispose()
+  })
+
+  test.skip("placeholder", () => {})
 })
 
 describe("MCP dispatcher → NotFound retained", () => {
