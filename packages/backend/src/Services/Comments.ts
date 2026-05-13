@@ -6,6 +6,7 @@ import type {
   CommentId,
   CreateCommentInput,
   Forbidden,
+  MentionInvalid,
   NotFound,
   TicketId,
   UpdateCommentInput
@@ -29,7 +30,10 @@ export interface CommentsShape {
     slug: string,
     ticketId: TicketId,
     input: CreateCommentInput
-  ) => Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError>
+  ) => Effect.Effect<
+    Comment,
+    NotFound | InvalidCommentBody | MentionInvalid | MarkdownError
+  >
   readonly edit: (
     orgSlug: string,
     userId: string,
@@ -39,7 +43,7 @@ export interface CommentsShape {
     input: UpdateCommentInput
   ) => Effect.Effect<
     Comment,
-    NotFound | Forbidden | InvalidCommentBody | MarkdownError
+    NotFound | Forbidden | InvalidCommentBody | MentionInvalid | MarkdownError
   >
   readonly remove: (
     orgSlug: string,

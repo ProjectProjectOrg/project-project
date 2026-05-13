@@ -57,9 +57,20 @@ export const TicketDetail = Schema.Struct({
 })
 export type TicketDetail = typeof TicketDetail.Type
 
-export const CreateTicketInput = Schema.Struct({
+export const QuickCreateTicketInput = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
   type: Schema.optional(TicketType)
+})
+export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
+
+export const CreateTicketInput = Schema.Struct({
+  title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
+  status: Schema.optional(TicketStatus),
+  type: Schema.optional(TicketType),
+  priority: Schema.optional(TicketPriority),
+  tags: Schema.optional(Schema.Array(TagName)),
+  assignees: Schema.optional(Schema.Array(Schema.String)),
+  body: Schema.optional(Schema.String)
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
 

@@ -35,6 +35,7 @@ import {
 } from "./schemas/Project"
 import {
   CreateTicketInput,
+  QuickCreateTicketInput,
   Ticket,
   TicketDetail,
   TicketId,
@@ -76,6 +77,7 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  MentionInvalid,
   NotFound,
   RateLimited,
   RepoGone,
@@ -287,12 +289,25 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
+    HttpApiEndpoint.post(
+      "quickCreate",
+      "/orgs/:orgSlug/projects/:slug/tickets/quick"
+    )
       .setPath(ProjectPath)
-      .setPayload(CreateTicketInput)
+      .setPayload(QuickCreateTicketInput)
       .addSuccess(Ticket)
       .addError(Unauthorized)
       .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
+      .setPath(ProjectPath)
+      .setPayload(CreateTicketInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id")
@@ -308,6 +323,8 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tickets/:id")
@@ -405,6 +422,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -418,6 +436,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addError(NotFound)
       .addError(Forbidden)
       .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.del(

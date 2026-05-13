@@ -4,6 +4,7 @@
   "common_cancel_button": "Cancel",
   "common_delete_confirm_button": "Delete",
   "common_save_button": "Save",
+  "error_mention_invalid": "A mention in this content doesn't point to a real person or ticket.",
   "error_unknown": "Something went wrong.",
   "validation_required": "Required"
 }

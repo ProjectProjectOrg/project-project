@@ -1,11 +1,31 @@
 import * as Schema from "effect/Schema"
-import { NotFound, Unauthorized } from "../errors"
+import {
+  BranchNotFound,
+  Conflict,
+  Forbidden,
+  GitHubError,
+  GitHubScopeInsufficient,
+  GitHubTokenExpired,
+  MentionInvalid,
+  NotFound,
+  RateLimited,
+  RepoGone,
+  Unauthorized,
+  Validation
+} from "../errors"
 import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import { Group, GroupDetail, GroupId } from "../schemas/Group"
-import { Ticket, TicketDetail, TicketId } from "../schemas/Ticket"
+import {
+  CreateTicketInput,
+  Ticket,
+  TicketDetail,
+  TicketId,
+  UpdateTicketInput
+} from "../schemas/Ticket"
 import { Tag } from "../schemas/Tag"
-import { GitStatesResponse } from "../schemas/GitState"
+import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
+import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { Page, Pagination } from "./Pagination"
@@ -178,6 +198,103 @@ export const McpTools = {
     }),
     output: DocFile,
     errors: [Unauthorized, NotFound] as const
+  },
+  create_ticket: {
+    description:
+      "Create a new ticket in a project. `title` is required; everything " +
+      "else falls back to sensible defaults. `status` is one of " +
+      "`todo` | `in_progress` | `done` (default `todo`). `type` is one of " +
+      "`feat` | `bug` | `chore` | `other` (default `other`). `priority` is " +
+      "one of `low` | `med` | `high` (default `med`). `tags` is an array of " +
+      "tag names that must already exist on the project — discover them via " +
+      "`list_tags`; the call fails if a name is unknown. `assignees` is an " +
+      "array of user ids who must be members of the project — discover them " +
+      "via `list_members`. `body` is the ticket description as CommonMark " +
+      "markdown; headings, lists, code fences and links are supported. " +
+      "Mentions use the exact syntax `[Label](mention:user/<userId>)` for " +
+      "people (use a project member's id from `list_members`) and " +
+      "`[Label](mention:ticket/<T-N>)` for tickets (use an existing ticket " +
+      "id in the same project). Malformed or unknown mentions are rejected " +
+      "with `MentionInvalid`. Returns the full ticket including the body.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      ...CreateTicketInput.fields
+    }),
+    output: TicketDetail,
+    errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
+  },
+  update_ticket: {
+    description:
+      "Update an existing ticket. Every field is optional; omitted fields " +
+      "are left unchanged. Pass `tags: []` or `assignees: []` to clear the " +
+      "list. `status` is one of `todo` | `in_progress` | `done`. `type` is " +
+      "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
+      "`low` | `med` | `high`. `tags` entries must already exist on the " +
+      "project; `assignees` entries must be project members. `body` is " +
+      "CommonMark markdown and replaces the entire description. Mentions " +
+      "use `[Label](mention:user/<userId>)` and " +
+      "`[Label](mention:ticket/<T-N>)`; malformed or unknown mentions are " +
+      "rejected with `MentionInvalid`. Use `attach_branch` to associate a " +
+      "branch — `branch` is not editable through this tool. Returns the " +
+      "full ticket after the update.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: TicketId,
+      ...UpdateTicketInput.fields
+    }),
+    output: TicketDetail,
+    errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
+  },
+  create_comment: {
+    description:
+      "Add a comment to a ticket. `body` is required CommonMark markdown " +
+      "(1–20,000 characters). The comment is attributed to the calling user. " +
+      "Useful for agents to record what they did on a ticket (e.g. " +
+      "\"Opened PR #42, ready for review\"). Mentions use " +
+      "`[Label](mention:user/<userId>)` for people and " +
+      "`[Label](mention:ticket/<T-N>)` for tickets; the user must be a " +
+      "project member and the ticket must exist in this project. Malformed " +
+      "or unknown mentions are rejected with `MentionInvalid`. Returns the " +
+      "created comment.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      ticketId: TicketId,
+      ...CreateCommentInput.fields
+    }),
+    output: Comment,
+    errors: [Unauthorized, NotFound, Validation, MentionInvalid] as const
+  },
+  attach_branch: {
+    description:
+      "Attach an existing GitHub branch to a ticket. The branch must already " +
+      "exist on the project's connected repository — create it first via " +
+      "GitHub (your own tooling) and then call this tool with the exact ref " +
+      "name. The branch is verified against GitHub before the link is " +
+      "stored, so attaching a non-existent name fails with `BranchNotFound` " +
+      "rather than producing a dangling reference. Returns the updated " +
+      "ticket.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: TicketId,
+      ...AttachBranchInput.fields
+    }),
+    output: TicketDetail,
+    errors: [
+      Unauthorized,
+      NotFound,
+      Forbidden,
+      Conflict,
+      BranchNotFound,
+      GitHubTokenExpired,
+      GitHubScopeInsufficient,
+      RepoGone,
+      RateLimited,
+      GitHubError
+    ] as const
   }
 } as const satisfies Record<string, McpToolSpec<any, any, any>>
 

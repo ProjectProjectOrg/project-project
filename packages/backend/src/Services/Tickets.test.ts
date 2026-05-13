@@ -9,6 +9,7 @@ import {
   type ProjectDetail,
   type Role
 } from "@projectproject/shared"
+import { Db } from "../Services/Db"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import { Projects, type ProjectsShape } from "../Services/Projects"
@@ -97,6 +98,18 @@ const GitHubStub = Layer.succeed(GitHub, {
   branchExists: () => unexpectedCall("GitHub", "branchExists")
 } satisfies GitHubShape)
 
+const DbStub = Layer.succeed(
+  Db,
+  new Proxy(
+    {},
+    {
+      get: (_target, prop) =>
+        (..._args: ReadonlyArray<unknown>) =>
+          unexpectedCall("Db", String(prop))
+    }
+  ) as never
+)
+
 const GroupsStub = Layer.succeed(Groups, {
   list: () => unexpectedCall("Groups", "list"),
   listPaged: () => unexpectedCall("Groups", "listPaged"),
@@ -145,7 +158,8 @@ it.effect("Tickets.list skips malformed ticket documents", () => {
         Layer.provide(docs),
         Layer.provide(ProjectsStub),
         Layer.provide(GitHubStub),
-        Layer.provide(GroupsStub)
+        Layer.provide(GroupsStub),
+        Layer.provide(DbStub)
       )
     )
   )
