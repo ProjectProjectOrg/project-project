@@ -67,6 +67,8 @@ Edit `.env` and fill in:
 - `BETTER_AUTH_SECRET` — `openssl rand -hex 32`.
 - `BETTER_AUTH_URL` — the public HTTPS URL you'll point at this VM.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
+- `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
+- `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
 
 The GitHub OAuth app's "Authorization callback URL" must be:
 
@@ -86,7 +88,22 @@ docker compose logs -f app
 You should see the backend listening on `:3000` (inside the compose network)
 and `web` exposing `:8080` on the VM.
 
-### 4. nginx-proxy-manager
+### 4. Bootstrap the first organization
+
+ProjectProject does not expose a public "first user creates the org" flow.
+After migrations have run, create the configured org and owner membership
+from the VM:
+
+```sh
+cd /srv/projectproject
+docker compose run --rm app bun run bootstrap:org
+```
+
+The command is repeat-safe. Re-running it reports the existing org, owner,
+and membership instead of creating duplicates. After bootstrap, sign in with
+the configured GitHub account.
+
+### 5. nginx-proxy-manager
 
 Add a Proxy Host in NPM:
 
@@ -99,7 +116,7 @@ Add a Proxy Host in NPM:
 
 Set the same Forward Hostname for HTTPS that you put in `BETTER_AUTH_URL`.
 
-### 5. Verify auto-redeploy
+### 6. Verify auto-redeploy
 
 Push any change to `main` (e.g. a comment in a README). Within 5–10
 minutes, Watchtower pulls the new tag and recreates `app` and `web`. Tail

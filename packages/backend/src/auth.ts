@@ -221,6 +221,7 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
+      allowUserToCreateOrganization: false,
       schema: {
         organization: {
           additionalFields: {

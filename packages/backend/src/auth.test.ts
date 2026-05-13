@@ -10,6 +10,13 @@ describe("Better Auth plugin wiring", () => {
     expect(typeof auth.api.setActiveOrganization).toBe("function")
   })
 
+  it("disables public self-serve organization creation", () => {
+    const orgPlugin = auth.options.plugins?.find(
+      (plugin) => plugin.id === "organization"
+    )
+    expect(orgPlugin?.options?.allowUserToCreateOrganization).toBe(false)
+  })
+
   it("exposes the admin plugin endpoints", () => {
     expect(typeof auth.api.listUsers).toBe("function")
     expect(typeof auth.api.setRole).toBe("function")

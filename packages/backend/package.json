@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun --env-file=../../.env vitest run",
     "test:watch": "bun --env-file=../../.env vitest",
+    "bootstrap:org": "bun --env-file=../../.env scripts/bootstrap-org.ts",
     "migrate:orgs": "bun --env-file=../../.env scripts/migrate-orgs.ts",
     "migrate:relayout": "bun --env-file=../../.env scripts/relayout-data.ts",
     "db:generate": "drizzle-kit generate",
