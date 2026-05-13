@@ -36,7 +36,10 @@ import {
 import { MentionExtension } from "./Lexical/MentionExtension"
 import { MentionsPlugin } from "./Lexical/MentionsPlugin"
 import { MENTION_TRANSFORMER } from "./Lexical/mentionTransformer"
-import { HORIZONTAL_RULE } from "./Lexical/horizontalRuleTransformer"
+import {
+  HORIZONTAL_RULE,
+  HorizontalRuleEnterExtension
+} from "./Lexical/horizontalRuleTransformer"
 import { ChecklistClickExtension } from "./Lexical/checklistClickExtension"
 import { ListTabExtension } from "./Lexical/listTabExtension"
 import "@/lib/prism-langs"
@@ -184,6 +187,7 @@ export function LexicalEditor({
         CodeExtension,
         CodeHighlightExtension,
         HorizontalRuleExtension,
+        HorizontalRuleEnterExtension,
         MentionExtension,
         configExtension(TabIndentationExtension, {
           $canIndent: $canIndentInsideLists,
