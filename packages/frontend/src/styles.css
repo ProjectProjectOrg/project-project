@@ -442,16 +442,79 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md .lexical-ul {
-  list-style: disc;
-  padding-left: 1.4em;
-}
-.prose-md .lexical-ol {
-  list-style: decimal;
-  padding-left: 1.4em;
-}
 .prose-md .lexical-li {
   margin-top: 0.25em;
+}
+.prose-md .lexical-li-nested {
+  list-style: none;
+  margin: 0;
+}
+.prose-md .lexical-li-nested::before,
+.prose-md .lexical-li-nested::after {
+  display: none;
+}
+.prose-md .lexical-li-nested.lexical-li-checked,
+.prose-md .lexical-li-nested.lexical-li-unchecked {
+  padding-left: 0;
+  cursor: auto;
+}
+.prose-md .lexical-checklist {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .lexical-li-checked,
+.prose-md .lexical-li-unchecked {
+  position: relative;
+  margin: 0.15em 0;
+  padding-left: 1.75em;
+  list-style: none;
+  outline: none;
+  cursor: pointer;
+}
+.prose-md .lexical-li-checked::before,
+.prose-md .lexical-li-unchecked::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.32em;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 3px;
+  background: var(--background);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background 100ms, box-shadow 100ms;
+}
+.prose-md .lexical-li-unchecked:hover::before {
+  box-shadow: inset 0 0 0 1px var(--muted-foreground);
+}
+.prose-md .lexical-li-checked::before {
+  background: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--foreground);
+}
+.prose-md .lexical-li-checked::after {
+  content: "";
+  position: absolute;
+  left: 0.42em;
+  top: 0.48em;
+  width: 0.32em;
+  height: 0.6em;
+  border-style: solid;
+  border-color: var(--background);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.prose-md .lexical-li-checked {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.prose-md .lexical-hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+  cursor: pointer;
+}
+.prose-md .lexical-hr.selected {
+  border-top-color: var(--foreground);
 }
 .prose-md .lexical-link {
   color: var(--foreground);
@@ -496,15 +559,35 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md ul,
-.prose-md ol {
-  padding-left: 1.4em;
-}
 .prose-md ul {
   list-style: disc;
+  padding-left: 1.4em;
+}
+.prose-md ul ul {
+  list-style: circle;
 }
 .prose-md ol {
-  list-style: decimal;
+  list-style: none;
+  padding-left: 0;
+  counter-reset: ol-counter;
+}
+.prose-md ol > li {
+  counter-increment: ol-counter;
+}
+.prose-md ol > li::before {
+  content: counters(ol-counter, ".") ".";
+  margin-right: 0.5em;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.prose-md ol > li.lexical-li-nested {
+  counter-increment: none;
+}
+.prose-md ol > li.lexical-li-nested::before {
+  content: none;
+}
+.prose-md ol > li > ol {
+  padding-left: 1.4em;
 }
 .prose-md li + li {
   margin-top: 0.25em;
@@ -539,6 +622,17 @@ html.dark .prose-md .token.coord {
 .prose-md input[type="checkbox"] {
   margin-right: 0.5em;
   accent-color: var(--foreground);
+}
+.prose-md .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .task-list-item {
+  margin: 0.15em 0;
+}
+.prose-md .task-list-item:has(> input[type="checkbox"]:checked) {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
 }
 
 @layer base {

@@ -108,7 +108,12 @@ const betterAuthApp = Effect.gen(function* () {
   const webRes = yield* ba.handler(webReq)
   return HttpServerResponse.fromWeb(webRes)
 }).pipe(
-  Effect.catchAll(() => HttpServerResponse.text("Auth error", { status: 500 }))
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("auth route failure", cause),
+      HttpServerResponse.text("Auth error", { status: 500 })
+    )
+  )
 )
 
 export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
@@ -142,7 +147,12 @@ const mcpRoute = Effect.gen(function* () {
   const webRes = yield* Effect.promise(() => mcpHttp.handle(webReq))
   return HttpServerResponse.fromWeb(webRes)
 }).pipe(
-  Effect.catchAll(() => HttpServerResponse.text("MCP error", { status: 500 }))
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("mcp route failure", cause),
+      HttpServerResponse.text("MCP error", { status: 500 })
+    )
+  )
 )
 
 const ServerLive = HttpApiBuilder.serve((apiApp) =>
