@@ -438,45 +438,37 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
   const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
   const makeGroupsStub = (
-    initialTickets: ReadonlyArray<string>,
-    options: { completed?: boolean } = {}
+    behaviour: "ok" | "completed" = "ok"
   ) => {
-    let storedTickets: ReadonlyArray<string> = [...initialTickets]
-    const captured: { lastWrite?: ReadonlyArray<string> } = {}
+    const captured: {
+      orgSlug?: string
+      userId?: string
+      slug?: string
+      groupId?: string
+      ticketIds?: ReadonlyArray<string>
+    } = {}
     const stub = Layer.succeed(Groups, {
-      get: (_o: any, _u: any, _s: any, id: any) =>
-        Effect.succeed({
-          id: decodeGroupId(id),
-          name: "Sprint 1",
-          kind: "sprint" as const,
-          tickets: storedTickets.map((id) => decodeTicketId(id)),
-          color: "#3366ff" as any,
-          startsAt: null,
-          endsAt: null,
-          completedAt: options.completed ? isoDate("2026-05-01T00:00:00.000Z") : null,
-          createdBy: "u-1",
-          createdAt: isoDate("2026-04-01T00:00:00.000Z"),
-          updatedAt: isoDate("2026-05-12T00:00:00.000Z"),
-          body: "# Sprint 1\n"
-        }),
-      updateTickets: (
-        _o: any,
-        _u: any,
-        _s: any,
+      addTickets: (
+        orgSlug: any,
+        userId: any,
+        slug: any,
         groupId: any,
-        input: { tickets: ReadonlyArray<string> }
+        ticketIds: ReadonlyArray<string>
       ) => {
-        if (options.completed) {
+        captured.orgSlug = orgSlug
+        captured.userId = userId
+        captured.slug = slug
+        captured.groupId = groupId
+        captured.ticketIds = ticketIds
+        if (behaviour === "completed") {
           return Effect.fail(new SprintCompletedImmutable())
         }
-        captured.lastWrite = input.tickets
-        storedTickets = [...input.tickets]
         return Effect.succeed({
           target: {
             id: decodeGroupId(groupId),
             name: "Sprint 1",
             kind: "sprint" as const,
-            tickets: storedTickets.map((id) => decodeTicketId(id)),
+            tickets: ticketIds.map((id) => decodeTicketId(id)),
             color: "#3366ff" as any,
             startsAt: null,
             endsAt: null,
@@ -490,7 +482,7 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
         })
       }
     } as any)
-    return { stub, captured, getStored: () => storedTickets }
+    return { stub, captured }
   }
 
   const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
@@ -520,77 +512,36 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
     registerAllTools(fakeServer, runtime as any, handlers as any)
     return {
       runtime,
-      call: () => withFakeUser(() => registered.get("add_tickets_to_group")!(input))
+      call: () =>
+        withFakeUser(() => registered.get("add_tickets_to_group")!(input))
     }
   }
 
-  test("appends ticket ids to the group's existing list", async () => {
-    const { stub, captured, getStored } = makeGroupsStub(["T-1"])
+  test("delegates to groups.addTickets with the supplied path + ids", async () => {
+    const { stub, captured } = makeGroupsStub("ok")
     const { runtime, call } = registerAndCall(makeLayer(stub), {
       orgSlug: "acme",
       projectSlug: "demo",
       groupId: "G-1",
-      ticketIds: ["T-2", "T-3"]
+      ticketIds: ["T-2", "T-2", "T-3"]
     })
     const result = await call()
 
     expect(result.isError).toBeUndefined()
-    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
-    expect(getStored()).toEqual(["T-1", "T-2", "T-3"])
+    expect(captured.orgSlug).toBe("acme")
+    expect(captured.slug).toBe("demo")
+    expect(captured.groupId).toBe("G-1")
+    expect(captured.userId).toBe("u-1")
+    // Handler forwards the raw payload — the service is responsible for
+    // dedup, merge, and write atomicity. Those are tested at the service
+    // layer (see Layers/Groups-addTickets.test.ts).
+    expect(captured.ticketIds).toEqual(["T-2", "T-2", "T-3"])
 
     await runtime.dispose()
   })
 
-  test("deduplicates ids already in the group", async () => {
-    const { stub, captured } = makeGroupsStub(["T-1", "T-2"])
-    const { runtime, call } = registerAndCall(makeLayer(stub), {
-      orgSlug: "acme",
-      projectSlug: "demo",
-      groupId: "G-1",
-      ticketIds: ["T-1", "T-3"]
-    })
-    const result = await call()
-
-    expect(result.isError).toBeUndefined()
-    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
-
-    await runtime.dispose()
-  })
-
-  test("deduplicates ids that repeat within the same request payload", async () => {
-    const { stub, captured } = makeGroupsStub(["T-1"])
-    const { runtime, call } = registerAndCall(makeLayer(stub), {
-      orgSlug: "acme",
-      projectSlug: "demo",
-      groupId: "G-1",
-      ticketIds: ["T-2", "T-2", "T-3", "T-3", "T-2"]
-    })
-    const result = await call()
-
-    expect(result.isError).toBeUndefined()
-    expect(captured.lastWrite).toEqual(["T-1", "T-2", "T-3"])
-
-    await runtime.dispose()
-  })
-
-  test("is a no-op when every supplied id is already a member", async () => {
-    const { stub, captured } = makeGroupsStub(["T-1", "T-2"])
-    const { runtime, call } = registerAndCall(makeLayer(stub), {
-      orgSlug: "acme",
-      projectSlug: "demo",
-      groupId: "G-1",
-      ticketIds: ["T-1"]
-    })
-    const result = await call()
-
-    expect(result.isError).toBeUndefined()
-    expect(captured.lastWrite).toEqual(["T-1", "T-2"])
-
-    await runtime.dispose()
-  })
-
-  test("surfaces SprintCompletedImmutable for completed sprints", async () => {
-    const { stub, captured } = makeGroupsStub(["T-1"], { completed: true })
+  test("surfaces SprintCompletedImmutable from the service", async () => {
+    const { stub } = makeGroupsStub("completed")
     const { runtime, call } = registerAndCall(makeLayer(stub), {
       orgSlug: "acme",
       projectSlug: "demo",
@@ -601,7 +552,6 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text.toLowerCase()).toContain("sprint")
-    expect(captured.lastWrite).toBeUndefined()
     await runtime.dispose()
   })
 

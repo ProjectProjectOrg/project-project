@@ -386,27 +386,12 @@ const add_tickets_to_group = (input: {
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const groups = yield* Groups
-    const group = yield* groups.get(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      input.groupId
-    )
-    const seen = new Set<string>(group.tickets)
-    const additions: TicketId[] = []
-    for (const id of input.ticketIds) {
-      if (seen.has(id)) continue
-      seen.add(id)
-      additions.push(id)
-    }
-    const merged =
-      additions.length === 0 ? group.tickets : [...group.tickets, ...additions]
-    return yield* groups.updateTickets(
+    return yield* groups.addTickets(
       input.orgSlug,
       current.id,
       input.projectSlug,
       input.groupId,
-      { tickets: merged }
+      input.ticketIds
     )
   })
 

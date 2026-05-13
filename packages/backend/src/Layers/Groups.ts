@@ -39,6 +39,40 @@ const MAX_CREATE_ATTEMPTS = 16
 const makeGroupId = Schema.decodeUnknownSync(GroupId)
 const makeGroupColor = Schema.decodeUnknownSync(GroupColor)
 
+// Process-level mutex per project. Every group-mutation entry point on
+// the service acquires this before reading-then-writing, so concurrent
+// callers serialize and the eviction logic (which writes the target
+// group AND any sprint it's evicting tickets from) sees a consistent
+// view of the project's group files. Single-permit semaphore = mutex.
+// The Map only grows with the set of active projects, which is bounded
+// in practice; no eviction is needed for the lifetime of one process.
+const projectMutationLocks = new Map<
+  string,
+  Effect.Semaphore
+>()
+
+const projectLockKey = (orgSlug: string, slug: string) => `${orgSlug}:${slug}`
+
+const projectLockFor = (orgSlug: string, slug: string) =>
+  Effect.gen(function* () {
+    const key = projectLockKey(orgSlug, slug)
+    const cached = projectMutationLocks.get(key)
+    if (cached) return cached
+    const created = yield* Effect.makeSemaphore(1)
+    projectMutationLocks.set(key, created)
+    return created
+  })
+
+const withProjectLock = <A, E, R>(
+  orgSlug: string,
+  slug: string,
+  body: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Effect.gen(function* () {
+    const sem = yield* projectLockFor(orgSlug, slug)
+    return yield* sem.withPermits(1)(body)
+  })
+
 function nextIdFrom(ids: ReadonlyArray<GroupId>): GroupId {
   let max = 0
   for (const id of ids) {
@@ -258,7 +292,7 @@ export const GroupsLive = Layer.effect(
       Group,
       NotFound | Forbidden | Validation | MarkdownError
     > =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         const kind: GroupKind = input.kind ?? "other"
         yield* requireKindRole(orgSlug, userId, slug, kind)
 
@@ -320,7 +354,7 @@ export const GroupsLive = Layer.effect(
         return yield* Effect.die(
           new Error(`could not allocate group id for "${slug}"`)
         )
-      })
+      }))
 
     const update = (
       orgSlug: string,
@@ -332,7 +366,7 @@ export const GroupsLive = Layer.effect(
       GroupDetail,
       NotFound | Forbidden | Validation | MarkdownError
     > =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         yield* projects.get(orgSlug, userId, slug)
 
         const existing = yield* groupDocs.read(orgSlug, slug, id)
@@ -361,31 +395,24 @@ export const GroupsLive = Layer.effect(
 
         yield* groupDocs.write(orgSlug, slug, id, nextDocument)
         return nextDocument
-      })
+      }))
 
-    const updateTickets = (
+    // Shared write path for both `updateTickets` (replace) and `addTickets`
+    // (additive). The caller is responsible for: (1) auth, (2) reading the
+    // current document, (3) deciding what `nextTickets` should be, (4)
+    // holding the project mutation lock. This helper just performs the
+    // resulting write and the cross-sprint eviction.
+    const applyTicketsChange = (
       orgSlug: string,
-      userId: string,
       slug: string,
-      id: string,
-      input: UpdateGroupTicketsInput
-    ): Effect.Effect<
-      UpdateGroupTicketsOutput,
-      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
-    > =>
+      current: GroupDocument,
+      nextTickets: ReadonlyArray<TicketId>
+    ): Effect.Effect<UpdateGroupTicketsOutput, MarkdownError> =>
       Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const existing = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
-        if (existing.completedAt !== null) {
-          return yield* new SprintCompletedImmutable()
-        }
-        yield* validateTicketIds(orgSlug, slug, input.tickets)
-
         const now = yield* DateTime.nowAsDate
         const target: GroupDocument = {
-          ...existing,
-          tickets: input.tickets,
+          ...current,
+          tickets: nextTickets,
           updatedAt: now
         }
 
@@ -394,15 +421,19 @@ export const GroupsLive = Layer.effect(
           ticketIds: ReadonlyArray<TicketId>
         }> = []
 
-        if (existing.kind === "sprint" && input.tickets.length > 0) {
-          const incoming = new Set<string>(input.tickets)
+        if (current.kind === "sprint" && nextTickets.length > 0) {
+          const incoming = new Set<string>(nextTickets)
           const allIds = yield* groupDocs.listIds(orgSlug, slug)
           const others = yield* Effect.forEach(
-            allIds.filter((otherId) => otherId !== id),
-            (otherId) => groupDocs.read(orgSlug, slug, otherId),
+            allIds.filter((otherId) => otherId !== current.id),
+            (otherId) =>
+              groupDocs.read(orgSlug, slug, otherId).pipe(
+                Effect.catchTag("NotFound", () => Effect.succeed(null))
+              ),
             { concurrency: 8 }
           )
           for (const other of others) {
+            if (other === null) continue
             if (other.kind !== "sprint") continue
             if (other.completedAt !== null) continue
             const overlap = other.tickets.filter((tid) => incoming.has(tid))
@@ -421,9 +452,75 @@ export const GroupsLive = Layer.effect(
           }
         }
 
-        yield* groupDocs.write(orgSlug, slug, id, target)
+        yield* groupDocs.write(orgSlug, slug, current.id, target)
         return { target, evicted } satisfies UpdateGroupTicketsOutput
       })
+
+    const updateTickets = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      input: UpdateGroupTicketsInput
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          if (existing.completedAt !== null) {
+            return yield* new SprintCompletedImmutable()
+          }
+          yield* validateTicketIds(orgSlug, slug, input.tickets)
+          return yield* applyTicketsChange(orgSlug, slug, existing, input.tickets)
+        })
+      )
+
+    const addTickets = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      ticketIds: ReadonlyArray<TicketId>
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          if (existing.completedAt !== null) {
+            return yield* new SprintCompletedImmutable()
+          }
+
+          const seen = new Set<string>(existing.tickets)
+          const additions: TicketId[] = []
+          for (const tid of ticketIds) {
+            if (seen.has(tid)) continue
+            seen.add(tid)
+            additions.push(tid)
+          }
+          if (additions.length === 0) {
+            return {
+              target: existing,
+              evicted: []
+            } satisfies UpdateGroupTicketsOutput
+          }
+
+          yield* validateTicketIds(orgSlug, slug, additions)
+          const merged = [...existing.tickets, ...additions]
+          return yield* applyTicketsChange(orgSlug, slug, existing, merged)
+        })
+      )
 
     const updateTicketOrder = (
       orgSlug: string,
@@ -439,7 +536,7 @@ export const GroupsLive = Layer.effect(
       | Validation
       | MarkdownError
     > =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
@@ -493,7 +590,7 @@ export const GroupsLive = Layer.effect(
         }
         yield* groupDocs.write(orgSlug, slug, id, target)
         return target
-      })
+      }))
 
     const complete = (
       orgSlug: string,
@@ -509,7 +606,7 @@ export const GroupsLive = Layer.effect(
       | Validation
       | MarkdownError
     > =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const source = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, source.kind)
@@ -576,7 +673,7 @@ export const GroupsLive = Layer.effect(
         }
         yield* groupDocs.write(orgSlug, slug, id, nextSource)
         return nextSource
-      })
+      }))
 
     const remove = (
       orgSlug: string,
@@ -584,19 +681,19 @@ export const GroupsLive = Layer.effect(
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         yield* projects.requireMember(orgSlug, userId, slug)
         const existing = yield* groupDocs.read(orgSlug, slug, id)
         yield* requireKindRole(orgSlug, userId, slug, existing.kind)
         yield* groupDocs.remove(orgSlug, slug, id)
-      })
+      }))
 
     const removeTicketFromAllGroups = (
       orgSlug: string,
       slug: string,
       ticketId: string
     ): Effect.Effect<void, MarkdownError> =>
-      Effect.gen(function* () {
+      withProjectLock(orgSlug, slug, Effect.gen(function* () {
         const ids = yield* groupDocs.listIds(orgSlug, slug)
         yield* Effect.forEach(
           ids,
@@ -624,7 +721,7 @@ export const GroupsLive = Layer.effect(
             }),
           { concurrency: 8 }
         )
-      })
+      }))
 
     return {
       list,
@@ -634,6 +731,7 @@ export const GroupsLive = Layer.effect(
       create,
       update,
       updateTickets,
+      addTickets,
       updateTicketOrder,
       complete,
       remove,
