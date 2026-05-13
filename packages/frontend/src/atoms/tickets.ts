@@ -6,7 +6,7 @@ import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
   TicketId,
-  type CreateTicketInput,
+  type QuickCreateTicketInput,
   type TicketDetail,
   type UpdateTicketInput
 } from "@projectproject/shared"
@@ -91,12 +91,12 @@ export const ticketAtom = Atom.family((key: string) => {
   })
 })
 
-export const createTicketAtom = Atom.family((key: string) => {
+export const quickCreateTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime.fn(
-    Effect.fn(function* (input: CreateTicketInput, get) {
+    Effect.fn(function* (input: QuickCreateTicketInput, get) {
       const client = yield* ApiClient
-      const ticket = yield* client.tickets.create({
+      const ticket = yield* client.tickets.quickCreate({
         path: { orgSlug, slug },
         payload: input
       })

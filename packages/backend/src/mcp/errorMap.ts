@@ -38,6 +38,22 @@ export const mapToolError = (e: unknown): McpToolErrorResult => {
         reason ? `Validation error (${reason}).` : "Validation error."
       )
     }
+    case "MentionInvalid": {
+      const kind =
+        typeof e === "object" && e !== null && "kind" in e
+          ? String((e as { kind?: unknown }).kind)
+          : undefined
+      const href =
+        typeof e === "object" && e !== null && "href" in e
+          ? String((e as { href?: unknown }).href)
+          : undefined
+      const detail = kind && href ? `${kind}: ${href}` : (kind ?? href ?? "")
+      return text(
+        detail
+          ? `Mention error (${detail}). Use [label](mention:user/<id>) or [label](mention:ticket/<T-N>); discover ids via list_members and list_tickets.`
+          : "Mention error."
+      )
+    }
     case "ParseError":
       return text(
         `Validation error: ${ParseResult.TreeFormatter.formatErrorSync(
@@ -51,6 +67,39 @@ export const mapToolError = (e: unknown): McpToolErrorResult => {
     case "TicketIdTaken":
     case "GroupIdTaken":
       return text("Identifier already taken.")
+    case "BranchNotFound": {
+      const name =
+        typeof e === "object" && e !== null && "name" in e
+          ? String((e as { name?: unknown }).name)
+          : undefined
+      return text(
+        name ? `Branch not found on remote: ${name}.` : "Branch not found on remote."
+      )
+    }
+    case "BranchExists": {
+      const name =
+        typeof e === "object" && e !== null && "branch" in e
+          ? String((e as { branch?: unknown }).branch)
+          : undefined
+      return text(name ? `Branch already exists: ${name}.` : "Branch already exists.")
+    }
+    case "BranchProtected":
+      return text("Branch is protected.")
+    case "GitHubTokenExpired":
+      return text("GitHub token expired — reconnect GitHub.")
+    case "GitHubScopeInsufficient":
+      return text("GitHub token is missing required scopes.")
+    case "RepoGone":
+      return text("Connected GitHub repository is gone.")
+    case "RateLimited":
+      return text("Rate limited by GitHub — retry later.")
+    case "GitHubError": {
+      const message =
+        typeof e === "object" && e !== null && "message" in e
+          ? String((e as { message?: unknown }).message)
+          : undefined
+      return text(message ? `GitHub error: ${message}.` : "GitHub error.")
+    }
     default:
       return text("Internal error.")
   }

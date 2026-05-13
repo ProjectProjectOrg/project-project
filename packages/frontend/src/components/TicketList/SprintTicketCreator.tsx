@@ -30,7 +30,7 @@ import {
   sprintsListAtom
 } from "@/atoms/sprints"
 import {
-  createTicketAtom,
+  quickCreateTicketAtom,
   ticketsListAtom,
   ticketsListKey
 } from "@/atoms/tickets"
@@ -63,8 +63,8 @@ export function SprintTicketCreator({
   const projKey = projectKey(orgSlug, slug)
   const sprintProjectKey = sprintsKey(orgSlug, slug)
 
-  const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(createTicketAtom(projKey))
+  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
+  const createState = useAtomValue(quickCreateTicketAtom(projKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()

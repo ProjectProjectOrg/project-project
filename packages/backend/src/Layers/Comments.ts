@@ -11,6 +11,7 @@ import {
   Forbidden,
   NotFound,
   UpdateCommentInput,
+  type MentionInvalid,
   type TicketId
 } from "@projectproject/shared"
 import { commentIndex } from "../db/schema"
@@ -23,7 +24,9 @@ import {
 import { Db } from "../Services/Db"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import { TicketDocs } from "../Services/TicketDocs"
 import { Users } from "../Services/Users"
+import { validateBodyMentions } from "../Services/BodyMentions"
 import {
   Comments,
   InvalidCommentBody,
@@ -39,10 +42,21 @@ export const CommentsLive = Layer.effect(
     const db = yield* Db
     const md = yield* Markdown
     const projects = yield* Projects
+    const ticketDocs = yield* TicketDocs
     const users = yield* Users
 
     const ensureMember = (orgSlug: string, userId: string, slug: string) =>
       projects.requireMember(orgSlug, userId, slug)
+
+    const validateBody = (orgSlug: string, userId: string, slug: string, body: string) =>
+      Effect.gen(function* () {
+        if (!body.includes("](mention:")) return
+        const project = yield* projects.get(orgSlug, userId, slug)
+        const memberIds = new Set<string>(project.members.map((m) => m.id))
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const ticketIds = new Set<string>(ids)
+        yield* validateBodyMentions(body, memberIds, ticketIds)
+      })
 
     const readBlocks = (orgSlug: string, slug: string, ticketId: string) =>
       Effect.gen(function* () {
@@ -117,13 +131,17 @@ export const CommentsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       input: CreateCommentInput
-    ): Effect.Effect<Comment, NotFound | InvalidCommentBody | MarkdownError> =>
+    ): Effect.Effect<
+      Comment,
+      NotFound | InvalidCommentBody | MentionInvalid | MarkdownError
+    > =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
+        yield* validateBody(orgSlug, userId, slug, input.body)
         const { description, frontmatter, blocks } = yield* readBlocks(
           orgSlug,
           slug,
@@ -209,7 +227,7 @@ export const CommentsLive = Layer.effect(
       input: UpdateCommentInput
     ): Effect.Effect<
       Comment,
-      NotFound | Forbidden | InvalidCommentBody | MarkdownError
+      NotFound | Forbidden | InvalidCommentBody | MentionInvalid | MarkdownError
     > =>
       Effect.gen(function* () {
         yield* ensureMember(orgSlug, userId, slug)
@@ -217,6 +235,7 @@ export const CommentsLive = Layer.effect(
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
+        yield* validateBody(orgSlug, userId, slug, input.body)
         const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
         const editedAt = yield* DateTime.nowAsDate
         yield* db

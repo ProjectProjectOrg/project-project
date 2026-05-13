@@ -28,11 +28,13 @@ import {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   GitStatesResponse,
+  MentionInvalid,
   NotFound,
   OpenPrInput,
   OpenPrResult,
   padNumericIdSort,
   paginateSorted,
+  QuickCreateTicketInput,
   RateLimited,
   RepoGone,
   TagName,
@@ -40,14 +42,19 @@ import {
   TicketDetail,
   TicketId,
   UpdateTicketInput,
+  Validation,
   type CursorPayload,
   type TicketFilter
 } from "@projectproject/shared"
 import { matchesTicketFilter } from "../Services/TicketFilters"
+import { validateBodyMentions } from "../Services/BodyMentions"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import { Db } from "../Services/Db"
+import { projectIndex, projectTag } from "../db/schema"
+import { eq } from "drizzle-orm"
 import {
   MalformedTicketDocument,
   TicketDocs,
@@ -91,6 +98,7 @@ export const TicketsLive = Layer.effect(
     const projects = yield* Projects
     const github = yield* GitHub
     const groups = yield* Groups
+    const db = yield* Db
 
     const ensureAccess = (
       orgSlug: string,
@@ -185,20 +193,108 @@ export const TicketsLive = Layer.effect(
         return yield* readTicket(orgSlug, slug, id)
       })
 
-    const create = (
+    const validateTagsExist = (
+      slug: string,
+      requested: ReadonlyArray<string>
+    ): Effect.Effect<void, NotFound | Validation> =>
+      Effect.gen(function* () {
+        if (requested.length === 0) return
+        const projectRow = yield* db.query.projectIndex
+          .findFirst({
+            columns: { id: true },
+            where: eq(projectIndex.slug, slug)
+          })
+          .pipe(Effect.orDie)
+        if (!projectRow) return yield* new NotFound()
+        const rows = yield* db.query.projectTag
+          .findMany({
+            columns: { name: true },
+            where: eq(projectTag.projectId, projectRow.id)
+          })
+          .pipe(Effect.orDie)
+        const known = new Set<string>(rows.map((r) => r.name))
+        const missing = requested.filter((name) => !known.has(name))
+        if (missing.length > 0) {
+          return yield* new Validation({
+            reason: `unknown_tags:${missing.join(",")}`
+          })
+        }
+      })
+
+    const validateBody = (
       orgSlug: string,
       ownerId: string,
       slug: string,
-      input: CreateTicketInput
+      body: string
+    ): Effect.Effect<void, NotFound | MentionInvalid | MarkdownError> =>
+      Effect.gen(function* () {
+        if (!body.includes("](mention:")) return
+        const project = yield* projects.get(orgSlug, ownerId, slug)
+        const memberIds = new Set<string>(project.members.map((m) => m.id))
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const ticketIds = new Set<string>(ids)
+        yield* validateBodyMentions(body, memberIds, ticketIds)
+      })
+
+    const validateAssigneesAreMembers = (
+      orgSlug: string,
+      slug: string,
+      assignees: ReadonlyArray<string>
+    ): Effect.Effect<void, Validation> =>
+      Effect.gen(function* () {
+        const invalid: string[] = []
+        for (const assigneeId of assignees) {
+          const ok = yield* projects.requireMember(orgSlug, assigneeId, slug).pipe(
+            Effect.as(true as const),
+            Effect.catchTag("NotFound", () => Effect.succeed(false as const))
+          )
+          if (!ok) invalid.push(assigneeId)
+        }
+        if (invalid.length > 0) {
+          return yield* new Validation({
+            reason: `non_member_assignees:${invalid.join(",")}`
+          })
+        }
+      })
+
+    const writeWithIdAllocation = (
+      orgSlug: string,
+      slug: string,
+      buildDocument: (id: TicketId) => TicketDocument
+    ): Effect.Effect<TicketDocument, MarkdownError> =>
+      Effect.gen(function* () {
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        let candidate = nextIdFrom(ids)
+        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+          const document = buildDocument(candidate)
+          const result = yield* ticketDocs
+            .create(orgSlug, slug, document)
+            .pipe(
+              Effect.map(() => "ok" as const),
+              Effect.catchTag("TicketIdTaken", () =>
+                Effect.succeed("retry" as const)
+              )
+            )
+          if (result === "ok") return document
+          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
+          candidate = nextIdFrom(freshIds)
+        }
+        return yield* Effect.die(
+          new Error(`could not allocate ticket id for "${slug}"`)
+        )
+      })
+
+    const quickCreate = (
+      orgSlug: string,
+      ownerId: string,
+      slug: string,
+      input: QuickCreateTicketInput
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
-
         const now = yield* DateTime.nowAsDate
-        const document: TicketDocument = {
-          id: candidate,
+        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
+          id,
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
@@ -212,26 +308,49 @@ export const TicketsLive = Layer.effect(
           createdAt: now,
           updatedAt: now,
           body: `# ${input.title}\n`
-        }
+        }))
+        return documentToTicket(document)
+      })
 
-        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const result = yield* ticketDocs
-            .create(orgSlug, slug, { ...document, id: candidate })
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("TicketIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
-            )
-          if (result === "ok") {
-            return documentToTicket({ ...document, id: candidate })
-          }
-          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(freshIds)
+    const create = (
+      orgSlug: string,
+      ownerId: string,
+      slug: string,
+      input: CreateTicketInput
+    ): Effect.Effect<
+      TicketDetail,
+      NotFound | Validation | MentionInvalid | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        if (input.tags !== undefined) {
+          yield* validateTagsExist(slug, input.tags)
         }
-        return yield* Effect.die(
-          new Error(`could not allocate ticket id for "${slug}"`)
-        )
+        if (input.assignees !== undefined && input.assignees.length > 0) {
+          yield* validateAssigneesAreMembers(orgSlug, slug, input.assignees)
+        }
+        if (input.body !== undefined) {
+          yield* validateBody(orgSlug, ownerId, slug, input.body)
+        }
+        const now = yield* DateTime.nowAsDate
+        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
+          id,
+          title: input.title,
+          status: input.status ?? "todo",
+          type: input.type ?? "other",
+          priority: input.priority ?? "med",
+          tags: input.tags !== undefined ? [...input.tags] : [],
+          branch: null,
+          pr: null,
+          lastTransitionedPr: null,
+          assignees:
+            input.assignees !== undefined ? [...input.assignees] : [],
+          createdBy: ownerId,
+          createdAt: now,
+          updatedAt: now,
+          body: input.body ?? `# ${input.title}\n`
+        }))
+        return document
       })
 
     const update = (
@@ -240,18 +359,27 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateTicketInput
-    ): Effect.Effect<TicketDetail, TicketReadError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
 
+        if (input.tags !== undefined) {
+          yield* validateTagsExist(slug, input.tags)
+        }
+
         if (input.assignees !== undefined) {
           const existingSet = new Set(existing.assignees)
-          for (const assigneeId of input.assignees) {
-            if (!existingSet.has(assigneeId)) {
-              yield* projects.requireMember(orgSlug, assigneeId, slug)
-            }
+          const newcomers = input.assignees.filter(
+            (assigneeId) => !existingSet.has(assigneeId)
+          )
+          if (newcomers.length > 0) {
+            yield* validateAssigneesAreMembers(orgSlug, slug, newcomers)
           }
+        }
+
+        if (input.body !== undefined) {
+          yield* validateBody(orgSlug, ownerId, slug, input.body)
         }
 
         const next: TicketDocument = {
@@ -690,6 +818,7 @@ export const TicketsLive = Layer.effect(
       list,
       listPaged,
       get,
+      quickCreate,
       create,
       update,
       remove,

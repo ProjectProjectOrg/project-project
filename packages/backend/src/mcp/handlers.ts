@@ -2,14 +2,20 @@ import * as Effect from "effect/Effect"
 import {
   CurrentUser,
   Unauthorized,
+  Validation,
   tryDecodeCursor,
+  type AttachBranchInput,
+  type CreateTicketInput,
   type GroupFilter,
   type Pagination,
   type SprintState,
-  type TicketFilter
+  type TicketFilter,
+  type TicketId,
+  type UpdateTicketInput
 } from "@projectproject/shared"
 import { Users } from "../Services/Users"
 import { BetterAuth } from "../Services/BetterAuth"
+import { Comments } from "../Services/Comments"
 import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 import { Groups } from "../Services/Groups"
@@ -67,6 +73,7 @@ const dieInternal = <A, E, R>(
 type Env =
   | Users
   | BetterAuth
+  | Comments
   | Projects
   | Tickets
   | Groups
@@ -299,6 +306,76 @@ const get_ticket_doc = (input: {
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
+const create_ticket = (
+  input: { orgSlug: string; projectSlug: string } & CreateTicketInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, ...payload } = input
+    return yield* tickets.create(orgSlug, current.id, projectSlug, payload)
+  })
+
+const update_ticket = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: TicketId
+  } & UpdateTicketInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, id, ...payload } = input
+    return yield* tickets.update(
+      orgSlug,
+      current.id,
+      projectSlug,
+      id,
+      payload
+    )
+  })
+
+const create_comment = (input: {
+  orgSlug: string
+  projectSlug: string
+  ticketId: TicketId
+  body: string
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const comments = yield* Comments
+    return yield* comments
+      .create(input.orgSlug, current.id, input.projectSlug, input.ticketId, {
+        body: input.body
+      })
+      .pipe(
+        Effect.catchTag("InvalidCommentBody", (error) =>
+          Effect.fail(new Validation({ reason: error.reason }))
+        )
+      )
+  })
+
+const attach_branch = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: TicketId
+  } & AttachBranchInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, id, ...payload } = input
+    return yield* tickets.attachBranch(
+      orgSlug,
+      current.id,
+      projectSlug,
+      id,
+      payload
+    )
+  })
+
 export const handlers: HandlersMap<Env> = {
   me: (i) => dieInternal(me(i)),
   list_orgs: (i) => dieInternal(list_orgs(i)),
@@ -315,5 +392,9 @@ export const handlers: HandlersMap<Env> = {
   get_git_state: (i) => dieInternal(get_git_state(i)),
   get_project_doc: (i) => dieInternal(get_project_doc(i)),
   get_group_doc: (i) => dieInternal(get_group_doc(i)),
-  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i))
+  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i)),
+  create_ticket: (i) => dieInternal(create_ticket(i)),
+  update_ticket: (i) => dieInternal(update_ticket(i)),
+  create_comment: (i) => dieInternal(create_comment(i)),
+  attach_branch: (i) => dieInternal(attach_branch(i))
 }

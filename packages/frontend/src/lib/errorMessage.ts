@@ -8,6 +8,7 @@ import type {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  MentionInvalid,
   NotFound,
   RateLimited,
   RepoGone,
@@ -29,6 +30,7 @@ export type AppError =
   | RateLimited
   | GitHubError
   | BranchNotFound
+  | MentionInvalid
   | SprintCompletedImmutable
 
 export const errorMessage = (error: AppError): string =>
