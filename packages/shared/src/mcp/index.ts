@@ -17,9 +17,12 @@ import {
 import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import {
+  CompleteSprintInput,
+  CreateGroupInput,
   Group,
   GroupDetail,
   GroupId,
+  UpdateGroupInput,
   UpdateGroupTicketsOutput
 } from "../schemas/Group"
 import {
@@ -300,6 +303,78 @@ export const McpTools = {
       RepoGone,
       RateLimited,
       GitHubError
+    ] as const
+  },
+  create_sprint: {
+    description:
+      "Create a new sprint in a project. Forces `kind: 'sprint'` internally — " +
+      "use of this tool cannot create epics or milestones. `name` is " +
+      "required (1–200 chars); `color` is a `#RRGGBB` string; `startsAt` " +
+      "and `endsAt` are ISO 8601 dates and may be null; `tickets` is an " +
+      "optional list of ticket ids to attach on creation (sprint membership " +
+      "is exclusive across sprints, so existing sprint memberships for " +
+      "those tickets will be evicted). The sprint's `body` (markdown " +
+      "description) is set separately via `update_sprint` after creation. " +
+      "Returns the created sprint.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      name: CreateGroupInput.fields.name,
+      color: CreateGroupInput.fields.color,
+      startsAt: CreateGroupInput.fields.startsAt,
+      endsAt: CreateGroupInput.fields.endsAt,
+      tickets: CreateGroupInput.fields.tickets
+    }),
+    output: Group,
+    errors: [Unauthorized, NotFound, Forbidden, Validation] as const
+  },
+  update_sprint: {
+    description:
+      "Update a sprint's metadata. Targets `kind: 'sprint'` groups only — " +
+      "passing the id of an epic or milestone fails with `Validation` " +
+      "(`reason: not_a_sprint:<id>`). Every field is optional; omitted " +
+      "fields are left unchanged. `name` is 1–200 chars when supplied; " +
+      "`body` is CommonMark markdown and replaces the entire description; " +
+      "`color` is `#RRGGBB`; `startsAt` and `endsAt` are ISO 8601 dates or " +
+      "null. To complete a sprint, use `complete_sprint` (it carries " +
+      "destination semantics for carryover); this tool deliberately " +
+      "excludes `completedAt`. Returns the updated sprint.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: GroupId,
+      name: UpdateGroupInput.fields.name,
+      body: UpdateGroupInput.fields.body,
+      color: UpdateGroupInput.fields.color,
+      startsAt: UpdateGroupInput.fields.startsAt,
+      endsAt: UpdateGroupInput.fields.endsAt
+    }),
+    output: GroupDetail,
+    errors: [Unauthorized, NotFound, Forbidden, Validation] as const
+  },
+  complete_sprint: {
+    description:
+      "Complete a sprint, sending any carryover (non-`done`) tickets to " +
+      "the chosen destination. Targets `kind: 'sprint'` groups only — " +
+      "passing the id of an epic or milestone fails with `Validation` " +
+      "(`reason: not_a_sprint:<id>`). `destination` is either " +
+      "`{ kind: 'sprint', groupId: <G-N> }` (move carryover to another " +
+      "sprint) or `{ kind: 'backlog' }` (drop carryover off all sprints). " +
+      "Already-completed sprints fail with `SprintCompletedImmutable`. " +
+      "Returns the now-completed sprint.",
+    input: Schema.Struct({
+      orgSlug: Slug,
+      projectSlug: Slug,
+      id: GroupId,
+      ...CompleteSprintInput.fields
+    }),
+    output: GroupDetail,
+    errors: [
+      Unauthorized,
+      NotFound,
+      Forbidden,
+      SprintCompletedImmutable,
+      Validation
     ] as const
   },
   add_tickets_to_group: {

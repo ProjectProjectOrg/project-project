@@ -558,6 +558,212 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
   test.skip("placeholder", () => {})
 })
 
+describe("MCP dispatcher → sprint writes", () => {
+  const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+
+  const baseGroup = (overrides: Partial<{ id: string; kind: string }> = {}) => ({
+    id: decodeGroupId(overrides.id ?? "G-1"),
+    name: "Sprint 1",
+    kind: (overrides.kind ?? "sprint") as any,
+    tickets: [],
+    color: "#3366ff" as any,
+    startsAt: null,
+    endsAt: null,
+    completedAt: null,
+    createdBy: "u-1",
+    createdAt: isoDate("2026-04-01T00:00:00.000Z"),
+    updatedAt: isoDate("2026-05-12T00:00:00.000Z"),
+    body: "# Sprint 1\n"
+  })
+
+  const makeGroupsStub = (
+    options: { kind?: string; completed?: boolean } = {}
+  ) => {
+    const captured: {
+      createInput?: any
+      updateInput?: any
+      completeInput?: any
+    } = {}
+    const stub = Layer.succeed(Groups, {
+      get: (_o: any, _u: any, _s: any, id: any) =>
+        Effect.succeed(baseGroup({ id, kind: options.kind })),
+      create: (_o: any, _u: any, _s: any, input: any) => {
+        captured.createInput = input
+        return Effect.succeed({
+          id: decodeGroupId("G-9"),
+          name: input.name,
+          kind: input.kind ?? "sprint",
+          tickets: input.tickets ?? [],
+          color: input.color ?? ("#3366ff" as any),
+          startsAt: input.startsAt ?? null,
+          endsAt: input.endsAt ?? null,
+          completedAt: null,
+          createdBy: "u-1",
+          createdAt: isoDate("2026-05-13T00:00:00.000Z"),
+          updatedAt: isoDate("2026-05-13T00:00:00.000Z")
+        })
+      },
+      update: (_o: any, _u: any, _s: any, id: any, input: any) => {
+        captured.updateInput = input
+        return Effect.succeed({
+          ...baseGroup({ id, kind: options.kind }),
+          ...input
+        })
+      },
+      complete: (_o: any, _u: any, _s: any, id: any, input: any) => {
+        captured.completeInput = input
+        if (options.completed) {
+          return Effect.fail(new SprintCompletedImmutable())
+        }
+        return Effect.succeed({
+          ...baseGroup({ id, kind: options.kind }),
+          completedAt: isoDate("2026-05-13T00:00:00.000Z")
+        })
+      }
+    } as any)
+    return { stub, captured }
+  }
+
+  const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
+    Layer.mergeAll(
+      EmptyStub(Tickets),
+      groupsLayer,
+      EmptyStub(Comments),
+      ProjectsStub,
+      EmptyStub(Tags),
+      EmptyStub(Users),
+      EmptyStub(BetterAuth),
+      ProjectDocsStub,
+      GroupDocsStub,
+      TicketDocsStub
+    )
+
+  const registerAndCall = (
+    name: string,
+    layer: Layer.Layer<any, never, never>,
+    input: unknown
+  ) => {
+    const runtime = ManagedRuntime.make(layer)
+    const registered = new Map<string, (i: unknown) => Promise<any>>()
+    const fakeServer = {
+      registerTool: (n: string, _m: unknown, cb: any) =>
+        registered.set(n, cb)
+    } as any
+    registerAllTools(fakeServer, runtime as any, handlers as any)
+    return {
+      runtime,
+      call: () => withFakeUser(() => registered.get(name)!(input))
+    }
+  }
+
+  test("create_sprint forces kind: 'sprint' regardless of agent input", async () => {
+    const { stub, captured } = makeGroupsStub()
+    const { runtime, call } = registerAndCall("create_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      name: "Sprint 5"
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.createInput?.kind).toBe("sprint")
+    expect(captured.createInput?.name).toBe("Sprint 5")
+
+    await runtime.dispose()
+  })
+
+  test("update_sprint applies the patch on a sprint-kind group", async () => {
+    const { stub, captured } = makeGroupsStub({ kind: "sprint" })
+    const { runtime, call } = registerAndCall("update_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "G-1",
+      name: "Sprint 5 (renamed)",
+      body: "## Goal\n- ship it"
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.updateInput).toEqual({
+      name: "Sprint 5 (renamed)",
+      body: "## Goal\n- ship it"
+    })
+
+    await runtime.dispose()
+  })
+
+  test("update_sprint rejects non-sprint groups with Validation", async () => {
+    const { stub, captured } = makeGroupsStub({ kind: "epic" })
+    const { runtime, call } = registerAndCall("update_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "G-1",
+      name: "should fail"
+    })
+    const result = await call()
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("not_a_sprint")
+    expect(captured.updateInput).toBeUndefined()
+
+    await runtime.dispose()
+  })
+
+  test("complete_sprint forwards the destination", async () => {
+    const { stub, captured } = makeGroupsStub({ kind: "sprint" })
+    const { runtime, call } = registerAndCall("complete_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "G-1",
+      destination: { kind: "backlog" }
+    })
+    const result = await call()
+
+    expect(result.isError).toBeUndefined()
+    expect(captured.completeInput).toEqual({ destination: { kind: "backlog" } })
+
+    await runtime.dispose()
+  })
+
+  test("complete_sprint rejects non-sprint groups with Validation", async () => {
+    const { stub, captured } = makeGroupsStub({ kind: "milestone" })
+    const { runtime, call } = registerAndCall("complete_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "G-1",
+      destination: { kind: "backlog" }
+    })
+    const result = await call()
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("not_a_sprint")
+    expect(captured.completeInput).toBeUndefined()
+
+    await runtime.dispose()
+  })
+
+  test("complete_sprint surfaces SprintCompletedImmutable", async () => {
+    const { stub } = makeGroupsStub({ kind: "sprint", completed: true })
+    const { runtime, call } = registerAndCall("complete_sprint", makeLayer(stub), {
+      orgSlug: "acme",
+      projectSlug: "demo",
+      id: "G-1",
+      destination: { kind: "backlog" }
+    })
+    const result = await call()
+
+    expect(result.isError).toBe(true)
+    // Specific surfaced text — confirms SprintCompletedImmutable's mapping
+    // in errorMap, not just any error class.
+    expect(result.content[0].text.toLowerCase()).toContain(
+      "sprint is already completed"
+    )
+    await runtime.dispose()
+  })
+
+  test.skip("placeholder", () => {})
+})
+
 describe("MCP dispatcher → NotFound retained", () => {
   test("get_ticket_doc returns NotFound when caller can't see the project", async () => {
     const HiddenProjectsStub = Layer.succeed(Projects, {
