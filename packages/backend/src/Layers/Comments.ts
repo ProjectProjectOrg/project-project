@@ -235,8 +235,8 @@ export const CommentsLive = Layer.effect(
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
-        yield* validateBody(orgSlug, userId, slug, input.body)
         const meta = yield* requireAuthor(slug, ticketId, commentId, userId)
+        yield* validateBody(orgSlug, userId, slug, input.body)
         const editedAt = yield* DateTime.nowAsDate
         yield* db
           .update(commentIndex)

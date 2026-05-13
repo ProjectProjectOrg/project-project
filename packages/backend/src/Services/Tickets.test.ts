@@ -98,7 +98,17 @@ const GitHubStub = Layer.succeed(GitHub, {
   branchExists: () => unexpectedCall("GitHub", "branchExists")
 } satisfies GitHubShape)
 
-const DbStub = Layer.succeed(Db, {} as any)
+const DbStub = Layer.succeed(
+  Db,
+  new Proxy(
+    {},
+    {
+      get: (_target, prop) =>
+        (..._args: ReadonlyArray<unknown>) =>
+          unexpectedCall("Db", String(prop))
+    }
+  ) as never
+)
 
 const GroupsStub = Layer.succeed(Groups, {
   list: () => unexpectedCall("Groups", "list"),

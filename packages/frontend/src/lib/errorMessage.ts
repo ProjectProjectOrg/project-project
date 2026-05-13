@@ -38,6 +38,7 @@ export const errorMessage = (error: AppError): string =>
     Match.tag("SprintCompletedImmutable", () =>
       m.error_sprint_completed_immutable()
     ),
+    Match.tag("MentionInvalid", () => m.error_mention_invalid()),
     Match.tag("Unauthorized", () => m.error_unknown()),
     Match.orElse(() => m.error_unknown())
   )
