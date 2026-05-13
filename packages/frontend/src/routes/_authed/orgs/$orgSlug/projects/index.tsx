@@ -1,4 +1,4 @@
-import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Atom, Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { useRef, useState, type FormEvent } from "react"
@@ -7,6 +7,7 @@ import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
+import { errorMessage, type AppError } from "@/lib/errorMessage"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
@@ -86,11 +87,15 @@ function CreateRow({
   const create = useAtomSet(createProjectAtom(orgSlug), {
     mode: "promiseExit"
   })
+  const resetCreate = useAtomSet(createProjectAtom(orgSlug))
   const createState = useAtomValue(createProjectAtom(orgSlug))
   const submitting = createState.waiting
-  const error = Result.isFailure(createState)
-    ? m.projects_create_error_fallback()
-    : null
+  const error = Result.matchWithError(createState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: (err) => errorMessage(err as AppError),
+    onDefect: () => m.projects_create_error_fallback()
+  })
   const [name, setName] = useState("")
   const [keyOverride, setKeyOverride] = useState("")
   const [keyTouched, setKeyTouched] = useState(false)
@@ -110,12 +115,22 @@ function CreateRow({
   }
 
   function handleKeyChange(value: string) {
+    resetCreate(Atom.Reset)
     const sanitized = value
       .toUpperCase()
       .replace(/[^A-Z0-9]/g, "")
       .slice(0, 10)
     setKeyOverride(sanitized)
-    setKeyTouched(sanitized !== "")
+    setKeyTouched(true)
+  }
+
+  function handleNameChange(value: string) {
+    resetCreate(Atom.Reset)
+    setName(value)
+    if (!value.trim()) {
+      setKeyOverride("")
+      setKeyTouched(false)
+    }
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -126,11 +141,18 @@ function CreateRow({
       setName("")
       setKeyOverride("")
       setKeyTouched(false)
+      inputRef.current?.blur()
+      trackFocus(false)
+    } else {
+      inputRef.current?.focus()
     }
   }
 
   return (
     <form onSubmit={onSubmit}>
+      <button type="submit" className="sr-only" tabIndex={-1} aria-hidden>
+        {m.projects_create_name_aria_label()}
+      </button>
       <div
         className={cn(
           "relative rounded-xl border border-border bg-background transition-[color,box-shadow]",
@@ -158,7 +180,7 @@ function CreateRow({
           <input
             ref={inputRef}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => handleNameChange(e.target.value)}
             onFocus={() => trackFocus(true)}
             onBlur={() => trackFocus(false)}
             placeholder={m.projects_create_name_placeholder()}
@@ -171,11 +193,11 @@ function CreateRow({
             {trimmed && (
               <motion.div
                 key="key-cluster"
-                initial={reduceMotion ? false : { opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "auto" }}
-                exit={reduceMotion ? undefined : { opacity: 0, width: 0 }}
-                transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
-                className="flex shrink-0 items-center overflow-hidden"
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduceMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="flex shrink-0 items-center"
               >
                 <div className="mx-3 h-5 w-px bg-border" />
                 <input
@@ -187,18 +209,14 @@ function CreateRow({
                   aria-label={m.projects_create_key_aria_label()}
                   disabled={submitting}
                   maxLength={10}
-                  className="field-sizing-content min-w-[3ch] bg-transparent font-mono text-sm uppercase tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
+                  style={{ width: "calc(4ch + 0.5rem)" }}
+                  className="shrink-0 bg-transparent pr-2 font-mono text-sm uppercase tabular-nums text-foreground outline-none placeholder:text-muted-foreground"
                 />
               </motion.div>
             )}
           </AnimatePresence>
-          {error && (
-            <span className="ml-2 shrink-0 text-xs text-destructive">
-              {error}
-            </span>
-          )}
           {!focused && !trimmed && !error && (
-            <span className="ml-2">
+            <span className="ml-2 shrink-0">
               <Kbd>c</Kbd>
             </span>
           )}
@@ -214,15 +232,25 @@ function CreateRow({
             transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
             className="overflow-hidden"
           >
-            <div className="mt-2 flex items-center gap-2 pl-3 font-mono text-[11px] text-muted-foreground">
-              <span className="text-muted-foreground/60">→</span>
-              {effectiveKey && (
-                <>
-                  <span>{effectiveKey}-1</span>
-                  <span className="text-muted-foreground/60">·</span>
-                </>
+            <div className="mt-2 flex items-center gap-3 pl-3">
+              <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                <span className="text-muted-foreground/60">→</span>
+                {effectiveKey && (
+                  <>
+                    <span>{effectiveKey}-1</span>
+                    <span className="text-muted-foreground/60">·</span>
+                  </>
+                )}
+                <span className="truncate">/{previewSlug}</span>
+              </div>
+              {error && (
+                <span
+                  role="alert"
+                  className="ml-auto shrink-0 text-xs text-destructive"
+                >
+                  {error}
+                </span>
               )}
-              <span>/{previewSlug}</span>
             </div>
           </motion.div>
         )}
