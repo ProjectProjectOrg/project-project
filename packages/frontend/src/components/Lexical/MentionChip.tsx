@@ -1,17 +1,28 @@
 import { Link } from "@tanstack/react-router"
+import * as Schema from "effect/Schema"
 import { Badge } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
+import { TicketMentionCard } from "@/components/Lexical/TicketMentionCard"
 import { useMentionScope } from "@/mentions/scope"
-import type { MentionType } from "@projectproject/shared"
+import { TicketId, type MentionType } from "@projectproject/shared"
+
+const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
 export function MentionChip({
   type,
   id,
-  label
+  label,
+  preview
 }: {
   type: MentionType
   id: string
   label: string
+  preview?: boolean
 }) {
   const scope = useMentionScope()
   if (type === "user") {
@@ -39,23 +50,65 @@ export function MentionChip({
       </Badge>
     )
   }
-  return (
-    <Badge
-      tone="muted"
-      size="xs"
-      render={
-        scope ? (
+
+  if (!scope) {
+    return (
+      <Badge
+        tone="muted"
+        size="xs"
+        className="font-mono align-middle"
+        contentEditable={false}
+      >
+        {id}
+      </Badge>
+    )
+  }
+
+  if (!preview) {
+    return (
+      <Badge
+        tone="muted"
+        size="xs"
+        render={
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
             params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
             onMouseDown={(e) => e.preventDefault()}
           />
-        ) : undefined
-      }
-      className="font-mono align-middle"
-      contentEditable={false}
-    >
-      {id}
-    </Badge>
+        }
+        className="font-mono align-middle"
+        contentEditable={false}
+      >
+        {id}
+      </Badge>
+    )
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Link
+            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+            params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
+            onMouseDown={(e) => e.preventDefault()}
+          />
+        }
+        openOnHover
+        contentEditable={false}
+      >
+        <Badge
+          tone="muted"
+          size="xs"
+          className="font-mono align-middle"
+          contentEditable={false}
+        >
+          {id}
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="start">
+        <TicketMentionCard ticketId={makeTicketId(id)} />
+      </PopoverContent>
+    </Popover>
   )
 }
