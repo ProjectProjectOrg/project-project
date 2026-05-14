@@ -1,5 +1,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
+import { MemberAvatar } from "@/components/MemberAvatar"
+import { TicketGitChip } from "@/components/TicketGit"
 import { useMentionScope } from "@/mentions/scope"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
@@ -64,6 +66,26 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
           </p>
         ) : null
       })()}
+      {ticket.assignees.length > 0 && scope.members && (
+        <div className="flex items-center gap-1">
+          {ticket.assignees
+            .map((id) => scope.members?.find((member) => member.id === id))
+            .filter((member): member is NonNullable<typeof member> => !!member)
+            .slice(0, 3)
+            .map((member) => (
+              <MemberAvatar key={member.id} member={member} size={16} />
+            ))}
+        </div>
+      )}
+      {ticket.branch && (
+        <div>
+          <TicketGitChip
+            orgSlug={scope.orgSlug}
+            slug={scope.slug}
+            ticketId={ticketId}
+          />
+        </div>
+      )}
       <div className="border-t border-border pt-2 text-right">
         <Link
           to="/orgs/$orgSlug/projects/$slug/tickets/$id"
