@@ -18,6 +18,16 @@ import type {
   TicketType
 } from "@projectproject/shared"
 
+function firstBodyLine(body: string): string | null {
+  for (const raw of body.split("\n")) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.startsWith("#")) continue
+    return line
+  }
+  return null
+}
+
 export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const scope = useMentionScope()
   if (!scope) return null
@@ -46,6 +56,14 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
         {ticket.title}
       </div>
       <MetaRow ticket={ticket} />
+      {(() => {
+        const line = firstBodyLine(ticket.body)
+        return line ? (
+          <p className="truncate text-xs italic text-muted-foreground">
+            {line}
+          </p>
+        ) : null
+      })()}
       <div className="border-t border-border pt-2 text-right">
         <Link
           to="/orgs/$orgSlug/projects/$slug/tickets/$id"
