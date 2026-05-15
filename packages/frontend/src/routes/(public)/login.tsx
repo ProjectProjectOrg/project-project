@@ -62,7 +62,7 @@ function LoginPage() {
             />
           </div>
           <div className="relative flex size-16 items-center justify-center rounded-2xl bg-background shadow-sm ring-1 ring-border">
-            <Logo className="size-11" />
+            <Logo className="size-10" />
           </div>
           <div className="relative flex flex-col items-center gap-4">
             <Wordmark className="h-5 w-auto" />
@@ -87,33 +87,12 @@ function LoginPage() {
               type="submit"
               variant="dither"
               size="lg"
-              className="w-full text-white dark:hidden"
-              leadingIcon={Mail}
-              loading={magicLinkPending}
-              ditherFrom="#807F7F"
-              ditherTo="#0a0a0a"
-              ditherDirection="r"
-              ditherStops={[0.14, 0.9]}
-              ditherHoverStops={[0.04, 0.78]}
-              ditherMatrix="4x4"
-              ditherPixelSize={3}
-            >
-              {m.auth_continue_with_email_button()}
-            </Button>
-            <Button
-              type="submit"
-              variant="dither"
-              size="lg"
-              className="hidden w-full text-white dark:inline-flex"
+              className="w-full text-white"
               leadingIcon={Mail}
               loading={magicLinkPending}
               ditherFrom="#0a0a0a"
               ditherTo="#737373"
               ditherDirection="r"
-              ditherStops={[0.14, 0.9]}
-              ditherHoverStops={[0.04, 0.78]}
-              ditherMatrix="4x4"
-              ditherPixelSize={3}
             >
               {m.auth_continue_with_email_button()}
             </Button>
