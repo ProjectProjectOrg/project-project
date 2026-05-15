@@ -26,6 +26,7 @@
     "node_modules",
     "bun.lock",
     "*.tsbuildinfo",
-    "**/routeTree.gen.ts"
+    "**/routeTree.gen.ts",
+    "**/*.md"
   ]
 }

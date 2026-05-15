@@ -62,7 +62,7 @@
 // the right behavior.
 
 import { betterAuth } from "better-auth"
-import { admin, mcp, organization } from "better-auth/plugins"
+import { admin, magicLink, mcp, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -122,6 +122,7 @@ export const auth = betterAuth({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scope: ["read:user", "user:email", "repo"],
+      disableSignUp: true,
       // GitHub's `login` is the unique handle (e.g. "wouter-vh"). Fallback
       // to a slugified `name` if the profile is missing it (shouldn't happen
       // with the read:user scope, but defensive).
@@ -130,6 +131,10 @@ export const auth = betterAuth({
           profile.login?.toLowerCase() ??
           profile.name?.toLowerCase().replace(/\s+/g, "-")
       })
+    },
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET
     }
   },
   session: {
@@ -221,6 +226,7 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
+      requireEmailVerificationOnInvitation: true,
       schema: {
         organization: {
           additionalFields: {
@@ -242,6 +248,13 @@ export const auth = betterAuth({
         const acceptUrl = `${process.env.BETTER_AUTH_URL}/invite/${data.invitation.id}`
         process.stdout.write(
           `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}\n`
+        )
+      }
+    }),
+    magicLink({
+      sendMagicLink: async (data) => {
+        process.stdout.write(
+          `[magic-link] email=${data.email} url=${data.url}\n`
         )
       }
     }),

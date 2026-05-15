@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { authedRootRedirect } from "@/lib/authRedirect"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -45,15 +46,12 @@ function AuthedLayout() {
       </FullPageStatus>
     ),
     onSuccess: ({ value }) => {
-      // "/" with an active org → org dashboard; null org falls through to Shell (https://projectproject.missler.xyz/projects/project-project?ticket=T-35 will redirect to /onboarding).
-      if (pathname === "/" && value.activeOrgSlug) {
-        return (
-          <Navigate
-            to="/orgs/$orgSlug"
-            params={{ orgSlug: value.activeOrgSlug }}
-            replace
-          />
-        )
+      const redirect = authedRootRedirect(pathname, value.activeOrgSlug)
+      if (redirect?.to === "/orgs/$orgSlug") {
+        return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
+      }
+      if (redirect?.to === "/welcome") {
+        return <Navigate to="/welcome" replace />
       }
       return (
         <SidebarSlotProvider>
