@@ -16,13 +16,11 @@ const makeTicketId = Schema.decodeUnknownSync(TicketId)
 export function MentionChip({
   type,
   id,
-  label,
-  preview
+  label
 }: {
   type: MentionType
   id: string
   label: string
-  preview?: boolean
 }) {
   const scope = useMentionScope()
   if (type === "user") {
@@ -56,26 +54,6 @@ export function MentionChip({
       <Badge
         tone="muted"
         size="xs"
-        className="font-mono align-middle"
-        contentEditable={false}
-      >
-        {id}
-      </Badge>
-    )
-  }
-
-  if (!preview) {
-    return (
-      <Badge
-        tone="muted"
-        size="xs"
-        render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
-            onMouseDown={(e) => e.preventDefault()}
-          />
-        }
         className="font-mono align-middle"
         contentEditable={false}
       >

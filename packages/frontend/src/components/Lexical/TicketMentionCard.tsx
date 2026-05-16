@@ -1,8 +1,10 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
+import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
-import { useMentionScope } from "@/mentions/scope"
+import { useMentionScope, type MentionScope } from "@/mentions/scope"
+import type { Member } from "@projectproject/shared"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { PRIORITY_LABELS, PRIORITY_META } from "@/lib/priority-meta"
@@ -20,16 +22,6 @@ import type {
   TicketType
 } from "@projectproject/shared"
 
-function firstBodyLine(body: string): string | null {
-  for (const raw of body.split("\n")) {
-    const line = raw.trim()
-    if (!line) continue
-    if (line.startsWith("#")) continue
-    return line
-  }
-  return null
-}
-
 export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const scope = useMentionScope()
   if (!scope) return null
@@ -46,35 +38,44 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   }
 
   if (!Result.isSuccess(result)) {
-    return <CardSkeleton id={ticketId} />
+    return <CardSkeleton />
   }
 
   const ticket = result.value
+  const body = ticket.body.trim()
+  const isOverflowing =
+    body.split("\n").length > 6 || body.length > 320
 
   return (
     <div className="space-y-2">
-      <div className="font-mono text-xs text-muted-foreground">{ticket.id}</div>
       <div className="line-clamp-2 text-sm font-medium leading-snug">
         {ticket.title}
       </div>
-      <MetaRow ticket={ticket} />
-      {(() => {
-        const line = firstBodyLine(ticket.body)
-        return line ? (
-          <p className="truncate text-xs italic text-muted-foreground">
-            {line}
-          </p>
-        ) : null
-      })()}
-      {ticket.assignees.length > 0 && scope.members && (
-        <div className="flex items-center gap-1">
-          {ticket.assignees
-            .map((id) => scope.members?.find((member) => member.id === id))
-            .filter((member): member is NonNullable<typeof member> => !!member)
-            .slice(0, 3)
-            .map((member) => (
-              <MemberAvatar key={member.id} member={member} size={16} />
-            ))}
+      <MetaRow ticket={ticket} scope={scope} />
+      {body.length > 0 && (
+        <div className="relative">
+          <Markdown className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1">
+            {body}
+          </Markdown>
+          {isOverflowing && (
+            <>
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
+              />
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{
+                  orgSlug: scope.orgSlug,
+                  slug: scope.slug,
+                  id: ticketId
+                }}
+                className="absolute bottom-0 right-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {m.tickets_mention_card_read_more()} →
+              </Link>
+            </>
+          )}
         </div>
       )}
       {ticket.branch && (
@@ -86,27 +87,21 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
           />
         </div>
       )}
-      <div className="border-t border-border pt-2 text-right">
-        <Link
-          to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-          params={{ orgSlug: scope.orgSlug, slug: scope.slug, id: ticketId }}
-          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {m.tickets_mention_card_view_ticket()} →
-        </Link>
-      </div>
     </div>
   )
 }
 
 function MetaRow({
-  ticket
+  ticket,
+  scope
 }: {
   ticket: {
     status: TicketStatus
     type: TicketType
     priority: TicketPriority
+    assignees: ReadonlyArray<string>
   }
+  scope: MentionScope
 }) {
   const status = STATUS_META[ticket.status]
   const type = TYPE_META[ticket.type]
@@ -114,6 +109,12 @@ function MetaRow({
   const StatusIcon = status.icon
   const TypeIcon = type.icon
   const PriorityIcon = priority.icon
+  const visibleAssignees: Member[] = scope.members
+    ? ticket.assignees
+        .map((id) => scope.members?.find((member) => member.id === id))
+        .filter((member): member is Member => !!member)
+        .slice(0, 3)
+    : []
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1">
@@ -134,14 +135,20 @@ function MetaRow({
         />
         <span>{PRIORITY_LABELS[ticket.priority]()}</span>
       </span>
+      {visibleAssignees.length > 0 && (
+        <span className="ml-auto inline-flex items-center gap-1">
+          {visibleAssignees.map((member) => (
+            <MemberAvatar key={member.id} member={member} size={16} />
+          ))}
+        </span>
+      )}
     </div>
   )
 }
 
-function CardSkeleton({ id }: { id: TicketId }) {
+function CardSkeleton() {
   return (
     <div className="space-y-2">
-      <div className="font-mono text-xs text-muted-foreground">{id}</div>
       <div className="h-4 w-3/4 rounded bg-muted" />
       <div className="h-3 w-1/2 rounded bg-muted" />
     </div>

@@ -35,7 +35,7 @@
   "tickets_list_defect": "Something went wrong: {defect}",
   "tickets_list_load_error": "Couldn't load tickets: {error}",
   "tickets_mention_card_not_available": "Ticket not available",
-  "tickets_mention_card_view_ticket": "View ticket",
+  "tickets_mention_card_read_more": "Read more",
   "tickets_new_button": "New ticket",
   "tickets_no_filter_matches": "No tickets match your filters.",
   "tickets_no_search_matches_prefix": "No tickets match",
