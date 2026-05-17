@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import type { Ticket, TicketFilter } from "@projectproject/shared"
+import type { Ticket, TicketFilter, TicketListQuery } from "@projectproject/shared"
 import { TagName, TicketId } from "@projectproject/shared"
 import { matchesTicketFilter, matchesTicketQuery } from "./TicketFilters"
 
@@ -135,5 +135,37 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(assigned, { filter: { assignee: [null] } }, "user-a")
     ).toBe(false)
+  })
+
+  it("ANDs q and filter — both must match", () => {
+    const ticket = baseTicket({ status: "in_progress", title: "hello" })
+    const both: Pick<TicketListQuery, "filter" | "q"> = {
+      filter: { status: ["in_progress"] },
+      q: "hello"
+    }
+    expect(matchesTicketQuery(ticket, both, "user-a")).toBe(true)
+
+    expect(
+      matchesTicketQuery(ticket, { filter: { status: ["todo"] }, q: "hello" }, "user-a")
+    ).toBe(false)
+    expect(
+      matchesTicketQuery(
+        ticket,
+        { filter: { status: ["in_progress"] }, q: "goodbye" },
+        "user-a"
+      )
+    ).toBe(false)
+  })
+
+  it("q does not match across title/id boundary", () => {
+    const t = baseTicket({ id: decodeTicketId("T-1"), title: "Hello world" })
+    expect(matchesTicketQuery(t, { q: "world T" }, "user-a")).toBe(false)
+    expect(matchesTicketQuery(t, { q: "world t" }, "user-a")).toBe(false)
+  })
+
+  it("whitespace-only q is a no-op", () => {
+    const t = baseTicket({ title: "Hello world" })
+    expect(matchesTicketQuery(t, { q: "   " }, "user-a")).toBe(true)
+    expect(matchesTicketQuery(t, { q: " " }, "user-a")).toBe(true)
   })
 })

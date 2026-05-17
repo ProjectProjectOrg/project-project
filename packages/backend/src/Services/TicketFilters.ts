@@ -70,10 +70,16 @@ export const matchesTicketQuery = (
     if (!matchesTicketFilter(ticket, resolvedFilter)) return false
   }
 
-  if (query.q !== undefined && query.q.length > 0) {
-    const needle = query.q.toLowerCase()
-    const haystack = `${ticket.title.toLowerCase()} ${ticket.id.toLowerCase()}`
-    if (!haystack.includes(needle)) return false
+  if (query.q !== undefined) {
+    const needle = query.q.trim().toLowerCase()
+    if (needle.length > 0) {
+      if (
+        !ticket.title.toLowerCase().includes(needle) &&
+        !ticket.id.toLowerCase().includes(needle)
+      ) {
+        return false
+      }
+    }
   }
 
   return true
