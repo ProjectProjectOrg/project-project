@@ -41,7 +41,6 @@ import {
   TicketId,
   UpdateTicketInput
 } from "./schemas/Ticket"
-import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import {
   AttachBranchInput,
   BranchListResponse,
@@ -69,6 +68,7 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
+import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import {
   BranchExists,
   BranchNotFound,
@@ -282,49 +282,28 @@ const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .middleware(Authentication)
 
-const TicketListParams = Schema.Struct({
-  status: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  type: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  assignee: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  tags: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  groupId: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  hasBranch: Schema.optional(Schema.String),
-  hasPr: Schema.optional(Schema.String),
-  sort: Schema.optional(Schema.String),
-  q: Schema.optional(Schema.String),
-  cursor: Schema.optional(Schema.String)
-})
+const MultiStringParam = Schema.optional(Schema.Array(Schema.String))
 
-const TicketCountParams = Schema.Struct({
-  status: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  type: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  assignee: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  tags: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
-  groupId: Schema.optional(
-    Schema.Union(Schema.String, Schema.Array(Schema.String))
-  ),
+const BaseTicketFilterParams = Schema.Struct({
+  status: MultiStringParam,
+  type: MultiStringParam,
+  assignee: MultiStringParam,
+  tags: MultiStringParam,
+  groupId: MultiStringParam,
   hasBranch: Schema.optional(Schema.String),
   hasPr: Schema.optional(Schema.String),
   q: Schema.optional(Schema.String)
 })
+
+const TicketListParams = Schema.extend(
+  BaseTicketFilterParams,
+  Schema.Struct({
+    sort: Schema.optional(Schema.String),
+    cursor: Schema.optional(Schema.String)
+  })
+)
+
+const TicketCountParams = BaseTicketFilterParams
 
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
