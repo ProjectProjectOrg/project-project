@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest"
-import {
-  padNumericIdSort,
-  paginateSorted,
-  tryDecodeCursor
-} from "./cursor"
+import { padNumericIdSort, paginateSorted, tryDecodeCursor } from "./cursor"
 import { decodeCursor, encodeCursor } from "./Pagination"
 
 describe("cursor helpers", () => {
   it("pads numeric ids to 10 chars", () => {
     expect(padNumericIdSort("T-1")).toBe("0000000001")
+    expect(padNumericIdSort("FOO-1")).toBe("0000000001")
+    expect(padNumericIdSort("A1B2-42")).toBe("0000000042")
+    expect(padNumericIdSort("FOO-BAR-7")).toBe("0000000007")
     expect(padNumericIdSort("G-42")).toBe("0000000042")
     expect(padNumericIdSort("T-1234567890")).toBe("1234567890")
   })
@@ -73,10 +72,7 @@ describe("paginateSorted", () => {
   })
 
   it("returns an empty page when the cursor is past the last item", () => {
-    const page = paginateSorted(
-      all,
-      opts({ id: "T-5", sort: "0000000005" })
-    )
+    const page = paginateSorted(all, opts({ id: "T-5", sort: "0000000005" }))
     expect(page.items).toEqual([])
     expect(page.nextCursor).toBeNull()
   })

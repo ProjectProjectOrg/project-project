@@ -261,6 +261,29 @@ export function LexicalEditor({
     []
   )
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const editable = wrapper.querySelector<HTMLElement>(
+      '[contenteditable="true"]'
+    )
+    if (!editable) return
+    editable.spellcheck = false
+    const focusIn = () => {
+      editable.spellcheck = true
+    }
+    const focusOut = () => {
+      editable.spellcheck = false
+    }
+    wrapper.addEventListener("focusin", focusIn)
+    wrapper.addEventListener("focusout", focusOut)
+    return () => {
+      wrapper.removeEventListener("focusin", focusIn)
+      wrapper.removeEventListener("focusout", focusOut)
+    }
+  }, [])
+
   const [contentEditable] = useState(() => (
     <div className="relative">
       <ContentEditable
@@ -279,7 +302,7 @@ export function LexicalEditor({
   ))
 
   return (
-    <div className={cn("prose-md", className)}>
+    <div ref={wrapperRef} className={cn("prose-md", className)}>
       <LexicalExtensionComposer
         extension={extension}
         contentEditable={contentEditable}

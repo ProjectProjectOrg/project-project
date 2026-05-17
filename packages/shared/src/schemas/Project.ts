@@ -6,8 +6,6 @@
 // only, can't start or end with a dash.
 //
 // `Project` is the full record (used by list responses for now; later by /get).
-// `CreateProjectInput` is the inline-create payload — name only, slug is
-// derived on the server so the client doesn't have to deal with conflicts.
 
 import * as Schema from "effect/Schema"
 
@@ -17,6 +15,18 @@ export const Slug = Schema.String.pipe(
   Schema.maxLength(64)
 )
 export type Slug = typeof Slug.Type
+
+export const CreatableProjectKey = Schema.String.pipe(
+  Schema.pattern(/^[A-Z][A-Z0-9]{1,9}$/),
+  Schema.brand("CreatableProjectKey")
+)
+export type CreatableProjectKey = typeof CreatableProjectKey.Type
+
+export const ProjectKey = Schema.Union(
+  CreatableProjectKey,
+  Schema.Literal("T")
+).pipe(Schema.brand("ProjectKey"))
+export type ProjectKey = typeof ProjectKey.Type
 
 // Three-tier role model (spec §"Permission model").
 //   owner  — created the project. Sole role with delete + role-change rights.
@@ -60,6 +70,7 @@ export type GithubConnection = typeof GithubConnection.Type
 export const Project = Schema.Struct({
   org: Slug,
   slug: Slug,
+  key: ProjectKey,
   name: Schema.String,
   createdBy: Schema.String,
   createdAt: Schema.Date
@@ -67,7 +78,8 @@ export const Project = Schema.Struct({
 export type Project = typeof Project.Type
 
 export const CreateProjectInput = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120))
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120)),
+  key: CreatableProjectKey
 })
 export type CreateProjectInput = typeof CreateProjectInput.Type
 

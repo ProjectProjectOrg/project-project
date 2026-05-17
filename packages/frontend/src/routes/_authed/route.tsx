@@ -69,7 +69,7 @@ function Shell({ user }: { user: User }) {
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60">
+          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60 [scrollbar-gutter:stable]">
             <div className="p-6">
               <Outlet />
             </div>
@@ -102,7 +102,7 @@ function Sidebar({ user }: { user: User }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
-              className="absolute inset-0 overflow-y-auto px-3 py-2"
+              className="absolute inset-0 overflow-y-auto px-3 py-2 will-change-transform"
             >
               {slot}
             </motion.div>
@@ -113,7 +113,7 @@ function Sidebar({ user }: { user: User }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
               transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
-              className="absolute inset-0 overflow-y-auto"
+              className="absolute inset-0 overflow-y-auto will-change-transform"
             >
               <PrimaryNav orgSlug={orgSlug} />
             </motion.div>
@@ -206,7 +206,9 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
 function Topbar({ user }: { user: User }) {
   return (
     <header className="flex h-14 items-center gap-2 px-4">
-      <Breadcrumbs className="min-w-0 flex-1" />
+      <div className="min-w-0 flex-1">
+        <Breadcrumbs />
+      </div>
       <UserMenu user={user} />
     </header>
   )

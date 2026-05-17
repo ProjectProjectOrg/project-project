@@ -38,6 +38,7 @@ function LoginPage() {
     event.preventDefault()
     setMagicLinkPending(true)
     setMagicLinkError(null)
+    setMagicLinkSent(false)
     const { error } = await authClient.signIn.magicLink({
       email,
       callbackURL: "/"
@@ -162,7 +163,6 @@ function GoogleMark({
   className
 }: {
   size?: number
-  strokeWidth?: number
   className?: string
 }) {
   return (

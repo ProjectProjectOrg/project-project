@@ -1,5 +1,6 @@
 import { getTestInstance } from "better-auth/test"
 import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
+import { organization } from "better-auth/plugins"
 import { describe, expect, it, vi } from "vitest"
 import { auth } from "./auth"
 
@@ -33,6 +34,7 @@ describe("Better Auth plugin wiring", () => {
 
       const verificationUrl = writes.join("").match(/url=(?<url>\S+)/)
         ?.groups?.url
+      expect(verificationUrl).toBeDefined()
       expect(verificationUrl).toContain("/magic-link/verify")
 
       const response = await customFetchImpl(verificationUrl!, {
@@ -53,7 +55,9 @@ describe("Better Auth plugin wiring", () => {
   })
 
   it("rejects invite acceptance when the signed-in recipient email is not verified", async () => {
-    const organizationPlugin = configuredPlugin("organization")
+    const organizationPlugin = organization({
+      requireEmailVerificationOnInvitation: true
+    })
     const { client, signInWithTestUser, signInWithUser } =
       await getTestInstance(
         {
@@ -87,11 +91,12 @@ describe("Better Auth plugin wiring", () => {
       invitationId = invitation!.id
     })
 
-    await client.signUp.email({
+    const { error: signUpError } = await client.signUp.email({
       email: "invited@example.com",
       password: "password123",
       name: "Invited User"
     })
+    expect(signUpError).toBeNull()
 
     const invited = await signInWithUser("invited@example.com", "password123")
     const { error } = await client.organization.acceptInvitation({
@@ -102,6 +107,35 @@ describe("Better Auth plugin wiring", () => {
     expect(error?.message).toBe(
       "Email verification required before accepting or rejecting invitation"
     )
+  })
+
+  it("exposes the organization plugin endpoints", () => {
+    expect(typeof auth.api.createOrganization).toBe("function")
+    expect(typeof auth.api.listOrganizations).toBe("function")
+    expect(typeof auth.api.createInvitation).toBe("function")
+    expect(typeof auth.api.acceptInvitation).toBe("function")
+    expect(typeof auth.api.setActiveOrganization).toBe("function")
+  })
+
+  it("disables public self-serve organization creation", () => {
+    const orgPlugin = auth.options.plugins?.find(
+      (plugin) => plugin.id === "organization"
+    )
+    expect(orgPlugin?.options?.allowUserToCreateOrganization).toBe(false)
+  })
+
+  it("links new social sign-ins to existing users by email", () => {
+    expect(auth.options.account?.accountLinking?.enabled).toBe(true)
+    expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
+      "github"
+    )
+  })
+
+  it("exposes the admin plugin endpoints", () => {
+    expect(typeof auth.api.listUsers).toBe("function")
+    expect(typeof auth.api.setRole).toBe("function")
+    expect(typeof auth.api.banUser).toBe("function")
+    expect(typeof auth.api.impersonateUser).toBe("function")
   })
 })
 

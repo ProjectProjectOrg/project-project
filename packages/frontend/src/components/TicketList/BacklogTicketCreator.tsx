@@ -29,7 +29,7 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { createTicketAtom } from "@/atoms/tickets"
+import { quickCreateTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -45,8 +45,8 @@ export function BacklogTicketCreator({
   slug: string
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(createTicketAtom(projKey))
+  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
+  const createState = useAtomValue(quickCreateTicketAtom(projKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
@@ -99,13 +99,9 @@ export function BacklogTicketCreator({
       setTitle("")
       refreshGitStates()
       void navigate({
-        to: ".",
-        search: (prev) => ({
-          ...(prev as object),
-          ticket: ticket.id,
-          focusBody: 1
-        }),
-        replace: true
+        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+        params: { orgSlug, slug, id: ticket.id },
+        search: { focusBody: 1 }
       })
     }
   }

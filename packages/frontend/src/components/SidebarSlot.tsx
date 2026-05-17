@@ -2,7 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode
@@ -40,7 +40,7 @@ export function useSidebarSlot(key: string, render: () => ReactNode) {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error("useSidebarSlot outside provider")
   const { setContent } = ctx
-  useEffect(() => {
+  useLayoutEffect(() => {
     setContent(key, render())
     return () => setContent(key, null)
   }, [key, render, setContent])

@@ -27,7 +27,7 @@ export const Route = createFileRoute("/(public)/oauth/consent")({
 function OauthConsentPage() {
   const me = useAtomValue(meAtom)
   const search = Route.useSearch()
-  const { consent_code, client_id, scope } = search
+  const { consent_code, client_id } = search
 
   if (Result.isFailure(me)) {
     return <Navigate to="/login" search={search} />
@@ -37,30 +37,21 @@ function OauthConsentPage() {
     return <ConsentShell title={m.auth_oauth_consent_title()} />
   }
 
-  return (
-    <ConsentForm
-      consentCode={consent_code}
-      clientId={client_id}
-      scope={scope}
-    />
-  )
+  return <ConsentForm consentCode={consent_code} clientId={client_id} />
 }
 
 function ConsentForm({
   consentCode,
-  clientId,
-  scope
+  clientId
 }: {
   consentCode: string
   clientId: string | undefined
-  scope: string | undefined
 }) {
   const submit = useAtomSet(submitConsentAtom(consentCode), {
     mode: "promiseExit"
   })
   const submitState = useAtomValue(submitConsentAtom(consentCode))
   const [pending, setPending] = useState<"accept" | "deny" | null>(null)
-  const scopes = (scope ?? "").split(/\s+/).filter(Boolean)
   const error = Result.isFailure(submitState) ? m.error_unknown() : null
 
   const onSubmit = async (accept: boolean) => {
@@ -73,23 +64,33 @@ function ConsentForm({
     setPending(null)
   }
 
+  const capabilities = [
+    m.auth_oauth_consent_capability_read(),
+    m.auth_oauth_consent_capability_write_tickets(),
+    m.auth_oauth_consent_capability_write_comments(),
+    m.auth_oauth_consent_capability_attach_branch()
+  ]
+
   return (
     <ConsentShell title={m.auth_oauth_consent_title()}>
       <p className="text-sm text-muted-foreground">
         {m.auth_oauth_consent_subtitle({ client: clientId ?? "—" })}
       </p>
-      {scopes.length > 0 ? (
+      <div className="flex w-full flex-col gap-2">
+        <p className="text-sm font-medium text-foreground">
+          {m.auth_oauth_consent_capabilities_heading()}
+        </p>
         <ul className="w-full space-y-1.5 rounded-xl border border-border bg-muted/40 p-3 text-[13px] text-foreground">
-          {scopes.map((s) => (
-            <li key={s} className="flex items-center gap-2 font-mono">
-              <span aria-hidden className="text-muted-foreground">
+          {capabilities.map((label) => (
+            <li key={label} className="flex items-start gap-2">
+              <span aria-hidden className="mt-[5px] text-muted-foreground">
                 ·
               </span>
-              {s}
+              <span>{label}</span>
             </li>
           ))}
         </ul>
-      ) : null}
+      </div>
 
       <div className="flex w-full flex-col gap-2">
         <Button

@@ -1,6 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { useEffect, useMemo, useRef, type ReactNode } from "react"
-import { ChevronDown, ListChecks, X } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { useMemo, type ReactNode } from "react"
+import { ListChecks, X } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +26,6 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type { Group, Member, Ticket, TicketId } from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
-import { Expanded } from "./Expanded"
 import { PriorityButton } from "./PriorityField"
 import { SORTS } from "./sort"
 import { SprintField } from "./SprintField"
@@ -39,10 +39,6 @@ export function FilteredList({
   slug,
   tickets,
   members,
-  expandedId,
-  onExpand,
-  focusBody,
-  onConsumeFocusBody,
   uiKey,
   extraRowActions,
   sprintMembership
@@ -51,10 +47,6 @@ export function FilteredList({
   slug: string
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
-  expandedId: TicketId | null
-  onExpand: (id: TicketId | null) => void
-  focusBody: boolean
-  onConsumeFocusBody: () => void
   uiKey?: string
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
@@ -131,34 +123,24 @@ export function FilteredList({
   const showExtraActionsCol = extraRowActions !== undefined
   const gridCols = cn(
     "grid divide-y divide-border rounded-xl border border-border bg-background",
-    showSprintCol && showExtraActionsCol
-      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto_auto]"
-      : showSprintCol
-        ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-        : showExtraActionsCol
-          ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto_auto]"
-          : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto_auto_auto]"
+    showExtraActionsCol
+      ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
+      : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto]"
   )
   return (
     <ul className={gridCols}>
       {filtered.map((t) => {
-        const isExpanded = expandedId === t.id
         const membership = sprintMembership?.get(t.id) ?? null
         return (
           <li
             key={t.id}
-            data-expanded={isExpanded || undefined}
-            className="col-span-full grid grid-cols-subgrid transition-opacity duration-200 ease-out [ul:has(>li[data-expanded])>&:not([data-expanded])]:opacity-40 [ul:has(>li[data-expanded])>&:not([data-expanded]):hover]:opacity-100"
+            className="col-span-full grid grid-cols-subgrid"
           >
             <Row
               orgSlug={orgSlug}
               slug={slug}
               ticket={t}
               members={members}
-              isExpanded={isExpanded}
-              onToggle={() => onExpand(isExpanded ? null : t.id)}
-              focusBody={focusBody && isExpanded}
-              onConsumeFocusBody={onConsumeFocusBody}
               showSprintCol={showSprintCol}
               showExtraActionsCol={showExtraActionsCol}
               sprintMembership={membership}
@@ -176,10 +158,6 @@ function Row({
   slug,
   ticket,
   members,
-  isExpanded,
-  onToggle,
-  focusBody,
-  onConsumeFocusBody,
   showSprintCol,
   showExtraActionsCol,
   sprintMembership,
@@ -189,39 +167,20 @@ function Row({
   slug: string
   ticket: Ticket
   members: ReadonlyArray<Member>
-  isExpanded: boolean
-  onToggle: () => void
-  focusBody: boolean
-  onConsumeFocusBody: () => void
   showSprintCol: boolean
   showExtraActionsCol: boolean
   sprintMembership: Group | null
   extraRowActions?: (ticket: Ticket) => ReactNode
 }) {
-  const rowRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!focusBody || !isExpanded) return
-    rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-  }, [focusBody, isExpanded])
   return (
-    <div
-      ref={rowRef}
-      className="group/list-row col-span-full grid grid-cols-subgrid"
-    >
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            onToggle()
-          }
-        }}
-        aria-expanded={isExpanded}
+    <div className="group/list-row col-span-full grid grid-cols-subgrid">
+      <Link
+        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+        params={{ orgSlug, slug, id: ticket.id }}
         className={cn(
-          "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring",
-          isExpanded ? "bg-accent/40" : "hover:bg-accent/30"
+          "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring",
+          "[li:first-child_&]:rounded-t-xl",
+          "[li:last-child_&]:rounded-b-xl"
         )}
       >
         <StatusButton
@@ -239,29 +198,33 @@ function Row({
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
-        <span className="min-w-0 truncate text-sm font-medium">
-          {ticket.title}
-        </span>
-        <div className="justify-self-end">
-          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
-        </div>
-        {showSprintCol && (
-          <div className="justify-self-end">
-            <SprintField
+        <div className="flex min-w-0 items-center">
+          <span className="min-w-0 truncate text-sm font-medium">
+            {ticket.title}
+          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
+            <TicketGitChip
               orgSlug={orgSlug}
               slug={slug}
               ticketId={ticket.id}
-              membership={sprintMembership}
+            />
+            {showSprintCol && (
+              <SprintField
+                orgSlug={orgSlug}
+                slug={slug}
+                ticketId={ticket.id}
+                membership={sprintMembership}
+              />
+            )}
+            <AssigneeRowTrigger
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={ticket}
+              members={members}
+              className="hidden sm:inline-flex"
             />
           </div>
-        )}
-        <AssigneeRowTrigger
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          members={members}
-          className="hidden sm:inline-flex"
-        />
+        </div>
         <TypeButton
           orgSlug={orgSlug}
           slug={slug}
@@ -271,31 +234,15 @@ function Row({
         {showExtraActionsCol && (
           <span
             className="inline-flex shrink-0 items-center"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+            }}
           >
             {extraRowActions?.(ticket)}
           </span>
         )}
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
-            isExpanded && "rotate-180"
-          )}
-          strokeWidth={1.75}
-        />
-      </div>
-      {isExpanded && (
-        <div className="col-span-full">
-          <Expanded
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            members={members}
-            focusBody={focusBody}
-            onConsumeFocusBody={onConsumeFocusBody}
-          />
-        </div>
-      )}
+      </Link>
     </div>
   )
 }

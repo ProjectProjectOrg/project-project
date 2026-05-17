@@ -35,7 +35,12 @@ import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { activeAndPlannedCount, sprintState } from "@projectproject/shared"
+import {
+  activeAndPlannedCount,
+  pickActiveSprint,
+  pickEarliestPlannedSprint,
+  sprintState
+} from "@projectproject/shared"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
@@ -88,18 +93,33 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   })
 })
 
+function useIsSprintBoardView() {
+  const matches = useMatches()
+  const sprintMatch = matches.find(
+    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+  )
+  if (!sprintMatch) return false
+  const search = sprintMatch.search as { view?: "list" | "board" }
+  return (search.view ?? "board") === "board"
+}
+
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
+  const wide = useIsSprintBoardView()
+  const location = useLocation()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const onTicketDetail = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/tickets/`
+  )
 
   return Result.matchWithError(project, {
     onInitial: () => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <Skeleton />
       </PageContainer>
     ),
     onError: (error) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         {error._tag === "NotFound" ? (
           <NotFoundCard slug={slug} />
         ) : (
@@ -110,7 +130,7 @@ function ProjectLayout() {
       </PageContainer>
     ),
     onDefect: (defect) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
       </PageContainer>
     ),
@@ -118,15 +138,17 @@ function ProjectLayout() {
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <div className="flex flex-col gap-6">
-            <PageContainer>
-              <ProjectHeader
-                orgSlug={orgSlug}
-                slug={value.slug}
-                name={value.name}
-                project={value}
-              />
-              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-            </PageContainer>
+            {!onTicketDetail && (
+              <PageContainer wide={wide}>
+                <ProjectHeader
+                  orgSlug={orgSlug}
+                  slug={value.slug}
+                  name={value.name}
+                  project={value}
+                />
+                <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+              </PageContainer>
+            )}
             <Outlet />
           </div>
         </TagRenamesProvider>
@@ -149,21 +171,23 @@ function ProjectHeader({
   const { role: myRole } = useProjectRole()
 
   return (
-    <header className="flex items-start gap-3">
-      <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+    <header className="flex items-start gap-3 px-4">
+      <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
       </div>
-      <GithubChip
-        orgSlug={orgSlug}
-        slug={slug}
-        github={project.github}
-        callerRole={myRole}
-      />
-      <ProjectMenu orgSlug={orgSlug} slug={slug} />
+      <div className="flex items-center gap-3">
+        <GithubChip
+          orgSlug={orgSlug}
+          slug={slug}
+          github={project.github}
+          callerRole={myRole}
+        />
+        <ProjectMenu orgSlug={orgSlug} slug={slug} />
+      </div>
     </header>
   )
 }
@@ -396,6 +420,9 @@ function TabsNav({
 
   const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
   const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
+  const sprintTarget = Result.isSuccess(sprintsResult)
+    ? pickSprintNavigationTarget(sprintsResult.value)
+    : null
   const items: ReadonlyArray<SegmentedItem<TabKey>> = TABS.map((t) => ({
     key: t.key,
     label: t.label(),
@@ -411,7 +438,7 @@ function TabsNav({
   }))
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3 px-4">
       <SegmentedTabs
         items={items}
         layoutId={`project-tabs-${slug}`}
@@ -453,12 +480,8 @@ function TabsNav({
             )
           }
           if (item.key === "sprints" && sprintsCount !== null) {
-            return (
-              <Link
-                to={def.to}
-                params={{ orgSlug, slug }}
-                className={SEGMENTED_ITEM_CLASS(active)}
-              >
+            const children = (
+              <>
                 {active && (
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
@@ -483,6 +506,26 @@ function TabsNav({
                 <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
                   <SprintsBreakdown sprints={sprints} />
                 </span>
+              </>
+            )
+            if (sprintTarget) {
+              return (
+                <Link
+                  to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+                  params={{ orgSlug, slug, groupId: sprintTarget.id }}
+                  className={SEGMENTED_ITEM_CLASS(active)}
+                >
+                  {children}
+                </Link>
+              )
+            }
+            return (
+              <Link
+                to={def.to}
+                params={{ orgSlug, slug }}
+                className={SEGMENTED_ITEM_CLASS(active)}
+              >
+                {children}
               </Link>
             )
           }
@@ -502,6 +545,22 @@ function TabsNav({
   )
 }
 
+function pickSprintNavigationTarget(
+  sprints: ReadonlyArray<Group>
+): Group | null {
+  const active = pickActiveSprint(sprints)
+  if (active) return active
+  const planned = pickEarliestPlannedSprint(sprints)
+  if (planned) return planned
+  const completed = sprints
+    .filter((s) => s.completedAt !== null)
+    .toSorted(
+      (a, b) =>
+        (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
+    )
+  return completed[0] ?? null
+}
+
 function SprintViewSwitcher({
   orgSlug,
   slug
@@ -513,8 +572,7 @@ function SprintViewSwitcher({
   const matches = useMatches()
   const sprintMatch = matches.find(
     (m) =>
-      m.routeId ===
-      "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+      m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
   if (!sprintMatch) return null
   const search = sprintMatch.search as { view?: "list" | "board" }
