@@ -9,9 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
@@ -26,6 +26,11 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport } from '.
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
 
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
@@ -33,11 +38,6 @@ const AuthedRouteRoute = AuthedRouteRouteImport.update({
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthedRouteRoute,
-} as any)
-const AuthedWelcomeRoute = AuthedWelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
   getParentRoute: () => AuthedRouteRoute,
 } as any)
 const AuthedProfileRoute = AuthedProfileRouteImport.update({
@@ -116,9 +116,9 @@ const AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
+  '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
-  '/welcome': typeof AuthedWelcomeRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
@@ -132,9 +132,9 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
-  '/welcome': typeof AuthedWelcomeRoute
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
@@ -148,9 +148,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteRouteWithChildren
+  '/welcome': typeof WelcomeRoute
   '/(public)/login': typeof publicLoginRoute
   '/_authed/profile': typeof AuthedProfileRoute
-  '/_authed/welcome': typeof AuthedWelcomeRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
@@ -168,9 +168,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/welcome'
     | '/login'
     | '/profile'
-    | '/welcome'
     | '/orgs/$orgSlug'
     | '/oauth/consent'
     | '/orgs/$orgSlug/'
@@ -184,9 +184,9 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/sprints/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/welcome'
     | '/login'
     | '/profile'
-    | '/welcome'
     | '/'
     | '/oauth/consent'
     | '/orgs/$orgSlug'
@@ -199,9 +199,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authed'
+    | '/welcome'
     | '/(public)/login'
     | '/_authed/profile'
-    | '/_authed/welcome'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
     | '/(public)/oauth/consent'
@@ -218,12 +218,20 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
+  WelcomeRoute: typeof WelcomeRoute
   publicLoginRoute: typeof publicLoginRoute
   publicOauthConsentRoute: typeof publicOauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -236,13 +244,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthedIndexRouteImport
-      parentRoute: typeof AuthedRouteRoute
-    }
-    '/_authed/welcome': {
-      id: '/_authed/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof AuthedWelcomeRouteImport
       parentRoute: typeof AuthedRouteRoute
     }
     '/_authed/profile': {
@@ -402,14 +403,12 @@ const AuthedOrgsOrgSlugRouteRouteWithChildren =
 
 interface AuthedRouteRouteChildren {
   AuthedProfileRoute: typeof AuthedProfileRoute
-  AuthedWelcomeRoute: typeof AuthedWelcomeRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedOrgsOrgSlugRouteRoute: typeof AuthedOrgsOrgSlugRouteRouteWithChildren
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
   AuthedProfileRoute: AuthedProfileRoute,
-  AuthedWelcomeRoute: AuthedWelcomeRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedOrgsOrgSlugRouteRoute: AuthedOrgsOrgSlugRouteRouteWithChildren,
 }
@@ -420,6 +419,7 @@ const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
+  WelcomeRoute: WelcomeRoute,
   publicLoginRoute: publicLoginRoute,
   publicOauthConsentRoute: publicOauthConsentRoute,
 }

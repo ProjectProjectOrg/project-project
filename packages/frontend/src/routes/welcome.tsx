@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
 import { useState, type ReactNode } from "react"
@@ -7,6 +7,7 @@ import {
   acceptAllInvitesAtom,
   declineInvitationAtom,
   logoutAtom,
+  meAtom,
   pendingInvitesAtom
 } from "@/atoms/auth"
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,35 @@ import { m } from "@/paraglide/messages"
 
 import type { InviteAcceptFailure, PendingInvite } from "@/lib/invitations"
 
-export const Route = createFileRoute("/_authed/welcome")({
+export const Route = createFileRoute("/welcome")({
   component: WelcomePage
 })
 
 function WelcomePage() {
+  const me = useAtomValue(meAtom)
+
+  return Result.matchWithError(me, {
+    onInitial: () => <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>,
+    onError: () => <Navigate to="/login" replace />,
+    onDefect: (defect) => (
+      <WelcomeGateStatus>
+        {m.chrome_defect({ defect: String(defect) })}
+      </WelcomeGateStatus>
+    ),
+    onSuccess: ({ value }) =>
+      value.activeOrgSlug ? (
+        <Navigate
+          to="/orgs/$orgSlug"
+          params={{ orgSlug: value.activeOrgSlug }}
+          replace
+        />
+      ) : (
+        <WelcomeContent />
+      )
+  })
+}
+
+function WelcomeContent() {
   const invites = useAtomValue(pendingInvitesAtom)
 
   return (
@@ -36,6 +61,14 @@ function WelcomePage() {
           )
       })}
     </WelcomeShell>
+  )
+}
+
+function WelcomeGateStatus({ children }: { children: ReactNode }) {
+  return (
+    <main className="grid min-h-screen place-items-center text-sm text-muted-foreground">
+      {children}
+    </main>
   )
 }
 
