@@ -2517,3 +2517,64 @@ Most of the Phase D guidance is already captured at the end of the Phase B log (
 
 Ready to start Phase D in a fresh context.
 
+---
+
+## Implementation log — Phase D (completed 2026-05-18)
+
+Phase D is a single task (D1). Landed as a single commit (`475d25a`); thirteen ahead of `main`. One justified deviation — a one-line barrel re-export in `packages/shared/src/filters/index.ts` to close a gap left by Phase A. Backend handlers are now fully wired; backend typecheck drops from 2 errors → 0. Frontend remains at 25 errors (Phase E's set, unchanged).
+
+### D1 — `475d25a` `backend(handlers): wire tickets.list query params; add tickets.count`
+
+- `packages/backend/src/handlers/tickets.ts`: `list` handler rewritten from a 3-arg call (`tickets.list(orgSlug, userId, slug)`) to a 4-arg call that decodes `urlParams` into a nested `TicketListQuery` via `ticketListQueryFromSearch(urlParams as Record<string, unknown>)`. The optional 5th `limit` argument is omitted — HTTP page size is locked to `TICKET_LIST_LIMIT` via the cursor. `count` handler added as a structural twin: same `{ path, urlParams }` destructure, same `Effect.gen` body, same `ticketListQueryFromSearch` conversion, same `dieOnMarkdown` pipe. `ticketListQueryFromSearch` was added to the existing `@projectproject/shared` destructured import — no duplicate import line, no reorganization.
+- The two type errors carried in this file from Phases B and C — `count` endpoint unhandled, and `list` arity mismatch — both resolve.
+- `TicketCountQuery` accepted the `TicketListQuery` return from `ticketListQueryFromSearch` directly via structural subtyping; no explicit `{ filter, q }` extraction was needed. The compiler is satisfied because `TicketListQuery` contains `filter` and `q` as required fields and adds extras (`sort`, `cursor`) that `TicketCountQuery` ignores.
+
+### D1 deviation — barrel re-export in `packages/shared/src/filters/index.ts`
+
+The plan documented (in the Phase B carry-over) that the handler would `import { ticketListQueryFromSearch } from "@projectproject/shared"`. That import path could not actually resolve at Phase C tip: `packages/shared/src/filters/url.ts` was created in Phase A but never re-exported through `filters/index.ts`. The shared package root (`packages/shared/src/index.ts`) re-exports `./filters` as a barrel, so the gap was specifically inside the filters barrel.
+
+The fix is one line — `export * from "./url"` appended in `filters/index.ts` after the existing `Ticket` and `Group` re-exports. No API surface added, no function modified, no logic change. Without it the handler edit would not compile.
+
+Documented in the commit body. Inherited gap, closed silently as part of D1 rather than asking for a separate commit. Acceptable scope creep — it is the smallest possible bridge that makes the plan-mandated import resolve.
+
+### Typecheck baseline after Phase D
+
+`bun run typecheck` from repo root:
+
+| Package | Exit | Errors | Notes |
+|---|---|---|---|
+| `@projectproject/shared` | 0 | 0 | Clean (was 0 throughout B/C). |
+| `@projectproject/backend` | 0 | 0 | Was 2 at C tip — `count` unhandled and `list` arity. Both resolved by D1. |
+| `@projectproject/frontend` | 2 | 25 | Unchanged from Phase B/C baseline. All 25 are downstream of the changed `tickets.list` return shape and the new `urlParams` requirement. Phase E's job — rewires the consumer atoms / components. |
+
+Test status from `packages/backend`:
+- Did not run a full backend test suite — D1 only edits one handler file and does not exercise new service logic. Phase C's `TicketFilters.test.ts` / `Tickets.test.ts` cover the handler's dependencies (matcher, `list`, `count`). Backend typecheck-clean was the gating signal per the plan.
+- Pre-existing `Groups.test.ts` failure carry-over (6 cases, `completed_before_start`) unaddressed; unrelated to this branch.
+
+### Smoke verification
+
+Skipped by design. The plan's Step 4 ("Smoke the API by hand") was deferred — the per-task brief explicitly directed not to start the dev server or drive a browser. Typecheck-clean backend is the bar D1 set out to meet.
+
+### Carry-over for Phase E
+
+- The HTTP `list` endpoint now returns `TicketListPage` (envelope with `items: ReadonlyArray<Ticket>` plus `cursor: string | null`), not `Ticket[]`. All 25 frontend errors at HEAD are consumers treating the response as a bare array. Phase E rewires them to read `.items` (and threads `cursor` through the new `loadMoreTicketsAtom`).
+- `ticketListQueryFromSearch` is now reachable through `@projectproject/shared` (barrel fix landed in D1). Phase E's `validateSearch` / atom families can import it directly — no deep-path imports needed.
+- All other handler-level concerns (`"mine"` substitution, status-strip for byStatus) are settled in the service layer. The frontend doesn't need to do anything special at the call boundary; it just constructs URLs.
+
+### Open carry-overs still on the books (inherited, unchanged in D)
+
+- **F1 territory (decoder branding):** `decodeStringArray` in `packages/shared/src/filters/url.ts` casts URL `tags` / `groupId` to branded types without per-element schema validation. Document or tighten when wiring `validateSearch`.
+- **D / E territory (wire-shape coupling):** `BaseTicketFilterParams` in `api.ts`, `ticketListQueryToSearch` / `ticketListQueryFromSearch` in `filters/url.ts`, and `TicketFilter` in `filters/Ticket.ts` are coupled by manual enumeration. Adding a new filter field requires updates in three places.
+- **`updatedAfter`:** in the schema but not in URL transforms or params struct. URL-driven filtering by `updatedAfter` is currently unreachable.
+- **Cursor sort-fingerprint validation:** v1 doesn't encode `{ key, dir }` into the cursor payload. Frontend resets cursor on sort change.
+
+### Phase D self-check
+
+- Workspace typecheck delta matches plan expectations: shared 0 (unchanged), backend 0 (was 2 — both resolved), frontend 25 (unchanged — Phase E's set).
+- One commit ahead of `86fab62` (Phase C tip); thirteen ahead of `main`.
+- No comments added in D1. Pre-existing top-of-file comment in `tickets.ts` preserved unchanged.
+- Files modified strictly within scope: `packages/backend/src/handlers/tickets.ts` and the inherited-gap bridge `packages/shared/src/filters/index.ts`. No frontend, no api.ts, no other shared or backend files. `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
+- Two-stage review (spec compliance + code quality) ran. Spec reviewer verified the barrel-fix deviation against `git show 86fab62:packages/shared/src/filters/index.ts` and confirmed `export * from "./url"` was absent at the Phase C tip while `url.ts` itself existed; approved as a justified gap-fix. Code-quality reviewer approved with no Critical / Important / Minor issues. Single commit; no amends.
+
+Ready to start Phase E in a fresh context.
+
