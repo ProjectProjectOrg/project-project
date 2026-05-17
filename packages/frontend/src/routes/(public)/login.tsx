@@ -85,14 +85,11 @@ function LoginPage() {
             />
             <Button
               type="submit"
-              variant="dither"
+              variant="primary"
               size="lg"
-              className="w-full text-white"
+              className="w-full"
               leadingIcon={Mail}
               loading={magicLinkPending}
-              ditherFrom="#0a0a0a"
-              ditherTo="#737373"
-              ditherDirection="r"
             >
               {m.auth_continue_with_email_button()}
             </Button>
