@@ -108,6 +108,9 @@ export const projectInviteGrant = pgTable(
     invitationId: text("invitation_id")
       .notNull()
       .references(() => invitation.id, { onDelete: "cascade" }),
+    projectSlug: text("project_slug")
+      .notNull()
+      .references(() => projectIndex.slug, { onDelete: "cascade" }),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projectIndex.id, { onDelete: "cascade" }),
@@ -117,8 +120,8 @@ export const projectInviteGrant = pgTable(
       .defaultNow()
   },
   (table) => [
-    primaryKey({ columns: [table.invitationId, table.projectId] }),
-    index("project_invite_grant_project_idx").on(table.projectId)
+    primaryKey({ columns: [table.invitationId, table.projectSlug] }),
+    index("project_invite_grant_project_idx").on(table.projectSlug)
   ]
 )
 
@@ -175,8 +178,8 @@ export const projectInviteGrantRelations = relations(
       references: [invitation.id]
     }),
     project: one(projectIndex, {
-      fields: [projectInviteGrant.projectId],
-      references: [projectIndex.id]
+      fields: [projectInviteGrant.projectSlug],
+      references: [projectIndex.slug]
     })
   })
 )
