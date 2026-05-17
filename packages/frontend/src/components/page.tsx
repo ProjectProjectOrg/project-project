@@ -7,11 +7,16 @@ import type { HTMLAttributes } from "react"
 
 export function PageContainer({
   className,
+  wide = false,
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement> & { wide?: boolean }) {
   return (
     <div
-      className={cn("mx-auto flex w-full max-w-6xl flex-col gap-6", className)}
+      className={cn(
+        "mx-auto flex w-full flex-col gap-6",
+        wide ? "max-w-384" : "max-w-6xl",
+        className
+      )}
       {...props}
     />
   )

@@ -103,7 +103,12 @@ export function TicketGitChip({
       )
     }
     return (
-      <span className={cn(pulse)}>
+      <span
+        className={cn(
+          "inline-flex min-w-0 max-w-full items-center",
+          pulse
+        )}
+      >
         <BranchChip
           slug={repoSlug}
           name={state.name}
@@ -446,29 +451,18 @@ export function BranchChip({
 }) {
   if (variant === "ghost") {
     return (
-      <span
-        className="inline-flex min-w-0 max-w-full items-center gap-1.5 font-mono text-xs text-muted-foreground"
+      <a
+        href={`https://github.com/${slug}/tree/${name}`}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
         title={name}
+        className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground"
       >
-        <a
-          href={`https://github.com/${slug}/tree/${name}`}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors duration-100 hover:bg-accent hover:text-foreground"
-        >
-          <GitBranch
-            className="size-3 shrink-0"
-            strokeWidth={1.75}
-          />
-          <span className="min-w-0 truncate">{displayName ?? name}</span>
-          <ArrowUpRight
-            className="size-3 shrink-0"
-            strokeWidth={1.75}
-          />
-        </a>
-        <CopyButton value={name} copyLabel={m.git_copy_branch_name_label()} />
-      </span>
+        <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 truncate">{displayName ?? name}</span>
+        <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
+      </a>
     )
   }
   return (

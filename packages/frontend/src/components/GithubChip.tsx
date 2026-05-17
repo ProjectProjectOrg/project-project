@@ -130,12 +130,15 @@ function ConnectedChip({
   }
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background pr-1 text-xs font-medium text-muted-foreground">
+    <div className="inline-flex items-stretch rounded-md border border-border bg-background text-xs font-medium text-muted-foreground">
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground"
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground",
+          canManage && "border-r border-border"
+        )}
       >
         <GithubIcon className="size-3.5" strokeWidth={1.75} />
         <span className="font-mono text-xs">
@@ -150,13 +153,13 @@ function ConnectedChip({
                 type="button"
                 aria-label={m.github_chip_manage_connection_aria_label()}
                 className={cn(
-                  "group grid size-5 place-items-center rounded transition-colors hover:bg-accent",
+                  "group grid w-6 place-items-center rounded-r-md transition-colors hover:bg-accent",
                   "data-[popup-open]:bg-accent"
                 )}
               >
                 <ChevronDown
                   className={cn(
-                    "size-3 transition-transform",
+                    "size-3.5 transition-transform",
                     "group-data-[popup-open]:rotate-180"
                   )}
                   strokeWidth={1.75}

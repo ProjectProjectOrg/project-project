@@ -43,14 +43,16 @@ export function SprintDetail({
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
   const [showCompleteForm, setShowCompleteForm] = useState(false)
 
+  const wide = view === "board"
+
   return Result.matchWithError(sprint, {
     onInitial: () => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <SprintDetailSkeleton />
       </PageContainer>
     ),
     onError: (error) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         {error._tag === "NotFound" ? (
           <Empty className="rounded-xl border border-dashed border-border p-6">
             <EmptyHeader>
@@ -73,7 +75,7 @@ export function SprintDetail({
       </PageContainer>
     ),
     onDefect: (defect) => (
-      <PageContainer>
+      <PageContainer wide={wide}>
         <Empty className="rounded-xl border border-dashed border-border p-6">
           <EmptyHeader>
             <EmptyDescription>
@@ -117,8 +119,8 @@ export function SprintDetail({
         />
       )
 
-      const body =
-        view === "board" ? (
+      const body = wide ? (
+        <PageContainer wide>
           <SprintBoard
             orgSlug={orgSlug}
             slug={slug}
@@ -127,22 +129,23 @@ export function SprintDetail({
             members={project.members}
             isCompleted={isCompleted}
           />
-        ) : (
-          <PageContainer>
-            <SprintTicketList
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketIds={ticketIds}
-              members={project.members}
-              uiKey={uiKey}
-              creator={creator}
-            />
-          </PageContainer>
-        )
+        </PageContainer>
+      ) : (
+        <PageContainer>
+          <SprintTicketList
+            orgSlug={orgSlug}
+            slug={slug}
+            ticketIds={ticketIds}
+            members={project.members}
+            uiKey={uiKey}
+            creator={creator}
+          />
+        </PageContainer>
+      )
 
       return (
         <div className="flex flex-col gap-4">
-          <PageContainer>
+          <PageContainer wide={wide}>
             <div className="flex flex-col gap-4">
               <SprintDetailHeader
                 orgSlug={orgSlug}
@@ -152,7 +155,7 @@ export function SprintDetail({
                   isCompleted ? undefined : () => setShowCompleteForm(true)
                 }
               />
-              {view === "board" && creator}
+              {wide && creator}
               {showCompleteForm && state === "active" && (
                 <CompleteSprintForm
                   orgSlug={orgSlug}
