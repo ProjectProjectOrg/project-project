@@ -1,12 +1,17 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { Mail } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { meAtom } from "@/atoms/auth"
 import { Logo, Wordmark } from "@/components/Logo"
+import {
+  DitherTweakPanel,
+  useDitherConfig
+} from "@/components/DitherTweakPanel"
 import { Button } from "@/components/ui/button"
 import { DitherBackdrop } from "@/components/ui/button-dither"
+import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { Input } from "@/components/ui/input"
 import { m } from "@/paraglide/messages"
 import { authClient } from "@/services/AuthClient"
@@ -21,6 +26,26 @@ function LoginPage() {
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
   const [magicLinkError, setMagicLinkError] = useState<string | null>(null)
+  const { config, setConfig, resetConfig } = useDitherConfig()
+  const cardRef = useRef<HTMLDivElement | null>(null)
+
+  const timeWarpZones: TimeWarpZone[] = []
+  if (config.mouseWarp.enabled) {
+    timeWarpZones.push({
+      anchor: { type: "mouse" },
+      radius: config.mouseWarp.radius,
+      strength: config.mouseWarp.strength,
+      falloff: config.mouseWarp.falloff
+    })
+  }
+  if (config.centerWarp.enabled) {
+    timeWarpZones.push({
+      anchor: { type: "fraction", x: 0.5, y: 0.5 },
+      radius: config.centerWarp.radius,
+      strength: config.centerWarp.strength,
+      falloff: config.centerWarp.falloff
+    })
+  }
 
   if (Result.isSuccess(me)) return <Navigate to="/" />
 
@@ -48,8 +73,25 @@ function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
-      <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] shadow-sm">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
+      <div className="pointer-events-none absolute inset-0">
+        <Dither
+          {...config}
+          cardRef={cardRef}
+          timeWarpZones={timeWarpZones}
+        />
+      </div>
+      {import.meta.env.DEV && (
+        <DitherTweakPanel
+          config={config}
+          onChange={setConfig}
+          onReset={resetConfig}
+        />
+      )}
+      <div
+        ref={cardRef}
+        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] shadow-sm"
+      >
         <div className="relative flex flex-col items-center gap-4 px-8 pb-8 pt-10 text-foreground">
           <div className="absolute inset-x-0 top-0 h-20 opacity-45">
             <DitherBackdrop

@@ -91,7 +91,6 @@ interface ButtonProps
   ditherHoverDuration?: number
   ditherMatrix?: DitherMatrix
   ditherPixelSize?: number
-  ditherImage?: string
 }
 
 function Button({
@@ -114,7 +113,6 @@ function Button({
   ditherHoverDuration,
   ditherMatrix,
   ditherPixelSize,
-  ditherImage,
   onMouseEnter,
   onMouseLeave,
   onFocus,
@@ -189,7 +187,6 @@ function Button({
       hover={ditherHover}
       matrix={ditherMatrix}
       pixelSize={ditherPixelSize}
-      image={ditherImage}
     />
   )
 
