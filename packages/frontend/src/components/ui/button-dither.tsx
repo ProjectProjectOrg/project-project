@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ImageDithering } from "@paper-design/shaders-react"
-import { useInViewport } from "@/lib/use-in-viewport"
 
 export type DitherDirection = "r" | "l" | "t" | "b" | "tr" | "tl" | "br" | "bl"
 
@@ -19,7 +17,6 @@ export interface DitherBackdropProps {
   hover?: boolean
   matrix?: DitherMatrix
   pixelSize?: number
-  image?: string
 }
 
 const DIRECTION_TO_CSS_ANGLE: Record<DitherDirection, string> = {
@@ -200,10 +197,9 @@ export function DitherBackdrop({
   hoverDuration = 250,
   hover = false,
   matrix = DEFAULT_MATRIX,
-  pixelSize = DEFAULT_PIXEL_SIZE,
-  image
+  pixelSize = DEFAULT_PIXEL_SIZE
 }: DitherBackdropProps) {
-  const [wrapRef, inView] = useInViewport<HTMLSpanElement>()
+  const wrapRef = useRef<HTMLSpanElement | null>(null)
   const themeRevision = useThemeRevision()
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
@@ -254,7 +250,6 @@ export function DitherBackdrop({
   }
 
   useEffect(() => {
-    if (image) return
     const wrap = wrapRef.current
     const canvas = canvasRef.current
     if (!wrap || !canvas) return
@@ -274,19 +269,17 @@ export function DitherBackdrop({
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
     return () => ro.disconnect()
-  }, [image, pixelSize, wrapRef])
+  }, [pixelSize])
 
   useEffect(() => {
-    if (image) return
     paint(stopsRef.current)
-  }, [image, colors, direction, matrix, pixelSize])
+  }, [colors, direction, matrix, pixelSize])
 
   const stops0 = stops[0]
   const stops1 = stops[1]
   const hoverStops0 = hoverStops?.[0]
   const hoverStops1 = hoverStops?.[1]
   useEffect(() => {
-    if (image) return
     const target: DitherStops = hover && hoverStops ? hoverStops : stops
     const reduceMotion =
       typeof window !== "undefined" &&
@@ -324,43 +317,22 @@ export function DitherBackdrop({
       }
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- track stops/hoverStops by element to avoid array-identity churn
-  }, [hover, hoverStops0, hoverStops1, stops0, stops1, hoverDuration, image])
+  }, [hover, hoverStops0, hoverStops1, stops0, stops1, hoverDuration])
 
-  const fallbackCss = image
-    ? undefined
-    : cssGradient(from, to, direction, stops)
+  const fallbackCss = cssGradient(from, to, direction, stops)
 
   return (
     <span
       ref={wrapRef}
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
-      style={{
-        backgroundImage: image ? undefined : fallbackCss,
-        backgroundSize: image ? "cover" : undefined,
-        backgroundPosition: image ? "center" : undefined,
-        backgroundColor: image ? "#000" : undefined
-      }}
+      style={{ backgroundImage: fallbackCss }}
     >
-      {!image && (
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 h-full w-full"
-          style={{ imageRendering: "pixelated" }}
-        />
-      )}
-      {image && inView && (
-        <ImageDithering
-          image={image}
-          type="4x4"
-          size={2}
-          colorSteps={2}
-          fit="cover"
-          originalColors
-          colorBack="#00000000"
-          style={{ width: "100%", height: "100%" }}
-        />
-      )}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+        style={{ imageRendering: "pixelated" }}
+      />
     </span>
   )
 }

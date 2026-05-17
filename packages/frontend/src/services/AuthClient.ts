@@ -29,7 +29,7 @@
 // Direct:
 //
 //   import { authClient } from "@/services/AuthClient"
-//   await authClient.signIn.social({ provider: "github", callbackURL: "/" })
+//   await authClient.signIn.social({ provider: "google", callbackURL: "/" })
 //
 // Or wrapped in a `runtime.fn` if you want to refresh `meAtom` after sign-out.
 // See `atoms/auth.ts` for that pattern.
@@ -65,8 +65,8 @@
 //   client and gives us the typed `Unauthorized` failure we already handle.
 
 import { createAuthClient } from "better-auth/react"
-import { organizationClient } from "better-auth/client/plugins"
+import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
-  plugins: [organizationClient()]
+  plugins: [organizationClient(), magicLinkClient()]
 })
