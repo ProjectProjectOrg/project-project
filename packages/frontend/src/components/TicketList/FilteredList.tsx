@@ -257,7 +257,7 @@ function NoTicketsYet() {
       </EmptyTitle>
       <EmptyDescription className="max-w-xs text-xs">
         {m.tickets_empty_hint_prefix()}{" "}
-        <span className="font-mono">tickets/</span>.
+        <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
       </EmptyDescription>
     </Empty>
   )

@@ -16,6 +16,7 @@
   "tickets_detail_delete_aria_label": "Delete ticket",
   "tickets_detail_delete_confirm": "Delete this ticket?",
   "tickets_detail_load_error": "Couldn't load detail: {error}",
+  "tickets_empty_hint_folder": "tickets/",
   "tickets_empty_hint_prefix": "Type a title in the row above and press Enter. Each ticket becomes a markdown file under",
   "tickets_empty_title": "No tickets yet",
   "tickets_filters_active_aria_label": "Filters ({count} active)",
