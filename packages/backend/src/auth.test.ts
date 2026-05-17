@@ -34,6 +34,7 @@ describe("Better Auth plugin wiring", () => {
 
       const verificationUrl = writes.join("").match(/url=(?<url>\S+)/)
         ?.groups?.url
+      expect(verificationUrl).toBeDefined()
       expect(verificationUrl).toContain("/magic-link/verify")
 
       const response = await customFetchImpl(verificationUrl!, {
@@ -90,11 +91,12 @@ describe("Better Auth plugin wiring", () => {
       invitationId = invitation!.id
     })
 
-    await client.signUp.email({
+    const { error: signUpError } = await client.signUp.email({
       email: "invited@example.com",
       password: "password123",
       name: "Invited User"
     })
+    expect(signUpError).toBeNull()
 
     const invited = await signInWithUser("invited@example.com", "password123")
     const { error } = await client.organization.acceptInvitation({
