@@ -17,6 +17,11 @@ import { m } from "@/paraglide/messages"
 
 import type { InviteAcceptFailure, PendingInvite } from "@/lib/invitations"
 
+type AcceptingTarget =
+  | { type: "all" }
+  | { type: "invite"; id: string }
+  | null
+
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage
 })
@@ -140,21 +145,21 @@ function WelcomeInviteList({
   const acceptState = useAtomValue(acceptAllInvitesAtom)
   const logout = useAtomSet(logoutAtom)
   const [failedAccepts, setFailedAccepts] = useState<InviteAcceptFailure[]>([])
-  const [acceptingTarget, setAcceptingTarget] = useState<"all" | string | null>(
-    null
-  )
+  const [acceptingTarget, setAcceptingTarget] =
+    useState<AcceptingTarget>(null)
   const failedById = new Map(
     failedAccepts.map((failure) => [failure.invite.id, failure])
   )
   const accepting = acceptState.waiting
   const pageError =
     Result.isFailure(acceptState) ||
-    (acceptingTarget === "all" && failedAccepts.length === invites.length)
+    (acceptingTarget?.type === "all" &&
+      failedAccepts.length === invites.length)
       ? m.auth_invites_accept_all_error()
       : null
 
   const onAcceptAll = async () => {
-    setAcceptingTarget("all")
+    setAcceptingTarget({ type: "all" })
     setFailedAccepts([])
     const exit = await acceptAll(invites)
     setAcceptingTarget(null)
@@ -170,7 +175,7 @@ function WelcomeInviteList({
   }
 
   const onAcceptInvite = async (invite: PendingInvite) => {
-    setAcceptingTarget(invite.id)
+    setAcceptingTarget({ type: "invite", id: invite.id })
     setFailedAccepts((failures) =>
       failures.filter((failure) => failure.invite.id !== invite.id)
     )
@@ -212,7 +217,10 @@ function WelcomeInviteList({
             invite={invite}
             acceptFailure={failedById.get(invite.id)}
             accepting={accepting}
-            acceptingInvite={acceptingTarget === invite.id}
+            acceptingInvite={
+              acceptingTarget?.type === "invite" &&
+              acceptingTarget.id === invite.id
+            }
             onAccept={() => onAcceptInvite(invite)}
           />
         ))}
@@ -225,7 +233,7 @@ function WelcomeInviteList({
           <Button
             type="button"
             leadingIcon={MailCheck}
-            loading={accepting && acceptingTarget === "all"}
+            loading={accepting && acceptingTarget?.type === "all"}
             disabled={accepting}
             onClick={onAcceptAll}
           >
