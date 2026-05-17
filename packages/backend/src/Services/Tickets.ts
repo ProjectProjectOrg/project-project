@@ -36,7 +36,8 @@ export interface TicketsShape {
     orgSlug: string,
     userId: string,
     slug: string,
-    query: TicketListQuery
+    query: TicketListQuery,
+    limit?: number
   ) => Effect.Effect<TicketListPage, NotFound | MarkdownError>
   readonly get: (
     orgSlug: string,

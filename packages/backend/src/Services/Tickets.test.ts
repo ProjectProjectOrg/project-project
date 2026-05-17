@@ -318,6 +318,26 @@ it.effect("list paginates by cursor", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("list honors an explicit limit override", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    for (let i = 0; i < 10; i++) {
+      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+    }
+
+    const page = yield* tickets.list(
+      "org",
+      "user-1",
+      "p",
+      { sort: { key: "id", dir: "asc" } },
+      3
+    )
+    expect(page.items.length).toBe(3)
+    expect(page.nextCursor).not.toBeNull()
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("list filters by q and substitutes mine to viewerId", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {

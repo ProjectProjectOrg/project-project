@@ -215,7 +215,8 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      query: TicketListQuery
+      query: TicketListQuery,
+      limit?: number
     ): Effect.Effect<TicketListPage, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -243,7 +244,7 @@ export const TicketsLive = Layer.effect(
         const cursor = tryDecodeCursor(query.cursor)
         return paginateSorted(sorted, {
           cursor,
-          limit: TICKET_LIST_LIMIT,
+          limit: limit ?? TICKET_LIST_LIMIT,
           sortKey: (t) => sortKeyValue(t, query.sort),
           id: (t) => t.id
         })

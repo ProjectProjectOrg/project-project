@@ -214,7 +214,8 @@ const list_tickets = (
       input.orgSlug,
       current.id,
       input.projectSlug,
-      query
+      query,
+      input.limit
     )
   })
 
