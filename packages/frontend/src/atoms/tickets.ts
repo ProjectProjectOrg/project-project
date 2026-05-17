@@ -6,7 +6,8 @@ import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
   TicketId,
-  type CreateTicketInput,
+  type QuickCreateTicketInput,
+  type TicketDetail,
   type UpdateTicketInput
 } from "@projectproject/shared"
 
@@ -53,7 +54,11 @@ export const ticketsListAtom = Atom.family((key: string) =>
 export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>
   `${orgSlug}/${slug}/${id}`
 
-export const ticketAtom = Atom.family((key: string) => {
+export const ticketBodyDraftAtom = Atom.family((_key: string) =>
+  Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
+export const ticketBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
   return runtime
     .atom(
@@ -65,12 +70,33 @@ export const ticketAtom = Atom.family((key: string) => {
     .pipe(Atom.setIdleTTL("2 minutes"))
 })
 
-export const createTicketAtom = Atom.family((key: string) => {
+export const ticketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id } = splitTicketKey(key)
+  const listKey = ticketsListKey(orgSlug, slug)
+  return Atom.readable((get) => {
+    const base = get(ticketBaseAtom(key))
+    if (!Result.isSuccess(base)) return base
+    const list = get(ticketsListAtom(listKey))
+    if (Result.isSuccess(list)) {
+      const fromList = list.value.find((t) => t.id === id)
+      if (fromList) {
+        const merged: TicketDetail = { ...fromList, body: base.value.body }
+        const waiting = base.waiting || list.waiting
+        return waiting
+          ? Result.success(merged, { waiting: true })
+          : Result.success(merged)
+      }
+    }
+    return base
+  })
+})
+
+export const quickCreateTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime.fn(
-    Effect.fn(function* (input: CreateTicketInput, get) {
+    Effect.fn(function* (input: QuickCreateTicketInput, get) {
       const client = yield* ApiClient
-      const ticket = yield* client.tickets.create({
+      const ticket = yield* client.tickets.quickCreate({
         path: { orgSlug, slug },
         payload: input
       })
@@ -109,7 +135,7 @@ export const updateTicketAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, id },
           payload: input
         })
-        get.refresh(ticketAtom(ticketKey(orgSlug, slug, id)))
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
         get.refresh(ticketsListBaseAtom(listKey))
         return updated
       })

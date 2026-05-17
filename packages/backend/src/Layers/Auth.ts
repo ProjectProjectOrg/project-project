@@ -46,6 +46,7 @@ import { HttpServerRequest } from "@effect/platform"
 import { Authentication, Unauthorized } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import { toWebHeaders } from "../http/toWebHeaders"
 import { BetterAuth } from "../Services/BetterAuth"
 
 export const AuthenticationLive = Layer.effect(
@@ -58,7 +59,7 @@ export const AuthenticationLive = Layer.effect(
         Effect.gen(function* () {
           const req = yield* HttpServerRequest.HttpServerRequest
           const session = yield* ba
-            .getSession(req.headers as unknown as Headers)
+            .getSession(toWebHeaders(req.headers))
             .pipe(Effect.mapError(() => new Unauthorized()))
 
           if (session === null) {

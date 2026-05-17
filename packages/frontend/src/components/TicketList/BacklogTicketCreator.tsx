@@ -7,7 +7,7 @@ import {
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import {
@@ -29,7 +29,7 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { createTicketAtom } from "@/atoms/tickets"
+import { quickCreateTicketAtom } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -45,8 +45,8 @@ export function BacklogTicketCreator({
   slug: string
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(createTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(createTicketAtom(projKey))
+  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
+  const createState = useAtomValue(quickCreateTicketAtom(projKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
@@ -57,9 +57,10 @@ export function BacklogTicketCreator({
   const sprintListResult = useAtomValue(
     sprintsListAtom(sprintsKey(orgSlug, slug))
   )
-  const sprints: ReadonlyArray<Group> = Result.isSuccess(sprintListResult)
-    ? sprintListResult.value
-    : []
+  const sprints = useMemo<ReadonlyArray<Group>>(
+    () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
+    [sprintListResult]
+  )
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const addToSprint = useAtomSet(
     addTicketsToSprintAtom(sprintsKey(orgSlug, slug))
@@ -97,14 +98,10 @@ export function BacklogTicketCreator({
       }
       setTitle("")
       refreshGitStates()
-      navigate({
-        to: ".",
-        search: (prev) => ({
-          ...(prev as object),
-          ticket: ticket.id,
-          focusBody: 1
-        }),
-        replace: true
+      void navigate({
+        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+        params: { orgSlug, slug, id: ticket.id },
+        search: { focusBody: 1 }
       })
     }
   }

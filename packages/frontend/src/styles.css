@@ -54,6 +54,11 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 1rem;
+  --state-success: oklch(0.5 0.15 135);
+  --state-danger: oklch(0.5 0.18 15);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.5 0.18 255);
+  --state-merged: oklch(0.5 0.18 285);
 }
 
 .dark {
@@ -78,6 +83,11 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --state-success: oklch(0.78 0.07 135);
+  --state-danger: oklch(0.78 0.07 15);
+  --state-warning: oklch(0.78 0.07 75);
+  --state-info: oklch(0.78 0.07 255);
+  --state-merged: oklch(0.78 0.07 285);
 }
 
 @theme inline {
@@ -102,6 +112,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-state-success: var(--state-success);
+  --color-state-danger: var(--state-danger);
+  --color-state-warning: var(--state-warning);
+  --color-state-info: var(--state-info);
+  --color-state-merged: var(--state-merged);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -210,15 +225,18 @@
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 .prose-md h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 .prose-md h3 {
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
@@ -405,15 +423,18 @@ html.dark .prose-md .token.coord {
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 .prose-md .lexical-h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 .prose-md .lexical-h3 {
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 .prose-md .lexical-quote {
   border-left: 2px solid var(--border);
@@ -421,16 +442,79 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md .lexical-ul {
-  list-style: disc;
-  padding-left: 1.4em;
-}
-.prose-md .lexical-ol {
-  list-style: decimal;
-  padding-left: 1.4em;
-}
 .prose-md .lexical-li {
   margin-top: 0.25em;
+}
+.prose-md .lexical-li-nested {
+  list-style: none;
+  margin: 0;
+}
+.prose-md .lexical-li-nested::before,
+.prose-md .lexical-li-nested::after {
+  display: none;
+}
+.prose-md .lexical-li-nested.lexical-li-checked,
+.prose-md .lexical-li-nested.lexical-li-unchecked {
+  padding-left: 0;
+  cursor: auto;
+}
+.prose-md .lexical-checklist {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .lexical-li-checked,
+.prose-md .lexical-li-unchecked {
+  position: relative;
+  margin: 0.15em 0;
+  padding-left: 1.75em;
+  list-style: none;
+  outline: none;
+  cursor: pointer;
+}
+.prose-md .lexical-li-checked::before,
+.prose-md .lexical-li-unchecked::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.32em;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 3px;
+  background: var(--background);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: background 100ms, box-shadow 100ms;
+}
+.prose-md .lexical-li-unchecked:hover::before {
+  box-shadow: inset 0 0 0 1px var(--muted-foreground);
+}
+.prose-md .lexical-li-checked::before {
+  background: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--foreground);
+}
+.prose-md .lexical-li-checked::after {
+  content: "";
+  position: absolute;
+  left: 0.42em;
+  top: 0.48em;
+  width: 0.32em;
+  height: 0.6em;
+  border-style: solid;
+  border-color: var(--background);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.prose-md .lexical-li-checked {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.prose-md .lexical-hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+  cursor: pointer;
+}
+.prose-md .lexical-hr.selected {
+  border-top-color: var(--foreground);
 }
 .prose-md .lexical-link {
   color: var(--foreground);
@@ -475,15 +559,35 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md ul,
-.prose-md ol {
-  padding-left: 1.4em;
-}
 .prose-md ul {
   list-style: disc;
+  padding-left: 1.4em;
+}
+.prose-md ul ul {
+  list-style: circle;
 }
 .prose-md ol {
-  list-style: decimal;
+  list-style: none;
+  padding-left: 0;
+  counter-reset: ol-counter;
+}
+.prose-md ol > li {
+  counter-increment: ol-counter;
+}
+.prose-md ol > li::before {
+  content: counters(ol-counter, ".") ".";
+  margin-right: 0.5em;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.prose-md ol > li.lexical-li-nested {
+  counter-increment: none;
+}
+.prose-md ol > li.lexical-li-nested::before {
+  content: none;
+}
+.prose-md ol > li > ol {
+  padding-left: 1.4em;
 }
 .prose-md li + li {
   margin-top: 0.25em;
@@ -518,6 +622,17 @@ html.dark .prose-md .token.coord {
 .prose-md input[type="checkbox"] {
   margin-right: 0.5em;
   accent-color: var(--foreground);
+}
+.prose-md .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-md .task-list-item {
+  margin: 0.15em 0;
+}
+.prose-md .task-list-item:has(> input[type="checkbox"]:checked) {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
 }
 
 @layer base {

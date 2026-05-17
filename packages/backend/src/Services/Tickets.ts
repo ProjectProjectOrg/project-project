@@ -8,20 +8,28 @@ import type {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
+  CursorPayload,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   GitStatesResponse,
+  MentionInvalid,
   NotFound,
   OpenPrInput,
   OpenPrResult,
+  QuickCreateTicketInput,
   RateLimited,
   RepoGone,
   Ticket,
   TicketDetail,
-  UpdateTicketInput
+  TicketFilter,
+  UpdateTicketInput,
+  Validation
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
+import type { MalformedTicketDocument } from "./TicketDocs"
+
+type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 export interface TicketsShape {
   readonly list: (
@@ -34,20 +42,29 @@ export interface TicketsShape {
     ownerId: string,
     slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketDetail, TicketReadError>
+  readonly quickCreate: (
+    orgSlug: string,
+    ownerId: string,
+    slug: string,
+    input: QuickCreateTicketInput
+  ) => Effect.Effect<Ticket, NotFound | MarkdownError>
   readonly create: (
     orgSlug: string,
     ownerId: string,
     slug: string,
     input: CreateTicketInput
-  ) => Effect.Effect<Ticket, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    TicketDetail,
+    NotFound | Validation | MentionInvalid | MarkdownError
+  >
   readonly update: (
     orgSlug: string,
     ownerId: string,
     slug: string,
     id: string,
     input: UpdateTicketInput
-  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid>
   readonly remove: (
     orgSlug: string,
     ownerId: string,
@@ -60,7 +77,7 @@ export interface TicketsShape {
     id: string,
     oldName: string,
     newName: string | null
-  ) => Effect.Effect<boolean, NotFound | MarkdownError>
+  ) => Effect.Effect<boolean, TicketReadError>
   readonly createBranch: (
     orgSlug: string,
     userId: string,
@@ -79,6 +96,7 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
+    | MalformedTicketDocument
   >
   readonly attachBranch: (
     orgSlug: string,
@@ -97,6 +115,7 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
+    | MalformedTicketDocument
   >
   readonly openPr: (
     orgSlug: string,
@@ -115,13 +134,31 @@ export interface TicketsShape {
     | RateLimited
     | GitHubError
     | MarkdownError
+    | MalformedTicketDocument
   >
   readonly clearBranch: (
     orgSlug: string,
     userId: string,
     slug: string,
     id: string
-  ) => Effect.Effect<TicketDetail, NotFound | MarkdownError>
+  ) => Effect.Effect<TicketDetail, TicketReadError>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    filter: TicketFilter | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Ticket>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
+  readonly getGitState: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    ticketId: string | undefined
+  ) => Effect.Effect<GitStatesResponse, NotFound | MarkdownError>
   readonly listGitStates: (
     orgSlug: string,
     userId: string,

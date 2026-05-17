@@ -106,7 +106,11 @@ function useIsSprintBoardView() {
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
   const wide = useIsSprintBoardView()
+  const location = useLocation()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const onTicketDetail = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/tickets/`
+  )
 
   return Result.matchWithError(project, {
     onInitial: () => (
@@ -134,15 +138,17 @@ function ProjectLayout() {
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <div className="flex flex-col gap-6">
-            <PageContainer wide={wide}>
-              <ProjectHeader
-                orgSlug={orgSlug}
-                slug={value.slug}
-                name={value.name}
-                project={value}
-              />
-              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-            </PageContainer>
+            {!onTicketDetail && (
+              <PageContainer wide={wide}>
+                <ProjectHeader
+                  orgSlug={orgSlug}
+                  slug={value.slug}
+                  name={value.name}
+                  project={value}
+                />
+                <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+              </PageContainer>
+            )}
             <Outlet />
           </div>
         </TagRenamesProvider>
@@ -166,7 +172,7 @@ function ProjectHeader({
 
   return (
     <header className="flex items-start gap-3 px-4">
-      <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+      <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
@@ -265,7 +271,7 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   async function onDelete() {
     const exit = await remove()
     if (Exit.isSuccess(exit)) {
-      navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
+      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
     }
   }
 
@@ -450,7 +456,7 @@ function TabsNav({
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
                     transition={springs.moderate}
-                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                    className="absolute inset-0 z-0 rounded-lg bg-accent"
                   />
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
@@ -480,7 +486,7 @@ function TabsNav({
                   <motion.span
                     layoutId={`project-tabs-${slug}-active`}
                     transition={springs.moderate}
-                    className="absolute inset-0 -z-0 rounded-lg bg-accent"
+                    className="absolute inset-0 z-0 rounded-lg bg-accent"
                   />
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
@@ -574,7 +580,7 @@ function SprintViewSwitcher({
   const { groupId } = sprintMatch.params as { groupId: string }
   const setView = (next: "list" | "board") => {
     if (next === view) return
-    navigate({
+    void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId },
       search: (prev) => ({

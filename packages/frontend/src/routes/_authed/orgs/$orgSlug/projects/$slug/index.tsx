@@ -40,8 +40,6 @@ function parseTags(value: unknown): ReadonlyArray<TagName> {
 }
 
 interface ProjectIndexSearch {
-  ticket?: string
-  focusBody?: 1
   q?: string
   status?: TicketStatus | "all"
   type?: TicketType | "all"
@@ -55,8 +53,6 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   component: TicketsTab,
   validateSearch: (search: Record<string, unknown>): ProjectIndexSearch => {
     const out: ProjectIndexSearch = {}
-    if (typeof search.ticket === "string") out.ticket = search.ticket
-    if (search.focusBody === 1) out.focusBody = 1
     if (typeof search.q === "string" && search.q.length > 0) out.q = search.q
     if (
       typeof search.status === "string" &&
@@ -144,6 +140,7 @@ function TicketListUrlSync({
     if (!tagsEqual) setTags(incomingTags)
     if (nextSprint !== sprint) setSprint(nextSprint)
     if (nextSort !== sort) setSort(nextSort)
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- one-way URL → state sync; including state in deps causes loops
   }, [
     search.q,
     search.status,
@@ -168,7 +165,7 @@ function TicketListUrlSync({
     const fingerprint = JSON.stringify(payload)
     if (fingerprint === lastWrittenRef.current) return
     lastWrittenRef.current = fingerprint
-    navigate({
+    void navigate({
       to: ".",
       search: (prev) => ({ ...prev, ...payload }),
       replace: true

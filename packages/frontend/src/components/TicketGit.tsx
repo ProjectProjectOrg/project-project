@@ -51,9 +51,9 @@ function compareUrl(repoSlug: string, base: string, branch: string): string {
 }
 
 function checksColor(s: string): string {
-  if (s === "passing") return "text-emerald-500"
-  if (s === "failing") return "text-red-500"
-  if (s === "pending") return "text-amber-500"
+  if (s === "passing") return "text-state-success"
+  if (s === "failing") return "text-state-danger"
+  if (s === "pending") return "text-state-warning"
   return "text-muted-foreground"
 }
 
@@ -156,19 +156,21 @@ export function TicketGitPanel({
   slug,
   ticket,
   github,
-  branchTemplate
+  branchTemplate,
+  variant = "bordered"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
   github: GithubConnection | null
   branchTemplate: string | null
+  variant?: "bordered" | "ghost"
 }) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket.id)
   if (!github) return null
   if (state === null) {
     return (
-      <div className="rounded-lg border border-border bg-background px-3 py-2">
+      <div className={variant === "bordered" ? PANEL_CHROME : undefined}>
         <div className="skeleton h-7 w-44 rounded bg-muted/60" />
       </div>
     )
@@ -182,6 +184,7 @@ export function TicketGitPanel({
       waiting={waiting}
       github={github}
       branchTemplate={branchTemplate}
+      variant={variant}
     />
   )
 }
@@ -193,7 +196,8 @@ function PanelForState({
   state,
   waiting,
   github,
-  branchTemplate
+  branchTemplate,
+  variant
 }: {
   orgSlug: string
   slug: string
@@ -202,17 +206,20 @@ function PanelForState({
   waiting: boolean
   github: GithubConnection
   branchTemplate: string | null
+  variant: "bordered" | "ghost"
 }) {
   const repoSlug = `${github.repoOwner}/${github.repoName}`
   const pulse = waiting && "animate-pulse"
+  const panelChrome = variant === "bordered" ? PANEL_CHROME : undefined
+  const buttonSize = variant === "bordered" ? "sm" : "xs"
 
   if (state.tag === "no_branch") {
     type NoBranchAction = "create" | "connect"
     const Root = InlineForm.Root<NoBranchAction>
     const baseBranch = github.defaultBaseBranch ?? "main"
     return (
-      <Root>
-        <InlineForm.Idle>
+      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+        <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display<NoBranchAction>
             previews={{
               create: (
@@ -234,13 +241,17 @@ function PanelForState({
               {m.git_no_branch_yet()}
             </span>
           </InlineForm.Display>
-          <InlineForm.Actions>
-            <InlineForm.Trigger action="create" size="sm" leadingIcon={Plus}>
+          <InlineForm.Actions className={ACTIONS_STACK}>
+            <InlineForm.Trigger
+              action="create"
+              size={buttonSize}
+              leadingIcon={Plus}
+            >
               {m.git_create_branch_button()}
             </InlineForm.Trigger>
             <InlineForm.Trigger
               action="connect"
-              size="sm"
+              size={buttonSize}
               variant="tertiary"
               leadingIcon={GitBranch}
             >
@@ -255,10 +266,16 @@ function PanelForState({
             ticket={ticket}
             github={github}
             branchTemplate={branchTemplate}
+            variant={variant}
           />
         </InlineForm.Form>
         <InlineForm.Form action="connect">
-          <ConnectBranchFields orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          <ConnectBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            ticket={ticket}
+            variant={variant}
+          />
         </InlineForm.Form>
       </Root>
     )
@@ -268,12 +285,12 @@ function PanelForState({
     const baseBranch = github.defaultBaseBranch ?? "main"
     const Root = InlineForm.Root<"clear">
     return (
-      <Root>
-        <InlineForm.Idle>
+      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+        <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
             <BranchChip slug={repoSlug} name={state.name} />
           </InlineForm.Display>
-          <InlineForm.Actions>
+          <InlineForm.Actions className={ACTIONS_STACK}>
             <Button
               render={
                 <a
@@ -282,18 +299,27 @@ function PanelForState({
                   rel="noreferrer"
                 />
               }
-              size="sm"
+              size={buttonSize}
               leadingIcon={GitPullRequest}
             >
               {m.git_open_pr_button()}
             </Button>
-            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
+            <InlineForm.Trigger
+              action="clear"
+              size={buttonSize}
+              variant="ghost"
+            >
               {m.git_clear_branch_button()}
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields orgSlug={orgSlug} slug={slug} id={ticket.id} />
+          <ClearBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+            variant={variant}
+          />
         </InlineForm.Form>
       </Root>
     )
@@ -301,8 +327,8 @@ function PanelForState({
 
   if (state.tag === "pr_open") {
     return (
-      <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div className={cn("flex flex-wrap items-center gap-2", pulse)}>
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
+        <div className={cn(ROW_STACK, pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink
             number={state.number}
@@ -310,9 +336,7 @@ function PanelForState({
             tone={state.draft ? "draft" : "open"}
             checks={state.checks}
           />
-          <span className="text-xs text-muted-foreground truncate">
-            {state.title}
-          </span>
+          <span className={WRAPPABLE_TEXT}>{state.title}</span>
         </div>
       </div>
     )
@@ -320,11 +344,11 @@ function PanelForState({
 
   if (state.tag === "pr_merged") {
     return (
-      <div className="rounded-lg border border-border bg-background px-3 py-2">
-        <div className={cn("flex flex-wrap items-center gap-2", pulse)}>
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
+        <div className={cn(ROW_STACK, pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="merged" />
-          <span className="text-xs text-muted-foreground">
+          <span className={WRAPPABLE_TEXT}>
             {m.git_pr_merged_status_note()}
           </span>
         </div>
@@ -335,12 +359,12 @@ function PanelForState({
   if (state.tag === "pr_closed") {
     const baseBranch = github.defaultBaseBranch ?? "main"
     return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER, ROW_STACK)}>
         <div className={cn("flex items-center gap-2", pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="closed" />
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto @max-sm/git-panel:ml-0">
           <Button
             render={
               <a
@@ -349,7 +373,7 @@ function PanelForState({
                 rel="noreferrer"
               />
             }
-            size="sm"
+            size={buttonSize}
             variant="tertiary"
             leadingIcon={GitPullRequest}
           >
@@ -363,24 +387,38 @@ function PanelForState({
   if (state.tag === "stale_branch") {
     const Root = InlineForm.Root<"clear">
     return (
-      <Root>
-        <InlineForm.Idle>
+      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+        <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
-            <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="size-3.5" strokeWidth={1.75} />
-              {m.git_stale_branch_prefix()}{" "}
-              <span className="font-mono">{state.name}</span>{" "}
-              {m.git_stale_branch_suffix()}
-            </span>
+            <div className="flex min-w-0 items-start gap-1.5 text-xs text-state-warning">
+              <AlertTriangle
+                className="mt-0.5 size-3.5 shrink-0"
+                strokeWidth={1.75}
+              />
+              <span className="min-w-0 break-words">
+                {m.git_stale_branch_prefix()}{" "}
+                <span className="font-mono">{state.name}</span>{" "}
+                {m.git_stale_branch_suffix()}
+              </span>
+            </div>
           </InlineForm.Display>
-          <InlineForm.Actions>
-            <InlineForm.Trigger action="clear" size="sm" variant="ghost">
+          <InlineForm.Actions className={ACTIONS_STACK}>
+            <InlineForm.Trigger
+              action="clear"
+              size={buttonSize}
+              variant="ghost"
+            >
               {m.git_clear_branch_button()}
             </InlineForm.Trigger>
           </InlineForm.Actions>
         </InlineForm.Idle>
         <InlineForm.Form action="clear">
-          <ClearBranchFields orgSlug={orgSlug} slug={slug} id={ticket.id} />
+          <ClearBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+            variant={variant}
+          />
         </InlineForm.Form>
       </Root>
     )
@@ -388,6 +426,17 @@ function PanelForState({
 
   return null
 }
+
+const PANEL_CHROME = "rounded-lg border border-border bg-background px-3 py-2"
+const GIT_PANEL_CONTAINER = "@container/git-panel"
+const IDLE_STACK =
+  "@max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch"
+const ACTIONS_STACK =
+  "@max-sm/git-panel:ml-0 @max-3xs/git-panel:flex-col @max-3xs/git-panel:items-stretch"
+const ROW_STACK =
+  "flex flex-wrap items-center gap-2 @max-sm/git-panel:flex-col @max-sm/git-panel:items-start"
+const WRAPPABLE_TEXT =
+  "min-w-0 truncate text-xs text-muted-foreground @max-sm/git-panel:whitespace-normal @max-sm/git-panel:overflow-visible"
 
 export function BranchChip({
   slug,
@@ -411,14 +460,14 @@ export function BranchChip({
         className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground"
       >
         <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
-        <span className="truncate">{displayName ?? name}</span>
+        <span className="min-w-0 truncate">{displayName ?? name}</span>
         <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
       </a>
     )
   }
   return (
     <span
-      className="inline-flex items-center gap-0.5 rounded-md bg-muted pr-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:text-foreground"
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-muted pr-1 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:text-foreground"
       title={name}
     >
       <a
@@ -426,11 +475,11 @@ export function BranchChip({
         target="_blank"
         rel="noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 rounded-md py-0.5 pl-1.5 transition-colors duration-100 hover:text-foreground"
+        className="inline-flex min-w-0 items-center gap-1 rounded-md py-0.5 pl-1.5 transition-colors duration-100 hover:text-foreground"
       >
-        <GitBranch className="size-3" strokeWidth={1.75} />
-        {displayName ?? name}
-        <ArrowUpRight className="size-3" strokeWidth={1.75} />
+        <GitBranch className="size-3 shrink-0" strokeWidth={1.75} />
+        <span className="min-w-0 truncate">{displayName ?? name}</span>
+        <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
       </a>
       <CopyButton value={name} copyLabel={m.git_copy_branch_name_label()} />
     </span>

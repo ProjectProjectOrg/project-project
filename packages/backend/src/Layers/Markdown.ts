@@ -107,6 +107,31 @@ export const MarkdownLive = Layer.effect(
         }
       })
 
+    const readProjectFileRaw = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        const file = projectFilePath(orgSlug, slug)
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
+              isSystemNotFound(cause)
+                ? new NotFound()
+                : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
+          )
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/project.md`,
+          content
+        }
+      })
+
     const writeProjectFile = (
       orgSlug: string,
       slug: string,
@@ -209,6 +234,33 @@ export const MarkdownLive = Layer.effect(
           file.body
         )
         return { data: file.data, description, region }
+      })
+
+    const readTicketFileRaw = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeId(id)
+        const file = ticketFilePath(orgSlug, slug, id)
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
+              isSystemNotFound(cause)
+                ? new NotFound()
+                : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
+          )
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/tickets/${id}.md`,
+          content
+        }
       })
 
     const createTicketFile = (
@@ -372,6 +424,33 @@ export const MarkdownLive = Layer.effect(
         }
       })
 
+    const readGroupFileRaw = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureSafeOrgAndProject(orgSlug, slug)
+        yield* ensureSafeGroupId(id)
+        const file = groupFilePath(orgSlug, slug, id)
+        const content = yield* fs
+          .readFileString(file, "utf8")
+          .pipe(
+            Effect.mapError((cause): NotFound | MarkdownError =>
+              isSystemNotFound(cause)
+                ? new NotFound()
+                : new MarkdownError({ cause, message: `read failed: ${file}` })
+            )
+          )
+        return {
+          path: `orgs/${orgSlug}/projects/${slug}/groups/${id}.md`,
+          content
+        }
+      })
+
     const createGroupFile = (
       orgSlug: string,
       slug: string,
@@ -507,16 +586,19 @@ export const MarkdownLive = Layer.effect(
     return {
       projectDir,
       readProjectFile,
+      readProjectFileRaw,
       writeProjectFile,
       removeProjectDir,
       readTicketFile,
       readTicketParts,
+      readTicketFileRaw,
       createTicketFile,
       writeTicketFile,
       writeTicketWithRegion,
       removeTicketFile,
       listTicketIds,
       readGroupFile,
+      readGroupFileRaw,
       createGroupFile,
       writeGroupFile,
       writeGroupFileIfExists,

@@ -38,9 +38,11 @@ import {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
+  paginateSorted,
   RepoGone,
   Role
 } from "@projectproject/shared"
+import type { CursorPayload } from "@projectproject/shared"
 import type {
   AddMemberInput,
   AssignableRole,
@@ -195,6 +197,67 @@ export const ProjectsLive = Layer.effect(
             Effect.orDie
           )
       )
+
+    // --- Paged list ----------------------------------------------------
+
+    const projectSortKey = (p: { createdAt: Date; slug: string }) =>
+      `${(Number.MAX_SAFE_INTEGER - p.createdAt.getTime())
+        .toString()
+        .padStart(20, "0")}|${p.slug}`
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<{ items: ReadonlyArray<Project>; nextCursor: string | null }> =>
+      Effect.gen(function* () {
+        const all = yield* list(orgSlug, userId)
+        const sorted = [...all].toSorted((a, b) => {
+          const dt = b.createdAt.getTime() - a.createdAt.getTime()
+          if (dt !== 0) return dt
+          return a.slug.localeCompare(b.slug)
+        })
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: projectSortKey,
+          id: (p) => p.slug
+        })
+      })
+
+    const listMembersPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Member>; nextCursor: string | null },
+      NotFound
+    > =>
+      Effect.gen(function* () {
+        const detail = yield* get(orgSlug, userId, slug).pipe(
+          Effect.catchTag("MarkdownError", (e) => Effect.die(e))
+        )
+        const sorted = [...detail.members].toSorted((a, b) =>
+          a.name < b.name
+            ? -1
+            : a.name > b.name
+              ? 1
+              : a.id < b.id
+                ? -1
+                : a.id > b.id
+                  ? 1
+                  : 0
+        )
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (m) => m.name,
+          id: (m) => m.id
+        })
+      })
 
     // --- Permission gates ----------------------------------------------
 
@@ -710,6 +773,8 @@ export const ProjectsLive = Layer.effect(
 
     return {
       list,
+      listPaged,
+      listMembersPaged,
       create,
       get,
       update,

@@ -269,7 +269,7 @@ function CreateSprintFields({
     if (Exit.isSuccess(exit)) {
       const created = exit.value
       close()
-      navigate({
+      void navigate({
         to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
         params: { orgSlug, slug, groupId: created.id }
       })

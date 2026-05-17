@@ -13,6 +13,7 @@ import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
@@ -22,6 +23,7 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugMembersRouteImport } from './rout
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/index'
+import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
 
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
@@ -41,6 +43,11 @@ const AuthedProfileRoute = AuthedProfileRouteImport.update({
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
+  id: '/(public)/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
@@ -95,6 +102,12 @@ const AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute =
     path: '/',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute =
+  AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport.update({
+    id: '/tickets/$id',
+    path: '/tickets/$id',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute =
   AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport.update({
     id: '/$groupId',
@@ -107,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -115,18 +129,21 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
   '/': typeof AuthedIndexRoute
+  '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRoutesById {
@@ -136,6 +153,7 @@ export interface FileRoutesById {
   '/_authed/profile': typeof AuthedProfileRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
+  '/(public)/oauth/consent': typeof publicOauthConsentRoute
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -144,6 +162,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/members': typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
 }
 export interface FileRouteTypes {
@@ -153,6 +172,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/profile'
     | '/orgs/$orgSlug'
+    | '/oauth/consent'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/'
@@ -161,18 +181,21 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/members'
     | '/orgs/$orgSlug/projects/$slug/'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/orgs/$orgSlug/projects/$slug/sprints/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/profile'
     | '/'
+    | '/oauth/consent'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/members'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/orgs/$orgSlug/projects/$slug/sprints'
   id:
     | '__root__'
@@ -181,6 +204,7 @@ export interface FileRouteTypes {
     | '/_authed/profile'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
+    | '/(public)/oauth/consent'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/projects/'
@@ -189,12 +213,14 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/members'
     | '/_authed/orgs/$orgSlug/projects/$slug/'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
+    | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
   publicLoginRoute: typeof publicLoginRoute
+  publicOauthConsentRoute: typeof publicOauthConsentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof publicLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/oauth/consent': {
+      id: '/(public)/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof publicOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/orgs/$orgSlug': {
@@ -290,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
+      path: '/tickets/$id'
+      fullPath: '/orgs/$orgSlug/projects/$slug/tickets/$id'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
       path: '/$groupId'
@@ -323,6 +363,7 @@ interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugAboutRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   AuthedOrgsOrgSlugProjectsSlugMembersRoute: typeof AuthedOrgsOrgSlugProjectsSlugMembersRoute
   AuthedOrgsOrgSlugProjectsSlugIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
 }
 
 const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren =
@@ -335,6 +376,8 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjects
       AuthedOrgsOrgSlugProjectsSlugMembersRoute,
     AuthedOrgsOrgSlugProjectsSlugIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugIndexRoute,
+    AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute:
+      AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute,
   }
 
 const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
@@ -380,6 +423,7 @@ const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
   publicLoginRoute: publicLoginRoute,
+  publicOauthConsentRoute: publicOauthConsentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

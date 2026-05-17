@@ -5,10 +5,12 @@ import type {
   AssignableRole,
   ConnectGithubInput,
   CreateProjectInput,
+  CursorPayload,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  Member,
   NotFound,
   Project,
   ProjectDetail,
@@ -27,6 +29,24 @@ export interface ProjectsShape {
     orgSlug: string,
     userId: string
   ) => Effect.Effect<ReadonlyArray<Project>>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Project>; nextCursor: string | null }
+  >
+  readonly listMembersPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Member>; nextCursor: string | null },
+    NotFound
+  >
   readonly create: (
     orgSlug: string,
     createdBy: string,

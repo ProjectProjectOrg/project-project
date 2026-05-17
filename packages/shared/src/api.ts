@@ -35,6 +35,7 @@ import {
 } from "./schemas/Project"
 import {
   CreateTicketInput,
+  QuickCreateTicketInput,
   Ticket,
   TicketDetail,
   TicketId,
@@ -55,6 +56,7 @@ import {
   CreateCommentInput,
   UpdateCommentInput
 } from "./schemas/Comment"
+import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   CompleteSprintInput,
   CreateGroupInput,
@@ -75,6 +77,7 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  MentionInvalid,
   NotFound,
   RateLimited,
   RepoGone,
@@ -286,12 +289,25 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addError(NotFound)
   )
   .add(
-    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
+    HttpApiEndpoint.post(
+      "quickCreate",
+      "/orgs/:orgSlug/projects/:slug/tickets/quick"
+    )
       .setPath(ProjectPath)
-      .setPayload(CreateTicketInput)
+      .setPayload(QuickCreateTicketInput)
       .addSuccess(Ticket)
       .addError(Unauthorized)
       .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
+      .setPath(ProjectPath)
+      .setPayload(CreateTicketInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/tickets/:id")
@@ -307,6 +323,8 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tickets/:id")
@@ -404,6 +422,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.patch(
@@ -417,6 +436,7 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
       .addError(NotFound)
       .addError(Forbidden)
       .addError(Validation)
+      .addError(MentionInvalid)
   )
   .add(
     HttpApiEndpoint.del(
@@ -555,6 +575,33 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .middleware(Authentication)
 
+const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
+  .add(
+    HttpApiEndpoint.get("list", "/oauth-applications")
+      .addSuccess(Schema.Array(OAuthApplication))
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint.del("revoke", "/oauth-applications/:id")
+      .setPath(Schema.Struct({ id: Schema.String }))
+      .addSuccess(Schema.Struct({ ok: Schema.Literal(true) }))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("consent", "/oauth-applications/consent")
+      .setPayload(
+        Schema.Struct({
+          accept: Schema.Boolean,
+          consent_code: Schema.String
+        })
+      )
+      .addSuccess(Schema.Struct({ redirectURI: Schema.String }))
+      .addError(Unauthorized)
+      .addError(Validation)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -564,5 +611,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketCommentsGroup)
   .add(TagsGroup)
   .add(GroupsGroup)
+  .add(OAuthApplicationsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

@@ -17,12 +17,14 @@
 // would be clobbered by the standard one.
 
 // --- Editor side (global Prism singleton) -----------------------------------
+import "prismjs"
 import "prismjs/components/prism-jsx.js"
 import "prismjs/components/prism-tsx.js"
 import "prismjs/components/prism-bash.js"
 import "prismjs/components/prism-yaml.js"
 import "prismjs/components/prism-json.js"
 import "prismjs/components/prism-go.js"
+import "prismjs/components/prism-toml.js"
 
 // --- Read side (refractor) --------------------------------------------------
 // Refractor's package.json maps `./*` to `./lang/*.js`, so the subpath import

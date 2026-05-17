@@ -3,11 +3,15 @@ import type * as Effect from "effect/Effect"
 import type {
   CompleteSprintInput,
   CreateGroupInput,
+  CursorPayload,
   Forbidden,
   Group,
   GroupDetail,
+  GroupFilter,
   NotFound,
   SprintCompletedImmutable,
+  SprintState,
+  TicketId,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
@@ -22,6 +26,28 @@ export interface GroupsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    filter: GroupFilter | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
+  readonly listSprintsPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    state: SprintState | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
   readonly get: (
     orgSlug: string,
     userId: string,
@@ -50,6 +76,16 @@ export interface GroupsShape {
     slug: string,
     id: string,
     input: UpdateGroupTicketsInput
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly addTickets: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    ticketIds: ReadonlyArray<TicketId>
   ) => Effect.Effect<
     UpdateGroupTicketsOutput,
     NotFound | Forbidden | SprintCompletedImmutable | MarkdownError

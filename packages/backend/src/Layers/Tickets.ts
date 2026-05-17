@@ -28,28 +28,54 @@ import {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   GitStatesResponse,
+  MentionInvalid,
   NotFound,
   OpenPrInput,
   OpenPrResult,
+  padNumericIdSort,
+  paginateSorted,
+  QuickCreateTicketInput,
   RateLimited,
   RepoGone,
   TagName,
   Ticket,
   TicketDetail,
   TicketId,
-  UpdateTicketInput
+  UpdateTicketInput,
+  Validation,
+  type CursorPayload,
+  type TicketFilter
 } from "@projectproject/shared"
+import { matchesTicketFilter } from "../Services/TicketFilters"
+import { validateBodyMentions } from "../Services/BodyMentions"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
-import { TicketDocs, type TicketDocument } from "../Services/TicketDocs"
+import { Db } from "../Services/Db"
+import { projectIndex, projectTag } from "../db/schema"
+import { eq } from "drizzle-orm"
+import {
+  MalformedTicketDocument,
+  TicketDocs,
+  type TicketDocument
+} from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { planTicketGitStates } from "../ticketGitStatePlanner"
 
 const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
+
+type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
+
+type TicketCollectionRead =
+  | { readonly _tag: "Readable"; readonly document: TicketDocument }
+  | {
+      readonly _tag: "Unreadable"
+      readonly ticketId: string
+      readonly error: MalformedTicketDocument
+    }
 
 function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
@@ -72,6 +98,7 @@ export const TicketsLive = Layer.effect(
     const projects = yield* Projects
     const github = yield* GitHub
     const groups = yield* Groups
+    const db = yield* Db
 
     const ensureAccess = (
       orgSlug: string,
@@ -80,12 +107,62 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<void, NotFound> =>
       projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
 
+    const resolveGroupMembers = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      groupIds: ReadonlyArray<string> | undefined
+    ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        if (groupIds === undefined) return null
+        if (groupIds.length === 0) return new Set<string>()
+        const details = yield* Effect.forEach(
+          groupIds,
+          (id) => groups.get(orgSlug, userId, slug, id),
+          { concurrency: 8 }
+        )
+        const set = new Set<string>()
+        for (const g of details) for (const t of g.tickets) set.add(t)
+        return set
+      })
+
     const readTicket = (
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDocument, NotFound | MarkdownError> =>
+    ): Effect.Effect<
+      TicketDocument,
+      NotFound | MarkdownError | MalformedTicketDocument
+    > =>
       ticketDocs.read(orgSlug, slug, id)
+
+    const readTicketForCollection = (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ): Effect.Effect<TicketCollectionRead, NotFound | MarkdownError> =>
+      readTicket(orgSlug, slug, id).pipe(
+        Effect.map((document) => ({ _tag: "Readable" as const, document })),
+        Effect.catchTag("MalformedTicketDocument", (error) =>
+          Effect.logWarning("Skipping unreadable ticket", {
+            orgSlug,
+            slug,
+            ticketId: id,
+            error
+          }).pipe(
+            Effect.as({
+              _tag: "Unreadable" as const,
+              ticketId: id,
+              error
+            })
+          )
+        )
+      )
+
+    const readableTickets = (
+      reads: ReadonlyArray<TicketCollectionRead>
+    ): ReadonlyArray<TicketDocument> =>
+      reads.flatMap((read) => (read._tag === "Readable" ? [read.document] : []))
 
     const list = (
       orgSlug: string,
@@ -97,10 +174,10 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(orgSlug, slug, id),
+          (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         )
-        return tickets
+        return readableTickets(tickets)
           .map(documentToTicket)
           .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
       })
@@ -110,26 +187,114 @@ export const TicketsLive = Layer.effect(
       ownerId: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         return yield* readTicket(orgSlug, slug, id)
       })
 
-    const create = (
+    const validateTagsExist = (
+      slug: string,
+      requested: ReadonlyArray<string>
+    ): Effect.Effect<void, NotFound | Validation> =>
+      Effect.gen(function* () {
+        if (requested.length === 0) return
+        const projectRow = yield* db.query.projectIndex
+          .findFirst({
+            columns: { id: true },
+            where: eq(projectIndex.slug, slug)
+          })
+          .pipe(Effect.orDie)
+        if (!projectRow) return yield* new NotFound()
+        const rows = yield* db.query.projectTag
+          .findMany({
+            columns: { name: true },
+            where: eq(projectTag.projectId, projectRow.id)
+          })
+          .pipe(Effect.orDie)
+        const known = new Set<string>(rows.map((r) => r.name))
+        const missing = requested.filter((name) => !known.has(name))
+        if (missing.length > 0) {
+          return yield* new Validation({
+            reason: `unknown_tags:${missing.join(",")}`
+          })
+        }
+      })
+
+    const validateBody = (
       orgSlug: string,
       ownerId: string,
       slug: string,
-      input: CreateTicketInput
+      body: string
+    ): Effect.Effect<void, NotFound | MentionInvalid | MarkdownError> =>
+      Effect.gen(function* () {
+        if (!body.includes("](mention:")) return
+        const project = yield* projects.get(orgSlug, ownerId, slug)
+        const memberIds = new Set<string>(project.members.map((m) => m.id))
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const ticketIds = new Set<string>(ids)
+        yield* validateBodyMentions(body, memberIds, ticketIds)
+      })
+
+    const validateAssigneesAreMembers = (
+      orgSlug: string,
+      slug: string,
+      assignees: ReadonlyArray<string>
+    ): Effect.Effect<void, Validation> =>
+      Effect.gen(function* () {
+        const invalid: string[] = []
+        for (const assigneeId of assignees) {
+          const ok = yield* projects.requireMember(orgSlug, assigneeId, slug).pipe(
+            Effect.as(true as const),
+            Effect.catchTag("NotFound", () => Effect.succeed(false as const))
+          )
+          if (!ok) invalid.push(assigneeId)
+        }
+        if (invalid.length > 0) {
+          return yield* new Validation({
+            reason: `non_member_assignees:${invalid.join(",")}`
+          })
+        }
+      })
+
+    const writeWithIdAllocation = (
+      orgSlug: string,
+      slug: string,
+      buildDocument: (id: TicketId) => TicketDocument
+    ): Effect.Effect<TicketDocument, MarkdownError> =>
+      Effect.gen(function* () {
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        let candidate = nextIdFrom(ids)
+        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+          const document = buildDocument(candidate)
+          const result = yield* ticketDocs
+            .create(orgSlug, slug, document)
+            .pipe(
+              Effect.map(() => "ok" as const),
+              Effect.catchTag("TicketIdTaken", () =>
+                Effect.succeed("retry" as const)
+              )
+            )
+          if (result === "ok") return document
+          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
+          candidate = nextIdFrom(freshIds)
+        }
+        return yield* Effect.die(
+          new Error(`could not allocate ticket id for "${slug}"`)
+        )
+      })
+
+    const quickCreate = (
+      orgSlug: string,
+      ownerId: string,
+      slug: string,
+      input: QuickCreateTicketInput
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
-
         const now = yield* DateTime.nowAsDate
-        const document: TicketDocument = {
-          id: candidate,
+        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
+          id,
           title: input.title,
           status: "todo",
           type: input.type ?? "other",
@@ -143,26 +308,49 @@ export const TicketsLive = Layer.effect(
           createdAt: now,
           updatedAt: now,
           body: `# ${input.title}\n`
-        }
+        }))
+        return documentToTicket(document)
+      })
 
-        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const result = yield* ticketDocs
-            .create(orgSlug, slug, { ...document, id: candidate })
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("TicketIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
-            )
-          if (result === "ok") {
-            return documentToTicket({ ...document, id: candidate })
-          }
-          const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(freshIds)
+    const create = (
+      orgSlug: string,
+      ownerId: string,
+      slug: string,
+      input: CreateTicketInput
+    ): Effect.Effect<
+      TicketDetail,
+      NotFound | Validation | MentionInvalid | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, ownerId, slug)
+        if (input.tags !== undefined) {
+          yield* validateTagsExist(slug, input.tags)
         }
-        return yield* Effect.die(
-          new Error(`could not allocate ticket id for "${slug}"`)
-        )
+        if (input.assignees !== undefined && input.assignees.length > 0) {
+          yield* validateAssigneesAreMembers(orgSlug, slug, input.assignees)
+        }
+        if (input.body !== undefined) {
+          yield* validateBody(orgSlug, ownerId, slug, input.body)
+        }
+        const now = yield* DateTime.nowAsDate
+        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
+          id,
+          title: input.title,
+          status: input.status ?? "todo",
+          type: input.type ?? "other",
+          priority: input.priority ?? "med",
+          tags: input.tags !== undefined ? [...input.tags] : [],
+          branch: null,
+          pr: null,
+          lastTransitionedPr: null,
+          assignees:
+            input.assignees !== undefined ? [...input.assignees] : [],
+          createdBy: ownerId,
+          createdAt: now,
+          updatedAt: now,
+          body: input.body ?? `# ${input.title}\n`
+        }))
+        return document
       })
 
     const update = (
@@ -171,18 +359,27 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateTicketInput
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
 
+        if (input.tags !== undefined) {
+          yield* validateTagsExist(slug, input.tags)
+        }
+
         if (input.assignees !== undefined) {
           const existingSet = new Set(existing.assignees)
-          for (const assigneeId of input.assignees) {
-            if (!existingSet.has(assigneeId)) {
-              yield* projects.requireMember(orgSlug, assigneeId, slug)
-            }
+          const newcomers = input.assignees.filter(
+            (assigneeId) => !existingSet.has(assigneeId)
+          )
+          if (newcomers.length > 0) {
+            yield* validateAssigneesAreMembers(orgSlug, slug, newcomers)
           }
+        }
+
+        if (input.body !== undefined) {
+          yield* validateBody(orgSlug, ownerId, slug, input.body)
         }
 
         const next: TicketDocument = {
@@ -228,7 +425,7 @@ export const TicketsLive = Layer.effect(
       id: string,
       oldName: string,
       newName: string | null
-    ): Effect.Effect<boolean, NotFound | MarkdownError> =>
+    ): Effect.Effect<boolean, TicketReadError> =>
       Effect.gen(function* () {
         const existing = yield* readTicket(orgSlug, slug, id)
         if (!existing.tags.some((tag) => tag === oldName)) return false
@@ -245,6 +442,52 @@ export const TicketsLive = Layer.effect(
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
+      })
+
+    const listPaged = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      filter: TicketFilter | undefined,
+      cursor: CursorPayload | undefined,
+      limit: number
+    ): Effect.Effect<
+      { items: ReadonlyArray<Ticket>; nextCursor: string | null },
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const groupMemberSet = yield* resolveGroupMembers(
+          orgSlug,
+          userId,
+          slug,
+          filter?.groupId
+        )
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const tickets = yield* Effect.forEach(
+          ids,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(
+          Effect.map(readableTickets)
+        )
+        const sorted = tickets
+          .map(documentToTicket)
+          .filter(
+            (t) =>
+              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
+              matchesTicketFilter(t, filter)
+          )
+          .toSorted(
+            (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
+          )
+
+        return paginateSorted(sorted, {
+          cursor,
+          limit,
+          sortKey: (t) => padNumericIdSort(t.id) ?? "",
+          id: (t) => t.id
+        })
       })
 
     // --- Git operations -------------------------------------------------
@@ -295,6 +538,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -341,6 +585,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -387,6 +632,7 @@ export const TicketsLive = Layer.effect(
       | RateLimited
       | GitHubError
       | MarkdownError
+      | MalformedTicketDocument
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
@@ -430,7 +676,7 @@ export const TicketsLive = Layer.effect(
       userId: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketDetail, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
         const ticket = yield* readTicket(orgSlug, slug, id)
@@ -465,9 +711,9 @@ export const TicketsLive = Layer.effect(
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
-          (id) => readTicket(orgSlug, slug, id),
+          (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
-        )
+        ).pipe(Effect.map(readableTickets))
 
         const result = yield* github
           .fetchProjectStates(
@@ -550,9 +796,29 @@ export const TicketsLive = Layer.effect(
         }
       })
 
+    const getGitState = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      ticketId: string | undefined
+    ): Effect.Effect<GitStatesResponse, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        const all = yield* listGitStates(orgSlug, userId, slug)
+        if (ticketId === undefined) return all
+        const single = all.states[ticketId]
+        return {
+          states: single ? { [ticketId]: single } : {},
+          transitioned: all.transitioned.filter((t) => t.ticketId === ticketId),
+          tokenStatus: all.tokenStatus,
+          repoStatus: all.repoStatus
+        }
+      })
+
     return {
       list,
+      listPaged,
       get,
+      quickCreate,
       create,
       update,
       remove,
@@ -561,7 +827,8 @@ export const TicketsLive = Layer.effect(
       attachBranch,
       openPr,
       clearBranch,
-      listGitStates
+      listGitStates,
+      getGitState
     } satisfies TicketsShape
   })
 )
