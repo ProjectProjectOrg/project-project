@@ -54,7 +54,7 @@ export function SprintDetail({
     onError: (error) => (
       <PageContainer wide={wide}>
         {error._tag === "NotFound" ? (
-          <Empty className="rounded-xl border border-dashed border-border p-6">
+          <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
             <EmptyHeader>
               <EmptyTitle>{m.sprints_not_found_title()}</EmptyTitle>
               <EmptyDescription>
@@ -63,7 +63,7 @@ export function SprintDetail({
             </EmptyHeader>
           </Empty>
         ) : (
-          <Empty className="rounded-xl border border-dashed border-border p-6">
+          <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
             <EmptyHeader>
               <EmptyTitle>{m.sprints_load_error_title()}</EmptyTitle>
               <EmptyDescription>
@@ -76,7 +76,7 @@ export function SprintDetail({
     ),
     onDefect: (defect) => (
       <PageContainer wide={wide}>
-        <Empty className="rounded-xl border border-dashed border-border p-6">
+        <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
           <EmptyHeader>
             <EmptyDescription>
               {m.chrome_defect({ defect: String(defect) })}

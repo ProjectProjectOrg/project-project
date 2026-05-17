@@ -55,12 +55,12 @@ export function TicketList({
             <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
-            <Empty className="border border-dashed border-border">
+            <Empty variant="inline" className="border border-dashed border-border">
               {m.tickets_list_load_error({ error: error._tag })}
             </Empty>
           ),
           onDefect: (defect) => (
-            <Empty className="border border-dashed border-border">
+            <Empty variant="inline" className="border border-dashed border-border">
               {m.tickets_list_defect({ defect: String(defect) })}
             </Empty>
           ),
