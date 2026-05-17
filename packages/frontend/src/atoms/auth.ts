@@ -98,6 +98,7 @@
 // the argument is the Failure variant, not the error.
 
 import { Atom, Result } from "@effect-atom/atom-react"
+import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import {
   acceptInvitations,
@@ -167,9 +168,7 @@ export const declineInvitationAtom = Atom.family((invitationId: string) =>
     fn: runtime.fn(
       Effect.fn(function* (_input: void, get) {
         yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.rejectInvitation({ invitationId })
-          )
+          authData(authClient.organization.rejectInvitation({ invitationId }))
         )
         get.refresh(pendingInvitesBaseAtom)
       })
@@ -177,7 +176,7 @@ export const declineInvitationAtom = Atom.family((invitationId: string) =>
   })
 )
 
-export const acceptAllInvitesAtom = runtime.fn(
+export const acceptInvitesAtom = runtime.fn(
   Effect.fn(function* (invites: readonly PendingInvite[], get) {
     const result = yield* Effect.tryPromise(() =>
       acceptInvitations(invites, (invite) =>
@@ -206,10 +205,15 @@ export const acceptAllInvitesAtom = runtime.fn(
   })
 )
 
+type AuthClientError = Pick<BetterFetchError, "status" | "statusText"> & {
+  code?: string
+  message?: string
+}
+
 async function authData<T>(
-  response: Promise<{ data: T; error: { message?: string } | null }>
+  response: Promise<{ data: T; error: AuthClientError | null }>
 ): Promise<T> {
   const { data, error } = await response
-  if (error) throw new Error(error.message ?? "Auth request failed")
+  if (error) throw error
   return data
 }

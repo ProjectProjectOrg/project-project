@@ -85,6 +85,7 @@ describe("pickActiveInvite", () => {
 describe("acceptInvitations", () => {
   it("accepts all invites concurrently and reports the most recent success", async () => {
     const calls: string[] = []
+    const resolves = new Map<string, () => void>()
     const oldInvite = pendingInvite({
       id: "old",
       organizationSlug: "old",
@@ -96,11 +97,19 @@ describe("acceptInvitations", () => {
       createdAt: isoDate("2026-05-17T12:00:00Z")
     })
 
-    const result = await acceptInvitations([oldInvite, newInvite], async (i) => {
+    const pending = acceptInvitations([oldInvite, newInvite], async (i) => {
       calls.push(i.id)
+      await new Promise<void>((resolve) => {
+        resolves.set(i.id, resolve)
+      })
     })
+    await waitFor(() => resolves.size === 2)
+    expect(calls.toSorted()).toEqual(["new", "old"])
 
-    expect(calls).toEqual(["old", "new"])
+    resolves.get("old")?.()
+    resolves.get("new")?.()
+    const result = await pending
+
     expect(result.successes.map((success) => success.invite.id)).toEqual([
       "old",
       "new"
@@ -121,9 +130,67 @@ describe("acceptInvitations", () => {
     expect(result.failures.map((failure) => failure.invite.id)).toEqual([
       "failed"
     ])
+    expect(result.failures[0]?.error._tag).toBe("InviteAcceptFailed")
     expect(result.activeInvite?.id).toBe("ok")
   })
+
+  it("classifies expired invite failures from the pending invite timestamp", async () => {
+    const expired = pendingInvite({
+      id: "expired",
+      expiresAt: isoDate("2026-05-16T12:00:00Z")
+    })
+
+    const result = await acceptInvitations(
+      [expired],
+      async () => {
+        throw { code: "INVITATION_NOT_FOUND" }
+      },
+      now
+    )
+
+    expect(result.failures[0]?.error).toEqual({
+      _tag: "InviteExpired",
+      inviteId: "expired"
+    })
+  })
+
+  it("classifies Better Auth invitation error codes", async () => {
+    const cases = [
+      ["missing", "INVITATION_NOT_FOUND", "InviteNotFound"],
+      [
+        "other-user",
+        "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION",
+        "InviteNotRecipient"
+      ],
+      [
+        "unverified",
+        "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION",
+        "InviteEmailVerificationRequired"
+      ]
+    ] as const
+
+    for (const [id, code, tag] of cases) {
+      const invite = pendingInvite({ id })
+      const result = await acceptInvitations(
+        [invite],
+        async () => {
+          throw { code }
+        },
+        now
+      )
+
+      expect(result.failures[0]?.error).toEqual({ _tag: tag, inviteId: id })
+    }
+  })
 })
+
+async function waitFor(assertion: () => boolean) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (assertion()) return
+    await Promise.resolve()
+  }
+  expect(assertion()).toBe(true)
+}
 
 function rawInvite(overrides: Partial<RawInvitation> = {}): RawInvitation {
   return {
@@ -140,9 +207,7 @@ function rawInvite(overrides: Partial<RawInvitation> = {}): RawInvitation {
   }
 }
 
-function pendingInvite(
-  overrides: Partial<PendingInvite> = {}
-): PendingInvite {
+function pendingInvite(overrides: Partial<PendingInvite> = {}): PendingInvite {
   return {
     ...rawInvite(),
     organizationSlug: "acme",

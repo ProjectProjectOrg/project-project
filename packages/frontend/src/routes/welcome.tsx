@@ -4,7 +4,7 @@ import * as Exit from "effect/Exit"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import {
-  acceptAllInvitesAtom,
+  acceptInvitesAtom,
   declineInvitationAtom,
   logoutAtom,
   meAtom,
@@ -12,15 +12,13 @@ import {
 } from "@/atoms/auth"
 import { Button } from "@/components/ui/button"
 import { DitherBackdrop } from "@/components/ui/button-dither"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { InviteAcceptFailure, PendingInvite } from "@/lib/invitations"
 
-type AcceptingTarget =
-  | { type: "all" }
-  | { type: "invite"; id: string }
-  | null
+type AcceptingTarget = { type: "all" } | { type: "invite"; id: string } | null
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage
@@ -30,7 +28,9 @@ function WelcomePage() {
   const me = useAtomValue(meAtom)
 
   return Result.matchWithError(me, {
-    onInitial: () => <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>,
+    onInitial: () => (
+      <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>
+    ),
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => (
       <WelcomeGateStatus>
@@ -141,20 +141,18 @@ function WelcomeInviteList({
   syncing: boolean
 }) {
   const navigate = useNavigate({ from: Route.fullPath })
-  const acceptAll = useAtomSet(acceptAllInvitesAtom, { mode: "promiseExit" })
-  const acceptState = useAtomValue(acceptAllInvitesAtom)
+  const acceptAll = useAtomSet(acceptInvitesAtom, { mode: "promiseExit" })
+  const acceptState = useAtomValue(acceptInvitesAtom)
   const logout = useAtomSet(logoutAtom)
   const [failedAccepts, setFailedAccepts] = useState<InviteAcceptFailure[]>([])
-  const [acceptingTarget, setAcceptingTarget] =
-    useState<AcceptingTarget>(null)
+  const [acceptingTarget, setAcceptingTarget] = useState<AcceptingTarget>(null)
   const failedById = new Map(
     failedAccepts.map((failure) => [failure.invite.id, failure])
   )
   const accepting = acceptState.waiting
   const pageError =
     Result.isFailure(acceptState) ||
-    (acceptingTarget?.type === "all" &&
-      failedAccepts.length === invites.length)
+    (acceptingTarget?.type === "all" && failedAccepts.length === invites.length)
       ? m.auth_invites_accept_all_error()
       : null
 
@@ -310,7 +308,7 @@ function InviteRow({
         </div>
         {acceptFailure ? (
           <div className="pt-1 text-[12.5px] leading-5 text-destructive">
-            {m.auth_invites_accept_row_error()}
+            {errorMessage(acceptFailure.error)}
           </div>
         ) : null}
         {declineError ? (

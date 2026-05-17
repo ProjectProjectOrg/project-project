@@ -15,6 +15,7 @@ import type {
   SprintCompletedImmutable,
   Unauthorized
 } from "@projectproject/shared"
+import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
 
 export type AppError =
@@ -32,9 +33,19 @@ export type AppError =
   | BranchNotFound
   | MentionInvalid
   | SprintCompletedImmutable
+  | InviteAcceptError
 
 export const errorMessage = (error: AppError): string =>
   Match.value(error).pipe(
+    Match.tag("InviteExpired", () => m.auth_invites_accept_error_expired()),
+    Match.tag("InviteNotFound", () => m.auth_invites_accept_error_not_found()),
+    Match.tag("InviteNotRecipient", () =>
+      m.auth_invites_accept_error_not_recipient()
+    ),
+    Match.tag("InviteEmailVerificationRequired", () =>
+      m.auth_invites_accept_error_email_verification_required()
+    ),
+    Match.tag("InviteAcceptFailed", () => m.auth_invites_accept_row_error()),
     Match.tag("SprintCompletedImmutable", () =>
       m.error_sprint_completed_immutable()
     ),

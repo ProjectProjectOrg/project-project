@@ -23,9 +23,16 @@ export type InviteAcceptSuccess = {
   invite: PendingInvite
 }
 
+export type InviteAcceptError =
+  | { _tag: "InviteExpired"; inviteId: string }
+  | { _tag: "InviteNotFound"; inviteId: string }
+  | { _tag: "InviteNotRecipient"; inviteId: string }
+  | { _tag: "InviteEmailVerificationRequired"; inviteId: string }
+  | { _tag: "InviteAcceptFailed"; inviteId: string; cause: unknown }
+
 export type InviteAcceptFailure = {
   invite: PendingInvite
-  error: unknown
+  error: InviteAcceptError
 }
 
 export type InviteAcceptResult = {
@@ -69,7 +76,6 @@ export const pickActiveInvite = (
       continue
     }
     const diff = invite.createdAt.getTime() - active.createdAt.getTime()
-    // The newest invite is the one most likely to have caused this sign-in.
     if (
       diff > 0 ||
       (diff === 0 && invite.organizationSlug < active.organizationSlug)
@@ -82,7 +88,8 @@ export const pickActiveInvite = (
 
 export const acceptInvitations = async (
   invites: readonly PendingInvite[],
-  accept: (invite: PendingInvite) => Promise<void>
+  accept: (invite: PendingInvite) => Promise<void>,
+  now = DateTime.toDate(DateTime.unsafeNow())
 ): Promise<InviteAcceptResult> => {
   const settled = await Promise.allSettled(
     invites.map(async (invite) => {
@@ -99,7 +106,10 @@ export const acceptInvitations = async (
       successes.push({ invite: result.value })
       return
     }
-    failures.push({ invite, error: result.reason })
+    failures.push({
+      invite,
+      error: toInviteAcceptError(invite, result.reason, now)
+    })
   })
 
   return {
@@ -108,6 +118,37 @@ export const acceptInvitations = async (
     activeInvite: pickActiveInvite(successes.map((success) => success.invite))
   }
 }
+
+const toInviteAcceptError = (
+  invite: PendingInvite,
+  cause: unknown,
+  now: Date
+): InviteAcceptError => {
+  if (invite.expiresAt <= now) {
+    return { _tag: "InviteExpired", inviteId: invite.id }
+  }
+  if (hasErrorCode(cause, "INVITATION_NOT_FOUND")) {
+    return { _tag: "InviteNotFound", inviteId: invite.id }
+  }
+  if (hasErrorCode(cause, "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION")) {
+    return { _tag: "InviteNotRecipient", inviteId: invite.id }
+  }
+  if (
+    hasErrorCode(
+      cause,
+      "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION"
+    )
+  ) {
+    return { _tag: "InviteEmailVerificationRequired", inviteId: invite.id }
+  }
+  return { _tag: "InviteAcceptFailed", inviteId: invite.id, cause }
+}
+
+const hasErrorCode = (cause: unknown, code: string) =>
+  typeof cause === "object" &&
+  cause !== null &&
+  "code" in cause &&
+  cause.code === code
 
 const toDate = (value: Date | string) =>
   value instanceof Date ? value : DateTime.toDate(DateTime.unsafeMake(value))
