@@ -6,6 +6,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
+  TicketCountQuery,
   TicketId,
   TicketListQuery,
   ticketListQueryToSearch,
@@ -81,6 +82,53 @@ export const ticketsListAtom = Atom.family((key: string) => {
         return yield* SubscriptionRef.make<TicketsListValue>({
           items: page.items,
           nextCursor: page.nextCursor
+        })
+      })
+    )
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("30 seconds")
+    )
+})
+
+const encodeCountQueryForKey = Schema.encodeSync(TicketCountQuery)
+
+export const ticketsCountKey = (
+  orgSlug: string,
+  slug: string,
+  query: TicketCountQuery
+): string => {
+  const encoded = encodeCountQueryForKey(query)
+  return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
+}
+
+interface ParsedTicketsCountKey {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly query: TicketCountQuery
+}
+
+const decodeCountQueryFromKey = Schema.decodeUnknownSync(TicketCountQuery)
+
+const parseTicketsCountKey = (key: string): ParsedTicketsCountKey => {
+  const firstSlash = key.indexOf("/")
+  const secondSlash = key.indexOf("/", firstSlash + 1)
+  const orgSlug = key.slice(0, firstSlash)
+  const slug = key.slice(firstSlash + 1, secondSlash)
+  const raw = JSON.parse(key.slice(secondSlash + 1)) as unknown
+  const query = decodeCountQueryFromKey(raw)
+  return { orgSlug, slug, query }
+}
+
+export const ticketsCountAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, query } = parseTicketsCountKey(key)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.tickets.count({
+          path: { orgSlug, slug },
+          urlParams: ticketListQueryToSearch(query)
         })
       })
     )
