@@ -29,6 +29,7 @@ interface RootProps<A extends string> {
   mode?: "idle" | A
   onModeChange?: (mode: "idle" | A) => void
   className?: string
+  variant?: "bordered" | "ghost"
   children: React.ReactNode
 }
 
@@ -37,6 +38,7 @@ function Root<A extends string = string>({
   mode: controlledMode,
   onModeChange,
   className,
+  variant = "bordered",
   children
 }: RootProps<A>) {
   const [uncontrolled, setUncontrolled] = useState<"idle" | A>(defaultMode)
@@ -77,7 +79,8 @@ function Root<A extends string = string>({
       <div
         data-mode={mode === "idle" ? "idle" : "active"}
         className={cn(
-          "rounded-lg border border-border bg-background px-3 py-2",
+          variant === "bordered" &&
+            "rounded-lg border border-border bg-background px-3 py-2",
           className
         )}
       >

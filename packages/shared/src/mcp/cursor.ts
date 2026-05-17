@@ -3,7 +3,7 @@ import { decodeCursor, encodeCursor, type CursorPayload } from "./Pagination"
 export const CURSOR_NUMERIC_WIDTH = 10
 
 export const padNumericIdSort = (id: string): string | undefined => {
-  const dash = id.indexOf("-")
+  const dash = id.lastIndexOf("-")
   if (dash < 0) return undefined
   const tail = id.slice(dash + 1)
   if (!/^[0-9]+$/.test(tail)) return undefined

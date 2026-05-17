@@ -1,5 +1,6 @@
 import { getTestInstance } from "better-auth/test"
 import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
+import { organization } from "better-auth/plugins"
 import { describe, expect, it, vi } from "vitest"
 import { auth } from "./auth"
 
@@ -53,7 +54,7 @@ describe("Better Auth plugin wiring", () => {
   })
 
   it("rejects invite acceptance when the signed-in recipient email is not verified", async () => {
-    const organizationPlugin = configuredPlugin("organization")
+    const organizationPlugin = testOrganizationPlugin()
     const { client, signInWithTestUser, signInWithUser } =
       await getTestInstance(
         {
@@ -105,7 +106,7 @@ describe("Better Auth plugin wiring", () => {
   })
 
   it("lists, rejects, and accepts organization invitations through the client", async () => {
-    const organizationPlugin = configuredPlugin("organization")
+    const organizationPlugin = testOrganizationPlugin()
     const { client, signInWithTestUser, signInWithUser, db } =
       await getTestInstance(
         {
@@ -200,10 +201,39 @@ describe("Better Auth plugin wiring", () => {
     })
     expect(membership?.organizationId).toBe(organizationIds[1])
   })
+
+  it("disables public self-serve organization creation", () => {
+    const orgPlugin = auth.options.plugins?.find(
+      (plugin) => plugin.id === "organization"
+    )
+    expect(orgPlugin?.options?.allowUserToCreateOrganization).toBe(false)
+    expect(orgPlugin?.options?.requireEmailVerificationOnInvitation).toBe(true)
+  })
+
+  it("links new social sign-ins to existing users by email", () => {
+    expect(auth.options.account?.accountLinking?.enabled).toBe(true)
+    expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
+      "github"
+    )
+  })
+
+  it("exposes the admin plugin endpoints", () => {
+    expect(typeof auth.api.listUsers).toBe("function")
+    expect(typeof auth.api.setRole).toBe("function")
+    expect(typeof auth.api.banUser).toBe("function")
+    expect(typeof auth.api.impersonateUser).toBe("function")
+  })
 })
 
 function configuredPlugin(id: string) {
   const plugin = auth.options.plugins?.find((plugin) => plugin.id === id)
   if (!plugin) throw new Error(`Missing Better Auth plugin: ${id}`)
   return plugin
+}
+
+function testOrganizationPlugin() {
+  return organization({
+    requireEmailVerificationOnInvitation: true,
+    allowUserToCreateOrganization: true
+  })
 }

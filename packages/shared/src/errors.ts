@@ -77,6 +77,33 @@ export class Validation extends Schema.TaggedError<Validation>()(
   HttpApiSchema.annotations({ status: 400 })
 ) {}
 
+// 400 — a `[label](mention:...)` link in a body field failed mention
+// validation. Distinct from `Validation` so MCP agents (and the frontend)
+// can switch on `kind` and report exactly what's wrong with which href.
+// `kind` is one of:
+//   - `malformed_href` — the URL doesn't match `mention:user/<id>` or
+//     `mention:ticket/<T-N>` (typo, unknown type, missing slash).
+//   - `empty_label`    — the link label between `[` and `]` is empty;
+//     mentions must always have a visible label.
+//   - `unknown_user`   — the user id isn't a member of this project.
+//   - `unknown_ticket` — the ticket id doesn't exist in this project.
+export const MentionInvalidKind = Schema.Literal(
+  "malformed_href",
+  "empty_label",
+  "unknown_user",
+  "unknown_ticket"
+)
+export type MentionInvalidKind = typeof MentionInvalidKind.Type
+
+export class MentionInvalid extends Schema.TaggedError<MentionInvalid>()(
+  "MentionInvalid",
+  {
+    kind: MentionInvalidKind,
+    href: Schema.String
+  },
+  HttpApiSchema.annotations({ status: 400 })
+) {}
+
 // --- GitHub-side errors -----------------------------------------------------
 // Distinct from generic 4xx because the user-facing remedy is different
 // (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures

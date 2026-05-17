@@ -28,3 +28,20 @@ export function parseMentionHref(
   if (!isMentionType(type)) return null
   return { type, id }
 }
+
+export interface MentionLink {
+  readonly label: string
+  readonly href: string
+  readonly parsed: { readonly type: MentionType; readonly id: string } | null
+}
+
+const MENTION_LINK_RE = /\[([^\]]*)\]\((mention:[^)]+)\)/g
+
+export function extractMentionLinks(body: string): ReadonlyArray<MentionLink> {
+  const out: MentionLink[] = []
+  for (const m of body.matchAll(MENTION_LINK_RE)) {
+    const [, label, href] = m
+    out.push({ label, href, parsed: parseMentionHref(href) })
+  }
+  return out
+}

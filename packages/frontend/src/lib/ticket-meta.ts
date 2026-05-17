@@ -24,9 +24,9 @@ export const STATUS_META: Record<
   in_progress: {
     label: "In progress",
     icon: CircleDot,
-    className: "text-blue-500"
+    className: "text-state-info"
   },
-  done: { label: "Done", icon: Check, className: "text-emerald-500" }
+  done: { label: "Done", icon: Check, className: "text-state-success" }
 }
 
 export const TYPE_META: Record<

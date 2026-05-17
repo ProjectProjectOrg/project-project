@@ -61,8 +61,10 @@
 
 import * as Layer from "effect/Layer"
 import { ApiClient } from "@/services/ApiClient"
-import { Atom } from "@effect-atom/atom-react"
+import { Atom, Registry } from "@effect-atom/atom-react"
 
 export const AppLayer = Layer.mergeAll(ApiClient.Default)
 
 export const runtime = Atom.runtime(AppLayer)
+
+export const registry = Registry.make()

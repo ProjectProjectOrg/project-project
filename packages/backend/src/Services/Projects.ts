@@ -4,6 +4,7 @@ import type {
   AddMemberInput,
   AssignableRole,
   ConnectGithubInput,
+  Conflict,
   CreateProjectInput,
   CursorPayload,
   Forbidden,
@@ -14,6 +15,7 @@ import type {
   NotFound,
   Project,
   ProjectDetail,
+  ProjectKey,
   RepoGone,
   Role,
   UpdateProjectInput
@@ -34,9 +36,10 @@ export interface ProjectsShape {
     userId: string,
     cursor: CursorPayload | undefined,
     limit: number
-  ) => Effect.Effect<
-    { items: ReadonlyArray<Project>; nextCursor: string | null }
-  >
+  ) => Effect.Effect<{
+    items: ReadonlyArray<Project>
+    nextCursor: string | null
+  }>
   readonly listMembersPaged: (
     orgSlug: string,
     userId: string,
@@ -51,12 +54,17 @@ export interface ProjectsShape {
     orgSlug: string,
     createdBy: string,
     input: CreateProjectInput
-  ) => Effect.Effect<Project, NotFound>
+  ) => Effect.Effect<Project, NotFound | Conflict>
   readonly get: (
     orgSlug: string,
     userId: string,
     slug: string
   ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError>
+  readonly getKey: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<ProjectKey, NotFound>
   readonly update: (
     orgSlug: string,
     userId: string,

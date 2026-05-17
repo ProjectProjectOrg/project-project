@@ -13,15 +13,18 @@ import type {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   GitStatesResponse,
+  MentionInvalid,
   NotFound,
   OpenPrInput,
   OpenPrResult,
+  QuickCreateTicketInput,
   RateLimited,
   RepoGone,
   Ticket,
   TicketDetail,
   TicketFilter,
-  UpdateTicketInput
+  UpdateTicketInput,
+  Validation
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
 import type { MalformedTicketDocument } from "./TicketDocs"
@@ -40,19 +43,28 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<TicketDetail, TicketReadError>
+  readonly quickCreate: (
+    orgSlug: string,
+    ownerId: string,
+    slug: string,
+    input: QuickCreateTicketInput
+  ) => Effect.Effect<Ticket, NotFound | MarkdownError>
   readonly create: (
     orgSlug: string,
     ownerId: string,
     slug: string,
     input: CreateTicketInput
-  ) => Effect.Effect<Ticket, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    TicketDetail,
+    NotFound | Validation | MentionInvalid | MarkdownError
+  >
   readonly update: (
     orgSlug: string,
     ownerId: string,
     slug: string,
     id: string,
     input: UpdateTicketInput
-  ) => Effect.Effect<TicketDetail, TicketReadError>
+  ) => Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid>
   readonly remove: (
     orgSlug: string,
     ownerId: string,
