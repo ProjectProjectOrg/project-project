@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyDescription,
-  EmptyHeader,
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty"
@@ -111,7 +110,7 @@ export function FilteredList({
       return <NoSearchMatches orgSlug={orgSlug} slug={slug} query={query} />
     }
     return (
-      <Empty className={cn(EMPTY_BORDER, "p-6")}>
+      <Empty variant="inline" className={cn(EMPTY_BORDER, "p-6")}>
         <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
       </Empty>
     )
@@ -249,21 +248,17 @@ function Row({
 
 function NoTicketsYet() {
   return (
-    <Empty
-      className={cn(EMPTY_BORDER, "rounded-xl bg-background/50 px-4 py-10")}
-    >
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <ListChecks strokeWidth={1.75} />
-        </EmptyMedia>
-        <EmptyTitle className="text-sm font-medium">
-          {m.tickets_empty_title()}
-        </EmptyTitle>
-        <EmptyDescription className="max-w-xs text-xs">
-          {m.tickets_empty_hint_prefix()}{" "}
-          <span className="font-mono">tickets/</span>.
-        </EmptyDescription>
-      </EmptyHeader>
+    <Empty>
+      <EmptyMedia variant="icon" className="mb-1">
+        <ListChecks strokeWidth={1.75} className="size-5" />
+      </EmptyMedia>
+      <EmptyTitle className="text-sm font-medium">
+        {m.tickets_empty_title()}
+      </EmptyTitle>
+      <EmptyDescription className="max-w-xs text-xs">
+        {m.tickets_empty_hint_prefix()}{" "}
+        <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
+      </EmptyDescription>
     </Empty>
   )
 }
@@ -279,7 +274,7 @@ function NoSearchMatches({
 }) {
   const setQuery = useAtomSet(queryAtom(ticketListUiKey(orgSlug, slug)))
   return (
-    <Empty className={cn(EMPTY_BORDER, "rounded-xl px-4 py-6 gap-2")}>
+    <Empty variant="inline" className={cn(EMPTY_BORDER, "rounded-xl px-4 py-6 gap-2")}>
       <EmptyDescription>
         {m.tickets_no_search_matches_prefix()}{" "}
         <span className="font-mono text-foreground">"{query}"</span>.

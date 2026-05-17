@@ -72,8 +72,6 @@ function LoginPage() {
           warpStrength={1.32}
           contrast={0.2}
           bias={-0.07}
-          colorFront="#9e9e9e"
-          colorBack="#262626"
           pixelSize={3}
           ditherType="4x4"
           cardRef={cardRef}
@@ -85,7 +83,7 @@ function LoginPage() {
       </div>
       <div
         ref={cardRef}
-        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] shadow-sm"
+        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)]"
       >
         <div className="relative flex flex-col items-center gap-4 px-8 pb-8 pt-10 text-foreground">
           <div className="relative flex size-16 items-center justify-center rounded-2xl corner-squircle bg-primary">

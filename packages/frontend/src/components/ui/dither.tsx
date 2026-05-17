@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type CSSProperties,
   type RefObject
 } from "react"
@@ -12,9 +13,15 @@ import {
 export type DitherType = "random" | "2x2" | "4x4" | "8x8"
 
 export const MAX_TIME_WARP_ZONES = 4
+const MAX_RIPPLES = 12
+const RIPPLE_LIFETIME_SEC = 1.8
+const RIPPLE_RING_FREQUENCY = 24
+const RIPPLE_RING_SPEED = 9
+const TARGET_FRAME_MS = 1000 / 60
+const FRAME_GATE_MS = TARGET_FRAME_MS - 2
 
 export type TimeWarpAnchor =
-  | { type: "mouse" }
+  | { type: "click" }
   | { type: "fraction"; x: number; y: number }
 
 export interface TimeWarpZone {
@@ -91,6 +98,16 @@ uniform float u_warpRadii[4];
 uniform float u_warpStrengths[4];
 uniform float u_warpFalloffs[4];
 uniform int u_warpCount;
+
+uniform vec2 u_ripples[12];
+uniform float u_rippleAges[12];
+uniform int u_rippleCount;
+uniform float u_rippleRadius;
+uniform float u_rippleStrength;
+uniform float u_rippleFalloff;
+uniform float u_rippleLifetime;
+uniform float u_rippleFrequency;
+uniform float u_rippleSpeed;
 
 uniform vec2 u_cardCenter;
 uniform vec2 u_cardHalfSize;
@@ -226,6 +243,24 @@ void main() {
     t += u_warpStrengths[i] * falloff;
   }
 
+  for (int i = 0; i < 12; i++) {
+    if (i >= u_rippleCount) break;
+    float age = u_rippleAges[i];
+    float lifeT = clamp(age / max(u_rippleLifetime, 0.001), 0.0, 1.0);
+    float grow = 1.0 - pow(1.0 - lifeT, 2.0);
+    float radius = max(u_rippleRadius * grow, 0.0001);
+    float fade = pow(1.0 - lifeT, 1.5);
+    vec2 zoneUv = u_ripples[i] / u_resolution;
+    zoneUv -= 0.5;
+    zoneUv.x *= u_resolution.x / u_resolution.y;
+    zoneUv.y = -zoneUv.y;
+    float d = length(uv - zoneUv);
+    float env = 1.0 - smoothstep(0.0, radius, d);
+    env = pow(env, max(u_rippleFalloff, 0.001));
+    float wave = sin(d * u_rippleFrequency - age * u_rippleSpeed);
+    t += u_rippleStrength * fade * env * wave;
+  }
+
   vec3 p = vec3(uv * u_frequency, t);
   if (u_warpStrength > 0.0) {
     vec2 q = vec2(
@@ -268,16 +303,43 @@ void main() {
 }
 `
 
+function resolveCssVar(value: string): string {
+  if (!value.startsWith("var(")) return value
+  if (typeof window === "undefined") return value
+  const match = value.match(/var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\s*\)/)
+  if (!match) return value
+  const resolved = getComputedStyle(document.documentElement)
+    .getPropertyValue(match[1])
+    .trim()
+  if (resolved) return resolved
+  return match[2]?.trim() || value
+}
+
 function parseColor(value: string): [number, number, number, number] {
   if (typeof document === "undefined") return [0, 0, 0, 1]
   const ctx = document
     .createElement("canvas")
     .getContext("2d", { willReadFrequently: true })
   if (!ctx) return [0, 0, 0, 1]
-  ctx.fillStyle = value
+  ctx.fillStyle = resolveCssVar(value)
   ctx.fillRect(0, 0, 1, 1)
   const data = ctx.getImageData(0, 0, 1, 1).data
   return [data[0] / 255, data[1] / 255, data[2] / 255, data[3] / 255]
+}
+
+function useThemeRevision(): number {
+  const [rev, setRev] = useState(0)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const bump = () => setRev((r) => r + 1)
+    const observer = new MutationObserver(bump)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"]
+    })
+    return () => observer.disconnect()
+  }, [])
+  return rev
 }
 
 function compileShader(
@@ -325,8 +387,8 @@ export function Dither({
   warpStrength = 0.0,
   contrast = 0.2,
   bias = 0.0,
-  colorFront = "#ffffff",
-  colorBack = "#000000",
+  colorFront = "var(--dither-front)",
+  colorBack = "var(--dither-back)",
   pixelSize = 2,
   ditherType = "8x8",
   timeWarpZones,
@@ -414,12 +476,14 @@ export function Dither({
     cardCornerRadius
   ])
 
+  const themeRevision = useThemeRevision()
+
   useLayoutEffect(() => {
     parsedColorsRef.current = {
       front: parseColor(colorFront),
       back: parseColor(colorBack)
     }
-  }, [colorFront, colorBack])
+  }, [colorFront, colorBack, themeRevision])
 
   useLayoutEffect(() => {
     requestRenderRef.current?.()
@@ -481,6 +545,15 @@ export function Dither({
       u_warpStrengths: gl.getUniformLocation(program, "u_warpStrengths"),
       u_warpFalloffs: gl.getUniformLocation(program, "u_warpFalloffs"),
       u_warpCount: gl.getUniformLocation(program, "u_warpCount"),
+      u_ripples: gl.getUniformLocation(program, "u_ripples"),
+      u_rippleAges: gl.getUniformLocation(program, "u_rippleAges"),
+      u_rippleCount: gl.getUniformLocation(program, "u_rippleCount"),
+      u_rippleRadius: gl.getUniformLocation(program, "u_rippleRadius"),
+      u_rippleStrength: gl.getUniformLocation(program, "u_rippleStrength"),
+      u_rippleFalloff: gl.getUniformLocation(program, "u_rippleFalloff"),
+      u_rippleLifetime: gl.getUniformLocation(program, "u_rippleLifetime"),
+      u_rippleFrequency: gl.getUniformLocation(program, "u_rippleFrequency"),
+      u_rippleSpeed: gl.getUniformLocation(program, "u_rippleSpeed"),
       u_cardCenter: gl.getUniformLocation(program, "u_cardCenter"),
       u_cardHalfSize: gl.getUniformLocation(program, "u_cardHalfSize"),
       u_cardRadius: gl.getUniformLocation(program, "u_cardRadius"),
@@ -493,11 +566,15 @@ export function Dither({
     let rafId = 0
     let elapsed = 0
     let lastFrame = performance.now()
-    const mouse = { x: 0, y: 0 }
+    let lastDrawAt = -Infinity
+    let forceDraw = false
     const warpCenters = new Float32Array(MAX_TIME_WARP_ZONES * 2)
     const warpRadii = new Float32Array(MAX_TIME_WARP_ZONES)
     const warpStrengths = new Float32Array(MAX_TIME_WARP_ZONES)
     const warpFalloffs = new Float32Array(MAX_TIME_WARP_ZONES)
+    const ripples: { x: number; y: number; age: number }[] = []
+    const ripplePositions = new Float32Array(MAX_RIPPLES * 2)
+    const rippleAges = new Float32Array(MAX_RIPPLES)
 
     const resize = () => {
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
@@ -513,11 +590,32 @@ export function Dither({
       gl.uniform1f(uniforms.u_pixelRatio, dpr)
       requestRender()
     }
-    const handlePointer = (e: PointerEvent) => {
+    const findClickEmitter = (
+      zones: ReadonlyArray<TimeWarpZone>
+    ): TimeWarpZone | null => {
+      for (const zone of zones) {
+        if (zone.anchor.type === "click") return zone
+      }
+      return null
+    }
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (prefersReducedMotion) return
+      const cur = propsRef.current
+      if (!findClickEmitter(cur.timeWarpZones)) return
       const rect = canvas.getBoundingClientRect()
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      )
+        return
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
-      mouse.x = (e.clientX - rect.left) * dpr
-      mouse.y = (e.clientY - rect.top) * dpr
+      const x = (e.clientX - rect.left) * dpr
+      const y = (e.clientY - rect.top) * dpr
+      if (ripples.length >= MAX_RIPPLES) ripples.shift()
+      ripples.push({ x, y, age: 0 })
       requestRender()
     }
 
@@ -528,13 +626,23 @@ export function Dither({
       const cur = propsRef.current
       const animate = !cur.disableAnimation && !prefersReducedMotion
       if (animate) elapsed += dt
-      draw(cur)
-      if (animate) {
+      const dtSec = dt / 1000
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        ripples[i].age += dtSec
+        if (ripples[i].age >= RIPPLE_LIFETIME_SEC) ripples.splice(i, 1)
+      }
+      if (forceDraw || now - lastDrawAt >= FRAME_GATE_MS) {
+        draw(cur)
+        lastDrawAt = now
+        forceDraw = false
+      }
+      if (animate || ripples.length > 0) {
         rafId = requestAnimationFrame(tick)
       }
     }
 
     const requestRender = () => {
+      forceDraw = true
       if (rafId !== 0) return
       lastFrame = performance.now()
       rafId = requestAnimationFrame(tick)
@@ -558,33 +666,50 @@ export function Dither({
       gl.uniform1f(uniforms.u_pxSize, cur.pixelSize)
       gl.uniform1i(uniforms.u_ditherType, DITHER_TYPE_TO_INT[cur.ditherType])
       const zones = cur.timeWarpZones
-      const zoneCount = Math.min(zones.length, MAX_TIME_WARP_ZONES)
       warpCenters.fill(0)
       warpRadii.fill(0)
       warpStrengths.fill(0)
       warpFalloffs.fill(1)
-      for (let i = 0; i < zoneCount; i++) {
-        const zone = zones[i]
-        let px = 0
-        let py = 0
-        if (zone.anchor.type === "mouse") {
-          px = mouse.x
-          py = mouse.y
-        } else {
-          px = canvas.width * zone.anchor.x
-          py = canvas.height * (1 - zone.anchor.y)
+      let staticZoneCount = 0
+      let clickEmitter: TimeWarpZone | null = null
+      for (const zone of zones) {
+        if (zone.anchor.type === "click") {
+          if (!clickEmitter) clickEmitter = zone
+          continue
         }
-        warpCenters[i * 2] = px
-        warpCenters[i * 2 + 1] = py
-        warpRadii[i] = zone.radius
-        warpStrengths[i] = zone.strength
-        warpFalloffs[i] = zone.falloff
+        if (staticZoneCount >= MAX_TIME_WARP_ZONES) break
+        const px = canvas.width * zone.anchor.x
+        const py = canvas.height * (1 - zone.anchor.y)
+        warpCenters[staticZoneCount * 2] = px
+        warpCenters[staticZoneCount * 2 + 1] = py
+        warpRadii[staticZoneCount] = zone.radius
+        warpStrengths[staticZoneCount] = zone.strength
+        warpFalloffs[staticZoneCount] = zone.falloff
+        staticZoneCount += 1
       }
       gl.uniform2fv(uniforms.u_warpCenters, warpCenters)
       gl.uniform1fv(uniforms.u_warpRadii, warpRadii)
       gl.uniform1fv(uniforms.u_warpStrengths, warpStrengths)
       gl.uniform1fv(uniforms.u_warpFalloffs, warpFalloffs)
-      gl.uniform1i(uniforms.u_warpCount, zoneCount)
+      gl.uniform1i(uniforms.u_warpCount, staticZoneCount)
+
+      ripplePositions.fill(0)
+      rippleAges.fill(0)
+      const rippleCount = ripples.length
+      for (let i = 0; i < rippleCount; i++) {
+        ripplePositions[i * 2] = ripples[i].x
+        ripplePositions[i * 2 + 1] = ripples[i].y
+        rippleAges[i] = ripples[i].age
+      }
+      gl.uniform2fv(uniforms.u_ripples, ripplePositions)
+      gl.uniform1fv(uniforms.u_rippleAges, rippleAges)
+      gl.uniform1i(uniforms.u_rippleCount, rippleCount)
+      gl.uniform1f(uniforms.u_rippleRadius, clickEmitter?.radius ?? 0)
+      gl.uniform1f(uniforms.u_rippleStrength, clickEmitter?.strength ?? 0)
+      gl.uniform1f(uniforms.u_rippleFalloff, clickEmitter?.falloff ?? 1)
+      gl.uniform1f(uniforms.u_rippleLifetime, RIPPLE_LIFETIME_SEC)
+      gl.uniform1f(uniforms.u_rippleFrequency, RIPPLE_RING_FREQUENCY)
+      gl.uniform1f(uniforms.u_rippleSpeed, RIPPLE_RING_SPEED)
 
       const cardEl = cur.cardRef?.current
       if (cardEl && cur.cardWellEnabled) {
@@ -618,7 +743,7 @@ export function Dither({
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
-    window.addEventListener("pointermove", handlePointer)
+    window.addEventListener("pointerdown", handlePointerDown)
 
     const handleVisibility = () => {
       if (document.hidden) {
@@ -636,7 +761,7 @@ export function Dither({
       requestRenderRef.current = null
       if (rafId !== 0) cancelAnimationFrame(rafId)
       ro.disconnect()
-      window.removeEventListener("pointermove", handlePointer)
+      window.removeEventListener("pointerdown", handlePointerDown)
       document.removeEventListener("visibilitychange", handleVisibility)
       gl.deleteBuffer(buffer)
       gl.deleteVertexArray(vao)

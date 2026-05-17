@@ -91,7 +91,7 @@ function TicketDetailRoute() {
 
 function NotFound({ message }: { message: string }) {
   return (
-    <Empty className="mx-auto w-full max-w-6xl border border-dashed border-border">
+    <Empty variant="inline" className="mx-auto w-full max-w-6xl border border-dashed border-border">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <CircleDashed strokeWidth={1.75} />
