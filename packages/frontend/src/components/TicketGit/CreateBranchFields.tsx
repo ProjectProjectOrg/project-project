@@ -72,14 +72,17 @@ export function CreateBranchFields({
   slug,
   ticket,
   github,
-  branchTemplate
+  branchTemplate,
+  variant = "bordered"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
   github: GithubConnection
   branchTemplate: string | null
+  variant?: "bordered" | "ghost"
 }) {
+  const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [name, setName] = useState(() =>
     defaultBranchName(branchTemplate, ticket.type, ticket.id, ticket.title)
@@ -142,7 +145,7 @@ export function CreateBranchFields({
 
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-[1fr_220px]">
+      <div className="grid gap-2 @sm/git-panel:grid-cols-[1fr_220px]">
         <label className="block text-xs">
           <span className="text-muted-foreground">
             {m.git_branch_name_label()}
@@ -180,12 +183,12 @@ export function CreateBranchFields({
           {errorString}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 @max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch">
         <StatusPicker value={status} onChange={setStatus} disabled={busy} />
-        <div className="flex gap-2">
-          <InlineForm.Cancel />
+        <div className="flex gap-2 @max-sm/git-panel:justify-end">
+          <InlineForm.Cancel size={buttonSize} />
           <Button
-            size="sm"
+            size={buttonSize}
             leadingIcon={CheckCircle2}
             onClick={() => void submit()}
             disabled={busy || !name.trim()}

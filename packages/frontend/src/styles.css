@@ -54,6 +54,11 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 1rem;
+  --state-success: oklch(0.5 0.15 135);
+  --state-danger: oklch(0.5 0.18 15);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.5 0.18 255);
+  --state-merged: oklch(0.5 0.18 285);
 }
 
 .dark {
@@ -78,6 +83,11 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+  --state-success: oklch(0.78 0.07 135);
+  --state-danger: oklch(0.78 0.07 15);
+  --state-warning: oklch(0.78 0.07 75);
+  --state-info: oklch(0.78 0.07 255);
+  --state-merged: oklch(0.78 0.07 285);
 }
 
 @theme inline {
@@ -102,6 +112,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-state-success: var(--state-success);
+  --color-state-danger: var(--state-danger);
+  --color-state-warning: var(--state-warning);
+  --color-state-info: var(--state-info);
+  --color-state-merged: var(--state-merged);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -210,15 +225,18 @@
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 .prose-md h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 .prose-md h3 {
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
@@ -405,15 +423,18 @@ html.dark .prose-md .token.coord {
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 .prose-md .lexical-h2 {
   font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 .prose-md .lexical-h3 {
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 .prose-md .lexical-quote {
   border-left: 2px solid var(--border);
@@ -617,6 +638,9 @@ html.dark .prose-md .token.coord {
 @layer base {
   * {
     @apply border-border;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
   body {
     @apply bg-muted text-foreground antialiased;

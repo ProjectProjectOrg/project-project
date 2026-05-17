@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { NotFound, ProjectKey, TicketId } from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
+import { Db } from "./Db"
 import { GitHub, type GitHubShape } from "./GitHub"
 import { Groups, type GroupsShape } from "./Groups"
 import { TicketIdTaken } from "./Markdown"
@@ -111,6 +112,18 @@ function makeFakeProjects(key: string) {
   return Layer.succeed(Projects, service)
 }
 
+const FakeDb = Layer.succeed(
+  Db,
+  new Proxy(
+    {},
+    {
+      get: (_target, prop) =>
+        (..._args: ReadonlyArray<unknown>) =>
+          unexpected(`Db.${String(prop)}`)
+    }
+  ) as never
+)
+
 const FakeGroups = Layer.succeed(Groups, {
   list: () => unexpected("Groups.list"),
   listPaged: () => unexpected("Groups.listPaged"),
@@ -119,6 +132,7 @@ const FakeGroups = Layer.succeed(Groups, {
   create: () => unexpected("Groups.create"),
   update: () => unexpected("Groups.update"),
   updateTickets: () => unexpected("Groups.updateTickets"),
+  addTickets: () => unexpected("Groups.addTickets"),
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
@@ -143,7 +157,8 @@ function makeTicketsLayer(
     Layer.provide(ticketDocsLayer),
     Layer.provide(makeFakeProjects(key)),
     Layer.provide(FakeGroups),
-    Layer.provide(FakeGitHub)
+    Layer.provide(FakeGitHub),
+    Layer.provide(FakeDb)
   )
 }
 

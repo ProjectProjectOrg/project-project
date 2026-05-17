@@ -7,15 +7,18 @@
 //
 // You should not need to touch this file in Chapter 0.
 
+import { RegistryContext } from "@effect-atom/atom-react"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
+import { registry } from "./runtime"
 import { routeTree } from "./routeTree.gen"
 import "./styles.css"
 
 const router = createRouter({
   routeTree,
-  defaultPreload: "intent"
+  defaultPreload: "intent",
+  context: { registry }
 })
 
 declare module "@tanstack/react-router" {
@@ -29,6 +32,8 @@ if (!rootEl) throw new Error("Root element #root not found")
 
 ReactDOM.createRoot(rootEl).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <RegistryContext.Provider value={registry}>
+      <RouterProvider router={router} />
+    </RegistryContext.Provider>
   </StrictMode>
 )

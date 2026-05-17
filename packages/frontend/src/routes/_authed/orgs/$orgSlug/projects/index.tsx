@@ -31,6 +31,47 @@ function Projects() {
   const list = useAtomValue(projectsListAtom(orgSlug))
   const [creating, setCreating] = useState(false)
 
+  const content = Result.matchWithError(list, {
+    onInitial: () => <ListSkeleton />,
+    onError: (error) => (
+      <>
+        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <ListMessage>
+          {m.projects_list_load_error({ tag: error._tag })}
+        </ListMessage>
+      </>
+    ),
+    onDefect: (defect) => (
+      <>
+        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <ListMessage>
+          {m.projects_list_defect({ defect: String(defect) })}
+        </ListMessage>
+      </>
+    ),
+    onSuccess: ({ value }) => (
+      <>
+        <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
+        <motion.div
+          animate={{ opacity: creating ? 0.35 : 1 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
+          {value.length === 0 ? (
+            <EmptyProjects />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {value.map((project) => (
+                <li key={project.slug}>
+                  <ProjectRow orgSlug={orgSlug} project={project} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </motion.div>
+      </>
+    )
+  })
+
   return (
     <PageContainer>
       <PageHeader>
@@ -38,41 +79,7 @@ function Projects() {
         <p>{m.projects_page_subtitle()}</p>
       </PageHeader>
 
-      <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
-
-      {/* Same intent-driven dim pattern as the ticket list: when the user
-          is composing a new project the existing list dims to pull focus
-          to the input. Pure visual hint — clicks below stay enabled. */}
-      <motion.div
-        animate={{ opacity: creating ? 0.35 : 1 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
-      >
-        {Result.matchWithError(list, {
-          onInitial: () => <ListSkeleton />,
-          onError: (error) => (
-            <ListMessage>
-              {m.projects_list_load_error({ tag: error._tag })}
-            </ListMessage>
-          ),
-          onDefect: (defect) => (
-            <ListMessage>
-              {m.projects_list_defect({ defect: String(defect) })}
-            </ListMessage>
-          ),
-          onSuccess: ({ value }) =>
-            value.length === 0 ? (
-              <EmptyProjects />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {value.map((project) => (
-                  <li key={project.slug}>
-                    <ProjectRow orgSlug={orgSlug} project={project} />
-                  </li>
-                ))}
-              </ul>
-            )
-        })}
-      </motion.div>
+      {content}
     </PageContainer>
   )
 }

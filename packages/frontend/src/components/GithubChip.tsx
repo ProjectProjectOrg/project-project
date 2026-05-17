@@ -1,13 +1,3 @@
-// GithubChip — header-bar chip for a project's GitHub connection.
-//
-// Three render states:
-//   1. not connected, owner/admin: "Connect repo" → popover with the picker
-//   2. not connected, member:      nothing
-//   3. connected:                  chip with repo, link to GitHub, optional
-//                                  manage popover for owner/admin
-//
-// Token / repo failure modes shown by the parent layout via gitStates response.
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Match from "effect/Match"
 import {
@@ -115,7 +105,7 @@ function ConnectedChip({
 
   if (warning) {
     return (
-      <Badge tone="amber" size="md" className="border border-amber-500/40">
+      <Badge tone="amber" size="md" className="border border-state-warning/40">
         <AlertTriangle strokeWidth={1.75} />
         <span>{warning}</span>
         {canManage && (
@@ -140,12 +130,15 @@ function ConnectedChip({
   }
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background pr-1 text-xs font-medium text-muted-foreground">
+    <div className="inline-flex items-stretch rounded-md border border-border bg-background text-xs font-medium text-muted-foreground">
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground"
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors hover:text-foreground",
+          canManage && "border-r border-border"
+        )}
       >
         <GithubIcon className="size-3.5" strokeWidth={1.75} />
         <span className="font-mono text-xs">
@@ -160,13 +153,13 @@ function ConnectedChip({
                 type="button"
                 aria-label={m.github_chip_manage_connection_aria_label()}
                 className={cn(
-                  "group grid size-5 place-items-center rounded transition-colors hover:bg-accent",
+                  "group grid w-6 place-items-center rounded-r-md transition-colors hover:bg-accent",
                   "data-[popup-open]:bg-accent"
                 )}
               >
                 <ChevronDown
                   className={cn(
-                    "size-3 transition-transform",
+                    "size-3.5 transition-transform",
                     "group-data-[popup-open]:rotate-180"
                   )}
                   strokeWidth={1.75}

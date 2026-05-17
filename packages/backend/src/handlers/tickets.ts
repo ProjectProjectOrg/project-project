@@ -21,6 +21,20 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           return yield* tickets.list(org.orgSlug, user.id, path.slug)
         }).pipe(dieOnMarkdown)
       )
+      .handle("quickCreate", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.quickCreate(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("create", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

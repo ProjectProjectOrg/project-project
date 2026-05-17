@@ -12,12 +12,8 @@ export const Route = createFileRoute(
   validateSearch: (
     search: Record<string, unknown>
   ): {
-    ticket?: string
-    focusBody?: number
     view?: "list" | "board"
   } => ({
-    ticket: typeof search.ticket === "string" ? search.ticket : undefined,
-    focusBody: search.focusBody === 1 ? 1 : undefined,
     view: search.view === "list" ? "list" : undefined
   }),
   loader: ({ params }) => ({

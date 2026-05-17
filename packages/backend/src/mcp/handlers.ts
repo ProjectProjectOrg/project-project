@@ -2,14 +2,24 @@ import * as Effect from "effect/Effect"
 import {
   CurrentUser,
   Unauthorized,
+  Validation,
   tryDecodeCursor,
+  type AttachBranchInput,
+  type CompleteSprintInput,
+  type CreateGroupInput,
+  type CreateTicketInput,
   type GroupFilter,
+  type GroupId,
   type Pagination,
   type SprintState,
-  type TicketFilter
+  type TicketFilter,
+  type TicketId,
+  type UpdateGroupInput,
+  type UpdateTicketInput
 } from "@projectproject/shared"
 import { Users } from "../Services/Users"
 import { BetterAuth } from "../Services/BetterAuth"
+import { Comments } from "../Services/Comments"
 import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 import { Groups } from "../Services/Groups"
@@ -67,6 +77,7 @@ const dieInternal = <A, E, R>(
 type Env =
   | Users
   | BetterAuth
+  | Comments
   | Projects
   | Tickets
   | Groups
@@ -299,6 +310,155 @@ const get_ticket_doc = (input: {
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
+const create_ticket = (
+  input: { orgSlug: string; projectSlug: string } & CreateTicketInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, ...payload } = input
+    return yield* tickets.create(orgSlug, current.id, projectSlug, payload)
+  })
+
+const update_ticket = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: TicketId
+  } & UpdateTicketInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, id, ...payload } = input
+    return yield* tickets.update(
+      orgSlug,
+      current.id,
+      projectSlug,
+      id,
+      payload
+    )
+  })
+
+const create_comment = (input: {
+  orgSlug: string
+  projectSlug: string
+  ticketId: TicketId
+  body: string
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const comments = yield* Comments
+    return yield* comments
+      .create(input.orgSlug, current.id, input.projectSlug, input.ticketId, {
+        body: input.body
+      })
+      .pipe(
+        Effect.catchTag("InvalidCommentBody", (error) =>
+          Effect.fail(new Validation({ reason: error.reason }))
+        )
+      )
+  })
+
+const attach_branch = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: TicketId
+  } & AttachBranchInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const tickets = yield* Tickets
+    const { orgSlug, projectSlug, id, ...payload } = input
+    return yield* tickets.attachBranch(
+      orgSlug,
+      current.id,
+      projectSlug,
+      id,
+      payload
+    )
+  })
+
+const create_sprint = (
+  input: { orgSlug: string; projectSlug: string } & Omit<
+    CreateGroupInput,
+    "kind"
+  >
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    const { orgSlug, projectSlug, ...rest } = input
+    return yield* groups.create(orgSlug, current.id, projectSlug, {
+      ...rest,
+      kind: "sprint"
+    })
+  })
+
+const requireSprintKind = (
+  orgSlug: string,
+  userId: string,
+  projectSlug: string,
+  id: GroupId
+) =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const group = yield* groups.get(orgSlug, userId, projectSlug, id)
+    if (group.kind !== "sprint") {
+      return yield* new Validation({ reason: `not_a_sprint:${id}` })
+    }
+    return group
+  })
+
+const update_sprint = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: GroupId
+  } & Omit<UpdateGroupInput, "completedAt">
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    const { orgSlug, projectSlug, id, ...payload } = input
+    yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
+    return yield* groups.update(orgSlug, current.id, projectSlug, id, payload)
+  })
+
+const complete_sprint = (
+  input: {
+    orgSlug: string
+    projectSlug: string
+    id: GroupId
+  } & CompleteSprintInput
+) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    const { orgSlug, projectSlug, id, ...payload } = input
+    yield* requireSprintKind(orgSlug, current.id, projectSlug, id)
+    return yield* groups.complete(orgSlug, current.id, projectSlug, id, payload)
+  })
+
+const add_tickets_to_group = (input: {
+  orgSlug: string
+  projectSlug: string
+  groupId: GroupId
+  ticketIds: ReadonlyArray<TicketId>
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const groups = yield* Groups
+    return yield* groups.addTickets(
+      input.orgSlug,
+      current.id,
+      input.projectSlug,
+      input.groupId,
+      input.ticketIds
+    )
+  })
+
 export const handlers: HandlersMap<Env> = {
   me: (i) => dieInternal(me(i)),
   list_orgs: (i) => dieInternal(list_orgs(i)),
@@ -315,5 +475,13 @@ export const handlers: HandlersMap<Env> = {
   get_git_state: (i) => dieInternal(get_git_state(i)),
   get_project_doc: (i) => dieInternal(get_project_doc(i)),
   get_group_doc: (i) => dieInternal(get_group_doc(i)),
-  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i))
+  get_ticket_doc: (i) => dieInternal(get_ticket_doc(i)),
+  create_ticket: (i) => dieInternal(create_ticket(i)),
+  update_ticket: (i) => dieInternal(update_ticket(i)),
+  create_comment: (i) => dieInternal(create_comment(i)),
+  attach_branch: (i) => dieInternal(attach_branch(i)),
+  add_tickets_to_group: (i) => dieInternal(add_tickets_to_group(i)),
+  create_sprint: (i) => dieInternal(create_sprint(i)),
+  update_sprint: (i) => dieInternal(update_sprint(i)),
+  complete_sprint: (i) => dieInternal(complete_sprint(i))
 }
