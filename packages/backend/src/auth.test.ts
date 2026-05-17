@@ -34,6 +34,7 @@ describe("Better Auth plugin wiring", () => {
 
       const verificationUrl = writes.join("").match(/url=(?<url>\S+)/)
         ?.groups?.url
+      expect(verificationUrl).toBeDefined()
       expect(verificationUrl).toContain("/magic-link/verify")
 
       const response = await customFetchImpl(verificationUrl!, {
@@ -88,11 +89,12 @@ describe("Better Auth plugin wiring", () => {
       invitationId = invitation!.id
     })
 
-    await client.signUp.email({
+    const { error: signUpError } = await client.signUp.email({
       email: "invited@example.com",
       password: "password123",
       name: "Invited User"
     })
+    expect(signUpError).toBeNull()
 
     const invited = await signInWithUser("invited@example.com", "password123")
     const { error } = await client.organization.acceptInvitation({
@@ -200,6 +202,14 @@ describe("Better Auth plugin wiring", () => {
       select: ["organizationId"]
     })
     expect(membership?.organizationId).toBe(organizationIds[1])
+  })
+
+  it("exposes the organization plugin endpoints", () => {
+    expect(typeof auth.api.createOrganization).toBe("function")
+    expect(typeof auth.api.listOrganizations).toBe("function")
+    expect(typeof auth.api.createInvitation).toBe("function")
+    expect(typeof auth.api.acceptInvitation).toBe("function")
+    expect(typeof auth.api.setActiveOrganization).toBe("function")
   })
 
   it("disables public self-serve organization creation", () => {
