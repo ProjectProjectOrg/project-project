@@ -304,19 +304,25 @@ void main() {
 `
 
 function resolveCssVar(value: string): string {
-  if (!value.startsWith("var(")) return value
   if (typeof window === "undefined") return value
-  const match = value.match(/var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\s*\)/)
-  if (!match) return value
-  const resolved = getComputedStyle(document.documentElement)
-    .getPropertyValue(match[1])
-    .trim()
-  if (resolved) return resolved
-  return match[2]?.trim() || value
+  if (!value.includes("var(")) return value
+  const replaced = value.replace(
+    /var\(\s*(--[^,)\s]+)\s*(?:,\s*([^)]+))?\s*\)/g,
+    (_match, varName, fallback) => {
+      const resolved = getComputedStyle(document.documentElement)
+        .getPropertyValue(varName)
+        .trim()
+      return resolved || fallback?.trim() || `var(${varName})`
+    }
+  )
+  if (replaced !== value && replaced.includes("var(")) {
+    return resolveCssVar(replaced)
+  }
+  return replaced
 }
 
 function parseColor(value: string): [number, number, number, number] {
-  if (typeof document === "undefined") return [0, 0, 0, 1]
+
   const ctx = document
     .createElement("canvas")
     .getContext("2d", { willReadFrequently: true })
