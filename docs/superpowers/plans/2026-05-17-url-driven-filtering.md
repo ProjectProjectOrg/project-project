@@ -2578,3 +2578,123 @@ Skipped by design. The plan's Step 4 ("Smoke the API by hand") was deferred — 
 
 Ready to start Phase E in a fresh context.
 
+---
+
+## Implementation log — Phase E (in progress, paused 2026-05-18)
+
+Phase E has four tasks (E1–E4). E1, E2, E3 landed cleanly. **E4 landed the migration code but is blocked on a TypeScript inference issue.** Five commits ahead of the Phase D tip (`6192972`); seventeen ahead of `main`. Pick-up tomorrow to resolve the inference blocker.
+
+### E1 — `e104bc1` `frontend(atoms): ticketsListAtom keyed by TicketListQuery, ref-backed`
+
+- New `ticketsListAtom` family in `packages/frontend/src/atoms/tickets.ts`: `runtime.subscriptionRef`-backed, family-keyed by the full `TicketListQuery` (serialized via `Schema.encodeSync(TicketListQuery)` → `JSON.stringify` for canonical equality). Module-top pre-compiled `encodeQueryForKey` / `decodeQueryFromKey`. Reactivity-tagged `["tickets", orgSlug, slug]` (project-scoped, query-independent) and `Atom.setIdleTTL("30 seconds")`.
+- `TicketsListValue = { items: ReadonlyArray<Ticket>; nextCursor: string | null }`. Re-exported as `export type { TicketsListValue }`.
+- Old `ticketsListBaseAtom` removed. Old 2-arg `ticketsListKey` replaced with 3-arg `(orgSlug, slug, query)`.
+- `ticketAtom = ticketBaseAtom` (Option A — alias). The previous list-merge optimization (`fromList = list.value.find(...)`) is dropped: with family-keyed lists there is no canonical "the list" to merge from. Per plan + CLAUDE.md "Ticket-detail optimism is unchanged" — this was data sync, not optimism; detail optimism (if needed) lives at the component level.
+
+**Two plan-vs-code deviations applied, both verified correct:**
+
+1. **`urlParams: ticketListQueryToSearch(query)` instead of `urlParams: query`** — the plan snippet would not compile. `tickets.list`'s `urlParams` accepts the flat `TicketListParams` shape per Phase B's wire contract, not the nested `TicketListQuery`. The structural pass-through helper from `packages/shared/src/filters/url.ts` is the documented seam.
+
+2. **Field name `nextCursor` (not `cursor`)** — the controller's dispatch brief incorrectly claimed the wire shape was `{ items, cursor }`. The actual `TicketListPage = Page(Ticket)` and `Page` (in `packages/shared/src/Pagination.ts:18`) declares `nextCursor: Schema.NullOr(Schema.String)`. The plan snippet was right; the brief was wrong. Implementer pushed back and kept `nextCursor`.
+
+**Code-quality reviewer Important finding (deferred to E4):** `parseTicketsListKey` calls `JSON.parse(...)` and `decodeUnknownSync(...)` in `Atom.family`'s factory. Stale/malformed keys throw during `useAtomValue`, crashing the React subtree. Reviewer recommended switching to `decodeUnknownEither` and surfacing failures as `Result.Failure`. E4 did NOT take this on (scope-creep concern + bigger fish); carry over to a follow-up PR.
+
+### E2 — `2a6ee19` `frontend(atoms): add ticketsCountAtom family`
+
+- `ticketsCountAtom` family in the same file, keyed by `TicketCountQuery` (the 2-field subset: `{ filter?, q? }`). Same project-level reactivity tag `["tickets", orgSlug, slug]` as `ticketsListAtom` — by design, a single `Reactivity.invalidate` refreshes both list and count.
+- `runtime.atom` (not `subscriptionRef`) — count is read-only, no `loadMore`-style local mutations.
+- Module-top pre-compiled `encodeCountQueryForKey` / `decodeCountQueryFromKey`. `ParsedTicketsCountKey` interface mirrors `ParsedTicketsListKey` from E1.
+
+**Deviations applied (all authorized + verified):**
+
+- `urlParams: ticketListQueryToSearch(query)` reused — `TicketCountQuery` is structurally assignable to `ticketListQueryToSearch`'s input type (which has all four fields optional per the Phase A3 `TicketListQueryInput` widening). Avoids inventing a sibling `ticketCountQueryToSearch` export.
+- `TicketCounts` not imported — return type is inferred from `client.tickets.count(...)`; importing it unused would just be dead code. Plan snippet had an unnecessary explicit import.
+- `TicketCountQuery` imported once as a value (no `TicketCountQuerySchema` alias) — it's a dual-purpose schema/type export (`export const TicketCountQuery = Schema.Struct(...)` + `export type TicketCountQuery = typeof ....Type`), so one import covers both uses.
+
+Code-quality reviewer approved with two cosmetic minor notes (helper naming asymmetry with E1's pair, and a possible future "schema-keyed family" extraction). Neither actioned.
+
+### E3 — `afd7210` `frontend(atoms): add loadMoreTicketsAtom`
+
+- `loadMoreTicketsAtom` family in the same file. Reads current value from `ticketsListAtom(key)`, early-returns on non-success or null cursor, fetches next page with `{ ...query, cursor: current.value.nextCursor }`, writes merged `{ items: [...prev, ...next], nextCursor: next.nextCursor }` back via `get.set(ticketsListAtom(key), ...)`.
+- `get.set` worked directly with the raw `TicketsListValue` (no `SubscriptionRef.set` unwrap needed).
+
+**Deviation applied (authorized): inference workaround.**
+
+- Explicit annotation: `const current: Result.Result<TicketsListValue, unknown> = get(ticketsListAtom(key))`. Without it, `get(...)` widened to `Result<unknown, unknown>` (TypeScript inference fails through the `Atom.withReactivity` + `Atom.setIdleTTL` pipe chain — implementer's hypothesis is that these operators have `<A extends Atom<any>>` constraints widening `A`).
+- The workaround is type-only; runtime behavior matches the spec. **This same inference failure mode is now suspected to be related to E4's blocker — see below.**
+
+**Code-quality reviewer Important findings (Phase F concerns, not E3 blockers):**
+
+1. **Re-entry race.** Two concurrent `loadMore` calls both read the same `current` (same cursor), both fetch the same next page, both write the merged result — the second write clobbers the first. Mitigation: Phase F's "Load more" button consumer should disable while `Result.waiting` is true.
+2. **Read/write interleaving with E4 invalidation.** If a `loadMore` is in-flight when `Reactivity.invalidate` fires (from a mutation in another atom), the `get.set` runs after the source refresh and clobbers the fresh first page with stale `[...staleFirstPage, ...nextPage]`. The plan's "list invalidates and refetches" model implies pagination *after* invalidation, not *during* — Phase F should decide on a cancellation policy (cancel in-flight loadMore on invalidation, or re-read inside the fn after the fetch and abort if the items reference changed).
+
+### E4 — `85214a1` `frontend(atoms): wire mutations to Reactivity.invalidate (WIP — typecheck blocker)`
+
+**Migration is complete; typecheck is broken on an inference issue. Pick up tomorrow.**
+
+What was done:
+
+- `quickCreateTicketAtom`, `updateTicketAtom`, `deleteTicketAtom` in `packages/frontend/src/atoms/tickets.ts` rewritten exactly per the plan — `runtime.fn(Effect.fn(function*(input, get) { ...; yield* Reactivity.invalidate(["tickets", orgSlug, slug]); ... }))`. `updateTicketAtom` is now `runtime.fn`, not `Atom.optimisticFn` — list-level optimistic reducer dropped (per plan), detail-level optimism preserved via `get.refresh(ticketBaseAtom(...))`. The dropped reducer's `DateTime` import was removed; `Result` import stays (used by E3's `loadMoreTicketsAtom`).
+- Cross-file sites migrated:
+  - `packages/frontend/src/atoms/github.ts` — three `get.refresh(ticketsListBaseAtom(...))` calls in `createBranchAtom`/`attachBranchAtom`/`clearBranchAtom` replaced with `yield* Reactivity.invalidate(["tickets", orgSlug, slug])`. Imports cleaned (`ticketsListBaseAtom`, `ticketsListKey` removed).
+  - `packages/frontend/src/atoms/tags.ts` — two sites in `renameTagAtom`/`deleteTagAtom` migrated. Imports cleaned.
+  - `packages/frontend/src/atoms/sprints.ts` — two sites migrated:
+    - `completeSprintAtom:347` straight refresh→invalidate.
+    - `placeTicketAtom:428-438` — the special case. The `get.refresh(sprintsListBaseAtom) + yield* get.result(sprintsListBaseAtom, suspendOnWaiting)` pair for the sprint list is preserved (different atom family, out of E4 scope). The matching ticket-list refresh becomes `yield* Reactivity.invalidate(["tickets", orgSlug, slug])`; the matching ticket-list `get.result(..., suspendOnWaiting)` await is **dropped** — there is no canonical base atom to await on, since invalidate-driven refresh does not expose a single waitable handle. **UX caveat:** the paired `Effect.ensuring(clearOverlay)` now clears the pending-status overlay before the fresh ticket-list data arrives (a brief visible flicker). The plan accepts this; Phase F can revisit if intrusive.
+
+**The blocker.** Once `yield* Reactivity.invalidate(...)` is added, TypeScript inference for `Effect.fn(function*(input, _get) { ... })` widens the Effect R channel to `unknown`. Concrete error:
+
+```
+src/atoms/tickets.ts(190,5): error TS2769: No overload matches this call.
+  Type 'Effect<..., unknown, unknown>' is not assignable to type
+       'Effect<..., unknown, Scope | ApiClient | AtomRegistry | Reactivity>'.
+        Type 'unknown' is not assignable to type 'Scope | ApiClient | AtomRegistry | Reactivity'.
+```
+
+16 such errors across the four touched atom files (every mutation that yields both `ApiClient` and `Reactivity.invalidate`). Two layer-side fixes were tried:
+
+1. **Add `Reactivity.layer` to `AppLayer.mergeAll(...)` in `runtime.ts`.** Result: `runtime.ts` errors with `Layer<unknown, unknown, unknown>` not assignable to `Layer<unknown, unknown, AtomRegistry | Reactivity>`. `Layer.mergeAll(ApiClient.Default, Reactivity.layer)` broadcasts R to unknown. Reverted.
+
+2. **Trust `Atom.runtime` to provide `Reactivity` automatically.** Per `@effect-atom/atom/dist/dts/Atom.d.ts:224`, the runtime factory accepts `Layer<R, E, AtomRegistry | Reactivity.Reactivity>` — meaning it auto-provides both. So `runtime.fn`'s Effect body should be able to yield `Reactivity` without us providing it. `runtime.ts` is clean under this approach, but the atom Effect inference still widens to `unknown`.
+
+`runtime.fn` declared parameter type (Atom.d.ts:201): `(arg: Arg, get: FnContext) => Effect.Effect<A, E, Scope.Scope | AtomRegistry | Reactivity.Reactivity | R>`. With `R = ApiClient` (from `AppLayer`), acceptable union is `Scope | AtomRegistry | Reactivity | ApiClient`. The atom Effect's R should be `ApiClient | Reactivity` — within bounds. **TypeScript fails to compute it correctly.** Most likely cause: generator-function inference through `Effect.fn` when multiple `yield*` introduce different services (the same family of inference failures E3 hit with `Atom.withReactivity` pipe widening).
+
+**Things to try tomorrow:**
+
+- Switch the affected mutations from `Effect.fn(function*(arg, get) { ... })` to `Effect.fn((arg, get) => Effect.gen(function*() { ... }))` — see if `Effect.gen` infers R correctly where the `Effect.fn`-combined form does not.
+- Add explicit `Effect<..., unknown, ApiClient | Reactivity>` return-type annotation on the inner generator.
+- `Reactivity.invalidate(...).pipe(Effect.provide(Reactivity.layer))` at the call site to consume the requirement and let R collapse to `ApiClient`.
+- Look for how `@effect/experimental`'s own tests/examples wire `Reactivity.invalidate` inside an Effect-Atom runtime — there may be a documented idiom.
+
+The migration itself is sound — once inference unblocks, the four atom files should pass typecheck and the remaining ~25 frontend errors should all be Phase F/G consumer issues.
+
+### Typecheck state at commit `85214a1`
+
+| Package | Errors | Notes |
+|---|---|---|
+| `@projectproject/shared` | 0 | Unchanged. |
+| `@projectproject/backend` | 0 | Unchanged. |
+| `@projectproject/frontend` | 57 | Was 58 at Phase D tip. 16 of these are the new E4-blocker errors in the four touched atom files. The remaining ~41 are Phase F/G consumer errors (callsites passing 2-arg `ticketsListKey`, treating `result.value` as `Ticket[]` instead of `TicketsListValue`) plus pre-existing effect-ts lint complaints in routes. |
+
+### Open carry-overs at end of Phase E
+
+- **E4 typecheck blocker** — see "Things to try tomorrow" above. Resolve before Phase F starts in earnest, otherwise consumer migrations will fight cascading inference errors.
+- **E3 re-entry race + invalidation interleaving** — Phase F "Load more" button should `disabled={state.waiting}`; cancellation policy on invalidation TBD.
+- **E1 `parseTicketsListKey` / E2 `parseTicketsCountKey` throw on stale keys** — switch to `decodeUnknownEither` + `Effect.fail`. Follow-up, not blocking.
+- **`placeTicketAtom` ticket-list flicker** — paired `clearOverlay` now fires before invalidated ticket-list refetch lands. Visible flicker between overlay clear and fresh data. Phase F can revisit.
+- **Inherited from prior phases (unchanged in E):**
+  - F1 territory: `decodeStringArray` in `filters/url.ts` casts URL `tags`/`groupId` to branded types without per-element schema validation.
+  - Wire-shape coupling: `BaseTicketFilterParams` in `api.ts`, `ticketListQueryToSearch` / `ticketListQueryFromSearch` in `filters/url.ts`, and `TicketFilter` in `filters/Ticket.ts` enumerate the same fields three times.
+  - `updatedAfter` is in the filter schema but unreachable through the URL transform / params struct.
+  - Cursor does not encode `{ key, dir }`; frontend resets cursor on sort change (Phase F responsibility — E1/E3 do not currently enforce this).
+
+### Phase E self-check (partial)
+
+- E1, E2, E3 each followed the two-stage subagent review (spec compliance + code quality); both passed for each. E4 was implemented inline by the controller (no subagent dispatch).
+- Five commits ahead of `6192972` (Phase D tip); seventeen ahead of `main`.
+- No comments added by E1/E2/E3 code (CLAUDE.md compliant). E4 retained pre-existing comment-free state.
+- Files touched in scope: `packages/frontend/src/atoms/tickets.ts` (all four E tasks), `packages/frontend/src/atoms/github.ts` / `tags.ts` / `sprints.ts` (E4 cross-file migrations). `runtime.ts` was modified-then-reverted while attempting the layer-side `Reactivity.layer` fix.
+- `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
+
+**Resume tomorrow by:** resolving the E4 typecheck blocker (try the `Effect.gen` / explicit-annotation / `.pipe(Effect.provide(...))` options above), then dispatching Phase F in a fresh context with the carry-overs above in the brief.
+
