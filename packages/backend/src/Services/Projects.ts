@@ -18,6 +18,7 @@ import type {
   ProjectKey,
   RepoGone,
   Role,
+  Validation,
   UpdateProjectInput
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
@@ -30,16 +31,19 @@ export interface ProjectsShape {
   readonly list: (
     orgSlug: string,
     userId: string
-  ) => Effect.Effect<ReadonlyArray<Project>>
+  ) => Effect.Effect<ReadonlyArray<Project>, NotFound>
   readonly listPaged: (
     orgSlug: string,
     userId: string,
     cursor: CursorPayload | undefined,
     limit: number
-  ) => Effect.Effect<{
-    items: ReadonlyArray<Project>
-    nextCursor: string | null
-  }>
+  ) => Effect.Effect<
+    {
+      items: ReadonlyArray<Project>
+      nextCursor: string | null
+    },
+    NotFound
+  >
   readonly listMembersPaged: (
     orgSlug: string,
     userId: string,
@@ -100,6 +104,15 @@ export interface ProjectsShape {
     targetUserId: string,
     nextRole: AssignableRole
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  readonly transferOwnership: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    targetUserId: string
+  ) => Effect.Effect<
+    ProjectDetail,
+    NotFound | Forbidden | Validation | MarkdownError
+  >
   readonly removeMember: (
     orgSlug: string,
     userId: string,
@@ -112,6 +125,11 @@ export interface ProjectsShape {
     slug: string,
     invitationId: string
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  readonly unassignUserFromActiveTickets: (
+    orgSlug: string,
+    slug: string,
+    userId: string
+  ) => Effect.Effect<void, MarkdownError>
   readonly connectGithub: (
     orgSlug: string,
     userId: string,

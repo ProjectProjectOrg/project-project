@@ -30,6 +30,7 @@ import {
   Project,
   ProjectDetail,
   Slug,
+  TransferOwnershipInput,
   UpdateMemberInput,
   UpdateProjectInput
 } from "./schemas/Project"
@@ -199,6 +200,19 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "transferOwnership",
+      "/orgs/:orgSlug/projects/:slug/ownership"
+    )
+      .setPath(ProjectPath)
+      .setPayload(TransferOwnershipInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.del(

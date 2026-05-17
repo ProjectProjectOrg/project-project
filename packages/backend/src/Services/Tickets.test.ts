@@ -104,8 +104,11 @@ function makeFakeProjects(key: string) {
     requireRole: () => unexpected("Projects.requireRole"),
     addMember: () => unexpected("Projects.addMember"),
     updateMember: () => unexpected("Projects.updateMember"),
+    transferOwnership: () => unexpected("Projects.transferOwnership"),
     removeMember: () => unexpected("Projects.removeMember"),
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
+    unassignUserFromActiveTickets: () =>
+      unexpected("Projects.unassignUserFromActiveTickets"),
     connectGithub: () => unexpected("Projects.connectGithub"),
     disconnectGithub: () => unexpected("Projects.disconnectGithub")
   } satisfies ProjectsShape

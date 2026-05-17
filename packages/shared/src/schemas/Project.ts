@@ -118,6 +118,11 @@ export const UpdateMemberInput = Schema.Struct({
 })
 export type UpdateMemberInput = typeof UpdateMemberInput.Type
 
+export const TransferOwnershipInput = Schema.Struct({
+  userId: Schema.String
+})
+export type TransferOwnershipInput = typeof TransferOwnershipInput.Type
+
 // Partial update payload. Both fields optional — the client sends only what
 // changed. Empty object is allowed but a no-op on the server.
 export const UpdateProjectInput = Schema.Struct({
