@@ -341,6 +341,13 @@ export function Dither({
 }: DitherProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const requestRenderRef = useRef<(() => void) | null>(null)
+  const parsedColorsRef = useRef<{
+    front: [number, number, number, number]
+    back: [number, number, number, number]
+  }>({
+    front: [0, 0, 0, 1],
+    back: [0, 0, 0, 1]
+  })
   const propsRef = useRef({
     speed,
     octaves,
@@ -408,6 +415,13 @@ export function Dither({
   ])
 
   useLayoutEffect(() => {
+    parsedColorsRef.current = {
+      front: parseColor(colorFront),
+      back: parseColor(colorBack)
+    }
+  }, [colorFront, colorBack])
+
+  useLayoutEffect(() => {
     requestRenderRef.current?.()
   })
 
@@ -426,7 +440,12 @@ export function Dither({
     })
     if (!gl) return
 
-    const program = createProgram(gl)
+    let program: WebGLProgram
+    try {
+      program = createProgram(gl)
+    } catch {
+      return
+    }
     const positionLoc = gl.getAttribLocation(program, "a_position")
     const vao = gl.createVertexArray()
     const buffer = gl.createBuffer()
@@ -522,8 +541,8 @@ export function Dither({
     }
 
     const draw = (cur: typeof propsRef.current) => {
-      const fg = parseColor(cur.colorFront)
-      const bg = parseColor(cur.colorBack)
+      const fg = parsedColorsRef.current.front
+      const bg = parsedColorsRef.current.back
       gl.uniform1f(uniforms.u_time, elapsed * 0.001)
       gl.uniform1f(uniforms.u_speed, cur.speed)
       gl.uniform1i(uniforms.u_octaves, Math.max(1, Math.min(8, cur.octaves)))
