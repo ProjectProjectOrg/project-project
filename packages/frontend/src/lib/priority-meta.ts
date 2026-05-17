@@ -23,14 +23,14 @@ export const PRIORITY_META: Record<
   med: {
     label: "Med",
     icon: Minus,
-    className: "text-amber-500",
+    className: "text-state-warning",
     tone: "amber",
     ordinal: 1
   },
   high: {
     label: "High",
     icon: ChevronUp,
-    className: "text-red-500",
+    className: "text-state-danger",
     tone: "red",
     ordinal: 2
   }

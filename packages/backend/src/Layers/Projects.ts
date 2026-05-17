@@ -33,12 +33,14 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { and, asc, eq } from "drizzle-orm"
 import {
+  Conflict,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
   paginateSorted,
+  ProjectKey,
   RepoGone,
   Role
 } from "@projectproject/shared"
@@ -64,6 +66,7 @@ import { Projects, type ProjectsShape } from "../Services/Projects"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
+const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 
 function withProjectTelemetry<A, E>(
   operation: string,
@@ -85,6 +88,26 @@ function slugify(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+function uniqueConstraint(error: unknown, constraint: string): boolean {
+  if (typeof error === "object" && error !== null) {
+    const record = error as Record<string, unknown>
+    if (record.constraint === constraint) return true
+    if (
+      typeof record.message === "string" &&
+      record.message.includes(constraint)
+    ) {
+      return true
+    }
+    return [
+      record.cause,
+      record.error,
+      record.originalError,
+      record.cause instanceof Error ? record.cause.cause : undefined
+    ].some((value) => uniqueConstraint(value, constraint))
+  }
+  return typeof error === "string" && error.includes(constraint)
 }
 
 export const ProjectsLive = Layer.effect(
@@ -179,6 +202,7 @@ export const ProjectsLive = Layer.effect(
         db
           .select({
             slug: projectIndex.slug,
+            key: projectIndex.key,
             name: projectIndex.name,
             createdBy: projectIndex.createdBy,
             createdAt: projectIndex.createdAt
@@ -193,7 +217,13 @@ export const ProjectsLive = Layer.effect(
           )
           .orderBy(asc(projectIndex.createdAt))
           .pipe(
-            Effect.map((rows) => rows.map((r) => ({ ...r, org: orgSlug }))),
+            Effect.map((rows) =>
+              rows.map((r) => ({
+                ...r,
+                key: makeProjectKey(r.key),
+                org: orgSlug
+              }))
+            ),
             Effect.orDie
           )
       )
@@ -210,7 +240,10 @@ export const ProjectsLive = Layer.effect(
       userId: string,
       cursor: CursorPayload | undefined,
       limit: number
-    ): Effect.Effect<{ items: ReadonlyArray<Project>; nextCursor: string | null }> =>
+    ): Effect.Effect<{
+      items: ReadonlyArray<Project>
+      nextCursor: string | null
+    }> =>
       Effect.gen(function* () {
         const all = yield* list(orgSlug, userId)
         const sorted = [...all].toSorted((a, b) => {
@@ -302,6 +335,23 @@ export const ProjectsLive = Layer.effect(
         return ctx
       })
 
+    const getKey = (
+      orgSlug: string,
+      userId: string,
+      slug: string
+    ): Effect.Effect<ProjectKey, NotFound> =>
+      withProjectTelemetry(
+        "getKey",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireMember(orgSlug, userId, slug)
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          return makeProjectKey(indexRow.key)
+        })
+      )
+
     // --- Frontmatter sync ----------------------------------------------
 
     const syncFrontmatter = (
@@ -310,6 +360,7 @@ export const ProjectsLive = Layer.effect(
       name: string,
       createdBy: string,
       createdAt: Date,
+      key: ProjectKey,
       body: string,
       members: ReadonlyArray<Member>,
       connection: GithubConnection | null
@@ -317,6 +368,7 @@ export const ProjectsLive = Layer.effect(
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
         slug,
+        key,
         name,
         createdBy,
         createdAt,
@@ -334,27 +386,47 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       createdBy: string,
       input: CreateProjectInput
-    ): Effect.Effect<Project, NotFound> =>
+    ): Effect.Effect<Project, NotFound | Conflict> =>
       withProjectTelemetry(
         "create",
         orgSlug,
-        { createdBy, projectName: input.name },
+        { createdBy, projectName: input.name, projectKey: input.key },
         Effect.gen(function* () {
           const organizationId = yield* orgIdFromSlug(orgSlug)
           const slug = yield* findFreeSlug(slugify(input.name))
           const createdAt = yield* DateTime.nowAsDate
+          const key = makeProjectKey(input.key)
+          const existingKey = yield* db.query.projectIndex
+            .findFirst({
+              columns: { slug: true },
+              where: and(
+                eq(projectIndex.organizationId, organizationId),
+                eq(projectIndex.key, input.key)
+              )
+            })
+            .pipe(Effect.orDie)
+          if (existingKey) {
+            return yield* new Conflict({ reason: "project_key_taken" })
+          }
 
           const [row] = yield* db
             .insert(projectIndex)
             .values({
               slug,
+              key,
               name: input.name,
               createdBy,
               createdAt,
               organizationId
             })
             .returning()
-            .pipe(Effect.orDie)
+            .pipe(
+              Effect.catchAll((cause) =>
+                uniqueConstraint(cause, "project_index_organization_key_uidx")
+                  ? Effect.fail(new Conflict({ reason: "project_key_taken" }))
+                  : Effect.die(cause)
+              )
+            )
 
           yield* db
             .insert(projectMember)
@@ -373,6 +445,7 @@ export const ProjectsLive = Layer.effect(
             input.name,
             createdBy,
             createdAt,
+            key,
             `# ${input.name}\n`,
             members,
             null
@@ -385,6 +458,7 @@ export const ProjectsLive = Layer.effect(
           return {
             org: orgSlug,
             slug: row.slug,
+            key: makeProjectKey(row.key),
             name: row.name,
             createdBy: row.createdBy,
             createdAt: row.createdAt
@@ -407,9 +481,11 @@ export const ProjectsLive = Layer.effect(
           if (!indexRow) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
           const members = yield* loadMembers(slug)
+          const key = makeProjectKey(indexRow.key)
           return {
             org: orgSlug,
             slug: indexRow.slug,
+            key,
             name: indexRow.name,
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
@@ -454,6 +530,7 @@ export const ProjectsLive = Layer.effect(
             nextName,
             indexRow.createdBy,
             indexRow.createdAt,
+            makeProjectKey(indexRow.key),
             nextBody,
             members,
             file.github
@@ -462,6 +539,7 @@ export const ProjectsLive = Layer.effect(
           return {
             org: orgSlug,
             slug,
+            key: makeProjectKey(indexRow.key),
             name: nextName,
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
@@ -508,6 +586,7 @@ export const ProjectsLive = Layer.effect(
           indexRow.name,
           indexRow.createdBy,
           indexRow.createdAt,
+          makeProjectKey(indexRow.key),
           file.body,
           members,
           file.github
@@ -515,6 +594,7 @@ export const ProjectsLive = Layer.effect(
         return {
           org: orgSlug,
           slug: indexRow.slug,
+          key: makeProjectKey(indexRow.key),
           name: indexRow.name,
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
@@ -715,6 +795,7 @@ export const ProjectsLive = Layer.effect(
             indexRow.name,
             indexRow.createdBy,
             indexRow.createdAt,
+            makeProjectKey(indexRow.key),
             file.body,
             members,
             next
@@ -723,6 +804,7 @@ export const ProjectsLive = Layer.effect(
           return {
             org: orgSlug,
             slug: indexRow.slug,
+            key: makeProjectKey(indexRow.key),
             name: indexRow.name,
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
@@ -754,6 +836,7 @@ export const ProjectsLive = Layer.effect(
             indexRow.name,
             indexRow.createdBy,
             indexRow.createdAt,
+            makeProjectKey(indexRow.key),
             file.body,
             members,
             null
@@ -761,6 +844,7 @@ export const ProjectsLive = Layer.effect(
           return {
             org: orgSlug,
             slug: indexRow.slug,
+            key: makeProjectKey(indexRow.key),
             name: indexRow.name,
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
@@ -777,6 +861,7 @@ export const ProjectsLive = Layer.effect(
       listMembersPaged,
       create,
       get,
+      getKey,
       update,
       remove,
       requireMember,

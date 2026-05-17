@@ -2,7 +2,13 @@ import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { GithubConnection, NotFound, Role, Slug } from "@projectproject/shared"
+import {
+  GithubConnection,
+  NotFound,
+  ProjectKey,
+  Role,
+  Slug
+} from "@projectproject/shared"
 import { Markdown, type MarkdownError } from "../Services/Markdown"
 import {
   ProjectDocs,
@@ -47,6 +53,7 @@ const ProjectDocGithub = Schema.Struct({
 const ProjectFrontmatter = Schema.Struct({
   org: Schema.optional(Slug),
   slug: Slug,
+  key: Schema.optional(ProjectKey),
   name: Schema.String,
   createdBy: Schema.optional(Schema.String),
   createdAt: Schema.Date,
@@ -66,6 +73,7 @@ function toFrontmatter(
   const frontmatter: Record<string, unknown> = {
     org: document.org,
     slug: document.slug,
+    key: document.key,
     name: document.name,
     createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),

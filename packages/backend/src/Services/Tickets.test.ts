@@ -4,36 +4,39 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import {
-  TicketId,
-  type ProjectDetail,
-  type Role
-} from "@projectproject/shared"
-import { GitHub, type GitHubShape } from "../Services/GitHub"
-import { Groups, type GroupsShape } from "../Services/Groups"
-import { Projects, type ProjectsShape } from "../Services/Projects"
+import { NotFound, ProjectKey, TicketId } from "@projectproject/shared"
+import { TicketsLive } from "../Layers/Tickets"
+import { Db } from "./Db"
+import { GitHub, type GitHubShape } from "./GitHub"
+import { Groups, type GroupsShape } from "./Groups"
+import { TicketIdTaken } from "./Markdown"
+import { Projects, type ProjectsShape } from "./Projects"
 import {
   MalformedTicketDocument,
   TicketDocs,
   type TicketDocsShape,
   type TicketDocument
-} from "../Services/TicketDocs"
-import { TicketsLive } from "../Layers/Tickets"
+} from "./TicketDocs"
 import { Tickets } from "./Tickets"
 
-const ticketId = Schema.decodeUnknownSync(TicketId)
 const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
+const ticketId = Schema.decodeUnknownSync(TicketId)
+const projectKey = Schema.decodeUnknownSync(ProjectKey)
 
-function unexpectedCall(service: string, method: string): Effect.Effect<never> {
-  return Effect.die(new Error(`unexpected ${service}.${method} call`))
+function unexpected(method: string): Effect.Effect<never> {
+  return Effect.die(new Error(`unexpected ${method} call`))
 }
 
-function ticket(overrides: Partial<TicketDocument> = {}): TicketDocument {
+function makeTicketDocument(
+  id: string,
+  overrides: Partial<TicketDocument> = {}
+): TicketDocument {
+  const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
-    id: ticketId("T-1"),
-    title: "Good ticket",
+    id: ticketId(id),
+    title: id,
     status: "todo",
-    type: "feat",
+    type: "other",
     priority: "med",
     tags: [],
     branch: null,
@@ -41,83 +44,164 @@ function ticket(overrides: Partial<TicketDocument> = {}): TicketDocument {
     lastTransitionedPr: null,
     assignees: [],
     createdBy: "user-1",
-    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-    updatedAt: isoDate("2026-01-02T00:00:00.000Z"),
-    body: "# Good ticket\n",
+    createdAt: now,
+    updatedAt: now,
+    body: "",
     ...overrides
   }
 }
 
-function projectDetail(role: Role = "member"): ProjectDetail {
+function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
+  const documents = new Map<string, TicketDocument>(
+    initialIds.map((id) => [id, makeTicketDocument(id)])
+  )
+
+  const service = {
+    listIds: () =>
+      Effect.succeed([...documents.keys()].map((id) => ticketId(id))),
+    read: (_org: string, _slug: string, id: string) => {
+      const document = documents.get(id)
+      return document ? Effect.succeed(document) : Effect.fail(new NotFound())
+    },
+    create: (_org: string, _slug: string, document: TicketDocument) => {
+      if (documents.has(document.id)) return Effect.fail(new TicketIdTaken())
+      documents.set(document.id, document)
+      return Effect.void
+    },
+    write: (
+      _org: string,
+      _slug: string,
+      id: string,
+      document: TicketDocument
+    ) => {
+      documents.set(id, document)
+      return Effect.void
+    },
+    remove: (_org: string, _slug: string, id: string) => {
+      documents.delete(id)
+      return Effect.void
+    },
+    readRaw: () => unexpected("TicketDocs.readRaw")
+  } satisfies TicketDocsShape
+
   return {
-    org: "org",
-    slug: "project",
-    name: "Project",
-    createdBy: "user-1",
-    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
-    github: null,
-    body: "# Project\n",
-    members: [
-      {
-        id: "user-1",
-        username: null,
-        name: "User One",
-        email: "user@example.com",
-        image: null,
-        role
-      }
-    ]
+    documents,
+    layer: Layer.succeed(TicketDocs, service)
   }
 }
 
-const ProjectsStub = Layer.succeed(Projects, {
-  list: () => unexpectedCall("Projects", "list"),
-  listPaged: () => unexpectedCall("Projects", "listPaged"),
-  listMembersPaged: () => unexpectedCall("Projects", "listMembersPaged"),
-  create: () => unexpectedCall("Projects", "create"),
-  get: () => Effect.succeed(projectDetail()),
-  update: () => unexpectedCall("Projects", "update"),
-  remove: () => unexpectedCall("Projects", "remove"),
-  requireMember: () => Effect.succeed({ role: "member" as const }),
-  requireRole: () => Effect.succeed({ role: "member" as const }),
-  addMember: () => unexpectedCall("Projects", "addMember"),
-  updateMember: () => unexpectedCall("Projects", "updateMember"),
-  removeMember: () => unexpectedCall("Projects", "removeMember"),
-  connectGithub: () => unexpectedCall("Projects", "connectGithub"),
-  disconnectGithub: () => unexpectedCall("Projects", "disconnectGithub")
-} satisfies ProjectsShape)
+function makeFakeProjects(key: string) {
+  const service = {
+    list: () => unexpected("Projects.list"),
+    listPaged: () => unexpected("Projects.listPaged"),
+    listMembersPaged: () => unexpected("Projects.listMembersPaged"),
+    create: () => unexpected("Projects.create"),
+    get: () => unexpected("Projects.get"),
+    getKey: () => Effect.succeed(projectKey(key)),
+    update: () => unexpected("Projects.update"),
+    remove: () => unexpected("Projects.remove"),
+    requireMember: () => Effect.succeed({ role: "member" as const }),
+    requireRole: () => unexpected("Projects.requireRole"),
+    addMember: () => unexpected("Projects.addMember"),
+    updateMember: () => unexpected("Projects.updateMember"),
+    removeMember: () => unexpected("Projects.removeMember"),
+    connectGithub: () => unexpected("Projects.connectGithub"),
+    disconnectGithub: () => unexpected("Projects.disconnectGithub")
+  } satisfies ProjectsShape
 
-const GitHubStub = Layer.succeed(GitHub, {
-  listUserRepos: () => unexpectedCall("GitHub", "listUserRepos"),
-  verifyAccess: () => unexpectedCall("GitHub", "verifyAccess"),
-  createBranch: () => unexpectedCall("GitHub", "createBranch"),
-  openPullRequest: () => unexpectedCall("GitHub", "openPullRequest"),
-  fetchProjectStates: () => unexpectedCall("GitHub", "fetchProjectStates"),
-  listBranches: () => unexpectedCall("GitHub", "listBranches"),
-  branchExists: () => unexpectedCall("GitHub", "branchExists")
-} satisfies GitHubShape)
+  return Layer.succeed(Projects, service)
+}
 
-const GroupsStub = Layer.succeed(Groups, {
-  list: () => unexpectedCall("Groups", "list"),
-  listPaged: () => unexpectedCall("Groups", "listPaged"),
-  listSprintsPaged: () => unexpectedCall("Groups", "listSprintsPaged"),
-  get: () => unexpectedCall("Groups", "get"),
-  create: () => unexpectedCall("Groups", "create"),
-  update: () => unexpectedCall("Groups", "update"),
-  updateTickets: () => unexpectedCall("Groups", "updateTickets"),
-  updateTicketOrder: () => unexpectedCall("Groups", "updateTicketOrder"),
-  complete: () => unexpectedCall("Groups", "complete"),
-  remove: () => unexpectedCall("Groups", "remove"),
-  removeTicketFromAllGroups: () =>
-    unexpectedCall("Groups", "removeTicketFromAllGroups")
+const FakeDb = Layer.succeed(
+  Db,
+  new Proxy(
+    {},
+    {
+      get: (_target, prop) =>
+        (..._args: ReadonlyArray<unknown>) =>
+          unexpected(`Db.${String(prop)}`)
+    }
+  ) as never
+)
+
+const FakeGroups = Layer.succeed(Groups, {
+  list: () => unexpected("Groups.list"),
+  listPaged: () => unexpected("Groups.listPaged"),
+  listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
+  get: () => unexpected("Groups.get"),
+  create: () => unexpected("Groups.create"),
+  update: () => unexpected("Groups.update"),
+  updateTickets: () => unexpected("Groups.updateTickets"),
+  addTickets: () => unexpected("Groups.addTickets"),
+  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
+  complete: () => unexpected("Groups.complete"),
+  remove: () => unexpected("Groups.remove"),
+  removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
-it.effect("Tickets.list skips malformed ticket documents", () => {
+const FakeGitHub = Layer.succeed(GitHub, {
+  listUserRepos: () => unexpected("GitHub.listUserRepos"),
+  verifyAccess: () => unexpected("GitHub.verifyAccess"),
+  createBranch: () => unexpected("GitHub.createBranch"),
+  openPullRequest: () => unexpected("GitHub.openPullRequest"),
+  fetchProjectStates: () => unexpected("GitHub.fetchProjectStates"),
+  listBranches: () => unexpected("GitHub.listBranches"),
+  branchExists: () => unexpected("GitHub.branchExists")
+} satisfies GitHubShape)
+
+function makeTicketsLayer(
+  key: string,
+  ticketDocsLayer: Layer.Layer<TicketDocs>
+) {
+  return TicketsLive.pipe(
+    Layer.provide(ticketDocsLayer),
+    Layer.provide(makeFakeProjects(key)),
+    Layer.provide(FakeGroups),
+    Layer.provide(FakeGitHub),
+    Layer.provide(FakeDb)
+  )
+}
+
+function makeTicketsFixture(key: string, initialIds: ReadonlyArray<string>) {
+  const docs = makeFakeTicketDocs(initialIds)
+  return {
+    documents: docs.documents,
+    layer: makeTicketsLayer(key, docs.layer)
+  }
+}
+
+it.effect("create allocates the next id from the project key", () => {
+  const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.create("org", "user-1", "p", {
+      title: "Add project keys"
+    })
+
+    expect(created.id).toBe("FOO-4")
+    expect(documents.has("FOO-4")).toBe(true)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("create keeps legacy T project ids readable and sequential", () => {
+  const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-35"])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.create("org", "user-1", "p", {
+      title: "Keep legacy ids"
+    })
+
+    expect(created.id).toBe("T-36")
+    expect(documents.has("T-36")).toBe(true)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list skips malformed ticket documents", () => {
   const docs = Layer.succeed(TicketDocs, {
     listIds: () => Effect.succeed([ticketId("T-1"), ticketId("T-2")]),
     read: (_org, _slug, id) =>
       id === "T-1"
-        ? Effect.succeed(ticket())
+        ? Effect.succeed(makeTicketDocument("T-1"))
         : Effect.fail(
             new MalformedTicketDocument({
               orgSlug: "org",
@@ -128,10 +212,10 @@ it.effect("Tickets.list skips malformed ticket documents", () => {
               cause: undefined
             })
           ),
-    create: () => unexpectedCall("TicketDocs", "create"),
-    write: () => unexpectedCall("TicketDocs", "write"),
-    remove: () => unexpectedCall("TicketDocs", "remove"),
-    readRaw: () => unexpectedCall("TicketDocs", "readRaw")
+    create: () => unexpected("TicketDocs.create"),
+    write: () => unexpected("TicketDocs.write"),
+    remove: () => unexpected("TicketDocs.remove"),
+    readRaw: () => unexpected("TicketDocs.readRaw")
   } satisfies TicketDocsShape)
 
   return Effect.gen(function* () {
@@ -139,14 +223,5 @@ it.effect("Tickets.list skips malformed ticket documents", () => {
     const result = yield* tickets.list("org", "user-1", "project")
 
     expect(result.map((t) => t.id)).toEqual(["T-1"])
-  }).pipe(
-    Effect.provide(
-      TicketsLive.pipe(
-        Layer.provide(docs),
-        Layer.provide(ProjectsStub),
-        Layer.provide(GitHubStub),
-        Layer.provide(GroupsStub)
-      )
-    )
-  )
+  }).pipe(Effect.provide(makeTicketsLayer("T", docs)))
 })

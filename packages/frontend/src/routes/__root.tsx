@@ -1,7 +1,14 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router"
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
+import type { Registry } from "@effect-atom/atom-react"
 import { ShapeProvider } from "@/lib/shape-context"
 
-export const Route = createRootRoute({ component: RootComponent })
+export interface RouterContext {
+  registry: Registry.Registry
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
+  component: RootComponent
+})
 
 function RootComponent() {
   return (

@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type {
   GithubConnection,
   NotFound,
+  ProjectKey,
   Role,
   Slug
 } from "@projectproject/shared"
@@ -16,6 +17,7 @@ export interface ProjectDocMember {
 export interface ProjectDocument {
   readonly org?: Slug
   readonly slug: Slug
+  readonly key?: ProjectKey
   readonly name: string
   readonly createdBy?: string
   readonly createdAt: Date
@@ -27,6 +29,7 @@ export interface ProjectDocument {
 export interface ProjectDocumentWrite {
   readonly org: string
   readonly slug: string
+  readonly key: ProjectKey
   readonly name: string
   readonly createdBy: string
   readonly createdAt: Date
@@ -52,7 +55,10 @@ export interface ProjectDocsShape {
   readonly readRaw: (
     orgSlug: string,
     slug: string
-  ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    { path: string; content: string },
+    NotFound | MarkdownError
+  >
 }
 
 export class ProjectDocs extends Context.Tag(

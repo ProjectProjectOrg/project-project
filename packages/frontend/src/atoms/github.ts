@@ -21,7 +21,7 @@ import type {
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
 import {
-  ticketAtom,
+  ticketBaseAtom,
   ticketKey,
   ticketsListBaseAtom,
   ticketsListKey
@@ -146,7 +146,7 @@ export const createBranchAtom = Atom.family((key: string) => {
           payload: { name: input.name, baseBranch: input.baseBranch }
         })
         get.refresh(projectGitStatesBaseAtom(key))
-        get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
         get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         return updated
       })
@@ -180,7 +180,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
           payload: { name: input.name }
         })
         get.refresh(projectGitStatesBaseAtom(key))
-        get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
         get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         return updated
       })
@@ -208,7 +208,7 @@ export const clearBranchAtom = Atom.family((key: string) => {
         const updated = yield* client.tickets.clearBranch({
           path: { orgSlug, slug, id: input.id }
         })
-        get.refresh(ticketAtom(ticketKey(orgSlug, slug, input.id)))
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
         get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
         get.refresh(projectGitStatesBaseAtom(key))
         return updated

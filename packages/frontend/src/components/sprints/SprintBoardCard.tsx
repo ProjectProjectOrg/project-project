@@ -21,9 +21,8 @@ function SprintBoardCardImpl({
   const navigate = useNavigate()
   const open = () => {
     void navigate({
-      from: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      to: ".",
-      search: (prev) => ({ ...prev, view: "list", ticket: ticket.id })
+      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+      params: { orgSlug, slug, id: ticket.id }
     })
   }
 
@@ -40,11 +39,11 @@ function SprintBoardCardImpl({
       }}
       className="group/card flex cursor-pointer flex-col gap-2 rounded-md border border-border bg-background p-3 text-left outline-none transition-colors duration-100 hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring"
     >
-      <div className="flex items-start gap-1.5">
-        <TypeButton orgSlug={orgSlug} slug={slug} ticket={ticket} iconOnly />
-        <span className="min-w-0 line-clamp-2 text-sm font-medium leading-snug">
-          {ticket.title}
-        </span>
+      <div className="flex items-start gap-1.5 text-sm leading-snug">
+        <div className="-mt-[1.5px] grid h-[1lh] shrink-0 place-items-center">
+          <TypeButton orgSlug={orgSlug} slug={slug} ticket={ticket} iconOnly />
+        </div>
+        <span className="line-clamp-2 min-w-0 font-medium">{ticket.title}</span>
       </div>
       <div className="flex items-center gap-2">
         <PriorityButton
@@ -56,7 +55,7 @@ function SprintBoardCardImpl({
         <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
-        <div className="min-w-0 flex-1 truncate">
+        <div className="flex min-w-0 flex-1 items-center">
           <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </div>
         <AssigneeRowTrigger

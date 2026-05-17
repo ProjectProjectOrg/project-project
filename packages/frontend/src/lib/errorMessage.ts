@@ -8,6 +8,7 @@ import type {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  MentionInvalid,
   NotFound,
   RateLimited,
   RepoGone,
@@ -29,6 +30,7 @@ export type AppError =
   | RateLimited
   | GitHubError
   | BranchNotFound
+  | MentionInvalid
   | SprintCompletedImmutable
 
 export const errorMessage = (error: AppError): string =>
@@ -36,6 +38,12 @@ export const errorMessage = (error: AppError): string =>
     Match.tag("SprintCompletedImmutable", () =>
       m.error_sprint_completed_immutable()
     ),
+    Match.tag("Conflict", (error) =>
+      error.reason === "project_key_taken"
+        ? m.projects_create_key_taken_error()
+        : m.error_unknown()
+    ),
+    Match.tag("MentionInvalid", () => m.error_mention_invalid()),
     Match.tag("Unauthorized", () => m.error_unknown()),
     Match.orElse(() => m.error_unknown())
   )
