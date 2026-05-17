@@ -76,4 +76,27 @@ describe("paginateSorted", () => {
     expect(page.items).toEqual([])
     expect(page.nextCursor).toBeNull()
   })
+
+  it("walks descending arrays when dir is 'desc'", () => {
+    const desc = [row(5), row(4), row(3), row(2), row(1)]
+    const page1 = paginateSorted(desc, {
+      cursor: undefined,
+      limit: 3,
+      sortKey: (r) => padNumericIdSort(r.id)!,
+      id: (r) => r.id,
+      dir: "desc"
+    })
+    expect(page1.items.map((r) => r.id)).toEqual(["T-5", "T-4", "T-3"])
+    expect(page1.nextCursor).not.toBeNull()
+
+    const page2 = paginateSorted(desc, {
+      cursor: decodeCursor(page1.nextCursor!),
+      limit: 3,
+      sortKey: (r) => padNumericIdSort(r.id)!,
+      id: (r) => r.id,
+      dir: "desc"
+    })
+    expect(page2.items.map((r) => r.id)).toEqual(["T-2", "T-1"])
+    expect(page2.nextCursor).toBeNull()
+  })
 })

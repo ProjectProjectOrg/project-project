@@ -318,6 +318,51 @@ it.effect("list paginates by cursor", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("list paginates by cursor with default created desc sort", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  const total = TICKET_LIST_LIMIT + 5
+  const base = DateTime.unsafeMake("2026-01-01T00:00:00.000Z")
+  for (let i = 0; i < total; i++) {
+    const id = `T-${i + 1}`
+    documents.set(
+      id,
+      makeTicketDocument(id, {
+        title: id,
+        createdAt: DateTime.toDate(DateTime.addDuration(`${i} hours`)(base))
+      })
+    )
+  }
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const page1 = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT
+    })
+    expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
+    expect(page1.nextCursor).not.toBeNull()
+    const page1Times = page1.items.map((t) => t.createdAt.getTime())
+    for (let i = 1; i < page1Times.length; i++) {
+      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
+    }
+
+    const page2 = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      cursor: page1.nextCursor ?? undefined
+    })
+    expect(page2.items.length).toBe(5)
+    expect(page2.nextCursor).toBeNull()
+    const page2Times = page2.items.map((t) => t.createdAt.getTime())
+    for (let i = 1; i < page2Times.length; i++) {
+      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
+    }
+
+    const seen = new Set(page1.items.map((t) => t.id))
+    for (const t of page2.items) {
+      expect(seen.has(t.id)).toBe(false)
+    }
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("list honors an explicit limit override", () => {
   const { layer } = makeTicketsFixture("T", [])
   return Effect.gen(function* () {

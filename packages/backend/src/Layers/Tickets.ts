@@ -48,6 +48,7 @@ import {
   type ProjectKey,
   type TicketListPage,
   type TicketListQuery,
+  type TicketPriority,
   type TicketSort
 } from "@projectproject/shared"
 import { matchesTicketQuery } from "../Services/TicketFilters"
@@ -101,12 +102,10 @@ function documentToTicket(document: TicketDocument): Ticket {
   return ticket
 }
 
-const PRIORITY_ORDINAL: Record<string, number> = {
-  urgent: 4,
+const PRIORITY_ORDINAL: Record<TicketPriority, number> = {
   high: 3,
   med: 2,
-  low: 1,
-  none: 0
+  low: 1
 }
 
 const sortKeyValue = (t: Ticket, sort: TicketSort): string => {
@@ -120,7 +119,7 @@ const sortKeyValue = (t: Ticket, sort: TicketSort): string => {
     case "title":
       return t.title.toLowerCase()
     case "priority":
-      return String(PRIORITY_ORDINAL[t.priority] ?? 0).padStart(2, "0")
+      return String(PRIORITY_ORDINAL[t.priority]).padStart(2, "0")
   }
 }
 
@@ -246,7 +245,8 @@ export const TicketsLive = Layer.effect(
           cursor,
           limit: limit ?? TICKET_LIST_LIMIT,
           sortKey: (t) => sortKeyValue(t, query.sort),
-          id: (t) => t.id
+          id: (t) => t.id,
+          dir: query.sort.dir
         })
       })
 
