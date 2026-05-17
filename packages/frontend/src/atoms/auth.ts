@@ -97,7 +97,15 @@
 // `Result.match` with `onFailure: (failure) => ...` is fine — just remember
 // the argument is the Failure variant, not the error.
 
+import { Atom, Result } from "@effect-atom/atom-react"
 import * as Effect from "effect/Effect"
+import {
+  acceptInvitations,
+  filterActionableInvitations,
+  toPendingInvite,
+  type PendingInvite,
+  type RawInvitation
+} from "@/lib/invitations"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
@@ -116,3 +124,92 @@ export const logoutAtom = runtime.fn(
     get.refresh(meAtom)
   })
 )
+
+const pendingInvitesBaseAtom = runtime
+  .atom(
+    Effect.tryPromise(async () => {
+      const session = await authData(authClient.getSession())
+      const email = session?.user.email
+      if (!session?.user.emailVerified || !email) return []
+
+      const rawInvites = await authData(
+        authClient.organization.listUserInvitations()
+      )
+      const actionable = filterActionableInvitations(
+        rawInvites as RawInvitation[],
+        email
+      )
+      const settled = await Promise.allSettled(
+        actionable.map((invite) =>
+          authData(
+            authClient.organization.getInvitation({ query: { id: invite.id } })
+          )
+        )
+      )
+
+      return settled.flatMap((result) =>
+        result.status === "fulfilled" && result.value
+          ? [toPendingInvite(result.value)]
+          : []
+      )
+    })
+  )
+  .pipe(Atom.setIdleTTL("30 seconds"))
+
+export const pendingInvitesAtom = Atom.optimistic(pendingInvitesBaseAtom)
+
+export const declineInvitationAtom = Atom.family((invitationId: string) =>
+  Atom.optimisticFn(pendingInvitesAtom, {
+    reducer: (current) =>
+      Result.isSuccess(current)
+        ? Result.success(current.value, { waiting: true })
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (_input: void, get) {
+        yield* Effect.tryPromise(() =>
+          authData(
+            authClient.organization.rejectInvitation({ invitationId })
+          )
+        )
+        get.refresh(pendingInvitesBaseAtom)
+      })
+    )
+  })
+)
+
+export const acceptAllInvitesAtom = runtime.fn(
+  Effect.fn(function* (invites: readonly PendingInvite[], get) {
+    const result = yield* Effect.tryPromise(() =>
+      acceptInvitations(invites, (invite) =>
+        authData(
+          authClient.organization.acceptInvitation({
+            invitationId: invite.id
+          })
+        ).then(() => undefined)
+      )
+    )
+
+    const activeInvite = result.activeInvite
+    if (activeInvite) {
+      yield* Effect.tryPromise(() =>
+        authData(
+          authClient.organization.setActive({
+            organizationSlug: activeInvite.organizationSlug
+          })
+        )
+      )
+    }
+
+    get.refresh(pendingInvitesBaseAtom)
+    get.refresh(meAtom)
+    return result
+  })
+)
+
+async function authData<T>(
+  response: Promise<{ data: T; error: { message?: string } | null }>
+): Promise<T> {
+  const { data, error } = await response
+  if (error) throw new Error(error.message ?? "Auth request failed")
+  return data
+}

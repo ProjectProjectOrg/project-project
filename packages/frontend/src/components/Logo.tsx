@@ -1,7 +1,7 @@
-import logoSvg from "../public/logo/logo.svg?raw"
-import wordmarkSvg from "../public/logo/wordmark.svg?raw"
+import logoSvg from "../assets/logo/logo.svg?raw"
+import wordmarkSvg from "../assets/logo/wordmark.svg?raw"
 
-// The source SVGs in src/public/logo are baked for dark mode (white/grey
+// The source SVGs in src/assets/logo are baked for dark mode (white/grey
 // shapes on a black surface). To make them themeable we swap the literal
 // colors for CSS variables already defined in src/styles.css, so the same
 // asset renders correctly in both light and dark mode.
