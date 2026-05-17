@@ -1,15 +1,24 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { Mail } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 import { meAtom } from "@/atoms/auth"
 import { Logo, Wordmark } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
-import { DitherBackdrop } from "@/components/ui/button-dither"
+import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { Input } from "@/components/ui/input"
 import { m } from "@/paraglide/messages"
 import { authClient } from "@/services/AuthClient"
+
+const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
+  {
+    anchor: { type: "fraction", x: 0.5, y: 0.5 },
+    radius: 0.77,
+    strength: 3,
+    falloff: 4.85
+  }
+]
 
 export const Route = createFileRoute("/(public)/login")({
   component: LoginPage
@@ -21,6 +30,7 @@ function LoginPage() {
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
   const [magicLinkError, setMagicLinkError] = useState<string | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
 
   if (Result.isSuccess(me)) return <Navigate to="/" />
 
@@ -49,21 +59,37 @@ function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
-      <div className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] shadow-sm">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
+      <div className="pointer-events-none absolute inset-0">
+        <Dither
+          disableAnimation
+          speed={0}
+          octaves={7}
+          frequency={2.2}
+          amplitude={0.52}
+          lacunarity={2.2}
+          rotationAngle={0.5}
+          warpStrength={1.32}
+          contrast={0.2}
+          bias={-0.07}
+          colorFront="#9e9e9e"
+          colorBack="#262626"
+          pixelSize={3}
+          ditherType="4x4"
+          cardRef={cardRef}
+          cardWellEnabled
+          cardFalloff={80}
+          cardCornerRadius={16}
+          timeWarpZones={DITHER_TIME_WARP_ZONES}
+        />
+      </div>
+      <div
+        ref={cardRef}
+        className="relative flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/80 bg-[color-mix(in_oklch,var(--background)_45%,var(--muted)_55%)] shadow-sm"
+      >
         <div className="relative flex flex-col items-center gap-4 px-8 pb-8 pt-10 text-foreground">
-          <div className="absolute inset-x-0 top-0 h-20 opacity-45">
-            <DitherBackdrop
-              from="#807F7F"
-              to="#FEFEFE"
-              direction="r"
-              stops={[0.08, 0.88]}
-              matrix="4x4"
-              pixelSize={3}
-            />
-          </div>
-          <div className="relative flex size-16 items-center justify-center rounded-2xl bg-background shadow-sm ring-1 ring-border">
-            <Logo className="size-10" />
+          <div className="relative flex size-16 items-center justify-center rounded-2xl corner-squircle bg-primary">
+            <Logo className="size-10" inverted />
           </div>
           <div className="relative flex flex-col items-center gap-4">
             <Wordmark className="h-5 w-auto" />

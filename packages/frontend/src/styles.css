@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@plugin "@toolwind/corner-shape";
+
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
