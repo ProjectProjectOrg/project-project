@@ -41,6 +41,7 @@ import {
   TicketId,
   UpdateTicketInput
 } from "./schemas/Ticket"
+import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import {
   AttachBranchInput,
   BranchListResponse,
@@ -281,11 +282,64 @@ const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .middleware(Authentication)
 
+const TicketListParams = Schema.Struct({
+  status: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  type: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  assignee: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  tags: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  groupId: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  hasBranch: Schema.optional(Schema.String),
+  hasPr: Schema.optional(Schema.String),
+  sort: Schema.optional(Schema.String),
+  q: Schema.optional(Schema.String),
+  cursor: Schema.optional(Schema.String)
+})
+
+const TicketCountParams = Schema.Struct({
+  status: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  type: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  assignee: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  tags: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  groupId: Schema.optional(
+    Schema.Union(Schema.String, Schema.Array(Schema.String))
+  ),
+  hasBranch: Schema.optional(Schema.String),
+  hasPr: Schema.optional(Schema.String),
+  q: Schema.optional(Schema.String)
+})
+
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets")
       .setPath(ProjectPath)
-      .addSuccess(Schema.Array(Ticket))
+      .setUrlParams(TicketListParams)
+      .addSuccess(TicketListPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.get("count", "/orgs/:orgSlug/projects/:slug/tickets/count")
+      .setPath(ProjectPath)
+      .setUrlParams(TicketCountParams)
+      .addSuccess(TicketCounts)
       .addError(Unauthorized)
       .addError(NotFound)
   )
