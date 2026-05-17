@@ -10,6 +10,20 @@ describe("Better Auth plugin wiring", () => {
     expect(typeof auth.api.setActiveOrganization).toBe("function")
   })
 
+  it("disables public self-serve organization creation", () => {
+    const orgPlugin = auth.options.plugins?.find(
+      (plugin) => plugin.id === "organization"
+    )
+    expect(orgPlugin?.options?.allowUserToCreateOrganization).toBe(false)
+  })
+
+  it("links new social sign-ins to existing users by email", () => {
+    expect(auth.options.account?.accountLinking?.enabled).toBe(true)
+    expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
+      "github"
+    )
+  })
+
   it("exposes the admin plugin endpoints", () => {
     expect(typeof auth.api.listUsers).toBe("function")
     expect(typeof auth.api.setRole).toBe("function")

@@ -117,6 +117,12 @@ export const auth = betterAuth({
       }
     }
   },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["github"]
+    }
+  },
   socialProviders: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -221,6 +227,7 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
+      allowUserToCreateOrganization: false,
       schema: {
         organization: {
           additionalFields: {
