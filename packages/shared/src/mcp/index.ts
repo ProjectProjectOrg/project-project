@@ -38,14 +38,11 @@ import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { Page, Pagination } from "../Pagination"
-import { TicketFilter } from "./filters/Ticket"
-import { GroupFilter } from "./filters/Group"
+import { TicketFilter, GroupFilter } from "../filters"
 import { SprintState } from "../sprintLogic"
 
 export * from "./DocFile"
 export * from "./MeOutput"
-export * from "./filters/Ticket"
-export * from "./filters/Group"
 
 export interface McpToolSpec<
   Input extends Schema.Schema.Any,
