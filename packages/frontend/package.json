@@ -62,6 +62,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/router-plugin": "1.167.35",
+    "@toolwind/corner-shape": "^0.0.8-3",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",

@@ -340,6 +340,7 @@ export function Dither({
   style
 }: DitherProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const requestRenderRef = useRef<(() => void) | null>(null)
   const propsRef = useRef({
     speed,
     octaves,
@@ -405,6 +406,10 @@ export function Dither({
     cardFalloff,
     cardCornerRadius
   ])
+
+  useLayoutEffect(() => {
+    requestRenderRef.current?.()
+  })
 
   const prefersReducedMotion = useMemo(() => {
     if (typeof window === "undefined") return false
@@ -487,26 +492,36 @@ export function Dither({
       }
       gl.uniform2f(uniforms.u_resolution, canvas.width, canvas.height)
       gl.uniform1f(uniforms.u_pixelRatio, dpr)
+      requestRender()
     }
-    resize()
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
-
     const handlePointer = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect()
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
       mouse.x = (e.clientX - rect.left) * dpr
       mouse.y = (e.clientY - rect.top) * dpr
+      requestRender()
     }
-    window.addEventListener("pointermove", handlePointer)
 
-    const render = (now: number) => {
+    const tick = (now: number) => {
+      rafId = 0
       const dt = now - lastFrame
       lastFrame = now
       const cur = propsRef.current
-      if (!cur.disableAnimation && !prefersReducedMotion) {
-        elapsed += dt
+      const animate = !cur.disableAnimation && !prefersReducedMotion
+      if (animate) elapsed += dt
+      draw(cur)
+      if (animate) {
+        rafId = requestAnimationFrame(tick)
       }
+    }
+
+    const requestRender = () => {
+      if (rafId !== 0) return
+      lastFrame = performance.now()
+      rafId = requestAnimationFrame(tick)
+    }
+
+    const draw = (cur: typeof propsRef.current) => {
       const fg = parseColor(cur.colorFront)
       const bg = parseColor(cur.colorBack)
       gl.uniform1f(uniforms.u_time, elapsed * 0.001)
@@ -577,25 +592,30 @@ export function Dither({
       }
 
       gl.drawArrays(gl.TRIANGLES, 0, 6)
-      rafId = requestAnimationFrame(render)
     }
-    rafId = requestAnimationFrame((t) => {
-      lastFrame = t
-      render(t)
-    })
+
+    requestRenderRef.current = requestRender
+
+    resize()
+    const ro = new ResizeObserver(resize)
+    ro.observe(canvas)
+    window.addEventListener("pointermove", handlePointer)
 
     const handleVisibility = () => {
       if (document.hidden) {
-        cancelAnimationFrame(rafId)
+        if (rafId !== 0) {
+          cancelAnimationFrame(rafId)
+          rafId = 0
+        }
       } else {
-        lastFrame = performance.now()
-        rafId = requestAnimationFrame(render)
+        requestRender()
       }
     }
     document.addEventListener("visibilitychange", handleVisibility)
 
     return () => {
-      cancelAnimationFrame(rafId)
+      requestRenderRef.current = null
+      if (rafId !== 0) cancelAnimationFrame(rafId)
       ro.disconnect()
       window.removeEventListener("pointermove", handlePointer)
       document.removeEventListener("visibilitychange", handleVisibility)
