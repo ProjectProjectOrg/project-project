@@ -1,10 +1,10 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { ticketsListBaseAtom, ticketsListKey } from "@/atoms/tickets"
 import {
   TagColor,
   type CreateTagInput,
@@ -100,7 +100,7 @@ export const renameTagAtom = Atom.family((key: string) => {
         })
         get.refresh(tagsBaseAtom(key))
         if (input.nextName) {
-          get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         }
         return tag
       })
@@ -125,7 +125,7 @@ export const deleteTagAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, name: input.name }
         })
         get.refresh(tagsBaseAtom(key))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
       })
     )
   })

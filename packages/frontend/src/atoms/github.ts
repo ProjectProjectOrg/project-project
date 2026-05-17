@@ -9,6 +9,7 @@
 // Slugs are URL-safe (no `/`), so a slash is an unambiguous separator.
 
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
@@ -20,12 +21,7 @@ import type {
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
-import {
-  ticketBaseAtom,
-  ticketKey,
-  ticketsListBaseAtom,
-  ticketsListKey
-} from "./tickets"
+import { ticketBaseAtom, ticketKey } from "./tickets"
 
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
@@ -147,7 +143,7 @@ export const createBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return updated
       })
     )
@@ -181,7 +177,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return updated
       })
     )
@@ -209,7 +205,7 @@ export const clearBranchAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, id: input.id }
         })
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         get.refresh(projectGitStatesBaseAtom(key))
         return updated
       })

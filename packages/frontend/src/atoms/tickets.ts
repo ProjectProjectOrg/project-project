@@ -1,5 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import * as DateTime from "effect/DateTime"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as SubscriptionRef from "effect/SubscriptionRef"
@@ -187,13 +187,13 @@ export const ticketAtom = ticketBaseAtom
 export const quickCreateTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime.fn(
-    Effect.fn(function* (input: QuickCreateTicketInput, get) {
+    Effect.fn(function* (input: QuickCreateTicketInput, _get) {
       const client = yield* ApiClient
       const ticket = yield* client.tickets.quickCreate({
         path: { orgSlug, slug },
         payload: input
       })
-      get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
       return ticket
     })
   )
@@ -201,48 +201,27 @@ export const quickCreateTicketAtom = Atom.family((key: string) => {
 
 export const updateTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
-  const listKey = ticketsListKey(orgSlug, slug)
-  return Atom.optimisticFn(ticketsListAtom(listKey), {
-    reducer: (current, input: UpdateTicketInput) => {
-      if (!Result.isSuccess(current)) return current
-      const now = DateTime.toDate(DateTime.unsafeNow())
-      const next = current.value.map((t) => {
-        if (t.id !== id) return t
-        return {
-          ...t,
-          title: input.title ?? t.title,
-          status: input.status ?? t.status,
-          type: input.type ?? t.type,
-          priority: input.priority ?? t.priority,
-          tags: input.tags ?? t.tags,
-          assignees: input.assignees ?? t.assignees,
-          updatedAt: now
-        }
+  return runtime.fn(
+    Effect.fn(function* (input: UpdateTicketInput, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.tickets.update({
+        path: { orgSlug, slug, id },
+        payload: input
       })
-      return Result.success(next, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: UpdateTicketInput, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.tickets.update({
-          path: { orgSlug, slug, id },
-          payload: input
-        })
-        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
-        get.refresh(ticketsListBaseAtom(listKey))
-        return updated
-      })
-    )
-  })
+      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+      return updated
+    })
+  )
 })
 
 export const deleteTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
   return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
+    Effect.fn(function* (_input: void, _get) {
       const client = yield* ApiClient
       yield* client.tickets.delete({ path: { orgSlug, slug, id } })
-      get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
     })
   )
 })
