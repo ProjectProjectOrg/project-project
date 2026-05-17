@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import type { Ticket, TicketFilter } from "@projectproject/shared"
 import { TagName, TicketId } from "@projectproject/shared"
-import { matchesTicketFilter } from "./TicketFilters"
+import { matchesTicketFilter, matchesTicketQuery } from "./TicketFilters"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
@@ -97,5 +97,43 @@ describe("matchesTicketFilter", () => {
     const t = baseTicket({ status: "in_progress", type: "bug" })
     expect(matchesTicketFilter(t, { status: ["in_progress"], type: ["bug"] })).toBe(true)
     expect(matchesTicketFilter(t, { status: ["in_progress"], type: ["feat"] })).toBe(false)
+  })
+})
+
+describe("matchesTicketQuery", () => {
+  it("empty query matches everything", () => {
+    expect(matchesTicketQuery(baseTicket(), {}, "user-a")).toBe(true)
+  })
+
+  it("q matches on title case-insensitively", () => {
+    const t = baseTicket({ title: "Hello world" })
+    expect(matchesTicketQuery(t, { q: "HELLO" }, "user-a")).toBe(true)
+    expect(matchesTicketQuery(t, { q: "goodbye" }, "user-a")).toBe(false)
+  })
+
+  it("q matches on id case-insensitively", () => {
+    const t = baseTicket({ id: decodeTicketId("T-1"), title: "Something else" })
+    expect(matchesTicketQuery(t, { q: "t-1" }, "user-a")).toBe(true)
+  })
+
+  it("'mine' resolves to viewer id in assignee filter", () => {
+    const t = baseTicket({ assignees: ["user-a"] })
+    expect(
+      matchesTicketQuery(t, { filter: { assignee: ["mine"] } }, "user-a")
+    ).toBe(true)
+    expect(
+      matchesTicketQuery(t, { filter: { assignee: ["mine"] } }, "user-b")
+    ).toBe(false)
+  })
+
+  it("null in assignee still means unassigned via delegation", () => {
+    const unassigned = baseTicket({ assignees: [] })
+    const assigned = baseTicket({ assignees: ["user-a"] })
+    expect(
+      matchesTicketQuery(unassigned, { filter: { assignee: [null] } }, "user-a")
+    ).toBe(true)
+    expect(
+      matchesTicketQuery(assigned, { filter: { assignee: [null] } }, "user-a")
+    ).toBe(false)
   })
 })

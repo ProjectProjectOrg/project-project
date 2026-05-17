@@ -1,4 +1,8 @@
-import type { Ticket, TicketFilter } from "@projectproject/shared"
+import type {
+  Ticket,
+  TicketFilter,
+  TicketListQuery
+} from "@projectproject/shared"
 
 export const matchesTicketFilter = (
   ticket: Ticket,
@@ -44,6 +48,32 @@ export const matchesTicketFilter = (
 
   if (filter.updatedAfter !== undefined) {
     if (ticket.updatedAt.getTime() <= filter.updatedAfter.getTime()) return false
+  }
+
+  return true
+}
+
+export const matchesTicketQuery = (
+  ticket: Ticket,
+  query: Pick<TicketListQuery, "filter" | "q">,
+  viewerId: string
+): boolean => {
+  if (query.filter !== undefined) {
+    const resolvedFilter: TicketFilter = query.filter.assignee
+      ? {
+          ...query.filter,
+          assignee: query.filter.assignee.map((a) =>
+            a === "mine" ? viewerId : a
+          )
+        }
+      : query.filter
+    if (!matchesTicketFilter(ticket, resolvedFilter)) return false
+  }
+
+  if (query.q !== undefined && query.q.length > 0) {
+    const needle = query.q.toLowerCase()
+    const haystack = `${ticket.title.toLowerCase()} ${ticket.id.toLowerCase()}`
+    if (!haystack.includes(needle)) return false
   }
 
   return true
