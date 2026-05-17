@@ -44,6 +44,7 @@ import {
   UpdateTicketInput,
   Validation,
   type CursorPayload,
+  type ProjectKey,
   type TicketFilter
 } from "@projectproject/shared"
 import { matchesTicketFilter } from "../Services/TicketFilters"
@@ -67,6 +68,12 @@ const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 
+function numericTail(id: string): number {
+  const dash = id.lastIndexOf("-")
+  if (dash < 0) return Number.NaN
+  return Number(id.slice(dash + 1))
+}
+
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 type TicketCollectionRead =
@@ -77,13 +84,13 @@ type TicketCollectionRead =
       readonly error: MalformedTicketDocument
     }
 
-function nextIdFrom(ids: ReadonlyArray<TicketId>): TicketId {
+function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
   for (const id of ids) {
-    const n = Number(id.slice(2))
+    const n = numericTail(id)
     if (Number.isFinite(n) && n > max) max = n
   }
-  return makeTicketId(`T-${max + 1}`)
+  return makeTicketId(`${key}-${max + 1}`)
 }
 
 function documentToTicket(document: TicketDocument): Ticket {
@@ -179,7 +186,7 @@ export const TicketsLive = Layer.effect(
         )
         return readableTickets(tickets)
           .map(documentToTicket)
-          .toSorted((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)))
+          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
       })
 
     const get = (
@@ -260,11 +267,12 @@ export const TicketsLive = Layer.effect(
     const writeWithIdAllocation = (
       orgSlug: string,
       slug: string,
+      projectKey: ProjectKey,
       buildDocument: (id: TicketId) => TicketDocument
     ): Effect.Effect<TicketDocument, MarkdownError> =>
       Effect.gen(function* () {
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
+        let candidate = nextIdFrom(projectKey, ids)
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
           const document = buildDocument(candidate)
           const result = yield* ticketDocs
@@ -274,10 +282,10 @@ export const TicketsLive = Layer.effect(
               Effect.catchTag("TicketIdTaken", () =>
                 Effect.succeed("retry" as const)
               )
-            )
+          )
           if (result === "ok") return document
           const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(freshIds)
+          candidate = nextIdFrom(projectKey, freshIds)
         }
         return yield* Effect.die(
           new Error(`could not allocate ticket id for "${slug}"`)
@@ -292,23 +300,29 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const now = yield* DateTime.nowAsDate
-        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
-          id,
-          title: input.title,
-          status: "todo",
-          type: input.type ?? "other",
-          priority: "med",
-          tags: [],
-          branch: null,
-          pr: null,
-          lastTransitionedPr: null,
-          assignees: [],
-          createdBy: ownerId,
-          createdAt: now,
-          updatedAt: now,
-          body: `# ${input.title}\n`
-        }))
+        const document = yield* writeWithIdAllocation(
+          orgSlug,
+          slug,
+          projectKey,
+          (id) => ({
+            id,
+            title: input.title,
+            status: "todo",
+            type: input.type ?? "other",
+            priority: "med",
+            tags: [],
+            branch: null,
+            pr: null,
+            lastTransitionedPr: null,
+            assignees: [],
+            createdBy: ownerId,
+            createdAt: now,
+            updatedAt: now,
+            body: `# ${input.title}\n`
+          })
+        )
         return documentToTicket(document)
       })
 
@@ -323,6 +337,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         if (input.tags !== undefined) {
           yield* validateTagsExist(slug, input.tags)
         }
@@ -333,23 +348,28 @@ export const TicketsLive = Layer.effect(
           yield* validateBody(orgSlug, ownerId, slug, input.body)
         }
         const now = yield* DateTime.nowAsDate
-        const document = yield* writeWithIdAllocation(orgSlug, slug, (id) => ({
-          id,
-          title: input.title,
-          status: input.status ?? "todo",
-          type: input.type ?? "other",
-          priority: input.priority ?? "med",
-          tags: input.tags !== undefined ? [...input.tags] : [],
-          branch: null,
-          pr: null,
-          lastTransitionedPr: null,
-          assignees:
-            input.assignees !== undefined ? [...input.assignees] : [],
-          createdBy: ownerId,
-          createdAt: now,
-          updatedAt: now,
-          body: input.body ?? `# ${input.title}\n`
-        }))
+        const document = yield* writeWithIdAllocation(
+          orgSlug,
+          slug,
+          projectKey,
+          (id) => ({
+            id,
+            title: input.title,
+            status: input.status ?? "todo",
+            type: input.type ?? "other",
+            priority: input.priority ?? "med",
+            tags: input.tags !== undefined ? [...input.tags] : [],
+            branch: null,
+            pr: null,
+            lastTransitionedPr: null,
+            assignees:
+              input.assignees !== undefined ? [...input.assignees] : [],
+            createdBy: ownerId,
+            createdAt: now,
+            updatedAt: now,
+            body: input.body ?? `# ${input.title}\n`
+          })
+        )
         return document
       })
 
@@ -478,9 +498,7 @@ export const TicketsLive = Layer.effect(
               (groupMemberSet === null || groupMemberSet.has(t.id)) &&
               matchesTicketFilter(t, filter)
           )
-          .toSorted(
-            (a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2))
-          )
+          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
 
         return paginateSorted(sorted, {
           cursor,

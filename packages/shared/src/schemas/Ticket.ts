@@ -4,13 +4,18 @@
 // `<PROJECTS_DIR>/orgs/<org-slug>/projects/<project-slug>/tickets/<ticket-id>.md`.
 // The frontmatter is the structured data the API returns; the body is the description.
 //
-// IDs are sequential per project: T-1, T-2, ... — assigned by the server.
 
 import * as Schema from "effect/Schema"
+import { ProjectKey } from "./Project"
 import { TagName } from "./Tag"
 
 export const TicketId = Schema.String.pipe(
-  Schema.pattern(/^T-[1-9][0-9]*$/),
+  Schema.pattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/),
+  Schema.filter((id) => {
+    const dash = id.lastIndexOf("-")
+    if (dash < 0) return false
+    return Schema.is(ProjectKey)(id.slice(0, dash))
+  }),
   Schema.brand("TicketId")
 )
 export type TicketId = typeof TicketId.Type

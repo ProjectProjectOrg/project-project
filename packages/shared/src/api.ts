@@ -149,6 +149,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addSuccess(Project)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Conflict)
   )
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug")

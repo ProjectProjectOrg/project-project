@@ -4,7 +4,13 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { Forbidden, GroupId, NotFound, TicketId } from "@projectproject/shared"
+import {
+  Forbidden,
+  GroupId,
+  NotFound,
+  ProjectKey,
+  TicketId
+} from "@projectproject/shared"
 import type {
   GroupDetail,
   ProjectDetail,
@@ -26,6 +32,7 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const projectKey = Schema.decodeUnknownSync(ProjectKey)
 
 function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
@@ -145,6 +152,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
   return {
     org: "org",
     slug: "p",
+    key: projectKey("FOO"),
     name: "Project",
     createdBy: "user-1",
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),
@@ -174,6 +182,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     listPaged: () => unexpectedProjectCall("listPaged"),
     listMembersPaged: () => unexpectedProjectCall("listMembersPaged"),
     create: () => unexpectedProjectCall("create"),
+    getKey: () => unexpectedProjectCall("getKey"),
     requireMember: () => Effect.succeed({ role }),
     requireRole: (
       _org: string,
