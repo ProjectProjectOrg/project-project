@@ -39,15 +39,18 @@ import {
   RepoGone,
   TagName,
   Ticket,
+  TICKET_LIST_LIMIT,
   TicketDetail,
   TicketId,
+  tryDecodeCursor,
   UpdateTicketInput,
   Validation,
-  type CursorPayload,
   type ProjectKey,
-  type TicketFilter
+  type TicketListPage,
+  type TicketListQuery,
+  type TicketSort
 } from "@projectproject/shared"
-import { matchesTicketFilter } from "../Services/TicketFilters"
+import { matchesTicketQuery } from "../Services/TicketFilters"
 import { validateBodyMentions } from "../Services/BodyMentions"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
@@ -96,6 +99,43 @@ function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
 function documentToTicket(document: TicketDocument): Ticket {
   const { body: _body, ...ticket } = document
   return ticket
+}
+
+const PRIORITY_ORDINAL: Record<string, number> = {
+  urgent: 4,
+  high: 3,
+  med: 2,
+  low: 1,
+  none: 0
+}
+
+const sortKeyValue = (t: Ticket, sort: TicketSort): string => {
+  switch (sort.key) {
+    case "id":
+      return padNumericIdSort(t.id) ?? t.id
+    case "created":
+      return t.createdAt.toISOString()
+    case "updated":
+      return t.updatedAt.toISOString()
+    case "title":
+      return t.title.toLowerCase()
+    case "priority":
+      return String(PRIORITY_ORDINAL[t.priority] ?? 0).padStart(2, "0")
+  }
+}
+
+const sortTickets = (
+  tickets: ReadonlyArray<Ticket>,
+  sort: TicketSort
+): ReadonlyArray<Ticket> => {
+  const sign = sort.dir === "asc" ? 1 : -1
+  return [...tickets].sort((a, b) => {
+    const ka = sortKeyValue(a, sort)
+    const kb = sortKeyValue(b, sort)
+    if (ka < kb) return -1 * sign
+    if (ka > kb) return 1 * sign
+    return a.id.localeCompare(b.id)
+  })
 }
 
 export const TicketsLive = Layer.effect(
@@ -173,20 +213,40 @@ export const TicketsLive = Layer.effect(
 
     const list = (
       orgSlug: string,
-      ownerId: string,
-      slug: string
-    ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
+      userId: string,
+      slug: string,
+      query: TicketListQuery
+    ): Effect.Effect<TicketListPage, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        yield* ensureAccess(orgSlug, ownerId, slug)
+        yield* ensureAccess(orgSlug, userId, slug)
+        const groupMemberSet = yield* resolveGroupMembers(
+          orgSlug,
+          userId,
+          slug,
+          query.filter?.groupId
+        )
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
-        )
-        return readableTickets(tickets)
+        ).pipe(Effect.map(readableTickets))
+
+        const filtered = tickets
           .map(documentToTicket)
-          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
+          .filter(
+            (t) =>
+              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
+              matchesTicketQuery(t, query, userId)
+          )
+        const sorted = sortTickets(filtered, query.sort)
+        const cursor = tryDecodeCursor(query.cursor)
+        return paginateSorted(sorted, {
+          cursor,
+          limit: TICKET_LIST_LIMIT,
+          sortKey: (t) => sortKeyValue(t, query.sort),
+          id: (t) => t.id
+        })
       })
 
     const get = (
@@ -462,50 +522,6 @@ export const TicketsLive = Layer.effect(
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
-      })
-
-    const listPaged = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      filter: TicketFilter | undefined,
-      cursor: CursorPayload | undefined,
-      limit: number
-    ): Effect.Effect<
-      { items: ReadonlyArray<Ticket>; nextCursor: string | null },
-      NotFound | MarkdownError
-    > =>
-      Effect.gen(function* () {
-        yield* ensureAccess(orgSlug, userId, slug)
-        const groupMemberSet = yield* resolveGroupMembers(
-          orgSlug,
-          userId,
-          slug,
-          filter?.groupId
-        )
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(
-          Effect.map(readableTickets)
-        )
-        const sorted = tickets
-          .map(documentToTicket)
-          .filter(
-            (t) =>
-              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
-              matchesTicketFilter(t, filter)
-          )
-          .toSorted((a, b) => numericTail(a.id) - numericTail(b.id))
-
-        return paginateSorted(sorted, {
-          cursor,
-          limit,
-          sortKey: (t) => padNumericIdSort(t.id) ?? "",
-          id: (t) => t.id
-        })
       })
 
     // --- Git operations -------------------------------------------------
@@ -834,7 +850,6 @@ export const TicketsLive = Layer.effect(
 
     return {
       list,
-      listPaged,
       get,
       quickCreate,
       create,

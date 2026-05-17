@@ -4,7 +4,14 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { NotFound, ProjectKey, TicketId } from "@projectproject/shared"
+import {
+  DEFAULT_TICKET_SORT,
+  NotFound,
+  ProjectKey,
+  TICKET_LIST_LIMIT,
+  TicketId,
+  type TicketListQuery
+} from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
 import { Db } from "./Db"
 import { GitHub, type GitHubShape } from "./GitHub"
@@ -220,8 +227,120 @@ it.effect("list skips malformed ticket documents", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.list("org", "user-1", "project")
+    const result = yield* tickets.list("org", "user-1", "project", {
+      sort: DEFAULT_TICKET_SORT
+    })
 
-    expect(result.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.items.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.nextCursor).toBeNull()
   }).pipe(Effect.provide(makeTicketsLayer("T", docs)))
+})
+
+it.effect("list defaults to created desc", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      title: "old",
+      createdAt: isoDate("2026-01-01T00:00:00.000Z")
+    })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", {
+      title: "mid",
+      createdAt: isoDate("2026-02-01T00:00:00.000Z")
+    })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", {
+      title: "new",
+      createdAt: isoDate("2026-03-01T00:00:00.000Z")
+    })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT
+    })
+
+    expect(result.items.map((t) => t.title)).toEqual(["new", "mid", "old"])
+    expect(result.nextCursor).toBeNull()
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list sorts by title asc", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { title: "C" }))
+  documents.set("T-2", makeTicketDocument("T-2", { title: "A" }))
+  documents.set("T-3", makeTicketDocument("T-3", { title: "B" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const query: TicketListQuery = {
+      sort: { key: "title", dir: "asc" }
+    }
+    const result = yield* tickets.list("org", "user-1", "p", query)
+
+    expect(result.items.map((t) => t.title)).toEqual(["A", "B", "C"])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list paginates by cursor", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  const total = TICKET_LIST_LIMIT + 5
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    for (let i = 0; i < total; i++) {
+      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+    }
+
+    const sortById: TicketListQuery = {
+      sort: { key: "id", dir: "asc" }
+    }
+    const page1 = yield* tickets.list("org", "user-1", "p", sortById)
+    expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
+    expect(page1.nextCursor).not.toBeNull()
+
+    const page2 = yield* tickets.list("org", "user-1", "p", {
+      ...sortById,
+      cursor: page1.nextCursor ?? undefined
+    })
+    expect(page2.items.length).toBe(5)
+    expect(page2.nextCursor).toBeNull()
+
+    const page1Ids = new Set(page1.items.map((t) => t.id))
+    for (const t of page2.items) {
+      expect(page1Ids.has(t.id)).toBe(false)
+    }
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list filters by q and substitutes mine to viewerId", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.create("org", "user-1", "p", {
+      title: "hello world",
+      assignees: ["user-1"]
+    })
+    yield* tickets.create("org", "user-1", "p", {
+      title: "goodbye world",
+      assignees: ["user-2"]
+    })
+
+    const byQ = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      q: "hello"
+    })
+    expect(byQ.items.map((t) => t.title)).toEqual(["hello world"])
+
+    const mine = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      filter: { assignee: ["mine"] }
+    })
+    expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
+  }).pipe(Effect.provide(layer))
 })

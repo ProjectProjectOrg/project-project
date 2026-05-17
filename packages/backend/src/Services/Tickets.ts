@@ -8,7 +8,6 @@ import type {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
-  CursorPayload,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -22,7 +21,8 @@ import type {
   RepoGone,
   Ticket,
   TicketDetail,
-  TicketFilter,
+  TicketListPage,
+  TicketListQuery,
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
@@ -34,9 +34,10 @@ type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 export interface TicketsShape {
   readonly list: (
     orgSlug: string,
-    ownerId: string,
-    slug: string
-  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+    userId: string,
+    slug: string,
+    query: TicketListQuery
+  ) => Effect.Effect<TicketListPage, NotFound | MarkdownError>
   readonly get: (
     orgSlug: string,
     ownerId: string,
@@ -142,17 +143,6 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<TicketDetail, TicketReadError>
-  readonly listPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
-    filter: TicketFilter | undefined,
-    cursor: CursorPayload | undefined,
-    limit: number
-  ) => Effect.Effect<
-    { items: ReadonlyArray<Ticket>; nextCursor: string | null },
-    NotFound | MarkdownError
-  >
   readonly getGitState: (
     orgSlug: string,
     userId: string,
