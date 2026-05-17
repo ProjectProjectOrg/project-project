@@ -97,7 +97,14 @@
 // `Result.match` with `onFailure: (failure) => ...` is fine — just remember
 // the argument is the Failure variant, not the error.
 
+import { Atom, Result } from "@effect-atom/atom-react"
+import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
+import {
+  filterActionableInvitations,
+  toPendingInvite,
+  type PendingInvite
+} from "@/lib/invitations"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
@@ -116,3 +123,101 @@ export const logoutAtom = runtime.fn(
     get.refresh(meAtom)
   })
 )
+
+const pendingInvitesBaseAtom = runtime
+  .atom(
+    Effect.tryPromise(async (): Promise<PendingInvite[]> => {
+      const session = await authData(authClient.getSession())
+      const email = session?.user.email
+      if (!session?.user.emailVerified || !email) return []
+
+      const rawInvites = await authData(
+        authClient.organization.listUserInvitations()
+      )
+      const actionable = filterActionableInvitations(rawInvites ?? [], email)
+      const settled = await Promise.allSettled(
+        actionable.map((invite) =>
+          authData(
+            authClient.organization.getInvitation({ query: { id: invite.id } })
+          )
+        )
+      )
+
+      return settled.flatMap((result) =>
+        result.status === "fulfilled" && result.value
+          ? [toPendingInvite(result.value)]
+          : []
+      )
+    })
+  )
+  .pipe(Atom.setIdleTTL("30 seconds"))
+
+export const pendingInvitesAtom = Atom.optimistic(pendingInvitesBaseAtom)
+
+export const declineInvitationAtom = Atom.family((invitationId: string) =>
+  Atom.optimisticFn(pendingInvitesAtom, {
+    reducer: (current) =>
+      Result.isSuccess(current)
+        ? Result.success(current.value, { waiting: true })
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (_input: void, get) {
+        yield* Effect.tryPromise(() =>
+          authData(authClient.organization.rejectInvitation({ invitationId }))
+        )
+        get.refresh(pendingInvitesBaseAtom)
+      })
+    )
+  })
+)
+
+export const acceptInviteAtom = Atom.family((invitationId: string) =>
+  Atom.optimisticFn(pendingInvitesAtom, {
+    reducer: (current) =>
+      Result.isSuccess(current)
+        ? Result.success(current.value, { waiting: true })
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (_input: void, get) {
+        yield* Effect.tryPromise(() =>
+          authData(
+            authClient.organization.acceptInvitation({
+              invitationId
+            })
+          )
+        )
+
+        get.refresh(pendingInvitesBaseAtom)
+        return invitationId
+      })
+    )
+  })
+)
+
+export const setActiveOrganizationAtom = Atom.family((_key: "me") =>
+  runtime.fn(
+    Effect.fn(function* (organizationSlug: string, get) {
+      yield* Effect.tryPromise(() =>
+        authData(
+          authClient.organization.setActive({
+            organizationSlug
+          })
+        )
+      )
+      get.refresh(meAtom)
+    })
+  )
+)
+
+type AuthClientError = Pick<BetterFetchError, "status" | "statusText"> & {
+  code?: string
+  message?: string
+}
+
+async function authData<T>(
+  response: Promise<{ data: T; error: AuthClientError | null }>
+): Promise<T> {
+  const { data, error } = await response
+  if (error) throw error
+  return data
+}
