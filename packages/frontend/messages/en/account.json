@@ -5,6 +5,7 @@
   "auth_continue_with_google_button": "Continue with Google",
   "auth_email_aria_label": "Email address",
   "auth_email_placeholder": "Email address",
+  "auth_google_sign_in_error": "Couldn't start Google sign-in.",
   "auth_invites_accept_all_button": "Accept all",
   "auth_invites_accept_all_error": "Couldn't accept the invitations. Try again or sign out.",
   "auth_invites_accept_button": "Accept",

@@ -42,6 +42,7 @@
 
 import { relations } from "drizzle-orm"
 import {
+  foreignKey,
   index,
   pgTable,
   primaryKey,
@@ -75,6 +76,10 @@ export const projectIndex = pgTable(
     uniqueIndex("project_index_organization_key_uidx").on(
       table.organizationId,
       table.key
+    ),
+    uniqueIndex("project_index_slug_id_uidx").on(
+      table.slug,
+      table.id
     )
   ]
 )
@@ -108,12 +113,8 @@ export const projectInviteGrant = pgTable(
     invitationId: text("invitation_id")
       .notNull()
       .references(() => invitation.id, { onDelete: "cascade" }),
-    projectSlug: text("project_slug")
-      .notNull()
-      .references(() => projectIndex.slug, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id").notNull(),
     role: text("role", { enum: ["admin", "member"] }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -121,6 +122,11 @@ export const projectInviteGrant = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.invitationId, table.projectSlug] }),
+    foreignKey({
+      name: "project_invite_grant_project_slug_id_fkey",
+      columns: [table.projectSlug, table.projectId],
+      foreignColumns: [projectIndex.slug, projectIndex.id]
+    }).onDelete("cascade"),
     index("project_invite_grant_project_idx").on(table.projectSlug)
   ]
 )

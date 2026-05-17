@@ -29,6 +29,7 @@ data/
 # don't share via the repo.
 .serena/
 storage/
+local-db-backup-*.sql
 
 # Paraglide generated runtime — recompiled by the Vite plugin from
 # packages/frontend/messages/*.json on each dev/build.

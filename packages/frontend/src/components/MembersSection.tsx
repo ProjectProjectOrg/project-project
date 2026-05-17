@@ -180,7 +180,10 @@ function AddMemberRow({
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
         {!error && submitted ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span
+            className="shrink-0 text-xs text-muted-foreground"
+            role="status"
+          >
             {m.members_add_success()}
           </span>
         ) : null}

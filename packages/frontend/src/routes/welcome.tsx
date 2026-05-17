@@ -1,23 +1,14 @@
-import {
-  Registry,
-  RegistryContext,
-  Result,
-  useAtomSet,
-  useAtomValue
-} from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
-import { useCallback, useContext, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
-  acceptInviteAtom,
+  acceptInvitesAtom,
   declineInvitationAtom,
   logoutAtom,
   meAtom,
-  pendingInvitesAtom,
-  setActiveOrganizationAtom
+  pendingInvitesAtom
 } from "@/atoms/auth"
 import { Button } from "@/components/ui/button"
 import { DitherBackdrop } from "@/components/ui/button-dither"
@@ -25,13 +16,9 @@ import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import {
-  acceptInvitations,
-  pickActiveInvite,
-  type InviteAcceptFailure,
-  type InviteAcceptResult,
-  type PendingInvite
-} from "@/lib/invitations"
+import type { InviteAcceptFailure, PendingInvite } from "@/lib/invitations"
+
+type AcceptingTarget = { type: "all" } | { type: "invite"; id: string } | null
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage
@@ -153,101 +140,63 @@ function WelcomeInviteList({
   invites: readonly PendingInvite[]
   syncing: boolean
 }) {
-  const registry = useContext(RegistryContext)
   const navigate = useNavigate({ from: Route.fullPath })
-  const activateOrg = useAtomSet(setActiveOrganizationAtom("me"), {
-    mode: "promiseExit"
-  })
+  const acceptAll = useAtomSet(acceptInvitesAtom, { mode: "promiseExit" })
+  const acceptState = useAtomValue(acceptInvitesAtom)
   const logout = useAtomSet(logoutAtom)
   const [failedAccepts, setFailedAccepts] = useState<InviteAcceptFailure[]>([])
-  const [acceptingAll, setAcceptingAll] = useState(false)
-  const [pageError, setPageError] = useState<string | null>(null)
+  const [acceptAllFailed, setAcceptAllFailed] = useState(false)
+  const [acceptingTarget, setAcceptingTarget] = useState<AcceptingTarget>(null)
   const failedById = new Map(
     failedAccepts.map((failure) => [failure.invite.id, failure])
   )
-
-  const clearFailure = useCallback((inviteId: string) => {
-    setPageError(null)
-    setFailedAccepts((failures) =>
-      failures.filter((failure) => failure.invite.id !== inviteId)
-    )
-  }, [])
-
-  const acceptInvite = useCallback(
-    async (invite: PendingInvite): Promise<InviteAcceptResult> => {
-      const atom = acceptInviteAtom(invite.id)
-      return await acceptInvitations([invite], async () => {
-        const unmount = registry.mount(atom)
-        try {
-          registry.set(atom, undefined)
-          const exit = await Effect.runPromiseExit(
-            Registry.getResult(registry, atom, { suspendOnWaiting: true })
-          )
-          if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-        } finally {
-          unmount()
-        }
-      })
-    },
-    [registry]
-  )
-
-  const applyAcceptResults = useCallback(
-    async (results: readonly InviteAcceptResult[]) => {
-      const failures = results.flatMap((result) => result.failures)
-      const successes = results.flatMap((result) => result.successes)
-      const activeInvite = pickActiveInvite(
-        successes.map((success) => success.invite)
-      )
-
-      setFailedAccepts((current) => {
-        const failedIds = new Set(failures.map((failure) => failure.invite.id))
-        return [
-          ...current.filter((failure) => !failedIds.has(failure.invite.id)),
-          ...failures
-        ]
-      })
-
-      if (!activeInvite) return false
-
-      const activeExit = await activateOrg(activeInvite.organizationSlug)
-      if (Exit.isFailure(activeExit)) {
-        setPageError(m.auth_invites_accept_all_error())
-        return false
-      }
-
-      await navigate({
-        to: "/orgs/$orgSlug",
-        params: { orgSlug: activeInvite.organizationSlug },
-        replace: true
-      })
-      return true
-    },
-    [activateOrg, navigate]
-  )
+  const accepting = acceptState.waiting
+  const pageError =
+    Result.isFailure(acceptState) || acceptAllFailed
+      ? m.auth_invites_accept_all_error()
+      : null
 
   const onAcceptAll = async () => {
-    setPageError(null)
+    setAcceptingTarget({ type: "all" })
     setFailedAccepts([])
-    setAcceptingAll(true)
-    const results = await Promise.all(
-      invites.map((invite) => acceptInvite(invite))
-    )
-    setAcceptingAll(false)
-
-    const navigated = await applyAcceptResults(results)
-    const failures = results.flatMap((result) => result.failures)
-    if (!navigated && failures.length === invites.length) {
-      setPageError(m.auth_invites_accept_all_error())
+    setAcceptAllFailed(false)
+    const exit = await acceptAll(invites)
+    if (Exit.isFailure(exit)) {
+      setAcceptingTarget(null)
+      return
+    }
+    setFailedAccepts(exit.value.failures)
+    setAcceptAllFailed(exit.value.failures.length === invites.length)
+    setAcceptingTarget(null)
+    if (exit.value.activeInvite) {
+      await navigate({
+        to: "/orgs/$orgSlug",
+        params: { orgSlug: exit.value.activeInvite.organizationSlug },
+        replace: true
+      })
     }
   }
 
-  const onAcceptResult = async (
-    invite: PendingInvite,
-    result: InviteAcceptResult
-  ) => {
-    clearFailure(invite.id)
-    await applyAcceptResults([result])
+  const onAcceptInvite = async (invite: PendingInvite) => {
+    setAcceptingTarget({ type: "invite", id: invite.id })
+    setAcceptAllFailed(false)
+    setFailedAccepts((failures) =>
+      failures.filter((failure) => failure.invite.id !== invite.id)
+    )
+    const exit = await acceptAll([invite])
+    setAcceptingTarget(null)
+    if (Exit.isFailure(exit)) return
+    setFailedAccepts((failures) => [
+      ...failures.filter((failure) => failure.invite.id !== invite.id),
+      ...exit.value.failures
+    ])
+    if (exit.value.activeInvite) {
+      await navigate({
+        to: "/orgs/$orgSlug",
+        params: { orgSlug: exit.value.activeInvite.organizationSlug },
+        replace: true
+      })
+    }
   }
 
   return (
@@ -271,10 +220,12 @@ function WelcomeInviteList({
             key={invite.id}
             invite={invite}
             acceptFailure={failedById.get(invite.id)}
-            acceptingAll={acceptingAll}
-            clearFailure={clearFailure}
-            acceptInvite={acceptInvite}
-            onAcceptResult={onAcceptResult}
+            accepting={accepting}
+            acceptingInvite={
+              acceptingTarget?.type === "invite" &&
+              acceptingTarget.id === invite.id
+            }
+            onAccept={() => onAcceptInvite(invite)}
           />
         ))}
       </ul>
@@ -286,8 +237,8 @@ function WelcomeInviteList({
           <Button
             type="button"
             leadingIcon={MailCheck}
-            loading={acceptingAll}
-            disabled={acceptingAll}
+            loading={accepting && acceptingTarget?.type === "all"}
+            disabled={accepting}
             onClick={onAcceptAll}
           >
             {m.auth_invites_accept_all_button()}
@@ -309,35 +260,22 @@ function WelcomeInviteList({
 function InviteRow({
   invite,
   acceptFailure,
-  acceptingAll,
-  clearFailure,
-  acceptInvite,
-  onAcceptResult
+  accepting,
+  acceptingInvite,
+  onAccept
 }: {
   invite: PendingInvite
   acceptFailure: InviteAcceptFailure | undefined
-  acceptingAll: boolean
-  clearFailure: (inviteId: string) => void
-  acceptInvite: (invite: PendingInvite) => Promise<InviteAcceptResult>
-  onAcceptResult: (
-    invite: PendingInvite,
-    result: InviteAcceptResult
-  ) => Promise<void>
+  accepting: boolean
+  acceptingInvite: boolean
+  onAccept: () => void
 }) {
-  const acceptState = useAtomValue(acceptInviteAtom(invite.id))
   const decline = useAtomSet(declineInvitationAtom(invite.id), {
     mode: "promiseExit"
   })
   const declineState = useAtomValue(declineInvitationAtom(invite.id))
   const [declineError, setDeclineError] = useState(false)
-  const accepting = acceptState.waiting
   const declining = declineState.waiting
-
-  const onAccept = async () => {
-    clearFailure(invite.id)
-    const result = await acceptInvite(invite)
-    await onAcceptResult(invite, result)
-  }
 
   const onDecline = async () => {
     setDeclineError(false)
@@ -351,7 +289,7 @@ function InviteRow({
     <li
       className={cn(
         "group flex items-start gap-3 border-border border-b px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/30 sm:items-center sm:gap-4",
-        (accepting || declining) && "animate-pulse"
+        declining && "animate-pulse"
       )}
     >
       <div
@@ -390,7 +328,7 @@ function InviteRow({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={declining || accepting || acceptingAll}
+          disabled={declining || accepting}
           loading={declining}
           onClick={onDecline}
         >
@@ -400,8 +338,8 @@ function InviteRow({
           type="button"
           variant="primary"
           size="sm"
-          loading={accepting}
-          disabled={declining || accepting || acceptingAll}
+          loading={acceptingInvite}
+          disabled={declining || accepting}
           onClick={onAccept}
         >
           {m.auth_invites_accept_button()}
