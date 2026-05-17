@@ -91,6 +91,31 @@ export const ticketsListAtom = Atom.family((key: string) => {
     )
 })
 
+export const loadMoreTicketsAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, query } = parseTicketsListKey(key)
+  return runtime.fn(
+    Effect.fn(function* (_: void, get) {
+      const current: Result.Result<TicketsListValue, unknown> = get(
+        ticketsListAtom(key)
+      )
+      if (!Result.isSuccess(current)) return
+      if (current.value.nextCursor === null) return
+      const client = yield* ApiClient
+      const next = yield* client.tickets.list({
+        path: { orgSlug, slug },
+        urlParams: ticketListQueryToSearch({
+          ...query,
+          cursor: current.value.nextCursor
+        })
+      })
+      get.set(ticketsListAtom(key), {
+        items: [...current.value.items, ...next.items],
+        nextCursor: next.nextCursor
+      })
+    })
+  )
+})
+
 const encodeCountQueryForKey = Schema.encodeSync(TicketCountQuery)
 
 export const ticketsCountKey = (
