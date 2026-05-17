@@ -141,14 +141,18 @@ function AddMemberRow({
     : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
+  const [submitted, setSubmitted] = useState(false)
   const trimmed = email.trim()
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
+    onFocusChange?.(false)
+    setSubmitted(false)
     const exit = await add({ email: trimmed, role })
     if (Exit.isSuccess(exit)) {
       setEmail("")
+      setSubmitted(true)
     }
   }
 
@@ -161,7 +165,10 @@ function AddMemberRow({
         <InputGroupInput
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value)
+            setSubmitted(false)
+          }}
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
           placeholder={m.members_add_email_placeholder()}
@@ -172,6 +179,11 @@ function AddMemberRow({
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
+        {!error && submitted ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {m.members_add_success()}
+          </span>
+        ) : null}
       </InputGroup>
     </form>
   )

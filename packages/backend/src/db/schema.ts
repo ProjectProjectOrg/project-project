@@ -52,7 +52,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
-import { organization, user } from "./auth-schema"
+import { invitation, organization, user } from "./auth-schema"
 
 export const projectIndex = pgTable(
   "project_index",
@@ -102,6 +102,26 @@ export const projectMember = pgTable(
   ]
 )
 
+export const projectInviteGrant = pgTable(
+  "project_invite_grant",
+  {
+    invitationId: text("invitation_id")
+      .notNull()
+      .references(() => invitation.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["admin", "member"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    primaryKey({ columns: [table.invitationId, table.projectId] }),
+    index("project_invite_grant_project_idx").on(table.projectId)
+  ]
+)
+
 export const projectTag = pgTable(
   "project_tag",
   {
@@ -131,6 +151,7 @@ export const projectIndexRelations = relations(
       references: [organization.id]
     }),
     members: many(projectMember),
+    inviteGrants: many(projectInviteGrant),
     tags: many(projectTag)
   })
 )
@@ -145,6 +166,20 @@ export const projectMemberRelations = relations(projectMember, ({ one }) => ({
     references: [user.id]
   })
 }))
+
+export const projectInviteGrantRelations = relations(
+  projectInviteGrant,
+  ({ one }) => ({
+    invitation: one(invitation, {
+      fields: [projectInviteGrant.invitationId],
+      references: [invitation.id]
+    }),
+    project: one(projectIndex, {
+      fields: [projectInviteGrant.projectId],
+      references: [projectIndex.id]
+    })
+  })
+)
 
 export const projectTagRelations = relations(projectTag, ({ one }) => ({
   project: one(projectIndex, {

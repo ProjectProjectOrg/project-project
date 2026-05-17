@@ -32,6 +32,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { and, asc, eq } from "drizzle-orm"
+import { ulid } from "ulid"
 import {
   Conflict,
   Forbidden,
@@ -56,7 +57,14 @@ import type {
   ProjectDetail,
   UpdateProjectInput
 } from "@projectproject/shared"
-import { organization, projectIndex, projectMember } from "../db/schema"
+import {
+  invitation,
+  member as orgMember,
+  organization,
+  projectIndex,
+  projectInviteGrant,
+  projectMember
+} from "../db/schema"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
@@ -430,7 +438,12 @@ export const ProjectsLive = Layer.effect(
 
           yield* db
             .insert(projectMember)
-            .values({ projectSlug: slug, userId: createdBy, role: "owner" })
+            .values({
+              projectSlug: slug,
+              projectId: row.id,
+              userId: createdBy,
+              role: "owner"
+            })
             .pipe(Effect.orDie)
 
           const rollback = db
@@ -604,6 +617,76 @@ export const ProjectsLive = Layer.effect(
         }
       })
 
+    const attachProjectInviteGrant = (
+      orgSlug: string,
+      inviterId: string,
+      email: string,
+      indexRow: typeof projectIndex.$inferSelect,
+      role: AssignableRole
+    ): Effect.Effect<void, NotFound> =>
+      Effect.gen(function* () {
+        const organizationId = yield* orgIdFromSlug(orgSlug)
+        const normalizedEmail = email.toLowerCase()
+        const now = yield* DateTime.now
+        const expiresAt = DateTime.toDate(DateTime.add(now, { hours: 48 }))
+        const existing = yield* db.query.invitation
+          .findFirst({
+            where: and(
+              eq(invitation.organizationId, organizationId),
+              eq(invitation.email, normalizedEmail),
+              eq(invitation.status, "pending")
+            )
+          })
+          .pipe(Effect.orDie)
+        const invite =
+          existing ??
+          (yield* Effect.gen(function* () {
+            const id = yield* Effect.sync(() => ulid())
+            const [created] = yield* db
+              .insert(invitation)
+              .values({
+                id,
+                organizationId,
+                email: normalizedEmail,
+                role: "member",
+                status: "pending",
+                expiresAt,
+                inviterId
+              })
+              .returning()
+              .pipe(Effect.orDie)
+            yield* Effect.sync(() =>
+              process.stdout.write(
+                `[invitation] org=${orgSlug} email=${normalizedEmail} role=member url=${process.env.BETTER_AUTH_URL}/invite/${created.id}\n`
+              )
+            )
+            return created
+          }))
+
+        yield* db
+          .update(invitation)
+          .set({ expiresAt })
+          .where(eq(invitation.id, invite.id))
+          .pipe(Effect.orDie)
+
+        yield* db
+          .insert(projectInviteGrant)
+          .values({
+            invitationId: invite.id,
+            projectSlug: indexRow.slug,
+            projectId: indexRow.id,
+            role
+          })
+          .onConflictDoUpdate({
+            target: [
+              projectInviteGrant.invitationId,
+              projectInviteGrant.projectSlug
+            ],
+            set: { projectId: indexRow.id, role }
+          })
+          .pipe(Effect.orDie)
+      })
+
     const addMember = (
       orgSlug: string,
       userId: string,
@@ -616,8 +699,34 @@ export const ProjectsLive = Layer.effect(
         { slug, userId, targetEmail: input.email, targetRole: input.role },
         Effect.gen(function* () {
           yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
-          const target = yield* users.findByEmail(input.email)
-          if (target === null) return yield* new NotFound()
+          const indexRow = yield* getIndexRow(slug)
+          if (!indexRow) return yield* new NotFound()
+          const organizationId = yield* orgIdFromSlug(orgSlug)
+          const email = input.email.trim().toLowerCase()
+          const target = yield* users.findByEmail(email)
+          const targetOrgMember =
+            target === null
+              ? null
+              : yield* db.query.member
+                  .findFirst({
+                    columns: { id: true },
+                    where: and(
+                      eq(orgMember.organizationId, organizationId),
+                      eq(orgMember.userId, target.id)
+                    )
+                  })
+                  .pipe(Effect.orDie)
+
+          if (target === null || targetOrgMember === null) {
+            yield* attachProjectInviteGrant(
+              orgSlug,
+              userId,
+              email,
+              indexRow,
+              input.role
+            )
+            return yield* replayDetail(orgSlug, slug)
+          }
 
           const existing = yield* db.query.projectMember
             .findFirst({
@@ -638,7 +747,7 @@ export const ProjectsLive = Layer.effect(
               }
               yield* db
                 .update(projectMember)
-                .set({ role: input.role })
+                .set({ projectId: indexRow.id, role: input.role })
                 .where(
                   and(
                     eq(projectMember.projectSlug, slug),
@@ -652,6 +761,7 @@ export const ProjectsLive = Layer.effect(
               .insert(projectMember)
               .values({
                 projectSlug: slug,
+                projectId: indexRow.id,
                 userId: target.id,
                 role: input.role
               })

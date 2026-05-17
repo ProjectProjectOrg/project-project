@@ -98,8 +98,8 @@ export const ProjectDetail = Schema.Struct({
 })
 export type ProjectDetail = typeof ProjectDetail.Type
 
-// Members are added by email — the user must already exist (have signed in
-// via GitHub at least once). No invite flow yet; that's a follow-up.
+// Members are added or invited by email. Existing org members are added
+// immediately; non-org emails receive an org invite with a pending project grant.
 export const AddMemberInput = Schema.Struct({
   email: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(254)),
   role: AssignableRole
