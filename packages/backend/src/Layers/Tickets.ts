@@ -46,10 +46,14 @@ import {
   UpdateTicketInput,
   Validation,
   type ProjectKey,
+  type TicketCountQuery,
+  type TicketCounts,
+  type TicketFilter,
   type TicketListPage,
   type TicketListQuery,
   type TicketPriority,
-  type TicketSort
+  type TicketSort,
+  type TicketStatus
 } from "@projectproject/shared"
 import { matchesTicketQuery } from "../Services/TicketFilters"
 import { validateBodyMentions } from "../Services/BodyMentions"
@@ -248,6 +252,56 @@ export const TicketsLive = Layer.effect(
           id: (t) => t.id,
           dir: query.sort.dir
         })
+      })
+
+    const count = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      query: TicketCountQuery
+    ): Effect.Effect<TicketCounts, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const groupMemberSet = yield* resolveGroupMembers(
+          orgSlug,
+          userId,
+          slug,
+          query.filter?.groupId
+        )
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const tickets = yield* Effect.forEach(
+          ids,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(Effect.map(readableTickets))
+
+        const filterWithoutStatus: TicketFilter | undefined = query.filter
+          ? { ...query.filter, status: undefined }
+          : undefined
+        const queryForCount: Pick<TicketListQuery, "filter" | "q"> = {
+          filter: filterWithoutStatus,
+          q: query.q
+        }
+
+        const matching = tickets
+          .map(documentToTicket)
+          .filter(
+            (t) =>
+              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
+              matchesTicketQuery(t, queryForCount, userId)
+          )
+
+        const byStatus: Record<TicketStatus, number> = {
+          todo: 0,
+          in_progress: 0,
+          done: 0
+        }
+        for (const t of matching) byStatus[t.status]++
+
+        return {
+          total: matching.length,
+          byStatus
+        }
       })
 
     const get = (
@@ -851,6 +905,7 @@ export const TicketsLive = Layer.effect(
 
     return {
       list,
+      count,
       get,
       quickCreate,
       create,

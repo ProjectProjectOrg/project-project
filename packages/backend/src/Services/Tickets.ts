@@ -20,6 +20,8 @@ import type {
   RateLimited,
   RepoGone,
   Ticket,
+  TicketCountQuery,
+  TicketCounts,
   TicketDetail,
   TicketListPage,
   TicketListQuery,
@@ -39,6 +41,12 @@ export interface TicketsShape {
     query: TicketListQuery,
     limit?: number
   ) => Effect.Effect<TicketListPage, NotFound | MarkdownError>
+  readonly count: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    query: TicketCountQuery
+  ) => Effect.Effect<TicketCounts, NotFound | MarkdownError>
   readonly get: (
     orgSlug: string,
     ownerId: string,

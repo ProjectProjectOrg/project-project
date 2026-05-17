@@ -409,3 +409,117 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
     expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
   }).pipe(Effect.provide(layer))
 })
+
+it.effect("count returns zeros for every status on empty project", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {})
+    expect(result).toEqual({
+      total: 0,
+      byStatus: { todo: 0, in_progress: 0, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count aggregates byStatus across a mixed-status project", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
+  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
+  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
+  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
+  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
+  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {})
+    expect(result).toEqual({
+      total: 6,
+      byStatus: { todo: 3, in_progress: 2, done: 1 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count strips status from filter so chip counts stay meaningful", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
+  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
+  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
+  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
+  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
+  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { status: ["done"] }
+    })
+    expect(result).toEqual({
+      total: 6,
+      byStatus: { todo: 3, in_progress: 2, done: 1 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count still applies non-status filters", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { status: "todo", type: "feat" })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { status: "in_progress", type: "feat" })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { status: "done", type: "feat" })
+  )
+  documents.set(
+    "T-4",
+    makeTicketDocument("T-4", { status: "todo", type: "bug" })
+  )
+  documents.set(
+    "T-5",
+    makeTicketDocument("T-5", { status: "in_progress", type: "bug" })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { type: ["bug"] }
+    })
+    expect(result).toEqual({
+      total: 2,
+      byStatus: { todo: 1, in_progress: 1, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count substitutes mine to viewerId like list", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { status: "todo", assignees: ["user-1"] })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { status: "in_progress", assignees: ["user-1"] })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { status: "done", assignees: ["user-2"] })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { assignee: ["mine"] }
+    })
+    expect(result).toEqual({
+      total: 2,
+      byStatus: { todo: 1, in_progress: 1, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
+})
