@@ -2888,3 +2888,81 @@ Remaining items going into Phase H or beyond:
 - `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
 
 Ready for Phase H (cleanup) and manual verification. Phase H is small; can be dispatched in this context or fresh.
+
+---
+
+## Implementation log — Phase H (2026-05-18)
+
+Phase H has one task (H1). Landed as a single commit. Twenty-five ahead of `main`. Frontend / backend / shared all at 0 typecheck errors.
+
+### H1 — `6a287cc` `frontend: delete ticketListUi.ts; trim sort.ts to label map`
+
+- **`packages/frontend/src/atoms/ticketListUi.ts` deleted.** Grep at HEAD before delete: only the file itself imported its symbols (G1 removed the last external consumer; G2 removed `FilteredList`'s; the route files lost their `ticketListUiKey` import in F1). `git rm` clean, no follow-on edits needed.
+- **`packages/frontend/src/components/TicketList/sort.ts` trimmed.** The runtime `compareId`, comparator functions inside `SORTS`, and the local `SortKey` re-export are gone. Replaced with a single labels-only `SORT_LABELS: Record<SortKey, () => string>` import-from-shared per plan H1 step 3. File shrank from 42 → 11 lines.
+- **`packages/frontend/src/components/TicketList/Toolbar.tsx`**: `SORTS` import switched to `SORT_LABELS`; four usages updated (`SORTS[k].label()` → `SORT_LABELS[k]()`). `SortKey` was already imported from `@projectproject/shared` after G1.
+
+No deviations from the plan text.
+
+### Manual verification — skipped
+
+Plan H1 step 5 lists 12 manual flows to walk through in the dev server. Per the dispatch context's "no Playwright" / "cannot run dev server" rule, these are not executed here. Recommended that Wouter walk them once before merging:
+
+1. Project index loads with default sort (created desc).
+2. Status chips update URL + filter.
+3. Search box debounces ~200ms then updates URL.
+4. Filters menu — type + status combination.
+5. "Assigned to me" → URL has `assignee=mine`; bookmark survives user switch.
+6. `?assignee=unassigned` URL bookmarks cleanly.
+7. Sort by Title → `sort=title:asc`.
+8. "Load more" pagination — appends pages until cursor exhausted.
+9. Inline ticket creation — pulses, then list reflects new row.
+10. Status update via row chip — counts update; filter exclusion works.
+11. Sprint detail page — tickets scoped via `groupId`; filter on top preserves scope.
+12. Clear-all button — drops filters, preserves default sort.
+
+### Typecheck baseline after Phase H
+
+`bun run --cwd packages/frontend typecheck`:
+
+| Package | Errors at Phase G close | Errors now | Delta |
+|---|---|---|---|
+| `@projectproject/shared` | 0 | 0 | — |
+| `@projectproject/backend` | 0 | 0 | — |
+| `@projectproject/frontend` | 0 | 0 | — |
+
+Lint script is not configured (`bun run lint` errors with "Script not found 'lint'" — same as Phase G). The plan H1 step 4 anticipated a lint step; in the absence of one, this is no-op.
+
+### Phase H self-check
+
+- Single task, single commit, zero deviations.
+- Twenty-five ahead of `main` total.
+- No comments added. CLAUDE.md compliant.
+- Files touched: `packages/frontend/src/atoms/ticketListUi.ts` (deleted), `packages/frontend/src/components/TicketList/sort.ts` (trimmed), `packages/frontend/src/components/TicketList/Toolbar.tsx` (SORTS → SORT_LABELS rename).
+- `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted (pre-existing; out of plan scope).
+
+---
+
+## Branch summary — `feat/url-driven-filtering`
+
+All eight phases (A–H) complete. Twenty-five commits ahead of `main`. Workspace typecheck clean across `shared`, `backend`, `frontend`.
+
+### What landed
+
+- **Shared seam** (`packages/shared/filters/`): `TicketListQuery`, `TicketCountQuery`, `TicketListPage`, `TicketCounts`, `TicketFilter`, sort schema with default + natural directions, URL ↔ query transforms.
+- **Backend** (`packages/backend`): `tickets.list` consumes `TicketListQuery` end-to-end via cursor-paginated SQL; new `tickets.count` endpoint returns `{ total, byStatus }`. Filter matcher unified across list/count via `matchesTicketQuery`.
+- **Frontend atoms** (`packages/frontend/src/atoms/tickets.ts`): family-keyed `ticketsListAtom`, `ticketsCountAtom`, `loadMoreTicketsAtom` keyed by `TicketListQuery` / `TicketCountQuery`. Mutation atoms (`quickCreate`, `update`, `delete`, plus cross-file `github`, `tags`, `sprints`) use `Reactivity.invalidate(["tickets", orgSlug, slug])` to refresh both list and count families on a single tag.
+- **Frontend routes**: `validateSearch` is schema-driven on the project index and sprint detail. The sprint detail injects `filter.groupId = [path]` before passing the query down.
+- **Frontend components**: `Toolbar` reads the resolved query and writes URL state via `navigate`; chip counts come from `ticketsCountAtom`. `FilteredList` renders server data directly with a "Load more" button. `TicketListUrlSync` and `ticketListUi.ts` are deleted.
+
+### Carry-overs to track separately (not in this PR)
+
+- E1/E2: `parseTicketsListKey` / `parseTicketsCountKey` throw on stale keys → migrate to `decodeUnknownEither` + `Result.Failure`.
+- E3: `loadMore` × `Reactivity.invalidate` interleaving cancellation policy.
+- F1 territory: `decodeStringArray` casts to branded types without per-element validation.
+- Three-place wire-shape coupling (`BaseTicketFilterParams` / URL transforms / `TicketFilter`).
+- `updatedAfter` unreachable through URL transforms.
+- Cursor sort-fingerprint validation (v1 has frontend reset only).
+- G collateral: `TagEditor` tag-usage counts and `SprintTicketCreator` combobox typeahead are both capped at the first 50 tickets. Proper fix is server-side aggregation or `q` typeahead.
+- Pre-existing `routeTree.gen.ts` LF/CRLF noise still uncommitted.
+
+Ready to merge or for manual verification by Wouter.
