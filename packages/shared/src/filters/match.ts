@@ -1,8 +1,5 @@
-import type {
-  Ticket,
-  TicketFilter,
-  TicketListQuery
-} from "@projectproject/shared"
+import type { Ticket } from "../schemas/Ticket"
+import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 export const matchesTicketFilter = (
   ticket: Ticket,
@@ -24,7 +21,7 @@ export const matchesTicketFilter = (
     if (filter.assignee.length === 0) return false
     const wantsUnassigned = filter.assignee.includes(null)
     const wantedIds = filter.assignee.filter(
-      (a): a is string => a !== null
+      (a): a is string => a !== null && a !== "mine"
     )
     const isUnassigned = ticket.assignees.length === 0
     const hasWantedId = ticket.assignees.some((a) => wantedIds.includes(a))

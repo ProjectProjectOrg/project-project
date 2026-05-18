@@ -55,7 +55,7 @@ import {
   type TicketSort,
   type TicketStatus
 } from "@projectproject/shared"
-import { matchesTicketQuery } from "../Services/TicketFilters"
+import { matchesTicketQuery } from "@projectproject/shared"
 import { validateBodyMentions } from "../Services/BodyMentions"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"

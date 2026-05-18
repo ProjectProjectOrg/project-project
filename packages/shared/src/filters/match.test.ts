@@ -1,9 +1,11 @@
-import { describe, expect, it } from "@effect/vitest"
+import { describe, expect, it } from "vitest"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import type { Ticket, TicketFilter, TicketListQuery } from "@projectproject/shared"
-import { TagName, TicketId } from "@projectproject/shared"
-import { matchesTicketFilter, matchesTicketQuery } from "./TicketFilters"
+import type { Ticket } from "../schemas/Ticket"
+import { TagName } from "../schemas/Tag"
+import { TicketId } from "../schemas/Ticket"
+import type { TicketFilter, TicketListQuery } from "./Ticket"
+import { matchesTicketFilter, matchesTicketQuery } from "./match"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
