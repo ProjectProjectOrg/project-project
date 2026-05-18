@@ -26,7 +26,7 @@ export const projectsListAtom = Atom.family((orgSlug: string) =>
     .pipe(Atom.setIdleTTL("1 minute"))
 )
 
-const projectBaseAtom = Atom.family((key: string) => {
+export const projectBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
     .atom(

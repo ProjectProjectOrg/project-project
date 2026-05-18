@@ -70,12 +70,11 @@ export function TicketGitChip({
 }) {
   const { state, waiting } = useGitState(orgSlug, slug, ticket)
   const project = useProject()
+  if (!project.github) return <span aria-hidden />
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
-  const repoSlug = project.github
-    ? `${project.github.repoOwner}/${project.github.repoName}`
-    : null
+  const repoSlug = `${project.github.repoOwner}/${project.github.repoName}`
 
   if (state.tag === "stale_branch") {
     return (
@@ -92,19 +91,6 @@ export function TicketGitChip({
   }
 
   if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
-    if (!repoSlug) {
-      return (
-        <Badge
-          tone="muted"
-          size="xs"
-          className={cn("font-mono", pulse)}
-          title={state.name}
-        >
-          <GitBranch strokeWidth={1.75} />
-          {truncate(state.name)}
-        </Badge>
-      )
-    }
     return (
       <span
         className={cn("inline-flex min-w-0 max-w-full items-center", pulse)}

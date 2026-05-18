@@ -21,7 +21,7 @@ import type {
   Slug,
   TicketId
 } from "@projectproject/shared"
-import { projectAtom } from "./projects"
+import { projectAtom, projectBaseAtom } from "./projects"
 import { ticketBaseAtom, ticketKey } from "./tickets"
 
 export const githubAuthEpochAtom = Atom.make(0)
@@ -122,7 +122,7 @@ export const connectGithubAtom = Atom.family((key: string) => {
         path: { orgSlug, slug },
         payload: input
       })
-      get.refresh(projectAtom(key))
+      get.refresh(projectBaseAtom(key))
       get.refresh(projectGitStatesBaseAtom(key))
       return updated
     })
@@ -145,17 +145,23 @@ export const startGithubInstallAtom = Atom.family((orgSlug: string) =>
 
 export const disconnectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.projects.disconnectGithub({
-        path: { orgSlug, slug }
+  return Atom.optimisticFn(projectAtom(key), {
+    reducer: (current) =>
+      Result.isSuccess(current)
+        ? Result.success({ ...current.value, github: null }, { waiting: true })
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (_input: void, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.projects.disconnectGithub({
+          path: { orgSlug, slug }
+        })
+        get.refresh(projectBaseAtom(key))
+        get.refresh(projectGitStatesBaseAtom(key))
+        return updated
       })
-      get.refresh(projectAtom(key))
-      get.refresh(projectGitStatesBaseAtom(key))
-      return updated
-    })
-  )
+    )
+  })
 })
 
 export const createBranchAtom = Atom.family((key: string) => {

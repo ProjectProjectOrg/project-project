@@ -97,7 +97,7 @@ function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
   }
 }
 
-function makeFakeProjects(key: string) {
+function makeFakeProjects(key: string, overrides: Partial<ProjectsShape> = {}) {
   const service = {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
@@ -119,7 +119,8 @@ function makeFakeProjects(key: string) {
     unassignUserFromActiveTickets: () =>
       unexpected("Projects.unassignUserFromActiveTickets"),
     connectGithub: () => unexpected("Projects.connectGithub"),
-    disconnectGithub: () => unexpected("Projects.disconnectGithub")
+    disconnectGithub: () => unexpected("Projects.disconnectGithub"),
+    ...overrides
   } satisfies ProjectsShape
 
   return Layer.succeed(Projects, service)
@@ -153,20 +154,24 @@ const FakeGroups = Layer.succeed(Groups, {
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
-const FakeGitHub = Layer.succeed(GitHub, {
-  getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
-  listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
-  verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
-  exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
-  appUserCanAccessInstallation: () =>
-    unexpected("GitHub.appUserCanAccessInstallation"),
-  createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
-  openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
-  fetchInstallationProjectStates: () =>
-    unexpected("GitHub.fetchInstallationProjectStates"),
-  listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
-  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
-} satisfies GitHubShape)
+const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
+  Layer.succeed(GitHub, {
+    getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
+    listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
+    verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
+    exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
+    appUserCanAccessInstallation: () =>
+      unexpected("GitHub.appUserCanAccessInstallation"),
+    createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
+    openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
+    fetchInstallationProjectStates: () =>
+      unexpected("GitHub.fetchInstallationProjectStates"),
+    listInstallationBranches: () =>
+      unexpected("GitHub.listInstallationBranches"),
+    branchExistsInstallation: () =>
+      unexpected("GitHub.branchExistsInstallation"),
+    ...overrides
+  } satisfies GitHubShape)
 
 function makeTicketsLayer(
   key: string,
@@ -176,7 +181,7 @@ function makeTicketsLayer(
     Layer.provide(ticketDocsLayer),
     Layer.provide(makeFakeProjects(key)),
     Layer.provide(FakeGroups),
-    Layer.provide(FakeGitHub),
+    Layer.provide(makeFakeGitHub()),
     Layer.provide(FakeDb)
   )
 }
@@ -188,6 +193,62 @@ function makeTicketsFixture(key: string, initialIds: ReadonlyArray<string>) {
     layer: makeTicketsLayer(key, docs.layer)
   }
 }
+
+it.effect("listGitStates fetches only distinct ticket branches", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])
+  docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
+  docs.documents.set("T-2", makeTicketDocument("T-2", { branch: "feat/T-1" }))
+  docs.documents.set("T-3", makeTicketDocument("T-3", { branch: "bug/T-3" }))
+
+  const fetchedBranches: string[][] = []
+  const layer = TicketsLive.pipe(
+    Layer.provide(docs.layer),
+    Layer.provide(
+      makeFakeProjects("T", {
+        getGithubIntegration: () =>
+          Effect.succeed({
+            installationId: "123",
+            repoId: "repo-1",
+            repoOwner: "acme",
+            repoName: "app",
+            defaultBaseBranch: "main"
+          })
+      })
+    ),
+    Layer.provide(FakeGroups),
+    Layer.provide(
+      makeFakeGitHub({
+        fetchInstallationProjectStates: (
+          _installationId,
+          _owner,
+          _name,
+          branches
+        ) => {
+          fetchedBranches.push([...branches])
+          return Effect.succeed({
+            defaultBranch: "main",
+            existingBranches: new Set(["feat/T-1", "bug/T-3"]),
+            prByBranch: new Map()
+          })
+        }
+      })
+    ),
+    Layer.provide(FakeDb)
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.listGitStates("org", "user-1", "p")
+
+    expect(fetchedBranches).toEqual([["feat/T-1", "bug/T-3"]])
+    expect(result.states["T-1"]).toEqual({
+      tag: "branch_no_pr",
+      name: "feat/T-1",
+      baseBranch: "main"
+    })
+    expect(result.states["T-4"]).toEqual({ tag: "no_branch" })
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("create allocates the next id from the project key", () => {
   const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])

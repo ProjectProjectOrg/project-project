@@ -989,12 +989,20 @@ export const TicketsLive = Layer.effect(
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         ).pipe(Effect.map(readableTickets))
+        const branches = [
+          ...new Set(
+            tickets.flatMap((ticket) =>
+              ticket.branch && ticket.branch.length > 0 ? [ticket.branch] : []
+            )
+          )
+        ]
 
         const result = yield* github
           .fetchInstallationProjectStates(
             projectGithub.installationId,
             projectGithub.repoOwner,
-            projectGithub.repoName
+            projectGithub.repoName,
+            branches
           )
           .pipe(
             Effect.map((raw) => ({ ok: true as const, raw })),

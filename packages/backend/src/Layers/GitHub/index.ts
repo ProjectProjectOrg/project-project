@@ -344,12 +344,18 @@ export const GitHubLive = Layer.effect(
 
     const fetchInstallationProjectStates = Effect.fn(
       "GitHub.fetchInstallationProjectStates"
-    )(function* (installationId: string, owner: string, name: string) {
+    )(function* (
+      installationId: string,
+      owner: string,
+      name: string,
+      branches: ReadonlyArray<string>
+    ) {
       const token = yield* installationTokenFor(installationId)
       return yield* fetchProjectStatesWithToken(
         token,
         owner,
         name,
+        branches,
         "installation"
       )
     })

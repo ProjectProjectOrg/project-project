@@ -104,7 +104,8 @@ export interface GitHubShape {
   readonly fetchInstallationProjectStates: (
     installationId: string,
     owner: string,
-    name: string
+    name: string,
+    branches: ReadonlyArray<string>
   ) => Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError>
   readonly listInstallationBranches: (
     installationId: string,
