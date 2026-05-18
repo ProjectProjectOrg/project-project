@@ -306,7 +306,12 @@ function ProjectRow({
         "hover:bg-accent/40 hover:border-border/80"
       )}
     >
-      <ProjectTile icon={project.icon} color={project.color} size="sm" />
+      <ProjectTile
+        icon={project.icon}
+        color={project.color}
+        size="sm"
+        seed={project.slug}
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{project.name}</div>
         <div className="truncate font-mono text-xs text-muted-foreground">

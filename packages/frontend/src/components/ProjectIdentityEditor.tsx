@@ -47,6 +47,7 @@ export function ProjectIdentityEditor({
       icon={icon}
       color={color}
       size={size === "header" ? "md" : "lg"}
+      seed={slug}
       waiting={waiting}
     />
   )

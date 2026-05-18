@@ -257,7 +257,7 @@ function ProjectsGroupRow({
         )}
       >
         {active ? (
-          <ProjectTile icon={icon} color={color} size="xs" />
+          <ProjectTile icon={icon} color={color} size="xs" seed={slug} />
         ) : (
           <span className="grid size-4 shrink-0 place-items-center rounded-md corner-squircle bg-muted text-[10px] leading-none">
             <span aria-hidden>{icon}</span>
