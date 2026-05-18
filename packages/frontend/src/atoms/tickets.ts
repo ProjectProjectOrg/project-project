@@ -1,18 +1,21 @@
 import { Atom, Result } from "@effect-atom/atom-react"
 import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as SubscriptionRef from "effect/SubscriptionRef"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
+  matchesTicketQuery,
   TicketCountQuery,
   TicketId,
   TicketListQuery,
   ticketListQueryToSearch,
   type QuickCreateTicketInput,
   type Ticket,
+  type TicketCounts,
   type UpdateTicketInput
 } from "@projectproject/shared"
 
@@ -55,11 +58,6 @@ const decodeListQuery = (queryJson: string) =>
     try: () => decodeQueryFromKey(JSON.parse(queryJson) as unknown),
     catch: (cause) => new MalformedQuery({ cause })
   })
-
-const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
-  const idx = key.indexOf("/")
-  return { orgSlug: key.slice(0, idx), slug: key.slice(idx + 1) }
-}
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
@@ -147,7 +145,7 @@ const decodeCountQuery = (queryJson: string) =>
     catch: (cause) => new MalformedQuery({ cause })
   })
 
-export const ticketsCountAtom = Atom.family((key: string) => {
+const ticketsCountBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime
     .atom(
@@ -161,6 +159,52 @@ export const ticketsCountAtom = Atom.family((key: string) => {
       })
     )
     .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
+})
+
+export const ticketsCountAtom = Atom.family((key: string) =>
+  Atom.optimistic(ticketsCountBaseAtom(key))
+)
+
+const parseCountQueryFromKey = (queryJson: string): TicketCountQuery | null => {
+  try {
+    const raw = JSON.parse(queryJson) as unknown
+    return decodeCountQueryFromKey(raw)
+  } catch {
+    return null
+  }
+}
+
+const predictedTicketFromCreate = (
+  input: QuickCreateTicketInput,
+  viewerId: string
+): Ticket => {
+  const now = DateTime.toDate(DateTime.unsafeNow())
+  return {
+    id: "PREDICTED-1",
+    title: input.title,
+    status: "todo",
+    type: input.type ?? "other",
+    priority: "med",
+    tags: [],
+    branch: null,
+    pr: null,
+    lastTransitionedPr: null,
+    assignees: [],
+    createdBy: viewerId,
+    createdAt: now,
+    updatedAt: now
+  } as unknown as Ticket
+}
+
+const applyCreateDelta = (
+  current: TicketCounts,
+  ticket: Ticket
+): TicketCounts => ({
+  total: current.total + 1,
+  byStatus: {
+    ...current.byStatus,
+    [ticket.status]: (current.byStatus[ticket.status] ?? 0) + 1
+  }
 })
 
 export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>
@@ -184,19 +228,40 @@ export const ticketBaseAtom = Atom.family((key: string) => {
 
 export const ticketAtom = ticketBaseAtom
 
-export const quickCreateTicketAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: QuickCreateTicketInput, _get) {
-      const client = yield* ApiClient
-      const ticket = yield* client.tickets.quickCreate({
-        path: { orgSlug, slug },
-        payload: input
+export interface QuickCreateTicketArg {
+  readonly ticket: QuickCreateTicketInput
+  readonly viewerId: string
+}
+
+export const quickCreateTicketAtom = Atom.family((countKey: string) => {
+  const { orgSlug, slug, queryJson } = splitTicketsListKey(countKey)
+  return Atom.optimisticFn(ticketsCountAtom(countKey), {
+    reducer: (current, input: QuickCreateTicketArg) => {
+      if (!Result.isSuccess(current)) return current
+      const countQuery = parseCountQueryFromKey(queryJson)
+      if (countQuery === null) return current
+      if (countQuery.filter?.groupId !== undefined) return current
+      const predicted = predictedTicketFromCreate(input.ticket, input.viewerId)
+      if (!matchesTicketQuery(predicted, countQuery, input.viewerId)) {
+        return current
+      }
+      return Result.success(applyCreateDelta(current.value, predicted), {
+        waiting: true
       })
-      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
-      return ticket
-    })
-  )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (input: QuickCreateTicketArg, get) {
+        const client = yield* ApiClient
+        const ticket = yield* client.tickets.quickCreate({
+          path: { orgSlug, slug },
+          payload: input.ticket
+        })
+        get.refresh(ticketsCountBaseAtom(countKey))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        return ticket
+      })
+    )
+  })
 })
 
 export const updateTicketAtom = Atom.family((key: string) => {

@@ -73,7 +73,9 @@ export function TicketList({
 
   return (
     <div className="group/list flex flex-col gap-3">
-      {creator ?? <BacklogTicketCreator orgSlug={orgSlug} slug={slug} />}
+      {creator ?? (
+        <BacklogTicketCreator orgSlug={orgSlug} slug={slug} query={query} />
+      )}
 
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         <Toolbar

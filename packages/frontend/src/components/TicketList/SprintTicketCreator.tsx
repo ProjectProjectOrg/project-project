@@ -29,8 +29,10 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
+import { meAtom } from "@/atoms/auth"
 import {
   quickCreateTicketAtom,
+  ticketsCountKey,
   ticketsListAtom,
   ticketsListKey
 } from "@/atoms/tickets"
@@ -63,10 +65,17 @@ export function SprintTicketCreator({
 }) {
   const projKey = projectKey(orgSlug, slug)
   const sprintProjectKey = sprintsKey(orgSlug, slug)
+  const countKey = ticketsCountKey(orgSlug, slug, {
+    filter: { groupId: [groupId] }
+  })
 
-  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(quickCreateTicketAtom(projKey))
+  const create = useAtomSet(quickCreateTicketAtom(countKey), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(quickCreateTicketAtom(countKey))
   const submitting = createState.waiting
+  const me = useAtomValue(meAtom)
+  const viewerId = Result.isSuccess(me) ? me.value.id : ""
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
@@ -146,7 +155,10 @@ export function SprintTicketCreator({
       return
     }
     if (submitting) return
-    const exit = await create({ title: item.label, type })
+    const exit = await create({
+      ticket: { title: item.label, type },
+      viewerId
+    })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
@@ -162,7 +174,10 @@ export function SprintTicketCreator({
       return
     }
     if (!trimmed || submitting) return
-    const exit = await create({ title: trimmed, type })
+    const exit = await create({
+      ticket: { title: trimmed, type },
+      viewerId
+    })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
