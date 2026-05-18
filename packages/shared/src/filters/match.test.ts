@@ -5,7 +5,11 @@ import type { Ticket } from "../schemas/Ticket"
 import { TagName } from "../schemas/Tag"
 import { TicketId } from "../schemas/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
-import { matchesTicketFilter, matchesTicketQuery } from "./match"
+import {
+  matchesTicketFilter,
+  matchesTicketQuery,
+  type MatchableTicket
+} from "./match"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
@@ -169,5 +173,28 @@ describe("matchesTicketQuery", () => {
     const t = baseTicket({ title: "Hello world" })
     expect(matchesTicketQuery(t, { q: "   " }, "user-a")).toBe(true)
     expect(matchesTicketQuery(t, { q: " " }, "user-a")).toBe(true)
+  })
+
+  it("accepts a MatchableTicket without ticket-only fields", () => {
+    const predicted: MatchableTicket = {
+      id: "",
+      title: "new ticket",
+      status: "todo",
+      type: "feat",
+      tags: [],
+      branch: null,
+      pr: null,
+      assignees: [],
+      updatedAt: isoDate("2026-05-10T00:00:00.000Z")
+    }
+    expect(
+      matchesTicketQuery(predicted, { filter: { status: ["todo"] } }, "user-a")
+    ).toBe(true)
+    expect(
+      matchesTicketQuery(predicted, { filter: { status: ["done"] } }, "user-a")
+    ).toBe(false)
+    expect(matchesTicketQuery(predicted, { q: "anything" }, "user-a")).toBe(
+      false
+    )
   })
 })

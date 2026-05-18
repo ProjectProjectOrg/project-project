@@ -1,8 +1,20 @@
-import type { Ticket } from "../schemas/Ticket"
+import type { TicketStatus, TicketType } from "../schemas/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
+export interface MatchableTicket {
+  readonly id: string
+  readonly title: string
+  readonly status: TicketStatus
+  readonly type: TicketType
+  readonly tags: ReadonlyArray<string>
+  readonly branch: string | null
+  readonly pr: number | null
+  readonly assignees: ReadonlyArray<string>
+  readonly updatedAt: Date
+}
+
 export const matchesTicketFilter = (
-  ticket: Ticket,
+  ticket: MatchableTicket,
   filter: TicketFilter | undefined
 ): boolean => {
   if (!filter) return true
@@ -51,7 +63,7 @@ export const matchesTicketFilter = (
 }
 
 export const matchesTicketQuery = (
-  ticket: Ticket,
+  ticket: MatchableTicket,
   query: Pick<TicketListQuery, "filter" | "q">,
   viewerId: string
 ): boolean => {

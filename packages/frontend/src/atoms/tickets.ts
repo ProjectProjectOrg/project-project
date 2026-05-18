@@ -12,6 +12,7 @@ import {
   TicketId,
   TicketListQuery,
   ticketListQueryToSearch,
+  type MatchableTicket,
   type QuickCreateTicketInput,
   type Ticket,
   type TicketCounts,
@@ -33,7 +34,7 @@ export const ticketsListKey = (
   return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
 }
 
-interface SplitTicketsListKey {
+interface SplitFamilyKey {
   readonly orgSlug: string
   readonly slug: string
   readonly queryJson: string
@@ -41,7 +42,7 @@ interface SplitTicketsListKey {
 
 const decodeQueryFromKey = Schema.decodeUnknownSync(TicketListQuery)
 
-const splitTicketsListKey = (key: string): SplitTicketsListKey => {
+const splitFamilyKey = (key: string): SplitFamilyKey => {
   const firstSlash = key.indexOf("/")
   const secondSlash = key.indexOf("/", firstSlash + 1)
   return {
@@ -79,7 +80,7 @@ interface TicketsListValue {
 export type { TicketsListValue }
 
 const ticketsListBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
   return runtime
     .atom(
       Effect.gen(function* () {
@@ -102,14 +103,16 @@ const ticketsListBaseAtom = Atom.family((key: string) => {
 interface AppendedPagesValue {
   readonly items: ReadonlyArray<Ticket>
   readonly nextCursor: string | null
+  readonly baseTimestamp: number | null
 }
 
-const ticketsListAppendedAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitTicketsListKey(key)
-  return Atom.make<AppendedPagesValue>({ items: [], nextCursor: null }).pipe(
-    Atom.withReactivity(["tickets", orgSlug, slug])
-  )
-})
+const ticketsListAppendedAtom = Atom.family((_key: string) =>
+  Atom.make<AppendedPagesValue>({
+    items: [],
+    nextCursor: null,
+    baseTimestamp: null
+  })
+)
 
 export const ticketsListAtom = Atom.family((key: string) =>
   Atom.readable((get): Result.Result<TicketsListValue, unknown> => {
@@ -118,7 +121,8 @@ export const ticketsListAtom = Atom.family((key: string) =>
     )
     const appended = get(ticketsListAppendedAtom(key))
     if (!Result.isSuccess(base)) return base
-    if (appended.items.length === 0) return base
+    const fresh = appended.baseTimestamp === base.timestamp
+    if (!fresh || appended.items.length === 0) return base
     const merged: TicketsListValue = {
       items: [...base.value.items, ...appended.items],
       nextCursor: appended.nextCursor
@@ -131,16 +135,17 @@ export const ticketsListAtom = Atom.family((key: string) =>
 )
 
 export const loadMoreTicketsAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
   return runtime.fn(
     Effect.fn(function* (_: void, get) {
       const base: Result.Result<TicketsListValue, unknown> = get(
         ticketsListBaseAtom(key)
       )
-      const appended = get(ticketsListAppendedAtom(key))
       if (!Result.isSuccess(base)) return
+      const appended = get(ticketsListAppendedAtom(key))
+      const fresh = appended.baseTimestamp === base.timestamp
       const cursor =
-        appended.items.length > 0
+        fresh && appended.items.length > 0
           ? appended.nextCursor
           : base.value.nextCursor
       if (cursor === null) return
@@ -151,8 +156,9 @@ export const loadMoreTicketsAtom = Atom.family((key: string) => {
         urlParams: ticketListQueryToSearch({ ...query, cursor })
       })
       get.set(ticketsListAppendedAtom(key), {
-        items: [...appended.items, ...next.items],
-        nextCursor: next.nextCursor
+        items: fresh ? [...appended.items, ...next.items] : next.items,
+        nextCursor: next.nextCursor,
+        baseTimestamp: base.timestamp
       })
     })
   )
@@ -179,7 +185,7 @@ const decodeCountQuery = (queryJson: string) =>
   })
 
 const ticketsCountBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
   return runtime
     .atom(
       Effect.gen(function* () {
@@ -209,29 +215,22 @@ const parseCountQueryFromKey = (queryJson: string): TicketCountQuery | null => {
 
 const predictedTicketFromCreate = (
   input: QuickCreateTicketInput,
-  viewerId: string
-): Ticket => {
-  const now = DateTime.toDate(DateTime.unsafeNow())
-  return {
-    id: "PREDICTED-1",
-    title: input.title,
-    status: "todo",
-    type: input.type ?? "other",
-    priority: "med",
-    tags: [],
-    branch: null,
-    pr: null,
-    lastTransitionedPr: null,
-    assignees: [],
-    createdBy: viewerId,
-    createdAt: now,
-    updatedAt: now
-  } as unknown as Ticket
-}
+  _viewerId: string
+): MatchableTicket => ({
+  id: "",
+  title: input.title,
+  status: "todo",
+  type: input.type ?? "other",
+  tags: [],
+  branch: null,
+  pr: null,
+  assignees: [],
+  updatedAt: DateTime.toDate(DateTime.unsafeNow())
+})
 
 const applyCreateDelta = (
   current: TicketCounts,
-  ticket: Ticket
+  ticket: Pick<MatchableTicket, "status">
 ): TicketCounts => ({
   total: current.total + 1,
   byStatus: {
@@ -267,7 +266,7 @@ export interface QuickCreateTicketArg {
 }
 
 export const quickCreateTicketAtom = Atom.family((countKey: string) => {
-  const { orgSlug, slug, queryJson } = splitTicketsListKey(countKey)
+  const { orgSlug, slug, queryJson } = splitFamilyKey(countKey)
   return Atom.optimisticFn(ticketsCountAtom(countKey), {
     reducer: (current, input: QuickCreateTicketArg) => {
       if (!Result.isSuccess(current)) return current
