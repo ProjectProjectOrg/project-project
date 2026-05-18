@@ -41,6 +41,7 @@ import {
   GitHubTokenExpired,
   NotFound,
   paginateSorted,
+  ProjectOwnerRemovalBlocked,
   ProjectKey,
   RepoGone,
   Role,
@@ -406,11 +407,13 @@ export const ProjectsLive = Layer.effect(
               )
             })
             .pipe(Effect.orDie)
+          const explicitRole = explicit ? makeRole(explicit.role) : null
+          if (explicitRole === "owner") return { role: "owner" as const }
           const orgRole = yield* orgRoleForUser(indexRow.organizationId, userId)
           if (orgRole === "owner" || orgRole === "admin") {
             return { role: "admin" as const }
           }
-          if (explicit) return { role: makeRole(explicit.role) }
+          if (explicitRole) return { role: explicitRole }
           return yield* new NotFound()
         })
       )
@@ -1125,7 +1128,11 @@ export const ProjectsLive = Layer.effect(
       targetUserId: string
     ): Effect.Effect<
       ProjectDetail,
-      NotFound | Forbidden | MarkdownError | MalformedTicketDocument
+      | NotFound
+      | Forbidden
+      | MarkdownError
+      | MalformedTicketDocument
+      | ProjectOwnerRemovalBlocked
     > =>
       withProjectTelemetry(
         "removeMember",
@@ -1147,7 +1154,11 @@ export const ProjectsLive = Layer.effect(
             .pipe(Effect.orDie)
           if (!existing) return yield* new NotFound()
           const targetRole = makeRole(existing.role)
-          if (targetRole === "owner") return yield* new Forbidden()
+          if (targetRole === "owner") {
+            return yield* new ProjectOwnerRemovalBlocked({
+              projectSlugs: [slug]
+            })
+          }
           if (targetRole === "admin" && callerCtx.role !== "owner") {
             return yield* new Forbidden()
           }

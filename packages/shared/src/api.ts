@@ -80,6 +80,7 @@ import {
   GitHubTokenExpired,
   MentionInvalid,
   NotFound,
+  ProjectOwnerRemovalBlocked,
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
@@ -224,6 +225,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+      .addError(ProjectOwnerRemovalBlocked)
   )
   .add(
     HttpApiEndpoint.del(

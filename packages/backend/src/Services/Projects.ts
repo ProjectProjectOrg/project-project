@@ -16,6 +16,7 @@ import type {
   Project,
   ProjectDetail,
   ProjectKey,
+  ProjectOwnerRemovalBlocked,
   RepoGone,
   Role,
   Validation,
@@ -121,7 +122,11 @@ export interface ProjectsShape {
     targetUserId: string
   ) => Effect.Effect<
     ProjectDetail,
-    NotFound | Forbidden | MarkdownError | MalformedTicketDocument
+    | NotFound
+    | Forbidden
+    | MarkdownError
+    | MalformedTicketDocument
+    | ProjectOwnerRemovalBlocked
   >
   readonly cancelPendingMember: (
     orgSlug: string,
