@@ -69,7 +69,7 @@ export function ProjectIdentityEditor({
             aria-label={m.project_identity_aria_label()}
             className={cn(
               size === "header" ? "-mt-1 shrink-0" : "shrink-0",
-              "rounded-2xl corner-squircle outline-none"
+              "rounded-2xl corner-squircle outline-none transition-transform duration-100 active:scale-[0.97]"
             )}
           >
             {tile}
