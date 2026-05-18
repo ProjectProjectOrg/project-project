@@ -69,7 +69,7 @@ export function ProjectIdentityEditor({
             aria-label={m.project_identity_aria_label()}
             className={cn(
               size === "header" ? "-mt-1 shrink-0" : "shrink-0",
-              "rounded-2xl corner-squircle outline-none transition-transform duration-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              "rounded-2xl corner-squircle outline-none"
             )}
           >
             {tile}
@@ -82,7 +82,7 @@ export function ProjectIdentityEditor({
         keepMounted
         className="flex w-fit items-start gap-3 p-3"
       >
-        <div className="relative z-50 mt-1.5 shrink-0">
+        <div className="relative z-50 mt-1 ml-1 shrink-0">
           <ColorPicker
             value={color}
             onChange={(next) => update({ color: makeProjectColor(next) })}
