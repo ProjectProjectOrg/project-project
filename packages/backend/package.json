@@ -25,6 +25,7 @@
     "@effect/sql-drizzle": "^0.50.0",
     "@effect/sql-pg": "^0.52.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@octokit/auth-app": "^8.2.0",
     "@octokit/graphql": "^9.0.3",
     "@projectproject/shared": "workspace:*",
     "better-auth": "^1.6.10",

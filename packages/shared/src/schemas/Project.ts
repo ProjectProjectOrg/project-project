@@ -69,11 +69,31 @@ export type PendingProjectMember = typeof PendingProjectMember.Type
 // GitHub connection on a project. `null` means no repo connected.
 // `defaultBaseBranch` overrides the repo's default branch when set.
 export const GithubConnection = Schema.Struct({
+  repoId: Schema.String,
   repoOwner: Schema.String,
   repoName: Schema.String,
   defaultBaseBranch: Schema.NullOr(Schema.String)
 })
 export type GithubConnection = typeof GithubConnection.Type
+
+export const GithubOrgIntegrationStatus = Schema.Struct({
+  status: Schema.Literal("not_connected", "active", "broken"),
+  accountLogin: Schema.NullOr(Schema.String),
+  accountType: Schema.NullOr(Schema.Literal("User", "Organization")),
+  lastCheckedAt: Schema.NullOr(Schema.Date),
+  lastCheckError: Schema.NullOr(Schema.String)
+})
+export type GithubOrgIntegrationStatus = typeof GithubOrgIntegrationStatus.Type
+
+export const StartGithubInstallInput = Schema.Struct({
+  returnProjectSlug: Schema.optional(Schema.NullOr(Slug))
+})
+export type StartGithubInstallInput = typeof StartGithubInstallInput.Type
+
+export const StartGithubInstallResponse = Schema.Struct({
+  installUrl: Schema.String
+})
+export type StartGithubInstallResponse = typeof StartGithubInstallResponse.Type
 
 export const ProjectSetup = Schema.Struct({
   workflowReviewedAt: Schema.NullOr(Schema.Date),
@@ -151,6 +171,7 @@ export type UpdateProjectSetupInput = typeof UpdateProjectSetupInput.Type
 // --- GitHub connection inputs ----------------------------------------------
 
 export const ConnectGithubInput = Schema.Struct({
+  repoId: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(80)),
   repoOwner: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120)),
   repoName: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120)),
   defaultBaseBranch: Schema.optional(Schema.NullOr(Schema.String))
@@ -160,6 +181,7 @@ export type ConnectGithubInput = typeof ConnectGithubInput.Type
 // What the connect-repo picker renders. `defaultBranch` lets us prefill the
 // base-branch picker on first connect, so the user almost never has to pick.
 export const GithubRepo = Schema.Struct({
+  id: Schema.String,
   owner: Schema.String,
   name: Schema.String,
   defaultBranch: Schema.String,

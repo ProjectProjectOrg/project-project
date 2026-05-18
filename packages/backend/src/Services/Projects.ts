@@ -30,6 +30,14 @@ export interface ProjectMembership {
   readonly role: Role
 }
 
+export interface ProjectGithubIntegration {
+  readonly installationId: string
+  readonly repoId: string
+  readonly repoOwner: string
+  readonly repoName: string
+  readonly defaultBaseBranch: string
+}
+
 export interface ProjectsShape {
   readonly list: (
     orgSlug: string,
@@ -72,6 +80,11 @@ export interface ProjectsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<ProjectKey, NotFound>
+  readonly getGithubIntegration: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<ProjectGithubIntegration | null, NotFound>
   readonly update: (
     orgSlug: string,
     userId: string,
@@ -155,6 +168,7 @@ export interface ProjectsShape {
     ProjectDetail,
     | NotFound
     | Forbidden
+    | Conflict
     | GitHubTokenExpired
     | GitHubScopeInsufficient
     | RepoGone

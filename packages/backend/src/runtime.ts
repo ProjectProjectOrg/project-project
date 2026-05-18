@@ -4,8 +4,9 @@ import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"
 import { CurrentOrgLive } from "./Layers/CurrentOrg"
-import { DbLive } from "./Layers/Db"
+import { DbLive, PgLive } from "./Layers/Db"
 import { GitHubLive } from "./Layers/GitHub"
+import { GitHubIntegrationsLive } from "./Layers/GitHubIntegrations"
 import { GroupDocsLive } from "./Layers/GroupDocs"
 import { GroupsLive } from "./Layers/Groups"
 import { MarkdownLive } from "./Layers/Markdown"
@@ -19,7 +20,7 @@ import { UsersLive } from "./Layers/Users"
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   BetterAuthLive,
-  DbLive,
+  DbLive.pipe(Layer.provideMerge(PgLive)),
   BunContext.layer
 )
 
@@ -30,6 +31,12 @@ export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectsLive),
   Layer.provideMerge(CurrentOrgLive),
   Layer.provideMerge(GitHubLive),
+  Layer.provideMerge(
+    GitHubIntegrationsLive.pipe(
+      Layer.provideMerge(CurrentOrgLive),
+      Layer.provideMerge(GitHubLive)
+    )
+  ),
   Layer.provideMerge(UsersLive),
   Layer.provideMerge(ProjectDocsLive),
   Layer.provideMerge(TicketDocsLive),

@@ -18,6 +18,7 @@ import type {
   ConnectGithubInput,
   CreateBranchInput,
   GitState,
+  Slug,
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
@@ -56,6 +57,42 @@ export const githubReposAtom = Atom.family((query: string) =>
       return Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.listRepos({
+          urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
+        })
+      })
+    })
+    .pipe(Atom.setIdleTTL("2 minutes"))
+)
+
+export const githubOrgIntegrationAtom = Atom.family((orgSlug: string) =>
+  runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.projects.githubIntegration({
+          path: { orgSlug }
+        })
+      })
+    )
+    .pipe(Atom.setIdleTTL("1 minute"))
+)
+
+const splitOrgRepoKey = (key: string): { orgSlug: string; query: string } => {
+  const sep = key.indexOf(" ")
+  return { orgSlug: key.slice(0, sep), query: key.slice(sep + 1) }
+}
+
+export const githubInstallationReposKey = (orgSlug: string, query: string) =>
+  `${orgSlug} ${query}`
+
+export const githubInstallationReposAtom = Atom.family((key: string) =>
+  runtime
+    .atom(() => {
+      const { orgSlug, query } = splitOrgRepoKey(key)
+      return Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.projects.listGithubInstallationRepos({
+          path: { orgSlug },
           urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
         })
       })
@@ -105,6 +142,20 @@ export const connectGithubAtom = Atom.family((key: string) => {
     })
   )
 })
+
+export const startGithubInstallAtom = Atom.family((orgSlug: string) =>
+  runtime.fn(
+    Effect.fn(function* (input: { returnProjectSlug?: Slug }, get) {
+      const client = yield* ApiClient
+      const response = yield* client.projects.startGithubInstall({
+        path: { orgSlug },
+        payload: { returnProjectSlug: input.returnProjectSlug ?? null }
+      })
+      get.refresh(githubOrgIntegrationAtom(orgSlug))
+      return response
+    })
+  )
+)
 
 export const disconnectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)

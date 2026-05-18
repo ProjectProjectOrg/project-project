@@ -44,6 +44,7 @@ import {
   HttpServer
 } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
+import * as SqlClient from "@effect/sql/SqlClient"
 import { AppApi } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -58,6 +59,7 @@ import { ApiLive } from "./main"
 // actually calls into it, this would throw at runtime, which is the right
 // failure mode (a test calling the DB through this handler should fail loudly).
 const FakeDbLive = Layer.succeed(Db, {} as never)
+const FakeSqlClientLive = Layer.succeed(SqlClient.SqlClient, {} as never)
 
 const unexpectedBetterAuthCall = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected BetterAuth.${method} call`))
@@ -82,6 +84,7 @@ const { handler } = HttpApiBuilder.toWebHandler(
   ApiLive.pipe(
     Layer.provideMerge(HttpServer.layerContext),
     Layer.provide(FakeDbLive),
+    Layer.provide(FakeSqlClientLive),
     Layer.provide(FakeBetterAuthLive),
     Layer.provide(BunContext.layer)
   )

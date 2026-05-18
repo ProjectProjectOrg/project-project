@@ -32,10 +32,13 @@
 // the user-facing remedy is the same: reconnect via OAuth.
 
 import * as Clock from "effect/Clock"
+import * as Config from "effect/Config"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Redacted from "effect/Redacted"
 import { Octokit } from "octokit"
+import { createAppAuth } from "@octokit/auth-app"
 import { graphql as graphqlRequest } from "@octokit/graphql"
 import {
   BranchExists,
@@ -52,9 +55,11 @@ import {
 import { BetterAuth } from "../Services/BetterAuth"
 import {
   GitHub,
+  type GitHubInstallationAccount,
   type GitHubShape,
   type RawBranchEntry,
-  type RawProjectStates
+  type RawProjectStates,
+  type VerifiedInstallationRepo
 } from "../Services/GitHub"
 
 type GitHubFailure =
@@ -151,6 +156,324 @@ export const GitHubLive = Layer.effect(
         Effect.catchTag("BetterAuthError", (e) => Effect.die(e))
       )
 
+    const normalizePrivateKey = (raw: string): string => {
+      const normalized = raw.replace(/\\n/g, "\n")
+      if (normalized.includes("BEGIN")) return normalized
+      return Buffer.from(normalized, "base64").toString("utf8")
+    }
+
+    const appAuth = (): Effect.Effect<
+      ReturnType<typeof createAppAuth>,
+      GitHubError
+    > =>
+      Effect.gen(function* () {
+        const appId = yield* Config.string("GITHUB_APP_ID")
+        const privateKey = yield* Config.redacted("GITHUB_APP_PRIVATE_KEY")
+        const clientId = yield* Config.string("GITHUB_APP_CLIENT_ID")
+        const clientSecret = yield* Config.redacted("GITHUB_APP_CLIENT_SECRET")
+        return yield* Effect.try({
+          try: () =>
+            createAppAuth({
+              appId,
+              privateKey: normalizePrivateKey(Redacted.value(privateKey)),
+              clientId,
+              clientSecret: Redacted.value(clientSecret)
+            }),
+          catch: (cause) => new GitHubError({ message: String(cause) })
+        })
+      }).pipe(
+        Effect.catchAll((cause) =>
+          cause._tag === "GitHubError"
+            ? Effect.fail(cause)
+            : Effect.fail(
+                new GitHubError({
+                  message: "missing GitHub App configuration"
+                })
+              )
+        )
+      )
+
+    const installationTokenFor = (
+      installationId: string
+    ): Effect.Effect<string, GitHubError> =>
+      Effect.gen(function* () {
+        const auth = yield* appAuth()
+        const result = yield* Effect.tryPromise({
+          try: () =>
+            auth({
+              type: "installation",
+              installationId: Number(installationId)
+            }),
+          catch: (cause) => new GitHubError({ message: String(cause) })
+        })
+        return result.token
+      })
+
+    const appToken = (): Effect.Effect<string, GitHubError> =>
+      Effect.gen(function* () {
+        const auth = yield* appAuth()
+        const result = yield* Effect.tryPromise({
+          try: () => auth({ type: "app" }),
+          catch: (cause) => new GitHubError({ message: String(cause) })
+        })
+        return result.token
+      })
+
+    const fetchProjectStatesWithToken = (
+      token: string,
+      owner: string,
+      name: string
+    ): Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError> =>
+      Effect.gen(function* () {
+        const gql = graphqlFor(token)
+        const now = yield* nowSeconds
+
+        interface QResult {
+          repository: {
+            defaultBranchRef: { name: string } | null
+            refs: { nodes: ReadonlyArray<{ name: string }> }
+            pullRequests: {
+              nodes: ReadonlyArray<{
+                number: number
+                title: string
+                url: string
+                state: "OPEN" | "CLOSED" | "MERGED"
+                isDraft: boolean
+                headRefName: string
+                baseRefName: string
+                mergedAt: string | null
+                commits: {
+                  nodes: ReadonlyArray<{
+                    commit: {
+                      statusCheckRollup: { state: string } | null
+                    }
+                  }>
+                }
+              }>
+            }
+          } | null
+        }
+
+        const data = yield* Effect.tryPromise({
+          try: () =>
+            gql<QResult>(
+              /* GraphQL */ `
+                query Q($owner: String!, $name: String!) {
+                  repository(owner: $owner, name: $name) {
+                    defaultBranchRef {
+                      name
+                    }
+                    refs(refPrefix: "refs/heads/", first: 100) {
+                      nodes {
+                        name
+                      }
+                    }
+                    pullRequests(
+                      states: [OPEN, MERGED, CLOSED]
+                      first: 100
+                      orderBy: { field: UPDATED_AT, direction: DESC }
+                    ) {
+                      nodes {
+                        number
+                        title
+                        url
+                        state
+                        isDraft
+                        headRefName
+                        baseRefName
+                        mergedAt
+                        commits(last: 1) {
+                          nodes {
+                            commit {
+                              statusCheckRollup {
+                                state
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `,
+              { owner, name }
+            ),
+          catch: (cause): RepoGone | RateLimited | GitHubError => {
+            const err = mapHttpError(cause, now)
+            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
+              return err
+            }
+            return new GitHubError({ message: err._tag })
+          }
+        })
+
+        if (!data.repository) return yield* new RepoGone()
+
+        const existingBranches = new Set(
+          data.repository.refs.nodes.map((r) => r.name)
+        )
+        const mapChecks = (
+          s: string | null | undefined
+        ): RawBranchEntry["checks"] => {
+          if (!s) return "none"
+          if (s === "SUCCESS") return "passing"
+          if (s === "FAILURE" || s === "ERROR") return "failing"
+          if (s === "PENDING" || s === "EXPECTED") return "pending"
+          return "neutral"
+        }
+        const prByBranch = new Map<string, RawBranchEntry>()
+        for (const pr of data.repository.pullRequests.nodes) {
+          const existing = prByBranch.get(pr.headRefName)
+          if (existing) continue
+          prByBranch.set(pr.headRefName, {
+            headRefName: pr.headRefName,
+            baseRefName: pr.baseRefName,
+            state:
+              pr.state === "MERGED"
+                ? "merged"
+                : pr.state === "CLOSED"
+                  ? "closed"
+                  : "open",
+            draft: pr.isDraft,
+            number: pr.number,
+            url: pr.url,
+            title: pr.title,
+            mergedAt: pr.mergedAt
+              ? DateTime.toDate(DateTime.unsafeMake(pr.mergedAt))
+              : null,
+            checks: mapChecks(
+              pr.commits.nodes[0]?.commit.statusCheckRollup?.state
+            )
+          })
+        }
+
+        return {
+          defaultBranch: data.repository.defaultBranchRef?.name ?? "main",
+          existingBranches,
+          prByBranch
+        }
+      })
+
+    const listBranchesWithToken = (
+      token: string,
+      owner: string,
+      name: string,
+      query: string | undefined,
+      first: number
+    ): Effect.Effect<
+      BranchListResponse,
+      RepoGone | RateLimited | GitHubError
+    > =>
+      Effect.gen(function* () {
+        const gql = graphqlFor(token)
+        const now = yield* nowSeconds
+
+        interface QResult {
+          repository: {
+            refs: {
+              nodes: ReadonlyArray<{
+                name: string
+                branchProtectionRule: { id: string } | null
+              }>
+              pageInfo: { hasNextPage: boolean }
+            }
+          } | null
+        }
+
+        const data = yield* Effect.tryPromise({
+          try: () =>
+            gql<QResult>(
+              /* GraphQL */ `
+                query Q(
+                  $owner: String!
+                  $name: String!
+                  $q: String
+                  $first: Int!
+                ) {
+                  repository(owner: $owner, name: $name) {
+                    refs(
+                      refPrefix: "refs/heads/"
+                      query: $q
+                      first: $first
+                      orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
+                    ) {
+                      nodes {
+                        name
+                        branchProtectionRule {
+                          id
+                        }
+                      }
+                      pageInfo {
+                        hasNextPage
+                      }
+                    }
+                  }
+                }
+              `,
+              { owner, name, q: query ?? null, first }
+            ),
+          catch: (cause): RepoGone | RateLimited | GitHubError => {
+            const err = mapHttpError(cause, now)
+            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
+              return err
+            }
+            return new GitHubError({ message: err._tag })
+          }
+        })
+
+        if (!data.repository) return yield* new RepoGone()
+        return {
+          items: data.repository.refs.nodes.map((n) => ({
+            name: n.name,
+            isProtected: n.branchProtectionRule !== null
+          })),
+          hasMore: data.repository.refs.pageInfo.hasNextPage
+        }
+      })
+
+    const branchExistsWithToken = (
+      token: string,
+      owner: string,
+      name: string,
+      branch: string
+    ): Effect.Effect<boolean, RepoGone | RateLimited | GitHubError> =>
+      Effect.gen(function* () {
+        const gql = graphqlFor(token)
+        const now = yield* nowSeconds
+
+        interface QResult {
+          repository: {
+            ref: { name: string } | null
+          } | null
+        }
+
+        const data = yield* Effect.tryPromise({
+          try: () =>
+            gql<QResult>(
+              /* GraphQL */ `
+                query Q($owner: String!, $name: String!, $ref: String!) {
+                  repository(owner: $owner, name: $name) {
+                    ref(qualifiedName: $ref) {
+                      name
+                    }
+                  }
+                }
+              `,
+              { owner, name, ref: `refs/heads/${branch}` }
+            ),
+          catch: (cause): RepoGone | RateLimited | GitHubError => {
+            const err = mapHttpError(cause, now)
+            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
+              return err
+            }
+            return new GitHubError({ message: err._tag })
+          }
+        })
+
+        if (!data.repository) return yield* new RepoGone()
+        return data.repository.ref !== null
+      })
+
     const listUserRepos = (
       userId: string,
       query: string | undefined,
@@ -179,6 +502,7 @@ export const GitHubLive = Layer.effect(
                 })
                 return {
                   items: res.data.items.map((r) => ({
+                    id: String(r.id),
                     owner: r.owner?.login ?? "",
                     name: r.name,
                     defaultBranch: r.default_branch,
@@ -196,6 +520,7 @@ export const GitHubLive = Layer.effect(
               })
               return {
                 items: res.data.map((r) => ({
+                  id: String(r.id),
                   owner: r.owner.login,
                   name: r.name,
                   defaultBranch: r.default_branch,
@@ -256,6 +581,173 @@ export const GitHubLive = Layer.effect(
             return yield* new GitHubScopeInsufficient()
           }
           return { defaultBranch: data.data.default_branch }
+        })
+      )
+
+    const getInstallationAccount = (
+      installationId: string
+    ): Effect.Effect<GitHubInstallationAccount, RepoGone | GitHubError> =>
+      withGitHubTelemetry(
+        "getInstallationAccount",
+        { installationId },
+        Effect.gen(function* () {
+          const token = yield* appToken()
+          const octokit = octokitFor(token)
+          const now = yield* nowSeconds
+          const result = yield* Effect.tryPromise({
+            try: () =>
+              octokit.rest.apps.getInstallation({
+                installation_id: Number(installationId)
+              }),
+            catch: (cause) => mapHttpError(cause, now)
+          }).pipe(
+            Effect.catchAll((e) =>
+              e._tag === "RepoGone" || e._tag === "GitHubError"
+                ? Effect.fail(e)
+                : Effect.fail(new GitHubError({ message: e._tag }))
+            )
+          )
+          const account = result.data.account
+          if (!account)
+            return yield* new GitHubError({ message: "missing account" })
+          const accountLogin = "login" in account ? account.login : account.slug
+          const accountType =
+            "type" in account && account.type === "Organization"
+              ? "Organization"
+              : "User"
+          return {
+            installationId,
+            accountId: String(account.id),
+            accountLogin,
+            accountType
+          }
+        })
+      )
+
+    const listInstallationRepos = (
+      installationId: string,
+      query: string | undefined,
+      page: number
+    ): Effect.Effect<GithubRepoPage, RepoGone | RateLimited | GitHubError> =>
+      withGitHubTelemetry(
+        "listInstallationRepos",
+        { installationId, query: query ?? null, page },
+        Effect.gen(function* () {
+          const token = yield* installationTokenFor(installationId)
+          const octokit = octokitFor(token)
+          const now = yield* nowSeconds
+          const perPage = 30
+          const response = yield* Effect.tryPromise({
+            try: () =>
+              octokit.rest.apps.listReposAccessibleToInstallation({
+                per_page: perPage,
+                page
+              }),
+            catch: (cause) => mapHttpError(cause, now)
+          }).pipe(
+            Effect.catchAll((e) =>
+              e._tag === "RepoGone" ||
+              e._tag === "RateLimited" ||
+              e._tag === "GitHubError"
+                ? Effect.fail(e)
+                : Effect.fail(new GitHubError({ message: e._tag }))
+            )
+          )
+          const q = query?.trim().toLowerCase()
+          const repos = response.data.repositories
+            .filter((r) => {
+              if (!q) return true
+              return `${r.owner.login}/${r.name}`.toLowerCase().includes(q)
+            })
+            .map((r) =>
+              GithubRepo.make({
+                id: String(r.id),
+                owner: r.owner.login,
+                name: r.name,
+                defaultBranch: r.default_branch,
+                private: r.private,
+                description: r.description ?? null
+              })
+            )
+          return {
+            repos,
+            hasMore: response.data.repositories.length === perPage
+          }
+        })
+      )
+
+    const verifyInstallationRepo = (
+      installationId: string,
+      owner: string,
+      name: string
+    ): Effect.Effect<VerifiedInstallationRepo, RepoGone | GitHubError> =>
+      withGitHubTelemetry(
+        "verifyInstallationRepo",
+        { installationId, repoOwner: owner, repoName: name },
+        Effect.gen(function* () {
+          const token = yield* installationTokenFor(installationId)
+          const octokit = octokitFor(token)
+          const now = yield* nowSeconds
+          const response = yield* Effect.tryPromise({
+            try: () => octokit.rest.repos.get({ owner, repo: name }),
+            catch: (cause) => mapHttpError(cause, now)
+          }).pipe(
+            Effect.catchAll((e) =>
+              e._tag === "RepoGone" || e._tag === "GitHubError"
+                ? Effect.fail(e)
+                : Effect.fail(new GitHubError({ message: e._tag }))
+            )
+          )
+          return {
+            repoId: String(response.data.id),
+            owner: response.data.owner.login,
+            name: response.data.name,
+            defaultBranch: response.data.default_branch
+          }
+        })
+      )
+
+    const exchangeAppUserCode = (
+      code: string
+    ): Effect.Effect<string, GitHubError> =>
+      withGitHubTelemetry(
+        "exchangeAppUserCode",
+        {},
+        Effect.gen(function* () {
+          const auth = yield* appAuth()
+          const result = yield* Effect.tryPromise({
+            try: () => auth({ type: "oauth-user", code }),
+            catch: (cause) => new GitHubError({ message: String(cause) })
+          })
+          return result.token
+        })
+      )
+
+    const appUserCanAccessInstallation = (
+      userAccessToken: string,
+      installationId: string
+    ): Effect.Effect<boolean, GitHubError> =>
+      withGitHubTelemetry(
+        "appUserCanAccessInstallation",
+        { installationId },
+        Effect.gen(function* () {
+          const octokit = octokitFor(userAccessToken)
+          const response = yield* Effect.tryPromise({
+            try: () =>
+              octokit.request("GET /user/installations", {
+                per_page: 100
+              }),
+            catch: (cause) =>
+              new GitHubError({
+                message:
+                  typeof (cause as { message?: unknown }).message === "string"
+                    ? String((cause as { message: string }).message)
+                    : "GitHub error"
+              })
+          })
+          return response.data.installations.some(
+            (installation) => String(installation.id) === installationId
+          )
         })
       )
 
@@ -750,14 +1242,75 @@ export const GitHubLive = Layer.effect(
         })
       )
 
+    const fetchInstallationProjectStates = (
+      installationId: string,
+      owner: string,
+      name: string
+    ): Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError> =>
+      withGitHubTelemetry(
+        "fetchInstallationProjectStates",
+        { installationId, repoOwner: owner, repoName: name },
+        Effect.gen(function* () {
+          const token = yield* installationTokenFor(installationId)
+          return yield* fetchProjectStatesWithToken(token, owner, name)
+        })
+      )
+
+    const listInstallationBranches = (
+      installationId: string,
+      owner: string,
+      name: string,
+      query: string | undefined,
+      first: number
+    ): Effect.Effect<
+      BranchListResponse,
+      RepoGone | RateLimited | GitHubError
+    > =>
+      withGitHubTelemetry(
+        "listInstallationBranches",
+        {
+          installationId,
+          repoOwner: owner,
+          repoName: name,
+          query: query ?? null
+        },
+        Effect.gen(function* () {
+          const token = yield* installationTokenFor(installationId)
+          return yield* listBranchesWithToken(token, owner, name, query, first)
+        })
+      )
+
+    const branchExistsInstallation = (
+      installationId: string,
+      owner: string,
+      name: string,
+      branch: string
+    ): Effect.Effect<boolean, RepoGone | RateLimited | GitHubError> =>
+      withGitHubTelemetry(
+        "branchExistsInstallation",
+        { installationId, repoOwner: owner, repoName: name, branch },
+        Effect.gen(function* () {
+          const token = yield* installationTokenFor(installationId)
+          return yield* branchExistsWithToken(token, owner, name, branch)
+        })
+      )
+
     return {
       listUserRepos,
       verifyAccess,
+      getInstallationAccount,
+      listInstallationRepos,
+      verifyInstallationRepo,
+      exchangeAppUserCode,
+      appUserCanAccessInstallation,
       createBranch,
       openPullRequest,
       fetchProjectStates,
+      fetchInstallationProjectStates,
       listBranches,
-      branchExists
+      listInstallationBranches,
+      branchExists,
+      branchExistsInstallation
     } satisfies GitHubShape
   })
 )
