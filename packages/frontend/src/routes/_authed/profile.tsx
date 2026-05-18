@@ -144,6 +144,7 @@ function PersonalGithubCard({
   const connectState = useAtomValue(connectPersonalGithubAtom)
   const disconnectState = useAtomValue(disconnectPersonalGithubAtom)
   const connecting = connectState.waiting
+  const waiting = connecting || disconnectState.waiting
   const error = Result.isFailure(connectState)
     ? m.profile_github_connect_error()
     : Result.isFailure(disconnectState)
@@ -171,7 +172,7 @@ function PersonalGithubCard({
                 aria-hidden
               />
             </span>
-            <div className="min-w-0">
+            <div className={waiting ? "min-w-0 animate-pulse" : "min-w-0"}>
               <div className="text-sm font-medium">
                 {connected
                   ? m.profile_github_connected_status()
@@ -288,10 +289,11 @@ function GithubDisconnectConfirm({
         {m.profile_github_disconnect_confirm_prompt()}
       </span>
       <Button
+        type="button"
         size="sm"
+        variant="destructive"
         onClick={() => void run()}
         disabled={busy || disconnecting}
-        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
       >
         {busy || disconnecting
           ? m.profile_github_disconnect_in_progress()
