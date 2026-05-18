@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, X } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
@@ -14,6 +14,7 @@ import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
 import { TypeButton } from "./TypeField"
+import { useResetTicketSearch } from "./url"
 
 const EMPTY_BORDER = "border border-dashed border-border"
 
@@ -43,12 +44,25 @@ export function FilteredList({
   const loadMore = useAtomSet(loadMoreTicketsAtom(listKey))
   const loadMoreState = useAtomValue(loadMoreTicketsAtom(listKey))
   const loadingMore = loadMoreState.waiting === true
+  const resetFilters = useResetTicketSearch()
 
   if (items.length === 0) {
     if (hasActiveFilter) {
       return (
-        <Empty variant="inline" className={cn(EMPTY_BORDER, "p-6")}>
+        <Empty
+          variant="inline"
+          className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
+        >
           <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="xs"
+            leadingIcon={X}
+            onClick={resetFilters}
+          >
+            {m.tickets_filters_clear_all()}
+          </Button>
         </Empty>
       )
     }

@@ -59,6 +59,19 @@ const decodeStringArray = (value: unknown): ReadonlyArray<string> | undefined =>
   return filtered.length === 0 ? undefined : filtered
 }
 
+const GROUP_ID_PATTERN = /^G-[1-9][0-9]*$/
+const TAG_NAME_PATTERN = /^[a-z0-9][a-z0-9 -]{0,30}$/
+
+const decodeBranded = (
+  value: unknown,
+  pattern: RegExp
+): ReadonlyArray<string> | undefined => {
+  const arr = decodeStringArray(value)
+  if (!arr) return undefined
+  const filtered = arr.filter((s) => pattern.test(s))
+  return filtered.length === 0 ? undefined : filtered
+}
+
 const decodeBoolean = (value: unknown): boolean | undefined => {
   if (typeof value === "boolean") return value
   if (value === "true") return true
@@ -97,9 +110,9 @@ export const ticketListQueryFromSearch = (
   if (type) filter.type = type
   const assignee = decodeAssignee(search.assignee)
   if (assignee) filter.assignee = assignee
-  const tags = decodeStringArray(search.tags)
+  const tags = decodeBranded(search.tags, TAG_NAME_PATTERN)
   if (tags) filter.tags = tags as TicketFilter["tags"]
-  const groupId = decodeStringArray(search.groupId)
+  const groupId = decodeBranded(search.groupId, GROUP_ID_PATTERN)
   if (groupId) filter.groupId = groupId as TicketFilter["groupId"]
   const hasBranch = decodeBoolean(search.hasBranch)
   if (hasBranch !== undefined) filter.hasBranch = hasBranch

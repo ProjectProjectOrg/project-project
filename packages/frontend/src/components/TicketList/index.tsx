@@ -1,7 +1,10 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { type ReactNode } from "react"
-import { Empty } from "@/components/ui/empty"
+import { X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import type {
@@ -13,6 +16,9 @@ import type {
 } from "@projectproject/shared"
 import { FilteredList } from "./FilteredList"
 import { Toolbar } from "./Toolbar"
+import { useResetTicketSearch } from "./url"
+
+const EMPTY_BORDER = "border border-dashed border-border"
 
 export function TicketList({
   orgSlug,
@@ -35,6 +41,7 @@ export function TicketList({
 }) {
   const listKey = ticketsListKey(orgSlug, slug, query)
   const list = useAtomValue(ticketsListAtom(listKey))
+  const resetFilters = useResetTicketSearch()
 
   return (
     <div className="group/list flex flex-col gap-3">
@@ -54,12 +61,28 @@ export function TicketList({
             <div className="skeleton h-24 rounded-xl border border-border bg-background" />
           ),
           onError: (error) => (
-            <Empty variant="inline" className="border border-dashed border-border">
-              {m.tickets_list_load_error({ error: error._tag })}
+            <Empty
+              variant="inline"
+              className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
+            >
+              <EmptyDescription>
+                {error._tag === "MalformedQuery"
+                  ? m.tickets_list_malformed_query()
+                  : m.tickets_list_load_error({ error: error._tag })}
+              </EmptyDescription>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                leadingIcon={X}
+                onClick={resetFilters}
+              >
+                {m.tickets_filters_clear_all()}
+              </Button>
             </Empty>
           ),
           onDefect: (defect) => (
-            <Empty variant="inline" className="border border-dashed border-border">
+            <Empty variant="inline" className={EMPTY_BORDER}>
               {m.tickets_list_defect({ defect: String(defect) })}
             </Empty>
           ),

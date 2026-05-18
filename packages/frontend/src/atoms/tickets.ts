@@ -1,5 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom-react"
 import * as Reactivity from "@effect/experimental/Reactivity"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as SubscriptionRef from "effect/SubscriptionRef"
@@ -15,6 +16,10 @@ import {
   type UpdateTicketInput
 } from "@projectproject/shared"
 
+class MalformedQuery extends Data.TaggedError("MalformedQuery")<{
+  readonly cause: unknown
+}> {}
+
 const encodeQueryForKey = Schema.encodeSync(TicketListQuery)
 
 export const ticketsListKey = (
@@ -26,23 +31,30 @@ export const ticketsListKey = (
   return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
 }
 
-interface ParsedTicketsListKey {
+interface SplitTicketsListKey {
   readonly orgSlug: string
   readonly slug: string
-  readonly query: TicketListQuery
+  readonly queryJson: string
 }
 
 const decodeQueryFromKey = Schema.decodeUnknownSync(TicketListQuery)
 
-const parseTicketsListKey = (key: string): ParsedTicketsListKey => {
+const splitTicketsListKey = (key: string): SplitTicketsListKey => {
   const firstSlash = key.indexOf("/")
   const secondSlash = key.indexOf("/", firstSlash + 1)
-  const orgSlug = key.slice(0, firstSlash)
-  const slug = key.slice(firstSlash + 1, secondSlash)
-  const raw = JSON.parse(key.slice(secondSlash + 1)) as unknown
-  const query = decodeQueryFromKey(raw)
-  return { orgSlug, slug, query }
+  return {
+    orgSlug: key.slice(0, firstSlash),
+    slug: key.slice(firstSlash + 1, secondSlash),
+    queryJson: key.slice(secondSlash + 1)
+  }
 }
+
+const decodeListQuery = (queryJson: string) =>
+  Effect.try({
+    // @effect-diagnostics-next-line preferSchemaOverJson:off
+    try: () => decodeQueryFromKey(JSON.parse(queryJson) as unknown),
+    catch: (cause) => new MalformedQuery({ cause })
+  })
 
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const idx = key.indexOf("/")
@@ -70,10 +82,11 @@ interface TicketsListValue {
 export type { TicketsListValue }
 
 export const ticketsListAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, query } = parseTicketsListKey(key)
+  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime
     .subscriptionRef(
       Effect.gen(function* () {
+        const query = yield* decodeListQuery(queryJson)
         const client = yield* ApiClient
         const page = yield* client.tickets.list({
           path: { orgSlug, slug },
@@ -92,7 +105,7 @@ export const ticketsListAtom = Atom.family((key: string) => {
 })
 
 export const loadMoreTicketsAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, query } = parseTicketsListKey(key)
+  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime.fn(
     Effect.fn(function* (_: void, get) {
       const current: Result.Result<TicketsListValue, unknown> = get(
@@ -100,6 +113,7 @@ export const loadMoreTicketsAtom = Atom.family((key: string) => {
       )
       if (!Result.isSuccess(current)) return
       if (current.value.nextCursor === null) return
+      const query = yield* decodeListQuery(queryJson)
       const client = yield* ApiClient
       const next = yield* client.tickets.list({
         path: { orgSlug, slug },
@@ -127,29 +141,21 @@ export const ticketsCountKey = (
   return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
 }
 
-interface ParsedTicketsCountKey {
-  readonly orgSlug: string
-  readonly slug: string
-  readonly query: TicketCountQuery
-}
-
 const decodeCountQueryFromKey = Schema.decodeUnknownSync(TicketCountQuery)
 
-const parseTicketsCountKey = (key: string): ParsedTicketsCountKey => {
-  const firstSlash = key.indexOf("/")
-  const secondSlash = key.indexOf("/", firstSlash + 1)
-  const orgSlug = key.slice(0, firstSlash)
-  const slug = key.slice(firstSlash + 1, secondSlash)
-  const raw = JSON.parse(key.slice(secondSlash + 1)) as unknown
-  const query = decodeCountQueryFromKey(raw)
-  return { orgSlug, slug, query }
-}
+const decodeCountQuery = (queryJson: string) =>
+  Effect.try({
+    // @effect-diagnostics-next-line preferSchemaOverJson:off
+    try: () => decodeCountQueryFromKey(JSON.parse(queryJson) as unknown),
+    catch: (cause) => new MalformedQuery({ cause })
+  })
 
 export const ticketsCountAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, query } = parseTicketsCountKey(key)
+  const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime
     .atom(
       Effect.gen(function* () {
+        const query = yield* decodeCountQuery(queryJson)
         const client = yield* ApiClient
         return yield* client.tickets.count({
           path: { orgSlug, slug },

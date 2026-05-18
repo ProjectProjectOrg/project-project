@@ -65,6 +65,7 @@ import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { SORT_LABELS } from "./sort"
+import { TICKET_SEARCH_KEYS } from "./url"
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
@@ -73,19 +74,6 @@ const TOOLBAR_BUTTON_CLASS = cn(
 )
 
 type SprintFilterValue = "all" | "unassigned" | GroupId
-
-const TICKET_SEARCH_KEYS = [
-  "status",
-  "type",
-  "assignee",
-  "tags",
-  "groupId",
-  "hasBranch",
-  "hasPr",
-  "sort",
-  "q",
-  "cursor"
-] as const
 
 const pruneFilter = (f: TicketFilter | undefined): TicketFilter | undefined => {
   if (!f) return undefined
