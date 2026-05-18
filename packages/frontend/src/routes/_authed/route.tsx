@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { authedRouteRedirect } from "@/lib/authRedirect"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -46,11 +47,15 @@ function AuthedLayout() {
       </FullPageStatus>
     ),
     onSuccess: ({ value }) => {
-      if (pathname === "/" && value.activeOrgSlug) {
+      const redirect = authedRouteRedirect(pathname, value.activeOrgSlug)
+      if (redirect?.to === "/welcome") {
+        return <Navigate to="/welcome" replace />
+      }
+      if (redirect) {
         return (
           <Navigate
             to="/orgs/$orgSlug"
-            params={{ orgSlug: value.activeOrgSlug }}
+            params={redirect.params}
             replace
           />
         )

@@ -1156,16 +1156,47 @@ export const ProjectsLive = Layer.effect(
 
           yield* Effect.tryPromise(() =>
             db.transaction(async (tx) => {
-              await tx
+              const currentOwners = await tx.query.projectMember.findMany({
+                columns: { userId: true },
+                where: and(
+                  eq(projectMember.projectSlug, slug),
+                  eq(projectMember.role, "owner")
+                )
+              })
+              if (
+                currentOwners.length !== 1 ||
+                currentOwners[0].userId !== sourceUserId
+              ) {
+                throw new Validation({
+                  reason: "invalid_project_owner_count"
+                })
+              }
+
+              const currentTarget = await tx.query.projectMember.findFirst({
+                columns: { userId: true },
+                where: and(
+                  eq(projectMember.projectSlug, slug),
+                  eq(projectMember.userId, targetUserId)
+                )
+              })
+              if (!currentTarget) throw new NotFound()
+
+              const demoted = await tx
                 .update(projectMember)
                 .set({ role: "admin" })
                 .where(
                   and(
                     eq(projectMember.projectSlug, slug),
-                    eq(projectMember.userId, sourceUserId)
+                    eq(projectMember.userId, sourceUserId),
+                    eq(projectMember.role, "owner")
                   )
                 )
-              await tx
+                .returning({ userId: projectMember.userId })
+              if (demoted.length !== 1) {
+                throw new Validation({ reason: "transfer_failed" })
+              }
+
+              const promoted = await tx
                 .update(projectMember)
                 .set({ role: "owner" })
                 .where(
@@ -1174,8 +1205,19 @@ export const ProjectsLive = Layer.effect(
                     eq(projectMember.userId, targetUserId)
                   )
                 )
+                .returning({ userId: projectMember.userId })
+              if (promoted.length !== 1) {
+                throw new Validation({ reason: "transfer_failed" })
+              }
             })
-          ).pipe(Effect.orDie)
+          ).pipe(
+            Effect.catchAll((error) => {
+              if (Schema.is(Validation)(error) || Schema.is(NotFound)(error)) {
+                return Effect.fail(error)
+              }
+              return Effect.die(error)
+            })
+          )
 
           return yield* replayDetail(orgSlug, slug)
         })

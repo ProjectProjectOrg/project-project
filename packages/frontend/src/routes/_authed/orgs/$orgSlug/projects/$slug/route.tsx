@@ -382,7 +382,7 @@ function ProjectSetupRail({
                     item: item.label
                   })}
                   onClick={item.dismiss}
-                  className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-background hover:text-foreground group-hover/setup-row:opacity-100"
+                  className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 transition-colors transition-transform duration-100 hover:bg-background hover:text-foreground group-hover/setup-row:opacity-100 active:scale-[0.97]"
                 >
                   <X className="size-3.5" strokeWidth={1.75} />
                 </button>
@@ -403,7 +403,7 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           <button
             type="button"
             aria-label={m.project_detail_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
           </button>
