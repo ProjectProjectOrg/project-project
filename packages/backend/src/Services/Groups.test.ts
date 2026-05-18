@@ -8,6 +8,8 @@ import {
   Forbidden,
   GroupId,
   NotFound,
+  ProjectColor,
+  ProjectIcon,
   ProjectKey,
   TicketId
 } from "@projectproject/shared"
@@ -33,6 +35,8 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
+const projectIcon = Schema.decodeUnknownSync(ProjectIcon)
+const projectColor = Schema.decodeUnknownSync(ProjectColor)
 
 function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
@@ -154,6 +158,8 @@ function makeProjectDetail(role: Role): ProjectDetail {
     slug: "p",
     key: projectKey("FOO"),
     name: "Project",
+    icon: projectIcon("🚀"),
+    color: projectColor("#53a0ff"),
     createdBy: "user-1",
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     github: null,
