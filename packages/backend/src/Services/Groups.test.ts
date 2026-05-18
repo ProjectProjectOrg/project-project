@@ -199,8 +199,11 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     remove: () => unexpectedProjectCall("remove"),
     addMember: () => unexpectedProjectCall("addMember"),
     updateMember: () => unexpectedProjectCall("updateMember"),
+    transferOwnership: () => unexpectedProjectCall("transferOwnership"),
     removeMember: () => unexpectedProjectCall("removeMember"),
     cancelPendingMember: () => unexpectedProjectCall("cancelPendingMember"),
+    unassignUserFromActiveTickets: () =>
+      unexpectedProjectCall("unassignUserFromActiveTickets"),
     connectGithub: () => unexpectedProjectCall("connectGithub"),
     disconnectGithub: () => unexpectedProjectCall("disconnectGithub")
   } satisfies ProjectsShape

@@ -100,6 +100,20 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
+      .handle("transferOwnership", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const projects = yield* Projects
+          return yield* projects.transferOwnership(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            payload.userId
+          )
+        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      )
       .handle("removeMember", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
@@ -112,7 +126,12 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
             path.slug,
             path.userId
           )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+        }).pipe(
+          Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)),
+          Effect.catchTag("MalformedTicketDocument", (cause) =>
+            Effect.die(cause)
+          )
+        )
       )
       .handle("cancelPendingMember", ({ path }) =>
         Effect.gen(function* () {

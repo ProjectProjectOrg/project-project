@@ -104,6 +104,12 @@ export class MentionInvalid extends Schema.TaggedError<MentionInvalid>()(
   HttpApiSchema.annotations({ status: 400 })
 ) {}
 
+export class ProjectOwnerRemovalBlocked extends Schema.TaggedError<ProjectOwnerRemovalBlocked>()(
+  "ProjectOwnerRemovalBlocked",
+  { projectSlugs: Schema.Array(Schema.String) },
+  HttpApiSchema.annotations({ status: 409 })
+) {}
+
 // --- GitHub-side errors -----------------------------------------------------
 // Distinct from generic 4xx because the user-facing remedy is different
 // (reconnect GitHub vs retry vs nothing). 502 is used for upstream failures

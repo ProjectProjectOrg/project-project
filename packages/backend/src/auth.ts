@@ -64,9 +64,18 @@
 import { betterAuth } from "better-auth"
 import { admin, magicLink, mcp, organization } from "better-auth/plugins"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api"
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx
+} from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray, ne } from "drizzle-orm"
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import matter from "gray-matter"
 import * as schema from "./db/schema"
 import {
   account,
@@ -85,6 +94,159 @@ import {
 } from "./db/schema"
 
 const db = drizzle(process.env.DATABASE_URL!, { schema })
+
+const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const TICKET_FILE = /^T-[1-9][0-9]*\.md$/
+
+function roleList(role: string): ReadonlyArray<string> {
+  return role.split(",").map((r) => r.trim())
+}
+
+async function assertNotLastOrgOwner(
+  organizationId: string,
+  targetUserId: string,
+  nextRole: string | null
+) {
+  if (nextRole !== null && roleList(nextRole).includes("owner")) return
+  const target = await db.query.member.findFirst({
+    columns: { role: true },
+    where: and(
+      eq(member.organizationId, organizationId),
+      eq(member.userId, targetUserId)
+    )
+  })
+  if (!target || !roleList(target.role).includes("owner")) return
+  const others = await db.query.member.findMany({
+    columns: { id: true },
+    where: and(
+      eq(member.organizationId, organizationId),
+      eq(member.role, "owner"),
+      ne(member.userId, targetUserId)
+    )
+  })
+  if (others.length > 0) return
+  throw new APIError("BAD_REQUEST", {
+    code: "LAST_ORG_OWNER_BLOCKED",
+    message: "Cannot remove or demote the last organization owner"
+  })
+}
+
+async function projectOwnerSlugs(organizationId: string, userId: string) {
+  return db
+    .select({ slug: projectIndex.slug })
+    .from(projectIndex)
+    .innerJoin(
+      projectMember,
+      and(
+        eq(projectMember.projectSlug, projectIndex.slug),
+        eq(projectMember.userId, userId),
+        eq(projectMember.role, "owner")
+      )
+    )
+    .where(eq(projectIndex.organizationId, organizationId))
+}
+
+function projectsRoot() {
+  const root = process.env.PROJECTS_DIR
+  if (!root) {
+    throw new APIError("INTERNAL_SERVER_ERROR", {
+      code: "PROJECTS_DIR_MISSING",
+      message: "PROJECTS_DIR is not configured"
+    })
+  }
+  return root
+}
+
+async function unassignUserFromActiveTicketsOnDisk(
+  orgSlug: string,
+  projectSlug: string,
+  userId: string
+) {
+  if (!SAFE_SLUG.test(orgSlug) || !SAFE_SLUG.test(projectSlug)) return
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = projectsRoot()
+      const absoluteRoot = path.isAbsolute(root)
+        ? root
+        : path.resolve(process.cwd(), root)
+      const ticketsDir = path.join(
+        absoluteRoot,
+        "orgs",
+        orgSlug,
+        "projects",
+        projectSlug,
+        "tickets"
+      )
+      const exists = yield* fs.exists(ticketsDir)
+      if (!exists) return
+      const files = yield* fs.readDirectory(ticketsDir)
+      yield* Effect.forEach(
+        files.filter((file) => TICKET_FILE.test(file)),
+        (file) =>
+          Effect.gen(function* () {
+            const filePath = path.join(ticketsDir, file)
+            const raw = yield* fs.readFileString(filePath, "utf8")
+            const parsed = matter(raw)
+            const assignees = Array.isArray(parsed.data.assignees)
+              ? parsed.data.assignees
+              : typeof parsed.data.assignee === "string"
+                ? [parsed.data.assignee]
+                : []
+            if (
+              parsed.data.status === "done" ||
+              !assignees.some((id) => id === userId)
+            ) {
+              return
+            }
+            parsed.data.assignees = assignees.filter((id) => id !== userId)
+            parsed.data.updatedAt = DateTime.toDate(
+              DateTime.unsafeNow()
+            ).toISOString()
+            yield* fs.writeFileString(
+              filePath,
+              matter.stringify(parsed.content, parsed.data)
+            )
+          }),
+        { concurrency: 8 }
+      )
+    }).pipe(Effect.provide(BunContext.layer))
+  )
+}
+
+async function cleanupRemovedOrgMemberProjectAccess(
+  orgSlug: string,
+  organizationId: string,
+  userId: string
+) {
+  const rows = await db
+    .select({ slug: projectIndex.slug })
+    .from(projectIndex)
+    .innerJoin(
+      projectMember,
+      and(
+        eq(projectMember.projectSlug, projectIndex.slug),
+        eq(projectMember.userId, userId)
+      )
+    )
+    .where(eq(projectIndex.organizationId, organizationId))
+  const slugs = rows.map((row) => row.slug)
+  await Promise.all(
+    slugs.map((slug) =>
+      unassignUserFromActiveTicketsOnDisk(orgSlug, slug, userId)
+    )
+  )
+  if (slugs.length === 0) return
+  await db
+    .delete(projectMember)
+    .where(
+      and(
+        eq(projectMember.userId, userId),
+        inArray(projectMember.projectSlug, slugs)
+      )
+    )
+}
 
 // TODO: configure and export `auth`.
 export const auth = betterAuth({
@@ -261,6 +423,36 @@ export const auth = betterAuth({
         )
       },
       organizationHooks: {
+        beforeRemoveMember: async ({ member, organization }) => {
+          await assertNotLastOrgOwner(
+            member.organizationId,
+            member.userId,
+            null
+          )
+          const owned = await projectOwnerSlugs(
+            member.organizationId,
+            member.userId
+          )
+          if (owned.length > 0) {
+            throw new APIError("BAD_REQUEST", {
+              code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+              message: "Transfer project ownership before removing this member",
+              projectSlugs: owned.map((project) => project.slug)
+            })
+          }
+          await cleanupRemovedOrgMemberProjectAccess(
+            organization.slug,
+            member.organizationId,
+            member.userId
+          )
+        },
+        beforeUpdateMemberRole: async ({ member, newRole }) => {
+          await assertNotLastOrgOwner(
+            member.organizationId,
+            member.userId,
+            newRole
+          )
+        },
         afterAcceptInvitation: async ({ invitation, user }) => {
           await db.transaction(async (tx) => {
             const grants = await tx

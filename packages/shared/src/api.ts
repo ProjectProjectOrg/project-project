@@ -30,6 +30,7 @@ import {
   Project,
   ProjectDetail,
   Slug,
+  TransferOwnershipInput,
   UpdateMemberInput,
   UpdateProjectInput
 } from "./schemas/Project"
@@ -79,6 +80,7 @@ import {
   GitHubTokenExpired,
   MentionInvalid,
   NotFound,
+  ProjectOwnerRemovalBlocked,
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
@@ -201,6 +203,19 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Forbidden)
   )
   .add(
+    HttpApiEndpoint.post(
+      "transferOwnership",
+      "/orgs/:orgSlug/projects/:slug/ownership"
+    )
+      .setPath(ProjectPath)
+      .setPayload(TransferOwnershipInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
+  )
+  .add(
     HttpApiEndpoint.del(
       "removeMember",
       "/orgs/:orgSlug/projects/:slug/members/:userId"
@@ -210,6 +225,7 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+      .addError(ProjectOwnerRemovalBlocked)
   )
   .add(
     HttpApiEndpoint.del(
