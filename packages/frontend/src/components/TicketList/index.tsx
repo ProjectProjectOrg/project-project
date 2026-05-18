@@ -4,18 +4,21 @@ import { Empty } from "@/components/ui/empty"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { m } from "@/paraglide/messages"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { ticketListUiKey } from "@/atoms/ticketListUi"
-import type { Group, Member, TicketId } from "@projectproject/shared"
-import type { Ticket } from "@projectproject/shared"
+import type {
+  Group,
+  Member,
+  Ticket,
+  TicketId,
+  TicketListQuery
+} from "@projectproject/shared"
 import { FilteredList } from "./FilteredList"
 import { Toolbar } from "./Toolbar"
 
 export function TicketList({
   orgSlug,
   slug,
+  query,
   members,
-  uiKey,
-  filterIds,
   extraRowActions,
   sprintMembership,
   creator,
@@ -23,32 +26,28 @@ export function TicketList({
 }: {
   orgSlug: string
   slug: string
+  query: TicketListQuery
   members: ReadonlyArray<Member>
-  uiKey?: string
-  filterIds?: ReadonlySet<TicketId>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
   showSprintFilter?: boolean
 }) {
-  const resolvedUiKey = uiKey ?? ticketListUiKey(orgSlug, slug)
-  const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+  const listKey = ticketsListKey(orgSlug, slug, query)
+  const list = useAtomValue(ticketsListAtom(listKey))
 
   return (
     <div className="group/list flex flex-col gap-3">
       {creator ?? <BacklogTicketCreator orgSlug={orgSlug} slug={slug} />}
 
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
-        {Result.isSuccess(list) && list.value.length > 0 && (
-          <Toolbar
-            orgSlug={orgSlug}
-            slug={slug}
-            uiKey={resolvedUiKey}
-            tickets={list.value}
-            members={members}
-            showSprintFilter={showSprintFilter}
-          />
-        )}
+        <Toolbar
+          orgSlug={orgSlug}
+          slug={slug}
+          query={query}
+          members={members}
+          showSprintFilter={showSprintFilter}
+        />
 
         {Result.matchWithError(list, {
           onInitial: () => (
@@ -64,17 +63,22 @@ export function TicketList({
               {m.tickets_list_defect({ defect: String(defect) })}
             </Empty>
           ),
-          onSuccess: ({ value }) => (
+          onSuccess: ({ value, waiting }) => (
             <FilteredList
               orgSlug={orgSlug}
               slug={slug}
-              uiKey={resolvedUiKey}
-              tickets={
-                filterIds ? value.filter((t) => filterIds.has(t.id)) : value
-              }
+              listKey={listKey}
+              items={value.items}
+              nextCursor={value.nextCursor}
+              waiting={waiting === true}
               members={members}
               extraRowActions={extraRowActions}
               sprintMembership={sprintMembership}
+              hasActiveFilter={
+                (query.filter !== undefined &&
+                  Object.keys(query.filter).length > 0) ||
+                (query.q !== undefined && query.q.length > 0)
+              }
             />
           )
         })}
