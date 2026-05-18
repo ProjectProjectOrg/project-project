@@ -71,6 +71,7 @@ import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import type { MarkdownError } from "../Services/Markdown"
+import type { MalformedTicketDocument } from "../Services/TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
 import { Users } from "../Services/Users"
 import { Projects, type ProjectsShape } from "../Services/Projects"
@@ -405,14 +406,11 @@ export const ProjectsLive = Layer.effect(
               )
             })
             .pipe(Effect.orDie)
-          if (explicit) return { role: makeRole(explicit.role) }
-          const orgRole = yield* orgRoleForUser(
-            indexRow.organizationId ?? "",
-            userId
-          )
+          const orgRole = yield* orgRoleForUser(indexRow.organizationId, userId)
           if (orgRole === "owner" || orgRole === "admin") {
             return { role: "admin" as const }
           }
+          if (explicit) return { role: makeRole(explicit.role) }
           return yield* new NotFound()
         })
       )
@@ -713,27 +711,16 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       userId: string
-    ): Effect.Effect<void, MarkdownError> =>
+    ): Effect.Effect<void, MarkdownError | MalformedTicketDocument> =>
       Effect.gen(function* () {
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         yield* Effect.forEach(
           ids,
           (id) =>
             Effect.gen(function* () {
-              const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(null)),
-                Effect.catchTag("MalformedTicketDocument", (error) =>
-                  Effect.logWarning(
-                    "Skipping unreadable ticket during unassign",
-                    {
-                      orgSlug,
-                      slug,
-                      ticketId: id,
-                      error
-                    }
-                  ).pipe(Effect.as(null))
-                )
-              )
+              const ticket = yield* ticketDocs
+                .read(orgSlug, slug, id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
               if (
                 ticket === null ||
                 ticket.status === "done" ||
@@ -1136,7 +1123,10 @@ export const ProjectsLive = Layer.effect(
       userId: string,
       slug: string,
       targetUserId: string
-    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
+    ): Effect.Effect<
+      ProjectDetail,
+      NotFound | Forbidden | MarkdownError | MalformedTicketDocument
+    > =>
       withProjectTelemetry(
         "removeMember",
         orgSlug,

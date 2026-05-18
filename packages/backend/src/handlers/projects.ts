@@ -126,7 +126,12 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
             path.slug,
             path.userId
           )
-        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+        }).pipe(
+          Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)),
+          Effect.catchTag("MalformedTicketDocument", (cause) =>
+            Effect.die(cause)
+          )
+        )
       )
       .handle("cancelPendingMember", ({ path }) =>
         Effect.gen(function* () {

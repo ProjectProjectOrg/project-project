@@ -22,6 +22,7 @@ import type {
   UpdateProjectInput
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
+import type { MalformedTicketDocument } from "./TicketDocs"
 
 export interface ProjectMembership {
   readonly role: Role
@@ -118,7 +119,10 @@ export interface ProjectsShape {
     userId: string,
     slug: string,
     targetUserId: string
-  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  ) => Effect.Effect<
+    ProjectDetail,
+    NotFound | Forbidden | MarkdownError | MalformedTicketDocument
+  >
   readonly cancelPendingMember: (
     orgSlug: string,
     userId: string,
@@ -129,7 +133,7 @@ export interface ProjectsShape {
     orgSlug: string,
     slug: string,
     userId: string
-  ) => Effect.Effect<void, MarkdownError>
+  ) => Effect.Effect<void, MarkdownError | MalformedTicketDocument>
   readonly connectGithub: (
     orgSlug: string,
     userId: string,
