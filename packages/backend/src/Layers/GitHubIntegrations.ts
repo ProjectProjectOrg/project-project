@@ -2,6 +2,7 @@ import * as Config from "effect/Config"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as SqlClient from "@effect/sql/SqlClient"
 import { and, eq, isNull } from "drizzle-orm"
 import { randomBytes, createHash } from "node:crypto"
 import {
@@ -60,6 +61,7 @@ export const GitHubIntegrationsLive = Layer.effect(
   GitHubIntegrations,
   Effect.gen(function* () {
     const db = yield* Db
+    const sql = yield* SqlClient.SqlClient
     const currentOrg = yield* CurrentOrg
     const github = yield* GitHub
 
@@ -225,53 +227,59 @@ export const GitHubIntegrationsLive = Layer.effect(
           )
         const now = yield* DateTime.nowAsDate
 
-        yield* db
-          .update(organizationIntegration)
-          .set({
-            status: "disconnected",
-            disconnectedAt: now,
-            updatedAt: now
-          })
-          .where(
-            and(
-              eq(
-                organizationIntegration.organizationId,
-                session.organizationId
-              ),
-              eq(organizationIntegration.provider, "github"),
-              eq(organizationIntegration.status, "active")
-            )
+        yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              yield* db
+                .update(organizationIntegration)
+                .set({
+                  status: "disconnected",
+                  disconnectedAt: now,
+                  updatedAt: now
+                })
+                .where(
+                  and(
+                    eq(
+                      organizationIntegration.organizationId,
+                      session.organizationId
+                    ),
+                    eq(organizationIntegration.provider, "github"),
+                    eq(organizationIntegration.status, "active")
+                  )
+                )
+                .pipe(Effect.orDie)
+
+              const [created] = yield* db
+                .insert(organizationIntegration)
+                .values({
+                  organizationId: session.organizationId,
+                  provider: "github",
+                  status: "active",
+                  lastCheckedAt: now,
+                  lastCheckStatus: "ok"
+                })
+                .returning()
+                .pipe(Effect.orDie)
+
+              yield* db
+                .insert(organizationGithubIntegration)
+                .values({
+                  organizationIntegrationId: created.id,
+                  installationId: account.installationId,
+                  githubAccountId: account.accountId,
+                  githubAccountLogin: account.accountLogin,
+                  githubAccountType: account.accountType
+                })
+                .pipe(Effect.orDie)
+
+              yield* db
+                .update(githubAppInstallSession)
+                .set({ completedAt: now })
+                .where(eq(githubAppInstallSession.id, session.id))
+                .pipe(Effect.orDie)
+            })
           )
-          .pipe(Effect.orDie)
-
-        const [created] = yield* db
-          .insert(organizationIntegration)
-          .values({
-            organizationId: session.organizationId,
-            provider: "github",
-            status: "active",
-            lastCheckedAt: now,
-            lastCheckStatus: "ok"
-          })
-          .returning()
-          .pipe(Effect.orDie)
-
-        yield* db
-          .insert(organizationGithubIntegration)
-          .values({
-            organizationIntegrationId: created.id,
-            installationId: account.installationId,
-            githubAccountId: account.accountId,
-            githubAccountLogin: account.accountLogin,
-            githubAccountType: account.accountType
-          })
-          .pipe(Effect.orDie)
-
-        yield* db
-          .update(githubAppInstallSession)
-          .set({ completedAt: now })
-          .where(eq(githubAppInstallSession.id, session.id))
-          .pipe(Effect.orDie)
+          .pipe(Effect.catchTag("SqlError", Effect.die))
 
         const org = yield* db.query.organization
           .findFirst({
