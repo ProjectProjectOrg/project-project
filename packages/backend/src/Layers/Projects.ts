@@ -1,32 +1,3 @@
-// Projects service — domain logic combining the DB index, the project_member
-// table, and the markdown store.
-//
-// ORG DIMENSION (T-02)
-// ----------------------------------------------------------------------------
-// Every public method takes `orgSlug` as its first parameter — projects are
-// scoped under an org. The slug is plumbed in by handlers; this layer doesn't
-// resolve it. `create` looks up the org's UUID from the slug to populate
-// `projectIndex.organizationId`. Existing DB queries on `projectIndex.slug`
-// stay slug-only (T-01 schema state); switching them to `(orgId, slug)`
-// happens once T-03's migration tightens `organizationId` to NOT NULL.
-//
-// AUTHORITY MODEL
-// ----------------------------------------------------------------------------
-// `project_member` is the source of truth for permission checks. The markdown
-// frontmatter mirrors the membership as a human/AI-readable list of usernames
-// — it stays in sync after every write but is never trusted by the server.
-// If they ever drift, the DB wins; a future maintenance command can rebuild
-// frontmatter from DB rows.
-//
-// PERMISSIONS (per spec §"Permission model")
-//
-//   action            owner  admin  member
-//   read project        ✓      ✓      ✓
-//   edit name/body      ✓      ✓      –
-//   delete project      ✓      –      –
-//   add/remove member   ✓      ✓      –   (admin can't touch admins)
-//   change role         ✓      –      –
-
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -151,8 +122,6 @@ export const ProjectsLive = Layer.effect(
     const ticketDocs = yield* TicketDocs
     const users = yield* Users
     const github = yield* GitHub
-
-    // --- DB helpers ----------------------------------------------------
 
     const orgIdFromSlug = (orgSlug: string): Effect.Effect<string, NotFound> =>
       db.query.organization
@@ -387,8 +356,6 @@ export const ProjectsLive = Layer.effect(
           Effect.orDie
         )
 
-    // --- List (member-scoped) ------------------------------------------
-
     const list = (
       orgSlug: string,
       userId: string
@@ -438,8 +405,6 @@ export const ProjectsLive = Layer.effect(
           }))
         })
       )
-
-    // --- Paged list ----------------------------------------------------
 
     const projectSortKey = (p: { createdAt: Date; slug: string }) =>
       `${(Number.MAX_SAFE_INTEGER - p.createdAt.getTime())
@@ -502,8 +467,6 @@ export const ProjectsLive = Layer.effect(
           id: (m) => m.id
         })
       })
-
-    // --- Permission gates ----------------------------------------------
 
     const requireMember = (
       orgSlug: string,
@@ -579,8 +542,6 @@ export const ProjectsLive = Layer.effect(
         return yield* loadGithubIntegration(indexRow)
       })
 
-    // --- Frontmatter sync ----------------------------------------------
-
     const syncFrontmatter = (
       orgSlug: string,
       slug: string,
@@ -608,8 +569,6 @@ export const ProjectsLive = Layer.effect(
         setup,
         body
       })
-
-    // --- CRUD ----------------------------------------------------------
 
     const create = (
       orgSlug: string,
@@ -857,8 +816,6 @@ export const ProjectsLive = Layer.effect(
         })
       )
 
-    // --- Member management ---------------------------------------------
-
     const replayDetail = (
       orgSlug: string,
       slug: string
@@ -966,10 +923,13 @@ export const ProjectsLive = Layer.effect(
               })
               .returning()
               .pipe(Effect.orDie)
-            yield* Effect.sync(() =>
-              process.stdout.write(
-                `[invitation] org=${orgSlug} email=${normalizedEmail} role=member url=${process.env.BETTER_AUTH_URL}/invite/${created.id}\n`
-              )
+            yield* Effect.logInfo("invitation issued").pipe(
+              Effect.annotateLogs({
+                orgSlug,
+                email: normalizedEmail,
+                role: "member",
+                inviteUrl: `${process.env.BETTER_AUTH_URL}/invite/${created.id}`
+              })
             )
             return created
           }))
@@ -1402,8 +1362,6 @@ export const ProjectsLive = Layer.effect(
           return yield* replayDetail(orgSlug, slug)
         })
       )
-
-    // --- GitHub connection ------------------------------------------
 
     const connectGithub = (
       orgSlug: string,

@@ -1,39 +1,8 @@
-// GitHub service — wraps Octokit for the git-connection feature.
-//
-// Every method takes a `userId`, fetches that user's GitHub OAuth token from
-// Better Auth, builds a per-call Octokit instance, then maps Octokit failures
-// to wire-side tagged errors. Per-call clients are fine at PoC scale; if we
-// ever care about TCP reuse we can pool clients keyed by userId.
-//
-// SHAPE OF THE SERVICE
-// ----------------------------------------------------------------------------
-//   - listUserRepos         — picker source
-//   - verifyAccess          — call before persisting a connection
-//   - getDefaultBranch      — used as the create-branch base default
-//   - createBranch          — new ref from a base SHA
-//   - openPullRequest       — POST a PR
-//   - fetchProjectStates    — single GraphQL roundtrip for branch + PR state
-//                             across N tickets in one repo
-//
-// ERROR MAPPING
-// ----------------------------------------------------------------------------
-//   401             → GitHubTokenExpired
-//   403 + scope hint→ GitHubScopeInsufficient
-//   403 + "abuse" / "secondary rate limit" → RateLimited
-//   404 (repo)      → RepoGone
-//   404 (ref)       → handled inline (means branch doesn't exist)
-//   422 + branch protection → BranchProtected
-//   422 (already exists) → BranchExists
-//   429             → RateLimited (X-RateLimit-Reset header)
-//   anything else   → GitHubError(message)
-//
-// We pull the GitHub token via `BetterAuth.getGithubAccessToken`. If the token
-// row is missing entirely (`NoGithubToken`), we report `GitHubTokenExpired` —
-// the user-facing remedy is the same: reconnect via OAuth.
-
+import * as Cache from "effect/Cache"
 import * as Clock from "effect/Clock"
 import * as Config from "effect/Config"
 import * as DateTime from "effect/DateTime"
+import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
@@ -121,21 +90,219 @@ const graphqlFor = (token: string) =>
 
 type TaggedFailure = { readonly _tag: string }
 
-function withGitHubTelemetry<A, E extends TaggedFailure>(
-  operation: string,
-  attributes: Record<string, unknown>,
-  effect: Effect.Effect<A, E>
-): Effect.Effect<A, E> {
-  const annotations = { module: "GitHub", operation, ...attributes }
-  return effect.pipe(
+const narrow =
+  <const Allow extends ReadonlyArray<GitHubFailure["_tag"]>>(allow: Allow) =>
+  (
+    cause: unknown,
+    nowSecs: number
+  ): Extract<GitHubFailure, { _tag: Allow[number] }> | GitHubError => {
+    const err = mapHttpError(cause, nowSecs)
+    if ((allow as ReadonlyArray<string>).includes(err._tag)) {
+      return err as Extract<GitHubFailure, { _tag: Allow[number] }>
+    }
+    return new GitHubError({ message: err._tag })
+  }
+
+type GitHubRequestAttributes = Record<string, unknown> & {
+  readonly tokenSource: "user" | "installation"
+  readonly operation: string
+}
+
+const githubRequest = <A, EOut extends TaggedFailure>(
+  attributes: GitHubRequestAttributes,
+  fn: (signal: AbortSignal) => Promise<A>,
+  narrowErr: (cause: unknown, now: number) => EOut
+): Effect.Effect<A, EOut> =>
+  Effect.gen(function* () {
+    const now = yield* nowSeconds
+    return yield* Effect.tryPromise({
+      try: fn,
+      catch: (cause) => narrowErr(cause, now)
+    })
+  }).pipe(
     Effect.tapError((error) =>
-      Effect.logWarning("github operation failed").pipe(
+      Effect.logWarning("github request failed").pipe(
         Effect.annotateLogs({ error: error._tag })
       )
     ),
-    Effect.withSpan(`GitHub.${operation}`, { attributes: annotations }),
-    Effect.annotateLogs(annotations)
+    Effect.withSpan(`GitHub.${attributes.operation}`, { attributes }),
+    Effect.annotateLogs({ module: "GitHub", ...attributes })
   )
+
+const FETCH_PROJECT_STATES_QUERY = /* GraphQL */ `
+  query FetchProjectStates($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      defaultBranchRef {
+        name
+      }
+      refs(refPrefix: "refs/heads/", first: 100) {
+        nodes {
+          name
+        }
+      }
+      pullRequests(
+        states: [OPEN, MERGED, CLOSED]
+        first: 100
+        orderBy: { field: UPDATED_AT, direction: DESC }
+      ) {
+        nodes {
+          number
+          title
+          url
+          state
+          isDraft
+          headRefName
+          baseRefName
+          mergedAt
+          commits(last: 1) {
+            nodes {
+              commit {
+                statusCheckRollup {
+                  state
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+const LIST_BRANCHES_QUERY = /* GraphQL */ `
+  query ListBranches($owner: String!, $name: String!, $q: String, $first: Int!) {
+    repository(owner: $owner, name: $name) {
+      refs(
+        refPrefix: "refs/heads/"
+        query: $q
+        first: $first
+        orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
+      ) {
+        nodes {
+          name
+          branchProtectionRule {
+            id
+          }
+        }
+        pageInfo {
+          hasNextPage
+        }
+      }
+    }
+  }
+`
+
+const BRANCH_EXISTS_QUERY = /* GraphQL */ `
+  query BranchExists($owner: String!, $name: String!, $ref: String!) {
+    repository(owner: $owner, name: $name) {
+      ref(qualifiedName: $ref) {
+        name
+      }
+    }
+  }
+`
+
+interface FetchProjectStatesResponse {
+  readonly repository: {
+    readonly defaultBranchRef: { readonly name: string } | null
+    readonly refs: { readonly nodes: ReadonlyArray<{ readonly name: string }> }
+    readonly pullRequests: {
+      readonly nodes: ReadonlyArray<{
+        readonly number: number
+        readonly title: string
+        readonly url: string
+        readonly state: "OPEN" | "CLOSED" | "MERGED"
+        readonly isDraft: boolean
+        readonly headRefName: string
+        readonly baseRefName: string
+        readonly mergedAt: string | null
+        readonly commits: {
+          readonly nodes: ReadonlyArray<{
+            readonly commit: {
+              readonly statusCheckRollup: { readonly state: string } | null
+            }
+          }>
+        }
+      }>
+    }
+  } | null
+}
+
+interface ListBranchesResponse {
+  readonly repository: {
+    readonly refs: {
+      readonly nodes: ReadonlyArray<{
+        readonly name: string
+        readonly branchProtectionRule: { readonly id: string } | null
+      }>
+      readonly pageInfo: { readonly hasNextPage: boolean }
+    }
+  } | null
+}
+
+interface BranchExistsResponse {
+  readonly repository: {
+    readonly ref: { readonly name: string } | null
+  } | null
+}
+
+const mapChecks = (
+  s: string | null | undefined
+): RawBranchEntry["checks"] => {
+  if (!s) return "none"
+  if (s === "SUCCESS") return "passing"
+  if (s === "FAILURE" || s === "ERROR") return "failing"
+  if (s === "PENDING" || s === "EXPECTED") return "pending"
+  return "neutral"
+}
+
+const projectStatesFromResponse = (
+  data: FetchProjectStatesResponse
+): RawProjectStates | null => {
+  if (!data.repository) return null
+  const existingBranches = new Set(
+    data.repository.refs.nodes.map((r) => r.name)
+  )
+  const prByBranch = new Map<string, RawBranchEntry>()
+  for (const pr of data.repository.pullRequests.nodes) {
+    if (prByBranch.has(pr.headRefName)) continue
+    prByBranch.set(pr.headRefName, {
+      headRefName: pr.headRefName,
+      baseRefName: pr.baseRefName,
+      state:
+        pr.state === "MERGED"
+          ? "merged"
+          : pr.state === "CLOSED"
+            ? "closed"
+            : "open",
+      draft: pr.isDraft,
+      number: pr.number,
+      url: pr.url,
+      title: pr.title,
+      mergedAt: pr.mergedAt
+        ? DateTime.toDate(DateTime.unsafeMake(pr.mergedAt))
+        : null,
+      checks: mapChecks(pr.commits.nodes[0]?.commit.statusCheckRollup?.state)
+    })
+  }
+  return {
+    defaultBranch: data.repository.defaultBranchRef?.name ?? "main",
+    existingBranches,
+    prByBranch
+  }
+}
+
+const branchListFromResponse = (
+  data: ListBranchesResponse
+): BranchListResponse | null => {
+  if (!data.repository) return null
+  return {
+    items: data.repository.refs.nodes.map((n) => ({
+      name: n.name,
+      isProtected: n.branchProtectionRule !== null
+    })),
+    hasMore: data.repository.refs.pageInfo.hasNextPage
+  }
 }
 
 export const GitHubLive = Layer.effect(
@@ -143,9 +310,6 @@ export const GitHubLive = Layer.effect(
   Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
 
-    // Fetch token, mapping `NoGithubToken` → `GitHubTokenExpired` for the
-    // wire. Anything else from Better Auth is a server-side bug — let it
-    // bubble as a defect.
     const tokenFor = (
       userId: string
     ): Effect.Effect<string, GitHubTokenExpired> =>
@@ -193,21 +357,28 @@ export const GitHubLive = Layer.effect(
         )
       )
 
+    const installationTokenCache = yield* Cache.make({
+      capacity: 256,
+      timeToLive: Duration.minutes(50),
+      lookup: (installationId: string) =>
+        Effect.gen(function* () {
+          const auth = yield* appAuth()
+          const result = yield* Effect.tryPromise({
+            try: () =>
+              auth({
+                type: "installation",
+                installationId: Number(installationId)
+              }),
+            catch: (cause) => new GitHubError({ message: String(cause) })
+          })
+          return result.token
+        })
+    })
+
     const installationTokenFor = (
       installationId: string
     ): Effect.Effect<string, GitHubError> =>
-      Effect.gen(function* () {
-        const auth = yield* appAuth()
-        const result = yield* Effect.tryPromise({
-          try: () =>
-            auth({
-              type: "installation",
-              installationId: Number(installationId)
-            }),
-          catch: (cause) => new GitHubError({ message: String(cause) })
-        })
-        return result.token
-      })
+      installationTokenCache.get(installationId)
 
     const appToken = (): Effect.Effect<string, GitHubError> =>
       Effect.gen(function* () {
@@ -222,136 +393,29 @@ export const GitHubLive = Layer.effect(
     const fetchProjectStatesWithToken = (
       token: string,
       owner: string,
-      name: string
+      name: string,
+      tokenSource: "user" | "installation"
     ): Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError> =>
       Effect.gen(function* () {
         const gql = graphqlFor(token)
-        const now = yield* nowSeconds
-
-        interface QResult {
-          repository: {
-            defaultBranchRef: { name: string } | null
-            refs: { nodes: ReadonlyArray<{ name: string }> }
-            pullRequests: {
-              nodes: ReadonlyArray<{
-                number: number
-                title: string
-                url: string
-                state: "OPEN" | "CLOSED" | "MERGED"
-                isDraft: boolean
-                headRefName: string
-                baseRefName: string
-                mergedAt: string | null
-                commits: {
-                  nodes: ReadonlyArray<{
-                    commit: {
-                      statusCheckRollup: { state: string } | null
-                    }
-                  }>
-                }
-              }>
-            }
-          } | null
-        }
-
-        const data = yield* Effect.tryPromise({
-          try: () =>
-            gql<QResult>(
-              /* GraphQL */ `
-                query Q($owner: String!, $name: String!) {
-                  repository(owner: $owner, name: $name) {
-                    defaultBranchRef {
-                      name
-                    }
-                    refs(refPrefix: "refs/heads/", first: 100) {
-                      nodes {
-                        name
-                      }
-                    }
-                    pullRequests(
-                      states: [OPEN, MERGED, CLOSED]
-                      first: 100
-                      orderBy: { field: UPDATED_AT, direction: DESC }
-                    ) {
-                      nodes {
-                        number
-                        title
-                        url
-                        state
-                        isDraft
-                        headRefName
-                        baseRefName
-                        mergedAt
-                        commits(last: 1) {
-                          nodes {
-                            commit {
-                              statusCheckRollup {
-                                state
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              `,
-              { owner, name }
-            ),
-          catch: (cause): RepoGone | RateLimited | GitHubError => {
-            const err = mapHttpError(cause, now)
-            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
-              return err
-            }
-            return new GitHubError({ message: err._tag })
-          }
-        })
-
-        if (!data.repository) return yield* new RepoGone()
-
-        const existingBranches = new Set(
-          data.repository.refs.nodes.map((r) => r.name)
+        const data = yield* githubRequest(
+          {
+            tokenSource,
+            operation: "fetchProjectStates",
+            repoOwner: owner,
+            repoName: name
+          },
+          (signal) =>
+            gql<FetchProjectStatesResponse>(FETCH_PROJECT_STATES_QUERY, {
+              owner,
+              name,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
         )
-        const mapChecks = (
-          s: string | null | undefined
-        ): RawBranchEntry["checks"] => {
-          if (!s) return "none"
-          if (s === "SUCCESS") return "passing"
-          if (s === "FAILURE" || s === "ERROR") return "failing"
-          if (s === "PENDING" || s === "EXPECTED") return "pending"
-          return "neutral"
-        }
-        const prByBranch = new Map<string, RawBranchEntry>()
-        for (const pr of data.repository.pullRequests.nodes) {
-          const existing = prByBranch.get(pr.headRefName)
-          if (existing) continue
-          prByBranch.set(pr.headRefName, {
-            headRefName: pr.headRefName,
-            baseRefName: pr.baseRefName,
-            state:
-              pr.state === "MERGED"
-                ? "merged"
-                : pr.state === "CLOSED"
-                  ? "closed"
-                  : "open",
-            draft: pr.isDraft,
-            number: pr.number,
-            url: pr.url,
-            title: pr.title,
-            mergedAt: pr.mergedAt
-              ? DateTime.toDate(DateTime.unsafeMake(pr.mergedAt))
-              : null,
-            checks: mapChecks(
-              pr.commits.nodes[0]?.commit.statusCheckRollup?.state
-            )
-          })
-        }
-
-        return {
-          defaultBranch: data.repository.defaultBranchRef?.name ?? "main",
-          existingBranches,
-          prByBranch
-        }
+        const result = projectStatesFromResponse(data)
+        if (!result) return yield* new RepoGone()
+        return result
       })
 
     const listBranchesWithToken = (
@@ -359,474 +423,375 @@ export const GitHubLive = Layer.effect(
       owner: string,
       name: string,
       query: string | undefined,
-      first: number
+      first: number,
+      tokenSource: "user" | "installation"
     ): Effect.Effect<
       BranchListResponse,
       RepoGone | RateLimited | GitHubError
     > =>
       Effect.gen(function* () {
         const gql = graphqlFor(token)
-        const now = yield* nowSeconds
-
-        interface QResult {
-          repository: {
-            refs: {
-              nodes: ReadonlyArray<{
-                name: string
-                branchProtectionRule: { id: string } | null
-              }>
-              pageInfo: { hasNextPage: boolean }
-            }
-          } | null
-        }
-
-        const data = yield* Effect.tryPromise({
-          try: () =>
-            gql<QResult>(
-              /* GraphQL */ `
-                query Q(
-                  $owner: String!
-                  $name: String!
-                  $q: String
-                  $first: Int!
-                ) {
-                  repository(owner: $owner, name: $name) {
-                    refs(
-                      refPrefix: "refs/heads/"
-                      query: $q
-                      first: $first
-                      orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
-                    ) {
-                      nodes {
-                        name
-                        branchProtectionRule {
-                          id
-                        }
-                      }
-                      pageInfo {
-                        hasNextPage
-                      }
-                    }
-                  }
-                }
-              `,
-              { owner, name, q: query ?? null, first }
-            ),
-          catch: (cause): RepoGone | RateLimited | GitHubError => {
-            const err = mapHttpError(cause, now)
-            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
-              return err
-            }
-            return new GitHubError({ message: err._tag })
-          }
-        })
-
-        if (!data.repository) return yield* new RepoGone()
-        return {
-          items: data.repository.refs.nodes.map((n) => ({
-            name: n.name,
-            isProtected: n.branchProtectionRule !== null
-          })),
-          hasMore: data.repository.refs.pageInfo.hasNextPage
-        }
+        const data = yield* githubRequest(
+          {
+            tokenSource,
+            operation: "listBranches",
+            repoOwner: owner,
+            repoName: name,
+            query: query ?? null,
+            first
+          },
+          (signal) =>
+            gql<ListBranchesResponse>(LIST_BRANCHES_QUERY, {
+              owner,
+              name,
+              q: query ?? null,
+              first,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
+        )
+        const result = branchListFromResponse(data)
+        if (!result) return yield* new RepoGone()
+        return result
       })
 
     const branchExistsWithToken = (
       token: string,
       owner: string,
       name: string,
-      branch: string
+      branch: string,
+      tokenSource: "user" | "installation"
     ): Effect.Effect<boolean, RepoGone | RateLimited | GitHubError> =>
       Effect.gen(function* () {
         const gql = graphqlFor(token)
-        const now = yield* nowSeconds
-
-        interface QResult {
-          repository: {
-            ref: { name: string } | null
-          } | null
-        }
-
-        const data = yield* Effect.tryPromise({
-          try: () =>
-            gql<QResult>(
-              /* GraphQL */ `
-                query Q($owner: String!, $name: String!, $ref: String!) {
-                  repository(owner: $owner, name: $name) {
-                    ref(qualifiedName: $ref) {
-                      name
-                    }
-                  }
-                }
-              `,
-              { owner, name, ref: `refs/heads/${branch}` }
-            ),
-          catch: (cause): RepoGone | RateLimited | GitHubError => {
-            const err = mapHttpError(cause, now)
-            if (err._tag === "RepoGone" || err._tag === "RateLimited") {
-              return err
-            }
-            return new GitHubError({ message: err._tag })
-          }
-        })
-
+        const data = yield* githubRequest(
+          {
+            tokenSource,
+            operation: "branchExists",
+            repoOwner: owner,
+            repoName: name,
+            branch
+          },
+          (signal) =>
+            gql<BranchExistsResponse>(BRANCH_EXISTS_QUERY, {
+              owner,
+              name,
+              ref: `refs/heads/${branch}`,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
+        )
         if (!data.repository) return yield* new RepoGone()
         return data.repository.ref !== null
       })
 
-    const listUserRepos = (
+    const listUserRepos = Effect.fn("GitHub.listUserRepos")(function* (
       userId: string,
       query: string | undefined,
       page: number
-    ): Effect.Effect<
-      GithubRepoPage,
-      GitHubTokenExpired | GitHubScopeInsufficient | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "listUserRepos",
-        { userId, query: query ?? null, page },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const perPage = 30
-
-          const result = yield* Effect.tryPromise({
-            try: async () => {
-              if (query && query.trim()) {
-                const me = await octokit.rest.users.getAuthenticated()
-                const res = await octokit.rest.search.repos({
-                  q: `${query} user:${me.data.login} fork:true`,
-                  per_page: perPage,
-                  page
-                })
-                return {
-                  items: res.data.items.map((r) => ({
-                    id: String(r.id),
-                    owner: r.owner?.login ?? "",
-                    name: r.name,
-                    defaultBranch: r.default_branch,
-                    private: r.private,
-                    description: r.description ?? null
-                  })),
-                  hasMore: res.data.items.length === perPage
-                }
-              }
-              const res = await octokit.rest.repos.listForAuthenticatedUser({
-                per_page: perPage,
-                page,
-                sort: "pushed",
-                affiliation: "owner,collaborator,organization_member"
-              })
-              return {
-                items: res.data.map((r) => ({
-                  id: String(r.id),
-                  owner: r.owner.login,
-                  name: r.name,
-                  defaultBranch: r.default_branch,
-                  private: r.private,
-                  description: r.description ?? null
-                })),
-                hasMore: res.data.length === perPage
-              }
-            },
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "GitHubTokenExpired" ||
-              e._tag === "GitHubScopeInsufficient" ||
-              e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: String(e) }))
-            )
-          )
-          return {
-            repos: result.items.map((r) => GithubRepo.make(r)),
-            hasMore: result.hasMore
-          }
-        })
-      )
-
-    const verifyAccess = (
-      owner: string,
-      name: string,
-      userId: string
-    ): Effect.Effect<
-      { defaultBranch: string },
-      GitHubTokenExpired | GitHubScopeInsufficient | RepoGone | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "verifyAccess",
-        { userId, repoOwner: owner, repoName: name },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const data = yield* Effect.tryPromise({
-            try: () => octokit.rest.repos.get({ owner, repo: name }),
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "GitHubTokenExpired" ||
-              e._tag === "GitHubScopeInsufficient" ||
-              e._tag === "RepoGone" ||
-              e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: String(e) }))
-            )
-          )
-          // We require push access — branch creation needs it. permissions
-          // is populated when the token can see the repo at all.
-          if (data.data.permissions && !data.data.permissions.push) {
-            return yield* new GitHubScopeInsufficient()
-          }
-          return { defaultBranch: data.data.default_branch }
-        })
-      )
-
-    const getInstallationAccount = (
-      installationId: string
-    ): Effect.Effect<GitHubInstallationAccount, RepoGone | GitHubError> =>
-      withGitHubTelemetry(
-        "getInstallationAccount",
-        { installationId },
-        Effect.gen(function* () {
-          const token = yield* appToken()
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const result = yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.apps.getInstallation({
-                installation_id: Number(installationId)
-              }),
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "RepoGone" || e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: e._tag }))
-            )
-          )
-          const account = result.data.account
-          if (!account)
-            return yield* new GitHubError({ message: "missing account" })
-          const accountLogin = "login" in account ? account.login : account.slug
-          const accountType =
-            "type" in account && account.type === "Organization"
-              ? "Organization"
-              : "User"
-          return {
-            installationId,
-            accountId: String(account.id),
-            accountLogin,
-            accountType
-          }
-        })
-      )
-
-    const listInstallationRepos = (
-      installationId: string,
-      query: string | undefined,
-      page: number
-    ): Effect.Effect<GithubRepoPage, RepoGone | RateLimited | GitHubError> =>
-      withGitHubTelemetry(
-        "listInstallationRepos",
-        { installationId, query: query ?? null, page },
-        Effect.gen(function* () {
-          const token = yield* installationTokenFor(installationId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const perPage = 30
-          const response = yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.apps.listReposAccessibleToInstallation({
-                per_page: perPage,
-                page
-              }),
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "RepoGone" ||
-              e._tag === "RateLimited" ||
-              e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: e._tag }))
-            )
-          )
-          const q = query?.trim().toLowerCase()
-          const repos = response.data.repositories
-            .filter((r) => {
-              if (!q) return true
-              return `${r.owner.login}/${r.name}`.toLowerCase().includes(q)
+    ) {
+      const token = yield* tokenFor(userId)
+      const octokit = octokitFor(token)
+      const perPage = 30
+      const result = yield* githubRequest(
+        {
+          tokenSource: "user",
+          operation: "listUserRepos",
+          userId,
+          query: query ?? null,
+          page
+        },
+        async (signal) => {
+          if (query && query.trim()) {
+            const me = await octokit.rest.users.getAuthenticated({
+              request: { signal }
             })
-            .map((r) =>
-              GithubRepo.make({
+            const res = await octokit.rest.search.repos({
+              q: `${query} user:${me.data.login} fork:true`,
+              per_page: perPage,
+              page,
+              request: { signal }
+            })
+            return {
+              items: res.data.items.map((r) => ({
                 id: String(r.id),
-                owner: r.owner.login,
+                owner: r.owner?.login ?? "",
                 name: r.name,
                 defaultBranch: r.default_branch,
                 private: r.private,
                 description: r.description ?? null
-              })
-            )
-          return {
-            repos,
-            hasMore: response.data.repositories.length === perPage
+              })),
+              hasMore: res.data.items.length === perPage
+            }
           }
-        })
+          const res = await octokit.rest.repos.listForAuthenticatedUser({
+            per_page: perPage,
+            page,
+            sort: "pushed",
+            affiliation: "owner,collaborator,organization_member",
+            request: { signal }
+          })
+          return {
+            items: res.data.map((r) => ({
+              id: String(r.id),
+              owner: r.owner.login,
+              name: r.name,
+              defaultBranch: r.default_branch,
+              private: r.private,
+              description: r.description ?? null
+            })),
+            hasMore: res.data.length === perPage
+          }
+        },
+        narrow(["GitHubTokenExpired", "GitHubScopeInsufficient"] as const)
       )
+      return {
+        repos: result.items.map((r) => GithubRepo.make(r)),
+        hasMore: result.hasMore
+      }
+    })
 
-    const verifyInstallationRepo = (
-      installationId: string,
+    const verifyAccess = Effect.fn("GitHub.verifyAccess")(function* (
       owner: string,
-      name: string
-    ): Effect.Effect<VerifiedInstallationRepo, RepoGone | GitHubError> =>
-      withGitHubTelemetry(
-        "verifyInstallationRepo",
-        { installationId, repoOwner: owner, repoName: name },
-        Effect.gen(function* () {
-          const token = yield* installationTokenFor(installationId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const response = yield* Effect.tryPromise({
-            try: () => octokit.rest.repos.get({ owner, repo: name }),
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "RepoGone" || e._tag === "GitHubError"
-                ? Effect.fail(e)
-                : Effect.fail(new GitHubError({ message: e._tag }))
-            )
-          )
-          return {
-            repoId: String(response.data.id),
-            owner: response.data.owner.login,
-            name: response.data.name,
-            defaultBranch: response.data.default_branch
-          }
-        })
+      name: string,
+      userId: string
+    ) {
+      const token = yield* tokenFor(userId)
+      const octokit = octokitFor(token)
+      const data = yield* githubRequest(
+        {
+          tokenSource: "user",
+          operation: "verifyAccess",
+          userId,
+          repoOwner: owner,
+          repoName: name
+        },
+        (signal) =>
+          octokit.rest.repos.get({ owner, repo: name, request: { signal } }),
+        narrow([
+          "GitHubTokenExpired",
+          "GitHubScopeInsufficient",
+          "RepoGone"
+        ] as const)
       )
+      if (data.data.permissions && !data.data.permissions.push) {
+        return yield* new GitHubScopeInsufficient()
+      }
+      return { defaultBranch: data.data.default_branch }
+    })
 
-    const exchangeAppUserCode = (
-      code: string
-    ): Effect.Effect<string, GitHubError> =>
-      withGitHubTelemetry(
-        "exchangeAppUserCode",
-        {},
-        Effect.gen(function* () {
-          const auth = yield* appAuth()
-          const result = yield* Effect.tryPromise({
-            try: () => auth({ type: "oauth-user", code }),
-            catch: (cause) => new GitHubError({ message: String(cause) })
+    const getInstallationAccount = Effect.fn("GitHub.getInstallationAccount")(
+      function* (installationId: string) {
+        const token = yield* appToken()
+        const octokit = octokitFor(token)
+        const result = yield* githubRequest(
+          {
+            tokenSource: "installation",
+            operation: "getInstallationAccount",
+            installationId
+          },
+          (signal) =>
+            octokit.rest.apps.getInstallation({
+              installation_id: Number(installationId),
+              request: { signal }
+            }),
+          narrow(["RepoGone"] as const)
+        )
+        const account = result.data.account
+        if (!account)
+          return yield* new GitHubError({ message: "missing account" })
+        const accountLogin = "login" in account ? account.login : account.slug
+        const accountType =
+          "type" in account && account.type === "Organization"
+            ? "Organization"
+            : "User"
+        return {
+          installationId,
+          accountId: String(account.id),
+          accountLogin,
+          accountType
+        } satisfies GitHubInstallationAccount
+      }
+    )
+
+    const listInstallationRepos = Effect.fn("GitHub.listInstallationRepos")(
+      function* (
+        installationId: string,
+        query: string | undefined,
+        page: number
+      ) {
+        const token = yield* installationTokenFor(installationId)
+        const octokit = octokitFor(token)
+        const perPage = 30
+        const response = yield* githubRequest(
+          {
+            tokenSource: "installation",
+            operation: "listInstallationRepos",
+            installationId,
+            query: query ?? null,
+            page
+          },
+          (signal) =>
+            octokit.rest.apps.listReposAccessibleToInstallation({
+              per_page: perPage,
+              page,
+              request: { signal }
+            }),
+          narrow(["RepoGone", "RateLimited"] as const)
+        )
+        const q = query?.trim().toLowerCase()
+        const repos = response.data.repositories
+          .filter((r) => {
+            if (!q) return true
+            return `${r.owner.login}/${r.name}`.toLowerCase().includes(q)
           })
-          return result.token
-        })
-      )
-
-    const appUserCanAccessInstallation = (
-      userAccessToken: string,
-      installationId: string
-    ): Effect.Effect<boolean, GitHubError> =>
-      withGitHubTelemetry(
-        "appUserCanAccessInstallation",
-        { installationId },
-        Effect.gen(function* () {
-          const octokit = octokitFor(userAccessToken)
-          const response = yield* Effect.tryPromise({
-            try: () =>
-              octokit.request("GET /user/installations", {
-                per_page: 100
-              }),
-            catch: (cause) =>
-              new GitHubError({
-                message:
-                  typeof (cause as { message?: unknown }).message === "string"
-                    ? String((cause as { message: string }).message)
-                    : "GitHub error"
-              })
-          })
-          return response.data.installations.some(
-            (installation) => String(installation.id) === installationId
+          .map((r) =>
+            GithubRepo.make({
+              id: String(r.id),
+              owner: r.owner.login,
+              name: r.name,
+              defaultBranch: r.default_branch,
+              private: r.private,
+              description: r.description ?? null
+            })
           )
-        })
-      )
+        return {
+          repos,
+          hasMore: response.data.repositories.length === perPage
+        } satisfies GithubRepoPage
+      }
+    )
 
-    const createBranch = (
+    const verifyInstallationRepo = Effect.fn("GitHub.verifyInstallationRepo")(
+      function* (installationId: string, owner: string, name: string) {
+        const token = yield* installationTokenFor(installationId)
+        const octokit = octokitFor(token)
+        const response = yield* githubRequest(
+          {
+            tokenSource: "installation",
+            operation: "verifyInstallationRepo",
+            installationId,
+            repoOwner: owner,
+            repoName: name
+          },
+          (signal) =>
+            octokit.rest.repos.get({ owner, repo: name, request: { signal } }),
+          narrow(["RepoGone"] as const)
+        )
+        return {
+          repoId: String(response.data.id),
+          owner: response.data.owner.login,
+          name: response.data.name,
+          defaultBranch: response.data.default_branch
+        } satisfies VerifiedInstallationRepo
+      }
+    )
+
+    const exchangeAppUserCode = Effect.fn("GitHub.exchangeAppUserCode")(
+      function* (code: string) {
+        const auth = yield* appAuth()
+        const result = yield* Effect.tryPromise({
+          try: () => auth({ type: "oauth-user", code }),
+          catch: (cause) => new GitHubError({ message: String(cause) })
+        }).pipe(
+          Effect.annotateLogs({
+            module: "GitHub",
+            operation: "exchangeAppUserCode",
+            tokenSource: "user"
+          })
+        )
+        return result.token
+      }
+    )
+
+    const appUserCanAccessInstallation = Effect.fn(
+      "GitHub.appUserCanAccessInstallation"
+    )(function* (userAccessToken: string, installationId: string) {
+      const octokit = octokitFor(userAccessToken)
+      const response = yield* githubRequest(
+        {
+          tokenSource: "user",
+          operation: "appUserCanAccessInstallation",
+          installationId
+        },
+        (signal) =>
+          octokit.request("GET /user/installations", {
+            per_page: 100,
+            request: { signal }
+          }),
+        (cause) =>
+          new GitHubError({
+            message:
+              typeof (cause as { message?: unknown }).message === "string"
+                ? String((cause as { message: string }).message)
+                : "GitHub error"
+          })
+      )
+      return response.data.installations.some(
+        (installation) => String(installation.id) === installationId
+      )
+    })
+
+    const createBranch = Effect.fn("GitHub.createBranch")(function* (
       owner: string,
       name: string,
       branchName: string,
       baseBranch: string,
       userId: string
-    ): Effect.Effect<
-      { name: string; sha: string },
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | BranchExists
-      | BranchProtected
-      | RateLimited
-      | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "createBranch",
-        {
-          userId,
-          repoOwner: owner,
-          repoName: name,
-          branchName,
-          baseBranch
-        },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-
-          const base = yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.repos.getBranch({
-                owner,
-                repo: name,
-                branch: baseBranch
-              }),
-            catch: (cause) => mapHttpError(cause, now)
-          }).pipe(
-            Effect.catchAll((e) =>
-              e._tag === "RepoGone"
-                ? // 404 here usually means base branch typo, not the whole repo.
-                  // Map to GitHubError with a helpful message rather than RepoGone.
-                  Effect.fail(
-                    new GitHubError({
-                      message: `base branch "${baseBranch}" not found`
-                    })
-                  )
-                : Effect.fail(e as GitHubFailure)
-            )
-          )
-          const sha = base.data.commit.sha
-
-          yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.git.createRef({
-                owner,
-                repo: name,
-                ref: `refs/heads/${branchName}`,
-                sha
-              }),
-            catch: (cause) => {
-              const err = mapHttpError(cause, now)
-              if (err._tag === "BranchExists")
-                return new BranchExists({ branch: branchName })
-              if (err._tag === "BranchProtected")
-                return new BranchProtected({ branch: branchName })
-              return err
-            }
-          })
-
-          return { name: branchName, sha }
-        })
+    ) {
+      const token = yield* tokenFor(userId)
+      const octokit = octokitFor(token)
+      const ctx = {
+        tokenSource: "user" as const,
+        userId,
+        repoOwner: owner,
+        repoName: name,
+        branchName,
+        baseBranch
+      }
+      const base = yield* githubRequest(
+        { ...ctx, operation: "createBranch.getBranch" },
+        (signal) =>
+          octokit.rest.repos.getBranch({
+            owner,
+            repo: name,
+            branch: baseBranch,
+            request: { signal }
+          }),
+        (cause, now) => {
+          const err = mapHttpError(cause, now)
+          if (err._tag === "RepoGone") {
+            return new GitHubError({
+              message: `base branch "${baseBranch}" not found`
+            })
+          }
+          return err
+        }
       )
+      const sha = base.data.commit.sha
+      yield* githubRequest(
+        { ...ctx, operation: "createBranch.createRef" },
+        (signal) =>
+          octokit.rest.git.createRef({
+            owner,
+            repo: name,
+            ref: `refs/heads/${branchName}`,
+            sha,
+            request: { signal }
+          }),
+        (cause, now) => {
+          const err = mapHttpError(cause, now)
+          if (err._tag === "BranchExists")
+            return new BranchExists({ branch: branchName })
+          if (err._tag === "BranchProtected")
+            return new BranchProtected({ branch: branchName })
+          return err
+        }
+      )
+      return { name: branchName, sha }
+    })
 
-    const openPullRequest = (
+    const openPullRequest = Effect.fn("GitHub.openPullRequest")(function* (
       owner: string,
       name: string,
       args: {
@@ -837,18 +802,13 @@ export const GitHubLive = Layer.effect(
         draft: boolean
       },
       userId: string
-    ): Effect.Effect<
-      { number: number; url: string },
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | BranchProtected
-      | RateLimited
-      | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "openPullRequest",
+    ) {
+      const token = yield* tokenFor(userId)
+      const octokit = octokitFor(token)
+      const result = yield* githubRequest(
         {
+          tokenSource: "user",
+          operation: "openPullRequest",
           userId,
           repoOwner: owner,
           repoName: name,
@@ -856,444 +816,120 @@ export const GitHubLive = Layer.effect(
           base: args.base,
           draft: args.draft
         },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const octokit = octokitFor(token)
-          const now = yield* nowSeconds
-          const result = yield* Effect.tryPromise({
-            try: () =>
-              octokit.rest.pulls.create({
-                owner,
-                repo: name,
-                head: args.head,
-                base: args.base,
-                title: args.title,
-                body: args.body,
-                draft: args.draft
-              }),
-            catch: (cause) => {
-              const err = mapHttpError(cause, now)
-              // No "BranchExists" mapping for PRs; treat as GitHubError.
-              if (err._tag === "BranchExists") {
-                return new GitHubError({
-                  message: "PR already exists for this branch"
-                })
-              }
-              if (err._tag === "BranchProtected") {
-                return new BranchProtected({ branch: args.head })
-              }
-              return err
-            }
-          })
-          return {
-            number: result.data.number,
-            url: result.data.html_url
-          }
-        })
-      )
-
-    // Single GraphQL query: default branch + recent PRs (any state) + all
-    // branches. Caller resolves per-ticket state by looking up the ticket's
-    // branch name in the response. PoC scale assumption: ≤100 branches and
-    // ≤100 recent PRs covers any solo project. If we outgrow that, paginate.
-    const fetchProjectStates = (
-      owner: string,
-      name: string,
-      userId: string
-    ): Effect.Effect<
-      RawProjectStates,
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "fetchProjectStates",
-        { userId, repoOwner: owner, repoName: name },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const gql = graphqlFor(token)
-          const now = yield* nowSeconds
-
-          interface QResult {
-            repository: {
-              defaultBranchRef: { name: string } | null
-              refs: { nodes: ReadonlyArray<{ name: string }> }
-              pullRequests: {
-                nodes: ReadonlyArray<{
-                  number: number
-                  title: string
-                  url: string
-                  state: "OPEN" | "CLOSED" | "MERGED"
-                  isDraft: boolean
-                  headRefName: string
-                  baseRefName: string
-                  mergedAt: string | null
-                  commits: {
-                    nodes: ReadonlyArray<{
-                      commit: {
-                        statusCheckRollup: { state: string } | null
-                      }
-                    }>
-                  }
-                }>
-              }
-            } | null
-          }
-
-          const data = yield* Effect.tryPromise({
-            try: () =>
-              gql<QResult>(
-                /* GraphQL */ `
-                  query Q($owner: String!, $name: String!) {
-                    repository(owner: $owner, name: $name) {
-                      defaultBranchRef {
-                        name
-                      }
-                      refs(refPrefix: "refs/heads/", first: 100) {
-                        nodes {
-                          name
-                        }
-                      }
-                      pullRequests(
-                        states: [OPEN, MERGED, CLOSED]
-                        first: 100
-                        orderBy: { field: UPDATED_AT, direction: DESC }
-                      ) {
-                        nodes {
-                          number
-                          title
-                          url
-                          state
-                          isDraft
-                          headRefName
-                          baseRefName
-                          mergedAt
-                          commits(last: 1) {
-                            nodes {
-                              commit {
-                                statusCheckRollup {
-                                  state
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                `,
-                { owner, name }
-              ),
-            catch: (
-              cause
-            ):
-              | GitHubTokenExpired
-              | GitHubScopeInsufficient
-              | RepoGone
-              | RateLimited
-              | GitHubError => {
-              const err = mapHttpError(cause, now)
-              if (
-                err._tag === "BranchExists" ||
-                err._tag === "BranchProtected"
-              ) {
-                return new GitHubError({
-                  message: "unexpected GitHub response"
-                })
-              }
-              return err
-            }
-          })
-
-          if (!data.repository) return yield* new RepoGone()
-
-          const existingBranches = new Set(
-            data.repository.refs.nodes.map((r) => r.name)
-          )
-
-          // Map check rollup state to our ChecksStatus union. GitHub returns
-          // SUCCESS / FAILURE / PENDING / ERROR / EXPECTED. We collapse:
-          //   SUCCESS              → passing
-          //   FAILURE | ERROR      → failing
-          //   PENDING | EXPECTED   → pending
-          //   anything else        → neutral
-          const mapChecks = (
-            s: string | null | undefined
-          ): RawBranchEntry["checks"] => {
-            if (!s) return "none"
-            if (s === "SUCCESS") return "passing"
-            if (s === "FAILURE" || s === "ERROR") return "failing"
-            if (s === "PENDING" || s === "EXPECTED") return "pending"
-            return "neutral"
-          }
-
-          const prByBranch = new Map<string, RawBranchEntry>()
-          for (const pr of data.repository.pullRequests.nodes) {
-            const existing = prByBranch.get(pr.headRefName)
-            // Latest first (sorted desc), so first write wins; we skip
-            // older PRs for the same branch.
-            if (existing) continue
-            prByBranch.set(pr.headRefName, {
-              headRefName: pr.headRefName,
-              baseRefName: pr.baseRefName,
-              state:
-                pr.state === "MERGED"
-                  ? "merged"
-                  : pr.state === "CLOSED"
-                    ? "closed"
-                    : "open",
-              draft: pr.isDraft,
-              number: pr.number,
-              url: pr.url,
-              title: pr.title,
-              mergedAt: pr.mergedAt
-                ? DateTime.toDate(DateTime.unsafeMake(pr.mergedAt))
-                : null,
-              checks: mapChecks(
-                pr.commits.nodes[0]?.commit.statusCheckRollup?.state
-              )
+        (signal) =>
+          octokit.rest.pulls.create({
+            owner,
+            repo: name,
+            head: args.head,
+            base: args.base,
+            title: args.title,
+            body: args.body,
+            draft: args.draft,
+            request: { signal }
+          }),
+        (cause, now) => {
+          const err = mapHttpError(cause, now)
+          if (err._tag === "BranchExists") {
+            return new GitHubError({
+              message: "PR already exists for this branch"
             })
           }
-
-          return {
-            defaultBranch: data.repository.defaultBranchRef?.name ?? "main",
-            existingBranches,
-            prByBranch
+          if (err._tag === "BranchProtected") {
+            return new BranchProtected({ branch: args.head })
           }
-        })
+          return err
+        }
       )
+      return {
+        number: result.data.number,
+        url: result.data.html_url
+      }
+    })
 
-    // List branches via GraphQL refs(query:). Server-side fuzzy match means
-    // a typing user gets results without us paging through hundreds of refs.
-    // Caller passes `first` to cap page size.
-    const listBranches = (
+    const fetchProjectStates = Effect.fn("GitHub.fetchProjectStates")(
+      function* (owner: string, name: string, userId: string) {
+        const token = yield* tokenFor(userId)
+        return yield* fetchProjectStatesWithToken(token, owner, name, "user")
+      }
+    )
+
+    const listBranches = Effect.fn("GitHub.listBranches")(function* (
       owner: string,
       name: string,
       query: string | undefined,
       first: number,
       userId: string
-    ): Effect.Effect<
-      BranchListResponse,
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "listBranches",
-        {
-          userId,
-          repoOwner: owner,
-          repoName: name,
-          query: query ?? null,
-          first
-        },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const gql = graphqlFor(token)
-          const now = yield* nowSeconds
-
-          interface QResult {
-            repository: {
-              refs: {
-                nodes: ReadonlyArray<{
-                  name: string
-                  branchProtectionRule: { id: string } | null
-                }>
-                pageInfo: { hasNextPage: boolean }
-              }
-            } | null
-          }
-
-          const data = yield* Effect.tryPromise({
-            try: () =>
-              gql<QResult>(
-                /* GraphQL */ `
-                  query Q(
-                    $owner: String!
-                    $name: String!
-                    $q: String
-                    $first: Int!
-                  ) {
-                    repository(owner: $owner, name: $name) {
-                      refs(
-                        refPrefix: "refs/heads/"
-                        query: $q
-                        first: $first
-                        orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
-                      ) {
-                        nodes {
-                          name
-                          branchProtectionRule {
-                            id
-                          }
-                        }
-                        pageInfo {
-                          hasNextPage
-                        }
-                      }
-                    }
-                  }
-                `,
-                { owner, name, q: query ?? null, first }
-              ),
-            catch: (
-              cause
-            ):
-              | GitHubTokenExpired
-              | GitHubScopeInsufficient
-              | RepoGone
-              | RateLimited
-              | GitHubError => {
-              const err = mapHttpError(cause, now)
-              if (
-                err._tag === "BranchExists" ||
-                err._tag === "BranchProtected"
-              ) {
-                return new GitHubError({
-                  message: "unexpected GitHub response"
-                })
-              }
-              return err
-            }
-          })
-
-          if (!data.repository) return yield* new RepoGone()
-
-          return {
-            items: data.repository.refs.nodes.map((n) => ({
-              name: n.name,
-              isProtected: n.branchProtectionRule !== null
-            })),
-            hasMore: data.repository.refs.pageInfo.hasNextPage
-          }
-        })
+    ) {
+      const token = yield* tokenFor(userId)
+      return yield* listBranchesWithToken(
+        token,
+        owner,
+        name,
+        query,
+        first,
+        "user"
       )
+    })
 
-    // Single GraphQL ref lookup. Returns true when the branch exists on
-    // remote, false when it doesn't. RepoGone bubbles for unknown repos.
-    const branchExists = (
+    const branchExists = Effect.fn("GitHub.branchExists")(function* (
       owner: string,
       name: string,
       branch: string,
       userId: string
-    ): Effect.Effect<
-      boolean,
-      | GitHubTokenExpired
-      | GitHubScopeInsufficient
-      | RepoGone
-      | RateLimited
-      | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "branchExists",
-        { userId, repoOwner: owner, repoName: name, branch },
-        Effect.gen(function* () {
-          const token = yield* tokenFor(userId)
-          const gql = graphqlFor(token)
-          const now = yield* nowSeconds
+    ) {
+      const token = yield* tokenFor(userId)
+      return yield* branchExistsWithToken(token, owner, name, branch, "user")
+    })
 
-          interface QResult {
-            repository: {
-              ref: { name: string } | null
-            } | null
-          }
-
-          const data = yield* Effect.tryPromise({
-            try: () =>
-              gql<QResult>(
-                /* GraphQL */ `
-                  query Q($owner: String!, $name: String!, $ref: String!) {
-                    repository(owner: $owner, name: $name) {
-                      ref(qualifiedName: $ref) {
-                        name
-                      }
-                    }
-                  }
-                `,
-                { owner, name, ref: `refs/heads/${branch}` }
-              ),
-            catch: (
-              cause
-            ):
-              | GitHubTokenExpired
-              | GitHubScopeInsufficient
-              | RepoGone
-              | RateLimited
-              | GitHubError => {
-              const err = mapHttpError(cause, now)
-              if (
-                err._tag === "BranchExists" ||
-                err._tag === "BranchProtected"
-              ) {
-                return new GitHubError({
-                  message: "unexpected GitHub response"
-                })
-              }
-              return err
-            }
-          })
-
-          if (!data.repository) return yield* new RepoGone()
-          return data.repository.ref !== null
-        })
+    const fetchInstallationProjectStates = Effect.fn(
+      "GitHub.fetchInstallationProjectStates"
+    )(function* (installationId: string, owner: string, name: string) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* fetchProjectStatesWithToken(
+        token,
+        owner,
+        name,
+        "installation"
       )
+    })
 
-    const fetchInstallationProjectStates = (
-      installationId: string,
-      owner: string,
-      name: string
-    ): Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError> =>
-      withGitHubTelemetry(
-        "fetchInstallationProjectStates",
-        { installationId, repoOwner: owner, repoName: name },
-        Effect.gen(function* () {
-          const token = yield* installationTokenFor(installationId)
-          return yield* fetchProjectStatesWithToken(token, owner, name)
-        })
-      )
-
-    const listInstallationBranches = (
+    const listInstallationBranches = Effect.fn(
+      "GitHub.listInstallationBranches"
+    )(function* (
       installationId: string,
       owner: string,
       name: string,
       query: string | undefined,
       first: number
-    ): Effect.Effect<
-      BranchListResponse,
-      RepoGone | RateLimited | GitHubError
-    > =>
-      withGitHubTelemetry(
-        "listInstallationBranches",
-        {
-          installationId,
-          repoOwner: owner,
-          repoName: name,
-          query: query ?? null
-        },
-        Effect.gen(function* () {
-          const token = yield* installationTokenFor(installationId)
-          return yield* listBranchesWithToken(token, owner, name, query, first)
-        })
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* listBranchesWithToken(
+        token,
+        owner,
+        name,
+        query,
+        first,
+        "installation"
       )
+    })
 
-    const branchExistsInstallation = (
+    const branchExistsInstallation = Effect.fn(
+      "GitHub.branchExistsInstallation"
+    )(function* (
       installationId: string,
       owner: string,
       name: string,
       branch: string
-    ): Effect.Effect<boolean, RepoGone | RateLimited | GitHubError> =>
-      withGitHubTelemetry(
-        "branchExistsInstallation",
-        { installationId, repoOwner: owner, repoName: name, branch },
-        Effect.gen(function* () {
-          const token = yield* installationTokenFor(installationId)
-          return yield* branchExistsWithToken(token, owner, name, branch)
-        })
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* branchExistsWithToken(
+        token,
+        owner,
+        name,
+        branch,
+        "installation"
       )
+    })
 
     return {
       listUserRepos,

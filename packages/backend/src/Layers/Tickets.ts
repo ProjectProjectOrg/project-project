@@ -1,17 +1,3 @@
-// Tickets service — domain logic over the Markdown store.
-//
-// Tickets live at <org>/<project>/tickets/<id>.md. Every method takes
-// `orgSlug` as its first parameter — same convention as Projects. There's no
-// DB index for tickets: the filesystem IS the store.
-//
-// Permission gate: every method first verifies the caller can see the project
-// (via Projects.requireMember). If the project is missing or not owned by the
-// caller, we return NotFound — same as for an unknown ticket id.
-//
-// Sequential ids: the next id is `max(existing) + 1`. To avoid races between
-// concurrent creates, the markdown layer writes with the `wx` flag (fail on
-// exists) and signals `TicketIdTaken`; we retry with the next id. Bounded.
-
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -773,8 +759,6 @@ export const TicketsLive = Layer.effect(
         yield* ticketDocs.write(orgSlug, slug, id, next)
         return true
       })
-
-    // --- Git operations -------------------------------------------------
 
     const writeGitFields = (
       orgSlug: string,

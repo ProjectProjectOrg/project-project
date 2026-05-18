@@ -155,7 +155,9 @@ export const GitHubIntegrationsLive = Layer.effect(
           return yield* new NotFound()
         }
 
-        const state = randomBytes(32).toString("base64url")
+        const state = yield* Effect.sync(() =>
+          randomBytes(32).toString("base64url")
+        )
         const now = yield* DateTime.now
         const expiresAt = DateTime.toDate(DateTime.add(now, { minutes: 10 }))
         yield* db
