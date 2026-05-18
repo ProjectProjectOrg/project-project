@@ -98,10 +98,7 @@ export const ticketsListAtom = Atom.family((key: string) => {
         })
       })
     )
-    .pipe(
-      Atom.withReactivity(["tickets", orgSlug, slug]),
-      Atom.setIdleTTL("30 seconds")
-    )
+    .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
 })
 
 export const loadMoreTicketsAtom = Atom.family((key: string) => {
@@ -163,10 +160,7 @@ export const ticketsCountAtom = Atom.family((key: string) => {
         })
       })
     )
-    .pipe(
-      Atom.withReactivity(["tickets", orgSlug, slug]),
-      Atom.setIdleTTL("30 seconds")
-    )
+    .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
 })
 
 export const ticketKey = (orgSlug: string, slug: string, id: TicketId) =>

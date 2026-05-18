@@ -1,12 +1,16 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { type ReactNode } from "react"
+import { useRef, type ReactNode } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import {
+  ticketsListAtom,
+  ticketsListKey,
+  type TicketsListValue
+} from "@/atoms/tickets"
 import type {
   Group,
   Member,
@@ -43,6 +47,30 @@ export function TicketList({
   const list = useAtomValue(ticketsListAtom(listKey))
   const resetFilters = useResetTicketSearch()
 
+  const previousListRef = useRef<TicketsListValue | null>(null)
+  if (Result.isSuccess(list)) {
+    previousListRef.current = list.value
+  }
+
+  const hasActiveFilter =
+    (query.filter !== undefined && Object.keys(query.filter).length > 0) ||
+    (query.q !== undefined && query.q.length > 0)
+
+  const renderList = (value: TicketsListValue, waiting: boolean) => (
+    <FilteredList
+      orgSlug={orgSlug}
+      slug={slug}
+      listKey={listKey}
+      items={value.items}
+      nextCursor={value.nextCursor}
+      waiting={waiting}
+      members={members}
+      extraRowActions={extraRowActions}
+      sprintMembership={sprintMembership}
+      hasActiveFilter={hasActiveFilter}
+    />
+  )
+
   return (
     <div className="group/list flex flex-col gap-3">
       {creator ?? <BacklogTicketCreator orgSlug={orgSlug} slug={slug} />}
@@ -57,9 +85,12 @@ export function TicketList({
         />
 
         {Result.matchWithError(list, {
-          onInitial: () => (
-            <div className="skeleton h-24 rounded-xl border border-border bg-background" />
-          ),
+          onInitial: () =>
+            previousListRef.current !== null ? (
+              renderList(previousListRef.current, true)
+            ) : (
+              <div className="skeleton h-24 rounded-xl border border-border bg-background" />
+            ),
           onError: (error) => (
             <Empty
               variant="inline"
@@ -86,24 +117,7 @@ export function TicketList({
               {m.tickets_list_defect({ defect: String(defect) })}
             </Empty>
           ),
-          onSuccess: ({ value, waiting }) => (
-            <FilteredList
-              orgSlug={orgSlug}
-              slug={slug}
-              listKey={listKey}
-              items={value.items}
-              nextCursor={value.nextCursor}
-              waiting={waiting === true}
-              members={members}
-              extraRowActions={extraRowActions}
-              sprintMembership={sprintMembership}
-              hasActiveFilter={
-                (query.filter !== undefined &&
-                  Object.keys(query.filter).length > 0) ||
-                (query.q !== undefined && query.q.length > 0)
-              }
-            />
-          )
+          onSuccess: ({ value, waiting }) => renderList(value, waiting === true)
         })}
       </div>
     </div>

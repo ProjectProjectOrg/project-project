@@ -263,16 +263,23 @@ export function Toolbar({
   const countsResult = useAtomValue(
     ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
   )
-  const counts: Record<TicketStatus | "all", number> = Result.isSuccess(
-    countsResult
+  const previousCountsRef = useRef<Record<TicketStatus | "all", number> | null>(
+    null
   )
-    ? {
-        all: countsResult.value.total,
-        todo: countsResult.value.byStatus.todo ?? 0,
-        in_progress: countsResult.value.byStatus.in_progress ?? 0,
-        done: countsResult.value.byStatus.done ?? 0
-      }
-    : { all: 0, todo: 0, in_progress: 0, done: 0 }
+  if (Result.isSuccess(countsResult)) {
+    previousCountsRef.current = {
+      all: countsResult.value.total,
+      todo: countsResult.value.byStatus.todo ?? 0,
+      in_progress: countsResult.value.byStatus.in_progress ?? 0,
+      done: countsResult.value.byStatus.done ?? 0
+    }
+  }
+  const counts: Record<TicketStatus | "all", number> = previousCountsRef.current ?? {
+    all: 0,
+    todo: 0,
+    in_progress: 0,
+    done: 0
+  }
 
   const FULL_FITS_ROW = 1040
   const STATUS_COMPACT_FITS_ROW = 760
