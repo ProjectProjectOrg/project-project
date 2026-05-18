@@ -38,8 +38,7 @@
 import * as Schema from "effect/Schema"
 
 export const PersonalGithub = Schema.Struct({
-  connected: Schema.Boolean,
-  username: Schema.NullOr(Schema.String)
+  connected: Schema.Boolean
 })
 export type PersonalGithub = typeof PersonalGithub.Type
 
@@ -47,9 +46,6 @@ export const User = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
   name: Schema.String,
-  // GitHub login, populated on first sign-in via mapProfileToUser. Nullable
-  // because the column is nullable for back-compat — once members are wired
-  // up everywhere, every active user will have one.
   username: Schema.NullOr(Schema.String),
   image: Schema.NullOr(Schema.String),
   createdAt: Schema.Date,

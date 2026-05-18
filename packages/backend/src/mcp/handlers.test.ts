@@ -283,8 +283,7 @@ describe("MCP dispatcher → write tools", () => {
           createdAt: isoDate("2026-05-01T00:00:00.000Z"),
           activeOrgSlug: null,
           personalGithub: {
-            connected: false,
-            username: null
+            connected: false
           }
         },
         body: input.body,

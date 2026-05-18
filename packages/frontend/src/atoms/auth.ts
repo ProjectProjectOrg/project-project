@@ -108,6 +108,7 @@ import {
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
+import { githubAuthEpochAtom } from "./github"
 
 export const meAtom = runtime.atom(
   Effect.gen(function* () {
@@ -144,6 +145,7 @@ export const disconnectPersonalGithubAtom = runtime.fn(
     yield* Effect.tryPromise(() =>
       authData(authClient.unlinkAccount({ providerId: "github" }))
     )
+    get.set(githubAuthEpochAtom, get(githubAuthEpochAtom) + 1)
     get.refresh(meAtom)
   })
 )

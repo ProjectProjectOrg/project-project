@@ -107,7 +107,7 @@ function Profile() {
 
       <PersonalGithubCard
         connected={user.personalGithub.connected}
-        username={user.personalGithub.username}
+        email={user.email}
         oauthError={githubOAuthError}
       />
 
@@ -130,11 +130,11 @@ function Profile() {
 
 function PersonalGithubCard({
   connected,
-  username,
+  email,
   oauthError
 }: {
   connected: boolean
-  username: string | null
+  email: string
   oauthError: string | null
 }) {
   const connect = useAtomSet(connectPersonalGithubAtom, { mode: "promise" })
@@ -179,13 +179,7 @@ function PersonalGithubCard({
                   : m.profile_github_disconnected_status()}
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                {connected && username ? (
-                  <span className="font-mono">@{username}</span>
-                ) : connected ? (
-                  m.profile_github_connected_description()
-                ) : (
-                  m.profile_github_description()
-                )}
+                {connected ? email : m.profile_github_description()}
               </div>
             </div>
           </div>

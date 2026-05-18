@@ -89,7 +89,7 @@ export const AuthenticationLive = Layer.effect(
             .getOrgSlugById(activeOrganizationId)
             .pipe(Effect.orDie)
           const personalGithub = yield* ba
-            .getPersonalGithub(id, username)
+            .getPersonalGithub(id)
             .pipe(Effect.orDie)
           return {
             id,

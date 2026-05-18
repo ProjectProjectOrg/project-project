@@ -79,8 +79,7 @@ export const UsersLive = Layer.effect(
                 createdAt: r.createdAt,
                 activeOrgSlug: null,
                 personalGithub: {
-                  connected: false,
-                  username: null
+                  connected: false
                 }
               })
             )

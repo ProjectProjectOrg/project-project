@@ -271,7 +271,7 @@ export const auth = betterAuth({
   // `username` is a human-readable handle used in markdown frontmatter and
   // the members UI. Better Auth's CLI doesn't know about it from the schema
   // alone — declaring it here lets `auth.api.updateUser` etc. round-trip
-  // the field, and `mapProfileToUser` populates it from GitHub on sign-in.
+  // the field.
   user: {
     additionalFields: {
       username: {
@@ -294,15 +294,7 @@ export const auth = betterAuth({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scope: ["read:user", "user:email", "repo"],
-      disableSignUp: true,
-      // GitHub's `login` is the unique handle (e.g. "wouter-vh"). Fallback
-      // to a slugified `name` if the profile is missing it (shouldn't happen
-      // with the read:user scope, but defensive).
-      mapProfileToUser: (profile: { login?: string; name?: string }) => ({
-        username:
-          profile.login?.toLowerCase() ??
-          profile.name?.toLowerCase().replace(/\s+/g, "-")
-      })
+      disableSignUp: true
     },
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,

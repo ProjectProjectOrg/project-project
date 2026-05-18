@@ -28,8 +28,7 @@ export interface BetterAuthShape {
     userId: string
   ) => Effect.Effect<string, NoGithubToken | BetterAuthError>
   readonly getPersonalGithub: (
-    userId: string,
-    username: string | null
+    userId: string
   ) => Effect.Effect<PersonalGithub, BetterAuthError>
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
