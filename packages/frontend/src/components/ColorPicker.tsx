@@ -14,6 +14,7 @@ type Props = {
   onChange: (hex: string) => void
   className?: string
   ariaLabel?: string
+  closeOnSelect?: boolean
 }
 
 const SWATCH = 24
@@ -23,7 +24,13 @@ const OUTER_RADIUS = 42
 const EXIT_RATIO = 0.55
 const SVG = (OUTER_RADIUS + SWATCH / 2 + 2) * 2
 
-export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
+export function ColorPicker({
+  value,
+  onChange,
+  className,
+  ariaLabel,
+  closeOnSelect = true
+}: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -46,7 +53,7 @@ export function ColorPicker({ value, onChange, className, ariaLabel }: Props) {
 
   const select = (hex: string) => {
     onChange(hex)
-    setOpen(false)
+    if (closeOnSelect) setOpen(false)
   }
 
   return (
