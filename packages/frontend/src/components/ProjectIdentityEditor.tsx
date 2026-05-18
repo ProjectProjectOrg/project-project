@@ -52,7 +52,12 @@ export function ProjectIdentityEditor({
         waiting && "animate-pulse"
       )}
     >
-      <span aria-hidden>{icon}</span>
+      <span
+        aria-hidden
+        className="[filter:drop-shadow(0_1px_1.5px_rgba(0,0,0,0.35))]"
+      >
+        {icon}
+      </span>
     </span>
   )
 
@@ -73,15 +78,19 @@ export function ProjectIdentityEditor({
             aria-label={m.project_identity_aria_label()}
             className={cn(
               size === "header" ? "-mt-1 shrink-0" : "shrink-0",
-              "rounded-lg outline-none transition-transform duration-100 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              "rounded-lg outline-none transition-transform duration-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
             )}
           >
             {tile}
           </button>
         }
       />
-      <PopoverContent align="start" sideOffset={8} className="flex gap-4 p-3">
-        <div className="flex flex-col items-center justify-start pt-2">
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="flex w-fit items-start gap-3 p-3"
+      >
+        <div className="relative z-50 mt-1.5 shrink-0">
           <ColorPicker
             value={color}
             onChange={(next) => update({ color: makeProjectColor(next) })}
@@ -89,10 +98,12 @@ export function ProjectIdentityEditor({
             ariaLabel={m.color_picker_aria_label()}
           />
         </div>
-        <div className="flex w-[320px] flex-col">
+        <div className="flex flex-col">
           <EmojiPicker
-            className="h-[320px]"
-            onEmojiSelect={({ emoji }) => update({ icon: makeProjectIcon(emoji) })}
+            className="h-[320px] w-[320px]"
+            onEmojiSelect={({ emoji }) =>
+              update({ icon: makeProjectIcon(emoji) })
+            }
           >
             <EmojiPickerSearch
               placeholder={m.project_identity_emoji_search_placeholder()}

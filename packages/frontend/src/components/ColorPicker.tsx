@@ -77,7 +77,7 @@ export function ColorPicker({
         {open ? (
           <motion.div
             key="ring"
-            className="pointer-events-none absolute"
+            className="pointer-events-none absolute z-50"
             style={{
               width: SVG,
               height: SVG,

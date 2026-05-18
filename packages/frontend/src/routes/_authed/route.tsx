@@ -208,7 +208,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
             transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <ul className="flex flex-col gap-0.5 px-2 pb-2">
+            <ul className="flex flex-col gap-0.5 pb-2">
               {projects.map((p) => (
                 <ProjectsGroupRow
                   key={p.slug}
@@ -249,7 +249,7 @@ function ProjectsGroupRow({
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
         className={cn(
-          "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+          "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-colors",
           active
             ? "font-medium text-foreground"
             : "text-muted-foreground hover:text-foreground"
