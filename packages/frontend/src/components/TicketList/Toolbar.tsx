@@ -147,7 +147,7 @@ export function Toolbar({
 
   const setStatus = (s: TicketStatus | "all") => {
     const nextFilter: TicketFilter = {
-      ...(filter ?? {}),
+      ...filter,
       status: s === "all" ? undefined : [s]
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
@@ -155,7 +155,7 @@ export function Toolbar({
 
   const setTypeFilter = (t: TicketType | "all") => {
     const nextFilter: TicketFilter = {
-      ...(filter ?? {}),
+      ...filter,
       type: t === "all" ? undefined : [t]
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
@@ -168,7 +168,7 @@ export function Toolbar({
     else if (a === "unassigned") nextAssignee = [null]
     else nextAssignee = [a]
     const nextFilter: TicketFilter = {
-      ...(filter ?? {}),
+      ...filter,
       assignee: nextAssignee
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
@@ -176,7 +176,7 @@ export function Toolbar({
 
   const setSelectedTags = (tags: ReadonlyArray<TagName>) => {
     const nextFilter: TicketFilter = {
-      ...(filter ?? {}),
+      ...filter,
       tags: tags.length === 0 ? undefined : tags
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
@@ -188,7 +188,7 @@ export function Toolbar({
     else if (s === "unassigned") nextGroupId = [null]
     else nextGroupId = [s]
     const nextFilter: TicketFilter = {
-      ...(filter ?? {}),
+      ...filter,
       groupId: nextGroupId
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
