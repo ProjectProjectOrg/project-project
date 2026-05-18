@@ -95,7 +95,7 @@ export function ProjectIdentityEditor({
             onEmojiSelect={({ emoji }) => update({ icon: makeProjectIcon(emoji) })}
           >
             <EmojiPickerSearch
-              placeholder={m.emoji_search_placeholder()}
+              placeholder={m.project_identity_emoji_search_placeholder()}
               aria-label={m.project_identity_emoji_aria_label()}
             />
             <EmojiPickerContent />

@@ -31,6 +31,7 @@
   "projects_page_title": "Projects",
   "project_identity_aria_label": "Change project icon and color",
   "project_identity_emoji_aria_label": "Pick an emoji icon",
+  "project_identity_emoji_search_placeholder": "Search emoji",
   "project_identity_error": "Couldn't save — try again.",
   "project_settings_identity_label": "Icon & color",
   "project_detail_about_heading": "Description",
