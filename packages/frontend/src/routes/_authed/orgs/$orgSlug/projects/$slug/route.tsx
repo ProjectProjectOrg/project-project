@@ -96,7 +96,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
 function useIsSprintBoardView() {
   const matches = useMatches()
   const sprintMatch = matches.find(
-    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+    (m) =>
+      m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
   if (!sprintMatch) return false
   const search = sprintMatch.search as { view?: "list" | "board" }
@@ -433,7 +434,7 @@ function TabsNav({
         : t.countFor === "sprints"
           ? sprintsCount
           : t.countFor === "members"
-            ? project.members.length
+            ? project.members.length + project.pendingMembers.length
             : null
   }))
 

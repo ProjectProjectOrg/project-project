@@ -116,6 +116,11 @@ const ProjectMemberPath = Schema.Struct({
   slug: Slug,
   userId: Schema.String
 })
+const PendingProjectMemberPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  invitationId: Schema.String
+})
 const TicketPath = Schema.Struct({ orgSlug: Slug, slug: Slug, id: TicketId })
 const ProjectTagPath = Schema.Struct({
   orgSlug: Slug,
@@ -201,6 +206,17 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       "/orgs/:orgSlug/projects/:slug/members/:userId"
     )
       .setPath(ProjectMemberPath)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.del(
+      "cancelPendingMember",
+      "/orgs/:orgSlug/projects/:slug/pending-members/:invitationId"
+    )
+      .setPath(PendingProjectMemberPath)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)

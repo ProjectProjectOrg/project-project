@@ -53,6 +53,7 @@ import type {
   CreateProjectInput,
   GithubConnection,
   Member,
+  PendingProjectMember,
   Project,
   ProjectDetail,
   UpdateProjectInput
@@ -74,6 +75,9 @@ import { Projects, type ProjectsShape } from "../Services/Projects"
 
 const MAX_SLUG_ATTEMPTS = 100
 const makeRole = Schema.decodeUnknownSync(Role)
+const makeAssignableRole = Schema.decodeUnknownSync(
+  Schema.Literal("admin", "member")
+)
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 
 function withProjectTelemetry<A, E>(
@@ -193,6 +197,40 @@ export const ProjectsLive = Layer.effect(
                 role: makeRole(r.role)
               })
             )
+          ),
+          Effect.orDie
+        )
+
+    const loadPendingMembers = (
+      slug: string
+    ): Effect.Effect<ReadonlyArray<PendingProjectMember>> =>
+      db
+        .select({
+          invitationId: projectInviteGrant.invitationId,
+          email: invitation.email,
+          role: projectInviteGrant.role,
+          expiresAt: invitation.expiresAt
+        })
+        .from(projectInviteGrant)
+        .innerJoin(
+          invitation,
+          eq(invitation.id, projectInviteGrant.invitationId)
+        )
+        .where(
+          and(
+            eq(projectInviteGrant.projectSlug, slug),
+            eq(invitation.status, "pending")
+          )
+        )
+        .orderBy(asc(invitation.email))
+        .pipe(
+          Effect.map((rows) =>
+            rows.map((row) => ({
+              invitationId: row.invitationId,
+              email: row.email,
+              role: makeAssignableRole(row.role),
+              expiresAt: row.expiresAt
+            }))
           ),
           Effect.orDie
         )
@@ -494,6 +532,7 @@ export const ProjectsLive = Layer.effect(
           if (!indexRow) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
           const members = yield* loadMembers(slug)
+          const pendingMembers = yield* loadPendingMembers(slug)
           const key = makeProjectKey(indexRow.key)
           return {
             org: orgSlug,
@@ -504,7 +543,8 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: file.github,
             body: file.body,
-            members
+            members,
+            pendingMembers
           }
         })
       )
@@ -537,6 +577,7 @@ export const ProjectsLive = Layer.effect(
           }
 
           const members = yield* loadMembers(slug)
+          const pendingMembers = yield* loadPendingMembers(slug)
           yield* syncFrontmatter(
             orgSlug,
             slug,
@@ -558,7 +599,8 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: file.github,
             body: nextBody,
-            members
+            members,
+            pendingMembers
           }
         })
       )
@@ -593,6 +635,7 @@ export const ProjectsLive = Layer.effect(
         if (!indexRow) return yield* new NotFound()
         const file = yield* projectDocs.read(orgSlug, slug)
         const members = yield* loadMembers(slug)
+        const pendingMembers = yield* loadPendingMembers(slug)
         yield* syncFrontmatter(
           orgSlug,
           slug,
@@ -613,7 +656,8 @@ export const ProjectsLive = Layer.effect(
           createdAt: indexRow.createdAt,
           github: file.github,
           body: file.body,
-          members
+          members,
+          pendingMembers
         }
       })
 
@@ -622,8 +666,9 @@ export const ProjectsLive = Layer.effect(
       inviterId: string,
       email: string,
       indexRow: typeof projectIndex.$inferSelect,
-      role: AssignableRole
-    ): Effect.Effect<void, NotFound> =>
+      role: AssignableRole,
+      callerRole: Role
+    ): Effect.Effect<void, NotFound | Forbidden> =>
       Effect.gen(function* () {
         const organizationId = yield* orgIdFromSlug(orgSlug)
         const normalizedEmail = email.toLowerCase()
@@ -663,6 +708,23 @@ export const ProjectsLive = Layer.effect(
             return created
           }))
 
+        const existingGrant = yield* db.query.projectInviteGrant
+          .findFirst({
+            columns: { role: true },
+            where: and(
+              eq(projectInviteGrant.invitationId, invite.id),
+              eq(projectInviteGrant.projectSlug, indexRow.slug)
+            )
+          })
+          .pipe(Effect.orDie)
+        if (
+          existingGrant &&
+          makeAssignableRole(existingGrant.role) !== role &&
+          callerRole !== "owner"
+        ) {
+          return yield* new Forbidden()
+        }
+
         yield* db
           .update(invitation)
           .set({ expiresAt })
@@ -698,9 +760,15 @@ export const ProjectsLive = Layer.effect(
         orgSlug,
         { slug, userId, targetEmail: input.email, targetRole: input.role },
         Effect.gen(function* () {
-          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const callerCtx = yield* requireRole(orgSlug, userId, slug, [
+            "owner",
+            "admin"
+          ])
           const indexRow = yield* getIndexRow(slug)
           if (!indexRow) return yield* new NotFound()
+          if (input.role === "admin" && callerCtx.role !== "owner") {
+            return yield* new Forbidden()
+          }
           const organizationId = yield* orgIdFromSlug(orgSlug)
           const email = input.email.trim().toLowerCase()
           const target = yield* users.findByEmail(email)
@@ -717,13 +785,14 @@ export const ProjectsLive = Layer.effect(
                   })
                   .pipe(Effect.orDie)
 
-          if (target === null || targetOrgMember === null) {
+          if (target === null || targetOrgMember == null) {
             yield* attachProjectInviteGrant(
               orgSlug,
               userId,
               email,
               indexRow,
-              input.role
+              input.role,
+              callerCtx.role
             )
             return yield* replayDetail(orgSlug, slug)
           }
@@ -768,6 +837,75 @@ export const ProjectsLive = Layer.effect(
               .pipe(Effect.orDie)
           }
 
+          return yield* replayDetail(orgSlug, slug)
+        })
+      )
+
+    const cancelPendingMember = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      invitationId: string
+    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
+      withProjectTelemetry(
+        "cancelPendingMember",
+        orgSlug,
+        { slug, userId, invitationId },
+        Effect.gen(function* () {
+          const callerCtx = yield* requireRole(orgSlug, userId, slug, [
+            "owner",
+            "admin"
+          ])
+          const existing = yield* db
+            .select({
+              role: projectInviteGrant.role,
+              status: invitation.status
+            })
+            .from(projectInviteGrant)
+            .innerJoin(
+              invitation,
+              eq(invitation.id, projectInviteGrant.invitationId)
+            )
+            .where(
+              and(
+                eq(projectInviteGrant.projectSlug, slug),
+                eq(projectInviteGrant.invitationId, invitationId)
+              )
+            )
+            .limit(1)
+            .pipe(Effect.orDie)
+          const pending = existing[0]
+          if (!pending || pending.status !== "pending") {
+            return yield* new NotFound()
+          }
+          if (
+            makeAssignableRole(pending.role) === "admin" &&
+            callerCtx.role !== "owner"
+          ) {
+            return yield* new Forbidden()
+          }
+          yield* db
+            .delete(projectInviteGrant)
+            .where(
+              and(
+                eq(projectInviteGrant.projectSlug, slug),
+                eq(projectInviteGrant.invitationId, invitationId)
+              )
+            )
+            .pipe(Effect.orDie)
+          const remaining = yield* db.query.projectInviteGrant
+            .findFirst({
+              columns: { invitationId: true },
+              where: eq(projectInviteGrant.invitationId, invitationId)
+            })
+            .pipe(Effect.orDie)
+          if (!remaining) {
+            yield* db
+              .update(invitation)
+              .set({ status: "canceled" })
+              .where(eq(invitation.id, invitationId))
+              .pipe(Effect.orDie)
+          }
           return yield* replayDetail(orgSlug, slug)
         })
       )
@@ -899,6 +1037,7 @@ export const ProjectsLive = Layer.effect(
           }
 
           const members = yield* loadMembers(slug)
+          const pendingMembers = yield* loadPendingMembers(slug)
           yield* syncFrontmatter(
             orgSlug,
             slug,
@@ -920,7 +1059,8 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: next,
             body: file.body,
-            members
+            members,
+            pendingMembers
           }
         })
       )
@@ -940,6 +1080,7 @@ export const ProjectsLive = Layer.effect(
           if (!indexRow) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
           const members = yield* loadMembers(slug)
+          const pendingMembers = yield* loadPendingMembers(slug)
           yield* syncFrontmatter(
             orgSlug,
             slug,
@@ -960,7 +1101,8 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: null,
             body: file.body,
-            members
+            members,
+            pendingMembers
           }
         })
       )
@@ -979,6 +1121,7 @@ export const ProjectsLive = Layer.effect(
       addMember,
       updateMember,
       removeMember,
+      cancelPendingMember,
       connectGithub,
       disconnectGithub
     } satisfies ProjectsShape

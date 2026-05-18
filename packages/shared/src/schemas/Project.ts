@@ -58,6 +58,14 @@ export const Member = Schema.Struct({
 })
 export type Member = typeof Member.Type
 
+export const PendingProjectMember = Schema.Struct({
+  invitationId: Schema.String,
+  email: Schema.String,
+  role: AssignableRole,
+  expiresAt: Schema.Date
+})
+export type PendingProjectMember = typeof PendingProjectMember.Type
+
 // GitHub connection on a project. `null` means no repo connected.
 // `defaultBaseBranch` overrides the repo's default branch when set.
 export const GithubConnection = Schema.Struct({
@@ -94,12 +102,11 @@ export const ProjectDetail = Schema.Struct({
   ...Project.fields,
   github: Schema.NullOr(GithubConnection),
   body: Schema.String,
-  members: Schema.Array(Member)
+  members: Schema.Array(Member),
+  pendingMembers: Schema.Array(PendingProjectMember)
 })
 export type ProjectDetail = typeof ProjectDetail.Type
 
-// Members are added or invited by email. Existing org members are added
-// immediately; non-org emails receive an org invite with a pending project grant.
 export const AddMemberInput = Schema.Struct({
   email: Schema.String.pipe(Schema.minLength(3), Schema.maxLength(254)),
   role: AssignableRole

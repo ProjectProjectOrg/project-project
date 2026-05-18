@@ -262,39 +262,43 @@ export const auth = betterAuth({
       },
       organizationHooks: {
         afterAcceptInvitation: async ({ invitation, user }) => {
-          const grants = await db
-            .select({
-              projectSlug: projectInviteGrant.projectSlug,
-              projectId: projectInviteGrant.projectId,
-              role: projectInviteGrant.role
-            })
-            .from(projectInviteGrant)
-            .innerJoin(
-              projectIndex,
-              and(
-                eq(projectIndex.slug, projectInviteGrant.projectSlug),
-                eq(projectIndex.id, projectInviteGrant.projectId)
+          await db.transaction(async (tx) => {
+            const grants = await tx
+              .select({
+                projectSlug: projectInviteGrant.projectSlug,
+                projectId: projectInviteGrant.projectId,
+                role: projectInviteGrant.role
+              })
+              .from(projectInviteGrant)
+              .innerJoin(
+                projectIndex,
+                and(
+                  eq(projectIndex.slug, projectInviteGrant.projectSlug),
+                  eq(projectIndex.id, projectInviteGrant.projectId)
+                )
               )
-            )
-            .where(eq(projectInviteGrant.invitationId, invitation.id))
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
 
-          for (const grant of grants) {
-            await db
-              .insert(projectMember)
-              .values({
-                projectSlug: grant.projectSlug,
-                projectId: grant.projectId,
-                userId: user.id,
-                role: grant.role
-              })
-              .onConflictDoNothing({
-                target: [projectMember.projectSlug, projectMember.userId]
-              })
-          }
+            if (grants.length > 0) {
+              await tx
+                .insert(projectMember)
+                .values(
+                  grants.map((grant) => ({
+                    projectSlug: grant.projectSlug,
+                    projectId: grant.projectId,
+                    userId: user.id,
+                    role: grant.role
+                  }))
+                )
+                .onConflictDoNothing({
+                  target: [projectMember.projectSlug, projectMember.userId]
+                })
+            }
 
-          await db
-            .delete(projectInviteGrant)
-            .where(eq(projectInviteGrant.invitationId, invitation.id))
+            await tx
+              .delete(projectInviteGrant)
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
+          })
         },
         afterRejectInvitation: async ({ invitation }) => {
           await db

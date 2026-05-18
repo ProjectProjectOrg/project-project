@@ -2,7 +2,7 @@ CREATE TABLE "project_invite_grant" (
 	"invitation_id" text NOT NULL,
 	"project_slug" text NOT NULL,
 	"project_id" uuid NOT NULL,
-	"role" text NOT NULL,
+	"role" text NOT NULL CHECK ("role" IN ('admin', 'member')),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "project_invite_grant_invitation_id_project_slug_pk" PRIMARY KEY("invitation_id","project_slug")
 );

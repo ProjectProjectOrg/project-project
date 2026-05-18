@@ -40,8 +40,9 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
+  check,
   foreignKey,
   index,
   pgTable,
@@ -77,10 +78,7 @@ export const projectIndex = pgTable(
       table.organizationId,
       table.key
     ),
-    uniqueIndex("project_index_slug_id_uidx").on(
-      table.slug,
-      table.id
-    )
+    uniqueIndex("project_index_slug_id_uidx").on(table.slug, table.id)
   ]
 )
 
@@ -127,6 +125,10 @@ export const projectInviteGrant = pgTable(
       columns: [table.projectSlug, table.projectId],
       foreignColumns: [projectIndex.slug, projectIndex.id]
     }).onDelete("cascade"),
+    check(
+      "project_invite_grant_role_check",
+      sql`${table.role} in ('admin', 'member')`
+    ),
     index("project_invite_grant_project_idx").on(table.projectSlug)
   ]
 )
