@@ -53,7 +53,7 @@ describe("ticketListQueryToSearch", () => {
       q: "abc"
     })
     expect(search).toEqual({
-      status: "todo",
+      status: ["todo"],
       assignee: ["mine", "unassigned"],
       sort: "updated:desc",
       q: "abc"
@@ -67,11 +67,11 @@ describe("ticketListQueryToSearch", () => {
     expect(search).toEqual({})
   })
 
-  it("collapses single-element arrays to scalars", () => {
+  it("keeps single-element arrays as arrays", () => {
     const search = ticketListQueryToSearch({
       filter: { tags: ["core"] }
     })
-    expect(search).toEqual({ tags: "core" })
+    expect(search).toEqual({ tags: ["core"] })
   })
 
   it("round-trips for non-trivial queries", () => {

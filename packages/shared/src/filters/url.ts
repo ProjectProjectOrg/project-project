@@ -130,17 +130,10 @@ export const ticketListQueryFromSearch = (
   return out
 }
 
-const collapse = <T>(arr: ReadonlyArray<T>): T | ReadonlyArray<T> =>
-  arr.length === 1 ? arr[0]! : arr
-
 const encodeAssignee = (
   values: ReadonlyArray<AssigneeFilter>
-): string | ReadonlyArray<string> => {
-  const mapped = values.map((v) =>
-    v === null ? ASSIGNEE_UNASSIGNED_SENTINEL : v
-  )
-  return collapse(mapped)
-}
+): ReadonlyArray<string> =>
+  values.map((v) => (v === null ? ASSIGNEE_UNASSIGNED_SENTINEL : v))
 
 const isDefaultSort = (sort: TicketSort) =>
   sort.key === DEFAULT_TICKET_SORT.key && sort.dir === DEFAULT_TICKET_SORT.dir
@@ -167,11 +160,11 @@ export const ticketListQueryToSearch = (
   const out: Record<string, string | ReadonlyArray<string>> = {}
   const f = query.filter
   if (f) {
-    if (f.status?.length) out.status = collapse(f.status)
-    if (f.type?.length) out.type = collapse(f.type)
+    if (f.status?.length) out.status = f.status
+    if (f.type?.length) out.type = f.type
     if (f.assignee?.length) out.assignee = encodeAssignee(f.assignee)
-    if (f.tags?.length) out.tags = collapse(f.tags)
-    if (f.groupId?.length) out.groupId = collapse(f.groupId)
+    if (f.tags?.length) out.tags = f.tags
+    if (f.groupId?.length) out.groupId = f.groupId
     if (f.hasBranch !== undefined) out.hasBranch = String(f.hasBranch)
     if (f.hasPr !== undefined) out.hasPr = String(f.hasPr)
   }
