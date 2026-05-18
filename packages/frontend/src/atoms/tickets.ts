@@ -4,7 +4,6 @@ import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
-import * as SubscriptionRef from "effect/SubscriptionRef"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
@@ -79,10 +78,10 @@ interface TicketsListValue {
 
 export type { TicketsListValue }
 
-export const ticketsListAtom = Atom.family((key: string) => {
+const ticketsListBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime
-    .subscriptionRef(
+    .atom(
       Effect.gen(function* () {
         const query = yield* decodeListQuery(queryJson)
         const client = yield* ApiClient
@@ -90,35 +89,69 @@ export const ticketsListAtom = Atom.family((key: string) => {
           path: { orgSlug, slug },
           urlParams: ticketListQueryToSearch(query)
         })
-        return yield* SubscriptionRef.make<TicketsListValue>({
+        const value: TicketsListValue = {
           items: page.items,
           nextCursor: page.nextCursor
-        })
+        }
+        return value
       })
     )
     .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
 })
 
+interface AppendedPagesValue {
+  readonly items: ReadonlyArray<Ticket>
+  readonly nextCursor: string | null
+}
+
+const ticketsListAppendedAtom = Atom.family((key: string) => {
+  const { orgSlug, slug } = splitTicketsListKey(key)
+  return Atom.make<AppendedPagesValue>({ items: [], nextCursor: null }).pipe(
+    Atom.withReactivity(["tickets", orgSlug, slug])
+  )
+})
+
+export const ticketsListAtom = Atom.family((key: string) =>
+  Atom.readable((get): Result.Result<TicketsListValue, unknown> => {
+    const base: Result.Result<TicketsListValue, unknown> = get(
+      ticketsListBaseAtom(key)
+    )
+    const appended = get(ticketsListAppendedAtom(key))
+    if (!Result.isSuccess(base)) return base
+    if (appended.items.length === 0) return base
+    const merged: TicketsListValue = {
+      items: [...base.value.items, ...appended.items],
+      nextCursor: appended.nextCursor
+    }
+    return Result.success(merged, {
+      waiting: base.waiting,
+      timestamp: base.timestamp
+    })
+  })
+)
+
 export const loadMoreTicketsAtom = Atom.family((key: string) => {
   const { orgSlug, slug, queryJson } = splitTicketsListKey(key)
   return runtime.fn(
     Effect.fn(function* (_: void, get) {
-      const current: Result.Result<TicketsListValue, unknown> = get(
-        ticketsListAtom(key)
+      const base: Result.Result<TicketsListValue, unknown> = get(
+        ticketsListBaseAtom(key)
       )
-      if (!Result.isSuccess(current)) return
-      if (current.value.nextCursor === null) return
+      const appended = get(ticketsListAppendedAtom(key))
+      if (!Result.isSuccess(base)) return
+      const cursor =
+        appended.items.length > 0
+          ? appended.nextCursor
+          : base.value.nextCursor
+      if (cursor === null) return
       const query = yield* decodeListQuery(queryJson)
       const client = yield* ApiClient
       const next = yield* client.tickets.list({
         path: { orgSlug, slug },
-        urlParams: ticketListQueryToSearch({
-          ...query,
-          cursor: current.value.nextCursor
-        })
+        urlParams: ticketListQueryToSearch({ ...query, cursor })
       })
-      get.set(ticketsListAtom(key), {
-        items: [...current.value.items, ...next.items],
+      get.set(ticketsListAppendedAtom(key), {
+        items: [...appended.items, ...next.items],
         nextCursor: next.nextCursor
       })
     })

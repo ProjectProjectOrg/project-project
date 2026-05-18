@@ -93,27 +93,36 @@ export function TicketList({
             ) : (
               <div className="skeleton h-24 rounded-xl border border-border bg-background" />
             ),
-          onError: (error) => (
-            <Empty
-              variant="inline"
-              className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
-            >
-              <EmptyDescription>
-                {error._tag === "MalformedQuery"
-                  ? m.tickets_list_malformed_query()
-                  : m.tickets_list_load_error({ error: error._tag })}
-              </EmptyDescription>
-              <Button
-                type="button"
-                variant="tertiary"
-                size="xs"
-                leadingIcon={X}
-                onClick={resetFilters}
+          onError: (error) => {
+            const tag =
+              typeof error === "object" &&
+              error !== null &&
+              "_tag" in error &&
+              typeof error._tag === "string"
+                ? error._tag
+                : "Unknown"
+            return (
+              <Empty
+                variant="inline"
+                className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
               >
-                {m.tickets_filters_clear_all()}
-              </Button>
-            </Empty>
-          ),
+                <EmptyDescription>
+                  {tag === "MalformedQuery"
+                    ? m.tickets_list_malformed_query()
+                    : m.tickets_list_load_error({ error: tag })}
+                </EmptyDescription>
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  size="xs"
+                  leadingIcon={X}
+                  onClick={resetFilters}
+                >
+                  {m.tickets_filters_clear_all()}
+                </Button>
+              </Empty>
+            )
+          },
           onDefect: (defect) => (
             <Empty variant="inline" className={EMPTY_BORDER}>
               {m.tickets_list_defect({ defect: String(defect) })}
