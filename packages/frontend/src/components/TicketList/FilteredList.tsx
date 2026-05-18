@@ -60,9 +60,7 @@ export function FilteredList({
               <FilterX strokeWidth={1.75} />
             </EmptyMedia>
             <EmptyTitle>{m.tickets_no_filter_matches_title()}</EmptyTitle>
-            <EmptyDescription>
-              {m.tickets_no_filter_matches()}
-            </EmptyDescription>
+            <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button
@@ -187,11 +185,7 @@ function Row({
             {ticket.title}
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
-            <TicketGitChip
-              orgSlug={orgSlug}
-              slug={slug}
-              ticketId={ticket.id}
-            />
+            <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
             {showSprintCol && (
               <SprintField
                 orgSlug={orgSlug}

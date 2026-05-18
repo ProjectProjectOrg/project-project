@@ -6,6 +6,7 @@
 //
 
 import * as Schema from "effect/Schema"
+import { GitState } from "./GitState"
 import { ProjectKey } from "./Project"
 import { TagName } from "./Tag"
 
@@ -49,6 +50,7 @@ export const Ticket = Schema.Struct({
   // last auto-flipped to `done`. If the user manually moves status back to
   // `in_progress`, we won't reflip because `pr === lastTransitionedPr`.
   lastTransitionedPr: Schema.NullOr(Schema.Number),
+  gitState: GitState,
   assignees: Schema.Array(Schema.String),
   createdBy: Schema.String,
   createdAt: Schema.Date,

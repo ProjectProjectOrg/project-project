@@ -72,6 +72,7 @@ import {
 } from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { planTicketGitStates } from "../ticketGitStatePlanner"
+import type { ProjectGithubIntegration } from "../Services/Projects"
 
 const MAX_CREATE_ATTEMPTS = 16
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -102,9 +103,39 @@ function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
   return makeTicketId(`${key}-${max + 1}`)
 }
 
-function documentToTicket(document: TicketDocument): Ticket {
+function pendingGitState(
+  document: TicketDocument,
+  github: ProjectGithubIntegration | null
+): Ticket["gitState"] {
+  if (!document.branch) return { tag: "no_branch" }
+  const baseBranch = github?.defaultBaseBranch ?? "main"
+  if (document.pr !== null) {
+    return {
+      tag: "pr_pending",
+      branch: document.branch,
+      baseBranch,
+      number: document.pr,
+      url: github
+        ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
+        : ""
+    }
+  }
+  return { tag: "branch_pending", name: document.branch, baseBranch }
+}
+
+function documentToTicket(
+  document: TicketDocument,
+  github: ProjectGithubIntegration | null
+): Ticket {
   const { body: _body, ...ticket } = document
-  return ticket
+  return { ...ticket, gitState: pendingGitState(document, github) }
+}
+
+function documentToDetail(
+  document: TicketDocument,
+  github: ProjectGithubIntegration | null
+): TicketDetail {
+  return { ...document, gitState: pendingGitState(document, github) }
 }
 
 const PRIORITY_ORDINAL: Record<TicketPriority, number> = {
@@ -167,9 +198,7 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         if (groupIds === undefined || groupIds.length === 0) return null
         const wantsUngrouped = groupIds.includes(null)
-        const explicitIds = groupIds.filter(
-          (id): id is string => id !== null
-        )
+        const explicitIds = groupIds.filter((id): id is string => id !== null)
         const memberSet = new Set<string>()
         if (explicitIds.length > 0) {
           const details = yield* Effect.forEach(
@@ -207,8 +236,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<
       TicketDocument,
       NotFound | MarkdownError | MalformedTicketDocument
-    > =>
-      ticketDocs.read(orgSlug, slug, id)
+    > => ticketDocs.read(orgSlug, slug, id)
 
     const readTicketForCollection = (
       orgSlug: string,
@@ -273,9 +301,14 @@ export const TicketsLive = Layer.effect(
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         ).pipe(Effect.map(readableTickets))
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
 
         const filtered = tickets
-          .map(documentToTicket)
+          .map((ticket) => documentToTicket(ticket, projectGithub))
           .filter((t) => matchesTicketQuery(t, query, userId))
         const sorted = sortTickets(filtered, query.sort)
         const cursor = tryDecodeCursor(query.cursor)
@@ -302,7 +335,12 @@ export const TicketsLive = Layer.effect(
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         ).pipe(Effect.map(readableTickets))
-        return tickets.map(documentToTicket)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        return tickets.map((ticket) => documentToTicket(ticket, projectGithub))
       })
 
     const SEARCH_DEFAULT_LIMIT = 24
@@ -337,11 +375,16 @@ export const TicketsLive = Layer.effect(
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         ).pipe(Effect.map(readableTickets))
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
         const queryForMatch: Pick<TicketListQuery, "q"> = {
           q: options.q
         }
         const matched = tickets
-          .map(documentToTicket)
+          .map((ticket) => documentToTicket(ticket, projectGithub))
           .filter((t) => {
             if (excluded !== null && excluded.has(t.id)) return false
             return matchesTicketQuery(t, queryForMatch, userId)
@@ -401,6 +444,11 @@ export const TicketsLive = Layer.effect(
           (id) => readTicketForCollection(orgSlug, slug, id),
           { concurrency: 8 }
         ).pipe(Effect.map(readableTickets))
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
 
         const filterWithoutStatus: TicketFilter | undefined = query.filter
           ? { ...query.filter, status: undefined }
@@ -411,7 +459,7 @@ export const TicketsLive = Layer.effect(
         }
 
         const matching = tickets
-          .map(documentToTicket)
+          .map((ticket) => documentToTicket(ticket, projectGithub))
           .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
         const byStatus: Record<TicketStatus, number> = {
@@ -435,7 +483,13 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
-        return yield* readTicket(orgSlug, slug, id)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          ownerId,
+          slug
+        )
+        const ticket = yield* readTicket(orgSlug, slug, id)
+        return documentToDetail(ticket, projectGithub)
       })
 
     const validateTagsExist = (
@@ -489,10 +543,12 @@ export const TicketsLive = Layer.effect(
       Effect.gen(function* () {
         const invalid: string[] = []
         for (const assigneeId of assignees) {
-          const ok = yield* projects.requireMember(orgSlug, assigneeId, slug).pipe(
-            Effect.as(true as const),
-            Effect.catchTag("NotFound", () => Effect.succeed(false as const))
-          )
+          const ok = yield* projects
+            .requireMember(orgSlug, assigneeId, slug)
+            .pipe(
+              Effect.as(true as const),
+              Effect.catchTag("NotFound", () => Effect.succeed(false as const))
+            )
           if (!ok) invalid.push(assigneeId)
         }
         if (invalid.length > 0) {
@@ -513,13 +569,11 @@ export const TicketsLive = Layer.effect(
         let candidate = nextIdFrom(projectKey, ids)
         for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
           const document = buildDocument(candidate)
-          const result = yield* ticketDocs
-            .create(orgSlug, slug, document)
-            .pipe(
-              Effect.map(() => "ok" as const),
-              Effect.catchTag("TicketIdTaken", () =>
-                Effect.succeed("retry" as const)
-              )
+          const result = yield* ticketDocs.create(orgSlug, slug, document).pipe(
+            Effect.map(() => "ok" as const),
+            Effect.catchTag("TicketIdTaken", () =>
+              Effect.succeed("retry" as const)
+            )
           )
           if (result === "ok") return document
           const freshIds = yield* ticketDocs.listIds(orgSlug, slug)
@@ -561,7 +615,12 @@ export const TicketsLive = Layer.effect(
             body: `# ${input.title}\n`
           })
         )
-        return documentToTicket(document)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          ownerId,
+          slug
+        )
+        return documentToTicket(document, projectGithub)
       })
 
     const create = (
@@ -608,7 +667,12 @@ export const TicketsLive = Layer.effect(
             body: input.body ?? `# ${input.title}\n`
           })
         )
-        return document
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          ownerId,
+          slug
+        )
+        return documentToDetail(document, projectGithub)
       })
 
     const update = (
@@ -617,7 +681,10 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       input: UpdateTicketInput
-    ): Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid> =>
+    ): Effect.Effect<
+      TicketDetail,
+      TicketReadError | Validation | MentionInvalid
+    > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
@@ -662,7 +729,12 @@ export const TicketsLive = Layer.effect(
 
         yield* ticketDocs.write(orgSlug, slug, id, next)
 
-        return next
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          ownerId,
+          slug
+        )
+        return documentToDetail(next, projectGithub)
       })
 
     const remove = (
@@ -754,19 +826,20 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
-        const project = yield* projects
-          .get(orgSlug, userId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-        if (!project.github) {
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
-        const baseBranch =
-          input.baseBranch ?? project.github.defaultBaseBranch ?? "main"
+        const baseBranch = input.baseBranch ?? projectGithub.defaultBaseBranch
 
         yield* github.createBranch(
-          project.github.repoOwner,
-          project.github.repoName,
+          projectGithub.repoOwner,
+          projectGithub.repoName,
           input.name,
           baseBranch,
           userId
@@ -777,7 +850,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return next
+        return documentToDetail(next, projectGithub)
       })
 
     const attachBranch = (
@@ -801,19 +874,21 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
-        const project = yield* projects
-          .get(orgSlug, userId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-        if (!project.github) {
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
 
-        const exists = yield* github.branchExists(
-          project.github.repoOwner,
-          project.github.repoName,
-          input.name,
-          userId
+        const exists = yield* github.branchExistsInstallation(
+          projectGithub.installationId,
+          projectGithub.repoOwner,
+          projectGithub.repoName,
+          input.name
         )
         if (!exists) {
           return yield* new BranchNotFound({ name: input.name })
@@ -824,7 +899,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return next
+        return documentToDetail(next, projectGithub)
       })
 
     const openPr = (
@@ -848,10 +923,12 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
-        const project = yield* projects
-          .get(orgSlug, userId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-        if (!project.github) {
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
         const ticket = yield* readTicket(orgSlug, slug, id)
@@ -859,10 +936,10 @@ export const TicketsLive = Layer.effect(
           return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
 
-        const base = project.github.defaultBaseBranch ?? "main"
+        const base = projectGithub.defaultBaseBranch
         const result = yield* github.openPullRequest(
-          project.github.repoOwner,
-          project.github.repoName,
+          projectGithub.repoOwner,
+          projectGithub.repoName,
           {
             head: ticket.branch,
             base,
@@ -897,7 +974,7 @@ export const TicketsLive = Layer.effect(
           pr: null,
           lastTransitionedPr: null
         })
-        return next
+        return documentToDetail(next, null)
       })
 
     const listGitStates = (
@@ -907,11 +984,13 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<GitStatesResponse, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
-        const project = yield* projects
-          .get(orgSlug, userId, slug)
-          .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
 
-        if (!project.github) {
+        if (!projectGithub) {
           return {
             states: {},
             transitioned: [],
@@ -928,27 +1007,13 @@ export const TicketsLive = Layer.effect(
         ).pipe(Effect.map(readableTickets))
 
         const result = yield* github
-          .fetchProjectStates(
-            project.github.repoOwner,
-            project.github.repoName,
-            userId
+          .fetchInstallationProjectStates(
+            projectGithub.installationId,
+            projectGithub.repoOwner,
+            projectGithub.repoName
           )
           .pipe(
             Effect.map((raw) => ({ ok: true as const, raw })),
-            Effect.catchTag("GitHubTokenExpired", () =>
-              Effect.succeed({
-                ok: false as const,
-                tokenStatus: "expired" as const,
-                repoStatus: "ok" as const
-              })
-            ),
-            Effect.catchTag("GitHubScopeInsufficient", () =>
-              Effect.succeed({
-                ok: false as const,
-                tokenStatus: "scope_insufficient" as const,
-                repoStatus: "ok" as const
-              })
-            ),
             Effect.catchTag("RepoGone", () =>
               Effect.succeed({
                 ok: false as const,

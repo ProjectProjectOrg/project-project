@@ -105,6 +105,7 @@ function makeFakeProjects(key: string) {
     create: () => unexpected("Projects.create"),
     get: () => unexpected("Projects.get"),
     getKey: () => Effect.succeed(projectKey(key)),
+    getGithubIntegration: () => Effect.succeed(null),
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
@@ -155,11 +156,21 @@ const FakeGroups = Layer.succeed(Groups, {
 const FakeGitHub = Layer.succeed(GitHub, {
   listUserRepos: () => unexpected("GitHub.listUserRepos"),
   verifyAccess: () => unexpected("GitHub.verifyAccess"),
+  getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
+  listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
+  verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
+  exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
+  appUserCanAccessInstallation: () =>
+    unexpected("GitHub.appUserCanAccessInstallation"),
   createBranch: () => unexpected("GitHub.createBranch"),
   openPullRequest: () => unexpected("GitHub.openPullRequest"),
   fetchProjectStates: () => unexpected("GitHub.fetchProjectStates"),
+  fetchInstallationProjectStates: () =>
+    unexpected("GitHub.fetchInstallationProjectStates"),
   listBranches: () => unexpected("GitHub.listBranches"),
-  branchExists: () => unexpected("GitHub.branchExists")
+  listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
+  branchExists: () => unexpected("GitHub.branchExists"),
+  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
 
 function makeTicketsLayer(

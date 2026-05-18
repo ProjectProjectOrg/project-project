@@ -34,6 +34,20 @@ const BranchNoPr = Schema.Struct({
   baseBranch: Schema.String
 })
 
+const BranchPending = Schema.Struct({
+  tag: Schema.Literal("branch_pending"),
+  name: Schema.String,
+  baseBranch: Schema.String
+})
+
+const PrPending = Schema.Struct({
+  tag: Schema.Literal("pr_pending"),
+  branch: Schema.String,
+  baseBranch: Schema.String,
+  number: Schema.Number,
+  url: Schema.String
+})
+
 const PrOpen = Schema.Struct({
   tag: Schema.Literal("pr_open"),
   branch: Schema.String,
@@ -71,6 +85,8 @@ const StaleBranch = Schema.Struct({
 
 export const GitState = Schema.Union(
   NoBranch,
+  BranchPending,
+  PrPending,
   BranchNoPr,
   PrOpen,
   PrMerged,
