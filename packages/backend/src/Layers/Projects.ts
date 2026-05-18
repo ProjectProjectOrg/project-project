@@ -1555,34 +1555,43 @@ export const ProjectsLive = Layer.effect(
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)
           const now = yield* DateTime.nowAsDate
-          const activeLinks = yield* db
-            .update(projectIntegrationLink)
-            .set({
-              status: "disconnected",
-              disconnectedAt: now,
-              updatedAt: now
-            })
-            .where(
-              and(
-                eq(projectIntegrationLink.projectId, indexRow.id),
-                eq(projectIntegrationLink.provider, "github"),
-                eq(projectIntegrationLink.status, "active")
-              )
-            )
-            .returning({ id: projectIntegrationLink.id })
-            .pipe(Effect.orDie)
-          yield* Effect.forEach(
-            activeLinks,
-            (link) =>
-              db
-                .update(projectGithubRepository)
-                .set({ status: "disconnected" })
-                .where(
-                  eq(projectGithubRepository.projectIntegrationLinkId, link.id)
+          yield* sql
+            .withTransaction(
+              Effect.gen(function* () {
+                const activeLinks = yield* db
+                  .update(projectIntegrationLink)
+                  .set({
+                    status: "disconnected",
+                    disconnectedAt: now,
+                    updatedAt: now
+                  })
+                  .where(
+                    and(
+                      eq(projectIntegrationLink.projectId, indexRow.id),
+                      eq(projectIntegrationLink.provider, "github"),
+                      eq(projectIntegrationLink.status, "active")
+                    )
+                  )
+                  .returning({ id: projectIntegrationLink.id })
+                  .pipe(Effect.orDie)
+                yield* Effect.forEach(
+                  activeLinks,
+                  (link) =>
+                    db
+                      .update(projectGithubRepository)
+                      .set({ status: "disconnected" })
+                      .where(
+                        eq(
+                          projectGithubRepository.projectIntegrationLinkId,
+                          link.id
+                        )
+                      )
+                      .pipe(Effect.orDie),
+                  { concurrency: 1 }
                 )
-                .pipe(Effect.orDie),
-            { concurrency: 1 }
-          )
+              })
+            )
+            .pipe(Effect.catchTag("SqlError", Effect.die))
           yield* syncFrontmatter(
             orgSlug,
             slug,

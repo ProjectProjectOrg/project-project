@@ -167,21 +167,10 @@ export const disconnectGithubAtom = Atom.family((key: string) => {
 export const createBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (current, input: { id: TicketId } & CreateBranchInput) => {
-      if (!Result.isSuccess(current)) return current
-      const optimistic: GitState = {
-        tag: "branch_no_pr",
-        name: input.name,
-        baseBranch: input.baseBranch ?? "main"
-      }
-      return Result.success(
-        {
-          ...current.value,
-          states: { ...current.value.states, [input.id]: optimistic }
-        },
-        { waiting: true }
-      )
-    },
+    reducer: (current, _input: { id: TicketId } & CreateBranchInput) =>
+      Result.isSuccess(current)
+        ? Result.success(current.value, { waiting: true })
+        : current,
     fn: runtime.fn(
       Effect.fn(function* (input: { id: TicketId } & CreateBranchInput, get) {
         const client = yield* ApiClient
@@ -201,21 +190,10 @@ export const createBranchAtom = Atom.family((key: string) => {
 export const attachBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (current, input: { id: TicketId } & AttachBranchInput) => {
-      if (!Result.isSuccess(current)) return current
-      const optimistic: GitState = {
-        tag: "branch_no_pr",
-        name: input.name,
-        baseBranch: "main"
-      }
-      return Result.success(
-        {
-          ...current.value,
-          states: { ...current.value.states, [input.id]: optimistic }
-        },
-        { waiting: true }
-      )
-    },
+    reducer: (current, _input: { id: TicketId } & AttachBranchInput) =>
+      Result.isSuccess(current)
+        ? Result.success(current.value, { waiting: true })
+        : current,
     fn: runtime.fn(
       Effect.fn(function* (input: { id: TicketId } & AttachBranchInput, get) {
         const client = yield* ApiClient

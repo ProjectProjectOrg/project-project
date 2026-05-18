@@ -44,7 +44,7 @@ export const GitHubLive = Layer.effect(
 
     const installationTokenCache = yield* Cache.make({
       capacity: 256,
-      timeToLive: Duration.minutes(50),
+      timeToLive: Duration.minutes(45),
       lookup: (installationId: string) =>
         Effect.gen(function* () {
           const auth = yield* appAuth()
