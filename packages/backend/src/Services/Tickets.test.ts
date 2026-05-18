@@ -105,6 +105,7 @@ function makeFakeProjects(key: string) {
     addMember: () => unexpected("Projects.addMember"),
     updateMember: () => unexpected("Projects.updateMember"),
     removeMember: () => unexpected("Projects.removeMember"),
+    cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
     connectGithub: () => unexpected("Projects.connectGithub"),
     disconnectGithub: () => unexpected("Projects.disconnectGithub")
   } satisfies ProjectsShape
@@ -117,7 +118,8 @@ const FakeDb = Layer.succeed(
   new Proxy(
     {},
     {
-      get: (_target, prop) =>
+      get:
+        (_target, prop) =>
         (..._args: ReadonlyArray<unknown>) =>
           unexpected(`Db.${String(prop)}`)
     }

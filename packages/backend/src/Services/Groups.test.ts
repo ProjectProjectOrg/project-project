@@ -167,7 +167,8 @@ function makeProjectDetail(role: Role): ProjectDetail {
         image: null,
         role
       }
-    ]
+    ],
+    pendingMembers: []
   }
 }
 
@@ -199,6 +200,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
     addMember: () => unexpectedProjectCall("addMember"),
     updateMember: () => unexpectedProjectCall("updateMember"),
     removeMember: () => unexpectedProjectCall("removeMember"),
+    cancelPendingMember: () => unexpectedProjectCall("cancelPendingMember"),
     connectGithub: () => unexpectedProjectCall("connectGithub"),
     disconnectGithub: () => unexpectedProjectCall("disconnectGithub")
   } satisfies ProjectsShape

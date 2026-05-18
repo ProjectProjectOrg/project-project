@@ -29,7 +29,7 @@ function LoginPage() {
   const [email, setEmail] = useState("")
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
-  const [magicLinkError, setMagicLinkError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   if (Result.isSuccess(me)) return <Navigate to="/" />
@@ -37,25 +37,35 @@ function LoginPage() {
   async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setMagicLinkPending(true)
-    setMagicLinkError(null)
+    setAuthError(null)
     setMagicLinkSent(false)
-    const { error } = await authClient.signIn.magicLink({
-      email,
-      callbackURL: "/"
-    })
-    setMagicLinkPending(false)
-    if (error) {
-      setMagicLinkError(m.auth_magic_link_error())
-      return
+    try {
+      const { error } = await authClient.signIn.magicLink({
+        email,
+        callbackURL: "/"
+      })
+      if (error) {
+        setAuthError(m.auth_magic_link_error())
+        return
+      }
+      setMagicLinkSent(true)
+    } catch {
+      setAuthError(m.auth_magic_link_error())
+    } finally {
+      setMagicLinkPending(false)
     }
-    setMagicLinkSent(true)
   }
 
   async function handleGoogleSignIn() {
-    await authClient.signIn.social({
-      provider: "google",
-      callbackURL: "/"
-    })
+    setAuthError(null)
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/"
+      })
+    } catch {
+      setAuthError(m.auth_google_sign_in_error())
+    }
   }
 
   return (
@@ -125,9 +135,9 @@ function LoginPage() {
               {m.auth_magic_link_sent()}
             </p>
           ) : null}
-          {magicLinkError ? (
+          {authError ? (
             <p className="text-center text-xs leading-5 text-destructive">
-              {magicLinkError}
+              {authError}
             </p>
           ) : null}
 

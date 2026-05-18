@@ -40,8 +40,10 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
+  check,
+  foreignKey,
   index,
   pgTable,
   primaryKey,
@@ -52,7 +54,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 export * from "./auth-schema"
-import { organization, user } from "./auth-schema"
+import { invitation, organization, user } from "./auth-schema"
 
 export const projectIndex = pgTable(
   "project_index",
@@ -75,7 +77,8 @@ export const projectIndex = pgTable(
     uniqueIndex("project_index_organization_key_uidx").on(
       table.organizationId,
       table.key
-    )
+    ),
+    uniqueIndex("project_index_slug_id_uidx").on(table.slug, table.id)
   ]
 )
 
@@ -99,6 +102,34 @@ export const projectMember = pgTable(
   (table) => [
     primaryKey({ columns: [table.projectSlug, table.userId] }),
     index("project_member_user_idx").on(table.userId)
+  ]
+)
+
+export const projectInviteGrant = pgTable(
+  "project_invite_grant",
+  {
+    invitationId: text("invitation_id")
+      .notNull()
+      .references(() => invitation.id, { onDelete: "cascade" }),
+    projectSlug: text("project_slug").notNull(),
+    projectId: uuid("project_id").notNull(),
+    role: text("role", { enum: ["admin", "member"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    primaryKey({ columns: [table.invitationId, table.projectSlug] }),
+    foreignKey({
+      name: "project_invite_grant_project_slug_id_fkey",
+      columns: [table.projectSlug, table.projectId],
+      foreignColumns: [projectIndex.slug, projectIndex.id]
+    }).onDelete("cascade"),
+    check(
+      "project_invite_grant_role_check",
+      sql`${table.role} in ('admin', 'member')`
+    ),
+    index("project_invite_grant_project_idx").on(table.projectSlug)
   ]
 )
 
@@ -131,6 +162,7 @@ export const projectIndexRelations = relations(
       references: [organization.id]
     }),
     members: many(projectMember),
+    inviteGrants: many(projectInviteGrant),
     tags: many(projectTag)
   })
 )
@@ -145,6 +177,20 @@ export const projectMemberRelations = relations(projectMember, ({ one }) => ({
     references: [user.id]
   })
 }))
+
+export const projectInviteGrantRelations = relations(
+  projectInviteGrant,
+  ({ one }) => ({
+    invitation: one(invitation, {
+      fields: [projectInviteGrant.invitationId],
+      references: [invitation.id]
+    }),
+    project: one(projectIndex, {
+      fields: [projectInviteGrant.projectSlug],
+      references: [projectIndex.slug]
+    })
+  })
+)
 
 export const projectTagRelations = relations(projectTag, ({ one }) => ({
   project: one(projectIndex, {

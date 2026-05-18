@@ -106,6 +106,12 @@ export interface ProjectsShape {
     slug: string,
     targetUserId: string
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  readonly cancelPendingMember: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    invitationId: string
+  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
   readonly connectGithub: (
     orgSlug: string,
     userId: string,

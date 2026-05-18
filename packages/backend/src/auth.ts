@@ -75,6 +75,9 @@ import {
   oauthAccessToken,
   oauthApplication,
   oauthConsent,
+  projectIndex,
+  projectInviteGrant,
+  projectMember,
   organization as organizationTable,
   session,
   user,
@@ -256,6 +259,57 @@ export const auth = betterAuth({
         process.stdout.write(
           `[invitation] org=${data.organization.slug} email=${data.email} role=${data.role} url=${acceptUrl}\n`
         )
+      },
+      organizationHooks: {
+        afterAcceptInvitation: async ({ invitation, user }) => {
+          await db.transaction(async (tx) => {
+            const grants = await tx
+              .select({
+                projectSlug: projectInviteGrant.projectSlug,
+                projectId: projectInviteGrant.projectId,
+                role: projectInviteGrant.role
+              })
+              .from(projectInviteGrant)
+              .innerJoin(
+                projectIndex,
+                and(
+                  eq(projectIndex.slug, projectInviteGrant.projectSlug),
+                  eq(projectIndex.id, projectInviteGrant.projectId)
+                )
+              )
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
+
+            if (grants.length > 0) {
+              await tx
+                .insert(projectMember)
+                .values(
+                  grants.map((grant) => ({
+                    projectSlug: grant.projectSlug,
+                    projectId: grant.projectId,
+                    userId: user.id,
+                    role: grant.role
+                  }))
+                )
+                .onConflictDoNothing({
+                  target: [projectMember.projectSlug, projectMember.userId]
+                })
+            }
+
+            await tx
+              .delete(projectInviteGrant)
+              .where(eq(projectInviteGrant.invitationId, invitation.id))
+          })
+        },
+        afterRejectInvitation: async ({ invitation }) => {
+          await db
+            .delete(projectInviteGrant)
+            .where(eq(projectInviteGrant.invitationId, invitation.id))
+        },
+        afterCancelInvitation: async ({ invitation }) => {
+          await db
+            .delete(projectInviteGrant)
+            .where(eq(projectInviteGrant.invitationId, invitation.id))
+        }
       }
     }),
     magicLink({

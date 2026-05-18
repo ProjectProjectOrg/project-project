@@ -45,11 +45,9 @@ function WelcomePage() {
       <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>
     ),
     onError: () => <Navigate to="/login" replace />,
-    onDefect: (defect) => (
-      <WelcomeGateStatus>
-        {m.chrome_defect({ defect: String(defect) })}
-      </WelcomeGateStatus>
-    ),
+    onDefect: () => {
+      return <WelcomeGateStatus>{m.chrome_defect_generic()}</WelcomeGateStatus>
+    },
     onSuccess: ({ value }) =>
       value.activeOrgSlug ? (
         <Navigate
@@ -329,9 +327,9 @@ function InviteRow({
     mode: "promiseExit"
   })
   const declineState = useAtomValue(declineInvitationAtom(invite.id))
-  const [declineError, setDeclineError] = useState(false)
   const accepting = acceptState.waiting
   const declining = declineState.waiting
+  const declineFailed = Result.isFailure(declineState)
 
   const onAccept = async () => {
     clearFailure(invite.id)
@@ -340,9 +338,7 @@ function InviteRow({
   }
 
   const onDecline = async () => {
-    setDeclineError(false)
-    const exit = await decline()
-    if (Exit.isFailure(exit)) setDeclineError(true)
+    await decline()
   }
 
   const initial = invite.organizationName.trim().charAt(0).toUpperCase() || "·"
@@ -379,7 +375,7 @@ function InviteRow({
             {errorMessage(acceptFailure.error)}
           </div>
         ) : null}
-        {declineError ? (
+        {declineFailed ? (
           <div className="pt-1 text-[12.5px] leading-5 text-destructive">
             {m.auth_invites_decline_row_error()}
           </div>

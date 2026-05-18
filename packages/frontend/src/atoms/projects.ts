@@ -125,6 +125,37 @@ export const removeMemberAtom = Atom.family((key: string) => {
   )
 })
 
+export const pendingMemberKey = (
+  orgSlug: string,
+  slug: string,
+  invitationId: string
+) => `${orgSlug}/${slug}/${invitationId}`
+
+const splitPendingMemberKey = (
+  key: string
+): { orgSlug: string; slug: string; invitationId: string } => {
+  const parts = key.split("/")
+  return {
+    orgSlug: parts[0],
+    slug: parts[1],
+    invitationId: parts.slice(2).join("/")
+  }
+}
+
+export const cancelPendingMemberAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, invitationId } = splitPendingMemberKey(key)
+  return runtime.fn(
+    Effect.fn(function* (_input: void, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.projects.cancelPendingMember({
+        path: { orgSlug, slug, invitationId }
+      })
+      get.refresh(projectAtom(projectKey(orgSlug, slug)))
+      return updated
+    })
+  )
+})
+
 export const createProjectAtom = Atom.family((orgSlug: string) =>
   runtime.fn(
     Effect.fn(function* (input: { name: string; key: string }, get) {

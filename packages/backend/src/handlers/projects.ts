@@ -114,6 +114,20 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
+      .handle("cancelPendingMember", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const projects = yield* Projects
+          return yield* projects.cancelPendingMember(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.invitationId
+          )
+        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      )
       .handle("connectGithub", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

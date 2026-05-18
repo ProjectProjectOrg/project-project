@@ -24,8 +24,10 @@ import {
   UserRound
 } from "lucide-react"
 import {
+  cancelPendingMemberAtom,
   addMemberAtom,
   memberKey,
+  pendingMemberKey,
   projectKey,
   removeMemberAtom,
   updateMemberAtom
@@ -45,7 +47,12 @@ import {
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
-import type { AssignableRole, Member, Role } from "@projectproject/shared"
+import type {
+  AssignableRole,
+  Member,
+  PendingProjectMember,
+  Role
+} from "@projectproject/shared"
 
 const ROLE_META: Record<
   Role,
@@ -72,12 +79,14 @@ export function MembersSection({
   orgSlug,
   slug,
   members,
+  pendingMembers,
   callerRole,
   callerId
 }: {
   orgSlug: string
   slug: string
   members: ReadonlyArray<Member>
+  pendingMembers: ReadonlyArray<PendingProjectMember>
   callerRole: Role
   callerId: string
 }) {
@@ -96,7 +105,12 @@ export function MembersSection({
       </div>
 
       {canManage && (
-        <AddMemberRow orgSlug={orgSlug} slug={slug} onFocusChange={setAdding} />
+        <AddMemberRow
+          orgSlug={orgSlug}
+          slug={slug}
+          callerRole={callerRole}
+          onFocusChange={setAdding}
+        />
       )}
 
       {/* Same intent-driven dim used elsewhere — when the user is composing
@@ -118,6 +132,16 @@ export function MembersSection({
             />
           </li>
         ))}
+        {pendingMembers.map((member) => (
+          <li key={member.invitationId}>
+            <PendingMemberRow
+              orgSlug={orgSlug}
+              slug={slug}
+              member={member}
+              callerRole={callerRole}
+            />
+          </li>
+        ))}
       </motion.ul>
     </section>
   )
@@ -126,10 +150,12 @@ export function MembersSection({
 function AddMemberRow({
   orgSlug,
   slug,
+  callerRole,
   onFocusChange
 }: {
   orgSlug: string
   slug: string
+  callerRole: Role
   onFocusChange?: (focused: boolean) => void
 }) {
   const pKey = projectKey(orgSlug, slug)
@@ -142,14 +168,17 @@ function AddMemberRow({
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
   const trimmed = email.trim()
+  const availableRoles =
+    callerRole === "owner"
+      ? ASSIGNABLE_ROLES
+      : (["member"] satisfies ReadonlyArray<AssignableRole>)
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
+    onFocusChange?.(false)
     const exit = await add({ email: trimmed, role })
-    if (Exit.isSuccess(exit)) {
-      setEmail("")
-    }
+    if (Exit.isSuccess(exit)) setEmail("")
   }
 
   return (
@@ -161,14 +190,16 @@ function AddMemberRow({
         <InputGroupInput
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value)
+          }}
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
           placeholder={m.members_add_email_placeholder()}
           aria-label={m.members_add_email_aria_label()}
           disabled={submitting}
         />
-        <RoleSelect value={role} onChange={setRole} />
+        <RoleSelect value={role} onChange={setRole} roles={availableRoles} />
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
@@ -179,10 +210,12 @@ function AddMemberRow({
 
 function RoleSelect({
   value,
-  onChange
+  onChange,
+  roles = ASSIGNABLE_ROLES
 }: {
   value: AssignableRole
   onChange: (r: AssignableRole) => void
+  roles?: ReadonlyArray<AssignableRole>
 }) {
   const meta = ROLE_META[value]
   const Icon = meta.icon
@@ -209,7 +242,7 @@ function RoleSelect({
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        {ASSIGNABLE_ROLES.map((r) => {
+        {roles.map((r) => {
           const roleMeta = ROLE_META[r]
           const RIcon = roleMeta.icon
           return (
@@ -282,6 +315,138 @@ function MemberRow({
         callerRole={callerRole}
       />
     </div>
+  )
+}
+
+function PendingMemberRow({
+  orgSlug,
+  slug,
+  member,
+  callerRole
+}: {
+  orgSlug: string
+  slug: string
+  member: PendingProjectMember
+  callerRole: Role
+}) {
+  const meta = ROLE_META[member.role]
+  const Icon = meta.icon
+  const initial = member.email.trim().charAt(0).toUpperCase() || "?"
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 pr-3 pl-3">
+      <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-xs text-muted-foreground">
+        {initial}
+      </div>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate text-sm font-medium text-muted-foreground">
+          {member.email}
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          {m.members_pending_detail()}
+        </div>
+      </div>
+      <Badge tone="muted" size="sm">
+        {m.members_pending_badge()}
+      </Badge>
+      <Badge tone={meta.tone} size="sm">
+        <Icon strokeWidth={1.75} />
+        {meta.label()}
+      </Badge>
+      <PendingMemberMenu
+        orgSlug={orgSlug}
+        slug={slug}
+        member={member}
+        callerRole={callerRole}
+      />
+    </div>
+  )
+}
+
+function PendingMemberMenu({
+  orgSlug,
+  slug,
+  member,
+  callerRole
+}: {
+  orgSlug: string
+  slug: string
+  member: PendingProjectMember
+  callerRole: Role
+}) {
+  const pKey = pendingMemberKey(orgSlug, slug, member.invitationId)
+  const cancel = useAtomSet(cancelPendingMemberAtom(pKey), {
+    mode: "promiseExit"
+  })
+  const cancelState = useAtomValue(cancelPendingMemberAtom(pKey))
+  const canceling = cancelState.waiting
+  const [confirming, setConfirming] = useState(false)
+  const canCancel =
+    callerRole === "owner" ||
+    (callerRole === "admin" && member.role !== "admin")
+
+  if (!canCancel) return <span className="size-8 shrink-0" />
+
+  async function onCancel() {
+    await cancel()
+  }
+
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setConfirming(false)
+      }}
+    >
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.members_pending_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-52">
+        {confirming ? (
+          <div className="flex flex-col gap-2 p-1">
+            <p className="px-2 pt-1 text-xs text-muted-foreground">
+              {m.members_pending_cancel_confirm_prompt({ email: member.email })}
+            </p>
+            <div className="flex gap-1 px-1 pb-1">
+              <button
+                type="button"
+                disabled={canceling}
+                onClick={() => void onCancel()}
+                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
+              >
+                {canceling
+                  ? m.members_pending_cancel_in_progress()
+                  : m.members_pending_cancel_button()}
+              </button>
+              <button
+                type="button"
+                disabled={canceling}
+                onClick={() => setConfirming(false)}
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
+              >
+                {m.common_cancel_button()}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={() => setConfirming(true)}
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} />
+            {m.members_pending_cancel_button()}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

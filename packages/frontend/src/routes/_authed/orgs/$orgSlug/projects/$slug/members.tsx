@@ -31,6 +31,7 @@ function MembersTab() {
         orgSlug={orgSlug}
         slug={project.slug}
         members={project.members}
+        pendingMembers={project.pendingMembers}
         callerRole={callerRole}
         callerId={callerId}
       />
