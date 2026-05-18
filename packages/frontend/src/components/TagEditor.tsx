@@ -28,7 +28,12 @@ import {
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
+import {
+  DEFAULT_TICKET_SORT,
+  TagName,
+  type Tag,
+  type TicketDetail
+} from "@projectproject/shared"
 
 type Props = {
   orgSlug: string
@@ -45,7 +50,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
   const tagsResult = useAtomValue(tagsAtom(key))
   const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
+    ticketsListAtom(ticketsListKey(orgSlug, slug, { sort: DEFAULT_TICKET_SORT }))
   )
   const updateTicket = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -153,7 +158,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
   const usageCountFor = (currentName: string) =>
     Result.isSuccess(ticketsResult)
-      ? ticketsResult.value.reduce((n, t) => {
+      ? ticketsResult.value.items.reduce((n, t) => {
           const mapped = (t.tags as ReadonlyArray<string>).map(mapName)
           return n + (mapped.includes(currentName) ? 1 : 0)
         }, 0)

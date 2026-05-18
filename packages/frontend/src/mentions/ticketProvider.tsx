@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import { ApiClient } from "@/services/ApiClient"
+import { ticketListQueryToSearch } from "@projectproject/shared"
 import type { MentionProvider } from "./registry"
 
 export const ticketMentionProvider: MentionProvider = {
@@ -9,11 +10,14 @@ export const ticketMentionProvider: MentionProvider = {
     Effect.gen(function* () {
       if (!scope.orgSlug || !scope.slug) return []
       const client = yield* ApiClient
-      const tickets = yield* client.tickets.list({
-        path: { orgSlug: scope.orgSlug, slug: scope.slug }
+      const page = yield* client.tickets.list({
+        path: { orgSlug: scope.orgSlug, slug: scope.slug },
+        urlParams: ticketListQueryToSearch({
+          q: query.length > 0 ? query : undefined
+        })
       })
       const q = query.toLowerCase()
-      return tickets
+      return page.items
         .filter(
           (t) =>
             t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)

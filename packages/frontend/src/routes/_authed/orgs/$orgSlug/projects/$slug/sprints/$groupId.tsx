@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { SprintDetail } from "@/components/sprints/SprintDetail"
 import {
+  DEFAULT_TICKET_SORT,
   GroupId,
   ticketListQueryFromSearch,
   type TicketListQuery
@@ -9,8 +10,8 @@ import {
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
-interface SprintRouteSearch extends TicketListQuery {
-  view: "list" | "board"
+interface SprintRouteSearch extends Partial<TicketListQuery> {
+  view?: "list" | "board"
 }
 
 export const Route = createFileRoute(
@@ -38,6 +39,7 @@ function SprintDetailRoute() {
   const id = decodeGroupId(groupId)
   const scopedQuery: TicketListQuery = {
     ...search,
+    sort: search.sort ?? DEFAULT_TICKET_SORT,
     filter: {
       ...search.filter,
       groupId: [id]

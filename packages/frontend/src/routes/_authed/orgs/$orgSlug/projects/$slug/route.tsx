@@ -30,7 +30,7 @@ import {
   projectKey,
   updateProjectAtom
 } from "@/atoms/projects"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
 import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
@@ -70,8 +70,8 @@ import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type {
   Group,
-  Ticket,
-  ProjectDetail as ProjectDetailType
+  ProjectDetail as ProjectDetailType,
+  TicketStatus
 } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
@@ -394,10 +394,10 @@ function TabsNav({
   const location = useLocation()
   const base = `/orgs/${orgSlug}/projects/${slug}`
   const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
+    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
   )
   const ticketsCount = Result.isSuccess(ticketsResult)
-    ? ticketsResult.value.length
+    ? ticketsResult.value.total
     : null
   const sprintsResult = useAtomValue(
     sprintsListAtom(sprintsProjectKey(orgSlug, slug))
@@ -418,7 +418,15 @@ function TabsNav({
           location.pathname.startsWith(target + "/")
   }
 
-  const tickets = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+  const ticketBreakdown: Record<TicketStatus, number> = Result.isSuccess(
+    ticketsResult
+  )
+    ? {
+        todo: ticketsResult.value.byStatus.todo ?? 0,
+        in_progress: ticketsResult.value.byStatus.in_progress ?? 0,
+        done: ticketsResult.value.byStatus.done ?? 0
+      }
+    : { todo: 0, in_progress: 0, done: 0 }
   const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
   const sprintTarget = Result.isSuccess(sprintsResult)
     ? pickSprintNavigationTarget(sprintsResult.value)
@@ -474,7 +482,7 @@ function TabsNav({
                   </span>
                 </span>
                 <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <TicketsBreakdown tickets={tickets} />
+                  <TicketsBreakdown counts={ticketBreakdown} />
                 </span>
               </Link>
             )
@@ -618,9 +626,11 @@ function SprintViewSwitcher({
   )
 }
 
-function TicketsBreakdown({ tickets }: { tickets: ReadonlyArray<Ticket> }) {
-  const counts = { todo: 0, in_progress: 0, done: 0 }
-  for (const t of tickets) counts[t.status]++
+function TicketsBreakdown({
+  counts
+}: {
+  counts: Record<TicketStatus, number>
+}) {
   return (
     <>
       {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map(

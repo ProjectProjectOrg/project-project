@@ -37,11 +37,12 @@ import {
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  GroupId,
-  Ticket,
-  TicketId,
-  TicketType
+import {
+  DEFAULT_TICKET_SORT,
+  type GroupId,
+  type Ticket,
+  type TicketId,
+  type TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 
@@ -73,7 +74,7 @@ export function SprintTicketCreator({
   const navigate = useNavigate()
 
   const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
+    ticketsListAtom(ticketsListKey(orgSlug, slug, { sort: DEFAULT_TICKET_SORT }))
   )
   const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
   const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
@@ -102,7 +103,7 @@ export function SprintTicketCreator({
 
   const items: ReadonlyArray<Item> = useMemo(() => {
     const lowered = trimmed.toLowerCase()
-    const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
+    const all = Result.isSuccess(ticketsResult) ? ticketsResult.value.items : []
     const eligible = all.filter(
       (t) =>
         t.status !== "done" &&

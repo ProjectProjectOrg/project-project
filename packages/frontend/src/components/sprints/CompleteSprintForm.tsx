@@ -12,6 +12,7 @@ import {
 } from "@/atoms/sprints"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import {
+  DEFAULT_TICKET_SORT,
   pickEarliestPlannedSprint,
   type Group,
   type TicketId
@@ -44,10 +45,17 @@ export function CompleteSprintForm({
   })
 
   const planned = pickEarliestPlannedSprint(sprints)
-  const tickets = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+  const tickets = useAtomValue(
+    ticketsListAtom(
+      ticketsListKey(orgSlug, slug, {
+        sort: DEFAULT_TICKET_SORT,
+        filter: { groupId: [sprint.id] }
+      })
+    )
+  )
   const statuses = new Map<TicketId, string>()
   if (Result.isSuccess(tickets)) {
-    for (const t of tickets.value) statuses.set(t.id, t.status)
+    for (const t of tickets.value.items) statuses.set(t.id, t.status)
   }
 
   const [destination, setDestination] = useState<"planned" | "backlog">(
