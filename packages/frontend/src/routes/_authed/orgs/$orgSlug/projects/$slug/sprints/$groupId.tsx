@@ -19,7 +19,9 @@ export const Route = createFileRoute(
 )({
   component: SprintDetailRoute,
   validateSearch: (search: Record<string, unknown>): SprintRouteSearch => {
-    const sanitized = ticketListQueryToSearch(ticketListQueryFromSearch(search))
+    const { groupId: _groupId, ...sanitized } = ticketListQueryToSearch(
+      ticketListQueryFromSearch(search)
+    )
     const view = search.view === "board" ? "board" : "list"
     return { ...sanitized, view }
   },

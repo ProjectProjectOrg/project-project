@@ -7,14 +7,16 @@ import {
   placeTicketAtom,
   sprintKey
 } from "@/atoms/sprints"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
 import {
-  DEFAULT_TICKET_SORT,
-  type GroupId,
-  type Member,
-  type Ticket,
-  type TicketId,
-  type TicketStatus
+  ticketsInSprintAtom,
+  ticketsInSprintKey
+} from "@/atoms/tickets"
+import type {
+  GroupId,
+  Member,
+  Ticket,
+  TicketId,
+  TicketStatus
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 import {
@@ -84,12 +86,7 @@ export function SprintBoard({
 
   const key = sprintKey(orgSlug, slug, groupId)
   const list = useAtomValue(
-    ticketsListAtom(
-      ticketsListKey(orgSlug, slug, {
-        sort: DEFAULT_TICKET_SORT,
-        filter: { groupId: [groupId] }
-      })
-    )
+    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
   )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
@@ -104,7 +101,7 @@ export function SprintBoard({
   const ticketById = useMemo(() => {
     const m = new Map<TicketId, Ticket>()
     if (Result.isSuccess(list)) {
-      for (const t of list.value.items) m.set(t.id, t)
+      for (const t of list.value) m.set(t.id, t)
     }
     return m
   }, [list])

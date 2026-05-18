@@ -24,6 +24,7 @@ import {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
+  DEFAULT_TICKET_SORT,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -164,8 +165,7 @@ export const TicketsLive = Layer.effect(
       groupIds: ReadonlyArray<string | null> | undefined
     ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
-        if (groupIds === undefined) return null
-        if (groupIds.length === 0) return new Set<string>()
+        if (groupIds === undefined || groupIds.length === 0) return null
         const wantsUngrouped = groupIds.includes(null)
         const explicitIds = groupIds.filter(
           (id): id is string => id !== null
@@ -174,10 +174,16 @@ export const TicketsLive = Layer.effect(
         if (explicitIds.length > 0) {
           const details = yield* Effect.forEach(
             explicitIds,
-            (id) => groups.get(orgSlug, userId, slug, id),
+            (id) =>
+              groups
+                .get(orgSlug, userId, slug, id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
             { concurrency: 8 }
           )
-          for (const g of details) for (const t of g.tickets) memberSet.add(t)
+          for (const g of details) {
+            if (g === null) continue
+            for (const t of g.tickets) memberSet.add(t)
+          }
         }
         if (wantsUngrouped) {
           const allGroups = yield* groups.list(orgSlug, userId, slug)
@@ -208,9 +214,12 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string
-    ): Effect.Effect<TicketCollectionRead, NotFound | MarkdownError> =>
+    ): Effect.Effect<TicketCollectionRead | null, MarkdownError> =>
       readTicket(orgSlug, slug, id).pipe(
-        Effect.map((document) => ({ _tag: "Readable" as const, document })),
+        Effect.map(
+          (document) =>
+            ({ _tag: "Readable" as const, document }) as TicketCollectionRead
+        ),
         Effect.catchTag("MalformedTicketDocument", (error) =>
           Effect.logWarning("Skipping unreadable ticket", {
             orgSlug,
@@ -222,15 +231,24 @@ export const TicketsLive = Layer.effect(
               _tag: "Unreadable" as const,
               ticketId: id,
               error
-            })
+            } as TicketCollectionRead)
           )
+        ),
+        Effect.catchTag("NotFound", () =>
+          Effect.logDebug("Skipping vanished ticket reference", {
+            orgSlug,
+            slug,
+            ticketId: id
+          }).pipe(Effect.as(null))
         )
       )
 
     const readableTickets = (
-      reads: ReadonlyArray<TicketCollectionRead>
+      reads: ReadonlyArray<TicketCollectionRead | null>
     ): ReadonlyArray<TicketDocument> =>
-      reads.flatMap((read) => (read._tag === "Readable" ? [read.document] : []))
+      reads.flatMap((read) =>
+        read !== null && read._tag === "Readable" ? [read.document] : []
+      )
 
     const list = (
       orgSlug: string,
@@ -247,7 +265,10 @@ export const TicketsLive = Layer.effect(
           slug,
           query.filter?.groupId
         )
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const ids =
+          groupMemberSet === null
+            ? yield* ticketDocs.listIds(orgSlug, slug)
+            : [...groupMemberSet]
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicketForCollection(orgSlug, slug, id),
@@ -256,11 +277,7 @@ export const TicketsLive = Layer.effect(
 
         const filtered = tickets
           .map(documentToTicket)
-          .filter(
-            (t) =>
-              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
-              matchesTicketQuery(t, query, userId)
-          )
+          .filter((t) => matchesTicketQuery(t, query, userId))
         const sorted = sortTickets(filtered, query.sort)
         const cursor = tryDecodeCursor(query.cursor)
         return paginateSorted(sorted, {
@@ -270,6 +287,96 @@ export const TicketsLive = Layer.effect(
           id: (t) => t.id,
           dir: query.sort.dir
         })
+      })
+
+    const listInGroup = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      groupId: string
+    ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const group = yield* groups.get(orgSlug, userId, slug, groupId)
+        const tickets = yield* Effect.forEach(
+          group.tickets,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(Effect.map(readableTickets))
+        return tickets.map(documentToTicket)
+      })
+
+    const SEARCH_DEFAULT_LIMIT = 24
+    const SEARCH_MAX_LIMIT = 100
+
+    const search = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      options: {
+        readonly q?: string
+        readonly excludeGroupId?: string
+        readonly limit?: number
+      }
+    ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const excluded = options.excludeGroupId
+          ? new Set(
+              (yield* groups
+                .get(orgSlug, userId, slug, options.excludeGroupId)
+                .pipe(
+                  Effect.catchTag("NotFound", () =>
+                    Effect.succeed({ tickets: [] as ReadonlyArray<string> })
+                  )
+                )).tickets
+            )
+          : null
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const tickets = yield* Effect.forEach(
+          ids,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(Effect.map(readableTickets))
+        const queryForMatch: Pick<TicketListQuery, "q"> = {
+          q: options.q
+        }
+        const matched = tickets
+          .map(documentToTicket)
+          .filter((t) => {
+            if (excluded !== null && excluded.has(t.id)) return false
+            return matchesTicketQuery(t, queryForMatch, userId)
+          })
+        const limit = Math.min(
+          Math.max(1, options.limit ?? SEARCH_DEFAULT_LIMIT),
+          SEARCH_MAX_LIMIT
+        )
+        return sortTickets(matched, DEFAULT_TICKET_SORT).slice(0, limit)
+      })
+
+    const tagUsageCounts = (
+      orgSlug: string,
+      userId: string,
+      slug: string
+    ): Effect.Effect<
+      Readonly<Record<string, number>>,
+      NotFound | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const tickets = yield* Effect.forEach(
+          ids,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(Effect.map(readableTickets))
+        const counts: Record<string, number> = {}
+        for (const t of tickets) {
+          for (const tag of t.tags) {
+            counts[tag] = (counts[tag] ?? 0) + 1
+          }
+        }
+        return counts
       })
 
     const count = (
@@ -286,7 +393,10 @@ export const TicketsLive = Layer.effect(
           slug,
           query.filter?.groupId
         )
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const ids =
+          groupMemberSet === null
+            ? yield* ticketDocs.listIds(orgSlug, slug)
+            : [...groupMemberSet]
         const tickets = yield* Effect.forEach(
           ids,
           (id) => readTicketForCollection(orgSlug, slug, id),
@@ -303,11 +413,7 @@ export const TicketsLive = Layer.effect(
 
         const matching = tickets
           .map(documentToTicket)
-          .filter(
-            (t) =>
-              (groupMemberSet === null || groupMemberSet.has(t.id)) &&
-              matchesTicketQuery(t, queryForCount, userId)
-          )
+          .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
         const byStatus: Record<TicketStatus, number> = {
           todo: 0,
@@ -924,6 +1030,9 @@ export const TicketsLive = Layer.effect(
     return {
       list,
       count,
+      search,
+      listInGroup,
+      tagUsageCounts,
       get,
       quickCreate,
       create,

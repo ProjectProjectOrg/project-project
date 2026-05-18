@@ -30,6 +30,26 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("search", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          const limitNum =
+            urlParams.limit !== undefined
+              ? Number.parseInt(urlParams.limit, 10)
+              : undefined
+          return yield* tickets.search(org.orgSlug, user.id, path.slug, {
+            q: urlParams.q,
+            excludeGroupId: urlParams.excludeGroupId,
+            limit:
+              limitNum !== undefined && Number.isFinite(limitNum)
+                ? limitNum
+                : undefined
+          })
+        }).pipe(dieOnMarkdown)
+      )
       .handle("count", ({ path, urlParams }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

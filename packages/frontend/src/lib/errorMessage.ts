@@ -58,3 +58,24 @@ export const errorMessage = (error: AppError): string =>
     Match.tag("Unauthorized", () => m.error_unknown()),
     Match.orElse(() => m.error_unknown())
   )
+
+const tagOf = (value: unknown): string => {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "_tag" in value &&
+    typeof (value as { _tag: unknown })._tag === "string"
+  ) {
+    return (value as { _tag: string })._tag
+  }
+  return "Unknown"
+}
+
+export const ticketListErrorMessage = (error: unknown): string => {
+  const tag = tagOf(error)
+  if (tag === "MalformedQuery") return m.tickets_list_malformed_query()
+  return m.tickets_list_load_error({ error: tag })
+}
+
+export const ticketListDefectMessage = (defect: unknown): string =>
+  m.tickets_list_defect({ defect: String(defect) })

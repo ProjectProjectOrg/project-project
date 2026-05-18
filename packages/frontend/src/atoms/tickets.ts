@@ -272,7 +272,10 @@ export const quickCreateTicketAtom = Atom.family((countKey: string) => {
       if (!Result.isSuccess(current)) return current
       const countQuery = parseCountQueryFromKey(queryJson)
       if (countQuery === null) return current
-      if (countQuery.filter?.groupId !== undefined) return current
+      const groupFilter = countQuery.filter?.groupId
+      if (groupFilter !== undefined && !groupFilter.includes(null)) {
+        return Result.success(current.value, { waiting: true })
+      }
       const predicted = predictedTicketFromCreate(input.ticket, input.viewerId)
       if (!matchesTicketQuery(predicted, countQuery, input.viewerId)) {
         return current
@@ -282,18 +285,113 @@ export const quickCreateTicketAtom = Atom.family((countKey: string) => {
       })
     },
     fn: runtime.fn(
-      Effect.fn(function* (input: QuickCreateTicketArg, get) {
+      Effect.fn(function* (input: QuickCreateTicketArg) {
         const client = yield* ApiClient
         const ticket = yield* client.tickets.quickCreate({
           path: { orgSlug, slug },
           payload: input.ticket
         })
-        get.refresh(ticketsCountBaseAtom(countKey))
         yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return ticket
       })
     )
   })
+})
+
+export const ticketsInSprintKey = (
+  orgSlug: string,
+  slug: string,
+  groupId: string
+) => `${orgSlug}/${slug}/${groupId}`
+
+const splitSprintKey = (
+  key: string
+): { orgSlug: string; slug: string; groupId: string } => {
+  const parts = key.split("/")
+  return { orgSlug: parts[0], slug: parts[1], groupId: parts.slice(2).join("/") }
+}
+
+export const ticketsInSprintAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, groupId } = splitSprintKey(key)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.groups.listTickets({
+          path: { orgSlug, slug, id: groupId as never }
+        })
+      })
+    )
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
+})
+
+export interface TicketSearchOptions {
+  readonly q?: string
+  readonly excludeGroupId?: string
+  readonly limit?: number
+}
+
+export const ticketSearchKey = (
+  orgSlug: string,
+  slug: string,
+  options: TicketSearchOptions
+) =>
+  `${orgSlug}/${slug}/${JSON.stringify({
+    q: options.q ?? "",
+    excludeGroupId: options.excludeGroupId ?? "",
+    limit: options.limit ?? 0
+  })}`
+
+const splitSearchKey = (
+  key: string
+): { orgSlug: string; slug: string; options: TicketSearchOptions } => {
+  const firstSlash = key.indexOf("/")
+  const secondSlash = key.indexOf("/", firstSlash + 1)
+  const orgSlug = key.slice(0, firstSlash)
+  const slug = key.slice(firstSlash + 1, secondSlash)
+  const optionsJson = key.slice(secondSlash + 1)
+  const parsed = JSON.parse(optionsJson) as {
+    q: string
+    excludeGroupId: string
+    limit: number
+  }
+  return {
+    orgSlug,
+    slug,
+    options: {
+      q: parsed.q.length > 0 ? parsed.q : undefined,
+      excludeGroupId:
+        parsed.excludeGroupId.length > 0 ? parsed.excludeGroupId : undefined,
+      limit: parsed.limit > 0 ? parsed.limit : undefined
+    }
+  }
+}
+
+export const ticketSearchAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, options } = splitSearchKey(key)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.tickets.search({
+          path: { orgSlug, slug },
+          urlParams: {
+            ...(options.q ? { q: options.q } : {}),
+            ...(options.excludeGroupId
+              ? { excludeGroupId: options.excludeGroupId }
+              : {}),
+            ...(options.limit ? { limit: String(options.limit) } : {})
+          }
+        })
+      })
+    )
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
 })
 
 export const updateTicketAtom = Atom.family((key: string) => {

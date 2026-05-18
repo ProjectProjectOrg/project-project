@@ -32,19 +32,18 @@ import {
 import { meAtom } from "@/atoms/auth"
 import {
   quickCreateTicketAtom,
-  ticketsCountKey,
-  ticketsListAtom,
-  ticketsListKey
+  ticketSearchAtom,
+  ticketSearchKey,
+  ticketsCountKey
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import {
-  DEFAULT_TICKET_SORT,
-  type GroupId,
-  type Ticket,
-  type TicketId,
-  type TicketType
+import type {
+  GroupId,
+  Ticket,
+  TicketId,
+  TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 
@@ -82,12 +81,6 @@ export function SprintTicketCreator({
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
   const navigate = useNavigate()
 
-  const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug, { sort: DEFAULT_TICKET_SORT }))
-  )
-  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
-
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [focused, setFocused] = useState(false)
@@ -97,6 +90,18 @@ export function SprintTicketCreator({
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
   const expanded = focused || typeMenuOpen || closingMenu
+
+  const ticketsResult = useAtomValue(
+    ticketSearchAtom(
+      ticketSearchKey(orgSlug, slug, {
+        q: trimmed.length > 0 ? trimmed : undefined,
+        excludeGroupId: groupId,
+        limit: 24
+      })
+    )
+  )
+  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
+  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -112,14 +117,9 @@ export function SprintTicketCreator({
 
   const items: ReadonlyArray<Item> = useMemo(() => {
     const lowered = trimmed.toLowerCase()
-    const all = Result.isSuccess(ticketsResult) ? ticketsResult.value.items : []
+    const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
     const eligible = all.filter(
-      (t) =>
-        t.status !== "done" &&
-        !excludeIds.has(t.id) &&
-        (lowered === "" ||
-          t.title.toLowerCase().includes(lowered) ||
-          t.id.toLowerCase().includes(lowered))
+      (t) => t.status !== "done" && !excludeIds.has(t.id)
     )
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
     const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({

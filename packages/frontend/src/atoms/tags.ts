@@ -35,6 +35,23 @@ export const tagsAtom = Atom.family((key: string) =>
   Atom.optimistic(tagsBaseAtom(key))
 )
 
+export const tagUsageCountsAtom = Atom.family((key: string) => {
+  const idx = key.indexOf("/")
+  const orgSlug = key.slice(0, idx)
+  const slug = key.slice(idx + 1)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.tags.usageCounts({ path: { orgSlug, slug } })
+      })
+    )
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
+})
+
 export const createTagAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
   const orgSlug = key.slice(0, idx)

@@ -7,6 +7,10 @@ import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
+  ticketListDefectMessage,
+  ticketListErrorMessage
+} from "@/lib/errorMessage"
+import {
   ticketsListAtom,
   ticketsListKey,
   type TicketsListValue
@@ -47,10 +51,20 @@ export function TicketList({
   const list = useAtomValue(ticketsListAtom(listKey))
   const resetFilters = useResetTicketSearch()
 
-  const previousListRef = useRef<TicketsListValue | null>(null)
-  if (Result.isSuccess(list)) {
-    previousListRef.current = list.value
+  const previousListRef = useRef<{
+    listKey: string
+    value: TicketsListValue
+  } | null>(null)
+  if (previousListRef.current?.listKey !== listKey) {
+    previousListRef.current = null
   }
+  if (Result.isSuccess(list)) {
+    previousListRef.current = { listKey, value: list.value }
+  }
+  const previousList =
+    previousListRef.current?.listKey === listKey
+      ? previousListRef.current.value
+      : null
 
   const hasActiveFilter =
     (query.filter !== undefined && Object.keys(query.filter).length > 0) ||
@@ -88,44 +102,33 @@ export function TicketList({
 
         {Result.matchWithError(list, {
           onInitial: () =>
-            previousListRef.current !== null ? (
-              renderList(previousListRef.current, true)
+            previousList !== null ? (
+              renderList(previousList, true)
             ) : (
               <div className="skeleton h-24 rounded-xl border border-border bg-background" />
             ),
-          onError: (error) => {
-            const tag =
-              typeof error === "object" &&
-              error !== null &&
-              "_tag" in error &&
-              typeof error._tag === "string"
-                ? error._tag
-                : "Unknown"
-            return (
-              <Empty
-                variant="inline"
-                className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
+          onError: (error) => (
+            <Empty
+              variant="inline"
+              className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
+            >
+              <EmptyDescription>
+                {ticketListErrorMessage(error)}
+              </EmptyDescription>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                leadingIcon={X}
+                onClick={resetFilters}
               >
-                <EmptyDescription>
-                  {tag === "MalformedQuery"
-                    ? m.tickets_list_malformed_query()
-                    : m.tickets_list_load_error({ error: tag })}
-                </EmptyDescription>
-                <Button
-                  type="button"
-                  variant="tertiary"
-                  size="xs"
-                  leadingIcon={X}
-                  onClick={resetFilters}
-                >
-                  {m.tickets_filters_clear_all()}
-                </Button>
-              </Empty>
-            )
-          },
+                {m.tickets_filters_clear_all()}
+              </Button>
+            </Empty>
+          ),
           onDefect: (defect) => (
             <Empty variant="inline" className={EMPTY_BORDER}>
-              {m.tickets_list_defect({ defect: String(defect) })}
+              {ticketListDefectMessage(defect)}
             </Empty>
           ),
           onSuccess: ({ value, waiting }) => renderList(value, waiting === true)

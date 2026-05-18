@@ -72,7 +72,7 @@ type SearchRecord = { readonly [k: string]: SearchValue }
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
-  "text-muted-foreground transition-colors hover:text-foreground",
+  "text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]",
   "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
 )
 
@@ -206,13 +206,30 @@ export function Toolbar({
     setQueryInput(queryStr)
   }, [queryStr])
 
+  const latestQueryRef = useRef(query)
+  useEffect(() => {
+    latestQueryRef.current = query
+  }, [query])
+
   const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (queryDebounceRef.current) {
+        clearTimeout(queryDebounceRef.current)
+        queryDebounceRef.current = null
+      }
+    },
+    []
+  )
   const setSearchQuery = (q: string) => {
     setQueryInput(q)
     if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
     // @effect-diagnostics-next-line globalTimers:off
     queryDebounceRef.current = setTimeout(() => {
-      updateQuery({ ...query, q: q.length > 0 ? q : undefined })
+      updateQuery({
+        ...latestQueryRef.current,
+        q: q.length > 0 ? q : undefined
+      })
     }, 200)
   }
   const flushSearch = () => {
@@ -221,13 +238,16 @@ export function Toolbar({
       queryDebounceRef.current = null
     }
     if (queryInput !== queryStr) {
-      updateQuery({ ...query, q: queryInput.length > 0 ? queryInput : undefined })
+      updateQuery({
+        ...latestQueryRef.current,
+        q: queryInput.length > 0 ? queryInput : undefined
+      })
     }
   }
   const clearSearch = () => {
     setQueryInput("")
     if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
-    updateQuery({ ...query, q: undefined })
+    updateQuery({ ...latestQueryRef.current, q: undefined })
   }
 
   const [searchFocused, setSearchFocused] = useState(false)
@@ -383,7 +403,7 @@ export function Toolbar({
               exit={{ opacity: 0, width: 0, marginLeft: -8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
               className={cn(
-                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
+                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-all duration-100 active:scale-[0.97]",
                 "hover:bg-destructive/15 hover:border-destructive/60",
                 "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
               )}

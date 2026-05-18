@@ -97,6 +97,13 @@ const decodeBoolean = (value: unknown): boolean | undefined => {
   return undefined
 }
 
+const decodeDate = (value: unknown): Date | undefined => {
+  if (typeof value !== "string" || value.length === 0) return undefined
+  // @effect-diagnostics-next-line globalDate:off
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
 const decodeSort = (value: unknown): TicketSort => {
   if (typeof value !== "string") return DEFAULT_TICKET_SORT
   const [keyRaw, dirRaw] = value.split(":")
@@ -136,6 +143,8 @@ export const ticketListQueryFromSearch = (
   if (hasBranch !== undefined) filter.hasBranch = hasBranch
   const hasPr = decodeBoolean(search.hasPr)
   if (hasPr !== undefined) filter.hasPr = hasPr
+  const updatedAfter = decodeDate(search.updatedAfter)
+  if (updatedAfter !== undefined) filter.updatedAfter = updatedAfter
 
   const out: MutableTicketListQuery = {
     sort: decodeSort(search.sort)
@@ -190,6 +199,7 @@ export const ticketListQueryToSearch = (
     if (f.groupId?.length) out.groupId = encodeGroupId(f.groupId)
     if (f.hasBranch !== undefined) out.hasBranch = String(f.hasBranch)
     if (f.hasPr !== undefined) out.hasPr = String(f.hasPr)
+    if (f.updatedAfter) out.updatedAfter = f.updatedAfter.toISOString()
   }
   if (query.sort && !isDefaultSort(query.sort)) {
     out.sort = `${query.sort.key}:${query.sort.dir}`

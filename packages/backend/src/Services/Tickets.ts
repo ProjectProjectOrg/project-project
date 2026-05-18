@@ -47,6 +47,27 @@ export interface TicketsShape {
     slug: string,
     query: TicketCountQuery
   ) => Effect.Effect<TicketCounts, NotFound | MarkdownError>
+  readonly search: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    options: {
+      readonly q?: string
+      readonly excludeGroupId?: string
+      readonly limit?: number
+    }
+  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+  readonly listInGroup: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    groupId: string
+  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+  readonly tagUsageCounts: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<Readonly<Record<string, number>>, NotFound | MarkdownError>
   readonly get: (
     orgSlug: string,
     ownerId: string,
