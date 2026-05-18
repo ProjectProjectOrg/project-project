@@ -54,7 +54,12 @@ export function ProjectIdentityEditor({
 
   if (!canEdit) {
     return (
-      <div className={size === "header" ? "-mt-1 shrink-0" : "shrink-0"}>
+      <div
+        className={cn(
+          "w-fit shrink-0",
+          size === "header" && "-mt-1"
+        )}
+      >
         {tile}
       </div>
     )
@@ -68,8 +73,8 @@ export function ProjectIdentityEditor({
             type="button"
             aria-label={m.project_identity_aria_label()}
             className={cn(
-              size === "header" ? "-mt-1 shrink-0" : "shrink-0",
-              "rounded-2xl corner-squircle outline-none transition-transform duration-100 active:scale-[0.97]"
+              "w-fit shrink-0 rounded-2xl corner-squircle outline-none transition-transform duration-100 active:scale-[0.97]",
+              size === "header" && "-mt-1"
             )}
           >
             {tile}
