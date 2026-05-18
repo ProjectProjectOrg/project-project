@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import type { Project } from "@projectproject/shared"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
+import { ProjectTile } from "@/components/ProjectTile"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
@@ -305,17 +306,7 @@ function ProjectRow({
         "hover:bg-accent/40 hover:border-border/80"
       )}
     >
-      <div
-        style={{ backgroundColor: project.color }}
-        className="grid size-9 shrink-0 place-items-center rounded-2xl corner-squircle text-lg leading-none shadow-sm"
-      >
-        <span
-          aria-hidden
-          className="[filter:drop-shadow(0_1px_1.5px_rgba(0,0,0,0.35))]"
-        >
-          {project.icon}
-        </span>
-      </div>
+      <ProjectTile icon={project.icon} color={project.color} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{project.name}</div>
         <div className="truncate font-mono text-xs text-muted-foreground">

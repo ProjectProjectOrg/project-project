@@ -10,6 +10,7 @@ import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
+import { ProjectTile } from "@/components/ProjectTile"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
 import {
@@ -255,24 +256,13 @@ function ProjectsGroupRow({
             : "text-muted-foreground hover:text-foreground"
         )}
       >
-        <span
-          style={active ? { backgroundColor: color } : undefined}
-          className={cn(
-            "grid size-4 shrink-0 place-items-center rounded-md corner-squircle text-[11px] leading-none transition-colors",
-            !active && "bg-muted"
-          )}
-        >
-          <span
-            aria-hidden
-            className={
-              active
-                ? "[filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.35))]"
-                : undefined
-            }
-          >
-            {icon}
+        {active ? (
+          <ProjectTile icon={icon} color={color} size="xs" />
+        ) : (
+          <span className="grid size-4 shrink-0 place-items-center rounded-md corner-squircle bg-muted text-[10px] leading-none">
+            <span aria-hidden>{icon}</span>
           </span>
-        </span>
+        )}
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
     </li>

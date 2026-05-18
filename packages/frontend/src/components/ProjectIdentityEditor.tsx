@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import { ProjectColor, ProjectIcon } from "@projectproject/shared"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
+import { ProjectTile } from "@/components/ProjectTile"
 import {
   EmojiPicker,
   EmojiPickerContent,
@@ -41,24 +42,13 @@ export function ProjectIdentityEditor({
   const updateState = useAtomValue(updateProjectAtom(key))
   const waiting = updateState.waiting
   const error = Result.isFailure(updateState)
-  const sizeClass = size === "header" ? "size-10 text-xl" : "size-12 text-2xl"
-
   const tile = (
-    <span
-      style={{ backgroundColor: color }}
-      className={cn(
-        "grid place-items-center rounded-2xl corner-squircle leading-none shadow-sm",
-        sizeClass,
-        waiting && "animate-pulse"
-      )}
-    >
-      <span
-        aria-hidden
-        className="[filter:drop-shadow(0_1px_1.5px_rgba(0,0,0,0.35))]"
-      >
-        {icon}
-      </span>
-    </span>
+    <ProjectTile
+      icon={icon}
+      color={color}
+      size={size === "header" ? "md" : "lg"}
+      waiting={waiting}
+    />
   )
 
   if (!canEdit) {
