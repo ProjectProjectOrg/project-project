@@ -125,7 +125,9 @@ export function Toolbar({
     (filter?.tags as ReadonlyArray<TagName> | undefined) ?? []
   const sprintFilter: SprintFilterValue =
     filter?.groupId?.length === 1
-      ? (filter.groupId[0] as SprintFilterValue)
+      ? filter.groupId[0] === null
+        ? "unassigned"
+        : (filter.groupId[0] as SprintFilterValue)
       : "all"
   const sortKey: SortKey = query.sort.key
   const queryStr = query.q ?? ""
@@ -181,9 +183,13 @@ export function Toolbar({
   }
 
   const setSprintFilter = (s: SprintFilterValue) => {
+    let nextGroupId: TicketFilter["groupId"]
+    if (s === "all") nextGroupId = undefined
+    else if (s === "unassigned") nextGroupId = [null]
+    else nextGroupId = [s]
     const nextFilter: TicketFilter = {
       ...(filter ?? {}),
-      groupId: s === "all" ? undefined : [s as GroupId]
+      groupId: nextGroupId
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
   }

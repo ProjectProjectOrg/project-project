@@ -1,6 +1,7 @@
 import {
   DEFAULT_TICKET_SORT,
   type AssigneeFilter,
+  type GroupIdFilter,
   type SortDir,
   type SortKey,
   type TicketFilter,
@@ -9,6 +10,7 @@ import {
 } from "./Ticket"
 
 const ASSIGNEE_UNASSIGNED_SENTINEL = "unassigned"
+const GROUP_UNASSIGNED_SENTINEL = "unassigned"
 
 const STATUS_VALUES = ["todo", "in_progress", "done"] as const
 const TYPE_VALUES = ["feat", "bug", "chore", "other"] as const
@@ -72,6 +74,22 @@ const decodeBranded = (
   return filtered.length === 0 ? undefined : filtered
 }
 
+const decodeGroupId = (
+  value: unknown
+): ReadonlyArray<GroupIdFilter> | undefined => {
+  const arr = decodeStringArray(value)
+  if (!arr) return undefined
+  const mapped: Array<GroupIdFilter> = []
+  for (const s of arr) {
+    if (s === GROUP_UNASSIGNED_SENTINEL) {
+      mapped.push(null)
+    } else if (GROUP_ID_PATTERN.test(s)) {
+      mapped.push(s as GroupIdFilter)
+    }
+  }
+  return mapped.length === 0 ? undefined : mapped
+}
+
 const decodeBoolean = (value: unknown): boolean | undefined => {
   if (typeof value === "boolean") return value
   if (value === "true") return true
@@ -112,8 +130,8 @@ export const ticketListQueryFromSearch = (
   if (assignee) filter.assignee = assignee
   const tags = decodeBranded(search.tags, TAG_NAME_PATTERN)
   if (tags) filter.tags = tags as TicketFilter["tags"]
-  const groupId = decodeBranded(search.groupId, GROUP_ID_PATTERN)
-  if (groupId) filter.groupId = groupId as TicketFilter["groupId"]
+  const groupId = decodeGroupId(search.groupId)
+  if (groupId) filter.groupId = groupId
   const hasBranch = decodeBoolean(search.hasBranch)
   if (hasBranch !== undefined) filter.hasBranch = hasBranch
   const hasPr = decodeBoolean(search.hasPr)
@@ -135,6 +153,11 @@ const encodeAssignee = (
 ): ReadonlyArray<string> =>
   values.map((v) => (v === null ? ASSIGNEE_UNASSIGNED_SENTINEL : v))
 
+const encodeGroupId = (
+  values: ReadonlyArray<GroupIdFilter>
+): ReadonlyArray<string> =>
+  values.map((v) => (v === null ? GROUP_UNASSIGNED_SENTINEL : v))
+
 const isDefaultSort = (sort: TicketSort) =>
   sort.key === DEFAULT_TICKET_SORT.key && sort.dir === DEFAULT_TICKET_SORT.dir
 
@@ -144,7 +167,7 @@ type TicketListQueryInput = {
     type?: ReadonlyArray<"feat" | "bug" | "chore" | "other">
     assignee?: ReadonlyArray<AssigneeFilter>
     tags?: ReadonlyArray<string>
-    groupId?: ReadonlyArray<string>
+    groupId?: ReadonlyArray<GroupIdFilter>
     hasBranch?: boolean
     hasPr?: boolean
     updatedAfter?: Date
@@ -164,7 +187,7 @@ export const ticketListQueryToSearch = (
     if (f.type?.length) out.type = f.type
     if (f.assignee?.length) out.assignee = encodeAssignee(f.assignee)
     if (f.tags?.length) out.tags = f.tags
-    if (f.groupId?.length) out.groupId = f.groupId
+    if (f.groupId?.length) out.groupId = encodeGroupId(f.groupId)
     if (f.hasBranch !== undefined) out.hasBranch = String(f.hasBranch)
     if (f.hasPr !== undefined) out.hasPr = String(f.hasPr)
   }

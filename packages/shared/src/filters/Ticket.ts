@@ -43,6 +43,9 @@ export const AssigneeFilter = Schema.Union(
 )
 export type AssigneeFilter = typeof AssigneeFilter.Type
 
+export const GroupIdFilter = Schema.NullOr(GroupId)
+export type GroupIdFilter = typeof GroupIdFilter.Type
+
 export const TicketFilter = Schema.Struct({
   status: Schema.optional(Schema.Array(TicketStatus)),
   type: Schema.optional(Schema.Array(TicketType)),
@@ -51,7 +54,7 @@ export const TicketFilter = Schema.Struct({
   hasBranch: Schema.optional(Schema.Boolean),
   hasPr: Schema.optional(Schema.Boolean),
   updatedAfter: Schema.optional(Schema.Date),
-  groupId: Schema.optional(Schema.Array(GroupId))
+  groupId: Schema.optional(Schema.Array(GroupIdFilter))
 })
 export type TicketFilter = typeof TicketFilter.Type
 

@@ -161,19 +161,37 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      groupIds: ReadonlyArray<string> | undefined
+      groupIds: ReadonlyArray<string | null> | undefined
     ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         if (groupIds === undefined) return null
         if (groupIds.length === 0) return new Set<string>()
-        const details = yield* Effect.forEach(
-          groupIds,
-          (id) => groups.get(orgSlug, userId, slug, id),
-          { concurrency: 8 }
+        const wantsUngrouped = groupIds.includes(null)
+        const explicitIds = groupIds.filter(
+          (id): id is string => id !== null
         )
-        const set = new Set<string>()
-        for (const g of details) for (const t of g.tickets) set.add(t)
-        return set
+        const memberSet = new Set<string>()
+        if (explicitIds.length > 0) {
+          const details = yield* Effect.forEach(
+            explicitIds,
+            (id) => groups.get(orgSlug, userId, slug, id),
+            { concurrency: 8 }
+          )
+          for (const g of details) for (const t of g.tickets) memberSet.add(t)
+        }
+        if (wantsUngrouped) {
+          const allGroups = yield* groups.list(orgSlug, userId, slug)
+          const inAnyActiveSprint = new Set<string>()
+          for (const g of allGroups) {
+            if (g.completedAt !== null) continue
+            for (const t of g.tickets) inAnyActiveSprint.add(t)
+          }
+          const allTicketIds = yield* ticketDocs.listIds(orgSlug, slug)
+          for (const id of allTicketIds) {
+            if (!inAnyActiveSprint.has(id)) memberSet.add(id)
+          }
+        }
+        return memberSet
       })
 
     const readTicket = (

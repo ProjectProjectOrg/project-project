@@ -90,4 +90,22 @@ describe("ticketListQueryToSearch", () => {
     expect(decoded.sort).toEqual(original.sort)
     expect(decoded.q).toBe(original.q)
   })
+
+  it("encodes groupId=null as 'unassigned' sentinel and round-trips", () => {
+    const search = ticketListQueryToSearch({
+      filter: { groupId: [null] }
+    })
+    expect(search).toEqual({ groupId: ["unassigned"] })
+    const decoded = ticketListQueryFromSearch(search)
+    expect(decoded.filter?.groupId).toEqual([null])
+  })
+
+  it("mixes null and real GroupIds through encode/decode", () => {
+    const search = ticketListQueryToSearch({
+      filter: { groupId: [null, "G-7" as never] }
+    })
+    expect(search).toEqual({ groupId: ["unassigned", "G-7"] })
+    const decoded = ticketListQueryFromSearch(search)
+    expect(decoded.filter?.groupId).toEqual([null, "G-7"])
+  })
 })
