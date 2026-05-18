@@ -88,6 +88,7 @@ export function ProjectIdentityEditor({
       <PopoverContent
         align="start"
         sideOffset={8}
+        keepMounted
         className="flex w-fit items-start gap-3 p-3"
       >
         <div className="relative z-50 mt-1.5 shrink-0">
@@ -100,7 +101,7 @@ export function ProjectIdentityEditor({
         </div>
         <div className="flex flex-col">
           <EmojiPicker
-            className="h-[320px] w-[320px]"
+            className="h-[320px]"
             onEmojiSelect={({ emoji }) =>
               update({ icon: makeProjectIcon(emoji) })
             }
