@@ -50,20 +50,6 @@ export const projectGitStatesAtom = Atom.family((key: string) =>
   Atom.optimistic(projectGitStatesBaseAtom(key))
 )
 
-export const githubReposAtom = Atom.family((query: string) =>
-  runtime
-    .atom((get) => {
-      get(githubAuthEpochAtom)
-      return Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.projects.listRepos({
-          urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
-        })
-      })
-    })
-    .pipe(Atom.setIdleTTL("2 minutes"))
-)
-
 export const githubOrgIntegrationAtom = Atom.family((orgSlug: string) =>
   runtime
     .atom(

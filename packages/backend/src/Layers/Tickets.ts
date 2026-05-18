@@ -821,7 +821,7 @@ export const TicketsLive = Layer.effect(
         const ticket = yield* readTicket(orgSlug, slug, id)
         const baseBranch = input.baseBranch ?? projectGithub.defaultBaseBranch
 
-        yield* github.createBranch(
+        yield* github.createBranchAsUser(
           projectGithub.repoOwner,
           projectGithub.repoName,
           input.name,
@@ -921,7 +921,7 @@ export const TicketsLive = Layer.effect(
         }
 
         const base = projectGithub.defaultBaseBranch
-        const result = yield* github.openPullRequest(
+        const result = yield* github.openPullRequestAsUser(
           projectGithub.repoOwner,
           projectGithub.repoName,
           {

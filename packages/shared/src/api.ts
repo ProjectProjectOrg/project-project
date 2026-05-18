@@ -324,23 +324,6 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(NotFound)
       .addError(Forbidden)
   )
-  // User-scoped: lists the caller's GitHub repos. Not org-scoped — lives
-  // outside the `/orgs/:orgSlug` tree on purpose; the picker calls this
-  // before a repo is connected to a project so there's no project context.
-  .add(
-    HttpApiEndpoint.get("listRepos", "/github/repos")
-      .setUrlParams(
-        Schema.Struct({
-          q: Schema.optional(Schema.String),
-          page: Schema.optional(Schema.NumberFromString)
-        })
-      )
-      .addSuccess(GithubRepoPage)
-      .addError(Unauthorized)
-      .addError(GitHubTokenExpired)
-      .addError(GitHubScopeInsufficient)
-      .addError(GitHubError)
-  )
   .add(
     HttpApiEndpoint.get("gitStates", "/orgs/:orgSlug/projects/:slug/git-states")
       .setPath(ProjectPath)

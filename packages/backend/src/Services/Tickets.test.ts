@@ -154,22 +154,17 @@ const FakeGroups = Layer.succeed(Groups, {
 } satisfies GroupsShape)
 
 const FakeGitHub = Layer.succeed(GitHub, {
-  listUserRepos: () => unexpected("GitHub.listUserRepos"),
-  verifyAccess: () => unexpected("GitHub.verifyAccess"),
   getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
   verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
   exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
   appUserCanAccessInstallation: () =>
     unexpected("GitHub.appUserCanAccessInstallation"),
-  createBranch: () => unexpected("GitHub.createBranch"),
-  openPullRequest: () => unexpected("GitHub.openPullRequest"),
-  fetchProjectStates: () => unexpected("GitHub.fetchProjectStates"),
+  createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
+  openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
   fetchInstallationProjectStates: () =>
     unexpected("GitHub.fetchInstallationProjectStates"),
-  listBranches: () => unexpected("GitHub.listBranches"),
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
-  branchExists: () => unexpected("GitHub.branchExists"),
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
 
@@ -458,26 +453,29 @@ it.effect("count aggregates byStatus across a mixed-status project", () => {
   }).pipe(Effect.provide(layer))
 })
 
-it.effect("count strips status from filter so chip counts stay meaningful", () => {
-  const { documents, layer } = makeTicketsFixture("T", [])
-  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
-  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
-  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
-  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
-  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
-  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+it.effect(
+  "count strips status from filter so chip counts stay meaningful",
+  () => {
+    const { documents, layer } = makeTicketsFixture("T", [])
+    documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
+    documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
+    documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
+    documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
+    documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
+    documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
 
-  return Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const result = yield* tickets.count("org", "user-1", "p", {
-      filter: { status: ["done"] }
-    })
-    expect(result).toEqual({
-      total: 6,
-      byStatus: { todo: 3, in_progress: 2, done: 1 }
-    })
-  }).pipe(Effect.provide(layer))
-})
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.count("org", "user-1", "p", {
+        filter: { status: ["done"] }
+      })
+      expect(result).toEqual({
+        total: 6,
+        byStatus: { todo: 3, in_progress: 2, done: 1 }
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("count still applies non-status filters", () => {
   const { documents, layer } = makeTicketsFixture("T", [])

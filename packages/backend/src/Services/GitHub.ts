@@ -45,22 +45,6 @@ export interface VerifiedInstallationRepo {
 }
 
 export interface GitHubShape {
-  readonly listUserRepos: (
-    userId: string,
-    query: string | undefined,
-    page: number
-  ) => Effect.Effect<
-    GithubRepoPage,
-    GitHubTokenExpired | GitHubScopeInsufficient | GitHubError
-  >
-  readonly verifyAccess: (
-    owner: string,
-    name: string,
-    userId: string
-  ) => Effect.Effect<
-    { defaultBranch: string },
-    GitHubTokenExpired | GitHubScopeInsufficient | RepoGone | GitHubError
-  >
   readonly getInstallationAccount: (
     installationId: string
   ) => Effect.Effect<GitHubInstallationAccount, RepoGone | GitHubError>
@@ -81,7 +65,7 @@ export interface GitHubShape {
     userAccessToken: string,
     installationId: string
   ) => Effect.Effect<boolean, GitHubError>
-  readonly createBranch: (
+  readonly createBranchAsUser: (
     owner: string,
     name: string,
     branchName: string,
@@ -97,7 +81,7 @@ export interface GitHubShape {
     | RateLimited
     | GitHubError
   >
-  readonly openPullRequest: (
+  readonly openPullRequestAsUser: (
     owner: string,
     name: string,
     args: {
@@ -117,37 +101,11 @@ export interface GitHubShape {
     | RateLimited
     | GitHubError
   >
-  readonly fetchProjectStates: (
-    owner: string,
-    name: string,
-    userId: string
-  ) => Effect.Effect<
-    RawProjectStates,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
   readonly fetchInstallationProjectStates: (
     installationId: string,
     owner: string,
     name: string
   ) => Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError>
-  readonly listBranches: (
-    owner: string,
-    name: string,
-    query: string | undefined,
-    first: number,
-    userId: string
-  ) => Effect.Effect<
-    BranchListResponse,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
   readonly listInstallationBranches: (
     installationId: string,
     owner: string,
@@ -155,19 +113,6 @@ export interface GitHubShape {
     query: string | undefined,
     first: number
   ) => Effect.Effect<BranchListResponse, RepoGone | RateLimited | GitHubError>
-  readonly branchExists: (
-    owner: string,
-    name: string,
-    branch: string,
-    userId: string
-  ) => Effect.Effect<
-    boolean,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
   readonly branchExistsInstallation: (
     installationId: string,
     owner: string,

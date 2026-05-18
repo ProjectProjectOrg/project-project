@@ -219,17 +219,6 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
-      .handle("listRepos", ({ urlParams }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const github = yield* GitHub
-          return yield* github.listUserRepos(
-            user.id,
-            urlParams.q,
-            urlParams.page ?? 1
-          )
-        })
-      )
       .handle("gitStates", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
