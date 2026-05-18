@@ -252,16 +252,14 @@ function ProjectsGroupRow({
             : "text-muted-foreground hover:text-foreground"
         )}
       >
-        <span className="grid size-4 shrink-0 place-items-center text-base leading-none">
-          <span
-            aria-hidden
-            className={cn(
-              "transition-[filter,opacity] duration-150",
-              !active && "opacity-60 grayscale"
-            )}
-          >
-            {icon}
-          </span>
+        <span
+          aria-hidden
+          className={cn(
+            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none transition-[filter,opacity] duration-150",
+            !active && "opacity-60 grayscale"
+          )}
+        >
+          {icon}
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
