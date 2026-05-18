@@ -108,6 +108,7 @@ import {
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
+import { githubAuthEpochAtom } from "./github"
 
 export const meAtom = runtime.atom(
   Effect.gen(function* () {
@@ -120,6 +121,31 @@ export const meAtom = runtime.atom(
 export const logoutAtom = runtime.fn(
   Effect.fn(function* (_: void, get) {
     yield* Effect.tryPromise(() => authClient.signOut())
+    get.refresh(meAtom)
+  })
+)
+
+export const connectPersonalGithubAtom = runtime.fn(
+  Effect.fn(function* (_: void) {
+    yield* Effect.tryPromise(() =>
+      authData(
+        authClient.linkSocial({
+          provider: "github",
+          callbackURL: "/profile",
+          errorCallbackURL: "/profile",
+          scopes: ["read:user", "user:email", "repo"]
+        })
+      )
+    )
+  })
+)
+
+export const disconnectPersonalGithubAtom = runtime.fn(
+  Effect.fn(function* (_: void, get) {
+    yield* Effect.tryPromise(() =>
+      authData(authClient.unlinkAccount({ providerId: "github" }))
+    )
+    get.set(githubAuthEpochAtom, get(githubAuthEpochAtom) + 1)
     get.refresh(meAtom)
   })
 )

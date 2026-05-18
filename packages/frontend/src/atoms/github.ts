@@ -27,6 +27,8 @@ import {
   ticketsListKey
 } from "./tickets"
 
+export const githubAuthEpochAtom = Atom.make(0)
+
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
@@ -35,14 +37,15 @@ const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
 export const projectGitStatesBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.gitStates({
           path: { orgSlug, slug }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("30 seconds"))
 })
 
@@ -52,14 +55,15 @@ export const projectGitStatesAtom = Atom.family((key: string) =>
 
 export const githubReposAtom = Atom.family((query: string) =>
   runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.listRepos({
           urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("2 minutes"))
 )
 
@@ -71,8 +75,9 @@ export const branchesKey = (orgSlug: string, slug: string, q: string) =>
 
 export const branchesAtom = Atom.family((key: string) =>
   runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const sep = key.indexOf(" ")
         const projKey = key.slice(0, sep)
         const q = key.slice(sep + 1)
@@ -83,7 +88,7 @@ export const branchesAtom = Atom.family((key: string) =>
           urlParams: { q: q.trim() ? q.trim() : undefined }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("1 minute"))
 )
 

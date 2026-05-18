@@ -51,6 +51,23 @@ export const BetterAuthLive = Layer.effect(
           if (!row?.accessToken) return yield* new NoGithubToken()
           return row.accessToken
         }),
+      getPersonalGithub: (userId) =>
+        Effect.gen(function* () {
+          const row = yield* Effect.tryPromise({
+            try: () =>
+              db.query.account.findFirst({
+                columns: { id: true },
+                where: and(
+                  eq(account.userId, userId),
+                  eq(account.providerId, "github")
+                )
+              }),
+            catch: (cause) => new BetterAuthError({ cause })
+          })
+          return {
+            connected: row !== undefined
+          }
+        }),
       listOrganizations: (userId) =>
         Effect.gen(function* () {
           const rows = yield* Effect.tryPromise({

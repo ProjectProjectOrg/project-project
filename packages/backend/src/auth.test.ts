@@ -220,11 +220,14 @@ describe("Better Auth plugin wiring", () => {
     expect(orgPlugin?.options?.requireEmailVerificationOnInvitation).toBe(true)
   })
 
-  it("links new social sign-ins to existing users by email", () => {
+  it("allows GitHub account linking for users with a different profile email", () => {
     expect(auth.options.account?.accountLinking?.enabled).toBe(true)
     expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
       "github"
     )
+    expect(
+      auth.options.account?.accountLinking?.allowDifferentEmails
+    ).toBe(true)
   })
 
   it("exposes the admin plugin endpoints", () => {

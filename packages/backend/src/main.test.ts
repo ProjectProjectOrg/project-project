@@ -66,9 +66,11 @@ const FakeBetterAuth = {
   handler: () => unexpectedBetterAuthCall("handler"),
   getSession: () => unexpectedBetterAuthCall("getSession"),
   getGithubAccessToken: () => unexpectedBetterAuthCall("getGithubAccessToken"),
+  getPersonalGithub: () => unexpectedBetterAuthCall("getPersonalGithub"),
   getOrgSlugById: () => unexpectedBetterAuthCall("getOrgSlugById"),
   listOrganizations: () => unexpectedBetterAuthCall("listOrganizations"),
-  listOrganizationsPaged: () => unexpectedBetterAuthCall("listOrganizationsPaged"),
+  listOrganizationsPaged: () =>
+    unexpectedBetterAuthCall("listOrganizationsPaged"),
   getOrganization: () => unexpectedBetterAuthCall("getOrganization"),
   submitConsent: () => unexpectedBetterAuthCall("submitConsent")
 } satisfies BetterAuthShape

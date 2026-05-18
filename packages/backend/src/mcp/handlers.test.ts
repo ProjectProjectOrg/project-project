@@ -281,7 +281,10 @@ describe("MCP dispatcher → write tools", () => {
           email: "u@example.com",
           image: null,
           createdAt: isoDate("2026-05-01T00:00:00.000Z"),
-          activeOrgSlug: null
+          activeOrgSlug: null,
+          personalGithub: {
+            connected: false
+          }
         },
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),

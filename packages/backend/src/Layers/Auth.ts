@@ -88,6 +88,9 @@ export const AuthenticationLive = Layer.effect(
           const activeOrgSlug = yield* ba
             .getOrgSlugById(activeOrganizationId)
             .pipe(Effect.orDie)
+          const personalGithub = yield* ba
+            .getPersonalGithub(id)
+            .pipe(Effect.orDie)
           return {
             id,
             email,
@@ -95,7 +98,8 @@ export const AuthenticationLive = Layer.effect(
             username,
             image: image ?? null,
             createdAt,
-            activeOrgSlug
+            activeOrgSlug,
+            personalGithub
           }
         })
     })
