@@ -64,7 +64,7 @@ import {
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
-import { SORTS } from "./sort"
+import { SORT_LABELS } from "./sort"
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
@@ -730,25 +730,25 @@ function SortMenu({
             type="button"
             className={TOOLBAR_BUTTON_CLASS}
             aria-label={m.tickets_sort_aria_label({
-              label: SORTS[value].label()
+              label: SORT_LABELS[value]()
             })}
           >
             <ArrowDownAZ className="size-4" strokeWidth={1.75} />
             <CollapsingLabel show={!compact}>
-              {SORTS[value].label()}
+              {SORT_LABELS[value]()}
             </CollapsingLabel>
             <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
           </button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-        {(Object.keys(SORTS) as SortKey[]).map((k) => (
+        {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
           <DropdownMenuItem
             key={k}
             onClick={() => onChange(k)}
             className="cursor-pointer"
           >
-            {SORTS[k].label()}
+            {SORT_LABELS[k]()}
             {value === k && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
