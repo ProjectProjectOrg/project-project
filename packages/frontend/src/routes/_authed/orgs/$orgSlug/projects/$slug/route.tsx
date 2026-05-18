@@ -591,10 +591,7 @@ function SprintViewSwitcher({
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId },
-      search: (prev) => ({
-        ...prev,
-        view: next === "list" ? "list" : undefined
-      })
+      search: (prev) => ({ ...prev, view: next })
     })
   }
   const items: ReadonlyArray<SegmentedItem<"list" | "board">> = [

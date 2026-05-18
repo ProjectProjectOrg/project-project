@@ -67,6 +67,9 @@ import { cn } from "@/lib/utils"
 import { SORT_LABELS } from "./sort"
 import { TICKET_SEARCH_KEYS } from "./url"
 
+type SearchValue = string | ReadonlyArray<string> | undefined
+type SearchRecord = { readonly [k: string]: SearchValue }
+
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
   "text-muted-foreground transition-colors hover:text-foreground",
@@ -131,8 +134,8 @@ export function Toolbar({
     const nextSearch = ticketListQueryToSearch({ ...next, cursor: undefined })
     void navigate({
       to: router.state.location.pathname,
-      search: (prev: Record<string, unknown>) => {
-        const cleared: Record<string, unknown> = { ...prev }
+      search: (prev: SearchRecord): SearchRecord => {
+        const cleared: { [k: string]: SearchValue } = { ...prev }
         for (const k of TICKET_SEARCH_KEYS) cleared[k] = undefined
         return { ...cleared, ...nextSearch }
       },
