@@ -36,17 +36,19 @@ export const McpServerLive = Layer.scoped(
       Effect.promise(() => runtime.dispose().catch(() => {}))
     )
 
-    const server = new SdkMcpServer(
-      { name: "projectproject", version: "0.1.0" },
-      {
-        capabilities: { tools: {} },
-        instructions:
-          "Read-only access to the user's orgs, groups, projects, and tickets."
-      }
-    )
+    const createServer = () => {
+      const server = new SdkMcpServer(
+        { name: "projectproject", version: "0.1.0" },
+        {
+          capabilities: { tools: {} },
+          instructions:
+            "Read-only access to the user's orgs, groups, projects, and tickets."
+        }
+      )
+      registerAllTools(server, runtime, handlers)
+      return server
+    }
 
-    registerAllTools(server, runtime, handlers)
-
-    return { server, runtime }
+    return { createServer, runtime }
   })
 )

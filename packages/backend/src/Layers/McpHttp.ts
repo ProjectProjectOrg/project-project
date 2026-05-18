@@ -15,7 +15,9 @@
 //   2. On non-initialize requests — look up the transport by session id.
 //      If unknown, 400.
 //   3. On client DELETE — close and forget the transport.
-// The SDK server stays shared; transports are session-affine.
+// Each session owns its own SDK server and transport — the SDK's Protocol
+// refuses a second `connect()`, so we can't share a single server across
+// sessions. The backend runtime (DB, auth, ...) is shared.
 
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
@@ -34,18 +36,20 @@ import { Users } from "../Services/Users"
 export const McpHttpLive = Layer.scoped(
   McpHttp,
   Effect.gen(function* () {
-    const { server, runtime } = yield* McpServer
+    const { createServer, runtime } = yield* McpServer
 
-    const transports = new Map<
-      string,
-      WebStandardStreamableHTTPServerTransport
-    >()
+    type Session = {
+      readonly transport: WebStandardStreamableHTTPServerTransport
+      readonly server: ReturnType<typeof createServer>
+    }
+    const sessions = new Map<string, Session>()
     yield* Effect.addFinalizer(() =>
       Effect.promise(async () => {
-        for (const t of transports.values()) {
-          await t.close().catch(() => {})
+        for (const { transport, server } of sessions.values()) {
+          await transport.close().catch(() => {})
+          await server.close().catch(() => {})
         }
-        transports.clear()
+        sessions.clear()
       })
     )
 
@@ -55,18 +59,23 @@ export const McpHttpLive = Layer.scoped(
     ): Promise<WebStandardStreamableHTTPServerTransport | Response> => {
       const sessionId = req.headers.get("mcp-session-id") ?? undefined
 
-      if (sessionId && transports.has(sessionId)) {
-        return transports.get(sessionId)!
+      if (sessionId && sessions.has(sessionId)) {
+        return sessions.get(sessionId)!.transport
       }
 
       if (!sessionId && isInitializeRequest(body)) {
+        const server = createServer()
         const transport = new WebStandardStreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (sid) => {
-            transports.set(sid, transport)
+            sessions.set(sid, { transport, server })
           },
           onsessionclosed: (sid) => {
-            transports.delete(sid)
+            const existing = sessions.get(sid)
+            sessions.delete(sid)
+            if (existing) {
+              existing.server.close().catch(() => {})
+            }
           }
         })
         await server.connect(transport)

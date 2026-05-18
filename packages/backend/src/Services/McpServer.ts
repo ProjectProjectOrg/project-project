@@ -17,7 +17,7 @@ export type McpToolRuntime = ManagedRuntime.ManagedRuntime<
 >
 
 export interface McpServerShape {
-  readonly server: SdkMcpServer
+  readonly createServer: () => SdkMcpServer
   readonly runtime: McpToolRuntime
 }
 
