@@ -37,6 +37,12 @@
 
 import * as Schema from "effect/Schema"
 
+export const PersonalGithub = Schema.Struct({
+  connected: Schema.Boolean,
+  username: Schema.NullOr(Schema.String)
+})
+export type PersonalGithub = typeof PersonalGithub.Type
+
 export const User = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
@@ -52,6 +58,7 @@ export const User = Schema.Struct({
   // the user has no active org (fresh signup, pre-onboarding). Frontend
   // reads this off `meAtom` so "current org" is available everywhere
   // without a second fetch.
-  activeOrgSlug: Schema.NullOr(Schema.String)
+  activeOrgSlug: Schema.NullOr(Schema.String),
+  personalGithub: PersonalGithub
 })
 export type User = typeof User.Type

@@ -2,7 +2,12 @@ import type { Session, User } from "../auth"
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
-import type { CursorPayload, NotFound, Org } from "@projectproject/shared"
+import type {
+  CursorPayload,
+  NotFound,
+  Org,
+  PersonalGithub
+} from "@projectproject/shared"
 
 export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
   readonly cause: unknown
@@ -22,6 +27,10 @@ export interface BetterAuthShape {
   readonly getGithubAccessToken: (
     userId: string
   ) => Effect.Effect<string, NoGithubToken | BetterAuthError>
+  readonly getPersonalGithub: (
+    userId: string,
+    username: string | null
+  ) => Effect.Effect<PersonalGithub, BetterAuthError>
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
   ) => Effect.Effect<string | null, BetterAuthError>

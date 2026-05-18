@@ -124,6 +124,30 @@ export const logoutAtom = runtime.fn(
   })
 )
 
+export const connectPersonalGithubAtom = runtime.fn(
+  Effect.fn(function* (_: void) {
+    yield* Effect.tryPromise(() =>
+      authData(
+        authClient.linkSocial({
+          provider: "github",
+          callbackURL: "/profile",
+          errorCallbackURL: "/profile",
+          scopes: ["read:user", "user:email", "repo"]
+        })
+      )
+    )
+  })
+)
+
+export const disconnectPersonalGithubAtom = runtime.fn(
+  Effect.fn(function* (_: void, get) {
+    yield* Effect.tryPromise(() =>
+      authData(authClient.unlinkAccount({ providerId: "github" }))
+    )
+    get.refresh(meAtom)
+  })
+)
+
 const pendingInvitesBaseAtom = runtime
   .atom(
     Effect.tryPromise(async (): Promise<PendingInvite[]> => {
