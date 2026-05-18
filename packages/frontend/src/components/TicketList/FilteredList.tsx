@@ -1,10 +1,17 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode } from "react"
-import { Loader2, X } from "lucide-react"
+import { FilterX, ListChecks, Loader2 } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@/components/ui/empty"
 import { loadMoreTicketsAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -15,8 +22,6 @@ import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
 import { TypeButton } from "./TypeField"
 import { useResetTicketSearch } from "./url"
-
-const EMPTY_BORDER = "border border-dashed border-border"
 
 export function FilteredList({
   orgSlug,
@@ -49,20 +54,27 @@ export function FilteredList({
   if (items.length === 0) {
     if (hasActiveFilter) {
       return (
-        <Empty
-          variant="inline"
-          className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
-        >
-          <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            leadingIcon={X}
-            onClick={resetFilters}
-          >
-            {m.tickets_filters_clear_all()}
-          </Button>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FilterX strokeWidth={1.75} />
+            </EmptyMedia>
+            <EmptyTitle>{m.tickets_no_filter_matches_title()}</EmptyTitle>
+            <EmptyDescription>
+              {m.tickets_no_filter_matches()}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              type="button"
+              variant="tertiary"
+              size="sm"
+              leadingIcon={FilterX}
+              onClick={resetFilters}
+            >
+              {m.tickets_filters_clear_all()}
+            </Button>
+          </EmptyContent>
         </Empty>
       )
     }
@@ -222,10 +234,16 @@ function Row({
 function NoTicketsYet() {
   return (
     <Empty>
-      <EmptyDescription className="max-w-xs text-xs">
-        {m.tickets_empty_hint_prefix()}{" "}
-        <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
-      </EmptyDescription>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <ListChecks strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.tickets_empty_title()}</EmptyTitle>
+        <EmptyDescription>
+          {m.tickets_empty_hint_prefix()}{" "}
+          <span className="font-mono">{m.tickets_empty_hint_folder()}</span>.
+        </EmptyDescription>
+      </EmptyHeader>
     </Empty>
   )
 }

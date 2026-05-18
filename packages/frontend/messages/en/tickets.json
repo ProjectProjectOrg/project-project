@@ -42,6 +42,7 @@
   "tickets_mention_card_read_more": "Read more",
   "tickets_new_button": "New ticket",
   "tickets_no_filter_matches": "No tickets match your filters.",
+  "tickets_no_filter_matches_title": "No matches",
   "tickets_no_search_matches_prefix": "No tickets match",
   "tickets_page_meta_assignees": "assignees",
   "tickets_page_meta_created": "created",
