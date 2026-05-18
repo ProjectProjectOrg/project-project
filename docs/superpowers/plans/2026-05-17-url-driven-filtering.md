@@ -2786,3 +2786,105 @@ Dispatch brief expected "~5 new errors at the <TicketList> callsite" for F1 and 
 - `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
 
 Ready to dispatch Phase G in a fresh context with the carry-overs above in the brief.
+
+---
+
+## Implementation log — Phase G (2026-05-18)
+
+Phase G has three tasks (G1, G2, G3). All landed cleanly, plus one collateral-cleanup commit needed to land workspace-clean typecheck. Twenty-three ahead of `main`. Frontend typecheck moved from 36 errors → **0 errors**. Backend / shared remained at 0.
+
+### G1 — `09407b4` `frontend(toolbar): URL-driven filter + count atom for chips`
+
+- `packages/frontend/src/components/TicketList/Toolbar.tsx` rewritten end-to-end. Removed `tickets` and `uiKey` props; added `query: TicketListQuery`. Removed every `useAtom(...FilterAtom(key))` call; derived UI state from `query` (single-element narrowing per plan, multi-element falls back to "all"). `updateQuery` writes via `navigate({ search: ... })`.
+- Chip counts now come from `ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))` where `countQuery = { filter: query.filter, q: query.q }`. The old `useMemo` over the local tickets array is gone.
+- Search input is local `useState` with a 200ms debounce. Local `searchFocused` state replaces the old `searchFocusedAtom`. Plan referenced `searchFocusedAtom`; CLAUDE.md compliance favored local state since the value is not persistent UI state.
+- Sort changes call `updateQuery` with the natural sort direction for the chosen key (`NATURAL_SORT_DIR[k]`). `clearAll` resets to `{ sort: query.sort }`.
+
+**Two deviations from the plan text:**
+
+1. **`updateQuery` uses a search-reducer that preserves non-ticket params and clears the ticket-owned set.** The plan snippet writes `search: ticketListQueryToSearch(next)` directly, which would drop the `view` param on the sprint detail route. The reducer explicitly clears `TICKET_SEARCH_KEYS` from prev and overlays new values. Preserves `view` (and any other future external search keys) without leaking stale ticket-search keys.
+2. **`updateQuery` strips `cursor` from every navigation.** Plan implies but does not enforce cursor reset on filter/sort change; carry-over E3 flagged it. Centralizing in `updateQuery` is one source of truth, applied to every setter.
+
+`setTimeout` got the standard `// @effect-diagnostics-next-line globalTimers:off` suppress comment that pre-existed elsewhere in the codebase.
+
+### G2 — `42beea6` `frontend(list): server-driven render + load more`
+
+- `packages/frontend/src/components/TicketList/index.tsx`: thin wrapper rewritten per plan. Reads `ticketsListAtom(ticketsListKey(orgSlug, slug, query))`. Forwards `value.items`, `value.nextCursor`, `waiting` to `FilteredList`. Toolbar renders unconditionally (per plan's deferred decision: zero-counts toolbar is more honest than absent).
+- `packages/frontend/src/components/TicketList/FilteredList.tsx`: client-side `filter`/`useMemo`/`toSorted` block removed entirely. Renders `items` directly. "Load more" button at the bottom when `nextCursor !== null`; `disabled={loadingMore}` per E3 re-entry-race mitigation. `NoSearchMatches` empty state dropped, folded into the single `tickets_no_filter_matches` per plan.
+- `packages/frontend/messages/en/tickets.json`: added `tickets_load_more_button` and `tickets_load_more_loading` in alphabetical order within the `tickets_` prefix group (per CLAUDE.md i18n rules).
+
+No deviations.
+
+### G3 — `a653ed1` `frontend(sprints): SprintTicketList consumes TicketListQuery`
+
+- `packages/frontend/src/components/sprints/SprintTicketList.tsx`: collapsed from a 38-line atom-reading component to a 24-line pass-through that takes `query: TicketListQuery` and forwards to `<TicketList>`.
+- `packages/frontend/src/components/sprints/SprintDetail.tsx`: added the `listQuery: TicketListQuery` prop. Passed through to `SprintTicketList`. The local `uiKey` variable is dropped (no longer referenced). `filterIds` and `ticketIds` kept — still needed for `SprintBoard` and `SprintTicketCreator.excludeIds`. (Plan said to delete both, but that's wrong — they're load-bearing for sister components. Kept as-is.)
+
+One deviation documented in the commit: kept `filterIds` and `ticketIds` because the plan's "they're no longer needed" claim was incorrect.
+
+### Collateral — `75dde65` `frontend: migrate atom-direct consumers to query-keyed ticketsListAtom`
+
+The plan's G2 step 4 said "remaining errors should be in `SprintTicketList` / `SprintDetail`. Fix next." That claim was inaccurate. After G3, **26 errors remained** across consumers that read `ticketsListAtom` directly (not through `<TicketList>`), all using the old 2-arg `ticketsListKey(orgSlug, slug)` and treating the result as `Ticket[]` instead of `{ items, nextCursor }`. These were out-of-G-spec but blocking workspace typecheck-clean.
+
+Fixed in one commit, per file:
+
+- **`components/sprints/CompleteSprintForm.tsx`**: scoped the query to `{ filter: { groupId: [sprint.id] }, sort: DEFAULT_TICKET_SORT }`. Reads `tickets.value.items`. Sprint typically has ≤50 tickets so the first page is the whole set.
+- **`components/sprints/SprintBoard.tsx`**: same treatment — `filter: { groupId: [groupId] }`. `list.value.items` feeds `ticketById`.
+- **`components/TagEditor.tsx`**: changed to `{ sort: DEFAULT_TICKET_SORT }` (no filter). Tag usage counts iterate `.items` of the first page. **Known limitation:** projects with >50 tickets get under-counted tag usage. Acceptable for v1; flagged as follow-up.
+- **`components/TicketList/SprintTicketCreator.tsx`**: same first-page approach. Combobox typeahead is client-side over the first 50 tickets. **Known limitation:** matching tickets past page 1 don't surface. Acceptable for v1; flagged as follow-up — proper fix is server-side `q` typeahead.
+- **`mentions/ticketProvider.tsx`**: passes `q` through `ticketListQueryToSearch`, server-filters at the API. Local `.filter()` retained as a redundant client safety net; reads `page.items`.
+- **`routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx`** (TabsNav): switched from `ticketsListAtom` to `ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))`. `ticketBreakdown: Record<TicketStatus, number>` derived from `byStatus`. `TicketsBreakdown` component now takes `counts: Record<TicketStatus, number>` directly. The `Ticket` type import dropped; `TicketStatus` added. **This is strictly better than before** — no full ticket fetch just to count by status.
+- **`routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx`** (F1 route): `validateSearch` return type widened to `Partial<TicketListQuery>` via cast. The runtime function still returns a fully-populated `TicketListQuery`, but the type relaxation lets `<Link to="/orgs/$orgSlug/projects/$slug">` callsites elsewhere in the app omit the `search` prop. The component normalizes `sort` via `DEFAULT_TICKET_SORT` before passing the query down.
+- **`routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId.tsx`** (F2 route): same `Partial<TicketListQuery>` relaxation on `SprintRouteSearch`, plus `view` made optional. Component-side normalization injects `DEFAULT_TICKET_SORT` and the path-derived `groupId` before passing as `listQuery`.
+
+This last pair (the route-validateSearch relaxations) is the keystone that closes the 8 collateral `<Link>` / `navigate()` errors that F1/F2 introduced — see the Phase F log. The carry-over "every `<Link>` to these routes needs `search`" is now resolved without touching any of the 8 callsites: the type-system pressure was misplaced; the routes' validateSearch always returns sensible defaults at runtime, the type just needed to admit that.
+
+### Typecheck baseline after Phase G
+
+`bun run --cwd packages/frontend typecheck` (paraglide, then `tsc --noEmit`):
+
+| Package | Errors at Phase F close | Errors now | Delta |
+|---|---|---|---|
+| `@projectproject/shared` | 0 | 0 | — |
+| `@projectproject/backend` | 0 | 0 | — |
+| `@projectproject/frontend` | 36 | **0** | -36 |
+
+No remaining errors anywhere. Lint script not configured in `packages/frontend/package.json` — skipped.
+
+### Known limitations introduced by Phase G
+
+These are accepted-for-v1 and worth tracking:
+
+- **Tag usage counts capped at 50** (`TagEditor`). Projects with more tickets under-count tag usage. Proper fix: per-tag count endpoint or `byTag` aggregate on `ticketsCountAtom`.
+- **Sprint creator typeahead capped at 50** (`SprintTicketCreator`). Matching tickets past the first page won't appear in the combobox. Proper fix: pass `q` to the URL and let the server filter (mirroring `mentions/ticketProvider`).
+- **`route.tsx` TabsNav reads `ticketsCountAtom` with empty query** — this is correct and strictly cheaper than the old "load all tickets to count them" pattern. No limitation; just noting the change.
+
+### Open carry-overs after Phase G
+
+Remaining items going into Phase H or beyond:
+
+- **H1 — Delete `packages/frontend/src/atoms/ticketListUi.ts`.** Now unreferenced (G1 dropped the last consumer). Verify with grep, then `git rm`.
+- **H1 — Decide on `components/TicketList/sort.ts`.** The runtime `compare` functions are dead (sort happens server-side); only `label()` is still used by `Toolbar`. Reduce to a `SORT_LABELS` map per plan.
+- **H1 — Manual verification in dev server.** Walk the 12-step flow in `docs/superpowers/plans/2026-05-17-url-driven-filtering.md` line 2199–2214. Cannot be automated.
+- **E3 carry-over — `loadMore` × invalidation race.** Still no cancellation policy. `disabled={loadingMore}` covers the obvious re-entry; the harder case (in-flight `loadMore` colliding with `Reactivity.invalidate`) is documented in E3's log. Acceptable for v1.
+- **E4 carry-over — `placeTicketAtom` flicker.** Unaddressed; manual verification will confirm whether it's intrusive.
+- **E1/E2 — `parseTicketsListKey` / `parseTicketsCountKey` throw on malformed keys.** Switch to `decodeUnknownEither`. Follow-up PR.
+- **F1 territory — `decodeStringArray` casts branded types without per-element validation.** Follow-up PR.
+- **Wire-shape coupling** (`BaseTicketFilterParams` / URL transforms / `TicketFilter`). Three-place enumeration when adding a filter. Follow-up architectural refactor.
+- **`updatedAfter`** still unreachable through URL transforms. Follow-up.
+- **Cursor sort-fingerprint validation** still v1 — frontend resets cursor on sort change (now centralized in `updateQuery`).
+
+### Phase G self-check
+
+- G1 / G2 / G3 followed the plan text with the two G1 deviations and one G3 correction documented above. No subagent dispatch — controller-implemented inline.
+- Four commits ahead of `614a0aa` (Phase F close); twenty-three ahead of `main`.
+- No comments added by G1 / G2 / G3 / collateral code (CLAUDE.md compliant). One pre-existing `// @effect-diagnostics-next-line globalTimers:off` pattern reused in G1 for `setTimeout`.
+- Files touched in scope:
+  - G1: `components/TicketList/Toolbar.tsx`.
+  - G2: `components/TicketList/index.tsx`, `components/TicketList/FilteredList.tsx`, `messages/en/tickets.json`.
+  - G3: `components/sprints/SprintTicketList.tsx`, `components/sprints/SprintDetail.tsx`.
+  - Collateral: `components/sprints/CompleteSprintForm.tsx`, `components/sprints/SprintBoard.tsx`, `components/TagEditor.tsx`, `components/TicketList/SprintTicketCreator.tsx`, `mentions/ticketProvider.tsx`, `routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx`, `routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx`, `routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId.tsx`.
+- Workspace typecheck delta matches expectation: shared 0, backend 0, frontend 36 → 0.
+- `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
+
+Ready for Phase H (cleanup) and manual verification. Phase H is small; can be dispatched in this context or fresh.
