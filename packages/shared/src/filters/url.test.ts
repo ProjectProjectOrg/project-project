@@ -8,7 +8,7 @@ describe("ticketListQueryFromSearch", () => {
   it("decodes a flat search record into the composite query", () => {
     const result = ticketListQueryFromSearch({
       status: ["todo", "in_progress"],
-      type: "feat",
+      type: ["feat"],
       assignee: ["mine", "unassigned"],
       tags: ["core"],
       q: "hello",
@@ -36,7 +36,7 @@ describe("ticketListQueryFromSearch", () => {
       status: "garbage_status",
       sort: "no-colon",
       unrelated: "ignored"
-    })
+    } as never)
     expect(result.filter).toBeUndefined()
     expect(result.sort).toEqual({ key: "created", dir: "desc" })
   })

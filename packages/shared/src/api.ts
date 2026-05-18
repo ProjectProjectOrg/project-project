@@ -69,6 +69,7 @@ import {
   UpdateTicketOrderInput
 } from "./schemas/Group"
 import { TicketCounts, TicketListPage } from "./filters/Ticket"
+import { TicketCountParams, TicketListParams } from "./filters/url"
 import {
   BranchExists,
   BranchNotFound,
@@ -281,29 +282,6 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(GitHubError)
   )
   .middleware(Authentication)
-
-const MultiStringParam = Schema.optional(Schema.Array(Schema.String))
-
-const BaseTicketFilterParams = Schema.Struct({
-  status: MultiStringParam,
-  type: MultiStringParam,
-  assignee: MultiStringParam,
-  tags: MultiStringParam,
-  groupId: MultiStringParam,
-  hasBranch: Schema.optional(Schema.String),
-  hasPr: Schema.optional(Schema.String),
-  q: Schema.optional(Schema.String)
-})
-
-const TicketListParams = Schema.extend(
-  BaseTicketFilterParams,
-  Schema.Struct({
-    sort: Schema.optional(Schema.String),
-    cursor: Schema.optional(Schema.String)
-  })
-)
-
-const TicketCountParams = BaseTicketFilterParams
 
 const TicketSearchParams = Schema.Struct({
   q: Schema.optional(Schema.String),

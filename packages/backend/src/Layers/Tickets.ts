@@ -217,8 +217,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketCollectionRead | null, MarkdownError> =>
       readTicket(orgSlug, slug, id).pipe(
         Effect.map(
-          (document) =>
-            ({ _tag: "Readable" as const, document }) as TicketCollectionRead
+          (document): TicketCollectionRead => ({ _tag: "Readable", document })
         ),
         Effect.catchTag("MalformedTicketDocument", (error) =>
           Effect.logWarning("Skipping unreadable ticket", {
@@ -227,11 +226,11 @@ export const TicketsLive = Layer.effect(
             ticketId: id,
             error
           }).pipe(
-            Effect.as({
-              _tag: "Unreadable" as const,
+            Effect.as<TicketCollectionRead>({
+              _tag: "Unreadable",
               ticketId: id,
               error
-            } as TicketCollectionRead)
+            })
           )
         ),
         Effect.catchTag("NotFound", () =>

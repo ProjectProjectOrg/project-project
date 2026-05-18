@@ -1,3 +1,4 @@
+import * as Schema from "effect/Schema"
 import {
   DEFAULT_TICKET_SORT,
   type AssigneeFilter,
@@ -8,6 +9,37 @@ import {
   type TicketListQuery,
   type TicketSort
 } from "./Ticket"
+
+const MultiStringParam = Schema.optional(Schema.Array(Schema.String))
+
+export const BaseTicketFilterParams = Schema.Struct({
+  status: MultiStringParam,
+  type: MultiStringParam,
+  assignee: MultiStringParam,
+  tags: MultiStringParam,
+  groupId: MultiStringParam,
+  hasBranch: Schema.optional(Schema.String),
+  hasPr: Schema.optional(Schema.String),
+  updatedAfter: Schema.optional(Schema.String),
+  q: Schema.optional(Schema.String)
+})
+
+export const TicketListParams = Schema.extend(
+  BaseTicketFilterParams,
+  Schema.Struct({
+    sort: Schema.optional(Schema.String),
+    cursor: Schema.optional(Schema.String)
+  })
+)
+
+export const TicketCountParams = BaseTicketFilterParams
+
+export type TicketListParamsInput =
+  | typeof TicketListParams.Type
+  | { readonly [key: string]: unknown }
+export type TicketCountParamsInput =
+  | typeof TicketCountParams.Type
+  | { readonly [key: string]: unknown }
 
 const ASSIGNEE_UNASSIGNED_SENTINEL = "unassigned"
 const GROUP_UNASSIGNED_SENTINEL = "unassigned"
@@ -126,7 +158,7 @@ type MutableTicketListQuery = {
 }
 
 export const ticketListQueryFromSearch = (
-  search: Record<string, unknown>
+  search: TicketListParamsInput
 ): TicketListQuery => {
   const filter: Partial<MutableTicketFilter> = {}
   const status = decodeStatus(search.status)

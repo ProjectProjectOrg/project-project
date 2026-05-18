@@ -19,7 +19,7 @@ function TicketsTab() {
   const { orgSlug, slug } = Route.useParams()
   const search = Route.useSearch()
   const project = useProject()
-  const query = ticketListQueryFromSearch(search as Record<string, unknown>)
+  const query = ticketListQueryFromSearch(search)
   const sprintMembership = useAtomValue(
     sprintMembershipAtom(projectKey(orgSlug, slug))
   )

@@ -26,7 +26,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             path.slug,
-            ticketListQueryFromSearch(urlParams as Record<string, unknown>)
+            ticketListQueryFromSearch(urlParams)
           )
         }).pipe(dieOnMarkdown)
       )
@@ -60,7 +60,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             path.slug,
-            ticketListQueryFromSearch(urlParams as Record<string, unknown>)
+            ticketListQueryFromSearch(urlParams)
           )
         }).pipe(dieOnMarkdown)
       )

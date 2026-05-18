@@ -39,7 +39,7 @@ function SprintDetailRoute() {
   const { orgSlug, slug, groupId } = Route.useParams()
   const search = Route.useSearch()
   const id = decodeGroupId(groupId)
-  const baseQuery = ticketListQueryFromSearch(search as Record<string, unknown>)
+  const baseQuery = ticketListQueryFromSearch(search)
   const scopedQuery: TicketListQuery = {
     ...baseQuery,
     filter: {
