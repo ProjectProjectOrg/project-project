@@ -45,6 +45,12 @@ const variantForSeed = (seed: string | undefined): DitherVariant =>
     ? DITHER_VARIANTS[djb2(`${seed}:dither`) % DITHER_VARIANTS.length]
     : DITHER_VARIANTS[0]
 
+const EMOJI_SHADOW = [
+  "drop-shadow(0 1px 0 rgba(0,0,0,0.45))",
+  "drop-shadow(0 3px 5px rgba(0,0,0,0.55))",
+  "drop-shadow(0 6px 8px rgba(0,0,0,0.35))"
+].join(" ")
+
 export function ProjectTile({
   icon,
   color,
@@ -78,10 +84,7 @@ export function ProjectTile({
         matrix="4x4"
         pixelSize={size === "xs" ? 1 : 2}
       />
-      <span
-        aria-hidden
-        className="relative [filter:drop-shadow(0_1px_1.5px_rgba(0,0,0,0.35))]"
-      >
+      <span aria-hidden className="relative" style={{ filter: EMOJI_SHADOW }}>
         {icon}
       </span>
     </span>
