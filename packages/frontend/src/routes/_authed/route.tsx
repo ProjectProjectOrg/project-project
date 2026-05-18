@@ -9,6 +9,7 @@ import {
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
+import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
 import {
@@ -167,16 +168,117 @@ function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           exact
         />
       )}
-      {orgSlug && (
-        <NavItem
-          to="/orgs/$orgSlug/projects"
-          params={{ orgSlug }}
-          icon={FolderKanban}
-          label={m.chrome_sidebar_projects()}
-        />
-      )}
+      {orgSlug && <ProjectsGroup orgSlug={orgSlug} />}
     </nav>
   )
+}
+
+function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
+  const { pathname } = useLocation()
+  const reduceMotion = useReducedMotion()
+  const expanded = pathname.startsWith(`/orgs/${orgSlug}/projects`)
+  const listResult = useAtomValue(projectsListAtom(orgSlug))
+  const projects = Result.isSuccess(listResult)
+    ? [...listResult.value].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    : []
+  const activeSlug = matchActiveProjectSlug(pathname, orgSlug)
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg transition-colors",
+        expanded && "bg-accent"
+      )}
+    >
+      <NavItem
+        to="/orgs/$orgSlug/projects"
+        params={{ orgSlug }}
+        icon={FolderKanban}
+        label={m.chrome_sidebar_projects()}
+      />
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key="projects-list"
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <ul className="flex flex-col gap-0.5 px-2 pb-2">
+              {projects.map((p) => (
+                <ProjectsGroupRow
+                  key={p.slug}
+                  orgSlug={orgSlug}
+                  slug={p.slug}
+                  name={p.name}
+                  icon={p.icon}
+                  color={p.color}
+                  active={p.slug === activeSlug}
+                />
+              ))}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ProjectsGroupRow({
+  orgSlug,
+  slug,
+  name,
+  icon,
+  color,
+  active
+}: {
+  orgSlug: string
+  slug: string
+  name: string
+  icon: string
+  color: string
+  active: boolean
+}) {
+  return (
+    <li>
+      <Link
+        to="/orgs/$orgSlug/projects/$slug"
+        params={{ orgSlug, slug }}
+        className={cn(
+          "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+          active
+            ? "font-medium text-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <span
+          style={active ? { backgroundColor: color } : undefined}
+          className={cn(
+            "grid size-6 shrink-0 place-items-center rounded-md text-[13px] leading-none transition-colors",
+            !active && "bg-muted"
+          )}
+        >
+          <span aria-hidden>{icon}</span>
+        </span>
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+      </Link>
+    </li>
+  )
+}
+
+function matchActiveProjectSlug(
+  pathname: string,
+  orgSlug: string
+): string | null {
+  const prefix = `/orgs/${orgSlug}/projects/`
+  if (!pathname.startsWith(prefix)) return null
+  const rest = pathname.slice(prefix.length)
+  const slug = rest.split("/")[0]
+  return slug.length > 0 ? slug : null
 }
 
 type NavItemProps =
