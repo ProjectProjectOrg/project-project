@@ -2721,3 +2721,68 @@ Picked back up at HEAD (`39f4f47`); did not edit any code. Ran `bun run --cwd pa
 - Open carry-overs unchanged from the previous entry — Phase F still needs to handle the re-entry race, the `placeTicketAtom` flicker, the stale-key throw in `parseTicketsListKey` / `parseTicketsCountKey`, the cursor-resets-on-sort-change responsibility, and the inherited F1 territory (URL `decodeStringArray` branding, wire-shape coupling, unreachable `updatedAfter`).
 - Ready to dispatch Phase F in a fresh context. The brief should include this resume entry so Phase F doesn't re-chase the paraglide ghost.
 
+
+---
+
+## Implementation log — Phase F (2026-05-18)
+
+Phase F has two tasks (F1, F2). Both landed cleanly as separate commits. Nineteen ahead of `main`. No deviations from the plan text. Frontend typecheck moved 26 → 36 errors, all in expected territory (consumers expecting old `<TicketList>` / `<SprintDetail>` props + TanStack Router `<Link>` collateral from `validateSearch` now returning non-optional fields).
+
+### F1 — `265ab8a` `frontend(route): project index uses schema-driven validateSearch`
+
+- `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx` rewritten exactly per plan. File shrank from 176 lines to 28. The hand-rolled `validateSearch`, `STATUS_VALUES` / `TYPE_VALUES` / `SORT_VALUES` constants, `parseTags`, the `ProjectIndexSearch` interface, and the entire `TicketListUrlSync` two-direction sync component are all gone. `validateSearch: ticketListQueryFromSearch` is the only schema seam.
+- `TicketsTab` now reads `Route.useSearch()` and passes it as `query={query}` to `<TicketList>`. `sprintMembership` lookup is dropped from this route — that prop was wired through `<TicketList>` in the old shape; Phase G will rewire it inside the component if still needed (the dispatch brief implies it isn't — `TicketList` reads atoms keyed by the query now, not by a UI key + materialized membership map).
+
+### F2 — `283156a` `frontend(route): sprint detail uses schema-driven validateSearch with groupId scope`
+
+- `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId.tsx` rewritten per plan. `validateSearch` composes `ticketListQueryFromSearch(search)` with the existing `view: "list" | "board"` toggle into a `SprintRouteSearch extends TicketListQuery` shape.
+- One behavior change documented in the plan: the default view becomes `"list"` (anything not `"board"` → `"list"`), where the current code defaulted to `"board"`. Following plan exactly. Phase G can revisit if the new default is wrong.
+- `SprintDetailRoute` constructs `scopedQuery: TicketListQuery` by spreading the search and injecting `filter.groupId = [id]` (path-derived). Passes it as `listQuery={scopedQuery}` to `<SprintDetail>` — that prop is new, so a component-level type error is expected and lives in `<SprintDetail>` until Phase G.
+- `decodeGroupId` loader preserved unchanged; plan did not mention removing it.
+
+### Typecheck baseline after Phase F
+
+`bun run --cwd packages/frontend typecheck` (paraglide compiles first, then `tsc --noEmit`):
+
+| Package | Errors at Phase E close | Errors now | Delta |
+|---|---|---|---|
+| `@projectproject/shared` | 0 | 0 | — |
+| `@projectproject/backend` | 0 | 0 | — |
+| `@projectproject/frontend` | 26 | 36 | +10 |
+
+**The +10 frontend errors break down as:**
+
+1. **`<TicketList query={...}>` callsite** — 1 error in `routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx:21`. The `query` prop doesn't exist on `TicketList` yet. Phase G1/G2 work.
+2. **`<SprintDetail listQuery={...}>` callsite** — 1 error in `routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId.tsx:52`. `listQuery` prop doesn't exist yet. Phase G work.
+3. **`<Link to="/orgs/$orgSlug/projects/$slug">` callsites missing `search`** — 4 errors in `components/TicketPage/TicketPage.tsx:94`, `routes/_authed/orgs/$orgSlug/index.tsx:122`, `routes/_authed/orgs/$orgSlug/projects/index.tsx:299`. Caused by F1 — `validateSearch` for the project index route now returns `sort` as a non-optional field (since `ticketListQueryFromSearch` always defaults it), so TanStack treats `search` as required at every `<Link>` and `navigate()` callsite to that route.
+4. **`<Link to=".../sprints/$groupId">` callsites missing `search`** — 4 errors in `components/sprints/ActiveSprintLine.tsx:37`, `components/sprints/SprintRail.tsx:174` + `:272`, `routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx:513`, `routes/.../sprints/index.tsx:48`. Caused by F2 — `validateSearch` now returns a non-optional `view: "list" | "board"`, so the sprint detail route's search is required at every link.
+5. **Sprint detail `navigate({ search: (prev) => ... })` reducer mismatch** — 1 error in `routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx:586`. The reducer returns `view: "list" | undefined`, but post-F2 search requires `view: "list" | "board"`. Phase G fix at that callsite.
+
+Dispatch brief expected "~5 new errors at the <TicketList> callsite" for F1 and "~3 at <SprintDetail>" for F2. Actual: F1 introduced 4 (1 prop + 3 Link), F2 introduced 6 (1 prop + 5 Link/nav). All collateral is the same flavor of TanStack search-required-now-that-validateSearch-returns-non-optional-fields. Phase G mops it up.
+
+### Carry-overs into Phase G (unchanged, repeated for the next dispatch)
+
+- **G1 — Load-more re-entry race (E3 carry-over).** "Load more" button must be `disabled={state.waiting}` to dodge concurrent reads of the same `current` cursor. Cancellation policy for in-flight `loadMore` racing a `Reactivity.invalidate` refresh is still open — pick a policy (cancel on invalidation, or re-read items reference inside the fn and abort if it changed).
+- **G — `placeTicketAtom` flicker (E4 carry-over).** Paired `clearOverlay` fires before the invalidate-driven refetch lands; brief visible flicker between overlay clear and fresh data. Acceptable for now; revisit in G if intrusive.
+- **G — `<Link>` / `navigate()` search props.** Every callsite to the project index or sprint detail routes needs an explicit `search={...}` (or `search: (prev) => prev`) once their `validateSearch` returns non-optional fields. Currently nine errors of this flavor at HEAD.
+- **G — Sprint detail default view.** F2 follows the plan and defaults to `"list"`; previous behavior was `"board"`. Confirm the new default before shipping.
+- **G — Toolbar / cursor reset on sort change.** Toolbar rewrite must enforce cursor reset when sort key/dir changes, since the cursor v1 payload does not encode `{ key, dir }`.
+
+### Open carry-overs still on the books (inherited, unchanged in F)
+
+- **Follow-up PR — `parseTicketsListKey` / `parseTicketsCountKey` throw on stale/malformed keys** (E1/E2 reviewer flag). Switch to `decodeUnknownEither` + `Result.Failure`. Not blocking.
+- **F1 territory inherited:** `decodeStringArray` in `packages/shared/src/filters/url.ts` casts URL `tags` / `groupId` to branded types without per-element schema validation. Did not tighten in F1 — out of plan scope. Document or address in a follow-up.
+- **Wire-shape coupling:** `BaseTicketFilterParams` in `api.ts`, `ticketListQueryToSearch` / `ticketListQueryFromSearch` in `filters/url.ts`, `TicketFilter` in `filters/Ticket.ts` enumerate the same fields three times. Adding a new filter field requires three edits.
+- **`updatedAfter`** is in the schema but unreachable through URL transforms / params struct.
+- **Cursor sort-fingerprint:** v1 does not encode `{ key, dir }`. Frontend must reset cursor on sort change — F1 / F2 do not enforce this; G1's toolbar rewrite does.
+
+### Phase F self-check
+
+- Both tasks followed the plan text exactly. No subagent dispatch — controller-implemented inline (each task is a single small file edit).
+- Two commits ahead of `943be7d` (Phase E close); nineteen ahead of `main`.
+- No comments added by F1 / F2 code (CLAUDE.md compliant).
+- Files touched in scope: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/$slug/index.tsx` (F1) and `.../sprints/$groupId.tsx` (F2). No other files modified.
+- Workspace typecheck delta matches expectation: shared 0, backend 0, frontend 26 → 36 — all +10 in `<TicketList>` / `<SprintDetail>` consumers and TanStack Router `<Link>` callsites. Atom layer remains clean (0 errors).
+- `routeTree.gen.ts` LF/CRLF noise from earlier phases still uncommitted.
+
+Ready to dispatch Phase G in a fresh context with the carry-overs above in the brief.
