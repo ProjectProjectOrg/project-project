@@ -1104,26 +1104,28 @@ export const ProjectsLive = Layer.effect(
             .pipe(Effect.orDie)
           if (!target) return yield* new NotFound()
 
-          yield* db
-            .update(projectMember)
-            .set({ role: "admin" })
-            .where(
-              and(
-                eq(projectMember.projectSlug, slug),
-                eq(projectMember.userId, sourceUserId)
-              )
-            )
-            .pipe(Effect.orDie)
-          yield* db
-            .update(projectMember)
-            .set({ role: "owner" })
-            .where(
-              and(
-                eq(projectMember.projectSlug, slug),
-                eq(projectMember.userId, targetUserId)
-              )
-            )
-            .pipe(Effect.orDie)
+          yield* Effect.tryPromise(() =>
+            db.transaction(async (tx) => {
+              await tx
+                .update(projectMember)
+                .set({ role: "admin" })
+                .where(
+                  and(
+                    eq(projectMember.projectSlug, slug),
+                    eq(projectMember.userId, sourceUserId)
+                  )
+                )
+              await tx
+                .update(projectMember)
+                .set({ role: "owner" })
+                .where(
+                  and(
+                    eq(projectMember.projectSlug, slug),
+                    eq(projectMember.userId, targetUserId)
+                  )
+                )
+            })
+          ).pipe(Effect.orDie)
 
           return yield* replayDetail(orgSlug, slug)
         })
@@ -1159,6 +1161,7 @@ export const ProjectsLive = Layer.effect(
           if (targetRole === "admin" && callerCtx.role !== "owner") {
             return yield* new Forbidden()
           }
+          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
           yield* db
             .delete(projectMember)
             .where(
@@ -1168,7 +1171,6 @@ export const ProjectsLive = Layer.effect(
               )
             )
             .pipe(Effect.orDie)
-          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
           return yield* replayDetail(orgSlug, slug)
         })
       )
