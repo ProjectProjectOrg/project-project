@@ -1,21 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { SprintDetail } from "@/components/sprints/SprintDetail"
-import { GroupId } from "@projectproject/shared"
+import {
+  GroupId,
+  ticketListQueryFromSearch,
+  type TicketListQuery
+} from "@projectproject/shared"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+
+interface SprintRouteSearch extends TicketListQuery {
+  view: "list" | "board"
+}
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
 )({
   component: SprintDetailRoute,
-  validateSearch: (
-    search: Record<string, unknown>
-  ): {
-    view?: "list" | "board"
-  } => ({
-    view: search.view === "list" ? "list" : undefined
-  }),
+  validateSearch: (search: Record<string, unknown>): SprintRouteSearch => {
+    const query = ticketListQueryFromSearch(search)
+    const view = search.view === "board" ? "board" : "list"
+    return { ...query, view }
+  },
   loader: ({ params }) => ({
     crumb: {
       type: "sprint" as const,
@@ -28,15 +34,22 @@ export const Route = createFileRoute(
 
 function SprintDetailRoute() {
   const { orgSlug, slug, groupId } = Route.useParams()
-  const { view } = Route.useSearch()
+  const search = Route.useSearch()
   const id = decodeGroupId(groupId)
-  const currentView: "list" | "board" = view ?? "board"
+  const scopedQuery: TicketListQuery = {
+    ...search,
+    filter: {
+      ...search.filter,
+      groupId: [id]
+    }
+  }
   return (
     <SprintDetail
       orgSlug={orgSlug}
       slug={slug}
       groupId={id}
-      view={currentView}
+      view={search.view ?? "list"}
+      listQuery={scopedQuery}
     />
   )
 }
