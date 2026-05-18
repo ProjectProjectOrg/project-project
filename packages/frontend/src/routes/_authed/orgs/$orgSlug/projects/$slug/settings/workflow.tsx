@@ -28,7 +28,7 @@ function WorkflowSettings() {
   const reviewedAt = project.setup.workflowReviewedAt
 
   return (
-    <section className="flex max-w-2xl flex-col gap-4">
+    <section className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3">
         <div>
           <p className="text-sm font-medium">

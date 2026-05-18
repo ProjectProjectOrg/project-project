@@ -30,7 +30,7 @@ function TeamSettings() {
   if (!callerRole) return null
 
   return (
-    <section className="flex max-w-3xl flex-col gap-4">
+    <section className="flex w-full flex-col gap-4">
       <MembersSection
         orgSlug={orgSlug}
         slug={project.slug}
