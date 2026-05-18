@@ -1,7 +1,11 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
 import { HttpApiBuilder } from "@effect/platform"
-import { AppApi, CurrentUser } from "@projectproject/shared"
+import {
+  AppApi,
+  CurrentUser,
+  ticketListQueryFromSearch
+} from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Tickets } from "../Services/Tickets"
@@ -12,13 +16,52 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
   "tickets",
   (handlers) =>
     handlers
-      .handle("list", ({ path }) =>
+      .handle("list", ({ path, urlParams }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.list(org.orgSlug, user.id, path.slug)
+          return yield* tickets.list(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            ticketListQueryFromSearch(urlParams)
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("search", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          const limitNum =
+            urlParams.limit !== undefined
+              ? Number.parseInt(urlParams.limit, 10)
+              : undefined
+          return yield* tickets.search(org.orgSlug, user.id, path.slug, {
+            q: urlParams.q,
+            excludeGroupId: urlParams.excludeGroupId,
+            limit:
+              limitNum !== undefined && Number.isFinite(limitNum)
+                ? limitNum
+                : undefined
+          })
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("count", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.count(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            ticketListQueryFromSearch(urlParams)
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("quickCreate", ({ path, payload }) =>

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import {
   CurrentUser,
+  DEFAULT_TICKET_SORT,
   Unauthorized,
   Validation,
   tryDecodeCursor,
@@ -14,6 +15,7 @@ import {
   type SprintState,
   type TicketFilter,
   type TicketId,
+  type TicketListQuery,
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@projectproject/shared"
@@ -203,13 +205,17 @@ const list_tickets = (
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const tickets = yield* Tickets
-    return yield* tickets.listPaged(
+    const query: TicketListQuery = {
+      sort: DEFAULT_TICKET_SORT,
+      filter: input.filter,
+      cursor: input.cursor
+    }
+    return yield* tickets.list(
       input.orgSlug,
       current.id,
       input.projectSlug,
-      input.filter,
-      tryDecodeCursor(input.cursor),
-      input.limit ?? DEFAULT_LIMIT
+      query,
+      input.limit
     )
   })
 

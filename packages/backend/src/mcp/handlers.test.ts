@@ -45,9 +45,21 @@ const fakeTicket = {
   updatedAt: isoDate("2026-05-10T00:00:00.000Z")
 }
 
+const capturedListLimits: Array<number | undefined> = []
+
 const TicketsStub = Layer.succeed(Tickets, {
-  listPaged: (_o: any, _u: any, _s: any, _f: any, _c: any, _l: any) =>
-    Effect.succeed({ items: [fakeTicket], nextCursor: null })
+  list: (_o: any, _u: any, _s: any, _q: any, limit?: number) => {
+    capturedListLimits.push(limit)
+    const all = Array.from({ length: 25 }, (_, i) => ({
+      ...fakeTicket,
+      id: decodeTicketId(`T-${i + 1}`)
+    }))
+    const effective = limit ?? all.length
+    return Effect.succeed({
+      items: all.slice(0, effective),
+      nextCursor: effective < all.length ? "cursor-next" : null
+    })
+  }
 } as unknown as TicketsShape)
 
 const fakeUser = { id: "u-1" } as User
@@ -98,7 +110,8 @@ const TestLayer = Layer.mergeAll(
 )
 
 describe("MCP dispatcher → list_tickets", () => {
-  test("returns Page<Ticket>-shaped JSON envelope", async () => {
+  test("threads the requested limit through to Tickets.list", async () => {
+    capturedListLimits.length = 0
     const runtime = ManagedRuntime.make(TestLayer)
 
     const registered = new Map<
@@ -129,9 +142,10 @@ describe("MCP dispatcher → list_tickets", () => {
     expect(result.isError).toBeUndefined()
     const text = result.content[0].text
     const payload = JSON.parse(text)
-    expect(payload.items).toHaveLength(1)
+    expect(capturedListLimits).toEqual([10])
+    expect(payload.items).toHaveLength(10)
     expect(payload.items[0].id).toBe("T-1")
-    expect(payload.nextCursor).toBeNull()
+    expect(payload.nextCursor).toBe("cursor-next")
 
     await runtime.dispose()
   })

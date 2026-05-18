@@ -1,6 +1,7 @@
-import { Result, useAtom, useAtomValue } from "@effect-atom/atom-react"
+import { Result, useAtomValue } from "@effect-atom/atom-react"
 import * as DateTime from "effect/DateTime"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
 import {
   ArrowDownAZ,
@@ -41,68 +42,216 @@ import {
 } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
-import {
-  assigneeFilterAtom,
-  queryAtom,
-  searchFocusedAtom,
-  selectedTagsAtom,
-  sortKeyAtom,
-  sprintFilterAtom,
-  statusFilterAtom,
-  ticketListUiKey,
-  typeFilterAtom
-} from "@/atoms/ticketListUi"
+import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
 import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { sprintState } from "@projectproject/shared"
+import {
+  NATURAL_SORT_DIR,
+  sprintState,
+  ticketListQueryToSearch,
+  type GroupId,
+  type Member,
+  type SortKey,
+  type TagName,
+  type TicketCountQuery,
+  type TicketFilter,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketType
+} from "@projectproject/shared"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
-import type {
-  Member,
-  Ticket,
-  TagName,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
-import { SORTS, type SortKey } from "./sort"
+import { SORT_LABELS } from "./sort"
+import { TICKET_SEARCH_KEYS } from "./url"
+
+type SearchValue = string | ReadonlyArray<string> | undefined
+type SearchRecord = { readonly [k: string]: SearchValue }
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
-  "text-muted-foreground transition-colors hover:text-foreground",
+  "text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]",
   "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
 )
+
+type SprintFilterValue = "all" | "unassigned" | GroupId
+
+const pruneFilter = (f: TicketFilter | undefined): TicketFilter | undefined => {
+  if (!f) return undefined
+  const hasAny =
+    (f.status && f.status.length > 0) ||
+    (f.type && f.type.length > 0) ||
+    (f.assignee && f.assignee.length > 0) ||
+    (f.tags && f.tags.length > 0) ||
+    (f.groupId && f.groupId.length > 0) ||
+    f.hasBranch !== undefined ||
+    f.hasPr !== undefined ||
+    f.updatedAfter !== undefined
+  return hasAny ? f : undefined
+}
 
 export function Toolbar({
   orgSlug,
   slug,
-  tickets,
+  query,
   members,
-  uiKey,
   showSprintFilter = false
 }: {
   orgSlug: string
   slug: string
-  tickets: ReadonlyArray<Ticket>
+  query: TicketListQuery
   members: ReadonlyArray<Member>
-  uiKey?: string
   showSprintFilter?: boolean
 }) {
-  const key = uiKey ?? ticketListUiKey(orgSlug, slug)
-  const [query, setQuery] = useAtom(queryAtom(key))
-  const [statusFilter, setStatusFilter] = useAtom(statusFilterAtom(key))
-  const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
-  const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
-  const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
-  const [sprintFilter, setSprintFilter] = useAtom(sprintFilterAtom(key))
-  const [sortKey, setSortKey] = useAtom(sortKeyAtom(key))
-  const [searchFocused, setSearchFocused] = useAtom(searchFocusedAtom(key))
+  const router = useRouter()
+  const navigate = useNavigate()
   const me = useAtomValue(meAtom)
   const myId = Result.isSuccess(me) ? me.value.id : null
 
-  const compact = searchFocused || query.length > 0
+  const filter = query.filter
+  const status: TicketStatus | "all" =
+    filter?.status?.length === 1 ? filter.status[0]! : "all"
+  const typeFilter: TicketType | "all" =
+    filter?.type?.length === 1 ? filter.type[0]! : "all"
+  const assigneeFilter: string =
+    filter?.assignee?.length === 1
+      ? filter.assignee[0] === null
+        ? "unassigned"
+        : (filter.assignee[0] as string)
+      : "all"
+  const selectedTags: ReadonlyArray<TagName> =
+    (filter?.tags as ReadonlyArray<TagName> | undefined) ?? []
+  const sprintFilter: SprintFilterValue =
+    filter?.groupId?.length === 1
+      ? filter.groupId[0] === null
+        ? "unassigned"
+        : (filter.groupId[0] as SprintFilterValue)
+      : "all"
+  const sortKey: SortKey = query.sort.key
+  const queryStr = query.q ?? ""
+
+  const updateQuery = (next: TicketListQuery) => {
+    const nextSearch = ticketListQueryToSearch({ ...next, cursor: undefined })
+    void navigate({
+      to: router.state.location.pathname,
+      search: (prev: SearchRecord): SearchRecord => {
+        const cleared: { [k: string]: SearchValue } = { ...prev }
+        for (const k of TICKET_SEARCH_KEYS) cleared[k] = undefined
+        return { ...cleared, ...nextSearch }
+      },
+      replace: true
+    })
+  }
+
+  const setStatus = (s: TicketStatus | "all") => {
+    const nextFilter: TicketFilter = {
+      ...filter,
+      status: s === "all" ? undefined : [s]
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setTypeFilter = (t: TicketType | "all") => {
+    const nextFilter: TicketFilter = {
+      ...filter,
+      type: t === "all" ? undefined : [t]
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setAssigneeFilter = (a: string) => {
+    let nextAssignee: TicketFilter["assignee"]
+    if (a === "all") nextAssignee = undefined
+    else if (a === "mine") nextAssignee = ["mine"]
+    else if (a === "unassigned") nextAssignee = [null]
+    else nextAssignee = [a]
+    const nextFilter: TicketFilter = {
+      ...filter,
+      assignee: nextAssignee
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setSelectedTags = (tags: ReadonlyArray<TagName>) => {
+    const nextFilter: TicketFilter = {
+      ...filter,
+      tags: tags.length === 0 ? undefined : tags
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setSprintFilter = (s: SprintFilterValue) => {
+    let nextGroupId: TicketFilter["groupId"]
+    if (s === "all") nextGroupId = undefined
+    else if (s === "unassigned") nextGroupId = [null]
+    else nextGroupId = [s]
+    const nextFilter: TicketFilter = {
+      ...filter,
+      groupId: nextGroupId
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setSortKey = (k: SortKey) => {
+    updateQuery({
+      ...query,
+      sort: { key: k, dir: NATURAL_SORT_DIR[k] }
+    })
+  }
+
+  const [queryInput, setQueryInput] = useState(queryStr)
+  useEffect(() => {
+    setQueryInput(queryStr)
+  }, [queryStr])
+
+  const latestQueryRef = useRef(query)
+  useEffect(() => {
+    latestQueryRef.current = query
+  }, [query])
+
+  const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (queryDebounceRef.current) {
+        clearTimeout(queryDebounceRef.current)
+        queryDebounceRef.current = null
+      }
+    },
+    []
+  )
+  const setSearchQuery = (q: string) => {
+    setQueryInput(q)
+    if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
+    // @effect-diagnostics-next-line globalTimers:off
+    queryDebounceRef.current = setTimeout(() => {
+      updateQuery({
+        ...latestQueryRef.current,
+        q: q.length > 0 ? q : undefined
+      })
+    }, 200)
+  }
+  const flushSearch = () => {
+    if (queryDebounceRef.current) {
+      clearTimeout(queryDebounceRef.current)
+      queryDebounceRef.current = null
+    }
+    if (queryInput !== queryStr) {
+      updateQuery({
+        ...latestQueryRef.current,
+        q: queryInput.length > 0 ? queryInput : undefined
+      })
+    }
+  }
+  const clearSearch = () => {
+    setQueryInput("")
+    if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
+    updateQuery({ ...latestQueryRef.current, q: undefined })
+  }
+
+  const [searchFocused, setSearchFocused] = useState(false)
+  const compact = searchFocused || queryInput.length > 0
 
   const searchRef = useRef<HTMLInputElement>(null)
   useGlobalShortcut("/", searchRef)
@@ -122,49 +271,41 @@ export function Toolbar({
   }, [])
 
   const hasActiveFilters =
-    statusFilter !== "all" ||
+    status !== "all" ||
     typeFilter !== "all" ||
     assigneeFilter !== "all" ||
     selectedTags.length > 0 ||
     (showSprintFilter && sprintFilter !== "all") ||
-    query.length > 0
+    queryStr.length > 0
 
   const clearAll = () => {
-    setQuery("")
-    setStatusFilter("all")
-    setTypeFilter("all")
-    setAssigneeFilter("all")
-    setSelectedTags([])
-    if (showSprintFilter) setSprintFilter("all")
+    updateQuery({ sort: query.sort })
   }
 
-  const counts = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const resolved =
-      assigneeFilter === "mine" ? (myId ?? "unassigned") : assigneeFilter
-    const matchesOtherFilters = (t: Ticket) =>
-      (typeFilter === "all" || t.type === typeFilter) &&
-      (resolved === "all" ||
-        (resolved === "unassigned"
-          ? t.assignees.length === 0
-          : t.assignees.includes(resolved))) &&
-      (q === "" ||
-        t.title.toLowerCase().includes(q) ||
-        t.id.toLowerCase().includes(q))
-
-    const c: Record<TicketStatus | "all", number> = {
-      all: 0,
-      todo: 0,
-      in_progress: 0,
-      done: 0
+  const countQuery: TicketCountQuery = {
+    filter: filter,
+    q: query.q
+  }
+  const countsResult = useAtomValue(
+    ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
+  )
+  const previousCountsRef = useRef<Record<TicketStatus | "all", number> | null>(
+    null
+  )
+  if (Result.isSuccess(countsResult)) {
+    previousCountsRef.current = {
+      all: countsResult.value.total,
+      todo: countsResult.value.byStatus.todo ?? 0,
+      in_progress: countsResult.value.byStatus.in_progress ?? 0,
+      done: countsResult.value.byStatus.done ?? 0
     }
-    for (const t of tickets) {
-      if (!matchesOtherFilters(t)) continue
-      c.all++
-      c[t.status]++
-    }
-    return c
-  }, [tickets, typeFilter, assigneeFilter, myId, query])
+  }
+  const counts: Record<TicketStatus | "all", number> = previousCountsRef.current ?? {
+    all: 0,
+    todo: 0,
+    in_progress: 0,
+    done: 0
+  }
 
   const FULL_FITS_ROW = 1040
   const STATUS_COMPACT_FITS_ROW = 760
@@ -194,19 +335,22 @@ export function Toolbar({
         </InputGroupAddon>
         <InputGroupInput
           ref={searchRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={queryInput}
+          onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
+          onBlur={() => {
+            setSearchFocused(false)
+            flushSearch()
+          }}
           placeholder={m.tickets_search_placeholder()}
           aria-label={m.tickets_search_aria_label()}
         />
-        {query ? (
+        {queryInput ? (
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
-            onClick={() => setQuery("")}
+            onClick={clearSearch}
             aria-label={m.tickets_search_clear_aria_label()}
             className="shrink-0 rounded-xl"
           >
@@ -219,8 +363,8 @@ export function Toolbar({
 
       <div className="flex flex-wrap items-center gap-2">
         <StatusChips
-          value={statusFilter}
-          onChange={setStatusFilter}
+          value={status}
+          onChange={setStatus}
           counts={counts}
           compact={statusCompact}
         />
@@ -228,11 +372,18 @@ export function Toolbar({
         <FiltersMenu
           orgSlug={orgSlug}
           slug={slug}
-          uiKey={key}
           members={members}
           myId={myId}
           compact={controlsCompact}
           showSprintFilter={showSprintFilter}
+          typeFilter={typeFilter}
+          assigneeFilter={assigneeFilter}
+          selectedTags={selectedTags}
+          sprintFilter={sprintFilter}
+          onTypeChange={setTypeFilter}
+          onAssigneeChange={setAssigneeFilter}
+          onTagsChange={setSelectedTags}
+          onSprintChange={setSprintFilter}
         />
 
         <SortMenu
@@ -252,7 +403,7 @@ export function Toolbar({
               exit={{ opacity: 0, width: 0, marginLeft: -8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
               className={cn(
-                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors",
+                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-all duration-100 active:scale-[0.97]",
                 "hover:bg-destructive/15 hover:border-destructive/60",
                 "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
               )}
@@ -320,25 +471,34 @@ function StatusChips({
 function FiltersMenu({
   orgSlug,
   slug,
-  uiKey,
   members,
   myId,
   compact,
-  showSprintFilter
+  showSprintFilter,
+  typeFilter,
+  assigneeFilter,
+  selectedTags,
+  sprintFilter,
+  onTypeChange,
+  onAssigneeChange,
+  onTagsChange,
+  onSprintChange
 }: {
   orgSlug: string
   slug: string
-  uiKey: string
   members: ReadonlyArray<Member>
   myId: string | null
   compact: boolean
   showSprintFilter: boolean
+  typeFilter: TicketType | "all"
+  assigneeFilter: string
+  selectedTags: ReadonlyArray<TagName>
+  sprintFilter: SprintFilterValue
+  onTypeChange: (t: TicketType | "all") => void
+  onAssigneeChange: (a: string) => void
+  onTagsChange: (tags: ReadonlyArray<TagName>) => void
+  onSprintChange: (s: SprintFilterValue) => void
 }) {
-  const key = uiKey
-  const [typeFilter, setTypeFilter] = useAtom(typeFilterAtom(key))
-  const [assigneeFilter, setAssigneeFilter] = useAtom(assigneeFilterAtom(key))
-  const [selectedTags, setSelectedTags] = useAtom(selectedTagsAtom(key))
-  const [sprintFilter, setSprintFilter] = useAtom(sprintFilterAtom(key))
   const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
   const tagList = Result.isSuccess(tags) ? tags.value : []
   const sprintsList = useAtomValue(
@@ -353,7 +513,7 @@ function FiltersMenu({
       })
     : []
   const toggleTag = (name: TagName) => {
-    setSelectedTags(
+    onTagsChange(
       selectedTags.includes(name)
         ? selectedTags.filter((t) => t !== name)
         : [...selectedTags, name]
@@ -404,7 +564,7 @@ function FiltersMenu({
         <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
           closeOnClick={false}
-          onClick={() => setTypeFilter("all")}
+          onClick={() => onTypeChange("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_all_types()}
@@ -419,7 +579,7 @@ function FiltersMenu({
             <DropdownMenuItem
               key={t}
               closeOnClick={false}
-              onClick={() => setTypeFilter(t)}
+              onClick={() => onTypeChange(t)}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
@@ -435,7 +595,7 @@ function FiltersMenu({
         <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
         <DropdownMenuItem
           closeOnClick={false}
-          onClick={() => setAssigneeFilter("all")}
+          onClick={() => onAssigneeChange("all")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_anyone()}
@@ -446,7 +606,7 @@ function FiltersMenu({
         {myId && (
           <DropdownMenuItem
             closeOnClick={false}
-            onClick={() => setAssigneeFilter("mine")}
+            onClick={() => onAssigneeChange("mine")}
             className="cursor-pointer"
           >
             <UserRound className="size-4" strokeWidth={1.75} />
@@ -458,7 +618,7 @@ function FiltersMenu({
         )}
         <DropdownMenuItem
           closeOnClick={false}
-          onClick={() => setAssigneeFilter("unassigned")}
+          onClick={() => onAssigneeChange("unassigned")}
           className="cursor-pointer"
         >
           {m.tickets_filters_assignee_unassigned()}
@@ -471,7 +631,7 @@ function FiltersMenu({
           <DropdownMenuItem
             key={member.id}
             closeOnClick={false}
-            onClick={() => setAssigneeFilter(member.id)}
+            onClick={() => onAssigneeChange(member.id)}
             className="cursor-pointer"
           >
             <MemberAvatar member={member} size={20} />
@@ -488,7 +648,7 @@ function FiltersMenu({
             <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
             <DropdownMenuItem
               closeOnClick={false}
-              onClick={() => setSprintFilter("all")}
+              onClick={() => onSprintChange("all")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_any()}
@@ -498,7 +658,7 @@ function FiltersMenu({
             </DropdownMenuItem>
             <DropdownMenuItem
               closeOnClick={false}
-              onClick={() => setSprintFilter("unassigned")}
+              onClick={() => onSprintChange("unassigned")}
               className="cursor-pointer"
             >
               {m.tickets_filters_sprint_none()}
@@ -516,7 +676,7 @@ function FiltersMenu({
                 <DropdownMenuItem
                   key={s.id}
                   closeOnClick={false}
-                  onClick={() => setSprintFilter(s.id)}
+                  onClick={() => onSprintChange(s.id)}
                   className="cursor-pointer"
                 >
                   <SIcon
@@ -594,25 +754,25 @@ function SortMenu({
             type="button"
             className={TOOLBAR_BUTTON_CLASS}
             aria-label={m.tickets_sort_aria_label({
-              label: SORTS[value].label()
+              label: SORT_LABELS[value]()
             })}
           >
             <ArrowDownAZ className="size-4" strokeWidth={1.75} />
             <CollapsingLabel show={!compact}>
-              {SORTS[value].label()}
+              {SORT_LABELS[value]()}
             </CollapsingLabel>
             <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
           </button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-        {(Object.keys(SORTS) as SortKey[]).map((k) => (
+        {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
           <DropdownMenuItem
             key={k}
             onClick={() => onChange(k)}
             className="cursor-pointer"
           >
-            {SORTS[k].label()}
+            {SORT_LABELS[k]()}
             {value === k && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}

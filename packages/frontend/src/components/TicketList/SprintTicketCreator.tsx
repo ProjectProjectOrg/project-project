@@ -29,10 +29,12 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
+import { meAtom } from "@/atoms/auth"
 import {
   quickCreateTicketAtom,
-  ticketsListAtom,
-  ticketsListKey
+  ticketSearchAtom,
+  ticketSearchKey,
+  ticketsCountKey
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -62,21 +64,22 @@ export function SprintTicketCreator({
 }) {
   const projKey = projectKey(orgSlug, slug)
   const sprintProjectKey = sprintsKey(orgSlug, slug)
+  const countKey = ticketsCountKey(orgSlug, slug, {
+    filter: { groupId: [groupId] }
+  })
 
-  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(quickCreateTicketAtom(projKey))
+  const create = useAtomSet(quickCreateTicketAtom(countKey), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(quickCreateTicketAtom(countKey))
   const submitting = createState.waiting
+  const me = useAtomValue(meAtom)
+  const viewerId = Result.isSuccess(me) ? me.value.id : ""
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
   const navigate = useNavigate()
-
-  const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
-  )
-  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -87,6 +90,18 @@ export function SprintTicketCreator({
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
   const expanded = focused || typeMenuOpen || closingMenu
+
+  const ticketsResult = useAtomValue(
+    ticketSearchAtom(
+      ticketSearchKey(orgSlug, slug, {
+        q: trimmed.length > 0 ? trimmed : undefined,
+        excludeGroupId: groupId,
+        limit: 24
+      })
+    )
+  )
+  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
+  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -104,12 +119,7 @@ export function SprintTicketCreator({
     const lowered = trimmed.toLowerCase()
     const all = Result.isSuccess(ticketsResult) ? ticketsResult.value : []
     const eligible = all.filter(
-      (t) =>
-        t.status !== "done" &&
-        !excludeIds.has(t.id) &&
-        (lowered === "" ||
-          t.title.toLowerCase().includes(lowered) ||
-          t.id.toLowerCase().includes(lowered))
+      (t) => t.status !== "done" && !excludeIds.has(t.id)
     )
     const exactTitle = all.some((t) => t.title.toLowerCase() === lowered)
     const existing: Array<Item> = eligible.slice(0, 8).map((t) => ({
@@ -145,7 +155,10 @@ export function SprintTicketCreator({
       return
     }
     if (submitting) return
-    const exit = await create({ title: item.label, type })
+    const exit = await create({
+      ticket: { title: item.label, type },
+      viewerId
+    })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
@@ -161,7 +174,10 @@ export function SprintTicketCreator({
       return
     }
     if (!trimmed || submitting) return
-    const exit = await create({ title: trimmed, type })
+    const exit = await create({
+      ticket: { title: trimmed, type },
+      viewerId
+    })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()

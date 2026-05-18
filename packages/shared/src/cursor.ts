@@ -26,12 +26,14 @@ export interface PaginateSortedOptions<A> {
   readonly limit: number
   readonly sortKey: (item: A) => string
   readonly id: (item: A) => string
+  readonly dir?: "asc" | "desc"
 }
 
 export const paginateSorted = <A>(
   sorted: ReadonlyArray<A>,
   opts: PaginateSortedOptions<A>
 ): { items: ReadonlyArray<A>; nextCursor: string | null } => {
+  const dir = opts.dir ?? "asc"
   const startIdx =
     opts.cursor === undefined
       ? 0
@@ -39,7 +41,9 @@ export const paginateSorted = <A>(
           const { sort, id } = opts.cursor
           const idx = sorted.findIndex((item) => {
             const s = opts.sortKey(item)
-            if (s !== sort) return s > sort
+            if (s !== sort) {
+              return dir === "asc" ? s > sort : s < sort
+            }
             return opts.id(item) > id
           })
           return idx < 0 ? sorted.length : idx

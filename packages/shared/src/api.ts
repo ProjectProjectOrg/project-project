@@ -70,6 +70,8 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
+import { TicketCounts, TicketListPage } from "./filters/Ticket"
+import { TicketCountParams, TicketListParams } from "./filters/url"
 import {
   BranchExists,
   BranchNotFound,
@@ -323,11 +325,37 @@ const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .middleware(Authentication)
 
+const TicketSearchParams = Schema.Struct({
+  q: Schema.optional(Schema.String),
+  excludeGroupId: Schema.optional(Schema.String),
+  limit: Schema.optional(Schema.String)
+})
+
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets")
       .setPath(ProjectPath)
+      .setUrlParams(TicketListParams)
+      .addSuccess(TicketListPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "search",
+      "/orgs/:orgSlug/projects/:slug/tickets/search"
+    )
+      .setPath(ProjectPath)
+      .setUrlParams(TicketSearchParams)
       .addSuccess(Schema.Array(Ticket))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.get("count", "/orgs/:orgSlug/projects/:slug/tickets/count")
+      .setPath(ProjectPath)
+      .setUrlParams(TicketCountParams)
+      .addSuccess(TicketCounts)
       .addError(Unauthorized)
       .addError(NotFound)
   )
@@ -494,11 +522,24 @@ const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
   )
   .middleware(Authentication)
 
+const TagUsageCounts = Schema.Record({ key: TagName, value: Schema.Number })
+export type TagUsageCounts = typeof TagUsageCounts.Type
+
 const TagsGroup = HttpApiGroup.make("tags")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tags")
       .setPath(ProjectPath)
       .addSuccess(Schema.Array(Tag))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "usageCounts",
+      "/orgs/:orgSlug/projects/:slug/tags/usage-counts"
+    )
+      .setPath(ProjectPath)
+      .addSuccess(TagUsageCounts)
       .addError(Unauthorized)
       .addError(NotFound)
   )
@@ -554,6 +595,16 @@ const GroupsGroup = HttpApiGroup.make("groups")
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/groups/:id")
       .setPath(GroupPath)
       .addSuccess(GroupDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "listTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets"
+    )
+      .setPath(GroupPath)
+      .addSuccess(Schema.Array(Ticket))
       .addError(Unauthorized)
       .addError(NotFound)
   )

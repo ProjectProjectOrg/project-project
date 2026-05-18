@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -17,7 +18,6 @@ import {
   type UpdateGroupTicketsOutput,
   type UpdateTicketOrderInput
 } from "@projectproject/shared"
-import { ticketsListBaseAtom, ticketsListKey } from "@/atoms/tickets"
 
 export type { CompleteSprintDestination }
 
@@ -344,7 +344,7 @@ export const completeSprintAtom = Atom.family((key: string) => {
             sprintBaseAtom(sprintKey(orgSlug, slug, input.destination.groupId))
           )
         }
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return completed
       })
     )
@@ -428,14 +428,10 @@ export const placeTicketAtom = Atom.family((key: string) => {
             payload: input
           })
           get.refresh(sprintsListBaseAtom(project))
-          get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
           yield* get.result(sprintsListBaseAtom(project), {
             suspendOnWaiting: true
           })
-          yield* get.result(
-            ticketsListBaseAtom(ticketsListKey(orgSlug, slug)),
-            { suspendOnWaiting: true }
-          )
           return result
         }).pipe(Effect.ensuring(clearOverlay))
       })

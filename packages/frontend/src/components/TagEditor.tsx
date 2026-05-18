@@ -18,17 +18,17 @@ import {
   deleteTagAtom,
   renameTagAtom,
   tagsAtom,
-  tagsKey
+  tagsKey,
+  tagUsageCountsAtom
 } from "@/atoms/tags"
-import {
-  ticketKey,
-  ticketsListAtom,
-  ticketsListKey,
-  updateTicketAtom
-} from "@/atoms/tickets"
+import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
+import {
+  TagName,
+  type Tag,
+  type TicketDetail
+} from "@projectproject/shared"
 
 type Props = {
   orgSlug: string
@@ -44,9 +44,7 @@ const makeTagName = Schema.decodeUnknownSync(TagName)
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const key = tagsKey(orgSlug, slug)
   const tagsResult = useAtomValue(tagsAtom(key))
-  const ticketsResult = useAtomValue(
-    ticketsListAtom(ticketsListKey(orgSlug, slug))
-  )
+  const usageResult = useAtomValue(tagUsageCountsAtom(key))
   const updateTicket = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
   )
@@ -151,12 +149,20 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     }
   }
 
+  const mappedCounts = useMemo(() => {
+    const acc: Record<string, number> = {}
+    if (!Result.isSuccess(usageResult)) return acc
+    for (const [name, n] of Object.entries(usageResult.value)) {
+      const mapped = mapName(name)
+      acc[mapped] = (acc[mapped] ?? 0) + n
+    }
+    return acc
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usageResult, renameMap, registryNames])
+
   const usageCountFor = (currentName: string) =>
-    Result.isSuccess(ticketsResult)
-      ? ticketsResult.value.reduce((n, t) => {
-          const mapped = (t.tags as ReadonlyArray<string>).map(mapName)
-          return n + (mapped.includes(currentName) ? 1 : 0)
-        }, 0)
+    Result.isSuccess(usageResult)
+      ? (mappedCounts[currentName] ?? 0)
       : ticketHasTag(currentName)
         ? 1
         : 0
