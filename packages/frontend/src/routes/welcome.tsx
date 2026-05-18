@@ -21,6 +21,7 @@ import {
 } from "@/atoms/auth"
 import { Button } from "@/components/ui/button"
 import { DitherBackdrop } from "@/components/ui/button-dither"
+import { ErrorPage } from "@/components/ErrorPage"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -45,9 +46,7 @@ function WelcomePage() {
       <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>
     ),
     onError: () => <Navigate to="/login" replace />,
-    onDefect: () => {
-      return <WelcomeGateStatus>{m.chrome_defect_generic()}</WelcomeGateStatus>
-    },
+    onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) =>
       value.activeOrgSlug ? (
         <Navigate

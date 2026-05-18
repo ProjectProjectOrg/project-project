@@ -2,13 +2,21 @@ import { useRef, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 
+const CLICK_WARP_ZONE: TimeWarpZone = {
+  anchor: { type: "click" },
+  radius: 0.7,
+  strength: 3.2,
+  falloff: 3.5
+}
+
 const STATIC_WARP_ZONES: TimeWarpZone[] = [
   {
     anchor: { type: "fraction", x: 0.5, y: 0.5 },
     radius: 0.77,
     strength: 3,
     falloff: 4.85
-  }
+  },
+  CLICK_WARP_ZONE
 ]
 
 const ANIMATED_WARP_ZONES: TimeWarpZone[] = [
@@ -17,23 +25,32 @@ const ANIMATED_WARP_ZONES: TimeWarpZone[] = [
     radius: 0.85,
     strength: 2.4,
     falloff: 4.2
-  }
+  },
+  CLICK_WARP_ZONE
 ]
 
 type DitherShellProps = {
   children: ReactNode
   animated?: boolean
+  contained?: boolean
   cardClassName?: string
 }
 
 export function DitherShell({
   children,
   animated = false,
+  contained = false,
   cardClassName
 }: DitherShellProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
+  const Wrapper = contained ? "div" : "main"
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6">
+    <Wrapper
+      className={cn(
+        "relative grid place-items-center overflow-hidden bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-6",
+        contained ? "-m-6 min-h-full flex-1 rounded-xl" : "min-h-screen"
+      )}
+    >
       <div className="pointer-events-none absolute inset-0">
         <Dither
           disableAnimation={!animated}
@@ -64,6 +81,6 @@ export function DitherShell({
       >
         {children}
       </div>
-    </main>
+    </Wrapper>
   )
 }

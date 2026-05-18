@@ -1,11 +1,10 @@
-import { createFileRoute, Link, notFound, Outlet } from "@tanstack/react-router"
+import { createFileRoute, notFound, Outlet } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import { ApiClient } from "@/services/ApiClient"
 import { AppLayer } from "@/runtime"
-import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
   component: OrgLayout,

@@ -44,6 +44,8 @@
   "tickets_no_filter_matches": "No tickets match your filters.",
   "tickets_no_filter_matches_title": "No matches",
   "tickets_no_search_matches_prefix": "No tickets match",
+  "tickets_not_found_body": "We couldn't find that ticket. It may have been deleted, or you don't have access to this project.",
+  "tickets_not_found_title": "Ticket not found",
   "tickets_page_meta_assignees": "assignees",
   "tickets_page_meta_created": "created",
   "tickets_page_meta_git": "git",
