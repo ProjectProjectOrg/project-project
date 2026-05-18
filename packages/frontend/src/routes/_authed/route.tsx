@@ -309,12 +309,12 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
       to={to}
       params={params as never}
       activeOptions={{ exact: exact ?? false }}
-      className={cn(
-        base,
-        "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-      )}
+      className={base}
+      inactiveProps={{
+        className: "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      }}
       activeProps={{
-        className: cn(base, "bg-accent text-foreground font-medium")
+        className: "bg-accent text-foreground font-medium"
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />
