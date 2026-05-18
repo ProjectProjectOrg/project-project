@@ -249,7 +249,7 @@ function ProjectsGroupRow({
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
         className={cn(
-          "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-colors",
+          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
           active
             ? "font-medium text-foreground"
             : "text-muted-foreground hover:text-foreground"
@@ -258,11 +258,20 @@ function ProjectsGroupRow({
         <span
           style={active ? { backgroundColor: color } : undefined}
           className={cn(
-            "grid size-6 shrink-0 place-items-center rounded-md text-[13px] leading-none transition-colors",
+            "grid size-4 shrink-0 place-items-center rounded-md corner-squircle text-[11px] leading-none transition-colors",
             !active && "bg-muted"
           )}
         >
-          <span aria-hidden>{icon}</span>
+          <span
+            aria-hidden
+            className={
+              active
+                ? "[filter:drop-shadow(0_1px_1px_rgba(0,0,0,0.35))]"
+                : undefined
+            }
+          >
+            {icon}
+          </span>
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>

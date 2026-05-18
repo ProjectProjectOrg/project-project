@@ -47,7 +47,7 @@ export function ProjectIdentityEditor({
     <span
       style={{ backgroundColor: color }}
       className={cn(
-        "grid place-items-center rounded-lg leading-none shadow-sm",
+        "grid place-items-center rounded-2xl corner-squircle leading-none shadow-sm",
         sizeClass,
         waiting && "animate-pulse"
       )}
@@ -78,7 +78,7 @@ export function ProjectIdentityEditor({
             aria-label={m.project_identity_aria_label()}
             className={cn(
               size === "header" ? "-mt-1 shrink-0" : "shrink-0",
-              "rounded-lg outline-none transition-transform duration-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              "rounded-2xl corner-squircle outline-none transition-transform duration-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
             )}
           >
             {tile}
