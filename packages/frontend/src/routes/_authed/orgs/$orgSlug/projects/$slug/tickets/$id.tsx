@@ -15,6 +15,7 @@ import { ticketAtom, ticketBaseAtom, ticketKey } from "@/atoms/tickets"
 import { m } from "@/paraglide/messages"
 import { CircleDashed } from "lucide-react"
 import { useProject } from "../-context"
+import { DitherShell } from "@/components/ui/dither-shell"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
@@ -87,10 +88,11 @@ function TicketDetailRoute() {
 
 function NotFound({ message }: { message: string }) {
   return (
+    <DitherShell animated>
     <Empty
       variant="inline"
-      className="mx-auto w-full max-w-6xl border border-dashed border-border"
-    >
+      className="mx-auto w-full max-w-6xl"
+      >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <CircleDashed strokeWidth={1.75} />
@@ -103,5 +105,6 @@ function NotFound({ message }: { message: string }) {
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
+      </DitherShell>
   )
 }
