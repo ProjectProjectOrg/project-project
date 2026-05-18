@@ -45,11 +45,9 @@ function WelcomePage() {
       <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>
     ),
     onError: () => <Navigate to="/login" replace />,
-    onDefect: (defect) => (
-      <WelcomeGateStatus>
-        {m.chrome_defect({ defect: String(defect) })}
-      </WelcomeGateStatus>
-    ),
+    onDefect: () => {
+      return <WelcomeGateStatus>{m.chrome_defect_generic()}</WelcomeGateStatus>
+    },
     onSuccess: ({ value }) =>
       value.activeOrgSlug ? (
         <Navigate
