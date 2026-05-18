@@ -1,15 +1,3 @@
-// Members + roles, all-inline UX (no modal dialogs).
-//
-// Layout:
-//   - Section header
-//   - "Add member" inline row (user-id field + role dropdown + add button)
-//   - List of members. Each row shows id, role pill, and a "..." menu for
-//     role changes / removal. Owner row has no menu.
-//
-// Permission UX:
-//   - We hide actions the caller can't perform (caller_role passed in).
-//     The server still enforces; this just keeps the UI honest.
-
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
@@ -94,16 +82,7 @@ export function MembersSection({
   const [adding, setAdding] = useState(false)
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {m.members_section_title()}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {m.members_section_subtitle()}
-        </p>
-      </div>
-
+    <div className="flex flex-col gap-3">
       {canManage && (
         <AddMemberRow
           orgSlug={orgSlug}
@@ -113,9 +92,6 @@ export function MembersSection({
         />
       )}
 
-      {/* Same intent-driven dim used elsewhere — when the user is composing
-          a new member, the existing list quiets down to pull focus to the
-          add row. Pure visual hint, clicks below stay enabled. */}
       <motion.ul
         animate={{ opacity: adding ? 0.35 : 1 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
@@ -143,7 +119,7 @@ export function MembersSection({
           </li>
         ))}
       </motion.ul>
-    </section>
+    </div>
   )
 }
 
@@ -167,6 +143,7 @@ function AddMemberRow({
     : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
+  const [submitted, setSubmitted] = useState(false)
   const trimmed = email.trim()
   const availableRoles =
     callerRole === "owner"
@@ -177,8 +154,12 @@ function AddMemberRow({
     e.preventDefault()
     if (!trimmed || submitting) return
     onFocusChange?.(false)
+    setSubmitted(false)
     const exit = await add({ email: trimmed, role })
-    if (Exit.isSuccess(exit)) setEmail("")
+    if (Exit.isSuccess(exit)) {
+      setEmail("")
+      setSubmitted(true)
+    }
   }
 
   return (
@@ -192,6 +173,7 @@ function AddMemberRow({
           value={email}
           onChange={(e) => {
             setEmail(e.target.value)
+            setSubmitted(false)
           }}
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
@@ -203,6 +185,14 @@ function AddMemberRow({
         {error && (
           <span className="shrink-0 text-xs text-destructive">{error}</span>
         )}
+        {!error && submitted ? (
+          <span
+            className="shrink-0 text-xs text-muted-foreground"
+            role="status"
+          >
+            {m.members_add_success()}
+          </span>
+        ) : null}
       </InputGroup>
     </form>
   )

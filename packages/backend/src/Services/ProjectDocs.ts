@@ -4,6 +4,7 @@ import type {
   GithubConnection,
   NotFound,
   ProjectKey,
+  ProjectSetup,
   Role,
   Slug
 } from "@projectproject/shared"
@@ -23,6 +24,7 @@ export interface ProjectDocument {
   readonly createdAt: Date
   readonly members: ReadonlyArray<ProjectDocMember>
   readonly github: GithubConnection | null
+  readonly setup: ProjectSetup
   readonly body: string
 }
 
@@ -35,6 +37,7 @@ export interface ProjectDocumentWrite {
   readonly createdAt: Date
   readonly members: ReadonlyArray<ProjectDocMember>
   readonly github: GithubConnection | null
+  readonly setup: ProjectSetup
   readonly body: string
 }
 

@@ -423,7 +423,7 @@ export const auth = betterAuth({
         )
       },
       organizationHooks: {
-        beforeRemoveMember: async ({ member, organization }) => {
+        beforeRemoveMember: async ({ member }) => {
           await assertNotLastOrgOwner(
             member.organizationId,
             member.userId,
@@ -434,12 +434,14 @@ export const auth = betterAuth({
             member.userId
           )
           if (owned.length > 0) {
-            throw new APIError("BAD_REQUEST", {
+            throw new APIError(409, {
               code: "PROJECT_OWNER_REMOVAL_BLOCKED",
               message: "Transfer project ownership before removing this member",
               projectSlugs: owned.map((project) => project.slug)
             })
           }
+        },
+        afterRemoveMember: async ({ member, organization }) => {
           await cleanupRemovedOrgMemberProjectAccess(
             organization.slug,
             member.organizationId,

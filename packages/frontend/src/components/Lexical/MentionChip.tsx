@@ -32,7 +32,7 @@ export function MentionChip({
         render={
           scope ? (
             <Link
-              to="/orgs/$orgSlug/projects/$slug/members"
+              to="/orgs/$orgSlug/projects/$slug/settings/team"
               params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
               onMouseDown={(e) => e.preventDefault()}
             />

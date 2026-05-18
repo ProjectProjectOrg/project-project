@@ -67,14 +67,10 @@ function TicketDetailRoute() {
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,
     onError: (error) => (
-      <NotFound
-        message={m.tickets_detail_load_error({ error: error._tag })}
-      />
+      <NotFound message={m.tickets_detail_load_error({ error: error._tag })} />
     ),
     onDefect: (defect) => (
-      <NotFound
-        message={m.tickets_detail_defect({ defect: String(defect) })}
-      />
+      <NotFound message={m.tickets_detail_defect({ defect: String(defect) })} />
     ),
     onSuccess: ({ value }) => (
       <TicketPage
@@ -91,7 +87,10 @@ function TicketDetailRoute() {
 
 function NotFound({ message }: { message: string }) {
   return (
-    <Empty variant="inline" className="mx-auto w-full max-w-6xl border border-dashed border-border">
+    <Empty
+      variant="inline"
+      className="mx-auto w-full max-w-6xl border border-dashed border-border"
+    >
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <CircleDashed strokeWidth={1.75} />

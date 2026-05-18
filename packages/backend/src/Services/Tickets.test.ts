@@ -99,6 +99,7 @@ function makeFakeProjects(key: string) {
     get: () => unexpected("Projects.get"),
     getKey: () => Effect.succeed(projectKey(key)),
     update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
     requireMember: () => Effect.succeed({ role: "member" as const }),
     requireRole: () => unexpected("Projects.requireRole"),

@@ -32,7 +32,8 @@ import {
   Slug,
   TransferOwnershipInput,
   UpdateMemberInput,
-  UpdateProjectInput
+  UpdateProjectInput,
+  UpdateProjectSetupInput
 } from "./schemas/Project"
 import {
   CreateTicketInput,
@@ -169,6 +170,15 @@ const ProjectsGroup = HttpApiGroup.make("projects")
     HttpApiEndpoint.patch("update", "/orgs/:orgSlug/projects/:slug")
       .setPath(ProjectPath)
       .setPayload(UpdateProjectInput)
+      .addSuccess(ProjectDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.patch("updateSetup", "/orgs/:orgSlug/projects/:slug/setup")
+      .setPath(ProjectPath)
+      .setPayload(UpdateProjectSetupInput)
       .addSuccess(ProjectDetail)
       .addError(Unauthorized)
       .addError(NotFound)

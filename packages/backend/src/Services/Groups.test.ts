@@ -157,6 +157,11 @@ function makeProjectDetail(role: Role): ProjectDetail {
     createdBy: "user-1",
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     github: null,
+    setup: {
+      workflowReviewedAt: null,
+      invitePeopleDismissedAt: null,
+      connectGithubDismissedAt: null
+    },
     body: "# Project\n",
     members: [
       {
@@ -196,6 +201,7 @@ function makeFakeProjects(opts: { role?: Role } = {}) {
         : Effect.fail(new Forbidden()),
     get: () => Effect.succeed(makeProjectDetail(role)),
     update: () => unexpectedProjectCall("update"),
+    updateSetup: () => unexpectedProjectCall("updateSetup"),
     remove: () => unexpectedProjectCall("remove"),
     addMember: () => unexpectedProjectCall("addMember"),
     updateMember: () => unexpectedProjectCall("updateMember"),

@@ -13,6 +13,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { Logo, Wordmark } from "@/components/Logo"
 import {
   SidebarSlotProvider,
+  useSidebarSectionContent,
   useSidebarSlotContent
 } from "@/components/SidebarSlot"
 import { ThemeSwitcher } from "@/components/ThemeSwitcher"
@@ -47,11 +48,17 @@ function AuthedLayout() {
     ),
     onSuccess: ({ value }) => {
       const redirect = authedRouteRedirect(pathname, value.activeOrgSlug)
-      if (redirect?.to === "/orgs/$orgSlug") {
-        return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
-      }
       if (redirect?.to === "/welcome") {
         return <Navigate to="/welcome" replace />
+      }
+      if (redirect) {
+        return (
+          <Navigate
+            to="/orgs/$orgSlug"
+            params={redirect.params}
+            replace
+          />
+        )
       }
       return (
         <SidebarSlotProvider>
@@ -83,6 +90,7 @@ function Shell({ user }: { user: User }) {
 function Sidebar({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
   const slot = useSidebarSlotContent()
+  const section = useSidebarSectionContent()
   const reduceMotion = useReducedMotion()
   const railScale = reduceMotion ? 1 : 1.02
   const navScale = reduceMotion ? 1 : 0.98
@@ -116,6 +124,19 @@ function Sidebar({ user }: { user: User }) {
               className="absolute inset-0 overflow-y-auto will-change-transform"
             >
               <PrimaryNav orgSlug={orgSlug} />
+              <AnimatePresence initial={false}>
+                {section ? (
+                  <motion.div
+                    key="section"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+                  >
+                    {section}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
