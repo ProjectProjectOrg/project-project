@@ -95,7 +95,6 @@ export function ProjectIdentityEditor({
           <ColorPicker
             value={color}
             onChange={(next) => update({ color: makeProjectColor(next) })}
-            closeOnSelect={false}
             ariaLabel={m.color_picker_aria_label()}
           />
         </div>
