@@ -2698,3 +2698,26 @@ The migration itself is sound — once inference unblocks, the four atom files s
 
 **Resume tomorrow by:** resolving the E4 typecheck blocker (try the `Effect.gen` / explicit-annotation / `.pipe(Effect.provide(...))` options above), then dispatching Phase F in a fresh context with the carry-overs above in the brief.
 
+### E4 resume (2026-05-18) — blocker resolved, root cause was stale paraglide
+
+Picked back up at HEAD (`39f4f47`); did not edit any code. Ran `bun run --cwd packages/frontend typecheck`, which runs `paraglide-js compile` before `tsc`. After that single command:
+
+| Package | Errors at `85214a1` | Errors now | Notes |
+|---|---|---|---|
+| `@projectproject/shared` | 0 | 0 | Unchanged. |
+| `@projectproject/backend` | 0 | 0 | Unchanged. |
+| `@projectproject/frontend` | 57 | 26 | **All 16 atom-file inference errors are gone.** Remaining 26 are exactly the Phase F/G consumer set (callsites passing 2-arg `ticketsListKey`, treating `result.value` as `Ticket[]` instead of `TicketsListValue`, `mentions/ticketProvider.tsx` missing `urlParams`). Distributed across `components/sprints/*`, `components/TagEditor.tsx`, `components/TicketList/*`, `mentions/ticketProvider.tsx`, `routes/_authed/orgs/$orgSlug/projects/$slug/route.tsx`. |
+
+**Root cause:** the previous session's typecheck ran `tsc` against a stale `src/paraglide/messages/_index` (paraglide hadn't been recompiled after the message edits in earlier phases). With `m.*` lookups typed as `unknown`, every generator-function R-channel that composed an `m.*`-touching expression with `Reactivity.invalidate(...)` widened to `unknown`, which then failed the `runtime.fn` overload check (`Scope | AtomRegistry | Reactivity | ApiClient`). Once paraglide's `messages/_index.d.ts` regenerates, the inference resolves cleanly — no source change needed.
+
+**Takeaway for the carry-overs:** always run `bun run --cwd packages/frontend typecheck` (which paraglide-compiles first), not bare `tsc`, when chasing inference failures in atoms. The "Things to try tomorrow" list in the previous entry (`Effect.gen` rewrite, explicit annotations, `Effect.provide` at the call site) is *unnecessary* and would have been a wild-goose chase.
+
+**No commit produced by this resume.** Working tree is clean; the E4 migration commit (`85214a1`) stands as-is and now typechecks. The plan's "Phase E (in progress, paused)" status is now **complete**.
+
+### Phase E final state
+
+- E1, E2, E3, E4 all landed. Five commits ahead of Phase D tip (`6192972`); seventeen ahead of `main`. No new commits in this resume.
+- Frontend typecheck: 26 errors, all Phase F/G consumer migrations. **None in `packages/frontend/src/atoms/*`.**
+- Open carry-overs unchanged from the previous entry — Phase F still needs to handle the re-entry race, the `placeTicketAtom` flicker, the stale-key throw in `parseTicketsListKey` / `parseTicketsCountKey`, the cursor-resets-on-sort-change responsibility, and the inherited F1 territory (URL `decodeStringArray` branding, wire-shape coupling, unreachable `updatedAfter`).
+- Ready to dispatch Phase F in a fresh context. The brief should include this resume entry so Phase F doesn't re-chase the paraglide ghost.
+
