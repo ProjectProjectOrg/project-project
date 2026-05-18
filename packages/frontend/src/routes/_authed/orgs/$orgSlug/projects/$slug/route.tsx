@@ -8,26 +8,28 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import * as Exit from "effect/Exit"
-import { useEffect, useState, type KeyboardEvent } from "react"
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
   Columns3,
   FolderKanban,
+  GitBranch,
   Info,
   ListChecks,
   MoreHorizontal,
   Rows3,
-  Trash2,
-  Users as UsersIcon,
+  SlidersHorizontal,
+  UserPlus,
+  Workflow,
+  X,
   type LucideIcon
 } from "lucide-react"
 import { STATUS_META } from "@/lib/ticket-meta"
 import { useProjectRole } from "@/lib/projectRole"
 import {
-  deleteProjectAtom,
   projectAtom,
   projectKey,
+  updateProjectSetupAtom,
   updateProjectAtom
 } from "@/atoms/projects"
 import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
@@ -35,6 +37,7 @@ import {
   projectKey as sprintsProjectKey,
   sprintsListAtom
 } from "@/atoms/sprints"
+import { projectGitStatesAtom } from "@/atoms/github"
 import {
   activeAndPlannedCount,
   pickActiveSprint,
@@ -45,6 +48,7 @@ import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
+import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"
 import {
@@ -112,6 +116,9 @@ function ProjectLayout() {
   const onTicketDetail = location.pathname.startsWith(
     `/orgs/${orgSlug}/projects/${slug}/tickets/`
   )
+  const onSettings = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/settings`
+  )
 
   return Result.matchWithError(project, {
     onInitial: () => (
@@ -138,8 +145,9 @@ function ProjectLayout() {
     onSuccess: ({ value }) => (
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
+          <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
           <div className="flex flex-col gap-6">
-            {!onTicketDetail && (
+            {!onTicketDetail && !onSettings && (
               <PageContainer wide={wide}>
                 <ProjectHeader
                   orgSlug={orgSlug}
@@ -172,7 +180,7 @@ function ProjectHeader({
   const { role: myRole } = useProjectRole()
 
   return (
-    <header className="flex items-start gap-3 px-4">
+    <header className="flex items-start gap-3">
       <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
@@ -261,88 +269,170 @@ function NameField({
   )
 }
 
-function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const pKey = projectKey(orgSlug, slug)
-  const remove = useAtomSet(deleteProjectAtom(pKey), { mode: "promiseExit" })
-  const removeState = useAtomValue(deleteProjectAtom(pKey))
-  const deleting = removeState.waiting
-  const navigate = useNavigate()
-  const [confirming, setConfirming] = useState(false)
+function ProjectSetupSlot({
+  orgSlug,
+  slug,
+  project
+}: {
+  orgSlug: string
+  slug: string
+  project: ProjectDetailType
+}) {
+  const { role } = useProjectRole()
+  const canManage = role === "owner" || role === "admin"
+  const render = useCallback(
+    () => (
+      <ProjectSetupRail
+        orgSlug={orgSlug}
+        slug={slug}
+        project={project}
+        canManage={canManage}
+      />
+    ),
+    [orgSlug, slug, project, canManage]
+  )
+  useSidebarSection(`project-setup:${orgSlug}/${slug}`, render)
+  return null
+}
 
-  async function onDelete() {
-    const exit = await remove()
-    if (Exit.isSuccess(exit)) {
-      void navigate({ to: "/orgs/$orgSlug/projects", params: { orgSlug } })
-    }
-  }
+function ProjectSetupRail({
+  orgSlug,
+  slug,
+  project,
+  canManage
+}: {
+  orgSlug: string
+  slug: string
+  project: ProjectDetailType
+  canManage: boolean
+}) {
+  const key = projectKey(orgSlug, slug)
+  const gitStates = useAtomValue(projectGitStatesAtom(key))
+  const updateSetup = useAtomSet(updateProjectSetupAtom(key))
+  if (!canManage) return null
+
+  const brokenGithub =
+    Result.isSuccess(gitStates) &&
+    (gitStates.value.tokenStatus !== "ok" ||
+      gitStates.value.repoStatus === "gone")
+  const items = [
+    !project.setup.workflowReviewedAt
+      ? {
+          key: "workflow",
+          to: "/orgs/$orgSlug/projects/$slug/settings/workflow" as const,
+          label: m.project_setup_review_workflow(),
+          icon: Workflow,
+          dismiss: null
+        }
+      : null,
+    project.members.length < 2 && !project.setup.invitePeopleDismissedAt
+      ? {
+          key: "invite",
+          to: "/orgs/$orgSlug/projects/$slug/settings/team" as const,
+          label: m.project_setup_invite_people(),
+          icon: UserPlus,
+          dismiss: () =>
+            updateSetup({
+              invitePeopleDismissedAt: DateTime.toDate(DateTime.unsafeNow())
+            })
+        }
+      : null,
+    brokenGithub || (!project.github && !project.setup.connectGithubDismissedAt)
+      ? {
+          key: "github",
+          to: "/orgs/$orgSlug/projects/$slug/settings/integrations" as const,
+          label: m.project_setup_connect_github(),
+          icon: GitBranch,
+          dismiss: project.github
+            ? null
+            : () =>
+                updateSetup({
+                  connectGithubDismissedAt: DateTime.toDate(
+                    DateTime.unsafeNow()
+                  )
+                })
+        }
+      : null
+  ].filter((item) => item !== null)
+
+  if (items.length === 0) return null
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) setConfirming(false)
-      }}
-    >
+    <div className="flex flex-col gap-1 px-3 pt-6">
+      <div className="px-3 pb-1 text-xs font-medium text-muted-foreground">
+        {m.project_setup_section_label()}
+      </div>
+      <nav className="flex flex-col gap-1">
+        {items.map((item) => {
+          const Icon = item.icon
+          return (
+            <div key={item.key} className="group/setup-row relative">
+              <Link
+                to={item.to}
+                params={{ orgSlug, slug }}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 pr-8 text-[13px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+              >
+                <Icon className="size-4" strokeWidth={1.75} />
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              </Link>
+              {item.dismiss ? (
+                <button
+                  type="button"
+                  aria-label={m.project_setup_dismiss_aria_label({
+                    item: item.label
+                  })}
+                  onClick={item.dismiss}
+                  className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-background hover:text-foreground group-hover/setup-row:opacity-100"
+                >
+                  <X className="size-3.5" strokeWidth={1.75} />
+                </button>
+              ) : null}
+            </div>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
+  return (
+    <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <button
             type="button"
             aria-label={m.project_detail_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           >
             <MoreHorizontal className="size-4" strokeWidth={1.75} />
           </button>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
-        {!confirming ? (
-          <DropdownMenuItem
-            closeOnClick={false}
-            onClick={() => setConfirming(true)}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.project_detail_delete_button()}
-          </DropdownMenuItem>
-        ) : (
-          <div className="flex flex-col gap-2 p-1">
-            <p className="px-2 pt-1 text-xs text-muted-foreground">
-              {m.project_detail_delete_confirm_prompt()}
-            </p>
-            <div className="flex gap-1 px-1 pb-1">
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => void onDelete()}
-                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-              >
-                {deleting
-                  ? m.project_detail_delete_in_progress()
-                  : m.project_detail_delete_confirm_button()}
-              </button>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => setConfirming(false)}
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                {m.common_cancel_button()}
-              </button>
-            </div>
-          </div>
-        )}
+      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
+        <DropdownMenuItem
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/settings"
+              params={{ orgSlug, slug }}
+            />
+          }
+        >
+          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+          {m.project_detail_tab_settings()}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-type TabKey = "tickets" | "sprints" | "about" | "members"
+type TabKey = "tickets" | "sprints" | "about"
 type TabDef = {
   key: TabKey
   to:
     | "/orgs/$orgSlug/projects/$slug"
     | "/orgs/$orgSlug/projects/$slug/sprints"
     | "/orgs/$orgSlug/projects/$slug/about"
-    | "/orgs/$orgSlug/projects/$slug/members"
   label: () => string
   icon: typeof ListChecks
   exact: boolean
@@ -372,14 +462,6 @@ const TABS: ReadonlyArray<TabDef> = [
     label: () => m.project_detail_tab_about(),
     icon: Info,
     exact: false
-  },
-  {
-    key: "members",
-    to: "/orgs/$orgSlug/projects/$slug/members",
-    label: () => m.project_detail_tab_members(),
-    icon: UsersIcon,
-    exact: false,
-    countFor: "members"
   }
 ]
 
@@ -434,12 +516,12 @@ function TabsNav({
         : t.countFor === "sprints"
           ? sprintsCount
           : t.countFor === "members"
-            ? project.members.length + project.pendingMembers.length
+            ? project.members.length
             : null
   }))
 
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4">
+    <div className="flex flex-wrap items-center gap-3">
       <SegmentedTabs
         items={items}
         layoutId={`project-tabs-${slug}`}

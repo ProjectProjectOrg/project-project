@@ -58,7 +58,9 @@ import type {
   PendingProjectMember,
   Project,
   ProjectDetail,
-  UpdateProjectInput
+  ProjectSetup,
+  UpdateProjectInput,
+  UpdateProjectSetupInput
 } from "@projectproject/shared"
 import {
   invitation,
@@ -83,6 +85,11 @@ const makeAssignableRole = Schema.decodeUnknownSync(
   Schema.Literal("admin", "member")
 )
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
+const defaultSetup = (): ProjectSetup => ({
+  workflowReviewedAt: null,
+  invitePeopleDismissedAt: null,
+  connectGithubDismissedAt: null
+})
 
 function withProjectTelemetry<A, E>(
   operation: string,
@@ -461,7 +468,8 @@ export const ProjectsLive = Layer.effect(
       key: ProjectKey,
       body: string,
       members: ReadonlyArray<Member>,
-      connection: GithubConnection | null
+      connection: GithubConnection | null,
+      setup: ProjectSetup
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -475,6 +483,7 @@ export const ProjectsLive = Layer.effect(
           role: m.role
         })),
         github: connection,
+        setup,
         body
       })
 
@@ -551,7 +560,8 @@ export const ProjectsLive = Layer.effect(
             key,
             `# ${input.name}\n`,
             members,
-            null
+            null,
+            defaultSetup()
           ).pipe(
             Effect.catchAll((cause) =>
               rollback.pipe(Effect.zipRight(Effect.die(cause)))
@@ -593,6 +603,7 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: file.github,
+            setup: file.setup,
             body: file.body,
             members,
             pendingMembers
@@ -637,7 +648,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             nextBody,
             members,
-            file.github
+            file.github,
+            file.setup
           )
 
           return {
@@ -648,7 +660,53 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: file.github,
+            setup: file.setup,
             body: nextBody,
+            members,
+            pendingMembers
+          }
+        })
+      )
+
+    const updateSetup = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      input: UpdateProjectSetupInput
+    ): Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError> =>
+      withProjectTelemetry(
+        "updateSetup",
+        orgSlug,
+        { slug, userId },
+        Effect.gen(function* () {
+          yield* requireRole(orgSlug, userId, slug, ["owner", "admin"])
+          const indexRow = yield* getIndexRowInOrg(orgSlug, slug)
+          const file = yield* projectDocs.read(orgSlug, slug)
+          const members = yield* loadMembers(slug)
+          const pendingMembers = yield* loadPendingMembers(slug)
+          const setup = { ...file.setup, ...input }
+          yield* syncFrontmatter(
+            orgSlug,
+            slug,
+            indexRow.name,
+            indexRow.createdBy,
+            indexRow.createdAt,
+            makeProjectKey(indexRow.key),
+            file.body,
+            members,
+            file.github,
+            setup
+          )
+          return {
+            org: orgSlug,
+            slug,
+            key: makeProjectKey(indexRow.key),
+            name: indexRow.name,
+            createdBy: indexRow.createdBy,
+            createdAt: indexRow.createdAt,
+            github: file.github,
+            setup,
+            body: file.body,
             members,
             pendingMembers
           }
@@ -694,7 +752,8 @@ export const ProjectsLive = Layer.effect(
           makeProjectKey(indexRow.key),
           file.body,
           members,
-          file.github
+          file.github,
+          file.setup
         )
         return {
           org: orgSlug,
@@ -704,6 +763,7 @@ export const ProjectsLive = Layer.effect(
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: file.github,
+          setup: file.setup,
           body: file.body,
           members,
           pendingMembers
@@ -1229,7 +1289,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             members,
-            next
+            next,
+            file.setup
           )
 
           return {
@@ -1240,6 +1301,7 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: next,
+            setup: file.setup,
             body: file.body,
             members,
             pendingMembers
@@ -1271,7 +1333,8 @@ export const ProjectsLive = Layer.effect(
             makeProjectKey(indexRow.key),
             file.body,
             members,
-            null
+            null,
+            file.setup
           )
           return {
             org: orgSlug,
@@ -1281,6 +1344,7 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: null,
+            setup: file.setup,
             body: file.body,
             members,
             pendingMembers
@@ -1296,6 +1360,7 @@ export const ProjectsLive = Layer.effect(
       get,
       getKey,
       update,
+      updateSetup,
       remove,
       requireMember,
       requireRole,

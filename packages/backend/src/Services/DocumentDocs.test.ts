@@ -346,6 +346,11 @@ it.effect(
           repoName: "project",
           defaultBaseBranch: null
         },
+        setup: {
+          workflowReviewedAt: null,
+          invitePeopleDismissedAt: null,
+          connectGithubDismissedAt: null
+        },
         body: "# Project\n"
       })
 
@@ -363,6 +368,11 @@ it.effect(
             repoOwner: "wouter",
             repoName: "project",
             defaultBaseBranch: null
+          },
+          setup: {
+            workflowReviewedAt: null,
+            invitePeopleDismissedAt: null,
+            connectGithubDismissedAt: null
           }
         },
         body: "# Project\n"

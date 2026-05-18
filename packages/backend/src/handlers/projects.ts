@@ -62,6 +62,20 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
+      .handle("updateSetup", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const projects = yield* Projects
+          return yield* projects.updateSetup(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            payload
+          )
+        }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      )
       .handle("delete", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

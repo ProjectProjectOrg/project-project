@@ -20,7 +20,8 @@ import type {
   RepoGone,
   Role,
   Validation,
-  UpdateProjectInput
+  UpdateProjectInput,
+  UpdateProjectSetupInput
 } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
 import type { MalformedTicketDocument } from "./TicketDocs"
@@ -76,6 +77,12 @@ export interface ProjectsShape {
     userId: string,
     slug: string,
     input: UpdateProjectInput
+  ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
+  readonly updateSetup: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    input: UpdateProjectSetupInput
   ) => Effect.Effect<ProjectDetail, NotFound | Forbidden | MarkdownError>
   readonly remove: (
     orgSlug: string,
