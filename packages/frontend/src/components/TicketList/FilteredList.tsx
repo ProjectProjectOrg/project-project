@@ -1,6 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Link } from "@tanstack/react-router"
-import { type ReactNode } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { type KeyboardEvent, type MouseEvent, type ReactNode } from "react"
 import { FilterX, ListChecks, Loader2 } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
@@ -48,7 +48,7 @@ export function FilteredList({
 }) {
   const loadMore = useAtomSet(loadMoreTicketsAtom(listKey))
   const loadMoreState = useAtomValue(loadMoreTicketsAtom(listKey))
-  const loadingMore = loadMoreState.waiting === true
+  const loadingMore = loadMoreState.waiting
   const resetFilters = useResetTicketSearch()
 
   if (items.length === 0) {
@@ -154,11 +154,31 @@ function Row({
   sprintMembership: Group | null
   extraRowActions?: (ticket: Ticket) => ReactNode
 }) {
+  const navigate = useNavigate()
+  const open = () => {
+    void navigate({
+      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+      params: { orgSlug, slug, id: ticket.id }
+    })
+  }
+  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (isInteractiveTarget(e.target, e.currentTarget)) return
+    open()
+  }
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter") return
+    if (isInteractiveTarget(e.target, e.currentTarget)) return
+    e.preventDefault()
+    open()
+  }
+
   return (
     <div className="group/list-row col-span-full grid grid-cols-subgrid">
-      <Link
-        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-        params={{ orgSlug, slug, id: ticket.id }}
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         className={cn(
           "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring",
           "[li:first-child_&]:rounded-t-xl",
@@ -220,9 +240,20 @@ function Row({
             {extraRowActions?.(ticket)}
           </span>
         )}
-      </Link>
+      </div>
     </div>
   )
+}
+
+function isInteractiveTarget(
+  target: EventTarget,
+  row: HTMLDivElement
+): boolean {
+  if (!(target instanceof Element)) return false
+  const interactive = target.closest(
+    "a,button,input,select,textarea,[role='button'],[role='menuitem']"
+  )
+  return interactive !== null && row.contains(interactive)
 }
 
 function NoTicketsYet() {

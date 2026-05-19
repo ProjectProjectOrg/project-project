@@ -8,7 +8,9 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { Markdown } from "@/components/Markdown"
+import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProjectRole } from "@/lib/projectRole"
@@ -57,6 +59,19 @@ function GeneralSettings() {
   return (
     <div className="flex w-full flex-col gap-8">
       <section className="flex flex-col gap-4">
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">
+            {m.project_settings_identity_label()}
+          </span>
+          <ProjectIdentityEditor
+            orgSlug={orgSlug}
+            slug={project.slug}
+            icon={project.icon}
+            color={project.color}
+            canEdit={canEdit}
+            size="settings"
+          />
+        </div>
         <form onSubmit={onNameSubmit} className="grid gap-2">
           <label className="text-sm font-medium" htmlFor="project-name">
             {m.project_settings_name_label()}
@@ -95,7 +110,7 @@ function GeneralSettings() {
           <h2 className="text-lg font-semibold tracking-tight">
             {m.project_settings_description_heading()}
           </h2>
-          <SaveIndicator status={status} />
+          <MarkdownSaveIndicator status={status} />
         </div>
         {canEdit ? (
           <LexicalEditor
@@ -136,17 +151,4 @@ function GeneralSettings() {
       ) : null}
     </div>
   )
-}
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? m.tickets_save_status_saving()
-      : status === "dirty"
-        ? m.tickets_save_status_dirty()
-        : status === "saved"
-          ? m.tickets_save_status_saved()
-          : null
-  if (!label) return null
-  return <span className="text-xs text-muted-foreground">{label}</span>
 }

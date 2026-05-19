@@ -37,6 +37,8 @@ function DropdownMenuContent({
   side,
   sideOffset = 4,
   anchor,
+  onClick,
+  onKeyDown,
   ...props
 }: DropdownMenuContentProps) {
   return (
@@ -50,6 +52,14 @@ function DropdownMenuContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onClick={(event) => {
+            onClick?.(event)
+            event.stopPropagation()
+          }}
+          onKeyDown={(event) => {
+            onKeyDown?.(event)
+            event.stopPropagation()
+          }}
           className={cn(
             "z-50 max-h-[var(--available-height)] min-w-[8rem] origin-[var(--transform-origin)] overflow-x-hidden overflow-y-auto rounded-xl border border-border/60 bg-card p-1 text-foreground select-none shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95",
             className

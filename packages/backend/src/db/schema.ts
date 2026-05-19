@@ -68,6 +68,8 @@ export const projectIndex = pgTable(
       }),
     key: text("key").notNull(),
     name: text("name").notNull(),
+    icon: text("icon").notNull(),
+    color: text("color").notNull(),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

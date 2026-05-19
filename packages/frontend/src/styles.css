@@ -519,7 +519,7 @@ html.dark .prose-md .token.coord {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 1.5em 0;
-  cursor: pointer;
+  cursor: text;
 }
 .prose-md .lexical-hr.selected {
   border-top-color: var(--foreground);

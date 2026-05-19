@@ -7,12 +7,15 @@ import { and, asc, eq } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
   Conflict,
+  deriveProjectIdentity,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
   paginateSorted,
+  ProjectColor,
+  ProjectIcon,
   ProjectOwnerRemovalBlocked,
   ProjectKey,
   RepoGone,
@@ -65,6 +68,8 @@ const makeAssignableRole = Schema.decodeUnknownSync(
   Schema.Literal("admin", "member")
 )
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
+const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
+const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
 const defaultSetup = (): ProjectSetup => ({
   workflowReviewedAt: null,
   invitePeopleDismissedAt: null,
@@ -371,6 +376,8 @@ export const ProjectsLive = Layer.effect(
             slug: projectIndex.slug,
             key: projectIndex.key,
             name: projectIndex.name,
+            icon: projectIndex.icon,
+            color: projectIndex.color,
             createdBy: projectIndex.createdBy,
             createdAt: projectIndex.createdAt
           }
@@ -400,6 +407,8 @@ export const ProjectsLive = Layer.effect(
             slug: r.slug,
             key: makeProjectKey(r.key),
             name: r.name,
+            icon: makeProjectIcon(r.icon),
+            color: makeProjectColor(r.color),
             createdBy: r.createdBy,
             createdAt: r.createdAt
           }))
@@ -546,6 +555,8 @@ export const ProjectsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       name: string,
+      icon: string,
+      color: string,
       createdBy: string,
       createdAt: Date,
       key: ProjectKey,
@@ -559,6 +570,8 @@ export const ProjectsLive = Layer.effect(
         slug,
         key,
         name,
+        icon,
+        color,
         createdBy,
         createdAt,
         members: members.map((m) => ({
@@ -584,6 +597,11 @@ export const ProjectsLive = Layer.effect(
           const slug = yield* findFreeSlug(slugify(input.name))
           const createdAt = yield* DateTime.nowAsDate
           const key = makeProjectKey(input.key)
+          const identityRaw = deriveProjectIdentity(slug)
+          const identity = {
+            icon: makeProjectIcon(identityRaw.icon),
+            color: makeProjectColor(identityRaw.color)
+          }
           const existingKey = yield* db.query.projectIndex
             .findFirst({
               columns: { slug: true },
@@ -603,6 +621,8 @@ export const ProjectsLive = Layer.effect(
               slug,
               key,
               name: input.name,
+              icon: identity.icon,
+              color: identity.color,
               createdBy,
               createdAt,
               organizationId
@@ -636,6 +656,8 @@ export const ProjectsLive = Layer.effect(
             orgSlug,
             slug,
             input.name,
+            identity.icon,
+            identity.color,
             createdBy,
             createdAt,
             key,
@@ -654,6 +676,8 @@ export const ProjectsLive = Layer.effect(
             slug: row.slug,
             key: makeProjectKey(row.key),
             name: row.name,
+            icon: makeProjectIcon(row.icon),
+            color: makeProjectColor(row.color),
             createdBy: row.createdBy,
             createdAt: row.createdAt
           }
@@ -682,6 +706,8 @@ export const ProjectsLive = Layer.effect(
             slug: indexRow.slug,
             key,
             name: indexRow.name,
+            icon: makeProjectIcon(indexRow.icon),
+            color: makeProjectColor(indexRow.color),
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
@@ -711,11 +737,23 @@ export const ProjectsLive = Layer.effect(
 
           const nextName = input.name ?? indexRow.name
           const nextBody = input.body ?? file.body
+          const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
+          const nextColor = input.color ?? makeProjectColor(indexRow.color)
 
+          const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
           if (input.name !== undefined && input.name !== indexRow.name) {
+            dbPatch.name = nextName
+          }
+          if (input.icon !== undefined && input.icon !== indexRow.icon) {
+            dbPatch.icon = nextIcon
+          }
+          if (input.color !== undefined && input.color !== indexRow.color) {
+            dbPatch.color = nextColor
+          }
+          if (Object.keys(dbPatch).length > 0) {
             yield* db
               .update(projectIndex)
-              .set({ name: nextName })
+              .set(dbPatch)
               .where(eq(projectIndex.slug, slug))
               .pipe(Effect.orDie)
           }
@@ -726,6 +764,8 @@ export const ProjectsLive = Layer.effect(
             orgSlug,
             slug,
             nextName,
+            nextIcon,
+            nextColor,
             indexRow.createdBy,
             indexRow.createdAt,
             makeProjectKey(indexRow.key),
@@ -740,6 +780,8 @@ export const ProjectsLive = Layer.effect(
             slug,
             key: makeProjectKey(indexRow.key),
             name: nextName,
+            icon: nextIcon,
+            color: nextColor,
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
@@ -773,6 +815,8 @@ export const ProjectsLive = Layer.effect(
             orgSlug,
             slug,
             indexRow.name,
+            indexRow.icon,
+            indexRow.color,
             indexRow.createdBy,
             indexRow.createdAt,
             makeProjectKey(indexRow.key),
@@ -786,6 +830,8 @@ export const ProjectsLive = Layer.effect(
             slug,
             key: makeProjectKey(indexRow.key),
             name: indexRow.name,
+            icon: makeProjectIcon(indexRow.icon),
+            color: makeProjectColor(indexRow.color),
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
@@ -830,6 +876,8 @@ export const ProjectsLive = Layer.effect(
           orgSlug,
           slug,
           indexRow.name,
+          indexRow.icon,
+          indexRow.color,
           indexRow.createdBy,
           indexRow.createdAt,
           makeProjectKey(indexRow.key),
@@ -843,6 +891,8 @@ export const ProjectsLive = Layer.effect(
           slug: indexRow.slug,
           key: makeProjectKey(indexRow.key),
           name: indexRow.name,
+          icon: makeProjectIcon(indexRow.icon),
+          color: makeProjectColor(indexRow.color),
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
@@ -1513,6 +1563,8 @@ export const ProjectsLive = Layer.effect(
             orgSlug,
             slug,
             indexRow.name,
+            indexRow.icon,
+            indexRow.color,
             indexRow.createdBy,
             indexRow.createdAt,
             makeProjectKey(indexRow.key),
@@ -1527,6 +1579,8 @@ export const ProjectsLive = Layer.effect(
             slug: indexRow.slug,
             key: makeProjectKey(indexRow.key),
             name: indexRow.name,
+            icon: makeProjectIcon(indexRow.icon),
+            color: makeProjectColor(indexRow.color),
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: next,
@@ -1595,6 +1649,8 @@ export const ProjectsLive = Layer.effect(
             orgSlug,
             slug,
             indexRow.name,
+            indexRow.icon,
+            indexRow.color,
             indexRow.createdBy,
             indexRow.createdAt,
             makeProjectKey(indexRow.key),
@@ -1608,6 +1664,8 @@ export const ProjectsLive = Layer.effect(
             slug: indexRow.slug,
             key: makeProjectKey(indexRow.key),
             name: indexRow.name,
+            icon: makeProjectIcon(indexRow.icon),
+            color: makeProjectColor(indexRow.color),
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: null,

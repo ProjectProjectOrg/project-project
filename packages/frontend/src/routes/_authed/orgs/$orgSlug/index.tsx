@@ -1,10 +1,11 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import { ArrowRight, FolderKanban, Plus } from "lucide-react"
+import { ArrowRight, Plus } from "lucide-react"
 import { meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
+import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { formatRelative } from "@/lib/relative-time"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -128,9 +129,12 @@ function ProjectTile({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-background group-hover:text-foreground">
-          <FolderKanban className="size-4" strokeWidth={1.75} />
-        </div>
+        <ProjectIconTile
+          icon={project.icon}
+          color={project.color}
+          size="sm"
+          seed={project.slug}
+        />
         <ArrowRight
           className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
           strokeWidth={1.75}

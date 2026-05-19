@@ -6,6 +6,7 @@ import { meAtom } from "@/atoms/auth"
 import { submitConsentAtom } from "@/atoms/oauthConsent"
 import { m } from "@/paraglide/messages"
 import { Button } from "@/components/ui/button"
+import { DitherShell } from "@/components/ui/dither-shell"
 import { Logo, Wordmark } from "@/components/Logo"
 
 type Search = {
@@ -73,14 +74,14 @@ function ConsentForm({
 
   return (
     <ConsentShell title={m.auth_oauth_consent_title()}>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         {m.auth_oauth_consent_subtitle({ client: clientId ?? "—" })}
       </p>
       <div className="flex w-full flex-col gap-2">
         <p className="text-sm font-medium text-foreground">
           {m.auth_oauth_consent_capabilities_heading()}
         </p>
-        <ul className="w-full space-y-1.5 rounded-xl border border-border bg-muted/40 p-3 text-[13px] text-foreground">
+        <ul className="w-full space-y-1.5 rounded-xl bg-background/60 p-3 text-[13px] text-foreground">
           {capabilities.map((label) => (
             <li key={label} className="flex items-start gap-2">
               <span aria-hidden className="mt-[5px] text-muted-foreground">
@@ -135,17 +136,17 @@ function ConsentShell({
   children?: ReactNode
 }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-muted p-6">
-      <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-2xl border border-border bg-background p-8 shadow-sm">
-        <div className="flex flex-col items-center gap-4 text-foreground">
-          <Logo className="size-12" />
-          <Wordmark className="h-5 w-auto" />
+    <DitherShell>
+      <div className="relative flex flex-col items-center gap-4 px-8 pb-2 pt-10 text-foreground">
+        <div className="relative flex size-16 items-center justify-center rounded-2xl corner-squircle bg-primary">
+          <Logo className="size-10" inverted />
         </div>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-base font-medium text-foreground">{title}</h1>
-        </div>
+        <Wordmark className="h-5 w-auto" />
+      </div>
+      <div className="relative flex flex-col items-center gap-5 px-8 pb-8 pt-6">
+        <h1 className="text-base font-medium text-foreground">{title}</h1>
         {children}
       </div>
-    </main>
+    </DitherShell>
   )
 }

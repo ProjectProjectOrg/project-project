@@ -46,7 +46,8 @@ const isAllowedFailure = <
 
 export function mapHttpError(
   cause: unknown,
-  nowSeconds: number
+  nowSeconds: number,
+  context?: { readonly branch?: string }
 ): GitHubFailure {
   const err = isRecord(cause) ? cause : undefined
   const statusValue = err?.[HTTP_STATUS_KEY]
@@ -77,10 +78,14 @@ export function mapHttpError(
   if (status === 404) return new RepoGone()
   if (status === 422) {
     if (/already exists/i.test(message)) {
-      return new BranchExists({ branch: "" })
+      return context?.branch
+        ? new BranchExists({ branch: context.branch })
+        : new GitHubError({ message })
     }
     if (/protected/i.test(message)) {
-      return new BranchProtected({ branch: "" })
+      return context?.branch
+        ? new BranchProtected({ branch: context.branch })
+        : new GitHubError({ message })
     }
     return new GitHubError({ message })
   }

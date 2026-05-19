@@ -39,55 +39,24 @@
 import { it } from "@effect/vitest"
 import {
   FetchHttpClient,
+  HttpApi,
   HttpApiBuilder,
   HttpApiClient,
   HttpServer
 } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
-import * as SqlClient from "@effect/sql/SqlClient"
 import { AppApi } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { expect } from "vitest"
-import { BetterAuth, type BetterAuthShape } from "./Services/BetterAuth"
-import { Db } from "./Services/Db"
-import { ApiLive } from "./main"
+import { HealthHandlerLive } from "./main"
 
-// `ApiLive` now includes `DbHandlerLive`, which carries `PgDrizzle` (the `Db`
-// Tag) in its requirements. The tests below don't exercise `/db/ping`, but we
-// still have to satisfy the type. A stub `Db` is enough — if a test ever
-// actually calls into it, this would throw at runtime, which is the right
-// failure mode (a test calling the DB through this handler should fail loudly).
-const FakeDbLive = Layer.succeed(Db, {} as never)
-const FakeSqlClientLive = Layer.succeed(SqlClient.SqlClient, {} as never)
-
-const unexpectedBetterAuthCall = (method: string): Effect.Effect<never> =>
-  Effect.die(new Error(`unexpected BetterAuth.${method} call`))
-
-const FakeBetterAuth = {
-  handler: () => unexpectedBetterAuthCall("handler"),
-  getSession: () => unexpectedBetterAuthCall("getSession"),
-  getGithubAccessToken: () => unexpectedBetterAuthCall("getGithubAccessToken"),
-  getPersonalGithub: () => unexpectedBetterAuthCall("getPersonalGithub"),
-  getOrgSlugById: () => unexpectedBetterAuthCall("getOrgSlugById"),
-  listOrganizations: () => unexpectedBetterAuthCall("listOrganizations"),
-  listOrganizationsPaged: () =>
-    unexpectedBetterAuthCall("listOrganizationsPaged"),
-  getOrganization: () => unexpectedBetterAuthCall("getOrganization"),
-  submitConsent: () => unexpectedBetterAuthCall("submitConsent")
-} satisfies BetterAuthShape
-
-const FakeBetterAuthLive = Layer.succeed(BetterAuth, FakeBetterAuth)
+const ApiUnderTestLive = HttpApiBuilder.api(AppApi).pipe(
+  Layer.provide(HealthHandlerLive)
+) as Layer.Layer<HttpApi.Api>
 
 // One shared web handler for the whole suite.
 const { handler } = HttpApiBuilder.toWebHandler(
-  ApiLive.pipe(
-    Layer.provideMerge(HttpServer.layerContext),
-    Layer.provide(FakeDbLive),
-    Layer.provide(FakeSqlClientLive),
-    Layer.provide(FakeBetterAuthLive),
-    Layer.provide(BunContext.layer)
-  )
+  ApiUnderTestLive.pipe(Layer.provideMerge(HttpServer.layerContext))
 )
 
 // Layer that lets `HttpApiClient.make(AppApi)` reach our in-process handler

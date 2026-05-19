@@ -230,6 +230,13 @@ describe("Better Auth plugin wiring", () => {
     ).toBe(true)
   })
 
+  it("requests GitHub repository and organization membership scopes", () => {
+    expect(auth.options.socialProviders?.github?.scope).toEqual([
+      "repo",
+      "read:org"
+    ])
+  })
+
   it("exposes the admin plugin endpoints", () => {
     expect(typeof auth.api.listUsers).toBe("function")
     expect(typeof auth.api.setRole).toBe("function")

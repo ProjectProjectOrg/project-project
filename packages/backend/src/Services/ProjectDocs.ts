@@ -20,6 +20,8 @@ export interface ProjectDocument {
   readonly slug: Slug
   readonly key?: ProjectKey
   readonly name: string
+  readonly icon: string
+  readonly color: string
   readonly createdBy?: string
   readonly createdAt: Date
   readonly members: ReadonlyArray<ProjectDocMember>
@@ -33,6 +35,8 @@ export interface ProjectDocumentWrite {
   readonly slug: string
   readonly key: ProjectKey
   readonly name: string
+  readonly icon: string
+  readonly color: string
   readonly createdBy: string
   readonly createdAt: Date
   readonly members: ReadonlyArray<ProjectDocMember>

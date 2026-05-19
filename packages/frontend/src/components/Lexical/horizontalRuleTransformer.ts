@@ -28,6 +28,7 @@ export const HORIZONTAL_RULE: ElementTransformer = {
     } else {
       parentNode.insertBefore(line)
     }
+    if (isImport) return
     line.selectNext()
   },
   type: "element"

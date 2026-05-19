@@ -73,6 +73,7 @@
   "profile_github_error_expired": "The GitHub connection expired. Start again.",
   "profile_github_error_generic": "Couldn't connect GitHub. Try again.",
   "profile_github_error_missing_profile": "GitHub didn't return enough account information. Try reconnecting.",
+  "profile_github_reconnect_button": "Reconnect",
   "profile_github_title": "GitHub",
   "profile_joined_label": "Joined",
   "profile_page_subtitle": "Account details and security settings.",

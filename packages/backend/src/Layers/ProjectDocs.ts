@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import {
+  deriveProjectIdentity,
   GithubConnection,
   NotFound,
   ProjectKey,
@@ -70,6 +71,8 @@ const ProjectFrontmatter = Schema.Struct({
   slug: Slug,
   key: Schema.optional(ProjectKey),
   name: Schema.String,
+  icon: Schema.optional(Schema.String),
+  color: Schema.optional(Schema.String),
   createdBy: Schema.optional(Schema.String),
   createdAt: Schema.Date,
   members: Schema.optionalWith(Schema.Array(ProjectDocMember), {
@@ -97,6 +100,8 @@ function toFrontmatter(
     slug: document.slug,
     key: document.key,
     name: document.name,
+    icon: document.icon,
+    color: document.color,
     createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),
     members: document.members.map((member) => ({
@@ -160,7 +165,13 @@ export const ProjectDocsLive = Layer.effect(
             ),
             Effect.orDie
           )
-          return { ...frontmatter, body: file.body }
+          const fallback = deriveProjectIdentity(slug)
+          return {
+            ...frontmatter,
+            icon: frontmatter.icon ?? fallback.icon,
+            color: frontmatter.color ?? fallback.color,
+            body: file.body
+          }
         })
       )
 

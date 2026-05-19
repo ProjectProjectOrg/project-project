@@ -12,7 +12,6 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
   Columns3,
-  FolderKanban,
   GitBranch,
   Info,
   ListChecks,
@@ -48,6 +47,7 @@ import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
+import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"
@@ -57,17 +57,13 @@ import {
   type SegmentedItem
 } from "@/components/SegmentedTabs"
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { ErrorPage } from "@/components/ErrorPage"
+import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
 import { TagRenamesProvider } from "@/components/TagRenamesProvider"
@@ -126,27 +122,34 @@ function ProjectLayout() {
         <Skeleton />
       </PageContainer>
     ),
-    onError: (error) => (
-      <PageContainer wide={wide}>
-        {error._tag === "NotFound" ? (
-          <NotFoundCard slug={slug} />
-        ) : (
-          <ErrorCard
-            message={m.project_detail_load_error({ tag: error._tag })}
-          />
-        )}
-      </PageContainer>
-    ),
+    onError: (error) =>
+      error._tag === "NotFound" ? (
+        <NotFoundPage
+          contained
+          title={m.project_detail_not_found_title()}
+          body={m.project_detail_not_found_body({ slug })}
+        />
+      ) : (
+        <ErrorPage
+          contained
+          error={error}
+          title={m.project_detail_load_error_title()}
+          body={m.project_detail_load_error_body()}
+        />
+      ),
     onDefect: (defect) => (
-      <PageContainer wide={wide}>
-        <ErrorCard message={m.chrome_defect({ defect: String(defect) })} />
-      </PageContainer>
+      <ErrorPage
+        contained
+        error={defect}
+        title={m.project_detail_load_error_title()}
+        body={m.project_detail_load_error_body()}
+      />
     ),
     onSuccess: ({ value }) => (
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-1 flex-col gap-6">
             {!onTicketDetail && !onSettings && (
               <PageContainer wide={wide}>
                 <ProjectHeader
@@ -178,12 +181,18 @@ function ProjectHeader({
   project: ProjectDetailType
 }) {
   const { role: myRole } = useProjectRole()
+  const canEdit = myRole === "owner" || myRole === "admin"
 
   return (
     <header className="flex items-start gap-3">
-      <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <FolderKanban className="size-5" strokeWidth={1.75} />
-      </div>
+      <ProjectIdentityEditor
+        orgSlug={orgSlug}
+        slug={slug}
+        icon={project.icon}
+        color={project.color}
+        canEdit={canEdit}
+        size="header"
+      />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
@@ -777,28 +786,3 @@ function Skeleton() {
   )
 }
 
-function NotFoundCard({ slug }: { slug: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{m.project_detail_not_found_title()}</CardTitle>
-        <CardDescription>
-          {m.project_detail_not_found_prefix()}{" "}
-          <span className="font-mono">/{slug}</span>
-          {m.project_detail_not_found_suffix()}
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  )
-}
-
-function ErrorCard({ message }: { message: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{m.project_detail_load_error_title()}</CardTitle>
-        <CardDescription>{message}</CardDescription>
-      </CardHeader>
-    </Card>
-  )
-}

@@ -9,12 +9,8 @@ import {
   sprintsListAtom
 } from "@/atoms/sprints"
 import { SprintTicketCreator } from "@/components/TicketList/SprintTicketCreator"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle
-} from "@/components/ui/empty"
+import { ErrorPage } from "@/components/ErrorPage"
+import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import {
   sprintState,
@@ -54,39 +50,28 @@ export function SprintDetail({
         <SprintDetailSkeleton />
       </PageContainer>
     ),
-    onError: (error) => (
-      <PageContainer wide={wide}>
-        {error._tag === "NotFound" ? (
-          <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
-            <EmptyHeader>
-              <EmptyTitle>{m.sprints_not_found_title()}</EmptyTitle>
-              <EmptyDescription>
-                {m.sprints_not_found_description()}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
-            <EmptyHeader>
-              <EmptyTitle>{m.sprints_load_error_title()}</EmptyTitle>
-              <EmptyDescription>
-                {m.sprints_load_error({ tag: error._tag })}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-      </PageContainer>
-    ),
+    onError: (error) =>
+      error._tag === "NotFound" ? (
+        <NotFoundPage
+          contained
+          title={m.sprints_not_found_title()}
+          body={m.sprints_not_found_body()}
+        />
+      ) : (
+        <ErrorPage
+          contained
+          error={error}
+          title={m.sprints_load_error_title()}
+          body={m.sprints_load_error_body()}
+        />
+      ),
     onDefect: (defect) => (
-      <PageContainer wide={wide}>
-        <Empty variant="inline" className="rounded-xl border border-dashed border-border p-6">
-          <EmptyHeader>
-            <EmptyDescription>
-              {m.chrome_defect({ defect: String(defect) })}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </PageContainer>
+      <ErrorPage
+        contained
+        error={defect}
+        title={m.sprints_load_error_title()}
+        body={m.sprints_load_error_body()}
+      />
     ),
     onSuccess: ({ value }) => {
       const allSprints = Result.isSuccess(list) ? list.value : []

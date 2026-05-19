@@ -3,8 +3,6 @@ import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import {
-  BranchExists,
-  BranchProtected,
   GitHubError,
   GitHubTokenExpired,
   GithubRepo,
@@ -26,6 +24,35 @@ import {
   listBranchesWithToken
 } from "./projectState"
 import { githubRequest } from "./request"
+
+export function githubRepoMatchesQuery(
+  repo: {
+    readonly owner?: { readonly login?: string | null } | null
+    readonly name: string
+    readonly description?: string | null
+  },
+  query: string
+): boolean {
+  const tokens = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (tokens.length === 0) return true
+  const owner = repo.owner?.login ?? ""
+  const haystack =
+    `${owner}/${repo.name} ${owner} ${repo.name} ${repo.description ?? ""}`.toLowerCase()
+  return tokens.every((token) => haystack.includes(token))
+}
+
+export function parseGithubRepoSlug(
+  query: string
+): { readonly owner: string; readonly name: string } | null {
+  const trimmed = query.trim()
+  const match = /^([^/\s]+)\/([^/\s]+)$/.exec(trimmed)
+  if (!match) return null
+  return { owner: match[1], name: match[2] }
+}
 
 export const GitHubLive = Layer.effect(
   GitHub,
@@ -134,11 +161,10 @@ export const GitHubLive = Layer.effect(
             }),
           narrow(["RepoGone", "RateLimited"] as const)
         )
-        const q = query?.trim().toLowerCase()
         const repos = response.data.repositories
           .filter((r) => {
-            if (!q) return true
-            return `${r.owner.login}/${r.name}`.toLowerCase().includes(q)
+            if (!query) return true
+            return githubRepoMatchesQuery(r, query)
           })
           .map((r) =>
             GithubRepo.make({
@@ -275,14 +301,7 @@ export const GitHubLive = Layer.effect(
               sha,
               request: { signal }
             }),
-          (cause, now) => {
-            const err = mapHttpError(cause, now)
-            if (err._tag === "BranchExists")
-              return new BranchExists({ branch: branchName })
-            if (err._tag === "BranchProtected")
-              return new BranchProtected({ branch: branchName })
-            return err
-          }
+          (cause, now) => mapHttpError(cause, now, { branch: branchName })
         )
         return { name: branchName, sha }
       }
@@ -326,14 +345,11 @@ export const GitHubLive = Layer.effect(
               request: { signal }
             }),
           (cause, now) => {
-            const err = mapHttpError(cause, now)
+            const err = mapHttpError(cause, now, { branch: args.head })
             if (err._tag === "BranchExists") {
               return new GitHubError({
                 message: "PR already exists for this branch"
               })
-            }
-            if (err._tag === "BranchProtected") {
-              return new BranchProtected({ branch: args.head })
             }
             return err
           }

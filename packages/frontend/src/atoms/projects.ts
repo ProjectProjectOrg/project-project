@@ -3,7 +3,11 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { CreatableProjectKey, type ProjectSetup } from "@projectproject/shared"
+import {
+  CreatableProjectKey,
+  type ProjectSetup,
+  type UpdateProjectInput as UpdateProjectInputShared
+} from "@projectproject/shared"
 
 // Atom.family keys must compare by value, not reference. Slugs are DNS-safe
 // (no `/`), so a slash is an unambiguous separator between org and project.
@@ -15,7 +19,7 @@ const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
 }
 
-export const projectsListAtom = Atom.family((orgSlug: string) =>
+const projectsListBaseAtom = Atom.family((orgSlug: string) =>
   runtime
     .atom(
       Effect.gen(function* () {
@@ -25,6 +29,8 @@ export const projectsListAtom = Atom.family((orgSlug: string) =>
     )
     .pipe(Atom.setIdleTTL("1 minute"))
 )
+
+export const projectsListAtom = projectsListBaseAtom
 
 export const projectBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
@@ -44,18 +50,24 @@ export const projectAtom = Atom.family((key: string) =>
 
 export const updateProjectAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: { name?: string; body?: string }, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.projects.update({
-        path: { orgSlug, slug },
-        payload: input
+  return Atom.optimisticFn(projectAtom(key), {
+    reducer: (current, input: UpdateProjectInputShared) =>
+      Result.isSuccess(current)
+        ? Result.success({ ...current.value, ...input }, { waiting: true })
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (input: UpdateProjectInputShared, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.projects.update({
+          path: { orgSlug, slug },
+          payload: input
+        })
+        get.refresh(projectBaseAtom(key))
+        get.refresh(projectsListBaseAtom(orgSlug))
+        return updated
       })
-      get.refresh(projectBaseAtom(key))
-      get.refresh(projectsListAtom(orgSlug))
-      return updated
-    })
-  )
+    )
+  })
 })
 
 export const updateProjectSetupAtom = Atom.family((key: string) => {
@@ -94,7 +106,7 @@ export const deleteProjectAtom = Atom.family((key: string) => {
     Effect.fn(function* (_input: void, get) {
       const client = yield* ApiClient
       yield* client.projects.delete({ path: { orgSlug, slug } })
-      get.refresh(projectsListAtom(orgSlug))
+      get.refresh(projectsListBaseAtom(orgSlug))
     })
   )
 })
@@ -199,7 +211,7 @@ export const createProjectAtom = Atom.family((orgSlug: string) =>
         path: { orgSlug },
         payload: { name: input.name, key }
       })
-      get.refresh(projectsListAtom(orgSlug))
+      get.refresh(projectsListBaseAtom(orgSlug))
       return project
     })
   )

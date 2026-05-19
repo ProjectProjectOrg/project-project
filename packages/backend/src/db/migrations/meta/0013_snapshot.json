@@ -1,6 +1,6 @@
 {
-  "id": "48167dec-ccbc-4f4e-80cc-52a07113fce4",
-  "prevId": "b11a6605-11b4-41dd-8ff7-27bd56bc7a74",
+  "id": "b6123e66-2c7d-4213-8a7f-68f224b8a611",
+  "prevId": "28fdff48-169e-4ef7-b4ef-4f3592cf291a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -80,8 +80,12 @@
           "name": "comment_index_author_id_user_id_fk",
           "tableFrom": "comment_index",
           "tableTo": "user",
-          "columnsFrom": ["author_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -181,8 +185,12 @@
           "name": "github_app_install_session_organization_id_organization_id_fk",
           "tableFrom": "github_app_install_session",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -190,8 +198,12 @@
           "name": "github_app_install_session_user_id_user_id_fk",
           "tableFrom": "github_app_install_session",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -199,8 +211,14 @@
           "name": "github_app_install_session_return_project_fkey",
           "tableFrom": "github_app_install_session",
           "tableTo": "project_index",
-          "columnsFrom": ["return_project_id", "return_project_org_id"],
-          "columnsTo": ["id", "organization_id"],
+          "columnsFrom": [
+            "return_project_id",
+            "return_project_org_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -210,7 +228,9 @@
         "github_app_install_session_state_hash_unique": {
           "name": "github_app_install_session_state_hash_unique",
           "nullsNotDistinct": false,
-          "columns": ["state_hash"]
+          "columns": [
+            "state_hash"
+          ]
         }
       },
       "policies": {},
@@ -274,8 +294,12 @@
           "name": "organization_github_integration_organization_integration_id_organization_integration_id_fk",
           "tableFrom": "organization_github_integration",
           "tableTo": "organization_integration",
-          "columnsFrom": ["organization_integration_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_integration_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -426,8 +450,12 @@
           "name": "organization_integration_organization_id_organization_id_fk",
           "tableFrom": "organization_integration",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -514,8 +542,12 @@
           "name": "project_github_repository_organization_id_organization_id_fk",
           "tableFrom": "project_github_repository",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -523,8 +555,14 @@
           "name": "project_github_repository_link_id_organization_id_fkey",
           "tableFrom": "project_github_repository",
           "tableTo": "project_integration_link",
-          "columnsFrom": ["project_integration_link_id", "organization_id"],
-          "columnsTo": ["id", "organization_id"],
+          "columnsFrom": [
+            "project_integration_link_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -566,6 +604,18 @@
         },
         "name": {
           "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -654,8 +704,12 @@
           "name": "project_index_organization_id_organization_id_fk",
           "tableFrom": "project_index",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -665,7 +719,9 @@
         "project_index_id_unique": {
           "name": "project_index_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["id"]
+          "columns": [
+            "id"
+          ]
         }
       },
       "policies": {},
@@ -839,8 +895,12 @@
           "name": "project_integration_link_organization_id_organization_id_fk",
           "tableFrom": "project_integration_link",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -848,8 +908,14 @@
           "name": "project_integration_link_project_id_organization_id_fkey",
           "tableFrom": "project_integration_link",
           "tableTo": "project_index",
-          "columnsFrom": ["project_id", "organization_id"],
-          "columnsTo": ["id", "organization_id"],
+          "columnsFrom": [
+            "project_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -857,8 +923,14 @@
           "name": "project_integration_link_org_integration_id_organization_id_fkey",
           "tableFrom": "project_integration_link",
           "tableTo": "organization_integration",
-          "columnsFrom": ["organization_integration_id", "organization_id"],
-          "columnsTo": ["id", "organization_id"],
+          "columnsFrom": [
+            "organization_integration_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -927,8 +999,12 @@
           "name": "project_invite_grant_invitation_id_invitation_id_fk",
           "tableFrom": "project_invite_grant",
           "tableTo": "invitation",
-          "columnsFrom": ["invitation_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "invitation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -936,8 +1012,14 @@
           "name": "project_invite_grant_project_slug_id_fkey",
           "tableFrom": "project_invite_grant",
           "tableTo": "project_index",
-          "columnsFrom": ["project_slug", "project_id"],
-          "columnsTo": ["slug", "id"],
+          "columnsFrom": [
+            "project_slug",
+            "project_id"
+          ],
+          "columnsTo": [
+            "slug",
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -945,7 +1027,10 @@
       "compositePrimaryKeys": {
         "project_invite_grant_invitation_id_project_slug_pk": {
           "name": "project_invite_grant_invitation_id_project_slug_pk",
-          "columns": ["invitation_id", "project_slug"]
+          "columns": [
+            "invitation_id",
+            "project_slug"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1016,8 +1101,12 @@
           "name": "project_member_project_slug_project_index_slug_fk",
           "tableFrom": "project_member",
           "tableTo": "project_index",
-          "columnsFrom": ["project_slug"],
-          "columnsTo": ["slug"],
+          "columnsFrom": [
+            "project_slug"
+          ],
+          "columnsTo": [
+            "slug"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1025,8 +1114,12 @@
           "name": "project_member_project_id_project_index_id_fk",
           "tableFrom": "project_member",
           "tableTo": "project_index",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1034,8 +1127,12 @@
           "name": "project_member_user_id_user_id_fk",
           "tableFrom": "project_member",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1043,7 +1140,10 @@
       "compositePrimaryKeys": {
         "project_member_project_slug_user_id_pk": {
           "name": "project_member_project_slug_user_id_pk",
-          "columns": ["project_slug", "user_id"]
+          "columns": [
+            "project_slug",
+            "user_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1109,8 +1209,12 @@
           "name": "project_tag_project_id_project_index_id_fk",
           "tableFrom": "project_tag",
           "tableTo": "project_index",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1118,8 +1222,12 @@
           "name": "project_tag_created_by_user_id_fk",
           "tableFrom": "project_tag",
           "tableTo": "user",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1127,7 +1235,10 @@
       "compositePrimaryKeys": {
         "project_tag_project_id_name_pk": {
           "name": "project_tag_project_id_name_pk",
-          "columns": ["project_id", "name"]
+          "columns": [
+            "project_id",
+            "name"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1242,8 +1353,12 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1346,8 +1461,12 @@
           "name": "invitation_organization_id_organization_id_fk",
           "tableFrom": "invitation",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1355,8 +1474,12 @@
           "name": "invitation_inviter_id_user_id_fk",
           "tableFrom": "invitation",
           "tableTo": "user",
-          "columnsFrom": ["inviter_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "inviter_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1440,8 +1563,12 @@
           "name": "member_organization_id_organization_id_fk",
           "tableFrom": "member",
           "tableTo": "organization",
-          "columnsFrom": ["organization_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1449,8 +1576,12 @@
           "name": "member_user_id_user_id_fk",
           "tableFrom": "member",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1563,8 +1694,12 @@
           "name": "oauth_access_token_client_id_oauth_application_client_id_fk",
           "tableFrom": "oauth_access_token",
           "tableTo": "oauth_application",
-          "columnsFrom": ["client_id"],
-          "columnsTo": ["client_id"],
+          "columnsFrom": [
+            "client_id"
+          ],
+          "columnsTo": [
+            "client_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1572,8 +1707,12 @@
           "name": "oauth_access_token_user_id_user_id_fk",
           "tableFrom": "oauth_access_token",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1583,12 +1722,16 @@
         "oauth_access_token_access_token_unique": {
           "name": "oauth_access_token_access_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["access_token"]
+          "columns": [
+            "access_token"
+          ]
         },
         "oauth_access_token_refresh_token_unique": {
           "name": "oauth_access_token_refresh_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["refresh_token"]
+          "columns": [
+            "refresh_token"
+          ]
         }
       },
       "policies": {},
@@ -1695,8 +1838,12 @@
           "name": "oauth_application_user_id_user_id_fk",
           "tableFrom": "oauth_application",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1706,7 +1853,9 @@
         "oauth_application_client_id_unique": {
           "name": "oauth_application_client_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["client_id"]
+          "columns": [
+            "client_id"
+          ]
         }
       },
       "policies": {},
@@ -1797,8 +1946,12 @@
           "name": "oauth_consent_client_id_oauth_application_client_id_fk",
           "tableFrom": "oauth_consent",
           "tableTo": "oauth_application",
-          "columnsFrom": ["client_id"],
-          "columnsTo": ["client_id"],
+          "columnsFrom": [
+            "client_id"
+          ],
+          "columnsTo": [
+            "client_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1806,8 +1959,12 @@
           "name": "oauth_consent_user_id_user_id_fk",
           "tableFrom": "oauth_consent",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1900,7 +2057,9 @@
         "organization_slug_unique": {
           "name": "organization_slug_unique",
           "nullsNotDistinct": false,
-          "columns": ["slug"]
+          "columns": [
+            "slug"
+          ]
         }
       },
       "policies": {},
@@ -1996,8 +2155,12 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2007,7 +2170,9 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {},
@@ -2108,12 +2273,16 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         },
         "user_username_unique": {
           "name": "user_username_unique",
           "nullsNotDistinct": false,
-          "columns": ["username"]
+          "columns": [
+            "username"
+          ]
         }
       },
       "policies": {},
