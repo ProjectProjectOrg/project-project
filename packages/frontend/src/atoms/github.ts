@@ -38,9 +38,11 @@ export const projectGitStatesBaseAtom = Atom.family((key: string) => {
       get(githubAuthEpochAtom)
       return Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.gitStates({
+        const states = yield* client.projects.gitStates({
           path: { orgSlug, slug }
         })
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        return states
       })
     })
     .pipe(Atom.setIdleTTL("30 seconds"))
