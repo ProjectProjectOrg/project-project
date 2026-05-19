@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -19,7 +20,7 @@ import {
   type GitHubWebhooksShape
 } from "../Services/GitHubWebhooks"
 import { TicketDocs } from "../Services/TicketDocs"
-import { TicketGitBranchIndex } from "../Services/TicketGitBranchIndex"
+import { TicketIndex, type TicketIndexProject } from "../Services/TicketIndex"
 import { planPullRequestWebhookTicket } from "../ticketGitStatePlanner"
 
 const GitHubId = Schema.Union(Schema.Number, Schema.String)
@@ -261,7 +262,25 @@ export const GitHubWebhooksLive = Layer.effect(
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
     const ticketDocs = yield* TicketDocs
-    const ticketBranchIndex = yield* TicketGitBranchIndex
+    const ticketIndex = yield* TicketIndex
+
+    const bestEffortIndex = (
+      operation: string,
+      project: TicketIndexProject,
+      ticketId: string,
+      effect: Effect.Effect<void>
+    ): Effect.Effect<void> =>
+      effect.pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logWarning("ticket index write failed", {
+            operation,
+            orgSlug: project.orgSlug,
+            slug: project.projectSlug,
+            ticketId,
+            cause: Cause.pretty(cause)
+          })
+        )
+      )
 
     const installationRow = Effect.fn("GitHubWebhooks.installationRow")(
       function* (installationId: string) {
@@ -342,13 +361,6 @@ export const GitHubWebhooksLive = Layer.effect(
           status,
           currentStatuses
         )
-        if (status === "disconnected") {
-          yield* Effect.forEach(
-            links,
-            (link) => ticketBranchIndex.clearProjectConnection(link.id),
-            { concurrency: 1 }
-          )
-        }
       }
     )
 
@@ -489,11 +501,6 @@ export const GitHubWebhooksLive = Layer.effect(
                 "active",
                 "broken"
               ])
-              yield* Effect.forEach(
-                linkIds,
-                (linkId) => ticketBranchIndex.clearProjectConnection(linkId),
-                { concurrency: 1 }
-              )
             })
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
@@ -505,7 +512,8 @@ export const GitHubWebhooksLive = Layer.effect(
     )(function* (change: GitHubPullRequestWebhookChange) {
       return yield* db
         .select({
-          id: projectIntegrationLink.id
+          id: projectIntegrationLink.id,
+          projectId: projectIntegrationLink.projectId
         })
         .from(projectGithubRepository)
         .innerJoin(
@@ -548,7 +556,9 @@ export const GitHubWebhooksLive = Layer.effect(
       "GitHubWebhooks.applyPullRequestToTicket"
     )(function* (
       match: {
-        readonly organizationSlug: string
+        readonly orgSlug: string
+        readonly organizationId: string
+        readonly projectId: string
         readonly projectSlug: string
         readonly ticketId: string
         readonly branch: string
@@ -557,14 +567,14 @@ export const GitHubWebhooksLive = Layer.effect(
       deliveryId: string | null
     ) {
       const ticket = yield* ticketDocs
-        .read(match.organizationSlug, match.projectSlug, match.ticketId)
+        .read(match.orgSlug, match.projectSlug, match.ticketId)
         .pipe(
           Effect.catchAll((error) =>
             Effect.logWarning("github pull_request ticket ignored").pipe(
               Effect.annotateLogs({
                 module: "GitHubWebhooks",
                 deliveryId,
-                orgSlug: match.organizationSlug,
+                orgSlug: match.orgSlug,
                 slug: match.projectSlug,
                 ticketId: match.ticketId,
                 error
@@ -579,7 +589,7 @@ export const GitHubWebhooksLive = Layer.effect(
           Effect.annotateLogs({
             module: "GitHubWebhooks",
             deliveryId,
-            orgSlug: match.organizationSlug,
+            orgSlug: match.orgSlug,
             slug: match.projectSlug,
             ticketId: match.ticketId,
             indexedBranch: match.branch,
@@ -593,7 +603,7 @@ export const GitHubWebhooksLive = Layer.effect(
           Effect.annotateLogs({
             module: "GitHubWebhooks",
             deliveryId,
-            orgSlug: match.organizationSlug,
+            orgSlug: match.orgSlug,
             slug: match.projectSlug,
             ticketId: match.ticketId,
             ticketPr: ticket.pr,
@@ -604,35 +614,58 @@ export const GitHubWebhooksLive = Layer.effect(
       }
       const write = planPullRequestWebhookTicket(ticket, change)
       if (!write) return
-      yield* ticketDocs
-        .write(match.organizationSlug, match.projectSlug, match.ticketId, {
-          ...ticket,
-          pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
-          prState:
-            write.patch.prState !== undefined
-              ? write.patch.prState
-              : ticket.prState,
-          lastTransitionedPr:
-            write.patch.lastTransitionedPr !== undefined
-              ? write.patch.lastTransitionedPr
-              : ticket.lastTransitionedPr,
-          status: write.patch.status ?? ticket.status,
-          updatedAt: yield* DateTime.nowAsDate
-        })
+      const next = {
+        ...ticket,
+        pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
+        prState:
+          write.patch.prState !== undefined
+            ? write.patch.prState
+            : ticket.prState,
+        lastTransitionedPr:
+          write.patch.lastTransitionedPr !== undefined
+            ? write.patch.lastTransitionedPr
+            : ticket.lastTransitionedPr,
+        status: write.patch.status ?? ticket.status,
+        updatedAt: yield* DateTime.nowAsDate
+      }
+      const wrote = yield* ticketDocs
+        .write(match.orgSlug, match.projectSlug, match.ticketId, next)
         .pipe(
+          Effect.as(true),
           Effect.catchAll((error) =>
             Effect.logWarning("github pull_request ticket write failed").pipe(
               Effect.annotateLogs({
                 module: "GitHubWebhooks",
                 deliveryId,
-                orgSlug: match.organizationSlug,
+                orgSlug: match.orgSlug,
                 slug: match.projectSlug,
                 ticketId: match.ticketId,
                 error
-              })
+              }),
+              Effect.as(false)
             )
           )
         )
+      if (!wrote) return
+      yield* bestEffortIndex(
+        "upsertTicket",
+        {
+          orgSlug: match.orgSlug,
+          organizationId: match.organizationId,
+          projectId: match.projectId,
+          projectSlug: match.projectSlug
+        },
+        match.ticketId,
+        ticketIndex.upsertTicket(
+          {
+            orgSlug: match.orgSlug,
+            organizationId: match.organizationId,
+            projectId: match.projectId,
+            projectSlug: match.projectSlug
+          },
+          next
+        )
+      )
     })
 
     const pullRequestChanged = Effect.fn("GitHubWebhooks.pullRequestChanged")(
@@ -655,7 +688,7 @@ export const GitHubWebhooksLive = Layer.effect(
         yield* Effect.forEach(
           links,
           (link) =>
-            ticketBranchIndex.findTicketsByBranch(link.id, change.branch).pipe(
+            ticketIndex.findTicketsByBranch(link.projectId, change.branch).pipe(
               Effect.flatMap((matches) =>
                 matches.length === 0
                   ? Effect.logDebug("github pull_request branch unknown").pipe(

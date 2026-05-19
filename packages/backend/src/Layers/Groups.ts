@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -33,6 +34,7 @@ import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import { TicketIndex, type TicketIndexProject } from "../Services/TicketIndex"
 import { TicketDocs } from "../Services/TicketDocs"
 
 const MAX_CREATE_ATTEMPTS = 16
@@ -91,6 +93,25 @@ export const GroupsLive = Layer.effect(
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
+    const ticketIndex = yield* TicketIndex
+
+    const bestEffortIndex = (
+      operation: string,
+      project: TicketIndexProject,
+      ticketId: string,
+      effect: Effect.Effect<void>
+    ): Effect.Effect<void> =>
+      effect.pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logWarning("ticket index write failed", {
+            operation,
+            orgSlug: project.orgSlug,
+            slug: project.projectSlug,
+            ticketId,
+            cause: Cause.pretty(cause)
+          })
+        )
+      )
 
     const validateTicketIds = (
       orgSlug: string,
@@ -202,7 +223,15 @@ export const GroupsLive = Layer.effect(
           .toSorted((a, b) => {
             const ka = padNumericIdSort(a.id) ?? ""
             const kb = padNumericIdSort(b.id) ?? ""
-            return ka < kb ? -1 : ka > kb ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+            return ka < kb
+              ? -1
+              : ka > kb
+                ? 1
+                : a.id < b.id
+                  ? -1
+                  : a.id > b.id
+                    ? 1
+                    : 0
           })
       })
 
@@ -282,69 +311,73 @@ export const GroupsLive = Layer.effect(
       Group,
       NotFound | Forbidden | Validation | MarkdownError
     > =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        const kind: GroupKind = input.kind ?? "other"
-        yield* requireKindRole(orgSlug, userId, slug, kind)
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const kind: GroupKind = input.kind ?? "other"
+          yield* requireKindRole(orgSlug, userId, slug, kind)
 
-        const requestedTickets = input.tickets ?? []
-        yield* validateTicketIds(orgSlug, slug, requestedTickets)
-        yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
+          const requestedTickets = input.tickets ?? []
+          yield* validateTicketIds(orgSlug, slug, requestedTickets)
+          yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
 
-        const ids = yield* groupDocs.listIds(orgSlug, slug)
-        let candidate = nextIdFrom(ids)
+          const ids = yield* groupDocs.listIds(orgSlug, slug)
+          let candidate = nextIdFrom(ids)
 
-        let color: GroupColor
-        if (input.color !== undefined) {
-          color = input.color
-        } else if (kind === "sprint") {
-          color = makeGroupColor("#777777")
-        } else {
-          const existingGroups = yield* Effect.forEach(
-            ids,
-            (id) => groupDocs.read(orgSlug, slug, id),
-            { concurrency: 8 }
-          )
-          color = pickColor(
-            existingGroups
-              .filter((g) => g.kind !== "sprint")
-              .map((g) => g.color)
-          )
-        }
-
-        const now = yield* DateTime.nowAsDate
-        const document: GroupDocument = {
-          id: candidate,
-          name: input.name,
-          kind,
-          tickets: requestedTickets,
-          color,
-          startsAt: input.startsAt ?? null,
-          endsAt: input.endsAt ?? null,
-          completedAt: null,
-          createdBy: userId,
-          createdAt: now,
-          updatedAt: now,
-          body: `# ${input.name}\n`
-        }
-
-        for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-          const next: GroupDocument = { ...document, id: candidate }
-          const result = yield* groupDocs.create(orgSlug, slug, next).pipe(
-            Effect.map(() => "ok" as const),
-            Effect.catchTag("GroupIdTaken", () =>
-              Effect.succeed("retry" as const)
+          let color: GroupColor
+          if (input.color !== undefined) {
+            color = input.color
+          } else if (kind === "sprint") {
+            color = makeGroupColor("#777777")
+          } else {
+            const existingGroups = yield* Effect.forEach(
+              ids,
+              (id) => groupDocs.read(orgSlug, slug, id),
+              { concurrency: 8 }
             )
-          )
-          if (result === "ok") {
-            return documentToGroup(next)
+            color = pickColor(
+              existingGroups
+                .filter((g) => g.kind !== "sprint")
+                .map((g) => g.color)
+            )
           }
-          const freshIds = yield* groupDocs.listIds(orgSlug, slug)
-          candidate = nextIdFrom(freshIds)
-        }
-        return yield* Effect.die(
-          new Error(`could not allocate group id for "${slug}"`)
-        )
-      }))
+
+          const now = yield* DateTime.nowAsDate
+          const document: GroupDocument = {
+            id: candidate,
+            name: input.name,
+            kind,
+            tickets: requestedTickets,
+            color,
+            startsAt: input.startsAt ?? null,
+            endsAt: input.endsAt ?? null,
+            completedAt: null,
+            createdBy: userId,
+            createdAt: now,
+            updatedAt: now,
+            body: `# ${input.name}\n`
+          }
+
+          for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+            const next: GroupDocument = { ...document, id: candidate }
+            const result = yield* groupDocs.create(orgSlug, slug, next).pipe(
+              Effect.map(() => "ok" as const),
+              Effect.catchTag("GroupIdTaken", () =>
+                Effect.succeed("retry" as const)
+              )
+            )
+            if (result === "ok") {
+              return documentToGroup(next)
+            }
+            const freshIds = yield* groupDocs.listIds(orgSlug, slug)
+            candidate = nextIdFrom(freshIds)
+          }
+          return yield* Effect.die(
+            new Error(`could not allocate group id for "${slug}"`)
+          )
+        })
+      )
 
     const update = (
       orgSlug: string,
@@ -356,36 +389,40 @@ export const GroupsLive = Layer.effect(
       GroupDetail,
       NotFound | Forbidden | Validation | MarkdownError
     > =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        yield* projects.get(orgSlug, userId, slug)
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.get(orgSlug, userId, slug)
 
-        const existing = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
 
-        const now = yield* DateTime.nowAsDate
-        const next: GroupDocument = {
-          ...existing,
-          name: input.name ?? existing.name,
-          color: input.color ?? existing.color,
-          startsAt:
-            input.startsAt !== undefined ? input.startsAt : existing.startsAt,
-          endsAt: input.endsAt !== undefined ? input.endsAt : existing.endsAt,
-          completedAt:
-            input.completedAt !== undefined
-              ? input.completedAt
-              : existing.completedAt,
-          updatedAt: now
-        }
-        yield* validateInterval(next.startsAt, next.endsAt)
-        yield* validateCompletion(next.completedAt, next.startsAt, now)
-        const nextDocument: GroupDocument = {
-          ...next,
-          body: input.body ?? existing.body
-        }
+          const now = yield* DateTime.nowAsDate
+          const next: GroupDocument = {
+            ...existing,
+            name: input.name ?? existing.name,
+            color: input.color ?? existing.color,
+            startsAt:
+              input.startsAt !== undefined ? input.startsAt : existing.startsAt,
+            endsAt: input.endsAt !== undefined ? input.endsAt : existing.endsAt,
+            completedAt:
+              input.completedAt !== undefined
+                ? input.completedAt
+                : existing.completedAt,
+            updatedAt: now
+          }
+          yield* validateInterval(next.startsAt, next.endsAt)
+          yield* validateCompletion(next.completedAt, next.startsAt, now)
+          const nextDocument: GroupDocument = {
+            ...next,
+            body: input.body ?? existing.body
+          }
 
-        yield* groupDocs.write(orgSlug, slug, id, nextDocument)
-        return nextDocument
-      }))
+          yield* groupDocs.write(orgSlug, slug, id, nextDocument)
+          return nextDocument
+        })
+      )
 
     const applyTicketsChange = (
       orgSlug: string,
@@ -412,9 +449,9 @@ export const GroupsLive = Layer.effect(
           const others = yield* Effect.forEach(
             allIds.filter((otherId) => otherId !== current.id),
             (otherId) =>
-              groupDocs.read(orgSlug, slug, otherId).pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(null))
-              ),
+              groupDocs
+                .read(orgSlug, slug, otherId)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
             { concurrency: 8 }
           )
           for (const other of others) {
@@ -462,7 +499,12 @@ export const GroupsLive = Layer.effect(
             return yield* new SprintCompletedImmutable()
           }
           yield* validateTicketIds(orgSlug, slug, input.tickets)
-          return yield* applyTicketsChange(orgSlug, slug, existing, input.tickets)
+          return yield* applyTicketsChange(
+            orgSlug,
+            slug,
+            existing,
+            input.tickets
+          )
         })
       )
 
@@ -521,61 +563,73 @@ export const GroupsLive = Layer.effect(
       | Validation
       | MarkdownError
     > =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const existing = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
-        if (existing.completedAt !== null) {
-          return yield* new SprintCompletedImmutable()
-        }
-        if (input.after !== null && input.after === input.ticketId) {
-          return yield* new Validation({ reason: "after_is_self" })
-        }
-        if (!existing.tickets.includes(input.ticketId)) {
-          return yield* new NotFound()
-        }
-        if (input.after !== null && !existing.tickets.includes(input.after)) {
-          return yield* new NotFound()
-        }
-
-        const filtered = existing.tickets.filter(
-          (tid) => tid !== input.ticketId
-        )
-        const insertAt =
-          input.after === null ? 0 : filtered.indexOf(input.after) + 1
-        const nextTickets: ReadonlyArray<TicketId> = [
-          ...filtered.slice(0, insertAt),
-          input.ticketId,
-          ...filtered.slice(insertAt)
-        ]
-
-        const now = yield* DateTime.nowAsDate
-
-        if (input.status !== undefined) {
-          const ticket = yield* ticketDocs
-            .read(orgSlug, slug, input.ticketId)
-            .pipe(
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.fail(new NotFound())
-              )
-            )
-          if (ticket.status !== input.status) {
-            yield* ticketDocs.write(orgSlug, slug, input.ticketId, {
-              ...ticket,
-              status: input.status,
-              updatedAt: now
-            })
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          if (existing.completedAt !== null) {
+            return yield* new SprintCompletedImmutable()
           }
-        }
+          if (input.after !== null && input.after === input.ticketId) {
+            return yield* new Validation({ reason: "after_is_self" })
+          }
+          if (!existing.tickets.includes(input.ticketId)) {
+            return yield* new NotFound()
+          }
+          if (input.after !== null && !existing.tickets.includes(input.after)) {
+            return yield* new NotFound()
+          }
 
-        const target: GroupDocument = {
-          ...existing,
-          tickets: nextTickets,
-          updatedAt: now
-        }
-        yield* groupDocs.write(orgSlug, slug, id, target)
-        return target
-      }))
+          const filtered = existing.tickets.filter(
+            (tid) => tid !== input.ticketId
+          )
+          const insertAt =
+            input.after === null ? 0 : filtered.indexOf(input.after) + 1
+          const nextTickets: ReadonlyArray<TicketId> = [
+            ...filtered.slice(0, insertAt),
+            input.ticketId,
+            ...filtered.slice(insertAt)
+          ]
+
+          const now = yield* DateTime.nowAsDate
+
+          if (input.status !== undefined) {
+            const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+            const ticket = yield* ticketDocs
+              .read(orgSlug, slug, input.ticketId)
+              .pipe(
+                Effect.catchTag("MalformedTicketDocument", () =>
+                  Effect.fail(new NotFound())
+                )
+              )
+            if (ticket.status !== input.status) {
+              const next = {
+                ...ticket,
+                status: input.status,
+                updatedAt: now
+              }
+              yield* ticketDocs.write(orgSlug, slug, input.ticketId, next)
+              yield* bestEffortIndex(
+                "upsertTicket",
+                indexProject,
+                input.ticketId,
+                ticketIndex.upsertTicket(indexProject, next)
+              )
+            }
+          }
+
+          const target: GroupDocument = {
+            ...existing,
+            tickets: nextTickets,
+            updatedAt: now
+          }
+          yield* groupDocs.write(orgSlug, slug, id, target)
+          return target
+        })
+      )
 
     const complete = (
       orgSlug: string,
@@ -591,74 +645,84 @@ export const GroupsLive = Layer.effect(
       | Validation
       | MarkdownError
     > =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const source = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireKindRole(orgSlug, userId, slug, source.kind)
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const source = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, source.kind)
 
-        if (source.kind !== "sprint") {
-          return yield* new Validation({ reason: "not_a_sprint" })
-        }
-        if (source.completedAt !== null) {
-          return yield* new SprintCompletedImmutable()
-        }
-
-        let dest: GroupDocument | null = null
-        if (input.destination.kind === "sprint") {
-          if (input.destination.groupId === source.id) {
-            return yield* new Validation({ reason: "destination_is_source" })
+          if (source.kind !== "sprint") {
+            return yield* new Validation({ reason: "not_a_sprint" })
           }
-          dest = yield* groupDocs.read(orgSlug, slug, input.destination.groupId)
-          if (dest.kind !== "sprint") {
-            return yield* new Validation({ reason: "destination_not_sprint" })
-          }
-          if (dest.completedAt !== null) {
+          if (source.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
-        }
 
-        const now = yield* DateTime.nowAsDate
-        yield* validateCompletion(now, source.startsAt, now)
-
-        const tickets = yield* Effect.forEach(
-          source.tickets,
-          (tid) =>
-            ticketDocs.read(orgSlug, slug, tid).pipe(
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.fail(new NotFound())
-              )
-            ),
-          { concurrency: 8 }
-        )
-        const stay: Array<TicketId> = []
-        const carry: Array<TicketId> = []
-        for (const ticket of tickets) {
-          if (isCarryover(ticket.status)) carry.push(ticket.id)
-          else stay.push(ticket.id)
-        }
-
-        if (dest !== null && carry.length > 0) {
-          const merged = [...dest.tickets]
-          for (const tid of carry) {
-            if (!merged.includes(tid)) merged.push(tid)
+          let dest: GroupDocument | null = null
+          if (input.destination.kind === "sprint") {
+            if (input.destination.groupId === source.id) {
+              return yield* new Validation({ reason: "destination_is_source" })
+            }
+            dest = yield* groupDocs.read(
+              orgSlug,
+              slug,
+              input.destination.groupId
+            )
+            if (dest.kind !== "sprint") {
+              return yield* new Validation({ reason: "destination_not_sprint" })
+            }
+            if (dest.completedAt !== null) {
+              return yield* new SprintCompletedImmutable()
+            }
           }
-          const nextDest: GroupDocument = {
-            ...dest,
-            tickets: merged,
+
+          const now = yield* DateTime.nowAsDate
+          yield* validateCompletion(now, source.startsAt, now)
+
+          const tickets = yield* Effect.forEach(
+            source.tickets,
+            (tid) =>
+              ticketDocs
+                .read(orgSlug, slug, tid)
+                .pipe(
+                  Effect.catchTag("MalformedTicketDocument", () =>
+                    Effect.fail(new NotFound())
+                  )
+                ),
+            { concurrency: 8 }
+          )
+          const stay: Array<TicketId> = []
+          const carry: Array<TicketId> = []
+          for (const ticket of tickets) {
+            if (isCarryover(ticket.status)) carry.push(ticket.id)
+            else stay.push(ticket.id)
+          }
+
+          if (dest !== null && carry.length > 0) {
+            const merged = [...dest.tickets]
+            for (const tid of carry) {
+              if (!merged.includes(tid)) merged.push(tid)
+            }
+            const nextDest: GroupDocument = {
+              ...dest,
+              tickets: merged,
+              updatedAt: now
+            }
+            yield* groupDocs.write(orgSlug, slug, dest.id, nextDest)
+          }
+
+          const nextSource: GroupDocument = {
+            ...source,
+            tickets: stay,
+            completedAt: now,
             updatedAt: now
           }
-          yield* groupDocs.write(orgSlug, slug, dest.id, nextDest)
-        }
-
-        const nextSource: GroupDocument = {
-          ...source,
-          tickets: stay,
-          completedAt: now,
-          updatedAt: now
-        }
-        yield* groupDocs.write(orgSlug, slug, id, nextSource)
-        return nextSource
-      }))
+          yield* groupDocs.write(orgSlug, slug, id, nextSource)
+          return nextSource
+        })
+      )
 
     const remove = (
       orgSlug: string,
@@ -666,47 +730,55 @@ export const GroupsLive = Layer.effect(
       slug: string,
       id: string
     ): Effect.Effect<void, NotFound | Forbidden | MarkdownError> =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        yield* projects.requireMember(orgSlug, userId, slug)
-        const existing = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireKindRole(orgSlug, userId, slug, existing.kind)
-        yield* groupDocs.remove(orgSlug, slug, id)
-      }))
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          yield* groupDocs.remove(orgSlug, slug, id)
+        })
+      )
 
     const removeTicketFromAllGroups = (
       orgSlug: string,
       slug: string,
       ticketId: string
     ): Effect.Effect<void, MarkdownError> =>
-      withProjectLock(orgSlug, slug, Effect.gen(function* () {
-        const ids = yield* groupDocs.listIds(orgSlug, slug)
-        yield* Effect.forEach(
-          ids,
-          (id) =>
-            Effect.gen(function* () {
-              const group = yield* groupDocs
-                .read(orgSlug, slug, id)
-                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
-              if (group === null) return
-              if (
-                !group.tickets.some(
-                  (groupTicketId) => groupTicketId === ticketId
-                )
-              ) {
-                return
-              }
-              const next: GroupDocument = {
-                ...group,
-                tickets: group.tickets.filter((t) => t !== ticketId),
-                updatedAt: yield* DateTime.nowAsDate
-              }
-              yield* groupDocs
-                .writeIfExists(orgSlug, slug, id, next)
-                .pipe(Effect.catchTag("NotFound", () => Effect.void))
-            }),
-          { concurrency: 8 }
-        )
-      }))
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const ids = yield* groupDocs.listIds(orgSlug, slug)
+          yield* Effect.forEach(
+            ids,
+            (id) =>
+              Effect.gen(function* () {
+                const group = yield* groupDocs
+                  .read(orgSlug, slug, id)
+                  .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
+                if (group === null) return
+                if (
+                  !group.tickets.some(
+                    (groupTicketId) => groupTicketId === ticketId
+                  )
+                ) {
+                  return
+                }
+                const next: GroupDocument = {
+                  ...group,
+                  tickets: group.tickets.filter((t) => t !== ticketId),
+                  updatedAt: yield* DateTime.nowAsDate
+                }
+                yield* groupDocs
+                  .writeIfExists(orgSlug, slug, id, next)
+                  .pipe(Effect.catchTag("NotFound", () => Effect.void))
+              }),
+            { concurrency: 8 }
+          )
+        })
+      )
 
     return {
       list,

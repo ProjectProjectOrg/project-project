@@ -108,7 +108,7 @@ The `shared/` package is the keystone. The HttpApi defined there is **the contra
 
 ### What lives in Postgres
 
-Postgres holds only what _has_ to be in a database: identity, sessions, and a thin index for fast project lookup. Everything else is markdown.
+Postgres holds identity, sessions, integration metadata, and thin recoverable indexes for fast lookup. Markdown remains the source of truth for project, group, and ticket content. The ticket index mirrors only indexable ticket frontmatter so list, filter, count, and GitHub branch/PR lookup paths do not need to parse every ticket file.
 
 **Better Auth tables** (managed by Better Auth migrations):
 
@@ -119,9 +119,10 @@ Postgres holds only what _has_ to be in a database: identity, sessions, and a th
 
 **Our tables:**
 
-- `project_index` — `(slug PK, owner_id, created_at)` — used to list projects without scanning the filesystem and to enforce slug uniqueness across the system. Members are _not_ in this table; they live in the markdown frontmatter (source of truth).
+- `project_index` — used to list projects without scanning the filesystem and to enforce project identity and uniqueness.
+- `ticket_index` — recoverable cache of ticket frontmatter for fast project-scoped list, filter, count, tag-usage, and GitHub branch/PR lookup. Rebuilt from ticket markdown; never canonical.
 
-That's it. No `tickets` table, no `members` table, no `comments` table. Adding a column to a database for new feature data is a smell in this app — markdown is the answer.
+That's it for canonical project data. There is no ticket body table and no comment body table. Adding a column to a database for new feature data is still a smell in this app; markdown is the source of truth, and indexes must stay rebuildable from it.
 
 ### What lives in markdown
 

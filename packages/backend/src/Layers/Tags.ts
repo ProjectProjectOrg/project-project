@@ -20,7 +20,7 @@ import { Db } from "../Services/Db"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import { Tags, type TagsShape } from "../Services/Tags"
-import { TicketDocs } from "../Services/TicketDocs"
+import { TicketIndex } from "../Services/TicketIndex"
 import { Tickets } from "../Services/Tickets"
 
 const makeTagName = Schema.decodeUnknownSync(TagName)
@@ -38,7 +38,7 @@ export const TagsLive = Layer.effect(
   Tags,
   Effect.gen(function* () {
     const db = yield* Db
-    const ticketDocs = yield* TicketDocs
+    const ticketIndex = yield* TicketIndex
     const projects = yield* Projects
     const tickets = yield* Tickets
 
@@ -62,16 +62,17 @@ export const TagsLive = Layer.effect(
       newName: string | null
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const project = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.orDie)
+        const ids = yield* ticketIndex.findTicketIdsByTag(project, oldName)
         for (const id of ids) {
-          yield* tickets
-            .replaceTag(orgSlug, slug, id, oldName, newName)
-            .pipe(
-              Effect.catchTag("NotFound", () => Effect.succeed(false)),
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.succeed(false)
-              )
+          yield* tickets.replaceTag(orgSlug, slug, id, oldName, newName).pipe(
+            Effect.catchTag("NotFound", () => Effect.succeed(false)),
+            Effect.catchTag("MalformedTicketDocument", () =>
+              Effect.succeed(false)
             )
+          )
         }
       })
 

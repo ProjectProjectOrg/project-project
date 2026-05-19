@@ -46,6 +46,7 @@ import {
   foreignKey,
   index,
   pgTable,
+  integer,
   primaryKey,
   text,
   timestamp,
@@ -187,10 +188,7 @@ export const organizationIntegration = pgTable(
       .defaultNow()
   },
   (t) => [
-    unique("organization_integration_id_org_uidx").on(
-      t.id,
-      t.organizationId
-    ),
+    unique("organization_integration_id_org_uidx").on(t.id, t.organizationId),
     uniqueIndex("organization_integration_active_provider_uidx")
       .on(t.organizationId, t.provider)
       .where(sql`${t.status} = 'active'`),
@@ -276,10 +274,7 @@ export const projectIntegrationLink = pgTable(
       .defaultNow()
   },
   (t) => [
-    unique("project_integration_link_id_org_uidx").on(
-      t.id,
-      t.organizationId
-    ),
+    unique("project_integration_link_id_org_uidx").on(t.id, t.organizationId),
     foreignKey({
       name: "project_integration_link_project_id_organization_id_fkey",
       columns: [t.projectId, t.organizationId],
@@ -333,44 +328,57 @@ export const projectGithubRepository = pgTable(
   ]
 )
 
-export const ticketGithubBranchIndex = pgTable(
-  "ticket_github_branch_index",
+export const ticketIndex = pgTable(
+  "ticket_index",
   {
-    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
     organizationId: text("organization_id").notNull(),
+    orgSlug: text("org_slug").notNull(),
     projectId: uuid("project_id").notNull(),
     projectSlug: text("project_slug").notNull(),
     ticketId: text("ticket_id").notNull(),
-    branch: text("branch").notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    title: text("title").notNull(),
+    status: text("status", {
+      enum: ["todo", "in_progress", "done"]
+    }).notNull(),
+    type: text("type", {
+      enum: ["feat", "bug", "chore", "other"]
+    }).notNull(),
+    priority: text("priority", {
+      enum: ["low", "med", "high"]
+    }).notNull(),
+    tags: text("tags")
+      .array()
       .notNull()
-      .defaultNow()
+      .default(sql`'{}'::text[]`),
+    assignees: text("assignees")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    branch: text("branch"),
+    pr: integer("pr"),
+    prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
+    lastTransitionedPr: integer("last_transitioned_pr"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
   },
   (t) => [
     primaryKey({
-      columns: [t.projectIntegrationLinkId, t.ticketId]
+      columns: [t.projectId, t.ticketId]
     }),
     foreignKey({
-      name: "ticket_github_branch_index_link_id_organization_id_fkey",
-      columns: [t.projectIntegrationLinkId, t.organizationId],
-      foreignColumns: [
-        projectIntegrationLink.id,
-        projectIntegrationLink.organizationId
-      ]
-    }).onDelete("cascade"),
-    foreignKey({
-      name: "ticket_github_branch_index_project_slug_project_id_fkey",
+      name: "ticket_index_project_slug_project_id_fkey",
       columns: [t.projectSlug, t.projectId],
       foreignColumns: [projectIndex.slug, projectIndex.id]
     }).onDelete("cascade"),
-    index("ticket_github_branch_index_branch_idx").on(
-      t.projectIntegrationLinkId,
-      t.branch
-    ),
-    index("ticket_github_branch_index_project_idx").on(
-      t.organizationId,
-      t.projectId
-    )
+    foreignKey({
+      name: "ticket_index_project_id_organization_id_fkey",
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    index("ticket_index_project_idx").on(t.organizationId, t.projectId),
+    index("ticket_index_branch_idx").on(t.projectId, t.branch),
+    index("ticket_index_updated_idx").on(t.projectId, t.updatedAt)
   ]
 )
 

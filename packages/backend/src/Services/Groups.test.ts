@@ -25,6 +25,7 @@ import { Groups } from "./Groups"
 import { GroupsLive } from "../Layers/Groups"
 import { GroupIdTaken } from "./Markdown"
 import { Projects, type ProjectsShape } from "./Projects"
+import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -148,10 +149,42 @@ function makeFakeDocs(initial?: {
     readRaw: () => unexpectedTicketDocsCall("readRaw")
   } satisfies TicketDocsShape
 
+  const indexProject = {
+    orgSlug: "org",
+    organizationId: "org-1",
+    projectId: "project-1",
+    projectSlug: "p"
+  }
+
+  const ticketIndexService = {
+    projectFor: () => Effect.succeed(indexProject),
+    list: () => Effect.succeed([]),
+    listIds: () => Effect.succeed([...ticketsById.keys()]),
+    tagUsageCounts: () => Effect.succeed({}),
+    findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketsByBranch: () => Effect.succeed([]),
+    upsertTicket: (_project, document) =>
+      Effect.sync(() => {
+        ticketsById.set(document.id, document)
+      }),
+    deleteTicket: (_project, id) =>
+      Effect.sync(() => {
+        ticketsById.delete(id)
+      }),
+    rebuildProject: () =>
+      Effect.succeed({
+        project: indexProject,
+        indexed: ticketsById.size,
+        skipped: 0
+      }),
+    rebuildAllProjects: () => Effect.succeed({ projects: [] })
+  } satisfies TicketIndexShape
+
   return {
     state: { groups, ticketIds, ticketsById, groupWrites },
     groupLayer: Layer.succeed(GroupDocs, groupService),
-    ticketLayer: Layer.succeed(TicketDocs, ticketService)
+    ticketLayer: Layer.succeed(TicketDocs, ticketService),
+    ticketIndexLayer: Layer.succeed(TicketIndex, ticketIndexService)
   }
 }
 
@@ -235,6 +268,7 @@ function makeGroupsLayer(
   return GroupsLive.pipe(
     Layer.provide(fakeDocs.groupLayer),
     Layer.provide(fakeDocs.ticketLayer),
+    Layer.provide(fakeDocs.ticketIndexLayer),
     Layer.provide(makeFakeProjects(projects))
   )
 }
@@ -1157,6 +1191,7 @@ it.effect(
     const layer = GroupsLive.pipe(
       Layer.provide(fakeDocs.groupLayer),
       Layer.provide(fakeDocs.ticketLayer),
+      Layer.provide(fakeDocs.ticketIndexLayer),
       Layer.provide(makeFakeProjects({ role: "admin" }))
     )
     return Effect.gen(function* () {
