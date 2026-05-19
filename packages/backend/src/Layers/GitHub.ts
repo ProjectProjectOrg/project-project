@@ -114,6 +114,35 @@ const octokitFor = (token: string) => new Octokit({ auth: token })
 const graphqlFor = (token: string) =>
   graphqlRequest.defaults({ headers: { authorization: `token ${token}` } })
 
+export function githubRepoMatchesQuery(
+  repo: {
+    readonly owner?: { readonly login?: string | null } | null
+    readonly name: string
+    readonly description?: string | null
+  },
+  query: string
+): boolean {
+  const tokens = query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (tokens.length === 0) return true
+  const owner = repo.owner?.login ?? ""
+  const haystack =
+    `${owner}/${repo.name} ${owner} ${repo.name} ${repo.description ?? ""}`.toLowerCase()
+  return tokens.every((token) => haystack.includes(token))
+}
+
+export function parseGithubRepoSlug(
+  query: string
+): { readonly owner: string; readonly name: string } | null {
+  const trimmed = query.trim()
+  const match = /^([^/\s]+)\/([^/\s]+)$/.exec(trimmed)
+  if (!match) return null
+  return { owner: match[1], name: match[2] }
+}
+
 type TaggedFailure = { readonly _tag: string }
 
 function withGitHubTelemetry<A, E extends TaggedFailure>(
@@ -171,21 +200,69 @@ export const GitHubLive = Layer.effect(
           const result = yield* Effect.tryPromise({
             try: async () => {
               if (query && query.trim()) {
-                const me = await octokit.rest.users.getAuthenticated()
-                const res = await octokit.rest.search.repos({
-                  q: `${query} user:${me.data.login} fork:true`,
-                  per_page: perPage,
-                  page
-                })
+                const start = (page - 1) * perPage
+                const end = start + perPage
+                const items: Array<{
+                  owner: string
+                  name: string
+                  defaultBranch: string
+                  private: boolean
+                  description: string | null
+                }> = []
+                const seen = new Set<string>()
+                const exactSlug = parseGithubRepoSlug(query)
+                if (exactSlug) {
+                  try {
+                    const exact = await octokit.rest.repos.get({
+                      owner: exactSlug.owner,
+                      repo: exactSlug.name
+                    })
+                    const key = `${exact.data.owner.login}/${exact.data.name}`
+                    seen.add(key)
+                    items.push({
+                      owner: exact.data.owner.login,
+                      name: exact.data.name,
+                      defaultBranch: exact.data.default_branch,
+                      private: exact.data.private,
+                      description: exact.data.description ?? null
+                    })
+                  } catch (cause) {
+                    const status = (cause as { readonly status?: number })
+                      .status
+                    if (status !== 404) throw cause
+                  }
+                }
+                let sourcePage = 1
+                let sourceHasMore = true
+
+                while (items.length <= end && sourceHasMore) {
+                  const res =
+                    await octokit.rest.repos.listForAuthenticatedUser({
+                      per_page: 100,
+                      page: sourcePage,
+                      sort: "pushed",
+                      affiliation: "owner,collaborator,organization_member"
+                    })
+                  for (const repo of res.data) {
+                    if (!githubRepoMatchesQuery(repo, query)) continue
+                    const key = `${repo.owner.login}/${repo.name}`
+                    if (seen.has(key)) continue
+                    seen.add(key)
+                    items.push({
+                      owner: repo.owner.login,
+                      name: repo.name,
+                      defaultBranch: repo.default_branch,
+                      private: repo.private,
+                      description: repo.description ?? null
+                    })
+                  }
+                  sourceHasMore = res.data.length === 100
+                  sourcePage += 1
+                }
+
                 return {
-                  items: res.data.items.map((r) => ({
-                    owner: r.owner?.login ?? "",
-                    name: r.name,
-                    defaultBranch: r.default_branch,
-                    private: r.private,
-                    description: r.description ?? null
-                  })),
-                  hasMore: res.data.items.length === perPage
+                  items: items.slice(start, end),
+                  hasMore: items.length > end || sourceHasMore
                 }
               }
               const res = await octokit.rest.repos.listForAuthenticatedUser({

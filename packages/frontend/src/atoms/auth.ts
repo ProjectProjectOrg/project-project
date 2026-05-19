@@ -133,7 +133,7 @@ export const connectPersonalGithubAtom = runtime.fn(
           provider: "github",
           callbackURL: "/profile",
           errorCallbackURL: "/profile",
-          scopes: ["read:user", "user:email", "repo"]
+          scopes: ["repo", "read:org"]
         })
       )
     )
