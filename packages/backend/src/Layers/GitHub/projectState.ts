@@ -63,6 +63,8 @@ interface PullRequestNode {
   readonly isDraft: boolean
   readonly headRefName: string
   readonly baseRefName: string
+  readonly headRepository: { readonly id: string } | null
+  readonly baseRepository: { readonly id: string } | null
   readonly mergedAt: string | null
   readonly commits: {
     readonly nodes: ReadonlyArray<{
@@ -179,9 +181,14 @@ export const projectStatesFromBatchResponses = (
       const branch = batch.response.repository?.[`b${index}`]
       const pullRequests = batch.response.repository?.[`p${index}`]
       if (!isPullRequestConnection(pullRequests)) return null
+      const sameRepoPr = pullRequests.nodes.find(
+        (pr) =>
+          pr.headRepository?.id !== undefined &&
+          pr.headRepository.id === pr.baseRepository?.id
+      )
       return branchEntryFromParts(
         isBranchRef(branch) ? branch.name : null,
-        pullRequests.nodes[0] ?? null
+        sameRepoPr ?? null
       )
     })
   })
@@ -222,7 +229,7 @@ export const buildProjectStateBatchQuery = (
       p${index}: pullRequests(
         states: [OPEN, MERGED, CLOSED]
         headRefName: $headRefName${index}
-        first: 1
+        first: 10
         orderBy: { field: UPDATED_AT, direction: DESC }
       ) {
         nodes {
@@ -233,6 +240,12 @@ export const buildProjectStateBatchQuery = (
           isDraft
           headRefName
           baseRefName
+          headRepository {
+            id
+          }
+          baseRepository {
+            id
+          }
           mergedAt
           commits(last: 1) {
             nodes {

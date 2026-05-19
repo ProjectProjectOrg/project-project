@@ -17,6 +17,7 @@ import {
   startGithubInstallAtom
 } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { meAtom } from "@/atoms/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,7 +38,11 @@ type Props = {
 }
 
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const me = useAtomValue(meAtom)
+  const canManage =
+    callerRole === "owner" &&
+    Result.isSuccess(me) &&
+    me.value.activeOrgSlug === orgSlug
   const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
 
   const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
@@ -241,10 +246,36 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     }
   }
 
-  if (
-    !Result.isSuccess(orgIntegration) ||
-    orgIntegration.value.status !== "active"
-  ) {
+  if (Result.isInitial(orgIntegration)) {
+    return (
+      <div className="space-y-3 p-3">
+        <p className="text-sm text-muted-foreground">{m.chrome_loading()}</p>
+      </div>
+    )
+  }
+
+  if (Result.isFailure(orgIntegration)) {
+    return (
+      <div className="space-y-3 p-3">
+        <p className="text-sm text-destructive" role="alert">
+          {m.github_chip_install_app_failed_error()}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void installApp()}
+          disabled={installing}
+          className="w-full"
+        >
+          {installing
+            ? m.github_chip_install_app_loading()
+            : m.github_chip_install_app_button()}
+        </Button>
+      </div>
+    )
+  }
+
+  if (orgIntegration.value.status !== "active") {
     return (
       <div className="space-y-3 p-3">
         <p className="text-sm text-muted-foreground">

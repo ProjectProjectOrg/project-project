@@ -144,7 +144,7 @@ export const GitHubIntegrationsLive = Layer.effect(
             ? null
             : yield* db.query.projectIndex
                 .findFirst({
-                  columns: { id: true },
+            columns: { id: true, organizationId: true },
                   where: and(
                     eq(projectIndex.organizationId, org.organizationId),
                     eq(projectIndex.slug, returnProjectSlug)
@@ -166,6 +166,7 @@ export const GitHubIntegrationsLive = Layer.effect(
             organizationId: org.organizationId,
             userId,
             returnProjectId: returnProject?.id ?? null,
+            returnProjectOrgId: returnProject?.organizationId ?? null,
             stateHash: hashState(state),
             expiresAt
           })
@@ -246,7 +247,7 @@ export const GitHubIntegrationsLive = Layer.effect(
                       session.organizationId
                     ),
                     eq(organizationIntegration.provider, "github"),
-                    eq(organizationIntegration.status, "active")
+                    isNull(organizationIntegration.disconnectedAt)
                   )
                 )
                 .pipe(Effect.orDie)
@@ -296,7 +297,10 @@ export const GitHubIntegrationsLive = Layer.effect(
             : yield* db.query.projectIndex
                 .findFirst({
                   columns: { slug: true },
-                  where: eq(projectIndex.id, session.returnProjectId)
+                  where: and(
+                    eq(projectIndex.id, session.returnProjectId),
+                    eq(projectIndex.organizationId, session.organizationId)
+                  )
                 })
                 .pipe(Effect.orDie)
         const baseUrl = yield* publicBaseUrl.pipe(

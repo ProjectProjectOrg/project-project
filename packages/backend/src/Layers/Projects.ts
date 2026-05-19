@@ -926,9 +926,8 @@ export const ProjectsLive = Layer.effect(
             yield* Effect.logInfo("invitation issued").pipe(
               Effect.annotateLogs({
                 orgSlug,
-                email: normalizedEmail,
                 role: "member",
-                inviteUrl: `${process.env.BETTER_AUTH_URL}/invite/${created.id}`
+                inviteId: created.id
               })
             )
             return created

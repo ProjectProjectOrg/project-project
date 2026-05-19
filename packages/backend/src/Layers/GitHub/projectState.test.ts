@@ -16,6 +16,8 @@ const pr = (
   isDraft: false,
   headRefName: branch,
   baseRefName: "main",
+  headRepository: { id: "repo-1" },
+  baseRepository: { id: "repo-1" },
   mergedAt: null,
   commits: {
     nodes: [

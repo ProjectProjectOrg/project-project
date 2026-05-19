@@ -277,7 +277,7 @@ function PanelForState({
   }
 
   if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
-    const baseBranch = github.defaultBaseBranch ?? "main"
+    const baseBranch = state.baseBranch ?? github.defaultBaseBranch ?? "main"
     const Root = InlineForm.Root<"clear">
     return (
       <Root variant={variant} className={GIT_PANEL_CONTAINER}>
@@ -364,7 +364,7 @@ function PanelForState({
   }
 
   if (state.tag === "pr_closed") {
-    const baseBranch = github.defaultBaseBranch ?? "main"
+    const baseBranch = state.baseBranch ?? github.defaultBaseBranch ?? "main"
     return (
       <div className={cn(panelChrome, GIT_PANEL_CONTAINER, ROW_STACK)}>
         <div className={cn("flex items-center gap-2", pulse)}>

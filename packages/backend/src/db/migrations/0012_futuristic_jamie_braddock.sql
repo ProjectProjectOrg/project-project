@@ -3,6 +3,7 @@ CREATE TABLE "github_app_install_session" (
 	"organization_id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"return_project_id" uuid,
+	"return_project_org_id" text,
 	"state_hash" text NOT NULL,
 	"installation_id" text,
 	"expires_at" timestamp with time zone NOT NULL,
@@ -61,7 +62,7 @@ CREATE TABLE "project_integration_link" (
 --> statement-breakpoint
 ALTER TABLE "github_app_install_session" ADD CONSTRAINT "github_app_install_session_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "github_app_install_session" ADD CONSTRAINT "github_app_install_session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "github_app_install_session" ADD CONSTRAINT "github_app_install_session_return_project_id_project_index_id_fk" FOREIGN KEY ("return_project_id") REFERENCES "public"."project_index"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "github_app_install_session" ADD CONSTRAINT "github_app_install_session_return_project_fkey" FOREIGN KEY ("return_project_id","return_project_org_id") REFERENCES "public"."project_index"("id","organization_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "organization_github_integration" ADD CONSTRAINT "organization_github_integration_organization_integration_id_organization_integration_id_fk" FOREIGN KEY ("organization_integration_id") REFERENCES "public"."organization_integration"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "organization_integration" ADD CONSTRAINT "organization_integration_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_github_repository" ADD CONSTRAINT "project_github_repository_project_integration_link_id_project_integration_link_id_fk" FOREIGN KEY ("project_integration_link_id") REFERENCES "public"."project_integration_link"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -69,7 +70,6 @@ ALTER TABLE "project_github_repository" ADD CONSTRAINT "project_github_repositor
 ALTER TABLE "project_integration_link" ADD CONSTRAINT "project_integration_link_project_id_project_index_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."project_index"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_integration_link" ADD CONSTRAINT "project_integration_link_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_integration_link" ADD CONSTRAINT "project_integration_link_organization_integration_id_organization_integration_id_fk" FOREIGN KEY ("organization_integration_id") REFERENCES "public"."organization_integration"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "github_app_install_session_state_idx" ON "github_app_install_session" USING btree ("state_hash");--> statement-breakpoint
 CREATE INDEX "github_app_install_session_org_idx" ON "github_app_install_session" USING btree ("organization_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_github_integration_installation_uidx" ON "organization_github_integration" USING btree ("installation_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_integration_active_provider_uidx" ON "organization_integration" USING btree ("organization_id","provider") WHERE "organization_integration"."status" = 'active';--> statement-breakpoint

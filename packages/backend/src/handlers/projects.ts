@@ -89,6 +89,8 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       .handle("githubIntegration", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
           const integrations = yield* GitHubIntegrations
           return yield* integrations.getStatus(path.orgSlug, user.id)
         })
@@ -96,6 +98,8 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       .handle("startGithubInstall", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
           const integrations = yield* GitHubIntegrations
           return yield* integrations.startInstall(
             path.orgSlug,
@@ -107,6 +111,8 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       .handle("listGithubInstallationRepos", ({ path, urlParams }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
           const integrations = yield* GitHubIntegrations
           return yield* integrations.listRepos(
             path.orgSlug,

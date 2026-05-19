@@ -73,14 +73,31 @@ export const githubInstallationReposKey = (orgSlug: string, query: string) =>
 
 export const githubInstallationReposAtom = Atom.family((key: string) =>
   runtime
-    .atom(() => {
+    .atom((get) => {
       const { orgSlug, query } = splitOrgRepoKey(key)
+      get(githubAuthEpochAtom)
+      get(githubOrgIntegrationAtom(orgSlug))
       return Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.listGithubInstallationRepos({
+        const q = query.trim() ? query.trim() : undefined
+        const first = yield* client.projects.listGithubInstallationRepos({
           path: { orgSlug },
-          urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
+          urlParams: { q, page: 1 }
         })
+        if (!q || !first.hasMore) return first
+        const repos = [...first.repos]
+        let hasMore: boolean = first.hasMore
+        let page = 2
+        while (hasMore) {
+          const next = yield* client.projects.listGithubInstallationRepos({
+            path: { orgSlug },
+            urlParams: { q, page }
+          })
+          repos.push(...next.repos)
+          hasMore = next.hasMore
+          page += 1
+        }
+        return { repos, hasMore: false }
       })
     })
     .pipe(Atom.setIdleTTL("2 minutes"))

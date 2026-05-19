@@ -225,12 +225,8 @@ export const githubAppInstallSession = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    returnProjectId: uuid("return_project_id").references(
-      () => projectIndex.id,
-      {
-        onDelete: "set null"
-      }
-    ),
+    returnProjectId: uuid("return_project_id"),
+    returnProjectOrgId: text("return_project_org_id"),
     stateHash: text("state_hash").notNull().unique(),
     installationId: text("installation_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -240,7 +236,11 @@ export const githubAppInstallSession = pgTable(
       .defaultNow()
   },
   (t) => [
-    index("github_app_install_session_state_idx").on(t.stateHash),
+    foreignKey({
+      name: "github_app_install_session_return_project_fkey",
+      columns: [t.returnProjectId, t.returnProjectOrgId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("set null"),
     index("github_app_install_session_org_idx").on(t.organizationId)
   ]
 )
@@ -404,8 +404,11 @@ export const githubAppInstallSessionRelations = relations(
       references: [user.id]
     }),
     returnProject: one(projectIndex, {
-      fields: [githubAppInstallSession.returnProjectId],
-      references: [projectIndex.id]
+      fields: [
+        githubAppInstallSession.returnProjectId,
+        githubAppInstallSession.returnProjectOrgId
+      ],
+      references: [projectIndex.id, projectIndex.organizationId]
     })
   })
 )
