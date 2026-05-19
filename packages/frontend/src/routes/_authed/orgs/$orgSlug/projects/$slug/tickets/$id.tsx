@@ -60,13 +60,16 @@ function TicketDetailRoute() {
 
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,
-    onError: () => (
-      <NotFoundPage
-        contained
-        title={m.tickets_not_found_title()}
-        body={m.tickets_not_found_body()}
-      />
-    ),
+    onError: (error) =>
+      error._tag === "NotFound" ? (
+        <NotFoundPage
+          contained
+          title={m.tickets_not_found_title()}
+          body={m.tickets_not_found_body()}
+        />
+      ) : (
+        <ErrorPage contained error={error} />
+      ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
       <TicketPage

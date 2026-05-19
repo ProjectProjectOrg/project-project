@@ -1,6 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
+import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 type ErrorPageProps = {
@@ -25,7 +26,7 @@ export function ErrorPage({
   contained = false
 }: ErrorPageProps) {
   const router = useRouter()
-  const detail = errorMessage(error)
+  const detail = detailMessage(error)
 
   const handleRetry = () => {
     if (reset) reset()
@@ -74,8 +75,9 @@ export function ErrorPage({
   )
 }
 
-function errorMessage(error: unknown): string | null {
+function detailMessage(error: unknown): string | null {
   if (!error) return null
+  if (isAppError(error)) return errorMessage(error)
   if (error instanceof Error) return error.message
   if (typeof error === "string") return error
   try {
@@ -83,4 +85,13 @@ function errorMessage(error: unknown): string | null {
   } catch {
     return null
   }
+}
+
+function isAppError(error: unknown): error is AppError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "_tag" in error &&
+    typeof (error as { _tag: unknown })._tag === "string"
+  )
 }
