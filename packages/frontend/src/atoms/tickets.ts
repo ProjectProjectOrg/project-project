@@ -285,12 +285,13 @@ export const quickCreateTicketAtom = Atom.family((countKey: string) => {
       })
     },
     fn: runtime.fn(
-      Effect.fn(function* (input: QuickCreateTicketArg) {
+      Effect.fn(function* (input: QuickCreateTicketArg, get) {
         const client = yield* ApiClient
         const ticket = yield* client.tickets.quickCreate({
           path: { orgSlug, slug },
           payload: input.ticket
         })
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, ticket.id)))
         yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return ticket
       })
@@ -413,9 +414,10 @@ export const updateTicketAtom = Atom.family((key: string) => {
 export const deleteTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
   return runtime.fn(
-    Effect.fn(function* (_input: void, _get) {
+    Effect.fn(function* (_input: void, get) {
       const client = yield* ApiClient
       yield* client.tickets.delete({ path: { orgSlug, slug, id } })
+      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
       yield* Reactivity.invalidate(["tickets", orgSlug, slug])
     })
   )
