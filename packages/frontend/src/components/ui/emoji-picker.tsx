@@ -10,6 +10,7 @@ import { LoaderIcon, SearchIcon } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { m } from "@/paraglide/messages";
 
 function EmojiPicker({
   className,
@@ -33,7 +34,10 @@ function EmojiPickerSearch({
 }: React.ComponentProps<typeof EmojiPickerPrimitive.Search>) {
   return (
     <div
-      className={cn("flex h-9 items-center gap-2 border-b px-3", className)}
+      className={cn(
+        "relative z-10 flex h-9 items-center gap-2 overflow-hidden border-b bg-popover px-3",
+        className
+      )}
       data-slot="emoji-picker-search-wrapper"
     >
       <SearchIcon className="size-4 shrink-0 opacity-50" />
@@ -108,7 +112,7 @@ function EmojiPickerContent({
         className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm"
         data-slot="emoji-picker-empty"
       >
-        No emoji found.
+        {m.project_identity_emoji_empty()}
       </EmojiPickerPrimitive.Empty>
       <EmojiPickerPrimitive.List
         className="select-none pb-1"
@@ -149,7 +153,7 @@ function EmojiPickerFooter({
             </>
           ) : (
             <span className="text-muted-foreground ml-1.5 flex h-7 items-center truncate text-xs">
-              Select an emoji…
+              {m.project_identity_emoji_select_placeholder()}
             </span>
           )
         }

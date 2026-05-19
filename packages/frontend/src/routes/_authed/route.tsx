@@ -176,7 +176,9 @@ function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
 function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
   const { pathname } = useLocation()
   const reduceMotion = useReducedMotion()
-  const expanded = pathname.startsWith(`/orgs/${orgSlug}/projects`)
+  const projectsBase = `/orgs/${orgSlug}/projects`
+  const expanded =
+    pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
   const listResult = useAtomValue(projectsListAtom(orgSlug))
   const projects = Result.isSuccess(listResult)
     ? [...listResult.value].sort((a, b) =>
