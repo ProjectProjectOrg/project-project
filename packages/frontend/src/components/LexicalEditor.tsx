@@ -149,6 +149,14 @@ export interface LexicalEditorProps {
   compact?: boolean
 }
 
+export function nextMarkdownChange(
+  currentMarkdown: string,
+  nextMarkdown: string
+) {
+  if (nextMarkdown === currentMarkdown) return null
+  return nextMarkdown
+}
+
 export function LexicalEditor({
   markdown,
   onChange,
@@ -204,7 +212,6 @@ export function LexicalEditor({
   })
 
   const liveRef = useRef(markdown)
-  const isFirstChange = useRef(true)
   const pending = useRef<string | null>(null)
   const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
@@ -313,15 +320,11 @@ export function LexicalEditor({
           onChange={(editorState) => {
             editorState.read(() => {
               const next = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
-              if (isFirstChange.current) {
-                isFirstChange.current = false
-                liveRef.current = next
-                return
-              }
-              if (next === liveRef.current) return
-              liveRef.current = next
+              const changed = nextMarkdownChange(liveRef.current, next)
+              if (changed === null) return
+              liveRef.current = changed
               onDraftChange?.(next)
-              pending.current = next
+              pending.current = changed
               setStatus("dirty")
               schedule()
             })
