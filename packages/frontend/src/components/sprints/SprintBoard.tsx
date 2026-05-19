@@ -7,10 +7,7 @@ import {
   placeTicketAtom,
   sprintKey
 } from "@/atoms/sprints"
-import {
-  ticketsInSprintAtom,
-  ticketsInSprintKey
-} from "@/atoms/tickets"
+import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
 import type {
   GroupId,
   Member,
@@ -27,8 +24,6 @@ import {
   type DragData
 } from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
-
-const BOARD_BOTTOM_OFFSET = 56
 
 export function SprintBoard({
   orgSlug,
@@ -52,15 +47,22 @@ export function SprintBoard({
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    const scrollRoot = el.closest("[data-scroll-root]")
+    const scrollContent = el.closest("[data-scroll-content]")
+    const container =
+      scrollRoot instanceof HTMLElement ? scrollRoot : document.body
+    const paddingSource =
+      scrollContent instanceof HTMLElement ? scrollContent : container
     const update = () => {
       const rect = el.getBoundingClientRect()
-      setHeight(
-        Math.max(240, window.innerHeight - rect.top - BOARD_BOTTOM_OFFSET)
-      )
+      const containerRect = container.getBoundingClientRect()
+      const style = window.getComputedStyle(paddingSource)
+      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0
+      setHeight(Math.max(240, containerRect.bottom - rect.top - paddingBottom))
     }
     update()
     const ro = new ResizeObserver(update)
-    ro.observe(document.body)
+    ro.observe(container)
     window.addEventListener("resize", update)
     return () => {
       ro.disconnect()
@@ -179,26 +181,6 @@ export function SprintBoard({
             lastFlash={lastFlash}
           />
         ))}
-        {GHOST_COLUMNS.map((name) => (
-          <GhostColumn key={name} name={name} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const GHOST_COLUMNS = ["backlog", "in review", "blocked", "canceled"]
-
-function GhostColumn({ name }: { name: string }) {
-  return (
-    <div className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-dashed border-border bg-background/40">
-      <div className="flex items-center justify-between px-6 pt-3 pb-2">
-        <span className="text-sm font-medium text-muted-foreground">
-          {name}
-        </span>
-        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-          0
-        </span>
       </div>
     </div>
   )

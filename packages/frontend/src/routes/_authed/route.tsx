@@ -52,13 +52,7 @@ function AuthedLayout() {
         return <Navigate to="/welcome" replace />
       }
       if (redirect) {
-        return (
-          <Navigate
-            to="/orgs/$orgSlug"
-            params={redirect.params}
-            replace
-          />
-        )
+        return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
       }
       return (
         <SidebarSlotProvider>
@@ -76,8 +70,11 @@ function Shell({ user }: { user: User }) {
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60 [scrollbar-gutter:stable]">
-            <div className="p-6">
+          <div
+            data-scroll-root
+            className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60 [scrollbar-gutter:stable]"
+          >
+            <div data-scroll-content className="p-6">
               <Outlet />
             </div>
           </div>
