@@ -10,6 +10,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
 import { useProject } from "./-context"
@@ -43,7 +44,7 @@ function AboutTab() {
               {m.project_detail_about_storage_suffix()}
             </CardDescription>
           </div>
-          <SaveIndicator status={status} />
+          <MarkdownSaveIndicator status={status} className="tabular-nums" />
         </CardHeader>
         <CardContent>
           <LexicalEditor
@@ -55,20 +56,5 @@ function AboutTab() {
         </CardContent>
       </Card>
     </PageContainer>
-  )
-}
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? m.tickets_save_status_saving()
-      : status === "dirty"
-        ? m.tickets_save_status_dirty()
-        : status === "saved"
-          ? m.tickets_save_status_saved()
-          : null
-  if (!label) return null
-  return (
-    <span className="text-xs text-muted-foreground tabular-nums">{label}</span>
   )
 }

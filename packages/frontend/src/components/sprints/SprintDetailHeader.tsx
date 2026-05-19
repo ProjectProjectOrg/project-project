@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { MentionScopeProvider } from "@/mentions/scope"
 import {
   DropdownMenu,
@@ -311,15 +312,10 @@ function DescriptionField({
                 {preview}
               </span>
             )}
-            {status !== "idle" && (
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                {status === "saving"
-                  ? m.tickets_save_status_saving()
-                  : status === "dirty"
-                    ? m.tickets_save_status_dirty()
-                    : m.tickets_save_status_saved()}
-              </span>
-            )}
+            <MarkdownSaveIndicator
+              status={status}
+              className="shrink-0 tabular-nums"
+            />
           </span>
         </AccordionTrigger>
         <AccordionContent className="pt-2 pb-0">

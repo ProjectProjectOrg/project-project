@@ -8,6 +8,7 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { Markdown } from "@/components/Markdown"
 import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
 import { Button } from "@/components/ui/button"
@@ -109,7 +110,7 @@ function GeneralSettings() {
           <h2 className="text-lg font-semibold tracking-tight">
             {m.project_settings_description_heading()}
           </h2>
-          <SaveIndicator status={status} />
+          <MarkdownSaveIndicator status={status} />
         </div>
         {canEdit ? (
           <LexicalEditor
@@ -150,17 +151,4 @@ function GeneralSettings() {
       ) : null}
     </div>
   )
-}
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  const label =
-    status === "saving"
-      ? m.tickets_save_status_saving()
-      : status === "dirty"
-        ? m.tickets_save_status_dirty()
-        : status === "saved"
-          ? m.tickets_save_status_saved()
-          : null
-  if (!label) return null
-  return <span className="text-xs text-muted-foreground">{label}</span>
 }

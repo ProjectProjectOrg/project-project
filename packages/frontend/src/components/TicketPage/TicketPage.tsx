@@ -7,7 +7,7 @@ import { BackButton } from "@/components/BackButton"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
-import { cn } from "@/lib/utils"
+import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
@@ -59,15 +59,10 @@ export function TicketPage({
             params: { orgSlug, slug }
           }}
         />
-        <SaveIndicator status={bodyStatus} />
+        <MarkdownSaveIndicator status={bodyStatus} />
       </div>
       <header className="flex items-start gap-3">
-        <StatusButton
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          size="lg"
-        />
+        <StatusButton orgSlug={orgSlug} slug={slug} ticket={ticket} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
           <h1 className="w-full">
             <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />
@@ -76,11 +71,7 @@ export function TicketPage({
             <span className="font-mono text-xs tabular-nums text-muted-foreground">
               {ticket.id}
             </span>
-            <TypeBadgeTrigger
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-            />
+            <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
           </div>
         </div>
         <ConfirmDeleteIcon
@@ -206,26 +197,5 @@ function MetaRow({
       <span className="text-xs text-muted-foreground">{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
-  )
-}
-
-const SAVE_STATUS_LABELS = {
-  saving: m.tickets_save_status_saving,
-  dirty: m.tickets_save_status_dirty,
-  saved: m.tickets_save_status_saved
-} as const
-
-function SaveIndicator({ status }: { status: SaveStatus }) {
-  if (status === "idle") return null
-  const label = SAVE_STATUS_LABELS[status]()
-  return (
-    <span
-      className={cn(
-        "text-xs text-muted-foreground",
-        status === "saving" && "animate-pulse"
-      )}
-    >
-      {label}
-    </span>
   )
 }
