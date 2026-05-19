@@ -12,6 +12,10 @@ import { Db } from "../Services/Db"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import { Projects, type ProjectsShape } from "../Services/Projects"
+import {
+  TicketGitBranchIndex,
+  type TicketGitBranchIndexShape
+} from "../Services/TicketGitBranchIndex"
 import { Tickets } from "../Services/Tickets"
 import { MarkdownLive } from "./Markdown"
 import { TicketDocsLive } from "./TicketDocs"
@@ -77,6 +81,14 @@ const FakeGitHub = Layer.succeed(GitHub, {
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
 
+const FakeTicketGitBranchIndex = Layer.succeed(TicketGitBranchIndex, {
+  upsertTicketBranch: () => Effect.void,
+  clearTicket: () => Effect.void,
+  clearProjectConnection: () => Effect.void,
+  rebuildProjectConnection: () => Effect.void,
+  findTicketsByBranch: () => Effect.succeed([])
+} satisfies TicketGitBranchIndexShape)
+
 const FakeDb = Layer.succeed(
   Db,
   new Proxy(
@@ -101,6 +113,7 @@ const TestLayer = Layer.unwrapScoped(
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
       Layer.provide(FakeGitHub),
+      Layer.provide(FakeTicketGitBranchIndex),
       Layer.provide(FakeDb),
       Layer.provide(MarkdownLive),
       Layer.provideMerge(

@@ -34,6 +34,9 @@ export type TicketType = typeof TicketType.Type
 export const TicketPriority = Schema.Literal("low", "med", "high")
 export type TicketPriority = typeof TicketPriority.Type
 
+export const PullRequestState = Schema.Literal("open", "closed", "merged")
+export type PullRequestState = typeof PullRequestState.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
@@ -46,6 +49,7 @@ export const Ticket = Schema.Struct({
   // whenever a `git_states` fetch sees a PR for `branch`. Null while the
   // branch has no PR.
   pr: Schema.NullOr(Schema.Number),
+  prState: Schema.NullOr(PullRequestState),
   // Idempotency key for the auto-status transition: set to the PR number we
   // last auto-flipped to `done`. If the user manually moves status back to
   // `in_progress`, we won't reflip because `pr === lastTransitionedPr`.

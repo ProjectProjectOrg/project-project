@@ -10,6 +10,14 @@ export interface GitHubWebhookDelivery {
   readonly body: string
 }
 
+export interface GitHubPullRequestWebhookChange {
+  readonly installationId: string
+  readonly repositoryId: string
+  readonly branch: string
+  readonly number: number
+  readonly state: "open" | "closed" | "merged"
+}
+
 export interface GitHubWebhookMutationSink {
   readonly installationDeleted: (
     installationId: string,
@@ -26,6 +34,10 @@ export interface GitHubWebhookMutationSink {
   readonly repositoriesRemoved: (
     installationId: string,
     repoIds: ReadonlyArray<string>,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly pullRequestChanged: (
+    change: GitHubPullRequestWebhookChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
 }

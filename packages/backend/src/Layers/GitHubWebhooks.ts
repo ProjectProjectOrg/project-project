@@ -15,8 +15,12 @@ import {
   GitHubWebhooks,
   type GitHubWebhookDelivery,
   type GitHubWebhookMutationSink,
+  type GitHubPullRequestWebhookChange,
   type GitHubWebhooksShape
 } from "../Services/GitHubWebhooks"
+import { TicketDocs } from "../Services/TicketDocs"
+import { TicketGitBranchIndex } from "../Services/TicketGitBranchIndex"
+import { planPullRequestWebhookTicket } from "../ticketGitStatePlanner"
 
 const GitHubId = Schema.Union(Schema.Number, Schema.String)
 
@@ -37,6 +41,26 @@ const InstallationRepositoriesPayload = Schema.Struct({
       id: GitHubId
     })
   )
+})
+
+const PullRequestPayload = Schema.Struct({
+  action: Schema.String,
+  installation: Schema.Struct({
+    id: GitHubId
+  }),
+  repository: Schema.Struct({
+    id: GitHubId
+  }),
+  number: Schema.Number,
+  pull_request: Schema.Struct({
+    merged: Schema.Boolean,
+    head: Schema.Struct({
+      ref: Schema.String,
+      repo: Schema.Struct({
+        id: GitHubId
+      })
+    })
+  })
 })
 
 const idToString = (id: typeof GitHubId.Type): string => String(id)
@@ -147,6 +171,65 @@ const handleInstallationRepositories = (
     )
   })
 
+const pullRequestAction = (
+  action: string
+): "opened" | "reopened" | "synchronize" | "closed" | null => {
+  if (
+    action === "opened" ||
+    action === "reopened" ||
+    action === "synchronize" ||
+    action === "closed"
+  ) {
+    return action
+  }
+  return null
+}
+
+const handlePullRequest = (
+  sink: GitHubWebhookMutationSink,
+  delivery: GitHubWebhookDelivery
+) =>
+  Effect.gen(function* () {
+    const payload = yield* decodePayload(PullRequestPayload, delivery)
+    if (!payload) return
+    const action = pullRequestAction(payload.action)
+    const installationId = idToString(payload.installation.id)
+    const repositoryId = idToString(payload.repository.id)
+    if (!action) {
+      yield* logIgnored("github webhook action ignored", delivery, {
+        action: payload.action,
+        installationId,
+        repositoryId
+      })
+      return
+    }
+    const headRepoId = idToString(payload.pull_request.head.repo.id)
+    if (headRepoId !== repositoryId) {
+      yield* logIgnored("github pull_request from fork ignored", delivery, {
+        action,
+        installationId,
+        repositoryId,
+        headRepoId
+      })
+      return
+    }
+    yield* sink.pullRequestChanged(
+      {
+        installationId,
+        repositoryId,
+        branch: payload.pull_request.head.ref,
+        number: payload.number,
+        state:
+          action === "closed"
+            ? payload.pull_request.merged
+              ? "merged"
+              : "closed"
+            : "open"
+      },
+      delivery.deliveryId
+    )
+  })
+
 export const makeGitHubWebhooks = (
   sink: GitHubWebhookMutationSink
 ): GitHubWebhooksShape => ({
@@ -161,6 +244,10 @@ export const makeGitHubWebhooks = (
       yield* handleInstallationRepositories(sink, delivery)
       return
     }
+    if (delivery.event === "pull_request") {
+      yield* handlePullRequest(sink, delivery)
+      return
+    }
     yield* logIgnored("github webhook event ignored", delivery)
   })
 })
@@ -173,6 +260,8 @@ export const GitHubWebhooksLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
+    const ticketDocs = yield* TicketDocs
+    const ticketBranchIndex = yield* TicketGitBranchIndex
 
     const installationRow = Effect.fn("GitHubWebhooks.installationRow")(
       function* (installationId: string) {
@@ -253,6 +342,13 @@ export const GitHubWebhooksLive = Layer.effect(
           status,
           currentStatuses
         )
+        if (status === "disconnected") {
+          yield* Effect.forEach(
+            links,
+            (link) => ticketBranchIndex.clearProjectConnection(link.id),
+            { concurrency: 1 }
+          )
+        }
       }
     )
 
@@ -393,9 +489,181 @@ export const GitHubWebhooksLive = Layer.effect(
                 "active",
                 "broken"
               ])
+              yield* Effect.forEach(
+                linkIds,
+                (linkId) => ticketBranchIndex.clearProjectConnection(linkId),
+                { concurrency: 1 }
+              )
             })
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
+      }
+    )
+
+    const activeProjectLinksForRepository = Effect.fn(
+      "GitHubWebhooks.activeProjectLinksForRepository"
+    )(function* (change: GitHubPullRequestWebhookChange) {
+      return yield* db
+        .select({
+          id: projectIntegrationLink.id
+        })
+        .from(projectGithubRepository)
+        .innerJoin(
+          projectIntegrationLink,
+          eq(
+            projectIntegrationLink.id,
+            projectGithubRepository.projectIntegrationLinkId
+          )
+        )
+        .innerJoin(
+          organizationIntegration,
+          eq(
+            organizationIntegration.id,
+            projectIntegrationLink.organizationIntegrationId
+          )
+        )
+        .innerJoin(
+          organizationGithubIntegration,
+          eq(
+            organizationGithubIntegration.organizationIntegrationId,
+            organizationIntegration.id
+          )
+        )
+        .where(
+          and(
+            eq(
+              organizationGithubIntegration.installationId,
+              change.installationId
+            ),
+            eq(projectGithubRepository.repoId, change.repositoryId),
+            eq(organizationIntegration.status, "active"),
+            eq(projectIntegrationLink.status, "active"),
+            eq(projectGithubRepository.status, "active")
+          )
+        )
+        .pipe(Effect.orDie)
+    })
+
+    const applyPullRequestToTicket = Effect.fn(
+      "GitHubWebhooks.applyPullRequestToTicket"
+    )(function* (
+      match: {
+        readonly organizationSlug: string
+        readonly projectSlug: string
+        readonly ticketId: string
+        readonly branch: string
+      },
+      change: GitHubPullRequestWebhookChange,
+      deliveryId: string | null
+    ) {
+      const ticket = yield* ticketDocs
+        .read(match.organizationSlug, match.projectSlug, match.ticketId)
+        .pipe(
+          Effect.catchAll((error) =>
+            Effect.logWarning("github pull_request ticket ignored").pipe(
+              Effect.annotateLogs({
+                module: "GitHubWebhooks",
+                deliveryId,
+                orgSlug: match.organizationSlug,
+                slug: match.projectSlug,
+                ticketId: match.ticketId,
+                error
+              }),
+              Effect.as(null)
+            )
+          )
+        )
+      if (!ticket) return
+      if (ticket.branch !== match.branch) {
+        yield* Effect.logDebug("github pull_request branch index stale").pipe(
+          Effect.annotateLogs({
+            module: "GitHubWebhooks",
+            deliveryId,
+            orgSlug: match.organizationSlug,
+            slug: match.projectSlug,
+            ticketId: match.ticketId,
+            indexedBranch: match.branch,
+            ticketBranch: ticket.branch
+          })
+        )
+        return
+      }
+      const write = planPullRequestWebhookTicket(ticket, change)
+      if (!write) return
+      yield* ticketDocs
+        .write(match.organizationSlug, match.projectSlug, match.ticketId, {
+          ...ticket,
+          pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
+          prState:
+            write.patch.prState !== undefined
+              ? write.patch.prState
+              : ticket.prState,
+          lastTransitionedPr:
+            write.patch.lastTransitionedPr !== undefined
+              ? write.patch.lastTransitionedPr
+              : ticket.lastTransitionedPr,
+          status: write.patch.status ?? ticket.status,
+          updatedAt: yield* DateTime.nowAsDate
+        })
+        .pipe(
+          Effect.catchAll((error) =>
+            Effect.logWarning("github pull_request ticket write failed").pipe(
+              Effect.annotateLogs({
+                module: "GitHubWebhooks",
+                deliveryId,
+                orgSlug: match.organizationSlug,
+                slug: match.projectSlug,
+                ticketId: match.ticketId,
+                error
+              })
+            )
+          )
+        )
+    })
+
+    const pullRequestChanged = Effect.fn("GitHubWebhooks.pullRequestChanged")(
+      function* (
+        change: GitHubPullRequestWebhookChange,
+        deliveryId: string | null
+      ) {
+        const links = yield* activeProjectLinksForRepository(change)
+        if (links.length === 0) {
+          yield* Effect.logDebug("github pull_request repository unknown").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              installationId: change.installationId,
+              repositoryId: change.repositoryId
+            })
+          )
+          return
+        }
+        yield* Effect.forEach(
+          links,
+          (link) =>
+            ticketBranchIndex.findTicketsByBranch(link.id, change.branch).pipe(
+              Effect.flatMap((matches) =>
+                matches.length === 0
+                  ? Effect.logDebug("github pull_request branch unknown").pipe(
+                      Effect.annotateLogs({
+                        module: "GitHubWebhooks",
+                        deliveryId,
+                        installationId: change.installationId,
+                        repositoryId: change.repositoryId,
+                        branch: change.branch,
+                        projectIntegrationLinkId: link.id
+                      })
+                    )
+                  : Effect.forEach(
+                      matches,
+                      (match) =>
+                        applyPullRequestToTicket(match, change, deliveryId),
+                      { concurrency: 1 }
+                    ).pipe(Effect.asVoid)
+              )
+            ),
+          { concurrency: 1 }
+        )
       }
     )
 
@@ -424,7 +692,8 @@ export const GitHubWebhooksLive = Layer.effect(
           null,
           deliveryId
         ),
-      repositoriesRemoved
+      repositoriesRemoved,
+      pullRequestChanged
     })
   })
 )

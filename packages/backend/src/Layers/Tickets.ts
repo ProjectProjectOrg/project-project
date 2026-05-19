@@ -48,6 +48,7 @@ import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import { TicketGitBranchIndex } from "../Services/TicketGitBranchIndex"
 import { Db } from "../Services/Db"
 import { projectIndex, projectTag } from "../db/schema"
 import { eq } from "drizzle-orm"
@@ -96,14 +97,36 @@ function pendingGitState(
   if (!document.branch) return { tag: "no_branch" }
   const baseBranch = github?.defaultBaseBranch ?? "main"
   if (document.pr !== null) {
+    const url = github
+      ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
+      : ""
+    if (document.prState === "merged") {
+      return {
+        tag: "pr_merged",
+        branch: document.branch,
+        baseBranch,
+        number: document.pr,
+        url,
+        title: "",
+        mergedAt: document.updatedAt
+      }
+    }
+    if (document.prState === "closed") {
+      return {
+        tag: "pr_closed",
+        branch: document.branch,
+        baseBranch,
+        number: document.pr,
+        url,
+        title: ""
+      }
+    }
     return {
       tag: "pr_pending",
       branch: document.branch,
       baseBranch,
       number: document.pr,
-      url: github
-        ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
-        : ""
+      url
     }
   }
   return { tag: "branch_pending", name: document.branch, baseBranch }
@@ -164,6 +187,7 @@ export const TicketsLive = Layer.effect(
   Effect.gen(function* () {
     const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
+    const ticketBranchIndex = yield* TicketGitBranchIndex
     const github = yield* GitHub
     const groups = yield* Groups
     const db = yield* Db
@@ -593,6 +617,7 @@ export const TicketsLive = Layer.effect(
             tags: [],
             branch: null,
             pr: null,
+            prState: null,
             lastTransitionedPr: null,
             assignees: [],
             createdBy: ownerId,
@@ -644,6 +669,7 @@ export const TicketsLive = Layer.effect(
             tags: input.tags !== undefined ? [...input.tags] : [],
             branch: null,
             pr: null,
+            prState: null,
             lastTransitionedPr: null,
             assignees:
               input.assignees !== undefined ? [...input.assignees] : [],
@@ -702,6 +728,7 @@ export const TicketsLive = Layer.effect(
           tags: input.tags !== undefined ? [...input.tags] : existing.tags,
           branch: existing.branch,
           pr: existing.pr,
+          prState: existing.prState,
           lastTransitionedPr: existing.lastTransitionedPr,
           assignees:
             input.assignees !== undefined
@@ -733,6 +760,17 @@ export const TicketsLive = Layer.effect(
         yield* ensureAccess(orgSlug, ownerId, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
         yield* ticketDocs.remove(orgSlug, slug, id)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          ownerId,
+          slug
+        )
+        if (projectGithub) {
+          yield* ticketBranchIndex.clearTicket(
+            projectGithub.projectIntegrationLinkId,
+            id
+          )
+        }
       })
 
     const replaceTag = (
@@ -765,9 +803,11 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       existing: TicketDocument,
+      projectGithub: ProjectGithubIntegration | null | undefined,
       patch: {
         branch?: string | null
         pr?: number | null
+        prState?: TicketDocument["prState"]
         lastTransitionedPr?: number | null
         status?: TicketDocument["status"]
       }
@@ -777,6 +817,8 @@ export const TicketsLive = Layer.effect(
           ...existing,
           branch: patch.branch !== undefined ? patch.branch : existing.branch,
           pr: patch.pr !== undefined ? patch.pr : existing.pr,
+          prState:
+            patch.prState !== undefined ? patch.prState : existing.prState,
           lastTransitionedPr:
             patch.lastTransitionedPr !== undefined
               ? patch.lastTransitionedPr
@@ -785,6 +827,20 @@ export const TicketsLive = Layer.effect(
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        if (patch.branch !== undefined && projectGithub) {
+          if (patch.branch) {
+            yield* ticketBranchIndex.upsertTicketBranch(
+              projectGithub,
+              id,
+              patch.branch
+            )
+          } else {
+            yield* ticketBranchIndex.clearTicket(
+              projectGithub.projectIntegrationLinkId,
+              id
+            )
+          }
+        }
         return next
       })
 
@@ -829,11 +885,19 @@ export const TicketsLive = Layer.effect(
           userId
         )
 
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: input.name,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          ticket,
+          projectGithub,
+          {
+            branch: input.name,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, projectGithub)
       })
 
@@ -878,11 +942,19 @@ export const TicketsLive = Layer.effect(
           return yield* new BranchNotFound({ name: input.name })
         }
 
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: input.name,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          ticket,
+          projectGithub,
+          {
+            branch: input.name,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, projectGithub)
       })
 
@@ -937,8 +1009,9 @@ export const TicketsLive = Layer.effect(
           userId
         )
 
-        yield* writeGitFields(orgSlug, slug, id, ticket, {
+        yield* writeGitFields(orgSlug, slug, id, ticket, projectGithub, {
           pr: result.number,
+          prState: "open",
           lastTransitionedPr: null
         })
         return result
@@ -952,12 +1025,25 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
         const ticket = yield* readTicket(orgSlug, slug, id)
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: null,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          ticket,
+          projectGithub,
+          {
+            branch: null,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, null)
       })
 
@@ -996,6 +1082,14 @@ export const TicketsLive = Layer.effect(
             )
           )
         ]
+        yield* ticketBranchIndex.rebuildProjectConnection(
+          projectGithub,
+          tickets.flatMap((ticket) =>
+            ticket.branch
+              ? [{ ticketId: ticket.id, branch: ticket.branch }]
+              : []
+          )
+        )
 
         const result = yield* github
           .fetchInstallationProjectStates(
@@ -1053,6 +1147,7 @@ export const TicketsLive = Layer.effect(
             slug,
             write.ticketId,
             ticket,
+            projectGithub,
             write.patch
           )
         }

@@ -52,6 +52,7 @@ import {
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
+import { TicketGitBranchIndex } from "../Services/TicketGitBranchIndex"
 import type { MarkdownError } from "../Services/Markdown"
 import type { MalformedTicketDocument } from "../Services/TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
@@ -125,6 +126,7 @@ export const ProjectsLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const projectDocs = yield* ProjectDocs
     const ticketDocs = yield* TicketDocs
+    const ticketBranchIndex = yield* TicketGitBranchIndex
     const users = yield* Users
     const github = yield* GitHub
 
@@ -265,6 +267,10 @@ export const ProjectsLive = Layer.effect(
     ): Effect.Effect<ProjectGithubIntegration | null> =>
       db
         .select({
+          projectIntegrationLinkId: projectIntegrationLink.id,
+          organizationId: projectIntegrationLink.organizationId,
+          projectId: projectIntegrationLink.projectId,
+          projectSlug: projectIndex.slug,
           installationId: organizationGithubIntegration.installationId,
           repoId: projectGithubRepository.repoId,
           repoOwner: projectGithubRepository.repoOwner,
@@ -272,6 +278,10 @@ export const ProjectsLive = Layer.effect(
           defaultBaseBranch: projectGithubRepository.defaultBranch
         })
         .from(projectIntegrationLink)
+        .innerJoin(
+          projectIndex,
+          eq(projectIndex.id, projectIntegrationLink.projectId)
+        )
         .innerJoin(
           projectGithubRepository,
           eq(
@@ -323,6 +333,45 @@ export const ProjectsLive = Layer.effect(
               }
         )
       )
+
+    const branchIndexEntries = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<
+      ReadonlyArray<{ readonly ticketId: string; readonly branch: string }>,
+      MarkdownError
+    > =>
+      Effect.gen(function* () {
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const reads = yield* Effect.forEach(
+          ids,
+          (id) =>
+            ticketDocs.read(orgSlug, slug, id).pipe(
+              Effect.map((ticket) =>
+                ticket.branch
+                  ? { ticketId: String(ticket.id), branch: ticket.branch }
+                  : null
+              ),
+              Effect.catchTag("MalformedTicketDocument", (error) =>
+                Effect.logWarning(
+                  "Skipping unreadable ticket for branch index",
+                  {
+                    orgSlug,
+                    slug,
+                    ticketId: id,
+                    error
+                  }
+                ).pipe(Effect.as(null))
+              ),
+              Effect.catchTag("NotFound", () => Effect.succeed(null))
+            ),
+          { concurrency: 8 }
+        )
+        return reads.filter(
+          (entry): entry is { ticketId: string; branch: string } =>
+            entry !== null
+        )
+      })
 
     const requireOrgOwner = (
       organizationId: string,
@@ -1445,6 +1494,7 @@ export const ProjectsLive = Layer.effect(
           )
           if (!orgGithub) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
+          const indexedTickets = yield* branchIndexEntries(orgSlug, slug)
 
           const verified = yield* github.verifyInstallationRepo(
             orgGithub.installationId,
@@ -1466,96 +1516,114 @@ export const ProjectsLive = Layer.effect(
           }
 
           const now = yield* DateTime.nowAsDate
-          yield* sql.withTransaction(
-            Effect.gen(function* () {
-              const activeLinks = yield* db
-                .update(projectIntegrationLink)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(
-                  and(
-                    eq(projectIntegrationLink.projectId, indexRow.id),
-                    eq(projectIntegrationLink.provider, "github"),
-                    eq(projectIntegrationLink.status, "active")
+          yield* sql
+            .withTransaction(
+              Effect.gen(function* () {
+                const activeLinks = yield* db
+                  .update(projectIntegrationLink)
+                  .set({
+                    status: "disconnected",
+                    disconnectedAt: now,
+                    updatedAt: now
+                  })
+                  .where(
+                    and(
+                      eq(projectIntegrationLink.projectId, indexRow.id),
+                      eq(projectIntegrationLink.provider, "github"),
+                      eq(projectIntegrationLink.status, "active")
+                    )
                   )
-                )
-                .returning({ id: projectIntegrationLink.id })
-                .pipe(Effect.orDie)
+                  .returning({ id: projectIntegrationLink.id })
+                  .pipe(Effect.orDie)
 
-              yield* Effect.forEach(
-                activeLinks,
-                (link) =>
-                  db
-                    .update(projectGithubRepository)
-                    .set({ status: "disconnected" })
-                    .where(
-                      eq(
-                        projectGithubRepository.projectIntegrationLinkId,
-                        link.id
+                yield* Effect.forEach(
+                  activeLinks,
+                  (link) =>
+                    Effect.all(
+                      [
+                        db
+                          .update(projectGithubRepository)
+                          .set({ status: "disconnected" })
+                          .where(
+                            eq(
+                              projectGithubRepository.projectIntegrationLinkId,
+                              link.id
+                            )
+                          )
+                          .pipe(Effect.orDie),
+                        ticketBranchIndex.clearProjectConnection(link.id)
+                      ],
+                      { concurrency: 1 }
+                    ).pipe(Effect.asVoid),
+                  { concurrency: 1 }
+                )
+
+                const [link] = yield* db
+                  .insert(projectIntegrationLink)
+                  .values({
+                    projectId: indexRow.id,
+                    organizationId: indexRow.organizationId,
+                    organizationIntegrationId: orgGithub.integrationId,
+                    provider: "github",
+                    status: "active",
+                    lastCheckedAt: now,
+                    lastCheckStatus: "ok"
+                  })
+                  .returning()
+                  .pipe(
+                    Effect.catchAll((cause) =>
+                      uniqueConstraint(
+                        cause,
+                        "project_integration_link_active_provider_uidx"
                       )
+                        ? Effect.fail(
+                            new Conflict({
+                              reason: "github_repo_already_connected"
+                            })
+                          )
+                        : Effect.die(cause)
                     )
-                    .pipe(Effect.orDie),
-                { concurrency: 1 }
-              )
-
-              const [link] = yield* db
-                .insert(projectIntegrationLink)
-                .values({
-                  projectId: indexRow.id,
-                  organizationId: indexRow.organizationId,
-                  organizationIntegrationId: orgGithub.integrationId,
-                  provider: "github",
-                  status: "active",
-                  lastCheckedAt: now,
-                  lastCheckStatus: "ok"
-                })
-                .returning()
-                .pipe(
-                  Effect.catchAll((cause) =>
-                    uniqueConstraint(
-                      cause,
-                      "project_integration_link_active_provider_uidx"
-                    )
-                      ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
-                          })
-                        )
-                      : Effect.die(cause)
                   )
-                )
 
-              yield* db
-                .insert(projectGithubRepository)
-                .values({
-                  projectIntegrationLinkId: link.id,
-                  organizationId: indexRow.organizationId,
-                  status: "active",
-                  repoId: verified.repoId,
-                  repoOwner: verified.owner,
-                  repoName: verified.name,
-                  defaultBranch:
-                    next.defaultBaseBranch ?? verified.defaultBranch
-                })
-                .pipe(
-                  Effect.catchAll((cause) =>
-                    uniqueConstraint(
-                      cause,
-                      "project_github_repository_active_repo_uidx"
+                yield* db
+                  .insert(projectGithubRepository)
+                  .values({
+                    projectIntegrationLinkId: link.id,
+                    organizationId: indexRow.organizationId,
+                    status: "active",
+                    repoId: verified.repoId,
+                    repoOwner: verified.owner,
+                    repoName: verified.name,
+                    defaultBranch:
+                      next.defaultBaseBranch ?? verified.defaultBranch
+                  })
+                  .pipe(
+                    Effect.catchAll((cause) =>
+                      uniqueConstraint(
+                        cause,
+                        "project_github_repository_active_repo_uidx"
+                      )
+                        ? Effect.fail(
+                            new Conflict({
+                              reason: "github_repo_already_connected"
+                            })
+                          )
+                        : Effect.die(cause)
                     )
-                      ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
-                          })
-                        )
-                      : Effect.die(cause)
                   )
+
+                yield* ticketBranchIndex.rebuildProjectConnection(
+                  {
+                    projectIntegrationLinkId: link.id,
+                    organizationId: indexRow.organizationId,
+                    projectId: indexRow.id,
+                    projectSlug: indexRow.slug
+                  },
+                  indexedTickets
                 )
-            })
-          ).pipe(Effect.catchTag("SqlError", Effect.die))
+              })
+            )
+            .pipe(Effect.catchTag("SqlError", Effect.die))
 
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)
@@ -1630,16 +1698,22 @@ export const ProjectsLive = Layer.effect(
                 yield* Effect.forEach(
                   activeLinks,
                   (link) =>
-                    db
-                      .update(projectGithubRepository)
-                      .set({ status: "disconnected" })
-                      .where(
-                        eq(
-                          projectGithubRepository.projectIntegrationLinkId,
-                          link.id
-                        )
-                      )
-                      .pipe(Effect.orDie),
+                    Effect.all(
+                      [
+                        db
+                          .update(projectGithubRepository)
+                          .set({ status: "disconnected" })
+                          .where(
+                            eq(
+                              projectGithubRepository.projectIntegrationLinkId,
+                              link.id
+                            )
+                          )
+                          .pipe(Effect.orDie),
+                        ticketBranchIndex.clearProjectConnection(link.id)
+                      ],
+                      { concurrency: 1 }
+                    ).pipe(Effect.asVoid),
                   { concurrency: 1 }
                 )
               })

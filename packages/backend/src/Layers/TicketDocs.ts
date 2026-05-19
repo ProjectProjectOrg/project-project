@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { NotFound, TagName, TicketId } from "@projectproject/shared"
+import {
+  NotFound,
+  PullRequestState,
+  TagName,
+  TicketId
+} from "@projectproject/shared"
 import {
   Markdown,
   type MarkdownError,
@@ -27,6 +32,9 @@ const TicketFrontmatter = Schema.Struct({
   }),
   branch: Schema.NullOr(Schema.String),
   pr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
+    default: () => null
+  }),
+  prState: Schema.optionalWith(Schema.NullOr(PullRequestState), {
     default: () => null
   }),
   lastTransitionedPr: Schema.optionalWith(Schema.NullOr(Schema.Number), {
@@ -64,6 +72,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
     tags: document.tags,
     branch: document.branch,
     pr: document.pr,
+    prState: document.prState,
     lastTransitionedPr: document.lastTransitionedPr,
     assignees: document.assignees,
     createdBy: document.createdBy,

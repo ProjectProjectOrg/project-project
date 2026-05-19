@@ -333,6 +333,47 @@ export const projectGithubRepository = pgTable(
   ]
 )
 
+export const ticketGithubBranchIndex = pgTable(
+  "ticket_github_branch_index",
+  {
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    branch: text("branch").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.projectIntegrationLinkId, t.ticketId]
+    }),
+    foreignKey({
+      name: "ticket_github_branch_index_link_id_organization_id_fkey",
+      columns: [t.projectIntegrationLinkId, t.organizationId],
+      foreignColumns: [
+        projectIntegrationLink.id,
+        projectIntegrationLink.organizationId
+      ]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "ticket_github_branch_index_project_slug_project_id_fkey",
+      columns: [t.projectSlug, t.projectId],
+      foreignColumns: [projectIndex.slug, projectIndex.id]
+    }).onDelete("cascade"),
+    index("ticket_github_branch_index_branch_idx").on(
+      t.projectIntegrationLinkId,
+      t.branch
+    ),
+    index("ticket_github_branch_index_project_idx").on(
+      t.organizationId,
+      t.projectId
+    )
+  ]
+)
+
 export const projectIndexRelations = relations(
   projectIndex,
   ({ one, many }) => ({
