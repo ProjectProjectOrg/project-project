@@ -3,6 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as TestClock from "effect/TestClock"
 import { expect } from "vitest"
 import {
   Forbidden,
@@ -29,6 +30,7 @@ import {
 } from "./TicketDocs"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
+const setTestNow = TestClock.setTime("2026-05-19T00:00:00.000Z")
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -427,6 +429,7 @@ it.effect(
   "updateTickets against a completed sprint fails with SprintCompletedImmutable",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
@@ -455,6 +458,7 @@ it.effect(
   "updateTickets against a sprint does not evict from completed sprints",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const completed = yield* groups.create("org", "user-1", "p", {
         name: "Completed",
@@ -496,6 +500,7 @@ it.effect(
   "complete to backlog: 'done' tickets stay, others fall off the source",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
@@ -532,6 +537,7 @@ it.effect(
   "complete to sprint: carryover tickets land on the destination, deduped",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const source = yield* groups.create("org", "user-1", "p", {
         name: "Source",
@@ -581,6 +587,7 @@ it.effect(
   "complete on an already-completed sprint fails with SprintCompletedImmutable",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const sprint = yield* groups.create("org", "user-1", "p", {
         name: "Sprint",
@@ -611,6 +618,7 @@ it.effect(
   "complete fails with SprintCompletedImmutable when destination is already completed",
   () =>
     Effect.gen(function* () {
+      yield* setTestNow
       const groups = yield* Groups
       const source = yield* groups.create("org", "user-1", "p", {
         name: "Source",
