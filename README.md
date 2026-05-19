@@ -38,3 +38,13 @@ Per-chapter instructions live in `docs/chapters/`. Start with chapter 0.
 - **Effect v3 stable.** All Effect code targets v3; `Schema` is imported from `effect`.
 - **The shared package is the contract.** Endpoints declared in `packages/shared/src/api.ts` drive both the backend implementation and the frontend's typed client.
 - **Markdown is the source of truth.** Postgres holds only auth + a thin project index; everything else lives under `data/projects/`.
+
+## License status
+
+ProjectProject is intended to be released as open source under `AGPL-3.0-only`
+for the main application code after ownership and licensing clearance is
+complete.
+
+Until a root `LICENSE` file is present, no open-source license has been granted.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution terms and
+[`TRADEMARKS.md`](TRADEMARKS.md) for brand usage.
