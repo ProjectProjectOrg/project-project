@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
@@ -106,7 +107,9 @@ export const deleteProjectAtom = Atom.family((key: string) => {
     Effect.fn(function* (_input: void, get) {
       const client = yield* ApiClient
       yield* client.projects.delete({ path: { orgSlug, slug } })
+      get.refresh(projectBaseAtom(key))
       get.refresh(projectsListBaseAtom(orgSlug))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
     })
   )
 })
@@ -211,7 +214,9 @@ export const createProjectAtom = Atom.family((orgSlug: string) =>
         path: { orgSlug },
         payload: { name: input.name, key }
       })
+      get.refresh(projectBaseAtom(projectKey(orgSlug, project.slug)))
       get.refresh(projectsListBaseAtom(orgSlug))
+      yield* Reactivity.invalidate(["tickets", orgSlug, project.slug])
       return project
     })
   )
