@@ -12,5 +12,8 @@
   "dependencies": {
     "@effect/platform": "latest",
     "effect": "latest"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0"
   }
 }
