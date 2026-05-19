@@ -59,12 +59,17 @@ export function mapHttpError(
       : undefined
   const resetHeader =
     header(headers, "x-ratelimit-reset") ?? header(headers, "X-RateLimit-Reset")
+  const parsedResetAt = resetHeader ? Number(resetHeader) : undefined
+  const resetAt =
+    parsedResetAt !== undefined && Number.isFinite(parsedResetAt)
+      ? parsedResetAt
+      : nowSeconds + 60
 
   if (status === 401) return new GitHubTokenExpired()
   if (status === 403) {
     if (/rate.?limit|abuse/i.test(message)) {
       return new RateLimited({
-        resetAt: resetHeader ? Number(resetHeader) : nowSeconds + 60
+        resetAt
       })
     }
     return new GitHubScopeInsufficient()
@@ -81,7 +86,7 @@ export function mapHttpError(
   }
   if (status === 429) {
     return new RateLimited({
-      resetAt: resetHeader ? Number(resetHeader) : nowSeconds + 60
+      resetAt
     })
   }
   return new GitHubError({ message })

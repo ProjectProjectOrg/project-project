@@ -92,6 +92,13 @@
       "when": 1779116924898,
       "tag": "0012_futuristic_jamie_braddock",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779175045126,
+      "tag": "0013_chubby_talisman",
+      "breakpoints": true
     }
   ]
 }

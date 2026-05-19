@@ -228,7 +228,9 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .setUrlParams(
         Schema.Struct({
           q: Schema.optional(Schema.String),
-          page: Schema.optional(Schema.NumberFromString)
+          page: Schema.optional(
+            Schema.NumberFromString.pipe(Schema.int(), Schema.positive())
+          )
         })
       )
       .addSuccess(GithubRepoPage)

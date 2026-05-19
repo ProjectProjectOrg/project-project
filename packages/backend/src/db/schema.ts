@@ -74,6 +74,10 @@ export const projectIndex = pgTable(
       .defaultNow()
   },
   (table) => [
+    uniqueIndex("project_index_id_organization_uidx").on(
+      table.id,
+      table.organizationId
+    ),
     uniqueIndex("project_index_organization_key_uidx").on(
       table.organizationId,
       table.key
@@ -180,6 +184,10 @@ export const organizationIntegration = pgTable(
       .defaultNow()
   },
   (t) => [
+    uniqueIndex("organization_integration_id_org_uidx").on(
+      t.id,
+      t.organizationId
+    ),
     uniqueIndex("organization_integration_active_provider_uidx")
       .on(t.organizationId, t.provider)
       .where(sql`${t.status} = 'active'`),
@@ -241,15 +249,11 @@ export const projectIntegrationLink = pgTable(
   "project_integration_link",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    organizationIntegrationId: uuid("organization_integration_id")
-      .notNull()
-      .references(() => organizationIntegration.id),
+    organizationIntegrationId: uuid("organization_integration_id").notNull(),
     provider: text("provider", { enum: ["github"] }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
@@ -269,6 +273,23 @@ export const projectIntegrationLink = pgTable(
       .defaultNow()
   },
   (t) => [
+    uniqueIndex("project_integration_link_id_org_uidx").on(
+      t.id,
+      t.organizationId
+    ),
+    foreignKey({
+      name: "project_integration_link_project_id_organization_id_fkey",
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "project_integration_link_org_integration_id_organization_id_fkey",
+      columns: [t.organizationIntegrationId, t.organizationId],
+      foreignColumns: [
+        organizationIntegration.id,
+        organizationIntegration.organizationId
+      ]
+    }),
     uniqueIndex("project_integration_link_active_provider_uidx")
       .on(t.projectId, t.provider)
       .where(sql`${t.status} = 'active'`),
@@ -282,9 +303,7 @@ export const projectIntegrationLink = pgTable(
 export const projectGithubRepository = pgTable(
   "project_github_repository",
   {
-    projectIntegrationLinkId: uuid("project_integration_link_id")
-      .primaryKey()
-      .references(() => projectIntegrationLink.id, { onDelete: "cascade" }),
+    projectIntegrationLinkId: uuid("project_integration_link_id").primaryKey(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -297,6 +316,14 @@ export const projectGithubRepository = pgTable(
     defaultBranch: text("default_branch").notNull()
   },
   (t) => [
+    foreignKey({
+      name: "project_github_repository_link_id_organization_id_fkey",
+      columns: [t.projectIntegrationLinkId, t.organizationId],
+      foreignColumns: [
+        projectIntegrationLink.id,
+        projectIntegrationLink.organizationId
+      ]
+    }).onDelete("cascade"),
     uniqueIndex("project_github_repository_active_repo_uidx")
       .on(t.organizationId, t.repoId)
       .where(sql`${t.status} = 'active'`)

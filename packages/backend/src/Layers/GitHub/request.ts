@@ -11,12 +11,33 @@ export type GitHubRequestAttributes = Record<string, unknown> & {
   readonly operation: string
 }
 
+const telemetryAttributeKeys = [
+  "tokenSource",
+  "operation",
+  "installationId",
+  "repoOwner",
+  "repoName",
+  "page",
+  "first",
+  "branches"
+] as const
+
+const telemetryAttributes = (
+  attributes: GitHubRequestAttributes
+): Record<string, unknown> =>
+  Object.fromEntries(
+    telemetryAttributeKeys.flatMap((key) =>
+      key in attributes ? [[key, attributes[key]]] : []
+    )
+  )
+
 export const githubRequest = <A, EOut extends TaggedFailure>(
   attributes: GitHubRequestAttributes,
   fn: (signal: AbortSignal) => Promise<A>,
   narrowErr: (cause: unknown, now: number) => EOut
-): Effect.Effect<A, EOut> =>
-  Effect.gen(function* () {
+): Effect.Effect<A, EOut> => {
+  const safeAttributes = telemetryAttributes(attributes)
+  return Effect.gen(function* () {
     const now = yield* nowSeconds
     return yield* Effect.tryPromise({
       try: fn,
@@ -28,6 +49,9 @@ export const githubRequest = <A, EOut extends TaggedFailure>(
         Effect.annotateLogs({ error: error._tag })
       )
     ),
-    Effect.withSpan(`GitHub.${attributes.operation}`, { attributes }),
-    Effect.annotateLogs({ module: "GitHub", ...attributes })
+    Effect.withSpan(`GitHub.${attributes.operation}`, {
+      attributes: safeAttributes
+    }),
+    Effect.annotateLogs({ module: "GitHub", ...safeAttributes })
   )
+}

@@ -203,23 +203,26 @@ export const GitHubLive = Layer.effect(
       "GitHub.appUserCanAccessInstallation"
     )(function* (userAccessToken: string, installationId: string) {
       const octokit = octokitFor(userAccessToken)
-      const response = yield* githubRequest(
+      const installations = yield* githubRequest(
         {
           tokenSource: "user",
           operation: "appUserCanAccessInstallation",
           installationId
         },
         (signal) =>
-          octokit.request("GET /user/installations", {
-            per_page: 100,
-            request: { signal }
-          }),
+          octokit.paginate(
+            octokit.rest.apps.listInstallationsForAuthenticatedUser,
+            {
+              per_page: 100,
+              request: { signal }
+            }
+          ),
         (cause) =>
           new GitHubError({
             message: githubErrorMessage(cause)
           })
       )
-      return response.data.installations.some(
+      return installations.some(
         (installation) => String(installation.id) === installationId
       )
     })

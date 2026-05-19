@@ -180,11 +180,7 @@ function ConnectedChip({
 }
 
 function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const [query, setQuery] = useState("")
   const orgIntegration = useAtomValue(githubOrgIntegrationAtom(orgSlug))
-  const repos = useAtomValue(
-    githubInstallationReposAtom(githubInstallationReposKey(orgSlug, query))
-  )
   const pKey = projectKey(orgSlug, slug)
   const connect = useAtomSet(connectGithubAtom(pKey))
   const connectState = useAtomValue(connectGithubAtom(pKey))
@@ -275,6 +271,32 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   }
 
   return (
+    <ActiveRepoList
+      orgSlug={orgSlug}
+      busy={busy}
+      errorString={errorString}
+      onPick={pick}
+    />
+  )
+}
+
+function ActiveRepoList({
+  orgSlug,
+  busy,
+  errorString,
+  onPick
+}: {
+  orgSlug: string
+  busy: boolean
+  errorString: string | null
+  onPick: (repo: GithubRepo) => void
+}) {
+  const [query, setQuery] = useState("")
+  const repos = useAtomValue(
+    githubInstallationReposAtom(githubInstallationReposKey(orgSlug, query))
+  )
+
+  return (
     <div className="p-3">
       <div className="mb-2 flex items-center gap-2">
         <Search className="size-4 text-muted-foreground" strokeWidth={1.75} />
@@ -322,7 +344,7 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => pick(repo)}
+                        onClick={() => onPick(repo)}
                         className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
                       >
                         <span className="min-w-0 flex-1 truncate font-mono">
