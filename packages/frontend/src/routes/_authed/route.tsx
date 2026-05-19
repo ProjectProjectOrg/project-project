@@ -11,6 +11,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { ErrorPage } from "@/components/ErrorPage"
 import { Logo, Wordmark } from "@/components/Logo"
 import {
   SidebarSlotProvider,
@@ -42,11 +43,7 @@ function AuthedLayout() {
   return Result.matchWithError(me, {
     onInitial: () => <FullPageStatus>{m.chrome_loading()}</FullPageStatus>,
     onError: () => <Navigate to="/login" replace />,
-    onDefect: (defect) => (
-      <FullPageStatus>
-        {m.chrome_defect({ defect: String(defect) })}
-      </FullPageStatus>
-    ),
+    onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => {
       const redirect = authedRouteRedirect(pathname, value.activeOrgSlug)
       if (redirect?.to === "/welcome") {
@@ -78,7 +75,7 @@ function Shell({ user }: { user: User }) {
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
           <div className="min-w-0 flex-1 overflow-auto rounded-xl bg-muted/60 [scrollbar-gutter:stable]">
-            <div className="p-6">
+            <div className="flex min-h-full flex-col p-6">
               <Outlet />
             </div>
           </div>
