@@ -49,6 +49,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
@@ -76,7 +77,7 @@ export const projectIndex = pgTable(
       .defaultNow()
   },
   (table) => [
-    uniqueIndex("project_index_id_organization_uidx").on(
+    unique("project_index_id_organization_uidx").on(
       table.id,
       table.organizationId
     ),
@@ -186,7 +187,7 @@ export const organizationIntegration = pgTable(
       .defaultNow()
   },
   (t) => [
-    uniqueIndex("organization_integration_id_org_uidx").on(
+    unique("organization_integration_id_org_uidx").on(
       t.id,
       t.organizationId
     ),
@@ -275,7 +276,7 @@ export const projectIntegrationLink = pgTable(
       .defaultNow()
   },
   (t) => [
-    uniqueIndex("project_integration_link_id_org_uidx").on(
+    unique("project_integration_link_id_org_uidx").on(
       t.id,
       t.organizationId
     ),
