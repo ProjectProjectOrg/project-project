@@ -1,10 +1,10 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { ticketsListBaseAtom, ticketsListKey } from "@/atoms/tickets"
 import {
   TagColor,
   type CreateTagInput,
@@ -34,6 +34,23 @@ const tagsBaseAtom = Atom.family((key: string) => {
 export const tagsAtom = Atom.family((key: string) =>
   Atom.optimistic(tagsBaseAtom(key))
 )
+
+export const tagUsageCountsAtom = Atom.family((key: string) => {
+  const idx = key.indexOf("/")
+  const orgSlug = key.slice(0, idx)
+  const slug = key.slice(idx + 1)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.tags.usageCounts({ path: { orgSlug, slug } })
+      })
+    )
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
+})
 
 export const createTagAtom = Atom.family((key: string) => {
   const idx = key.indexOf("/")
@@ -100,7 +117,7 @@ export const renameTagAtom = Atom.family((key: string) => {
         })
         get.refresh(tagsBaseAtom(key))
         if (input.nextName) {
-          get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         }
         return tag
       })
@@ -125,7 +142,7 @@ export const deleteTagAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, name: input.name }
         })
         get.refresh(tagsBaseAtom(key))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
       })
     )
   })

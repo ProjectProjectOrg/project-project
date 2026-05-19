@@ -3,6 +3,7 @@ import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Groups } from "../Services/Groups"
+import { Tickets } from "../Services/Tickets"
 import { dieOnMarkdown } from "./lib"
 
 export const GroupsHandlerLive = HttpApiBuilder.group(
@@ -35,6 +36,20 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
           return yield* groups.get(org.orgSlug, user.id, path.slug, path.id)
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("listTickets", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.listInGroup(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("update", ({ path, payload }) =>

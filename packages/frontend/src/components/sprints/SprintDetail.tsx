@@ -19,7 +19,8 @@ import { PageContainer } from "@/components/page"
 import {
   sprintState,
   type GroupId,
-  type TicketId
+  type TicketId,
+  type TicketListQuery
 } from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
 import { SprintBoard } from "./SprintBoard"
@@ -31,12 +32,14 @@ export function SprintDetail({
   orgSlug,
   slug,
   groupId,
-  view
+  view,
+  listQuery
 }: {
   orgSlug: string
   slug: string
   groupId: GroupId
   view: "list" | "board"
+  listQuery: TicketListQuery
 }) {
   const project = useProject()
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
@@ -103,7 +106,6 @@ export function SprintDetail({
       const isCompleted = display.completedAt !== null
       const state = sprintState(display)
       const ticketIds = display.tickets as ReadonlyArray<TicketId>
-      const uiKey = `${orgSlug}/${slug}/sprints/${groupId}`
       const filterIds = new Set(ticketIds)
 
       const creator = isCompleted ? (
@@ -135,9 +137,8 @@ export function SprintDetail({
           <SprintTicketList
             orgSlug={orgSlug}
             slug={slug}
-            ticketIds={ticketIds}
+            query={listQuery}
             members={project.members}
-            uiKey={uiKey}
             creator={creator}
           />
         </PageContainer>

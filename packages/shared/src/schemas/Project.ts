@@ -75,6 +75,13 @@ export const GithubConnection = Schema.Struct({
 })
 export type GithubConnection = typeof GithubConnection.Type
 
+export const ProjectSetup = Schema.Struct({
+  workflowReviewedAt: Schema.NullOr(Schema.Date),
+  invitePeopleDismissedAt: Schema.NullOr(Schema.Date),
+  connectGithubDismissedAt: Schema.NullOr(Schema.Date)
+})
+export type ProjectSetup = typeof ProjectSetup.Type
+
 export const Project = Schema.Struct({
   org: Slug,
   slug: Slug,
@@ -101,6 +108,7 @@ export type CreateProjectInput = typeof CreateProjectInput.Type
 export const ProjectDetail = Schema.Struct({
   ...Project.fields,
   github: Schema.NullOr(GithubConnection),
+  setup: ProjectSetup,
   body: Schema.String,
   members: Schema.Array(Member),
   pendingMembers: Schema.Array(PendingProjectMember)
@@ -132,6 +140,13 @@ export const UpdateProjectInput = Schema.Struct({
   body: Schema.optional(Schema.String)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type
+
+export const UpdateProjectSetupInput = Schema.Struct({
+  workflowReviewedAt: Schema.optional(Schema.NullOr(Schema.Date)),
+  invitePeopleDismissedAt: Schema.optional(Schema.NullOr(Schema.Date)),
+  connectGithubDismissedAt: Schema.optional(Schema.NullOr(Schema.Date))
+})
+export type UpdateProjectSetupInput = typeof UpdateProjectSetupInput.Type
 
 // --- GitHub connection inputs ----------------------------------------------
 

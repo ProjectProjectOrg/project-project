@@ -8,7 +8,6 @@ import type {
   Conflict,
   CreateBranchInput,
   CreateTicketInput,
-  CursorPayload,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -21,8 +20,11 @@ import type {
   RateLimited,
   RepoGone,
   Ticket,
+  TicketCountQuery,
+  TicketCounts,
   TicketDetail,
-  TicketFilter,
+  TicketListPage,
+  TicketListQuery,
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
@@ -34,9 +36,38 @@ type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 export interface TicketsShape {
   readonly list: (
     orgSlug: string,
-    ownerId: string,
-    slug: string
+    userId: string,
+    slug: string,
+    query: TicketListQuery,
+    limit?: number
+  ) => Effect.Effect<TicketListPage, NotFound | MarkdownError>
+  readonly count: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    query: TicketCountQuery
+  ) => Effect.Effect<TicketCounts, NotFound | MarkdownError>
+  readonly search: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    options: {
+      readonly q?: string
+      readonly excludeGroupId?: string
+      readonly limit?: number
+    }
   ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+  readonly listInGroup: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    groupId: string
+  ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
+  readonly tagUsageCounts: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<Readonly<Record<string, number>>, NotFound | MarkdownError>
   readonly get: (
     orgSlug: string,
     ownerId: string,
@@ -142,17 +173,6 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<TicketDetail, TicketReadError>
-  readonly listPaged: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
-    filter: TicketFilter | undefined,
-    cursor: CursorPayload | undefined,
-    limit: number
-  ) => Effect.Effect<
-    { items: ReadonlyArray<Ticket>; nextCursor: string | null },
-    NotFound | MarkdownError
-  >
   readonly getGitState: (
     orgSlug: string,
     userId: string,

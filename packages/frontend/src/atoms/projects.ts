@@ -1,9 +1,9 @@
-import { Atom } from "@effect-atom/atom-react"
+import { Atom, Result } from "@effect-atom/atom-react"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
-import { CreatableProjectKey } from "@projectproject/shared"
+import { CreatableProjectKey, type ProjectSetup } from "@projectproject/shared"
 
 // Atom.family keys must compare by value, not reference. Slugs are DNS-safe
 // (no `/`), so a slash is an unambiguous separator between org and project.
@@ -26,7 +26,7 @@ export const projectsListAtom = Atom.family((orgSlug: string) =>
     .pipe(Atom.setIdleTTL("1 minute"))
 )
 
-export const projectAtom = Atom.family((key: string) => {
+const projectBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
     .atom(
@@ -38,6 +38,10 @@ export const projectAtom = Atom.family((key: string) => {
     .pipe(Atom.setIdleTTL("2 minutes"))
 })
 
+export const projectAtom = Atom.family((key: string) =>
+  Atom.optimistic(projectBaseAtom(key))
+)
+
 export const updateProjectAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime.fn(
@@ -47,11 +51,41 @@ export const updateProjectAtom = Atom.family((key: string) => {
         path: { orgSlug, slug },
         payload: input
       })
-      get.refresh(projectAtom(key))
+      get.refresh(projectBaseAtom(key))
       get.refresh(projectsListAtom(orgSlug))
       return updated
     })
   )
+})
+
+export const updateProjectSetupAtom = Atom.family((key: string) => {
+  const { orgSlug, slug } = splitProjectKey(key)
+  return Atom.optimisticFn(projectAtom(key), {
+    reducer: (
+      current,
+      input: Partial<Record<keyof ProjectSetup, Date | null>>
+    ) =>
+      Result.isSuccess(current)
+        ? Result.success(
+            { ...current.value, setup: { ...current.value.setup, ...input } },
+            { waiting: true }
+          )
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (
+        input: Partial<Record<keyof ProjectSetup, Date | null>>,
+        get
+      ) {
+        const client = yield* ApiClient
+        const updated = yield* client.projects.updateSetup({
+          path: { orgSlug, slug },
+          payload: input
+        })
+        get.refresh(projectBaseAtom(key))
+        return updated
+      })
+    )
+  })
 })
 
 export const deleteProjectAtom = Atom.family((key: string) => {
@@ -79,7 +113,7 @@ export const addMemberAtom = Atom.family((key: string) => {
         path: { orgSlug, slug },
         payload: input
       })
-      get.refresh(projectAtom(key))
+      get.refresh(projectBaseAtom(key))
       return updated
     })
   )
@@ -108,7 +142,7 @@ export const updateMemberAtom = Atom.family((key: string) => {
         path: { orgSlug, slug, userId },
         payload: input
       })
-      get.refresh(projectAtom(projectKey(orgSlug, slug)))
+      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
       return updated
     })
   )
@@ -120,7 +154,7 @@ export const removeMemberAtom = Atom.family((key: string) => {
     Effect.fn(function* (_input: void, get) {
       const client = yield* ApiClient
       yield* client.projects.removeMember({ path: { orgSlug, slug, userId } })
-      get.refresh(projectAtom(projectKey(orgSlug, slug)))
+      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
     })
   )
 })
@@ -150,7 +184,7 @@ export const cancelPendingMemberAtom = Atom.family((key: string) => {
       const updated = yield* client.projects.cancelPendingMember({
         path: { orgSlug, slug, invitationId }
       })
-      get.refresh(projectAtom(projectKey(orgSlug, slug)))
+      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
       return updated
     })
   )

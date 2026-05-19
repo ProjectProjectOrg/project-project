@@ -50,6 +50,18 @@ const ProjectDocGithub = Schema.Struct({
   })
 })
 
+const ProjectDocSetup = Schema.Struct({
+  workflowReviewedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
+    default: () => null
+  }),
+  invitePeopleDismissedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
+    default: () => null
+  }),
+  connectGithubDismissedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
+    default: () => null
+  })
+})
+
 const ProjectFrontmatter = Schema.Struct({
   org: Schema.optional(Slug),
   slug: Slug,
@@ -62,6 +74,13 @@ const ProjectFrontmatter = Schema.Struct({
   }),
   github: Schema.optionalWith(Schema.NullOr(ProjectDocGithub), {
     default: () => null
+  }),
+  setup: Schema.optionalWith(ProjectDocSetup, {
+    default: () => ({
+      workflowReviewedAt: null,
+      invitePeopleDismissedAt: null,
+      connectGithubDismissedAt: null
+    })
   })
 })
 
@@ -88,6 +107,14 @@ function toFrontmatter(
       repoName: document.github.repoName,
       defaultBaseBranch: document.github.defaultBaseBranch
     } satisfies GithubConnection
+  }
+  frontmatter.setup = {
+    workflowReviewedAt:
+      document.setup.workflowReviewedAt?.toISOString() ?? null,
+    invitePeopleDismissedAt:
+      document.setup.invitePeopleDismissedAt?.toISOString() ?? null,
+    connectGithubDismissedAt:
+      document.setup.connectGithubDismissedAt?.toISOString() ?? null
   }
   return frontmatter
 }

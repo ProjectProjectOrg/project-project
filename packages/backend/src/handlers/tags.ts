@@ -3,6 +3,7 @@ import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Tags } from "../Services/Tags"
+import { Tickets } from "../Services/Tickets"
 import { dieOnMarkdown } from "./lib"
 
 export const TagsHandlerLive = HttpApiBuilder.group(
@@ -18,6 +19,19 @@ export const TagsHandlerLive = HttpApiBuilder.group(
           const tags = yield* Tags
           return yield* tags.list(org.orgSlug, user.id, path.slug)
         })
+      )
+      .handle("usageCounts", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.tagUsageCounts(
+            org.orgSlug,
+            user.id,
+            path.slug
+          )
+        }).pipe(dieOnMarkdown)
       )
       .handle("create", ({ path, payload }) =>
         Effect.gen(function* () {

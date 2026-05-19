@@ -1,8 +1,17 @@
-import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { createFileRoute } from "@tanstack/react-router"
-import { meAtom } from "@/atoms/auth"
+import { useEffect, useRef } from "react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import {
+  connectPersonalGithubAtom,
+  disconnectPersonalGithubAtom,
+  meAtom
+} from "@/atoms/auth"
+import githubLogo from "@/assets/github.svg"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -10,12 +19,21 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
 
+const ProfileSearch = Schema.Struct({
+  error: Schema.optional(Schema.NonEmptyString)
+})
+const decodeProfileSearch = Schema.decodeUnknownOption(ProfileSearch)
+type ProfileSearch = Schema.Schema.Type<typeof ProfileSearch>
+
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
+  validateSearch: (search: Record<string, unknown>): ProfileSearch =>
+    Option.getOrElse(decodeProfileSearch(search), () => ({})),
   loader: () => ({
     crumb: {
       type: "static" as const,
@@ -26,7 +44,20 @@ export const Route = createFileRoute("/_authed/profile")({
 })
 
 function Profile() {
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
   const me = useAtomValue(meAtom)
+  const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
+
+  useEffect(() => {
+    if (!search.error) return
+    void navigate({
+      to: ".",
+      search: () => ({}),
+      replace: true
+    })
+  }, [navigate, search.error])
+
   if (!Result.isSuccess(me)) return null
   const user = me.value
 
@@ -74,6 +105,12 @@ function Profile() {
         </CardContent>
       </Card>
 
+      <PersonalGithubCard
+        connected={user.personalGithub.connected}
+        email={user.email}
+        oauthError={githubOAuthError}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>{m.profile_section_security_title()}</CardTitle>
@@ -88,6 +125,176 @@ function Profile() {
 
       <ConnectedAgentsSection />
     </PageContainer>
+  )
+}
+
+function PersonalGithubCard({
+  connected,
+  email,
+  oauthError
+}: {
+  connected: boolean
+  email: string
+  oauthError: string | null
+}) {
+  const connect = useAtomSet(connectPersonalGithubAtom, { mode: "promise" })
+  const disconnect = useAtomSet(disconnectPersonalGithubAtom, {
+    mode: "promise"
+  })
+  const connectState = useAtomValue(connectPersonalGithubAtom)
+  const disconnectState = useAtomValue(disconnectPersonalGithubAtom)
+  const connecting = connectState.waiting
+  const waiting = connecting || disconnectState.waiting
+  const error = Result.isFailure(connectState)
+    ? m.profile_github_connect_error()
+    : Result.isFailure(disconnectState)
+      ? m.profile_github_disconnect_error()
+      : oauthError
+
+  const handleConnect = () => {
+    void connect()
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{m.profile_github_title()}</CardTitle>
+        <CardDescription>{m.profile_github_description()}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-foreground">
+              <img
+                src={githubLogo}
+                alt=""
+                className="size-4 dark:invert"
+                aria-hidden
+              />
+            </span>
+            <div className={waiting ? "min-w-0 animate-pulse" : "min-w-0"}>
+              <div className="text-sm font-medium">
+                {connected
+                  ? m.profile_github_connected_status()
+                  : m.profile_github_disconnected_status()}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {connected ? email : m.profile_github_description()}
+              </div>
+            </div>
+          </div>
+          {connected ? (
+            <GithubDisconnectAction
+              disconnect={disconnect}
+              disconnecting={disconnectState.waiting}
+            />
+          ) : (
+            <Button type="button" onClick={handleConnect} disabled={connecting}>
+              {m.profile_github_connect_button()}
+            </Button>
+          )}
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function githubOAuthErrorMessage(error: string | undefined): string | null {
+  switch (error) {
+    case undefined:
+      return null
+    case "account_already_linked_to_different_user":
+      return m.profile_github_error_account_already_linked()
+    case "access_denied":
+      return m.profile_github_error_access_denied()
+    case "email_doesn't_match":
+      return m.profile_github_error_email_mismatch()
+    case "email_not_found":
+    case "unable_to_get_user_info":
+      return m.profile_github_error_missing_profile()
+    case "invalid_code":
+    case "no_code":
+    case "state_mismatch":
+    case "please_restart_the_process":
+      return m.profile_github_error_expired()
+    case "unable_to_link_account":
+    case "oauth_provider_not_found":
+    case "signup_disabled":
+    case "no_callback_url":
+    case "invalid_callback_request":
+    default:
+      return m.profile_github_error_generic()
+  }
+}
+
+function GithubDisconnectAction({
+  disconnect,
+  disconnecting
+}: {
+  disconnect: () => Promise<void>
+  disconnecting: boolean
+}) {
+  return (
+    <ConfirmButton.Root className="justify-end">
+      <ConfirmButton.Trigger
+        type="button"
+        variant="secondary"
+        disabled={disconnecting}
+      >
+        {m.profile_github_disconnect_button()}
+      </ConfirmButton.Trigger>
+      <ConfirmButton.Confirm className="flex-wrap justify-end">
+        <GithubDisconnectConfirm
+          disconnect={disconnect}
+          disconnecting={disconnecting}
+        />
+      </ConfirmButton.Confirm>
+    </ConfirmButton.Root>
+  )
+}
+
+function GithubDisconnectConfirm({
+  disconnect,
+  disconnecting
+}: {
+  disconnect: () => Promise<void>
+  disconnecting: boolean
+}) {
+  const { close, busy, setBusy } = useConfirmButton()
+
+  async function run() {
+    setBusy(true)
+    try {
+      await disconnect()
+      close()
+    } catch {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <span className="inline-flex h-8 items-center whitespace-nowrap text-xs text-muted-foreground">
+        {m.profile_github_disconnect_confirm_prompt()}
+      </span>
+      <Button
+        type="button"
+        size="sm"
+        variant="destructive"
+        onClick={() => void run()}
+        disabled={busy || disconnecting}
+      >
+        {busy || disconnecting
+          ? m.profile_github_disconnect_in_progress()
+          : m.profile_github_disconnect_confirm_button()}
+      </Button>
+      <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
+    </>
   )
 }
 

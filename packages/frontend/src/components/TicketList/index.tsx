@@ -1,21 +1,38 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { type ReactNode } from "react"
-import { Empty } from "@/components/ui/empty"
+import { useRef, type ReactNode } from "react"
+import { X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Empty, EmptyDescription } from "@/components/ui/empty"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
-import { ticketListUiKey } from "@/atoms/ticketListUi"
-import type { Group, Member, TicketId } from "@projectproject/shared"
-import type { Ticket } from "@projectproject/shared"
+import {
+  ticketListDefectMessage,
+  ticketListErrorMessage
+} from "@/lib/errorMessage"
+import {
+  ticketsListAtom,
+  ticketsListKey,
+  type TicketsListValue
+} from "@/atoms/tickets"
+import type {
+  Group,
+  Member,
+  Ticket,
+  TicketId,
+  TicketListQuery
+} from "@projectproject/shared"
 import { FilteredList } from "./FilteredList"
 import { Toolbar } from "./Toolbar"
+import { useResetTicketSearch } from "./url"
+
+const EMPTY_BORDER = "border border-dashed border-border"
 
 export function TicketList({
   orgSlug,
   slug,
+  query,
   members,
-  uiKey,
-  filterIds,
   extraRowActions,
   sprintMembership,
   creator,
@@ -23,60 +40,98 @@ export function TicketList({
 }: {
   orgSlug: string
   slug: string
+  query: TicketListQuery
   members: ReadonlyArray<Member>
-  uiKey?: string
-  filterIds?: ReadonlySet<TicketId>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
   showSprintFilter?: boolean
 }) {
-  const resolvedUiKey = uiKey ?? ticketListUiKey(orgSlug, slug)
-  const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+  const listKey = ticketsListKey(orgSlug, slug, query)
+  const list = useAtomValue(ticketsListAtom(listKey))
+  const resetFilters = useResetTicketSearch()
+
+  const previousListRef = useRef<{
+    listKey: string
+    value: TicketsListValue
+  } | null>(null)
+  if (previousListRef.current?.listKey !== listKey) {
+    previousListRef.current = null
+  }
+  if (Result.isSuccess(list)) {
+    previousListRef.current = { listKey, value: list.value }
+  }
+  const previousList =
+    previousListRef.current?.listKey === listKey
+      ? previousListRef.current.value
+      : null
+
+  const hasActiveFilter =
+    (query.filter !== undefined && Object.keys(query.filter).length > 0) ||
+    (query.q !== undefined && query.q.length > 0)
+
+  const renderList = (value: TicketsListValue, waiting: boolean) => (
+    <FilteredList
+      orgSlug={orgSlug}
+      slug={slug}
+      listKey={listKey}
+      items={value.items}
+      nextCursor={value.nextCursor}
+      waiting={waiting}
+      members={members}
+      extraRowActions={extraRowActions}
+      sprintMembership={sprintMembership}
+      hasActiveFilter={hasActiveFilter}
+    />
+  )
 
   return (
     <div className="group/list flex flex-col gap-3">
-      {creator ?? <BacklogTicketCreator orgSlug={orgSlug} slug={slug} />}
+      {creator ?? (
+        <BacklogTicketCreator orgSlug={orgSlug} slug={slug} query={query} />
+      )}
 
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
-        {Result.isSuccess(list) && list.value.length > 0 && (
-          <Toolbar
-            orgSlug={orgSlug}
-            slug={slug}
-            uiKey={resolvedUiKey}
-            tickets={list.value}
-            members={members}
-            showSprintFilter={showSprintFilter}
-          />
-        )}
+        <Toolbar
+          orgSlug={orgSlug}
+          slug={slug}
+          query={query}
+          members={members}
+          showSprintFilter={showSprintFilter}
+        />
 
         {Result.matchWithError(list, {
-          onInitial: () => (
-            <div className="skeleton h-24 rounded-xl border border-border bg-background" />
-          ),
+          onInitial: () =>
+            previousList !== null ? (
+              renderList(previousList, true)
+            ) : (
+              <div className="skeleton h-24 rounded-xl border border-border bg-background" />
+            ),
           onError: (error) => (
-            <Empty variant="inline" className="border border-dashed border-border">
-              {m.tickets_list_load_error({ error: error._tag })}
+            <Empty
+              variant="inline"
+              className={cn(EMPTY_BORDER, "gap-3 rounded-xl px-4 py-6")}
+            >
+              <EmptyDescription>
+                {ticketListErrorMessage(error)}
+              </EmptyDescription>
+              <Button
+                type="button"
+                variant="tertiary"
+                size="xs"
+                leadingIcon={X}
+                onClick={resetFilters}
+              >
+                {m.tickets_filters_clear_all()}
+              </Button>
             </Empty>
           ),
           onDefect: (defect) => (
-            <Empty variant="inline" className="border border-dashed border-border">
-              {m.tickets_list_defect({ defect: String(defect) })}
+            <Empty variant="inline" className={EMPTY_BORDER}>
+              {ticketListDefectMessage(defect)}
             </Empty>
           ),
-          onSuccess: ({ value }) => (
-            <FilteredList
-              orgSlug={orgSlug}
-              slug={slug}
-              uiKey={resolvedUiKey}
-              tickets={
-                filterIds ? value.filter((t) => filterIds.has(t.id)) : value
-              }
-              members={members}
-              extraRowActions={extraRowActions}
-              sprintMembership={sprintMembership}
-            />
-          )
+          onSuccess: ({ value, waiting }) => renderList(value, waiting === true)
         })}
       </div>
     </div>

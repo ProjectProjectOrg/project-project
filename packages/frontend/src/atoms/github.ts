@@ -9,6 +9,7 @@
 // Slugs are URL-safe (no `/`), so a slash is an unambiguous separator.
 
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
@@ -20,12 +21,9 @@ import type {
   TicketId
 } from "@projectproject/shared"
 import { projectAtom } from "./projects"
-import {
-  ticketBaseAtom,
-  ticketKey,
-  ticketsListBaseAtom,
-  ticketsListKey
-} from "./tickets"
+import { ticketBaseAtom, ticketKey } from "./tickets"
+
+export const githubAuthEpochAtom = Atom.make(0)
 
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
@@ -35,14 +33,15 @@ const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
 export const projectGitStatesBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.gitStates({
           path: { orgSlug, slug }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("30 seconds"))
 })
 
@@ -52,14 +51,15 @@ export const projectGitStatesAtom = Atom.family((key: string) =>
 
 export const githubReposAtom = Atom.family((query: string) =>
   runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.projects.listRepos({
           urlParams: { q: query.trim() ? query.trim() : undefined, page: 1 }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("2 minutes"))
 )
 
@@ -71,8 +71,9 @@ export const branchesKey = (orgSlug: string, slug: string, q: string) =>
 
 export const branchesAtom = Atom.family((key: string) =>
   runtime
-    .atom(
-      Effect.gen(function* () {
+    .atom((get) => {
+      get(githubAuthEpochAtom)
+      return Effect.gen(function* () {
         const sep = key.indexOf(" ")
         const projKey = key.slice(0, sep)
         const q = key.slice(sep + 1)
@@ -83,7 +84,7 @@ export const branchesAtom = Atom.family((key: string) =>
           urlParams: { q: q.trim() ? q.trim() : undefined }
         })
       })
-    )
+    })
     .pipe(Atom.setIdleTTL("1 minute"))
 )
 
@@ -147,7 +148,7 @@ export const createBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return updated
       })
     )
@@ -181,7 +182,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
         })
         get.refresh(projectGitStatesBaseAtom(key))
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         return updated
       })
     )
@@ -209,7 +210,7 @@ export const clearBranchAtom = Atom.family((key: string) => {
           path: { orgSlug, slug, id: input.id }
         })
         get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, input.id)))
-        get.refresh(ticketsListBaseAtom(ticketsListKey(orgSlug, slug)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
         get.refresh(projectGitStatesBaseAtom(key))
         return updated
       })

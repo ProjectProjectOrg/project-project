@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { GroupKind } from "../../schemas/Group"
+import { GroupKind } from "../schemas/Group"
 
 export const GroupFilter = Schema.Struct({
   kind: Schema.optional(Schema.Array(GroupKind)),

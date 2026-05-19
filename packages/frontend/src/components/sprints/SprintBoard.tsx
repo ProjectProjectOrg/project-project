@@ -7,7 +7,10 @@ import {
   placeTicketAtom,
   sprintKey
 } from "@/atoms/sprints"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import {
+  ticketsInSprintAtom,
+  ticketsInSprintKey
+} from "@/atoms/tickets"
 import type {
   GroupId,
   Member,
@@ -82,7 +85,9 @@ export function SprintBoard({
   }, [])
 
   const key = sprintKey(orgSlug, slug, groupId)
-  const list = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+  const list = useAtomValue(
+    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
+  )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
 

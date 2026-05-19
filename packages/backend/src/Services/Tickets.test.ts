@@ -4,7 +4,14 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { NotFound, ProjectKey, TicketId } from "@projectproject/shared"
+import {
+  DEFAULT_TICKET_SORT,
+  NotFound,
+  ProjectKey,
+  TICKET_LIST_LIMIT,
+  TicketId,
+  type TicketListQuery
+} from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
 import { Db } from "./Db"
 import { GitHub, type GitHubShape } from "./GitHub"
@@ -99,6 +106,7 @@ function makeFakeProjects(key: string) {
     get: () => unexpected("Projects.get"),
     getKey: () => Effect.succeed(projectKey(key)),
     update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
     requireMember: () => Effect.succeed({ role: "member" as const }),
     requireRole: () => unexpected("Projects.requireRole"),
@@ -225,8 +233,299 @@ it.effect("list skips malformed ticket documents", () => {
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
-    const result = yield* tickets.list("org", "user-1", "project")
+    const result = yield* tickets.list("org", "user-1", "project", {
+      sort: DEFAULT_TICKET_SORT
+    })
 
-    expect(result.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.items.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.nextCursor).toBeNull()
   }).pipe(Effect.provide(makeTicketsLayer("T", docs)))
+})
+
+it.effect("list defaults to created desc", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      title: "old",
+      createdAt: isoDate("2026-01-01T00:00:00.000Z")
+    })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", {
+      title: "mid",
+      createdAt: isoDate("2026-02-01T00:00:00.000Z")
+    })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", {
+      title: "new",
+      createdAt: isoDate("2026-03-01T00:00:00.000Z")
+    })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT
+    })
+
+    expect(result.items.map((t) => t.title)).toEqual(["new", "mid", "old"])
+    expect(result.nextCursor).toBeNull()
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list sorts by title asc", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { title: "C" }))
+  documents.set("T-2", makeTicketDocument("T-2", { title: "A" }))
+  documents.set("T-3", makeTicketDocument("T-3", { title: "B" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const query: TicketListQuery = {
+      sort: { key: "title", dir: "asc" }
+    }
+    const result = yield* tickets.list("org", "user-1", "p", query)
+
+    expect(result.items.map((t) => t.title)).toEqual(["A", "B", "C"])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list paginates by cursor", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  const total = TICKET_LIST_LIMIT + 5
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    for (let i = 0; i < total; i++) {
+      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+    }
+
+    const sortById: TicketListQuery = {
+      sort: { key: "id", dir: "asc" }
+    }
+    const page1 = yield* tickets.list("org", "user-1", "p", sortById)
+    expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
+    expect(page1.nextCursor).not.toBeNull()
+
+    const page2 = yield* tickets.list("org", "user-1", "p", {
+      ...sortById,
+      cursor: page1.nextCursor ?? undefined
+    })
+    expect(page2.items.length).toBe(5)
+    expect(page2.nextCursor).toBeNull()
+
+    const page1Ids = new Set(page1.items.map((t) => t.id))
+    for (const t of page2.items) {
+      expect(page1Ids.has(t.id)).toBe(false)
+    }
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list paginates by cursor with default created desc sort", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  const total = TICKET_LIST_LIMIT + 5
+  const base = DateTime.unsafeMake("2026-01-01T00:00:00.000Z")
+  for (let i = 0; i < total; i++) {
+    const id = `T-${i + 1}`
+    documents.set(
+      id,
+      makeTicketDocument(id, {
+        title: id,
+        createdAt: DateTime.toDate(DateTime.addDuration(`${i} hours`)(base))
+      })
+    )
+  }
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const page1 = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT
+    })
+    expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
+    expect(page1.nextCursor).not.toBeNull()
+    const page1Times = page1.items.map((t) => t.createdAt.getTime())
+    for (let i = 1; i < page1Times.length; i++) {
+      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
+    }
+
+    const page2 = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      cursor: page1.nextCursor ?? undefined
+    })
+    expect(page2.items.length).toBe(5)
+    expect(page2.nextCursor).toBeNull()
+    const page2Times = page2.items.map((t) => t.createdAt.getTime())
+    for (let i = 1; i < page2Times.length; i++) {
+      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
+    }
+
+    const seen = new Set(page1.items.map((t) => t.id))
+    for (const t of page2.items) {
+      expect(seen.has(t.id)).toBe(false)
+    }
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list honors an explicit limit override", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    for (let i = 0; i < 10; i++) {
+      yield* tickets.create("org", "user-1", "p", { title: `t-${i}` })
+    }
+
+    const page = yield* tickets.list(
+      "org",
+      "user-1",
+      "p",
+      { sort: { key: "id", dir: "asc" } },
+      3
+    )
+    expect(page.items.length).toBe(3)
+    expect(page.nextCursor).not.toBeNull()
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("list filters by q and substitutes mine to viewerId", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    yield* tickets.create("org", "user-1", "p", {
+      title: "hello world",
+      assignees: ["user-1"]
+    })
+    yield* tickets.create("org", "user-1", "p", {
+      title: "goodbye world",
+      assignees: ["user-2"]
+    })
+
+    const byQ = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      q: "hello"
+    })
+    expect(byQ.items.map((t) => t.title)).toEqual(["hello world"])
+
+    const mine = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      filter: { assignee: ["mine"] }
+    })
+    expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count returns zeros for every status on empty project", () => {
+  const { layer } = makeTicketsFixture("T", [])
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {})
+    expect(result).toEqual({
+      total: 0,
+      byStatus: { todo: 0, in_progress: 0, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count aggregates byStatus across a mixed-status project", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
+  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
+  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
+  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
+  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
+  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {})
+    expect(result).toEqual({
+      total: 6,
+      byStatus: { todo: 3, in_progress: 2, done: 1 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count strips status from filter so chip counts stay meaningful", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
+  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
+  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
+  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
+  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
+  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { status: ["done"] }
+    })
+    expect(result).toEqual({
+      total: 6,
+      byStatus: { todo: 3, in_progress: 2, done: 1 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count still applies non-status filters", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { status: "todo", type: "feat" })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { status: "in_progress", type: "feat" })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { status: "done", type: "feat" })
+  )
+  documents.set(
+    "T-4",
+    makeTicketDocument("T-4", { status: "todo", type: "bug" })
+  )
+  documents.set(
+    "T-5",
+    makeTicketDocument("T-5", { status: "in_progress", type: "bug" })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { type: ["bug"] }
+    })
+    expect(result).toEqual({
+      total: 2,
+      byStatus: { todo: 1, in_progress: 1, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("count substitutes mine to viewerId like list", () => {
+  const { documents, layer } = makeTicketsFixture("T", [])
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { status: "todo", assignees: ["user-1"] })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { status: "in_progress", assignees: ["user-1"] })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { status: "done", assignees: ["user-2"] })
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.count("org", "user-1", "p", {
+      filter: { assignee: ["mine"] }
+    })
+    expect(result).toEqual({
+      total: 2,
+      byStatus: { todo: 1, in_progress: 1, done: 0 }
+    })
+  }).pipe(Effect.provide(layer))
 })

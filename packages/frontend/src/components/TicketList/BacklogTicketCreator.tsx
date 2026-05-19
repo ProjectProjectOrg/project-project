@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
+import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import {
@@ -29,30 +30,44 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { quickCreateTicketAtom } from "@/atoms/tickets"
+import { quickCreateTicketAtom, ticketsCountKey } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type { Group, TicketType } from "@projectproject/shared"
+import type {
+  Group,
+  TicketCountQuery,
+  TicketListQuery,
+  TicketType
+} from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 
 export function BacklogTicketCreator({
   orgSlug,
-  slug
+  slug,
+  query
 }: {
   orgSlug: string
   slug: string
+  query: TicketListQuery
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(quickCreateTicketAtom(projKey), { mode: "promiseExit" })
-  const createState = useAtomValue(quickCreateTicketAtom(projKey))
+  const countQuery: TicketCountQuery = { filter: query.filter, q: query.q }
+  const countKey = ticketsCountKey(orgSlug, slug, countQuery)
+  const create = useAtomSet(quickCreateTicketAtom(countKey), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(quickCreateTicketAtom(countKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
   const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
   const navigate = useNavigate()
+
+  const me = useAtomValue(meAtom)
+  const viewerId = Result.isSuccess(me) ? me.value.id : ""
 
   const sprintListResult = useAtomValue(
     sprintsListAtom(sprintsKey(orgSlug, slug))
@@ -90,7 +105,10 @@ export function BacklogTicketCreator({
     if (!trimmed || submitting) return
     inputRef.current?.blur()
     setFocused(false)
-    const exit = await create({ title: trimmed, type })
+    const exit = await create({
+      ticket: { title: trimmed, type },
+      viewerId
+    })
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       if (selectedSprint) {

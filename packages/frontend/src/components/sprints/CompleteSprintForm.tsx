@@ -10,7 +10,7 @@ import {
   projectKey,
   type CompleteSprintDestination
 } from "@/atoms/sprints"
-import { ticketsListAtom, ticketsListKey } from "@/atoms/tickets"
+import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
 import {
   pickEarliestPlannedSprint,
   type Group,
@@ -44,7 +44,9 @@ export function CompleteSprintForm({
   })
 
   const planned = pickEarliestPlannedSprint(sprints)
-  const tickets = useAtomValue(ticketsListAtom(ticketsListKey(orgSlug, slug)))
+  const tickets = useAtomValue(
+    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, sprint.id))
+  )
   const statuses = new Map<TicketId, string>()
   if (Result.isSuccess(tickets)) {
     for (const t of tickets.value) statuses.set(t.id, t.status)
