@@ -344,6 +344,7 @@ it.effect(
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
         members: [{ username: "wouter", role: "owner" }],
         github: {
+          repoId: "repo-1",
           repoOwner: "wouter",
           repoName: "project",
           defaultBaseBranch: null
@@ -367,6 +368,7 @@ it.effect(
           createdAt: "2026-05-02T00:00:00.000Z",
           members: [{ username: "wouter", role: "owner" }],
           github: {
+            repoId: "repo-1",
             repoOwner: "wouter",
             repoName: "project",
             defaultBaseBranch: null

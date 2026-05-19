@@ -13,6 +13,7 @@ import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { GitHub } from "../Services/GitHub"
+import { GitHubIntegrations } from "../Services/GitHubIntegrations"
 import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 
@@ -84,6 +85,42 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const projects = yield* Projects
           yield* projects.remove(org.orgSlug, user.id, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
+      )
+      .handle("githubIntegration", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
+          const integrations = yield* GitHubIntegrations
+          return yield* integrations.getStatus(path.orgSlug, user.id)
+        })
+      )
+      .handle("startGithubInstall", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
+          const integrations = yield* GitHubIntegrations
+          return yield* integrations.startInstall(
+            path.orgSlug,
+            user.id,
+            payload.returnProjectSlug
+          )
+        })
+      )
+      .handle("listGithubInstallationRepos", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          yield* currentOrg.resolve(path.orgSlug, user.id)
+          const integrations = yield* GitHubIntegrations
+          return yield* integrations.listRepos(
+            path.orgSlug,
+            user.id,
+            urlParams.q,
+            urlParams.page ?? 1
+          )
+        })
       )
       .handle("addMember", ({ path, payload }) =>
         Effect.gen(function* () {
@@ -188,17 +225,6 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
-      .handle("listRepos", ({ urlParams }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const github = yield* GitHub
-          return yield* github.listUserRepos(
-            user.id,
-            urlParams.q,
-            urlParams.page ?? 1
-          )
-        })
-      )
       .handle("gitStates", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
@@ -215,18 +241,20 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const projects = yield* Projects
           const github = yield* GitHub
-          const project = yield* projects
-            .get(org.orgSlug, user.id, path.slug)
-            .pipe(Effect.catchTag("MarkdownError", (e) => Effect.die(e)))
-          if (!project.github) {
+          const projectGithub = yield* projects.getGithubIntegration(
+            org.orgSlug,
+            user.id,
+            path.slug
+          )
+          if (!projectGithub) {
             return { items: [], hasMore: false }
           }
-          return yield* github.listBranches(
-            project.github.repoOwner,
-            project.github.repoName,
+          return yield* github.listInstallationBranches(
+            projectGithub.installationId,
+            projectGithub.repoOwner,
+            projectGithub.repoName,
             urlParams.q,
-            urlParams.first ?? 30,
-            user.id
+            urlParams.first ?? 30
           )
         })
       )

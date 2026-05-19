@@ -27,9 +27,12 @@ import {
   ConnectGithubInput,
   CreateProjectInput,
   GithubRepoPage,
+  GithubOrgIntegrationStatus,
   Project,
   ProjectDetail,
   Slug,
+  StartGithubInstallInput,
+  StartGithubInstallResponse,
   TransferOwnershipInput,
   UpdateMemberInput,
   UpdateProjectInput,
@@ -194,6 +197,51 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Forbidden)
   )
   .add(
+    HttpApiEndpoint.get(
+      "githubIntegration",
+      "/orgs/:orgSlug/integrations/github"
+    )
+      .setPath(OrgPath)
+      .addSuccess(GithubOrgIntegrationStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "startGithubInstall",
+      "/orgs/:orgSlug/integrations/github/install/start"
+    )
+      .setPath(OrgPath)
+      .setPayload(StartGithubInstallInput)
+      .addSuccess(StartGithubInstallResponse)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "listGithubInstallationRepos",
+      "/orgs/:orgSlug/integrations/github/repos"
+    )
+      .setPath(OrgPath)
+      .setUrlParams(
+        Schema.Struct({
+          q: Schema.optional(Schema.String),
+          page: Schema.optional(
+            Schema.NumberFromString.pipe(Schema.int(), Schema.positive())
+          )
+        })
+      )
+      .addSuccess(GithubRepoPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
     HttpApiEndpoint.post("addMember", "/orgs/:orgSlug/projects/:slug/members")
       .setPath(ProjectPath)
       .setPayload(AddMemberInput)
@@ -277,23 +325,6 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
-  )
-  // User-scoped: lists the caller's GitHub repos. Not org-scoped — lives
-  // outside the `/orgs/:orgSlug` tree on purpose; the picker calls this
-  // before a repo is connected to a project so there's no project context.
-  .add(
-    HttpApiEndpoint.get("listRepos", "/github/repos")
-      .setUrlParams(
-        Schema.Struct({
-          q: Schema.optional(Schema.String),
-          page: Schema.optional(Schema.NumberFromString)
-        })
-      )
-      .addSuccess(GithubRepoPage)
-      .addError(Unauthorized)
-      .addError(GitHubTokenExpired)
-      .addError(GitHubScopeInsufficient)
-      .addError(GitHubError)
   )
   .add(
     HttpApiEndpoint.get("gitStates", "/orgs/:orgSlug/projects/:slug/git-states")

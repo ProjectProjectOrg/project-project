@@ -10,10 +10,14 @@ import { useMemo, useState } from "react"
 import {
   connectGithubAtom,
   disconnectGithubAtom,
-  githubReposAtom,
-  projectGitStatesAtom
+  githubInstallationReposAtom,
+  githubInstallationReposKey,
+  githubOrgIntegrationAtom,
+  projectGitStatesAtom,
+  startGithubInstallAtom
 } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { meAtom } from "@/atoms/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +38,11 @@ type Props = {
 }
 
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
-  const canManage = callerRole === "owner" || callerRole === "admin"
+  const me = useAtomValue(meAtom)
+  const canManage =
+    callerRole === "owner" &&
+    Result.isSuccess(me) &&
+    me.value.activeOrgSlug === orgSlug
   const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
 
   const flag: "token_expired" | "scope" | "repo_gone" | null = useMemo(() => {
@@ -177,12 +185,30 @@ function ConnectedChip({
 }
 
 function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  const [query, setQuery] = useState("")
-  const repos = useAtomValue(githubReposAtom(query))
+  const orgIntegration = useAtomValue(githubOrgIntegrationAtom(orgSlug))
   const pKey = projectKey(orgSlug, slug)
   const connect = useAtomSet(connectGithubAtom(pKey))
   const connectState = useAtomValue(connectGithubAtom(pKey))
+  const startInstall = useAtomSet(startGithubInstallAtom(orgSlug), {
+    mode: "promise"
+  })
+  const startInstallState = useAtomValue(startGithubInstallAtom(orgSlug))
   const busy = connectState.waiting
+  const installing = startInstallState.waiting
+  const installError = installing
+    ? null
+    : Result.matchWithError(startInstallState, {
+        onInitial: () => null,
+        onSuccess: () => null,
+        onError: (error) =>
+          Match.value(error).pipe(
+            Match.tag("Forbidden", () =>
+              m.github_chip_install_app_forbidden_error()
+            ),
+            Match.orElse(() => m.github_chip_install_app_failed_error())
+          ),
+        onDefect: () => m.github_chip_install_app_failed_error()
+      })
   const errorString = connectState.waiting
     ? null
     : Result.matchWithError(connectState, {
@@ -204,11 +230,102 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
 
   function pick(repo: GithubRepo) {
     connect({
+      repoId: repo.id,
       repoOwner: repo.owner,
       repoName: repo.name,
-      defaultBaseBranch: null
+      defaultBaseBranch: repo.defaultBranch
     })
   }
+
+  async function installApp() {
+    try {
+      const result = await startInstall({ returnProjectSlug: slug })
+      window.location.assign(result.installUrl)
+    } catch {
+      return
+    }
+  }
+
+  if (Result.isInitial(orgIntegration)) {
+    return (
+      <div className="space-y-3 p-3">
+        <p className="text-sm text-muted-foreground">{m.chrome_loading()}</p>
+      </div>
+    )
+  }
+
+  if (Result.isFailure(orgIntegration)) {
+    return (
+      <div className="space-y-3 p-3">
+        <p className="text-sm text-destructive" role="alert">
+          {m.github_chip_install_app_failed_error()}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void installApp()}
+          disabled={installing}
+          className="w-full"
+        >
+          {installing
+            ? m.github_chip_install_app_loading()
+            : m.github_chip_install_app_button()}
+        </Button>
+      </div>
+    )
+  }
+
+  if (orgIntegration.value.status !== "active") {
+    return (
+      <div className="space-y-3 p-3">
+        <p className="text-sm text-muted-foreground">
+          {m.github_chip_install_app_required()}
+        </p>
+        {installError && (
+          <p className="text-xs text-destructive" role="alert">
+            {installError}
+          </p>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void installApp()}
+          disabled={installing}
+          className="w-full"
+        >
+          {installing
+            ? m.github_chip_install_app_loading()
+            : m.github_chip_install_app_button()}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <ActiveRepoList
+      orgSlug={orgSlug}
+      busy={busy}
+      errorString={errorString}
+      onPick={pick}
+    />
+  )
+}
+
+function ActiveRepoList({
+  orgSlug,
+  busy,
+  errorString,
+  onPick
+}: {
+  orgSlug: string
+  busy: boolean
+  errorString: string | null
+  onPick: (repo: GithubRepo) => void
+}) {
+  const [query, setQuery] = useState("")
+  const repos = useAtomValue(
+    githubInstallationReposAtom(githubInstallationReposKey(orgSlug, query))
+  )
 
   return (
     <div className="p-3">
@@ -258,7 +375,7 @@ function ConnectPanel({ orgSlug, slug }: { orgSlug: string; slug: string }) {
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => pick(repo)}
+                        onClick={() => onPick(repo)}
                         className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50"
                       >
                         <span className="min-w-0 flex-1 truncate font-mono">
@@ -301,6 +418,7 @@ function ManagePanel({
 
   async function saveBase() {
     await connect({
+      repoId: github.repoId,
       repoOwner: github.repoOwner,
       repoName: github.repoName,
       defaultBaseBranch: base.trim() || null

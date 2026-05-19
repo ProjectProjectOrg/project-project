@@ -43,8 +43,7 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
 
   const ticket = result.value
   const body = ticket.body.trim()
-  const isOverflowing =
-    body.split("\n").length > 6 || body.length > 320
+  const isOverflowing = body.split("\n").length > 6 || body.length > 320
 
   return (
     <div className="space-y-2">
@@ -83,7 +82,7 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
           <TicketGitChip
             orgSlug={scope.orgSlug}
             slug={scope.slug}
-            ticketId={ticketId}
+            ticket={ticket}
           />
         </div>
       )}

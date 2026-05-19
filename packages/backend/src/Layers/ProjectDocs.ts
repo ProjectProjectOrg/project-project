@@ -44,6 +44,9 @@ const ProjectDocMember = Schema.Struct({
 })
 
 const ProjectDocGithub = Schema.Struct({
+  repoId: Schema.optionalWith(Schema.String, {
+    default: () => ""
+  }),
   repoOwner: Schema.String,
   repoName: Schema.String,
   defaultBaseBranch: Schema.optionalWith(Schema.NullOr(Schema.String), {
@@ -108,6 +111,7 @@ function toFrontmatter(
   }
   if (document.github) {
     frontmatter.github = {
+      repoId: document.github.repoId,
       repoOwner: document.github.repoOwner,
       repoName: document.github.repoName,
       defaultBaseBranch: document.github.defaultBaseBranch

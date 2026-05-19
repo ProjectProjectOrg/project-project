@@ -64,8 +64,11 @@ import {
 import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 import { AppApi } from "@projectproject/shared"
 import { count } from "drizzle-orm"
+import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Redacted from "effect/Redacted"
+import { createHmac, timingSafeEqual } from "node:crypto"
 import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
@@ -79,6 +82,7 @@ import { McpHttpLive } from "./Layers/McpHttp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
+import { GitHubIntegrations } from "./Services/GitHubIntegrations"
 import { McpServerLive } from "./Layers/McpServer"
 
 // Exported so tests can compose them without booting a real Bun server.
@@ -155,9 +159,114 @@ const mcpRoute = Effect.gen(function* () {
   )
 )
 
+const badRequest = (message: string) =>
+  HttpServerResponse.text(message, { status: 400 })
+
+const githubSetupRoute = Effect.gen(function* () {
+  const integrations = yield* GitHubIntegrations
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const url = new URL(webReq.url)
+  const state = url.searchParams.get("state")
+  const installationId = url.searchParams.get("installation_id")
+  if (!state || !installationId) return badRequest("Missing GitHub setup state")
+  const { authorizeUrl } = yield* integrations.completeSetup(
+    state,
+    installationId
+  )
+  return HttpServerResponse.redirect(authorizeUrl)
+}).pipe(
+  Effect.catchTags({
+    NotFound: () =>
+      HttpServerResponse.text("GitHub setup expired", { status: 404 }),
+    GitHubError: () =>
+      HttpServerResponse.text("GitHub setup failed", { status: 500 })
+  }),
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("github setup route failure", cause),
+      HttpServerResponse.text("GitHub setup failed", { status: 500 })
+    )
+  )
+)
+
+const githubCallbackRoute = Effect.gen(function* () {
+  const integrations = yield* GitHubIntegrations
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const url = new URL(webReq.url)
+  const state = url.searchParams.get("state")
+  const code = url.searchParams.get("code")
+  if (!state || !code) return badRequest("Missing GitHub callback state")
+  const { redirectUrl } = yield* integrations.completeCallback(state, code)
+  return HttpServerResponse.redirect(redirectUrl)
+}).pipe(
+  Effect.catchTags({
+    NotFound: () =>
+      HttpServerResponse.text("GitHub callback expired", { status: 404 }),
+    Forbidden: () =>
+      HttpServerResponse.text("GitHub installation was not verified", {
+        status: 403
+      }),
+    GitHubError: () =>
+      HttpServerResponse.text("GitHub callback failed", { status: 500 })
+  }),
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("github callback route failure", cause),
+      HttpServerResponse.text("GitHub callback failed", { status: 500 })
+    )
+  )
+)
+
+const verifyGithubWebhook = (
+  body: string,
+  signature: string | null,
+  secret: string
+) => {
+  if (!signature?.startsWith("sha256=")) return false
+  const expected = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`
+  const actualBuffer = Buffer.from(signature)
+  const expectedBuffer = Buffer.from(expected)
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  )
+}
+
+const githubWebhookRoute = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const body = yield* Effect.promise(() => webReq.text())
+  const secret = yield* Config.redacted("GITHUB_APP_WEBHOOK_SECRET")
+  const verified = verifyGithubWebhook(
+    body,
+    webReq.headers.get("x-hub-signature-256"),
+    Redacted.value(secret)
+  )
+  if (!verified) {
+    return HttpServerResponse.text("Invalid signature", { status: 401 })
+  }
+  return HttpServerResponse.text("ok")
+}).pipe(
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("github webhook route failure", cause),
+      HttpServerResponse.text("GitHub webhook failed", { status: 500 })
+    )
+  )
+)
+
+const githubIntegrationRoutes = HttpRouter.empty.pipe(
+  HttpRouter.get("/setup", githubSetupRoute),
+  HttpRouter.get("/callback", githubCallbackRoute),
+  HttpRouter.post("/webhook", githubWebhookRoute)
+)
+
 const ServerLive = HttpApiBuilder.serve((apiApp) =>
   HttpRouter.empty.pipe(
     HttpRouter.mountApp("/api/auth", betterAuthApp),
+    HttpRouter.mountApp("/api/integrations/github", githubIntegrationRoutes),
     HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
@@ -169,6 +278,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   Layer.provide(ApiLive),
   Layer.provide(McpHttpLive),
   Layer.provide(McpServerLive),
+  Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 )

@@ -33,7 +33,7 @@ const projectsListBaseAtom = Atom.family((orgSlug: string) =>
 
 export const projectsListAtom = projectsListBaseAtom
 
-const projectBaseAtom = Atom.family((key: string) => {
+export const projectBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
     .atom(

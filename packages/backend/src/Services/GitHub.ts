@@ -30,24 +30,42 @@ export interface RawProjectStates {
   readonly prByBranch: ReadonlyMap<string, RawBranchEntry>
 }
 
+export interface GitHubInstallationAccount {
+  readonly installationId: string
+  readonly accountId: string
+  readonly accountLogin: string
+  readonly accountType: "User" | "Organization"
+}
+
+export interface VerifiedInstallationRepo {
+  readonly repoId: string
+  readonly owner: string
+  readonly name: string
+  readonly defaultBranch: string
+}
+
 export interface GitHubShape {
-  readonly listUserRepos: (
-    userId: string,
+  readonly getInstallationAccount: (
+    installationId: string
+  ) => Effect.Effect<GitHubInstallationAccount, RepoGone | GitHubError>
+  readonly listInstallationRepos: (
+    installationId: string,
     query: string | undefined,
     page: number
-  ) => Effect.Effect<
-    GithubRepoPage,
-    GitHubTokenExpired | GitHubScopeInsufficient | GitHubError
-  >
-  readonly verifyAccess: (
+  ) => Effect.Effect<GithubRepoPage, RepoGone | RateLimited | GitHubError>
+  readonly verifyInstallationRepo: (
+    installationId: string,
     owner: string,
-    name: string,
-    userId: string
-  ) => Effect.Effect<
-    { defaultBranch: string },
-    GitHubTokenExpired | GitHubScopeInsufficient | RepoGone | GitHubError
-  >
-  readonly createBranch: (
+    name: string
+  ) => Effect.Effect<VerifiedInstallationRepo, RepoGone | GitHubError>
+  readonly exchangeAppUserCode: (
+    code: string
+  ) => Effect.Effect<string, GitHubError>
+  readonly appUserCanAccessInstallation: (
+    userAccessToken: string,
+    installationId: string
+  ) => Effect.Effect<boolean, GitHubError>
+  readonly createBranchAsUser: (
     owner: string,
     name: string,
     branchName: string,
@@ -63,7 +81,7 @@ export interface GitHubShape {
     | RateLimited
     | GitHubError
   >
-  readonly openPullRequest: (
+  readonly openPullRequestAsUser: (
     owner: string,
     name: string,
     args: {
@@ -83,45 +101,25 @@ export interface GitHubShape {
     | RateLimited
     | GitHubError
   >
-  readonly fetchProjectStates: (
+  readonly fetchInstallationProjectStates: (
+    installationId: string,
     owner: string,
     name: string,
-    userId: string
-  ) => Effect.Effect<
-    RawProjectStates,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
-  readonly listBranches: (
+    branches: ReadonlyArray<string>
+  ) => Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError>
+  readonly listInstallationBranches: (
+    installationId: string,
     owner: string,
     name: string,
     query: string | undefined,
-    first: number,
-    userId: string
-  ) => Effect.Effect<
-    BranchListResponse,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
-  readonly branchExists: (
+    first: number
+  ) => Effect.Effect<BranchListResponse, RepoGone | RateLimited | GitHubError>
+  readonly branchExistsInstallation: (
+    installationId: string,
     owner: string,
     name: string,
-    branch: string,
-    userId: string
-  ) => Effect.Effect<
-    boolean,
-    | GitHubTokenExpired
-    | GitHubScopeInsufficient
-    | RepoGone
-    | RateLimited
-    | GitHubError
-  >
+    branch: string
+  ) => Effect.Effect<boolean, RepoGone | RateLimited | GitHubError>
 }
 
 export class GitHub extends Context.Tag(

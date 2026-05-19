@@ -56,7 +56,7 @@ function SprintBoardCardImpl({
           {ticket.id}
         </span>
         <div className="flex min-w-0 flex-1 items-center">
-          <TicketGitChip orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
+          <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
         </div>
         <AssigneeRowTrigger
           orgSlug={orgSlug}

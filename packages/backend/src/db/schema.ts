@@ -76,6 +76,10 @@ export const projectIndex = pgTable(
       .defaultNow()
   },
   (table) => [
+    uniqueIndex("project_index_id_organization_uidx").on(
+      table.id,
+      table.organizationId
+    ),
     uniqueIndex("project_index_organization_key_uidx").on(
       table.organizationId,
       table.key
@@ -156,6 +160,178 @@ export const projectTag = pgTable(
   ]
 )
 
+export const organizationIntegration = pgTable(
+  "organization_integration",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: ["github"] }).notNull(),
+    status: text("status", {
+      enum: ["active", "disconnected", "broken"]
+    }).notNull(),
+    connectedAt: timestamp("connected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    lastCheckStatus: text("last_check_status", { enum: ["ok", "error"] }),
+    lastCheckError: text("last_check_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("organization_integration_id_org_uidx").on(
+      t.id,
+      t.organizationId
+    ),
+    uniqueIndex("organization_integration_active_provider_uidx")
+      .on(t.organizationId, t.provider)
+      .where(sql`${t.status} = 'active'`),
+    index("organization_integration_org_idx").on(t.organizationId)
+  ]
+)
+
+export const organizationGithubIntegration = pgTable(
+  "organization_github_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .primaryKey()
+      .references(() => organizationIntegration.id, { onDelete: "cascade" }),
+    installationId: text("installation_id").notNull(),
+    githubAccountId: text("github_account_id").notNull(),
+    githubAccountLogin: text("github_account_login").notNull(),
+    githubAccountType: text("github_account_type", {
+      enum: ["User", "Organization"]
+    }).notNull()
+  },
+  (t) => [
+    uniqueIndex("organization_github_integration_installation_uidx").on(
+      t.installationId
+    )
+  ]
+)
+
+export const githubAppInstallSession = pgTable(
+  "github_app_install_session",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    returnProjectId: uuid("return_project_id"),
+    returnProjectOrgId: text("return_project_org_id"),
+    stateHash: text("state_hash").notNull().unique(),
+    installationId: text("installation_id"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    foreignKey({
+      name: "github_app_install_session_return_project_fkey",
+      columns: [t.returnProjectId, t.returnProjectOrgId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("set null"),
+    index("github_app_install_session_org_idx").on(t.organizationId)
+  ]
+)
+
+export const projectIntegrationLink = pgTable(
+  "project_integration_link",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    organizationIntegrationId: uuid("organization_integration_id").notNull(),
+    provider: text("provider", { enum: ["github"] }).notNull(),
+    status: text("status", {
+      enum: ["active", "disconnected", "broken"]
+    }).notNull(),
+    connectedAt: timestamp("connected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    lastCheckStatus: text("last_check_status", { enum: ["ok", "error"] }),
+    lastCheckError: text("last_check_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("project_integration_link_id_org_uidx").on(
+      t.id,
+      t.organizationId
+    ),
+    foreignKey({
+      name: "project_integration_link_project_id_organization_id_fkey",
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projectIndex.id, projectIndex.organizationId]
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "project_integration_link_org_integration_id_organization_id_fkey",
+      columns: [t.organizationIntegrationId, t.organizationId],
+      foreignColumns: [
+        organizationIntegration.id,
+        organizationIntegration.organizationId
+      ]
+    }),
+    uniqueIndex("project_integration_link_active_provider_uidx")
+      .on(t.projectId, t.provider)
+      .where(sql`${t.status} = 'active'`),
+    index("project_integration_link_project_idx").on(t.projectId),
+    index("project_integration_link_org_integration_idx").on(
+      t.organizationIntegrationId
+    )
+  ]
+)
+
+export const projectGithubRepository = pgTable(
+  "project_github_repository",
+  {
+    projectIntegrationLinkId: uuid("project_integration_link_id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    status: text("status", {
+      enum: ["active", "disconnected", "broken"]
+    }).notNull(),
+    repoId: text("repo_id").notNull(),
+    repoOwner: text("repo_owner").notNull(),
+    repoName: text("repo_name").notNull(),
+    defaultBranch: text("default_branch").notNull()
+  },
+  (t) => [
+    foreignKey({
+      name: "project_github_repository_link_id_organization_id_fkey",
+      columns: [t.projectIntegrationLinkId, t.organizationId],
+      foreignColumns: [
+        projectIntegrationLink.id,
+        projectIntegrationLink.organizationId
+      ]
+    }).onDelete("cascade"),
+    uniqueIndex("project_github_repository_active_repo_uidx")
+      .on(t.organizationId, t.repoId)
+      .where(sql`${t.status} = 'active'`)
+  ]
+)
+
 export const projectIndexRelations = relations(
   projectIndex,
   ({ one, many }) => ({
@@ -165,7 +341,8 @@ export const projectIndexRelations = relations(
     }),
     members: many(projectMember),
     inviteGrants: many(projectInviteGrant),
-    tags: many(projectTag)
+    tags: many(projectTag),
+    integrationLinks: many(projectIntegrationLink)
   })
 )
 
@@ -204,6 +381,78 @@ export const projectTagRelations = relations(projectTag, ({ one }) => ({
     references: [user.id]
   })
 }))
+
+export const organizationIntegrationRelations = relations(
+  organizationIntegration,
+  ({ one, many }) => ({
+    organization: one(organization, {
+      fields: [organizationIntegration.organizationId],
+      references: [organization.id]
+    }),
+    github: one(organizationGithubIntegration),
+    projectLinks: many(projectIntegrationLink)
+  })
+)
+
+export const githubAppInstallSessionRelations = relations(
+  githubAppInstallSession,
+  ({ one }) => ({
+    organization: one(organization, {
+      fields: [githubAppInstallSession.organizationId],
+      references: [organization.id]
+    }),
+    user: one(user, {
+      fields: [githubAppInstallSession.userId],
+      references: [user.id]
+    }),
+    returnProject: one(projectIndex, {
+      fields: [
+        githubAppInstallSession.returnProjectId,
+        githubAppInstallSession.returnProjectOrgId
+      ],
+      references: [projectIndex.id, projectIndex.organizationId]
+    })
+  })
+)
+
+export const organizationGithubIntegrationRelations = relations(
+  organizationGithubIntegration,
+  ({ one }) => ({
+    integration: one(organizationIntegration, {
+      fields: [organizationGithubIntegration.organizationIntegrationId],
+      references: [organizationIntegration.id]
+    })
+  })
+)
+
+export const projectIntegrationLinkRelations = relations(
+  projectIntegrationLink,
+  ({ one }) => ({
+    project: one(projectIndex, {
+      fields: [projectIntegrationLink.projectId],
+      references: [projectIndex.id]
+    }),
+    organization: one(organization, {
+      fields: [projectIntegrationLink.organizationId],
+      references: [organization.id]
+    }),
+    organizationIntegration: one(organizationIntegration, {
+      fields: [projectIntegrationLink.organizationIntegrationId],
+      references: [organizationIntegration.id]
+    }),
+    githubRepository: one(projectGithubRepository)
+  })
+)
+
+export const projectGithubRepositoryRelations = relations(
+  projectGithubRepository,
+  ({ one }) => ({
+    projectLink: one(projectIntegrationLink, {
+      fields: [projectGithubRepository.projectIntegrationLinkId],
+      references: [projectIntegrationLink.id]
+    })
+  })
+)
 
 export const commentIndex = pgTable(
   "comment_index",

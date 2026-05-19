@@ -24,20 +24,22 @@ import { m } from "@/paraglide/messages"
 import type {
   GitState,
   GithubConnection,
-  TicketDetail,
-  TicketId
+  Ticket,
+  TicketDetail
 } from "@projectproject/shared"
 
 function useGitState(
   orgSlug: string,
   slug: string,
-  ticketId: string
+  ticket: Pick<Ticket, "id" | "gitState">
 ): { state: GitState | null; waiting: boolean } {
   const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
-  if (!Result.isSuccess(states)) return { state: null, waiting: false }
-  const entry = states.value.states[ticketId]
+  if (!Result.isSuccess(states)) {
+    return { state: ticket.gitState, waiting: true }
+  }
+  const entry = states.value.states[ticket.id]
   return {
-    state: entry ?? { tag: "no_branch" },
+    state: entry ?? ticket.gitState,
     waiting: states.waiting
   }
 }
@@ -60,19 +62,19 @@ function checksColor(s: string): string {
 export function TicketGitChip({
   orgSlug,
   slug,
-  ticketId
+  ticket
 }: {
   orgSlug: string
   slug: string
-  ticketId: TicketId
+  ticket: Pick<Ticket, "id" | "gitState">
 }) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticketId)
+  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   const project = useProject()
+  if (!project.github) return <span aria-hidden />
   if (!state || state.tag === "no_branch") return <span aria-hidden />
-  const pulse = waiting && "animate-pulse"
-  const repoSlug = project.github
-    ? `${project.github.repoOwner}/${project.github.repoName}`
-    : null
+  const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
+  const pulse = (waiting || pending) && "animate-pulse"
+  const repoSlug = `${project.github.repoOwner}/${project.github.repoName}`
 
   if (state.tag === "stale_branch") {
     return (
@@ -88,26 +90,10 @@ export function TicketGitChip({
     )
   }
 
-  if (state.tag === "branch_no_pr") {
-    if (!repoSlug) {
-      return (
-        <Badge
-          tone="muted"
-          size="xs"
-          className={cn("font-mono", pulse)}
-          title={state.name}
-        >
-          <GitBranch strokeWidth={1.75} />
-          {truncate(state.name)}
-        </Badge>
-      )
-    }
+  if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
     return (
       <span
-        className={cn(
-          "inline-flex min-w-0 max-w-full items-center",
-          pulse
-        )}
+        className={cn("inline-flex min-w-0 max-w-full items-center", pulse)}
       >
         <BranchChip
           slug={repoSlug}
@@ -128,6 +114,14 @@ export function TicketGitChip({
           tone={state.draft ? "draft" : "open"}
           checks={state.checks}
         />
+      </span>
+    )
+  }
+
+  if (state.tag === "pr_pending") {
+    return (
+      <span className={cn(pulse)}>
+        <PrLink number={state.number} url={state.url} tone="open" />
       </span>
     )
   }
@@ -166,7 +160,7 @@ export function TicketGitPanel({
   branchTemplate: string | null
   variant?: "bordered" | "ghost"
 }) {
-  const { state, waiting } = useGitState(orgSlug, slug, ticket.id)
+  const { state, waiting } = useGitState(orgSlug, slug, ticket)
   if (!github) return null
   if (state === null) {
     return (
@@ -209,7 +203,8 @@ function PanelForState({
   variant: "bordered" | "ghost"
 }) {
   const repoSlug = `${github.repoOwner}/${github.repoName}`
-  const pulse = waiting && "animate-pulse"
+  const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
+  const pulse = (waiting || pending) && "animate-pulse"
   const panelChrome = variant === "bordered" ? PANEL_CHROME : undefined
   const buttonSize = variant === "bordered" ? "sm" : "xs"
 
@@ -281,8 +276,8 @@ function PanelForState({
     )
   }
 
-  if (state.tag === "branch_no_pr") {
-    const baseBranch = github.defaultBaseBranch ?? "main"
+  if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
+    const baseBranch = state.baseBranch ?? github.defaultBaseBranch ?? "main"
     const Root = InlineForm.Root<"clear">
     return (
       <Root variant={variant} className={GIT_PANEL_CONTAINER}>
@@ -342,6 +337,18 @@ function PanelForState({
     )
   }
 
+  if (state.tag === "pr_pending") {
+    return (
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
+        <div className={cn(ROW_STACK, pulse)}>
+          <BranchChip slug={repoSlug} name={state.branch} />
+          <PrLink number={state.number} url={state.url} tone="open" />
+          <span className={WRAPPABLE_TEXT}>{m.git_live_state_pending()}</span>
+        </div>
+      </div>
+    )
+  }
+
   if (state.tag === "pr_merged") {
     return (
       <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
@@ -357,7 +364,7 @@ function PanelForState({
   }
 
   if (state.tag === "pr_closed") {
-    const baseBranch = github.defaultBaseBranch ?? "main"
+    const baseBranch = state.baseBranch ?? github.defaultBaseBranch ?? "main"
     return (
       <div className={cn(panelChrome, GIT_PANEL_CONTAINER, ROW_STACK)}>
         <div className={cn("flex items-center gap-2", pulse)}>
@@ -429,8 +436,7 @@ function PanelForState({
 
 const PANEL_CHROME = "rounded-lg border border-border bg-background px-3 py-2"
 const GIT_PANEL_CONTAINER = "@container/git-panel"
-const IDLE_STACK =
-  "@max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch"
+const IDLE_STACK = "@max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch"
 const ACTIONS_STACK =
   "@max-sm/git-panel:ml-0 @max-3xs/git-panel:flex-col @max-3xs/git-panel:items-stretch"
 const ROW_STACK =
