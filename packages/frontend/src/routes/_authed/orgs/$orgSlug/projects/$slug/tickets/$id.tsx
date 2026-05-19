@@ -3,17 +3,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { useEffect, useRef } from "react"
 import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from "@/components/ui/empty"
+import { ErrorPage } from "@/components/ErrorPage"
+import { NotFoundPage } from "@/components/NotFoundPage"
 import { TicketId } from "@projectproject/shared"
 import { ticketAtom, ticketBaseAtom, ticketKey } from "@/atoms/tickets"
 import { m } from "@/paraglide/messages"
-import { CircleDashed } from "lucide-react"
 import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -66,12 +60,17 @@ function TicketDetailRoute() {
 
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,
-    onError: (error) => (
-      <NotFound message={m.tickets_detail_load_error({ error: error._tag })} />
-    ),
-    onDefect: (defect) => (
-      <NotFound message={m.tickets_detail_defect({ defect: String(defect) })} />
-    ),
+    onError: (error) =>
+      error._tag === "NotFound" ? (
+        <NotFoundPage
+          contained
+          title={m.tickets_not_found_title()}
+          body={m.tickets_not_found_body()}
+        />
+      ) : (
+        <ErrorPage contained error={error} />
+      ),
+    onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
       <TicketPage
         orgSlug={orgSlug}
@@ -83,25 +82,4 @@ function TicketDetailRoute() {
       />
     )
   })
-}
-
-function NotFound({ message }: { message: string }) {
-  return (
-    <Empty
-      variant="inline"
-      className="mx-auto w-full max-w-6xl border border-dashed border-border"
-    >
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <CircleDashed strokeWidth={1.75} />
-        </EmptyMedia>
-        <EmptyTitle className="text-sm font-medium">
-          {m.tickets_empty_title()}
-        </EmptyTitle>
-        <EmptyDescription className="max-w-md text-xs">
-          {message}
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  )
 }

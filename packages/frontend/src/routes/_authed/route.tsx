@@ -9,7 +9,9 @@ import {
 import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
+import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
+import { ErrorPage } from "@/components/ErrorPage"
 import { Logo, Wordmark } from "@/components/Logo"
 import {
   SidebarSlotProvider,
@@ -41,11 +43,7 @@ function AuthedLayout() {
   return Result.matchWithError(me, {
     onInitial: () => <FullPageStatus>{m.chrome_loading()}</FullPageStatus>,
     onError: () => <Navigate to="/login" replace />,
-    onDefect: (defect) => (
-      <FullPageStatus>
-        {m.chrome_defect({ defect: String(defect) })}
-      </FullPageStatus>
-    ),
+    onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => {
       const redirect = authedRouteRedirect(pathname, value.activeOrgSlug)
       if (redirect?.to === "/welcome") {
@@ -164,16 +162,116 @@ function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           exact
         />
       )}
-      {orgSlug && (
-        <NavItem
-          to="/orgs/$orgSlug/projects"
-          params={{ orgSlug }}
-          icon={FolderKanban}
-          label={m.chrome_sidebar_projects()}
-        />
-      )}
+      {orgSlug && <ProjectsGroup orgSlug={orgSlug} />}
     </nav>
   )
+}
+
+function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
+  const { pathname } = useLocation()
+  const reduceMotion = useReducedMotion()
+  const projectsBase = `/orgs/${orgSlug}/projects`
+  const expanded =
+    pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
+  const listResult = useAtomValue(projectsListAtom(orgSlug))
+  const projects = Result.isSuccess(listResult)
+    ? [...listResult.value].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      )
+    : []
+  const activeSlug = matchActiveProjectSlug(pathname, orgSlug)
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg transition-colors",
+        expanded && "bg-accent"
+      )}
+    >
+      <NavItem
+        to="/orgs/$orgSlug/projects"
+        params={{ orgSlug }}
+        icon={FolderKanban}
+        label={m.chrome_sidebar_projects()}
+      />
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            key="projects-list"
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <ul className="flex flex-col gap-0.5 pb-2">
+              {projects.map((p) => (
+                <ProjectsGroupRow
+                  key={p.slug}
+                  orgSlug={orgSlug}
+                  slug={p.slug}
+                  name={p.name}
+                  icon={p.icon}
+                  active={p.slug === activeSlug}
+                />
+              ))}
+            </ul>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ProjectsGroupRow({
+  orgSlug,
+  slug,
+  name,
+  icon,
+  active
+}: {
+  orgSlug: string
+  slug: string
+  name: string
+  icon: string
+  active: boolean
+}) {
+  return (
+    <li>
+      <Link
+        to="/orgs/$orgSlug/projects/$slug"
+        params={{ orgSlug, slug }}
+        className={cn(
+          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+          active
+            ? "font-medium text-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none transition-[filter,opacity] duration-150",
+            !active && "opacity-60 grayscale"
+          )}
+        >
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+      </Link>
+    </li>
+  )
+}
+
+function matchActiveProjectSlug(
+  pathname: string,
+  orgSlug: string
+): string | null {
+  const prefix = `/orgs/${orgSlug}/projects/`
+  if (!pathname.startsWith(prefix)) return null
+  const rest = pathname.slice(prefix.length)
+  const slug = rest.split("/")[0]
+  return slug.length > 0 ? slug : null
 }
 
 type NavItemProps =
@@ -207,12 +305,12 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
       to={to}
       params={params as never}
       activeOptions={{ exact: exact ?? false }}
-      className={cn(
-        base,
-        "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-      )}
+      className={base}
+      inactiveProps={{
+        className: "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      }}
       activeProps={{
-        className: cn(base, "bg-accent text-foreground font-medium")
+        className: "bg-accent text-foreground font-medium"
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />

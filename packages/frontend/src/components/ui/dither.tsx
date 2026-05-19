@@ -52,6 +52,8 @@ export interface DitherProps {
   cardWellEnabled?: boolean
   cardFalloff?: number
   cardCornerRadius?: number
+  introDuration?: number
+  introSpeed?: number
   className?: string
   style?: CSSProperties
 }
@@ -114,6 +116,8 @@ uniform vec2 u_cardHalfSize;
 uniform float u_cardRadius;
 uniform float u_cardFalloff;
 uniform float u_cardActive;
+
+uniform float u_reveal;
 
 out vec4 fragColor;
 
@@ -274,6 +278,7 @@ void main() {
   float shape = clamp(n + u_bias, 0.0, 1.0);
   float edge = clamp(0.5 - u_contrast, 0.0, 0.5);
   shape = smoothstep(edge, 1.0 - edge, shape);
+  shape *= u_reveal;
 
   if (u_cardActive > 0.5) {
     float cardSdf = roundedBoxSdf(
@@ -398,6 +403,8 @@ export function Dither({
   cardWellEnabled = false,
   cardFalloff = 80,
   cardCornerRadius = 16,
+  introDuration = 1200,
+  introSpeed = 0.5,
   className,
   style
 }: DitherProps) {
@@ -429,7 +436,9 @@ export function Dither({
     cardRef,
     cardWellEnabled,
     cardFalloff,
-    cardCornerRadius
+    cardCornerRadius,
+    introDuration,
+    introSpeed
   })
 
   useLayoutEffect(() => {
@@ -452,7 +461,9 @@ export function Dither({
       cardRef,
       cardWellEnabled,
       cardFalloff,
-      cardCornerRadius
+      cardCornerRadius,
+      introDuration,
+      introSpeed
     }
   }, [
     speed,
@@ -473,7 +484,9 @@ export function Dither({
     cardRef,
     cardWellEnabled,
     cardFalloff,
-    cardCornerRadius
+    cardCornerRadius,
+    introDuration,
+    introSpeed
   ])
 
   const themeRevision = useThemeRevision()
@@ -558,13 +571,15 @@ export function Dither({
       u_cardHalfSize: gl.getUniformLocation(program, "u_cardHalfSize"),
       u_cardRadius: gl.getUniformLocation(program, "u_cardRadius"),
       u_cardFalloff: gl.getUniformLocation(program, "u_cardFalloff"),
-      u_cardActive: gl.getUniformLocation(program, "u_cardActive")
+      u_cardActive: gl.getUniformLocation(program, "u_cardActive"),
+      u_reveal: gl.getUniformLocation(program, "u_reveal")
     }
 
     gl.useProgram(program)
 
     let rafId = 0
     let elapsed = 0
+    let introElapsed = 0
     let lastFrame = performance.now()
     let lastDrawAt = -Infinity
     let forceDraw = false
@@ -625,18 +640,29 @@ export function Dither({
       lastFrame = now
       const cur = propsRef.current
       const animate = !cur.disableAnimation && !prefersReducedMotion
-      if (animate) elapsed += dt
+      const introDur = prefersReducedMotion ? 0 : cur.introDuration
+      const introActive = introDur > 0 && introElapsed < introDur
+      if (introActive) introElapsed = Math.min(introElapsed + dt, introDur)
+      const introU =
+        introDur > 0 ? Math.min(introElapsed / introDur, 1) : 1
+      const reveal = introU >= 1 ? 1 : 1 - Math.pow(1 - introU, 2)
+      const speedProgress = introU >= 1 ? 1 : 1 - Math.pow(1 - introU, 3)
+      const effectiveSpeed =
+        introU >= 1
+          ? cur.speed
+          : cur.introSpeed + (cur.speed - cur.introSpeed) * speedProgress
+      if (animate || introActive) elapsed += dt
       const dtSec = dt / 1000
       for (let i = ripples.length - 1; i >= 0; i--) {
         ripples[i].age += dtSec
         if (ripples[i].age >= RIPPLE_LIFETIME_SEC) ripples.splice(i, 1)
       }
       if (forceDraw || now - lastDrawAt >= FRAME_GATE_MS) {
-        draw(cur)
+        draw(cur, reveal, effectiveSpeed)
         lastDrawAt = now
         forceDraw = false
       }
-      if (animate || ripples.length > 0) {
+      if (animate || ripples.length > 0 || introActive) {
         rafId = requestAnimationFrame(tick)
       }
     }
@@ -648,11 +674,16 @@ export function Dither({
       rafId = requestAnimationFrame(tick)
     }
 
-    const draw = (cur: typeof propsRef.current) => {
+    const draw = (
+      cur: typeof propsRef.current,
+      reveal: number,
+      effectiveSpeed: number
+    ) => {
       const fg = parsedColorsRef.current.front
       const bg = parsedColorsRef.current.back
+      gl.uniform1f(uniforms.u_reveal, reveal)
       gl.uniform1f(uniforms.u_time, elapsed * 0.001)
-      gl.uniform1f(uniforms.u_speed, cur.speed)
+      gl.uniform1f(uniforms.u_speed, effectiveSpeed)
       gl.uniform1i(uniforms.u_octaves, Math.max(1, Math.min(8, cur.octaves)))
       gl.uniform1f(uniforms.u_frequency, cur.frequency)
       gl.uniform1f(uniforms.u_amplitude, cur.amplitude)

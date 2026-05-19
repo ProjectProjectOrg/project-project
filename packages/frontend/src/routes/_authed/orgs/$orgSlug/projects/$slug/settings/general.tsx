@@ -9,6 +9,7 @@ import {
 } from "@/atoms/projects"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
+import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProjectRole } from "@/lib/projectRole"
@@ -57,6 +58,19 @@ function GeneralSettings() {
   return (
     <div className="flex w-full flex-col gap-8">
       <section className="flex flex-col gap-4">
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">
+            {m.project_settings_identity_label()}
+          </span>
+          <ProjectIdentityEditor
+            orgSlug={orgSlug}
+            slug={project.slug}
+            icon={project.icon}
+            color={project.color}
+            canEdit={canEdit}
+            size="settings"
+          />
+        </div>
         <form onSubmit={onNameSubmit} className="grid gap-2">
           <label className="text-sm font-medium" htmlFor="project-name">
             {m.project_settings_name_label()}
