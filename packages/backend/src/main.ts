@@ -17,13 +17,15 @@
 // WHAT'S IN THIS FILE
 // ----------------------------------------------------------------------------
 // Handler groups implement the contract from `@projectproject/shared`, and the
-// runtime module provides the service graph they call into. Two mounts under
+// runtime module provides the service graph they call into. Three mounts under
 // the shared `/api` namespace coexist on the same
 // Bun server:
 //
 //   - `/api/auth/*` — handed off to Better Auth's own request handler,
 //                     mounted as a raw web app (it has its own routing,
 //                     schemas, and cookie management).
+//   - `/api/integrations/github/*` — GitHub App setup, OAuth callback, and
+//                                    webhook endpoints.
 //   - `/api/*`      — handled by the typed HttpApi pipeline (`/api/me`,
 //                     `/api/health`, `/api/db/ping`).
 //
@@ -65,6 +67,7 @@ import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
 import { AppApi } from "@projectproject/shared"
 import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
@@ -83,6 +86,8 @@ import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
 import { GitHubIntegrations } from "./Services/GitHubIntegrations"
+import { GitHubWebhooks } from "./Services/GitHubWebhooks"
+import { GitHubWebhooksLive } from "./Layers/GitHubWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 
 // Exported so tests can compose them without booting a real Bun server.
@@ -219,7 +224,7 @@ const githubCallbackRoute = Effect.gen(function* () {
   )
 )
 
-const verifyGithubWebhook = (
+export const verifyGithubWebhook = (
   body: string,
   signature: string | null,
   secret: string
@@ -234,10 +239,71 @@ const verifyGithubWebhook = (
   )
 }
 
-const githubWebhookRoute = Effect.gen(function* () {
+export const GITHUB_WEBHOOK_MAX_BODY_BYTES = 25 * 1024 * 1024
+
+class GithubWebhookBodyTooLarge extends Data.TaggedError(
+  "GithubWebhookBodyTooLarge"
+)<{}> {}
+
+class GithubWebhookBodyReadError extends Data.TaggedError(
+  "GithubWebhookBodyReadError"
+)<{ readonly cause: unknown }> {}
+
+export const readGithubWebhookBody = (
+  webReq: Request,
+  maxBytes = GITHUB_WEBHOOK_MAX_BODY_BYTES
+) =>
+  Effect.tryPromise({
+    try: async () => {
+      const lengthHeader = webReq.headers.get("content-length")
+      const contentLength = lengthHeader === null ? null : Number(lengthHeader)
+      if (
+        contentLength !== null &&
+        Number.isFinite(contentLength) &&
+        contentLength > maxBytes
+      ) {
+        throw new GithubWebhookBodyTooLarge()
+      }
+
+      const reader = webReq.body?.getReader()
+      if (!reader) return ""
+
+      const decoder = new TextDecoder()
+      const chunks: Array<string> = []
+      let bytes = 0
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        bytes += value.byteLength
+        if (bytes > maxBytes) {
+          await reader.cancel()
+          throw new GithubWebhookBodyTooLarge()
+        }
+        chunks.push(decoder.decode(value, { stream: true }))
+      }
+
+      chunks.push(decoder.decode())
+      return chunks.join("")
+    },
+    catch: (cause) =>
+      cause instanceof GithubWebhookBodyTooLarge
+        ? cause
+        : new GithubWebhookBodyReadError({ cause })
+  })
+
+export const githubWebhookRoute = Effect.gen(function* () {
+  const webhooks = yield* GitHubWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
-  const body = yield* Effect.promise(() => webReq.text())
+  const body = yield* readGithubWebhookBody(webReq).pipe(
+    Effect.catchTag("GithubWebhookBodyTooLarge", () => Effect.succeed(null))
+  )
+  if (body === null) {
+    return HttpServerResponse.text("GitHub webhook payload too large", {
+      status: 413
+    })
+  }
   const secret = yield* Config.redacted("GITHUB_APP_WEBHOOK_SECRET")
   const verified = verifyGithubWebhook(
     body,
@@ -247,6 +313,15 @@ const githubWebhookRoute = Effect.gen(function* () {
   if (!verified) {
     return HttpServerResponse.text("Invalid signature", { status: 401 })
   }
+  const event = webReq.headers.get("x-github-event")
+  if (!event) {
+    return badRequest("Missing GitHub event")
+  }
+  yield* webhooks.handle({
+    event,
+    deliveryId: webReq.headers.get("x-github-delivery"),
+    body
+  })
   return HttpServerResponse.text("ok")
 }).pipe(
   Effect.catchAllCause((cause) =>
@@ -278,6 +353,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   Layer.provide(ApiLive),
   Layer.provide(McpHttpLive),
   Layer.provide(McpServerLive),
+  Layer.provide(GitHubWebhooksLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))

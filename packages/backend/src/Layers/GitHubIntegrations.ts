@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "@effect/sql/SqlClient"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { randomBytes, createHash } from "node:crypto"
 import {
   Forbidden,
@@ -17,7 +17,8 @@ import {
   organization,
   organizationGithubIntegration,
   organizationIntegration,
-  projectIndex
+  projectIndex,
+  projectIntegrationLink
 } from "../db/schema"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
@@ -72,7 +73,7 @@ export const GitHubIntegrationsLive = Layer.effect(
         return org
       })
 
-    const activeOrgGithub = (organizationId: string) =>
+    const connectedOrgGithub = (organizationId: string) =>
       db
         .select({
           integrationId: organizationIntegration.id,
@@ -95,7 +96,7 @@ export const GitHubIntegrationsLive = Layer.effect(
           and(
             eq(organizationIntegration.organizationId, organizationId),
             eq(organizationIntegration.provider, "github"),
-            isNull(organizationIntegration.disconnectedAt)
+            inArray(organizationIntegration.status, ["active", "broken"])
           )
         )
         .limit(1)
@@ -110,7 +111,7 @@ export const GitHubIntegrationsLive = Layer.effect(
     ): Effect.Effect<GithubOrgIntegrationStatus, NotFound> =>
       Effect.gen(function* () {
         const org = yield* currentOrg.resolve(orgSlug, userId)
-        const row = yield* activeOrgGithub(org.organizationId)
+        const row = yield* connectedOrgGithub(org.organizationId)
         if (!row) {
           return {
             status: "not_connected",
@@ -144,7 +145,7 @@ export const GitHubIntegrationsLive = Layer.effect(
             ? null
             : yield* db.query.projectIndex
                 .findFirst({
-            columns: { id: true, organizationId: true },
+                  columns: { id: true, organizationId: true },
                   where: and(
                     eq(projectIndex.organizationId, org.organizationId),
                     eq(projectIndex.slug, returnProjectSlug)
@@ -233,6 +234,30 @@ export const GitHubIntegrationsLive = Layer.effect(
         yield* sql
           .withTransaction(
             Effect.gen(function* () {
+              const previousGithubIntegrations = yield* db
+                .select({ id: organizationIntegration.id })
+                .from(organizationIntegration)
+                .innerJoin(
+                  organizationGithubIntegration,
+                  eq(
+                    organizationGithubIntegration.organizationIntegrationId,
+                    organizationIntegration.id
+                  )
+                )
+                .where(
+                  and(
+                    eq(
+                      organizationIntegration.organizationId,
+                      session.organizationId
+                    ),
+                    eq(organizationIntegration.provider, "github")
+                  )
+                )
+                .pipe(Effect.orDie)
+              const previousIntegrationIds = previousGithubIntegrations.map(
+                (integration) => integration.id
+              )
+
               yield* db
                 .update(organizationIntegration)
                 .set({
@@ -247,10 +272,25 @@ export const GitHubIntegrationsLive = Layer.effect(
                       session.organizationId
                     ),
                     eq(organizationIntegration.provider, "github"),
-                    isNull(organizationIntegration.disconnectedAt)
+                    inArray(organizationIntegration.status, [
+                      "active",
+                      "broken"
+                    ])
                   )
                 )
                 .pipe(Effect.orDie)
+
+              yield* previousIntegrationIds.length === 0
+                ? Effect.void
+                : db
+                    .delete(organizationGithubIntegration)
+                    .where(
+                      inArray(
+                        organizationGithubIntegration.organizationIntegrationId,
+                        previousIntegrationIds
+                      )
+                    )
+                    .pipe(Effect.orDie)
 
               const [created] = yield* db
                 .insert(organizationIntegration)
@@ -274,6 +314,33 @@ export const GitHubIntegrationsLive = Layer.effect(
                   githubAccountType: account.accountType
                 })
                 .pipe(Effect.orDie)
+
+              yield* previousIntegrationIds.length === 0
+                ? Effect.void
+                : db
+                    .update(projectIntegrationLink)
+                    .set({
+                      organizationIntegrationId: created.id,
+                      updatedAt: now
+                    })
+                    .where(
+                      and(
+                        eq(
+                          projectIntegrationLink.organizationId,
+                          session.organizationId
+                        ),
+                        eq(projectIntegrationLink.provider, "github"),
+                        inArray(projectIntegrationLink.status, [
+                          "active",
+                          "broken"
+                        ]),
+                        inArray(
+                          projectIntegrationLink.organizationIntegrationId,
+                          previousIntegrationIds
+                        )
+                      )
+                    )
+                    .pipe(Effect.orDie)
 
               yield* db
                 .update(githubAppInstallSession)
@@ -320,7 +387,7 @@ export const GitHubIntegrationsLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const org = yield* requireOrgOwner(orgSlug, userId)
-        const integration = yield* activeOrgGithub(org.organizationId)
+        const integration = yield* connectedOrgGithub(org.organizationId)
         if (!integration || integration.status !== "active") {
           return yield* new NotFound()
         }

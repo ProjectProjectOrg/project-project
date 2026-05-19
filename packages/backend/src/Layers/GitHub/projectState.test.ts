@@ -77,4 +77,26 @@ describe("projectState", () => {
     expect(states?.prByBranch.get("bug/T-2")?.state).toBe("closed")
     expect(states?.prByBranch.get("bug/T-2")?.checks).toBe("failing")
   })
+
+  it("keeps the batch when one branch ref is stale", () => {
+    const states = projectStatesFromBatchResponses([
+      {
+        branches: ["feat/live", "feat/stale"],
+        response: {
+          repository: {
+            defaultBranchRef: { name: "main" },
+            b0: { name: "feat/live" },
+            p0: { nodes: [pr("feat/live")] },
+            b1: null,
+            p1: null
+          }
+        }
+      }
+    ])
+
+    expect(states).not.toBeNull()
+    expect([...(states?.existingBranches ?? [])]).toEqual(["feat/live"])
+    expect(states?.prByBranch.has("feat/live")).toBe(true)
+    expect(states?.prByBranch.has("feat/stale")).toBe(false)
+  })
 })

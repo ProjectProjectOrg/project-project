@@ -30,6 +30,7 @@ const FakeProjects = Layer.succeed(Projects, {
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
   getKey: () => Effect.succeed(decodeProjectKey("T")),
+  getGithubIntegration: () => Effect.succeed(null),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
   remove: () => unexpected("Projects.remove"),
@@ -62,13 +63,18 @@ const FakeGroups = Layer.succeed(Groups, {
 } satisfies GroupsShape)
 
 const FakeGitHub = Layer.succeed(GitHub, {
-  listUserRepos: () => unexpected("GitHub.listUserRepos"),
-  verifyAccess: () => unexpected("GitHub.verifyAccess"),
-  createBranch: () => unexpected("GitHub.createBranch"),
-  openPullRequest: () => unexpected("GitHub.openPullRequest"),
-  fetchProjectStates: () => unexpected("GitHub.fetchProjectStates"),
-  listBranches: () => unexpected("GitHub.listBranches"),
-  branchExists: () => unexpected("GitHub.branchExists")
+  getInstallationAccount: () => unexpected("GitHub.getInstallationAccount"),
+  listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
+  verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
+  exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
+  appUserCanAccessInstallation: () =>
+    unexpected("GitHub.appUserCanAccessInstallation"),
+  createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
+  openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
+  fetchInstallationProjectStates: () =>
+    unexpected("GitHub.fetchInstallationProjectStates"),
+  listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
+  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
 
 const FakeDb = Layer.succeed(

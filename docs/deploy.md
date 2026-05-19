@@ -67,6 +67,7 @@ Edit `.env` and fill in:
 - `BETTER_AUTH_SECRET` — `openssl rand -hex 32`.
 - `BETTER_AUTH_URL` — the public HTTPS URL you'll point at this VM.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
+- `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
 
@@ -75,6 +76,15 @@ The GitHub OAuth app's "Authorization callback URL" must be:
 ```
 https://<your-public-host>/api/auth/callback/github
 ```
+
+The GitHub App webhook URL must be:
+
+```txt
+https://<your-public-host>/api/integrations/github/webhook
+```
+
+Subscribe the GitHub App webhook to `installation` and
+`installation_repositories` events.
 
 ### 3. First boot
 

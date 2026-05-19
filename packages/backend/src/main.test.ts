@@ -40,15 +40,29 @@ import { it } from "@effect/vitest"
 import {
   FetchHttpClient,
   HttpApi,
+  HttpApp,
   HttpApiBuilder,
   HttpApiClient,
   HttpServer
 } from "@effect/platform"
 import { AppApi } from "@projectproject/shared"
+import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { HealthHandlerLive } from "./main"
+import { createHmac } from "node:crypto"
+import {
+  GITHUB_WEBHOOK_MAX_BODY_BYTES,
+  HealthHandlerLive,
+  githubWebhookRoute,
+  readGithubWebhookBody,
+  verifyGithubWebhook
+} from "./main"
+import {
+  GitHubWebhooks,
+  type GitHubWebhooksShape
+} from "./Services/GitHubWebhooks"
 
 const ApiUnderTestLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(HealthHandlerLive)
@@ -144,4 +158,159 @@ it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
 
     expect(result).toEqual({ status: "ok" })
   }).pipe(Effect.provide(TestHttpClientLayer))
+)
+
+const webhookSecret = "test-webhook-secret"
+const jsonBody = (value: unknown) =>
+  Schema.encodeSync(Schema.parseJson())(value)
+
+const signWebhookBody = (body: string) =>
+  `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`
+
+const makeWebhookHandler = (service: GitHubWebhooksShape) =>
+  HttpApp.toWebHandlerLayer(
+    githubWebhookRoute.pipe(
+      Effect.withConfigProvider(
+        ConfigProvider.fromMap(
+          new Map([["GITHUB_APP_WEBHOOK_SECRET", webhookSecret]])
+        )
+      )
+    ),
+    Layer.succeed(GitHubWebhooks, service)
+  )
+
+it("verifyGithubWebhook accepts the matching sha256 signature", () => {
+  const body = jsonBody({ action: "ping" })
+  expect(verifyGithubWebhook(body, signWebhookBody(body), webhookSecret)).toBe(
+    true
+  )
+  expect(verifyGithubWebhook(body, "sha256=bad", webhookSecret)).toBe(false)
+})
+
+it.effect(
+  "readGithubWebhookBody fails when the stream exceeds the byte limit",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* readGithubWebhookBody(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body: "abcd"
+        }),
+        3
+      ).pipe(Effect.either)
+
+      expect(result._tag).toBe("Left")
+    })
+)
+
+it.effect(
+  "github webhook route rejects bodies over the GitHub delivery limit",
+  () =>
+    Effect.promise(async () => {
+      const { handler, dispose } = makeWebhookHandler({
+        handle: () => Effect.void
+      })
+      try {
+        const response = await handler(
+          new Request("http://localhost/api/integrations/github/webhook", {
+            method: "POST",
+            body: "{}",
+            headers: {
+              "content-length": String(GITHUB_WEBHOOK_MAX_BODY_BYTES + 1),
+              "x-hub-signature-256": "sha256=bad",
+              "x-github-event": "installation"
+            }
+          })
+        )
+        expect(response.status).toBe(413)
+        expect(await response.text()).toBe("GitHub webhook payload too large")
+      } finally {
+        await dispose()
+      }
+    })
+)
+
+it.effect("github webhook route rejects invalid signatures", () =>
+  Effect.promise(async () => {
+    const { handler, dispose } = makeWebhookHandler({
+      handle: () => Effect.void
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body: "{}",
+          headers: {
+            "x-hub-signature-256": "sha256=bad",
+            "x-github-event": "installation"
+          }
+        })
+      )
+      expect(response.status).toBe(401)
+      expect(await response.text()).toBe("Invalid signature")
+    } finally {
+      await dispose()
+    }
+  })
+)
+
+it.effect("github webhook route requires the event header", () =>
+  Effect.promise(async () => {
+    const body = "{}"
+    const { handler, dispose } = makeWebhookHandler({
+      handle: () => Effect.void
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body,
+          headers: {
+            "x-hub-signature-256": signWebhookBody(body)
+          }
+        })
+      )
+      expect(response.status).toBe(400)
+      expect(await response.text()).toBe("Missing GitHub event")
+    } finally {
+      await dispose()
+    }
+  })
+)
+
+it.effect("github webhook route dispatches signed deliveries", () =>
+  Effect.promise(async () => {
+    const body = jsonBody({ action: "deleted", installation: { id: 123 } })
+    const deliveries: Array<{
+      event: string
+      deliveryId: string | null
+      body: string
+    }> = []
+    const { handler, dispose } = makeWebhookHandler({
+      handle: (delivery) =>
+        Effect.sync(() => {
+          deliveries.push(delivery)
+        })
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body,
+          headers: {
+            "x-hub-signature-256": signWebhookBody(body),
+            "x-github-event": "installation",
+            "x-github-delivery": "delivery-1"
+          }
+        })
+      )
+      expect(response.status).toBe(200)
+      expect(await response.text()).toBe("ok")
+      expect(deliveries).toEqual([
+        { event: "installation", deliveryId: "delivery-1", body }
+      ])
+    } finally {
+      await dispose()
+    }
+  })
 )
