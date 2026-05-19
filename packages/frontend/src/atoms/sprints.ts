@@ -5,6 +5,8 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import { reconcilePendingTicketStatuses } from "@/lib/pendingTicketStatus"
 import {
   GroupColor,
   GroupId,
@@ -309,9 +311,7 @@ export const completeSprintAtom = Atom.family((key: string) => {
       if (!source) return current
       const { stay, carry } = splitCarryover(
         source.tickets,
-        new Map(
-          [...input.ticketStatuses].map(([k, v]) => [k as string, v as string])
-        )
+        new Map([...input.ticketStatuses].map(([k, v]) => [k as string, v]))
       )
       const dest = input.destination
       const next = current.value.map((g) => {
@@ -415,7 +415,10 @@ export const placeTicketAtom = Atom.family((key: string) => {
           next.set(input.ticketId, input.status)
           get.set(overlay, next)
         }
-        const clearOverlay = Effect.sync(() => {
+        const sprintTickets = ticketsInSprintAtom(
+          ticketsInSprintKey(orgSlug, slug, groupId)
+        )
+        const resetOverlay = Effect.sync(() => {
           if (input.status === undefined) return
           const next = new Map(get(overlay))
           next.delete(input.ticketId)
@@ -432,8 +435,21 @@ export const placeTicketAtom = Atom.family((key: string) => {
           yield* get.result(sprintsListBaseAtom(project), {
             suspendOnWaiting: true
           })
+          const tickets = yield* get.result(sprintTickets, {
+            suspendOnWaiting: true
+          })
+          if (input.status !== undefined) {
+            get.set(
+              overlay,
+              reconcilePendingTicketStatuses(get(overlay), tickets)
+            )
+          }
           return result
-        }).pipe(Effect.ensuring(clearOverlay))
+        }).pipe(
+          Effect.catchAllCause((cause) =>
+            resetOverlay.pipe(Effect.zipRight(Effect.failCause(cause)))
+          )
+        )
       })
     )
   })
