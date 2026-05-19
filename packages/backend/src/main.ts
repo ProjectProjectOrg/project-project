@@ -83,6 +83,8 @@ import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
 import { GitHubIntegrations } from "./Services/GitHubIntegrations"
+import { GitHubWebhooks } from "./Services/GitHubWebhooks"
+import { GitHubWebhooksLive } from "./Layers/GitHubWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 
 // Exported so tests can compose them without booting a real Bun server.
@@ -219,7 +221,7 @@ const githubCallbackRoute = Effect.gen(function* () {
   )
 )
 
-const verifyGithubWebhook = (
+export const verifyGithubWebhook = (
   body: string,
   signature: string | null,
   secret: string
@@ -234,7 +236,8 @@ const verifyGithubWebhook = (
   )
 }
 
-const githubWebhookRoute = Effect.gen(function* () {
+export const githubWebhookRoute = Effect.gen(function* () {
+  const webhooks = yield* GitHubWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const body = yield* Effect.promise(() => webReq.text())
@@ -247,6 +250,15 @@ const githubWebhookRoute = Effect.gen(function* () {
   if (!verified) {
     return HttpServerResponse.text("Invalid signature", { status: 401 })
   }
+  const event = webReq.headers.get("x-github-event")
+  if (!event) {
+    return badRequest("Missing GitHub event")
+  }
+  yield* webhooks.handle({
+    event,
+    deliveryId: webReq.headers.get("x-github-delivery"),
+    body
+  })
   return HttpServerResponse.text("ok")
 }).pipe(
   Effect.catchAllCause((cause) =>
@@ -278,6 +290,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   Layer.provide(ApiLive),
   Layer.provide(McpHttpLive),
   Layer.provide(McpServerLive),
+  Layer.provide(GitHubWebhooksLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))

@@ -39,24 +39,63 @@
 import { it } from "@effect/vitest"
 import {
   FetchHttpClient,
-  HttpApi,
+  HttpApp,
   HttpApiBuilder,
   HttpApiClient,
   HttpServer
 } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
+import * as SqlClient from "@effect/sql/SqlClient"
 import { AppApi } from "@projectproject/shared"
+import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { HealthHandlerLive } from "./main"
+import { createHmac } from "node:crypto"
+import { BetterAuth, type BetterAuthShape } from "./Services/BetterAuth"
+import { Db } from "./Services/Db"
+import { ApiLive, githubWebhookRoute, verifyGithubWebhook } from "./main"
+import {
+  GitHubWebhooks,
+  type GitHubWebhooksShape
+} from "./Services/GitHubWebhooks"
 
-const ApiUnderTestLive = HttpApiBuilder.api(AppApi).pipe(
-  Layer.provide(HealthHandlerLive)
-) as Layer.Layer<HttpApi.Api>
+// `ApiLive` now includes `DbHandlerLive`, which carries `PgDrizzle` (the `Db`
+// Tag) in its requirements. The tests below don't exercise `/db/ping`, but we
+// still have to satisfy the type. A stub `Db` is enough — if a test ever
+// actually calls into it, this would throw at runtime, which is the right
+// failure mode (a test calling the DB through this handler should fail loudly).
+const FakeDbLive = Layer.succeed(Db, {} as never)
+const FakeSqlClientLive = Layer.succeed(SqlClient.SqlClient, {} as never)
+
+const unexpectedBetterAuthCall = (method: string): Effect.Effect<never> =>
+  Effect.die(new Error(`unexpected BetterAuth.${method} call`))
+
+const FakeBetterAuth = {
+  handler: () => unexpectedBetterAuthCall("handler"),
+  getSession: () => unexpectedBetterAuthCall("getSession"),
+  getGithubAccessToken: () => unexpectedBetterAuthCall("getGithubAccessToken"),
+  getPersonalGithub: () => unexpectedBetterAuthCall("getPersonalGithub"),
+  getOrgSlugById: () => unexpectedBetterAuthCall("getOrgSlugById"),
+  listOrganizations: () => unexpectedBetterAuthCall("listOrganizations"),
+  listOrganizationsPaged: () =>
+    unexpectedBetterAuthCall("listOrganizationsPaged"),
+  getOrganization: () => unexpectedBetterAuthCall("getOrganization"),
+  submitConsent: () => unexpectedBetterAuthCall("submitConsent")
+} satisfies BetterAuthShape
+
+const FakeBetterAuthLive = Layer.succeed(BetterAuth, FakeBetterAuth)
 
 // One shared web handler for the whole suite.
 const { handler } = HttpApiBuilder.toWebHandler(
-  ApiUnderTestLive.pipe(Layer.provideMerge(HttpServer.layerContext))
+  ApiLive.pipe(
+    Layer.provideMerge(HttpServer.layerContext),
+    Layer.provide(FakeDbLive),
+    Layer.provide(FakeSqlClientLive),
+    Layer.provide(FakeBetterAuthLive),
+    Layer.provide(BunContext.layer)
+  )
 )
 
 // Layer that lets `HttpApiClient.make(AppApi)` reach our in-process handler
@@ -144,4 +183,116 @@ it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
 
     expect(result).toEqual({ status: "ok" })
   }).pipe(Effect.provide(TestHttpClientLayer))
+)
+
+const webhookSecret = "test-webhook-secret"
+const jsonBody = (value: unknown) =>
+  Schema.encodeSync(Schema.parseJson())(value)
+
+const signWebhookBody = (body: string) =>
+  `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`
+
+const makeWebhookHandler = (service: GitHubWebhooksShape) =>
+  HttpApp.toWebHandlerLayer(
+    githubWebhookRoute.pipe(
+      Effect.withConfigProvider(
+        ConfigProvider.fromMap(
+          new Map([["GITHUB_APP_WEBHOOK_SECRET", webhookSecret]])
+        )
+      )
+    ),
+    Layer.succeed(GitHubWebhooks, service)
+  )
+
+it("verifyGithubWebhook accepts the matching sha256 signature", () => {
+  const body = jsonBody({ action: "ping" })
+  expect(verifyGithubWebhook(body, signWebhookBody(body), webhookSecret)).toBe(
+    true
+  )
+  expect(verifyGithubWebhook(body, "sha256=bad", webhookSecret)).toBe(false)
+})
+
+it.effect("github webhook route rejects invalid signatures", () =>
+  Effect.promise(async () => {
+    const { handler, dispose } = makeWebhookHandler({
+      handle: () => Effect.void
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body: "{}",
+          headers: {
+            "x-hub-signature-256": "sha256=bad",
+            "x-github-event": "installation"
+          }
+        })
+      )
+      expect(response.status).toBe(401)
+      expect(await response.text()).toBe("Invalid signature")
+    } finally {
+      await dispose()
+    }
+  })
+)
+
+it.effect("github webhook route requires the event header", () =>
+  Effect.promise(async () => {
+    const body = "{}"
+    const { handler, dispose } = makeWebhookHandler({
+      handle: () => Effect.void
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body,
+          headers: {
+            "x-hub-signature-256": signWebhookBody(body)
+          }
+        })
+      )
+      expect(response.status).toBe(400)
+      expect(await response.text()).toBe("Missing GitHub event")
+    } finally {
+      await dispose()
+    }
+  })
+)
+
+it.effect("github webhook route dispatches signed deliveries", () =>
+  Effect.promise(async () => {
+    const body = jsonBody({ action: "deleted", installation: { id: 123 } })
+    const deliveries: Array<{
+      event: string
+      deliveryId: string | null
+      body: string
+    }> = []
+    const { handler, dispose } = makeWebhookHandler({
+      handle: (delivery) =>
+        Effect.sync(() => {
+          deliveries.push(delivery)
+        })
+    })
+    try {
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body,
+          headers: {
+            "x-hub-signature-256": signWebhookBody(body),
+            "x-github-event": "installation",
+            "x-github-delivery": "delivery-1"
+          }
+        })
+      )
+      expect(response.status).toBe(200)
+      expect(await response.text()).toBe("ok")
+      expect(deliveries).toEqual([
+        { event: "installation", deliveryId: "delivery-1", body }
+      ])
+    } finally {
+      await dispose()
+    }
+  })
 )
