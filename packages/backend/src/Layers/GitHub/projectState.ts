@@ -180,7 +180,11 @@ export const projectStatesFromBatchResponses = (
     return batch.branches.map((_, index) => {
       const branch = batch.response.repository?.[`b${index}`]
       const pullRequests = batch.response.repository?.[`p${index}`]
-      if (!isPullRequestConnection(pullRequests)) return null
+      if (!isPullRequestConnection(pullRequests)) {
+        return branch === null && pullRequests === null
+          ? branchEntryFromParts(null, null)
+          : null
+      }
       const sameRepoPr = pullRequests.nodes.find(
         (pr) =>
           pr.headRepository?.id !== undefined &&

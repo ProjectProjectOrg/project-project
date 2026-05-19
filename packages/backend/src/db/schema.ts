@@ -291,7 +291,7 @@ export const projectIntegrationLink = pgTable(
         organizationIntegration.id,
         organizationIntegration.organizationId
       ]
-    }),
+    }).onDelete("cascade"),
     uniqueIndex("project_integration_link_active_provider_uidx")
       .on(t.projectId, t.provider)
       .where(sql`${t.status} = 'active'`),

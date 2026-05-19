@@ -931,7 +931,7 @@
             "id",
             "organization_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

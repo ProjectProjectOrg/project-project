@@ -33,11 +33,7 @@ export function githubRepoMatchesQuery(
   },
   query: string
 ): boolean {
-  const tokens = query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return true
   const owner = repo.owner?.login ?? ""
   const haystack =
@@ -178,7 +174,7 @@ export const GitHubLive = Layer.effect(
           )
         return {
           repos,
-          hasMore: response.data.repositories.length === perPage
+          hasMore: page * perPage < response.data.total_count
         } satisfies GithubRepoPage
       }
     )

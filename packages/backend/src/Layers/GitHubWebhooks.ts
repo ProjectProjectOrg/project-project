@@ -307,6 +307,17 @@ export const GitHubWebhooksLive = Layer.effect(
                 lastCheckStatus,
                 message
               )
+              if (status === "disconnected") {
+                yield* db
+                  .delete(organizationGithubIntegration)
+                  .where(
+                    eq(
+                      organizationGithubIntegration.organizationIntegrationId,
+                      row.integrationId
+                    )
+                  )
+                  .pipe(Effect.orDie)
+              }
             })
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
