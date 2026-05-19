@@ -40,7 +40,7 @@
 //   - baseURL:         process.env.BETTER_AUTH_URL
 //   - trustedOrigins:  ["http://localhost:5173", "http://localhost:3000"]   (dev)
 //   - socialProviders.github:
-//       clientId, clientSecret from env, scope: ["read:user", "user:email", "repo"]
+//       clientId, clientSecret from env, scope: ["repo", "read:org"]
 //   - session.cookieCache: { enabled: true, maxAge: 5 * 60 }
 //
 // EXPORTED TYPES
@@ -293,7 +293,7 @@ export const auth = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      scope: ["read:user", "user:email", "repo"],
+      scope: ["repo", "read:org"],
       disableSignUp: true
     },
     google: {

@@ -184,10 +184,15 @@ function PersonalGithubCard({
             </div>
           </div>
           {connected ? (
-            <GithubDisconnectAction
-              disconnect={disconnect}
-              disconnecting={disconnectState.waiting}
-            />
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" onClick={handleConnect} disabled={waiting}>
+                {m.profile_github_reconnect_button()}
+              </Button>
+              <GithubDisconnectAction
+                disconnect={disconnect}
+                disconnecting={disconnectState.waiting}
+              />
+            </div>
           ) : (
             <Button type="button" onClick={handleConnect} disabled={connecting}>
               {m.profile_github_connect_button()}
