@@ -3,7 +3,10 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { makeGitHubWebhooks } from "./GitHubWebhooks"
-import type { GitHubWebhookMutationSink } from "../Services/GitHubWebhooks"
+import type {
+  GitHubPullRequestWebhookChange,
+  GitHubWebhookMutationSink
+} from "../Services/GitHubWebhooks"
 
 type Call =
   | { readonly type: "deleted"; readonly installationId: string }
@@ -13,6 +16,10 @@ type Call =
       readonly type: "reposRemoved"
       readonly installationId: string
       readonly repoIds: ReadonlyArray<string>
+    }
+  | {
+      readonly type: "pullRequestChanged"
+      readonly change: GitHubPullRequestWebhookChange
     }
 
 const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
@@ -31,6 +38,10 @@ const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   repositoriesRemoved: (installationId, repoIds) =>
     Effect.sync(() => {
       calls.push({ type: "reposRemoved", installationId, repoIds })
+    }),
+  pullRequestChanged: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "pullRequestChanged", change })
     })
 })
 
@@ -100,6 +111,78 @@ it.effect("dispatches installation_repositories.removed with repo ids", () =>
         repoIds: ["456", "789"]
       }
     ])
+  })
+)
+
+it.effect("dispatches handled pull_request actions", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const cases = [
+      { action: "opened", merged: false, expectedState: "open" },
+      { action: "reopened", merged: false, expectedState: "open" },
+      { action: "synchronize", merged: false, expectedState: "open" },
+      { action: "closed", merged: false, expectedState: "closed" },
+      { action: "closed", merged: true, expectedState: "merged" }
+    ]
+    for (const input of cases) {
+      yield* webhooks.handle(
+        delivery("pull_request", {
+          action: input.action,
+          installation: { id: "123" },
+          repository: { id: "456" },
+          number: 80,
+          pull_request: {
+            merged: input.merged,
+            head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } }
+          }
+        })
+      )
+    }
+    expect(calls).toEqual(
+      cases.map((input) => ({
+        type: "pullRequestChanged",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-84-pr-webhook-lifecycle",
+          number: 80,
+          state: input.expectedState
+        }
+      }))
+    )
+  })
+)
+
+it.effect("ignores unhandled pull_request actions and fork pull requests", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("pull_request", {
+        action: "edited",
+        installation: { id: "123" },
+        repository: { id: "456" },
+        number: 80,
+        pull_request: {
+          merged: false,
+          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 456 } }
+        }
+      })
+    )
+    yield* webhooks.handle(
+      delivery("pull_request", {
+        action: "opened",
+        installation: { id: "123" },
+        repository: { id: "456" },
+        number: 80,
+        pull_request: {
+          merged: false,
+          head: { ref: "feat/T-84-pr-webhook-lifecycle", repo: { id: 999 } }
+        }
+      })
+    )
+    expect(calls).toEqual([])
   })
 )
 

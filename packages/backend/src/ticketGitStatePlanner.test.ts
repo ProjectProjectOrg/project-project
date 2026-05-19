@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { TicketId } from "@projectproject/shared"
 import type { RawProjectStates } from "./Services/GitHub"
 import {
+  planPullRequestWebhookTicket,
   planTicketGitStates,
   type TicketGitStateInput
 } from "./ticketGitStatePlanner"
@@ -16,6 +17,7 @@ const baseTicket = {
   status: "in_progress",
   branch: null,
   pr: null,
+  prState: null,
   lastTransitionedPr: null
 } satisfies TicketGitStateInput
 
@@ -99,6 +101,7 @@ describe("planTicketGitStates", () => {
         patch: {
           status: "done",
           pr: 42,
+          prState: "merged",
           lastTransitionedPr: 42
         }
       }
@@ -113,6 +116,7 @@ describe("planTicketGitStates", () => {
           status: "done",
           branch: "feat/T-1",
           pr: 42,
+          prState: "merged",
           lastTransitionedPr: 42
         }
       ],
@@ -140,5 +144,80 @@ describe("planTicketGitStates", () => {
 
     expect(plan.transitioned).toEqual([])
     expect(plan.writes).toEqual([])
+  })
+})
+
+describe("planPullRequestWebhookTicket", () => {
+  const webhookTicket = (
+    input: Partial<TicketGitStateInput> = {}
+  ): TicketGitStateInput => ({
+    id: ticketId("T-84"),
+    status: "in_progress",
+    branch: "feat/T-84-pr-webhook-lifecycle",
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    ...input
+  })
+
+  it("associates open pull requests without changing ticket status", () => {
+    expect(
+      planPullRequestWebhookTicket(webhookTicket(), {
+        number: 80,
+        state: "open"
+      })
+    ).toEqual({
+      ticketId: "T-84",
+      patch: { pr: 80, prState: "open" }
+    })
+  })
+
+  it("does not rewrite unchanged open pull request associations", () => {
+    expect(
+      planPullRequestWebhookTicket(webhookTicket({ pr: 80, prState: "open" }), {
+        number: 80,
+        state: "open"
+      })
+    ).toBeNull()
+  })
+
+  it("transitions merged pull requests to done once", () => {
+    expect(
+      planPullRequestWebhookTicket(webhookTicket(), {
+        number: 80,
+        state: "merged"
+      })
+    ).toEqual({
+      ticketId: "T-84",
+      patch: {
+        status: "done",
+        pr: 80,
+        prState: "merged",
+        lastTransitionedPr: 80
+      }
+    })
+    expect(
+      planPullRequestWebhookTicket(
+        webhookTicket({
+          status: "done",
+          pr: 80,
+          prState: "merged",
+          lastTransitionedPr: 80
+        }),
+        { number: 80, state: "merged" }
+      )
+    ).toBeNull()
+  })
+
+  it("records lastTransitionedPr for already-done merged pull requests", () => {
+    expect(
+      planPullRequestWebhookTicket(webhookTicket({ status: "done" }), {
+        number: 80,
+        state: "merged"
+      })
+    ).toEqual({
+      ticketId: "T-84",
+      patch: { pr: 80, prState: "merged", lastTransitionedPr: 80 }
+    })
   })
 })
