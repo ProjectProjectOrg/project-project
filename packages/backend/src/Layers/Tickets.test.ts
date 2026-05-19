@@ -1,16 +1,13 @@
+import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { it } from "@effect/vitest"
+import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-import * as fsp from "node:fs/promises"
-import * as os from "node:os"
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-import * as path from "node:path"
-import { afterEach, beforeEach, expect } from "vitest"
-import { ProjectKey } from "@projectproject/shared"
 import * as Schema from "effect/Schema"
+import { expect } from "vitest"
+import { ProjectKey } from "@projectproject/shared"
 import { Db } from "../Services/Db"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
 import { Groups, type GroupsShape } from "../Services/Groups"
@@ -87,75 +84,61 @@ const FakeDb = Layer.succeed(
   ) as never
 )
 
-let tmpRoot = ""
-
-beforeEach(async () => {
-  tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "projectproject-tk-"))
-})
-
-afterEach(async () => {
-  await fsp.rm(tmpRoot, { recursive: true, force: true })
-})
-
-const liveLayer = () =>
-  TicketsLive.pipe(
-    Layer.provide(TicketDocsLive),
-    Layer.provide(FakeProjects),
-    Layer.provide(FakeGroups),
-    Layer.provide(FakeGitHub),
-    Layer.provide(FakeDb),
-    Layer.provide(MarkdownLive),
-    Layer.provide(BunContext.layer),
-    Layer.provideMerge(
-      Layer.setConfigProvider(
-        ConfigProvider.fromMap(new Map([["PROJECTS_DIR", tmpRoot]]))
+const TestLayer = Layer.unwrapScoped(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const tmpRoot = yield* fs.makeTempDirectoryScoped({
+      prefix: "projectproject-tk-"
+    })
+    return TicketsLive.pipe(
+      Layer.provide(TicketDocsLive),
+      Layer.provide(FakeProjects),
+      Layer.provide(FakeGroups),
+      Layer.provide(FakeGitHub),
+      Layer.provide(FakeDb),
+      Layer.provide(MarkdownLive),
+      Layer.provideMerge(
+        Layer.setConfigProvider(
+          ConfigProvider.fromMap(new Map([["PROJECTS_DIR", tmpRoot]]))
+        )
       )
     )
-  )
+  })
+).pipe(Layer.provideMerge(BunContext.layer))
 
-it.effect(
-  "deleting a ticket removes its markdown file from disk",
-  () =>
-    Effect.gen(function* () {
-      const tickets = yield* Tickets
-      const created = yield* tickets.quickCreate("org", "user-1", "p", {
-        title: "first"
-      })
-      expect(created.id).toBe("T-1")
-      yield* tickets.update("org", "user-1", "p", created.id, {
-        body: "# first\n\nimportant context only this ticket should know."
-      })
+it.scoped("deleting a ticket removes its markdown file from disk", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const root = yield* Config.string("PROJECTS_DIR")
 
-      const filePath = path.join(
-        tmpRoot,
-        "orgs",
-        "org",
-        "projects",
-        "p",
-        "tickets",
-        "T-1.md"
-      )
-      const existsBefore = yield* Effect.promise(() =>
-        fsp
-          .stat(filePath)
-          .then(() => true)
-          .catch(() => false)
-      )
-      expect(existsBefore).toBe(true)
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "first"
+    })
+    expect(created.id).toBe("T-1")
+    yield* tickets.update("org", "user-1", "p", created.id, {
+      body: "# first\n\nimportant context only this ticket should know."
+    })
 
-      yield* tickets.remove("org", "user-1", "p", created.id)
+    const filePath = path.join(
+      root,
+      "orgs",
+      "org",
+      "projects",
+      "p",
+      "tickets",
+      "T-1.md"
+    )
+    expect(yield* fs.exists(filePath)).toBe(true)
 
-      const existsAfter = yield* Effect.promise(() =>
-        fsp
-          .stat(filePath)
-          .then(() => true)
-          .catch(() => false)
-      )
-      expect(existsAfter).toBe(false)
-    }).pipe(Effect.provide(liveLayer()))
+    yield* tickets.remove("org", "user-1", "p", created.id)
+
+    expect(yield* fs.exists(filePath)).toBe(false)
+  }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect(
+it.scoped(
   "creating a ticket after deleting one with the same name does not inherit the old description",
   () =>
     Effect.gen(function* () {
@@ -176,5 +159,5 @@ it.effect(
 
       expect(fetched.body).not.toContain("old secret description")
       expect(fetched.body).toBe("# foo\n")
-    }).pipe(Effect.provide(liveLayer()))
+    }).pipe(Effect.provide(TestLayer))
 )

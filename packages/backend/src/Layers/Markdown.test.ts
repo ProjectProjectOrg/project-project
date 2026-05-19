@@ -1,40 +1,29 @@
+import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
+import { it } from "@effect/vitest"
+import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-import * as fsp from "node:fs/promises"
-import * as os from "node:os"
-// @effect-diagnostics-next-line nodeBuiltinImport:off
-import * as path from "node:path"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { describe, expect } from "vitest"
 import { Markdown } from "../Services/Markdown"
 import { MarkdownLive } from "./Markdown"
 
-let tmpRoot = ""
-
-beforeEach(async () => {
-  tmpRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "projectproject-md-"))
-})
-
-afterEach(async () => {
-  await fsp.rm(tmpRoot, { recursive: true, force: true })
-})
-
-const liveLayer = () =>
-  MarkdownLive.pipe(
-    Layer.provide(BunContext.layer),
-    Layer.provideMerge(
-      Layer.setConfigProvider(
-        ConfigProvider.fromMap(new Map([["PROJECTS_DIR", tmpRoot]]))
+const TestLayer = Layer.unwrapScoped(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const tmpRoot = yield* fs.makeTempDirectoryScoped({
+      prefix: "projectproject-md-"
+    })
+    return MarkdownLive.pipe(
+      Layer.provideMerge(
+        Layer.setConfigProvider(
+          ConfigProvider.fromMap(new Map([["PROJECTS_DIR", tmpRoot]]))
+        )
       )
     )
-  )
-
-const run = <A, E>(eff: Effect.Effect<A, E, Markdown>) =>
-  Effect.runPromise(
-    eff.pipe(Effect.provide(liveLayer())) as Effect.Effect<A, E, never>
-  )
+  })
+).pipe(Layer.provideMerge(BunContext.layer))
 
 const projectFrontmatter = (slug: string) => ({
   org: "acme",
@@ -63,10 +52,15 @@ const ticketFrontmatter = (id: string) => ({
 })
 
 describe("Markdown deletion (real fs)", () => {
-  it("removeTicketFile removes the file and listTicketIds reflects it", async () => {
-    const beforeIds = await run(
+  it.scoped(
+    "removeTicketFile removes the file and listTicketIds reflects it",
+    () =>
       Effect.gen(function* () {
         const md = yield* Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* Config.string("PROJECTS_DIR")
+
         yield* md.createTicketFile(
           "acme",
           "foo",
@@ -74,48 +68,34 @@ describe("Markdown deletion (real fs)", () => {
           ticketFrontmatter("T-1"),
           "# T-1 body\n"
         )
-        return yield* md.listTicketIds("acme", "foo")
-      })
-    )
-    expect(beforeIds).toEqual(["T-1"])
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual(["T-1"])
 
-    const filePath = path.join(
-      tmpRoot,
-      "orgs",
-      "acme",
-      "projects",
-      "foo",
-      "tickets",
-      "T-1.md"
-    )
-    expect(await fsp.stat(filePath).then(() => true)).toBe(true)
+        const filePath = path.join(
+          root,
+          "orgs",
+          "acme",
+          "projects",
+          "foo",
+          "tickets",
+          "T-1.md"
+        )
+        expect(yield* fs.exists(filePath)).toBe(true)
 
-    await run(
-      Effect.gen(function* () {
-        const md = yield* Markdown
         yield* md.removeTicketFile("acme", "foo", "T-1")
-      })
-    )
+        expect(yield* fs.exists(filePath)).toBe(false)
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
 
-    const exists = await fsp
-      .stat(filePath)
-      .then(() => true)
-      .catch(() => false)
-    expect(exists).toBe(false)
-
-    const afterIds = await run(
+  it.scoped(
+    "removeProjectDir removes the entire project tree including tickets",
+    () =>
       Effect.gen(function* () {
         const md = yield* Markdown
-        return yield* md.listTicketIds("acme", "foo")
-      })
-    )
-    expect(afterIds).toEqual([])
-  })
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* Config.string("PROJECTS_DIR")
 
-  it("removeProjectDir removes the entire project tree including tickets", async () => {
-    await run(
-      Effect.gen(function* () {
-        const md = yield* Markdown
         yield* md.writeProjectFile(
           "acme",
           "foo",
@@ -136,36 +116,19 @@ describe("Markdown deletion (real fs)", () => {
           ticketFrontmatter("T-2"),
           "# T-2 with notes\n"
         )
-      })
-    )
 
-    const dir = path.join(tmpRoot, "orgs", "acme", "projects", "foo")
-    expect(await fsp.stat(dir).then(() => true)).toBe(true)
+        const dir = path.join(root, "orgs", "acme", "projects", "foo")
+        expect(yield* fs.exists(dir)).toBe(true)
 
-    await run(
-      Effect.gen(function* () {
-        const md = yield* Markdown
         yield* md.removeProjectDir("acme", "foo")
-      })
-    )
+        expect(yield* fs.exists(dir)).toBe(false)
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
 
-    const exists = await fsp
-      .stat(dir)
-      .then(() => true)
-      .catch(() => false)
-    expect(exists).toBe(false)
-
-    const ids = await run(
-      Effect.gen(function* () {
-        const md = yield* Markdown
-        return yield* md.listTicketIds("acme", "foo")
-      })
-    )
-    expect(ids).toEqual([])
-  })
-
-  it("project re-created under same slug after removeProjectDir is empty of old tickets", async () => {
-    await run(
+  it.scoped(
+    "project re-created under same slug after removeProjectDir is empty of old tickets",
+    () =>
       Effect.gen(function* () {
         const md = yield* Markdown
         yield* md.writeProjectFile(
@@ -188,15 +151,7 @@ describe("Markdown deletion (real fs)", () => {
           projectFrontmatter("foo"),
           "# Foo (recreated)\n"
         )
-      })
-    )
-
-    const ids = await run(
-      Effect.gen(function* () {
-        const md = yield* Markdown
-        return yield* md.listTicketIds("acme", "foo")
-      })
-    )
-    expect(ids).toEqual([])
-  })
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
 })
