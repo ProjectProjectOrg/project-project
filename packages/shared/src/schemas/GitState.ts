@@ -51,7 +51,7 @@ const PrMerged = Schema.Struct({
   number: Schema.Number,
   url: Schema.String,
   title: Schema.String,
-  mergedAt: Schema.Date
+  mergedAt: Schema.NullOr(Schema.Date)
 })
 
 const PrClosed = Schema.Struct({

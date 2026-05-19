@@ -108,7 +108,7 @@ function pendingGitState(
         number: document.pr,
         url,
         title: "",
-        mergedAt: document.updatedAt
+        mergedAt: null
       }
     }
     if (document.prState === "closed") {

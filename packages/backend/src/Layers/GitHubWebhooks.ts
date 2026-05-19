@@ -588,6 +588,20 @@ export const GitHubWebhooksLive = Layer.effect(
         )
         return
       }
+      if (ticket.pr !== null && change.number < ticket.pr) {
+        yield* Effect.logDebug("github pull_request delivery stale").pipe(
+          Effect.annotateLogs({
+            module: "GitHubWebhooks",
+            deliveryId,
+            orgSlug: match.organizationSlug,
+            slug: match.projectSlug,
+            ticketId: match.ticketId,
+            ticketPr: ticket.pr,
+            webhookPr: change.number
+          })
+        )
+        return
+      }
       const write = planPullRequestWebhookTicket(ticket, change)
       if (!write) return
       yield* ticketDocs

@@ -83,8 +83,8 @@ The GitHub App webhook URL must be:
 https://<your-public-host>/api/integrations/github/webhook
 ```
 
-Subscribe the GitHub App webhook to `installation` and
-`installation_repositories` events.
+Subscribe the GitHub App webhook to `installation`,
+`installation_repositories`, and `pull_request` events.
 
 ### 3. First boot
 

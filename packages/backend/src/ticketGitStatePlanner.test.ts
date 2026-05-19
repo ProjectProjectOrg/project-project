@@ -181,6 +181,18 @@ describe("planPullRequestWebhookTicket", () => {
     ).toBeNull()
   })
 
+  it("persists closed pull requests without changing ticket status", () => {
+    expect(
+      planPullRequestWebhookTicket(webhookTicket(), {
+        number: 80,
+        state: "closed"
+      })
+    ).toEqual({
+      ticketId: "T-84",
+      patch: { pr: 80, prState: "closed" }
+    })
+  })
+
   it("transitions merged pull requests to done once", () => {
     expect(
       planPullRequestWebhookTicket(webhookTicket(), {

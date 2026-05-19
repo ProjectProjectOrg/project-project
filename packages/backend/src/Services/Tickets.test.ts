@@ -480,7 +480,7 @@ it.effect("get uses persisted prState for the fallback git state", () => {
       number: 80,
       url: "https://github.com/acme/app/pull/80",
       title: "",
-      mergedAt: ticket.updatedAt
+      mergedAt: null
     })
   }).pipe(Effect.provide(layer))
 })
