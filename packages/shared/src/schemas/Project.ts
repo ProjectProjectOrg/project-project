@@ -35,6 +35,19 @@ export type ProjectKey = typeof ProjectKey.Type
 export const Role = Schema.Literal("owner", "admin", "member")
 export type Role = typeof Role.Type
 
+export const ProjectIcon = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(16),
+  Schema.brand("ProjectIcon")
+)
+export type ProjectIcon = typeof ProjectIcon.Type
+
+export const ProjectColor = Schema.String.pipe(
+  Schema.pattern(/^#[0-9a-f]{6}$/i),
+  Schema.brand("ProjectColor")
+)
+export type ProjectColor = typeof ProjectColor.Type
+
 // A role assignable through the API. Owner is set on create and transferred
 // only via a future "transfer ownership" flow; we don't expose it as a value
 // the user can pick from a dropdown.
@@ -87,6 +100,8 @@ export const Project = Schema.Struct({
   slug: Slug,
   key: ProjectKey,
   name: Schema.String,
+  icon: ProjectIcon,
+  color: ProjectColor,
   createdBy: Schema.String,
   createdAt: Schema.Date
 })
@@ -137,7 +152,9 @@ export const UpdateProjectInput = Schema.Struct({
   name: Schema.optional(
     Schema.String.pipe(Schema.minLength(1), Schema.maxLength(120))
   ),
-  body: Schema.optional(Schema.String)
+  body: Schema.optional(Schema.String),
+  icon: Schema.optional(ProjectIcon),
+  color: Schema.optional(ProjectColor)
 })
 export type UpdateProjectInput = typeof UpdateProjectInput.Type
 

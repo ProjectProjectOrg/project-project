@@ -12,7 +12,6 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from "react"
 import {
   CalendarRange,
   Columns3,
-  FolderKanban,
   GitBranch,
   Info,
   ListChecks,
@@ -48,6 +47,7 @@ import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
 import { GithubChip } from "@/components/GithubChip"
+import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"
@@ -178,12 +178,18 @@ function ProjectHeader({
   project: ProjectDetailType
 }) {
   const { role: myRole } = useProjectRole()
+  const canEdit = myRole === "owner" || myRole === "admin"
 
   return (
     <header className="flex items-start gap-3">
-      <div className="-mt-1 grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <FolderKanban className="size-5" strokeWidth={1.75} />
-      </div>
+      <ProjectIdentityEditor
+        orgSlug={orgSlug}
+        slug={slug}
+        icon={project.icon}
+        color={project.color}
+        canEdit={canEdit}
+        size="header"
+      />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
         <NameField orgSlug={orgSlug} slug={slug} name={name} />
         <ActiveSprintLine orgSlug={orgSlug} slug={slug} />

@@ -338,6 +338,8 @@ it.effect(
         slug: "project",
         key: projectKey("FOO"),
         name: "Project",
+        icon: "🚀",
+        color: "#53a0ff",
         createdBy: "user-1",
         createdAt: isoDate("2026-05-02T00:00:00.000Z"),
         members: [{ username: "wouter", role: "owner" }],

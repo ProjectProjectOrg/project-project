@@ -17,7 +17,9 @@ type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
   Pick<
     React.ComponentProps<typeof PopoverPrimitive.Positioner>,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  >
+  > & {
+    keepMounted?: boolean
+  }
 
 function PopoverContent({
   className,
@@ -26,10 +28,11 @@ function PopoverContent({
   side,
   sideOffset = 6,
   anchor,
+  keepMounted,
   ...props
 }: PopoverContentProps) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
