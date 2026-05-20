@@ -1,0 +1,77 @@
+import {
+  AlertCircle,
+  AlertTriangle,
+  Archive,
+  Award,
+  Ban,
+  Bookmark,
+  Circle,
+  CircleDashed,
+  CircleDot,
+  CircleDotDashed,
+  Diamond,
+  Eye,
+  Flame,
+  Hexagon,
+  Hourglass,
+  Inbox,
+  Lightbulb,
+  Loader,
+  Lock,
+  Microscope,
+  Rocket,
+  ScanLine,
+  Search,
+  ShieldCheck,
+  Skull,
+  Sparkles,
+  Square,
+  Timer,
+  Trash,
+  Triangle,
+  Trophy,
+  XCircle,
+  type LucideIcon
+} from "lucide-react"
+import { STATUS_ICONS, type StatusIconName } from "@projectproject/shared"
+
+const ICON_MAP: Record<StatusIconName, LucideIcon> = {
+  Circle,
+  CircleDot,
+  CircleDashed,
+  CircleDotDashed,
+  Loader,
+  Hourglass,
+  Timer,
+  Eye,
+  Search,
+  ScanLine,
+  Microscope,
+  ShieldCheck,
+  Ban,
+  AlertCircle,
+  AlertTriangle,
+  Lock,
+  XCircle,
+  Archive,
+  Skull,
+  Trash,
+  Lightbulb,
+  Bookmark,
+  Inbox,
+  Trophy,
+  Sparkles,
+  Rocket,
+  Flame,
+  Award,
+  Square,
+  Triangle,
+  Hexagon,
+  Diamond
+}
+
+export const STATUS_ICON_NAMES = STATUS_ICONS
+
+export function getStatusIcon(name: string): LucideIcon {
+  return ICON_MAP[name as StatusIconName] ?? Circle
+}
