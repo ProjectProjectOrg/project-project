@@ -50,6 +50,7 @@ export function TicketList({
   const listKey = ticketsListKey(orgSlug, slug, query)
   const deferredListKey = useDeferredValue(listKey)
   const list = useAtomValue(ticketsListAtom(deferredListKey))
+  const isStaleKey = listKey !== deferredListKey
   const resetFilters = useResetTicketSearch()
 
   const previousListRef = useRef<TicketsListValue | null>(null)
@@ -123,7 +124,8 @@ export function TicketList({
               {ticketListDefectMessage(defect)}
             </Empty>
           ),
-          onSuccess: ({ value, waiting }) => renderList(value, waiting === true)
+          onSuccess: ({ value, waiting }) =>
+            renderList(value, waiting === true || isStaleKey)
         })}
       </div>
     </div>
