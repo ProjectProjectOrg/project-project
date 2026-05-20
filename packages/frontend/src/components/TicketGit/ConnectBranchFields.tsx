@@ -129,7 +129,7 @@ export function ConnectBranchFields({
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setSelected(null)
+    setSelectedState(null)
     setActiveIdx(0)
   }, [github.repoId])
 
