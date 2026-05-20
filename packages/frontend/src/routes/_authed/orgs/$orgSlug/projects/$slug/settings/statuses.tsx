@@ -1,6 +1,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { projectKey, projectStatusesAtom } from "@/atoms/projectStatuses"
+import { StatusEditorRow } from "@/components/StatusEditorRow"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
@@ -31,18 +32,16 @@ function StatusesSettings() {
   return (
     <section className="flex w-full flex-col gap-2">
       {statuses.map((s) => (
-        <div
+        <StatusEditorRow
           key={s.slug}
-          className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm"
-        >
-          <span className="font-mono text-xs text-muted-foreground">
-            {s.slug}
-          </span>
-          <span className="font-medium">{s.label}</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {s.icon} · {s.color}
-          </span>
-        </div>
+          status={s}
+          statuses={statuses}
+          orgSlug={orgSlug}
+          slug={slug}
+          onRequestDelete={() => {
+            /* wired in D3 */
+          }}
+        />
       ))}
     </section>
   )
