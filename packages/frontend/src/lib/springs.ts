@@ -15,3 +15,12 @@ export const springs = {
     bounce: 0.15
   }
 } as const
+
+const standardEase = [0.22, 1, 0.36, 1] as const
+
+export const transitions = {
+  fade: { duration: 0.15, ease: standardEase },
+  layout: { duration: 0.22, ease: standardEase },
+  pop: { duration: 0.18, ease: standardEase },
+  presence: { duration: 0.18, ease: standardEase }
+} as const

@@ -19,7 +19,7 @@
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import type { ComponentType, ReactNode } from "react"
 import { Fragment, useLayoutEffect, useRef, useState } from "react"
-import { springs } from "@/lib/springs"
+import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>
@@ -183,7 +183,7 @@ export function CollapsingLabel({
           initial={{ width: 0, opacity: 0, marginLeft: -8 }}
           animate={{ width, opacity: 1, marginLeft: 0 }}
           exit={{ width: 0, opacity: 0, marginLeft: -8 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
+          transition={transitions.presence}
           className="inline-flex items-center overflow-hidden whitespace-nowrap"
         >
           <span ref={innerRef} className="inline-flex shrink-0 items-center">
@@ -193,7 +193,7 @@ export function CollapsingLabel({
                 initial={{ opacity: 0, filter: "blur(4px)" }}
                 animate={{ opacity: 1, filter: "blur(0px)" }}
                 exit={{ opacity: 0, filter: "blur(4px)" }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
+                transition={transitions.presence}
                 className="inline-flex items-center"
               >
                 {children}

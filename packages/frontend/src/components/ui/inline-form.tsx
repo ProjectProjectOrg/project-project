@@ -2,6 +2,7 @@ import { createContext, useCallback, useMemo, useState, use } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { X } from "lucide-react"
 import { Button, type ButtonProps } from "@/components/ui/button"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 interface InlineFormContextValue<A extends string = string> {
@@ -90,8 +91,6 @@ function Root<A extends string = string>({
   )
 }
 
-const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
-
 function Idle({
   className,
   children,
@@ -107,7 +106,7 @@ function Idle({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={FADE_TRANSITION}
+      transition={transitions.fade}
     >
       <div
         className={cn(block ? "block" : "flex items-center gap-2", className)}
@@ -214,7 +213,7 @@ function Form<A extends string>({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={FADE_TRANSITION}
+      transition={transitions.fade}
       onKeyDown={(e) => {
         if (e.key === "Escape" && !busy && !e.defaultPrevented) {
           e.preventDefault()

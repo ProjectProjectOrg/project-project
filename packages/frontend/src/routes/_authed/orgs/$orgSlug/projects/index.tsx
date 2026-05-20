@@ -10,6 +10,7 @@ import { ProjectTile } from "@/components/ProjectTile"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
+import { transitions } from "@/lib/springs"
 import { slugify } from "@/lib/slug"
 import { cn } from "@/lib/utils"
 import { formatRelative } from "@/lib/relative-time"
@@ -56,7 +57,7 @@ function Projects() {
         <CreateRow orgSlug={orgSlug} onFocusChange={setCreating} />
         <motion.div
           animate={{ opacity: creating ? 0.35 : 1 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
+          transition={transitions.presence}
         >
           {value.length === 0 ? (
             <EmptyProjects />
@@ -117,7 +118,9 @@ function CreateRow({
   const previewSlug = trimmed ? slugify(trimmed) : ""
   const derivedKey = deriveKey(trimmed)
   const effectiveKey = keyTouched ? keyOverride : derivedKey
-  const canSubmit = Boolean(trimmed && /^[A-Z][A-Z0-9]{1,9}$/.test(effectiveKey))
+  const canSubmit = Boolean(
+    trimmed && /^[A-Z][A-Z0-9]{1,9}$/.test(effectiveKey)
+  )
 
   function trackFocus(next: boolean) {
     setFocused(next)
@@ -214,7 +217,7 @@ function CreateRow({
                 initial={reduceMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={reduceMotion ? undefined : { opacity: 0 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
+                transition={transitions.fade}
                 className="flex shrink-0 items-center"
               >
                 <div className="mx-3 h-5 w-px bg-border" />
@@ -248,7 +251,7 @@ function CreateRow({
             initial={reduceMotion ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-            transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
+            transition={transitions.presence}
             className="overflow-hidden"
           >
             <div className="mt-2 flex items-center gap-3 pl-3">
@@ -279,13 +282,19 @@ function CreateRow({
 }
 
 function deriveKey(name: string): string {
-  const cleaned = name.toUpperCase().replace(/[^A-Z0-9 ]/g, " ").trim()
+  const cleaned = name
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .trim()
   if (!cleaned) return ""
   const words = cleaned.split(/\s+/).filter(Boolean)
   if (words.length === 0) return ""
   const candidate =
     words.length >= 2
-      ? words.slice(0, 6).map((w) => w[0]).join("")
+      ? words
+          .slice(0, 6)
+          .map((w) => w[0])
+          .join("")
       : words[0].slice(0, 4)
   return candidate.replace(/^[0-9]+/, "").slice(0, 10)
 }

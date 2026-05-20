@@ -97,7 +97,10 @@ const ticketsListBaseAtom = Atom.family((key: string) => {
         return value
       })
     )
-    .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
 })
 
 interface AppendedPagesValue {
@@ -197,7 +200,10 @@ const ticketsCountBaseAtom = Atom.family((key: string) => {
         })
       })
     )
-    .pipe(Atom.withReactivity(["tickets", orgSlug, slug]))
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
 })
 
 export const ticketsCountAtom = Atom.family((key: string) =>
