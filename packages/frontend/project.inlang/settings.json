@@ -15,6 +15,7 @@
       "./messages/{locale}/tags.json",
       "./messages/{locale}/git.json",
       "./messages/{locale}/comments.json",
+      "./messages/{locale}/reviews.json",
       "./messages/{locale}/sprints.json"
     ]
   }

@@ -519,7 +519,7 @@ Cover:
 - merge refreshes git state and does not directly update ticket status
 - close/reopen call the correct GitHub mutation
 
-- [ ] **Step 9: Run backend typecheck/tests**
+- [x] **Step 9: Run backend typecheck/tests**
 
 ```bash
 bun --filter @projectproject/backend run typecheck
@@ -545,11 +545,11 @@ git commit -m "feat(review): serve linked PR review data"
 - Modify: `packages/frontend/src/lib/errorMessage.ts`
 - Regenerate: `packages/frontend/src/paraglide/messages/*`
 
-- [ ] **Step 1: Add `reviews.json`**
+- [x] **Step 1: Add `reviews.json`**
 
 Add all review route, overview, files view, actions, empty, loading, error, and disabled-state strings under the `reviews_` prefix. Keep keys sorted alphabetically within the prefix.
 
-- [ ] **Step 2: Update i18n ownership docs**
+- [x] **Step 2: Update i18n ownership docs**
 
 Add:
 
@@ -559,15 +559,15 @@ Add:
 
 to the table in `CLAUDE.md`.
 
-- [ ] **Step 3: Update Inlang path pattern**
+- [x] **Step 3: Update Inlang path pattern**
 
 Include the new `reviews.json` domain so paraglide compiles it.
 
-- [ ] **Step 4: Extend `errorMessage.ts`**
+- [x] **Step 4: Extend `errorMessage.ts`**
 
 Map any new review-surfaced tagged errors. Prefer existing `error_` messages for generic GitHub/rate-limit failures.
 
-- [ ] **Step 5: Compile paraglide and typecheck frontend**
+- [x] **Step 5: Compile paraglide and typecheck frontend**
 
 ```bash
 bun --filter @projectproject/frontend run paraglide:compile
