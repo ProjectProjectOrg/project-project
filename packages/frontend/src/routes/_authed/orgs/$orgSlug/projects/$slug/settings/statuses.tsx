@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
 import { projectKey, projectStatusesAtom } from "@/atoms/projectStatuses"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { ErrorPage } from "@/components/ErrorPage"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
 import { StatusDeleteForm } from "@/components/StatusDeleteForm"
 import { StatusEditorRow } from "@/components/StatusEditorRow"
@@ -23,49 +24,51 @@ function StatusesSettings() {
   const result = useAtomValue(projectStatusesAtom(projectKey(orgSlug, slug)))
   const [deleting, setDeleting] = useState<ProjectStatus | null>(null)
 
-  if (!Result.isSuccess(result)) {
-    return (
+  return Result.matchWithError(result, {
+    onInitial: () => (
       <section className="flex w-full flex-col gap-2 text-sm text-muted-foreground">
         Loading…
       </section>
-    )
-  }
-
-  const statuses = [...result.value].toSorted((a, b) =>
-    a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
-  )
-
-  return (
-    <section className="flex w-full flex-col gap-2">
-      {statuses.map((s, i) => {
-        if (deleting?.slug === s.slug) {
-          return (
-            <DeleteRow
-              key={s.slug}
-              status={s}
-              statuses={statuses}
-              orgSlug={orgSlug}
-              slug={slug}
-              onDone={() => setDeleting(null)}
-            />
-          )
-        }
-        return (
-          <StatusEditorRow
-            key={s.slug}
-            status={s}
-            statuses={statuses}
-            orgSlug={orgSlug}
-            slug={slug}
-            prev={statuses[i - 1]}
-            next={statuses[i + 1]}
-            onRequestDelete={(target) => setDeleting(target)}
-          />
-        )
-      })}
-      <StatusCreateRow orgSlug={orgSlug} slug={slug} />
-    </section>
-  )
+    ),
+    onError: (error) => <ErrorPage error={error} contained />,
+    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onSuccess: ({ value }) => {
+      const statuses = [...value].toSorted((a, b) =>
+        a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
+      )
+      return (
+        <section className="flex w-full flex-col gap-2">
+          {statuses.map((s, i) => {
+            if (deleting?.slug === s.slug) {
+              return (
+                <DeleteRow
+                  key={s.slug}
+                  status={s}
+                  statuses={statuses}
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  onDone={() => setDeleting(null)}
+                />
+              )
+            }
+            return (
+              <StatusEditorRow
+                key={s.slug}
+                status={s}
+                statuses={statuses}
+                orgSlug={orgSlug}
+                slug={slug}
+                prev={statuses[i - 1]}
+                next={statuses[i + 1]}
+                onRequestDelete={(target) => setDeleting(target)}
+              />
+            )
+          })}
+          <StatusCreateRow orgSlug={orgSlug} slug={slug} />
+        </section>
+      )
+    }
+  })
 }
 
 type DeleteRowProps = {

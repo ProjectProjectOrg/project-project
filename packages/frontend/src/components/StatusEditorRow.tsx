@@ -2,7 +2,7 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import { generateKeyBetween } from "fractional-indexing"
 import { ArrowDown, ArrowUp, Trash } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { ProjectStatus } from "@projectproject/shared"
+import type { ProjectStatus, StatusIconName } from "@projectproject/shared"
 import {
   projectKey,
   reorderStatusAtom,
@@ -115,7 +115,7 @@ export function StatusEditorRow({
           onChange={(icon) =>
             update({
               statusSlug: status.slug,
-              patch: { icon: icon as ProjectStatus["icon"] }
+              patch: { icon: icon as StatusIconName }
             })
           }
         />

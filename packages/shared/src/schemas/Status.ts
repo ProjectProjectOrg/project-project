@@ -57,6 +57,8 @@ export type StatusIconName = (typeof STATUS_ICONS)[number]
 
 export const StatusIcon = Schema.Literal(...STATUS_ICONS)
 
+export const StatusIconValue = Schema.String
+
 export const StatusColor = TagColor
 
 export const OrderKey = Schema.String.pipe(
@@ -69,7 +71,7 @@ export type OrderKey = typeof OrderKey.Type
 export const ProjectStatus = Schema.Struct({
   slug: StatusSlug,
   label: StatusLabel,
-  icon: StatusIcon,
+  icon: StatusIconValue,
   color: StatusColor,
   orderKey: OrderKey,
   createdBy: Schema.String,
