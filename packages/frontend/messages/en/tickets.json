@@ -87,6 +87,7 @@
   "tickets_status_delete_confirm_with_tickets": "This status has {count} tickets. Move them to:",
   "tickets_status_done": "Done",
   "tickets_status_in_progress": "In progress",
+  "tickets_status_manage_link": "Manage statuses",
   "tickets_status_reorder_down": "Move down",
   "tickets_status_reorder_up": "Move up",
   "tickets_status_todo": "Todo",

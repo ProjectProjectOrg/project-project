@@ -1,11 +1,13 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Check } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ArrowRight, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
@@ -20,10 +22,14 @@ import { cn } from "@/lib/utils"
 import type { ProjectStatus, TicketId, TicketStatus } from "@projectproject/shared"
 
 function StatusMenuItems({
+  orgSlug,
+  slug,
   current,
   statuses,
   onSelect
 }: {
+  orgSlug: string
+  slug: string
   current: string
   statuses: ReadonlyArray<ProjectStatus>
   onSelect: (next: TicketStatus) => void
@@ -55,6 +61,19 @@ function StatusMenuItems({
           </DropdownMenuItem>
         )
       })}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        render={
+          <Link
+            to="/orgs/$orgSlug/projects/$slug/settings/statuses"
+            params={{ orgSlug, slug }}
+            className="cursor-pointer"
+          />
+        }
+      >
+        {m.tickets_status_manage_link()}
+        <ArrowRight className="ml-auto size-3.5" />
+      </DropdownMenuItem>
     </>
   )
 }
@@ -108,6 +127,8 @@ export function StatusBadgeTrigger({
         onClick={(e) => e.stopPropagation()}
       >
         <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
           current={ticket.status}
           statuses={statuses}
           onSelect={(status) => update({ status })}
@@ -177,6 +198,8 @@ export function StatusButton({
         onClick={(e) => e.stopPropagation()}
       >
         <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
           current={ticket.status}
           statuses={statuses}
           onSelect={(status) => update({ status })}
