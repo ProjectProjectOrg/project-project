@@ -29,6 +29,7 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport } from './ro
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTeamRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/team'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/statuses'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/general'
 
@@ -143,6 +144,12 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute =
     path: '/team',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute =
+  AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRouteImport.update({
+    id: '/statuses',
+    path: '/statuses',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRouteImport.update({
     id: '/integrations',
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
+  '/orgs/$orgSlug/projects/$slug/settings/statuses': typeof AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
@@ -191,6 +199,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
+  '/orgs/$orgSlug/projects/$slug/settings/statuses': typeof AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
@@ -216,6 +225,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/settings/statuses': typeof AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
+    | '/orgs/$orgSlug/projects/$slug/settings/statuses'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
+    | '/orgs/$orgSlug/projects/$slug/settings/statuses'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/general'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
+    | '/_authed/orgs/$orgSlug/projects/$slug/settings/statuses'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/team'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
@@ -434,6 +447,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/settings/statuses': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/settings/statuses'
+      path: '/statuses'
+      fullPath: '/orgs/$orgSlug/projects/$slug/settings/statuses'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/settings/team': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings/team'
       path: '/team'
@@ -461,6 +481,7 @@ declare module '@tanstack/react-router' {
 interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
+  AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
@@ -472,6 +493,8 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlug
       AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute,
+    AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute:
+      AuthedOrgsOrgSlugProjectsSlugSettingsStatusesRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute:

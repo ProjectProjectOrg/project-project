@@ -1,14 +1,14 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
-import { GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
+import { Columns3, GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type SectionKey = "general" | "team" | "workflow" | "integrations"
+type SectionKey = "general" | "team" | "statuses" | "workflow" | "integrations"
 
 const SECTIONS = [
   {
@@ -24,6 +24,13 @@ const SECTIONS = [
     icon: Users,
     heading: m.project_settings_team_heading(),
     description: m.project_settings_team_description()
+  },
+  {
+    key: "statuses",
+    label: m.project_settings_statuses_tab(),
+    icon: Columns3,
+    heading: m.project_settings_statuses_heading(),
+    description: m.project_settings_statuses_description()
   },
   {
     key: "workflow",
