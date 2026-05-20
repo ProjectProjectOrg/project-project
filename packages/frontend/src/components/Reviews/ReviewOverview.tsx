@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import {
+  ArrowUpRight,
   CalendarClock,
   Check,
   CircleDot,
@@ -416,6 +417,7 @@ function Details({ review }: { review: ReviewPageDto }) {
             }
           >
             {pr.repoOwner}/{pr.repoName}
+            <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
           </Badge>
         </DetailRow>
         <DetailRow icon={CircleDot} label={m.reviews_check_label()} showLabel>
