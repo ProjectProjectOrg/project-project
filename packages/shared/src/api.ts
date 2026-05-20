@@ -56,6 +56,13 @@ import {
 } from "./schemas/GitState"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import {
+  CreateStatusInput,
+  ProjectStatus,
+  ReorderStatusInput,
+  StatusSlug,
+  UpdateStatusInput
+} from "./schemas/Status"
+import {
   Comment,
   CommentId,
   CreateCommentInput,
@@ -604,6 +611,69 @@ const TagsGroup = HttpApiGroup.make("tags")
   )
   .middleware(Authentication)
 
+const ProjectStatusPath = Schema.Struct({
+  ...ProjectPath.fields,
+  statusSlug: Schema.String
+})
+
+const StatusesGroup = HttpApiGroup.make("statuses")
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/statuses")
+      .setPath(ProjectPath)
+      .addSuccess(Schema.Array(ProjectStatus))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/statuses")
+      .setPath(ProjectPath)
+      .setPayload(CreateStatusInput)
+      .addSuccess(ProjectStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "update",
+      "/orgs/:orgSlug/projects/:slug/statuses/:statusSlug"
+    )
+      .setPath(ProjectStatusPath)
+      .setPayload(UpdateStatusInput)
+      .addSuccess(ProjectStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "reorder",
+      "/orgs/:orgSlug/projects/:slug/statuses/:statusSlug/order"
+    )
+      .setPath(ProjectStatusPath)
+      .setPayload(ReorderStatusInput)
+      .addSuccess(ProjectStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.del(
+      "remove",
+      "/orgs/:orgSlug/projects/:slug/statuses/:statusSlug"
+    )
+      .setPath(ProjectStatusPath)
+      .setUrlParams(Schema.Struct({ reassignTo: Schema.optional(StatusSlug) }))
+      .addSuccess(Schema.Void)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .middleware(Authentication)
+
 const GroupsGroup = HttpApiGroup.make("groups")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/groups")
@@ -735,6 +805,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TagsGroup)
+  .add(StatusesGroup)
   .add(GroupsGroup)
   .add(OAuthApplicationsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
