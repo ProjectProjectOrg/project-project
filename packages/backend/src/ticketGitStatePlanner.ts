@@ -39,7 +39,7 @@ export function planTicketGitStates(
 
   for (const ticket of tickets) {
     if (!ticket.branch) {
-      states[ticket.id] = { tag: "no_branch" }
+      states[ticket.id] = { tag: "no_branch", baseBranch: raw.defaultBranch }
       continue
     }
 

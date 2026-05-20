@@ -100,7 +100,10 @@ export function ConnectBranchFields({
     setBusy(true)
     setDidSubmit(true)
     setAttemptedName(branchName)
-    const exit = await attach({ id: ticket.id, name: branchName })
+    const exit = await attach({
+      id: ticket.id,
+      name: branchName
+    })
     if (Exit.isSuccess(exit)) {
       close()
       return
