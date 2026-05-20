@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -19,9 +18,127 @@ import {
   type GitHubPullRequestWebhookChange,
   type GitHubWebhooksShape
 } from "../Services/GitHubWebhooks"
-import { TicketDocs } from "../Services/TicketDocs"
-import { TicketIndex, type TicketIndexProject } from "../Services/TicketIndex"
+import { TicketDocs, type TicketDocsShape } from "../Services/TicketDocs"
+import {
+  bestEffortTicketIndexWrite,
+  TicketIndex,
+  type TicketIndexShape
+} from "../Services/TicketIndex"
 import { planPullRequestWebhookTicket } from "../ticketGitStatePlanner"
+
+export interface PullRequestWebhookMatch {
+  readonly orgSlug: string
+  readonly organizationId: string
+  readonly projectId: string
+  readonly projectSlug: string
+  readonly ticketId: string
+  readonly branch: string
+}
+
+export const applyPullRequestWebhookToTicket = (
+  deps: {
+    readonly ticketDocs: TicketDocsShape
+    readonly ticketIndex: TicketIndexShape
+  },
+  match: PullRequestWebhookMatch,
+  change: GitHubPullRequestWebhookChange,
+  deliveryId: string | null
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const ticket = yield* deps.ticketDocs
+      .read(match.orgSlug, match.projectSlug, match.ticketId)
+      .pipe(
+        Effect.catchAll((error) =>
+          Effect.logWarning("github pull_request ticket ignored").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              orgSlug: match.orgSlug,
+              slug: match.projectSlug,
+              ticketId: match.ticketId,
+              error
+            }),
+            Effect.as(null)
+          )
+        )
+      )
+    if (!ticket) return
+    if (ticket.branch !== match.branch) {
+      yield* Effect.logDebug("github pull_request branch index stale").pipe(
+        Effect.annotateLogs({
+          module: "GitHubWebhooks",
+          deliveryId,
+          orgSlug: match.orgSlug,
+          slug: match.projectSlug,
+          ticketId: match.ticketId,
+          indexedBranch: match.branch,
+          ticketBranch: ticket.branch
+        })
+      )
+      return
+    }
+    if (ticket.pr !== null && change.number < ticket.pr) {
+      yield* Effect.logDebug("github pull_request delivery stale").pipe(
+        Effect.annotateLogs({
+          module: "GitHubWebhooks",
+          deliveryId,
+          orgSlug: match.orgSlug,
+          slug: match.projectSlug,
+          ticketId: match.ticketId,
+          ticketPr: ticket.pr,
+          webhookPr: change.number
+        })
+      )
+      return
+    }
+    const write = planPullRequestWebhookTicket(ticket, change)
+    if (!write) return
+    const next = {
+      ...ticket,
+      pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
+      prState:
+        write.patch.prState !== undefined
+          ? write.patch.prState
+          : ticket.prState,
+      lastTransitionedPr:
+        write.patch.lastTransitionedPr !== undefined
+          ? write.patch.lastTransitionedPr
+          : ticket.lastTransitionedPr,
+      status: write.patch.status ?? ticket.status,
+      updatedAt: yield* DateTime.nowAsDate
+    }
+    const wrote = yield* deps.ticketDocs
+      .write(match.orgSlug, match.projectSlug, match.ticketId, next)
+      .pipe(
+        Effect.as(true),
+        Effect.catchAll((error) =>
+          Effect.logWarning("github pull_request ticket write failed").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              orgSlug: match.orgSlug,
+              slug: match.projectSlug,
+              ticketId: match.ticketId,
+              error
+            }),
+            Effect.as(false)
+          )
+        )
+      )
+    if (!wrote) return
+    const indexProject = {
+      orgSlug: match.orgSlug,
+      organizationId: match.organizationId,
+      projectId: match.projectId,
+      projectSlug: match.projectSlug
+    }
+    yield* bestEffortTicketIndexWrite(
+      "upsertTicket",
+      indexProject,
+      match.ticketId,
+      deps.ticketIndex.upsertTicket(indexProject, next)
+    )
+  })
 
 const GitHubId = Schema.Union(Schema.Number, Schema.String)
 
@@ -263,24 +380,6 @@ export const GitHubWebhooksLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
-
-    const bestEffortIndex = (
-      operation: string,
-      project: TicketIndexProject,
-      ticketId: string,
-      effect: Effect.Effect<void>
-    ): Effect.Effect<void> =>
-      effect.pipe(
-        Effect.catchAllCause((cause) =>
-          Effect.logWarning("ticket index write failed", {
-            operation,
-            orgSlug: project.orgSlug,
-            slug: project.projectSlug,
-            ticketId,
-            cause: Cause.pretty(cause)
-          })
-        )
-      )
 
     const installationRow = Effect.fn("GitHubWebhooks.installationRow")(
       function* (installationId: string) {
@@ -552,122 +651,6 @@ export const GitHubWebhooksLive = Layer.effect(
         .pipe(Effect.orDie)
     })
 
-    const applyPullRequestToTicket = Effect.fn(
-      "GitHubWebhooks.applyPullRequestToTicket"
-    )(function* (
-      match: {
-        readonly orgSlug: string
-        readonly organizationId: string
-        readonly projectId: string
-        readonly projectSlug: string
-        readonly ticketId: string
-        readonly branch: string
-      },
-      change: GitHubPullRequestWebhookChange,
-      deliveryId: string | null
-    ) {
-      const ticket = yield* ticketDocs
-        .read(match.orgSlug, match.projectSlug, match.ticketId)
-        .pipe(
-          Effect.catchAll((error) =>
-            Effect.logWarning("github pull_request ticket ignored").pipe(
-              Effect.annotateLogs({
-                module: "GitHubWebhooks",
-                deliveryId,
-                orgSlug: match.orgSlug,
-                slug: match.projectSlug,
-                ticketId: match.ticketId,
-                error
-              }),
-              Effect.as(null)
-            )
-          )
-        )
-      if (!ticket) return
-      if (ticket.branch !== match.branch) {
-        yield* Effect.logDebug("github pull_request branch index stale").pipe(
-          Effect.annotateLogs({
-            module: "GitHubWebhooks",
-            deliveryId,
-            orgSlug: match.orgSlug,
-            slug: match.projectSlug,
-            ticketId: match.ticketId,
-            indexedBranch: match.branch,
-            ticketBranch: ticket.branch
-          })
-        )
-        return
-      }
-      if (ticket.pr !== null && change.number < ticket.pr) {
-        yield* Effect.logDebug("github pull_request delivery stale").pipe(
-          Effect.annotateLogs({
-            module: "GitHubWebhooks",
-            deliveryId,
-            orgSlug: match.orgSlug,
-            slug: match.projectSlug,
-            ticketId: match.ticketId,
-            ticketPr: ticket.pr,
-            webhookPr: change.number
-          })
-        )
-        return
-      }
-      const write = planPullRequestWebhookTicket(ticket, change)
-      if (!write) return
-      const next = {
-        ...ticket,
-        pr: write.patch.pr !== undefined ? write.patch.pr : ticket.pr,
-        prState:
-          write.patch.prState !== undefined
-            ? write.patch.prState
-            : ticket.prState,
-        lastTransitionedPr:
-          write.patch.lastTransitionedPr !== undefined
-            ? write.patch.lastTransitionedPr
-            : ticket.lastTransitionedPr,
-        status: write.patch.status ?? ticket.status,
-        updatedAt: yield* DateTime.nowAsDate
-      }
-      const wrote = yield* ticketDocs
-        .write(match.orgSlug, match.projectSlug, match.ticketId, next)
-        .pipe(
-          Effect.as(true),
-          Effect.catchAll((error) =>
-            Effect.logWarning("github pull_request ticket write failed").pipe(
-              Effect.annotateLogs({
-                module: "GitHubWebhooks",
-                deliveryId,
-                orgSlug: match.orgSlug,
-                slug: match.projectSlug,
-                ticketId: match.ticketId,
-                error
-              }),
-              Effect.as(false)
-            )
-          )
-        )
-      if (!wrote) return
-      yield* bestEffortIndex(
-        "upsertTicket",
-        {
-          orgSlug: match.orgSlug,
-          organizationId: match.organizationId,
-          projectId: match.projectId,
-          projectSlug: match.projectSlug
-        },
-        match.ticketId,
-        ticketIndex.upsertTicket(
-          {
-            orgSlug: match.orgSlug,
-            organizationId: match.organizationId,
-            projectId: match.projectId,
-            projectSlug: match.projectSlug
-          },
-          next
-        )
-      )
-    })
-
     const pullRequestChanged = Effect.fn("GitHubWebhooks.pullRequestChanged")(
       function* (
         change: GitHubPullRequestWebhookChange,
@@ -704,7 +687,12 @@ export const GitHubWebhooksLive = Layer.effect(
                   : Effect.forEach(
                       matches,
                       (match) =>
-                        applyPullRequestToTicket(match, change, deliveryId),
+                        applyPullRequestWebhookToTicket(
+                          { ticketDocs, ticketIndex },
+                          match,
+                          change,
+                          deliveryId
+                        ),
                       { concurrency: 1 }
                     ).pipe(Effect.asVoid)
               )

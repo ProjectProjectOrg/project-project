@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -34,7 +33,10 @@ import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
-import { TicketIndex, type TicketIndexProject } from "../Services/TicketIndex"
+import {
+  bestEffortTicketIndexWrite,
+  TicketIndex
+} from "../Services/TicketIndex"
 import { TicketDocs } from "../Services/TicketDocs"
 
 const MAX_CREATE_ATTEMPTS = 16
@@ -94,24 +96,6 @@ export const GroupsLive = Layer.effect(
     const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
     const ticketIndex = yield* TicketIndex
-
-    const bestEffortIndex = (
-      operation: string,
-      project: TicketIndexProject,
-      ticketId: string,
-      effect: Effect.Effect<void>
-    ): Effect.Effect<void> =>
-      effect.pipe(
-        Effect.catchAllCause((cause) =>
-          Effect.logWarning("ticket index write failed", {
-            operation,
-            orgSlug: project.orgSlug,
-            slug: project.projectSlug,
-            ticketId,
-            cause: Cause.pretty(cause)
-          })
-        )
-      )
 
     const validateTicketIds = (
       orgSlug: string,
@@ -612,7 +596,7 @@ export const GroupsLive = Layer.effect(
                 updatedAt: now
               }
               yield* ticketDocs.write(orgSlug, slug, input.ticketId, next)
-              yield* bestEffortIndex(
+              yield* bestEffortTicketIndexWrite(
                 "upsertTicket",
                 indexProject,
                 input.ticketId,

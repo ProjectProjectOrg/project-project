@@ -52,7 +52,10 @@ import {
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
-import { TicketIndex, type TicketIndexProject } from "../Services/TicketIndex"
+import {
+  bestEffortTicketIndexWrite,
+  TicketIndex
+} from "../Services/TicketIndex"
 import type { MarkdownError } from "../Services/Markdown"
 import type { MalformedTicketDocument } from "../Services/TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
@@ -159,24 +162,6 @@ export const ProjectsLive = Layer.effect(
           .pipe(Effect.orDie)
         return row ?? (yield* new NotFound())
       })
-
-    const bestEffortIndex = (
-      operation: string,
-      project: TicketIndexProject,
-      ticketId: string,
-      effect: Effect.Effect<void>
-    ): Effect.Effect<void> =>
-      effect.pipe(
-        Effect.catchAllCause((cause) =>
-          Effect.logWarning("ticket index write failed", {
-            operation,
-            orgSlug: project.orgSlug,
-            slug: project.projectSlug,
-            ticketId,
-            cause
-          })
-        )
-      )
 
     const orgRoleForUser = (
       organizationId: string,
@@ -961,7 +946,7 @@ export const ProjectsLive = Layer.effect(
                 updatedAt: yield* DateTime.nowAsDate
               }
               yield* ticketDocs.write(orgSlug, slug, id, next)
-              yield* bestEffortIndex(
+              yield* bestEffortTicketIndexWrite(
                 "upsertTicket",
                 project,
                 id,

@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -50,6 +49,7 @@ import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import {
+  bestEffortTicketIndexWrite,
   TicketIndex,
   type TicketIndexEntry,
   type TicketIndexProject
@@ -202,24 +202,6 @@ export const TicketsLive = Layer.effect(
       slug: string
     ): Effect.Effect<void, NotFound> =>
       projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
-
-    const bestEffortIndex = (
-      operation: string,
-      project: TicketIndexProject,
-      ticketId: string,
-      effect: Effect.Effect<void>
-    ): Effect.Effect<void> =>
-      effect.pipe(
-        Effect.catchAllCause((cause) =>
-          Effect.logWarning("ticket index write failed", {
-            operation,
-            orgSlug: project.orgSlug,
-            slug: project.projectSlug,
-            ticketId,
-            cause: Cause.pretty(cause)
-          })
-        )
-      )
 
     const resolveGroupMembers = (
       project: TicketIndexProject,
@@ -591,7 +573,7 @@ export const TicketsLive = Layer.effect(
             body: `# ${input.title}\n`
           })
         )
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "upsertTicket",
           indexProject,
           document.id,
@@ -651,7 +633,7 @@ export const TicketsLive = Layer.effect(
             body: input.body ?? `# ${input.title}\n`
           })
         )
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "upsertTicket",
           indexProject,
           document.id,
@@ -720,7 +702,7 @@ export const TicketsLive = Layer.effect(
         }
 
         yield* ticketDocs.write(orgSlug, slug, id, next)
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "upsertTicket",
           indexProject,
           id,
@@ -746,7 +728,7 @@ export const TicketsLive = Layer.effect(
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
         yield* ticketDocs.remove(orgSlug, slug, id)
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "deleteTicket",
           indexProject,
           id,
@@ -777,7 +759,7 @@ export const TicketsLive = Layer.effect(
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "upsertTicket",
           indexProject,
           id,
@@ -816,7 +798,7 @@ export const TicketsLive = Layer.effect(
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
-        yield* bestEffortIndex(
+        yield* bestEffortTicketIndexWrite(
           "upsertTicket",
           indexProject,
           id,
