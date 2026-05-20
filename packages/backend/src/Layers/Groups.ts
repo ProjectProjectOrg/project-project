@@ -33,10 +33,7 @@ import { GroupDocs, type GroupDocument } from "../Services/GroupDocs"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
-import {
-  bestEffortTicketIndexWrite,
-  TicketIndex
-} from "../Services/TicketIndex"
+import { TicketIndex } from "../Services/TicketIndex"
 import { TicketDocs } from "../Services/TicketDocs"
 
 const MAX_CREATE_ATTEMPTS = 16
@@ -596,12 +593,7 @@ export const GroupsLive = Layer.effect(
                 updatedAt: now
               }
               yield* ticketDocs.write(orgSlug, slug, input.ticketId, next)
-              yield* bestEffortTicketIndexWrite(
-                "upsertTicket",
-                indexProject,
-                input.ticketId,
-                ticketIndex.upsertTicket(indexProject, next)
-              )
+              yield* ticketIndex.upsertTicket(indexProject, next)
             }
           }
 

@@ -52,10 +52,7 @@ import {
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
-import {
-  bestEffortTicketIndexWrite,
-  TicketIndex
-} from "../Services/TicketIndex"
+import { TicketIndex } from "../Services/TicketIndex"
 import type { MarkdownError } from "../Services/Markdown"
 import type { MalformedTicketDocument } from "../Services/TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
@@ -946,12 +943,7 @@ export const ProjectsLive = Layer.effect(
                 updatedAt: yield* DateTime.nowAsDate
               }
               yield* ticketDocs.write(orgSlug, slug, id, next)
-              yield* bestEffortTicketIndexWrite(
-                "upsertTicket",
-                project,
-                id,
-                ticketIndex.upsertTicket(project, next)
-              )
+              yield* ticketIndex.upsertTicket(project, next)
             }),
           { concurrency: 8 }
         )
@@ -1002,12 +994,7 @@ export const ProjectsLive = Layer.effect(
                 updatedAt: yield* DateTime.nowAsDate
               }
               yield* ticketDocs.write(orgSlug, slug, id, next)
-              yield* bestEffortTicketIndexWrite(
-                "upsertTicket",
-                project,
-                id,
-                ticketIndex.upsertTicket(project, next)
-              )
+              yield* ticketIndex.upsertTicket(project, next)
             }),
           { concurrency: 8 }
         )
@@ -1526,6 +1513,7 @@ export const ProjectsLive = Layer.effect(
           )
           if (!orgGithub) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
+          const currentConnection = yield* loadGithubConnection(indexRow)
 
           const verified = yield* github.verifyInstallationRepo(
             orgGithub.installationId,
@@ -1547,6 +1535,11 @@ export const ProjectsLive = Layer.effect(
           }
 
           const now = yield* DateTime.nowAsDate
+          const repoChanged =
+            currentConnection !== null &&
+            (currentConnection.repoId !== next.repoId ||
+              currentConnection.repoOwner !== next.repoOwner ||
+              currentConnection.repoName !== next.repoName)
           yield* sql
             .withTransaction(
               Effect.gen(function* () {
@@ -1582,6 +1575,10 @@ export const ProjectsLive = Layer.effect(
                       .pipe(Effect.asVoid, Effect.orDie),
                   { concurrency: 1 }
                 )
+
+                if (repoChanged) {
+                  yield* clearTicketPrMetadata(orgSlug, slug)
+                }
 
                 const [link] = yield* db
                   .insert(projectIntegrationLink)
@@ -1639,15 +1636,6 @@ export const ProjectsLive = Layer.effect(
               })
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
-
-          const repoChanged =
-            file.github !== null &&
-            (file.github.repoId !== next.repoId ||
-              file.github.repoOwner !== next.repoOwner ||
-              file.github.repoName !== next.repoName)
-          if (repoChanged) {
-            yield* clearTicketPrMetadata(orgSlug, slug)
-          }
 
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)

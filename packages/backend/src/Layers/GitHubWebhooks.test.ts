@@ -286,7 +286,7 @@ const makeFakeDocs = (initial: ReadonlyArray<TicketDocument>) => {
   return { documents, writes, reads, shape }
 }
 
-const makeFakeIndex = () => {
+const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
   const upserts: Array<{ projectId: string; ticketId: string }> = []
   const shape: TicketIndexShape = {
     projectFor: () => Effect.die(new Error("unexpected TicketIndex.projectFor call")),
@@ -303,7 +303,8 @@ const makeFakeIndex = () => {
     rebuildProject: () =>
       Effect.die(new Error("unexpected TicketIndex.rebuildProject call")),
     rebuildAllProjects: () =>
-      Effect.die(new Error("unexpected TicketIndex.rebuildAllProjects call"))
+      Effect.die(new Error("unexpected TicketIndex.rebuildAllProjects call")),
+    ...overrides
   }
   return { upserts, shape }
 }
@@ -333,6 +334,68 @@ it.effect("applyPullRequestWebhookToTicket writes markdown and upserts the index
     expect(docs.writes[0].document.prState).toBe("open")
     expect(docs.writes[0].document.status).toBe("in_progress")
     expect(index.upserts).toEqual([{ projectId: "project-1", ticketId: "T-1" }])
+  })
+)
+
+it.effect("applyPullRequestWebhookToTicket propagates index write failures", () =>
+  Effect.gen(function* () {
+    const docs = makeFakeDocs([baseDocument()])
+    const index = makeFakeIndex({
+      upsertTicket: () => Effect.die(new Error("index failed"))
+    })
+
+    const exit = yield* applyPullRequestWebhookToTicket(
+      { ticketDocs: docs.shape, ticketIndex: index.shape },
+      baseMatch(),
+      openChange,
+      "delivery-1"
+    ).pipe(Effect.exit)
+
+    expect(exit._tag).toBe("Failure")
+    expect(docs.writes).toHaveLength(1)
+  })
+)
+
+it.effect("applyPullRequestWebhookToTicket serializes same-ticket deliveries", () =>
+  Effect.gen(function* () {
+    const docs = makeFakeDocs([baseDocument()])
+    const index = makeFakeIndex()
+    let activeReads = 0
+    let maxActiveReads = 0
+    const serialDocs: TicketDocsShape = {
+      ...docs.shape,
+      read: (org, slug, id) =>
+        Effect.gen(function* () {
+          activeReads += 1
+          maxActiveReads = Math.max(maxActiveReads, activeReads)
+          yield* Effect.yieldNow()
+          const ticket = yield* docs.shape.read(org, slug, id)
+          activeReads -= 1
+          return ticket
+        })
+    }
+
+    yield* Effect.all(
+      [
+        applyPullRequestWebhookToTicket(
+          { ticketDocs: serialDocs, ticketIndex: index.shape },
+          baseMatch(),
+          openChange,
+          "delivery-1"
+        ),
+        applyPullRequestWebhookToTicket(
+          { ticketDocs: serialDocs, ticketIndex: index.shape },
+          baseMatch(),
+          openChange,
+          "delivery-2"
+        )
+      ],
+      { concurrency: "unbounded" }
+    )
+
+    expect(maxActiveReads).toBe(1)
+    expect(docs.writes).toHaveLength(1)
+    expect(index.upserts).toHaveLength(1)
   })
 )
 

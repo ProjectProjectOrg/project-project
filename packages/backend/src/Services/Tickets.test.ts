@@ -428,6 +428,24 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("create propagates ticket index write failures", () => {
+  const docs = makeFakeTicketDocs([])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents, {
+      upsertTicket: () => Effect.die(new Error("index failed"))
+    })
+  })
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const exit = yield* tickets
+      .create("org", "user-1", "p", { title: "Indexed" })
+      .pipe(Effect.exit)
+
+    expect(exit._tag).toBe("Failure")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "clearBranch clears markdown and upserts the ticket index row",
   () => {

@@ -98,7 +98,20 @@ docker compose logs -f app
 You should see the backend listening on `:3000` (inside the compose network)
 and `web` exposing `:8080` on the VM.
 
-### 4. Bootstrap the first organization
+### 4. Rebuild the ticket index
+
+The release that adds migration `0015` creates an empty `ticket_index` table.
+Existing ticket lists, counts, search results, and tag usage counts stay empty
+until the markdown tickets are indexed.
+
+Run this once after migrations:
+
+```sh
+cd /srv/projectproject
+docker compose run --rm app bun run ticket-index:rebuild
+```
+
+### 5. Bootstrap the first organization
 
 ProjectProject does not expose a public "first user creates the org" flow.
 After migrations have run, create the configured org and owner membership
@@ -113,7 +126,7 @@ The command is repeat-safe. Re-running it reports the existing org, owner,
 and membership instead of creating duplicates. After bootstrap, sign in with
 the configured GitHub account.
 
-### 5. nginx-proxy-manager
+### 6. nginx-proxy-manager
 
 Add a Proxy Host in NPM:
 
@@ -126,7 +139,7 @@ Add a Proxy Host in NPM:
 
 Set the same Forward Hostname for HTTPS that you put in `BETTER_AUTH_URL`.
 
-### 6. Verify auto-redeploy
+### 7. Verify auto-redeploy
 
 Push any change to `main` (e.g. a comment in a README). Within 5–10
 minutes, Watchtower pulls the new tag and recreates `app` and `web`. Tail

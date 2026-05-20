@@ -20,11 +20,7 @@ import {
   type GitHubWebhooksShape
 } from "../Services/GitHubWebhooks"
 import { TicketDocs, type TicketDocsShape } from "../Services/TicketDocs"
-import {
-  bestEffortTicketIndexWrite,
-  TicketIndex,
-  type TicketIndexShape
-} from "../Services/TicketIndex"
+import { TicketIndex, type TicketIndexShape } from "../Services/TicketIndex"
 import { planPullRequestWebhookTicket } from "../ticketGitStatePlanner"
 
 export interface PullRequestWebhookMatch {
@@ -36,6 +32,30 @@ export interface PullRequestWebhookMatch {
   readonly branch: string
 }
 
+const pullRequestTicketLocks = new Map<string, Effect.Semaphore>()
+
+const pullRequestTicketLockKey = (match: PullRequestWebhookMatch) =>
+  `${match.orgSlug}:${match.projectSlug}:${match.ticketId}`
+
+const pullRequestTicketLockFor = (match: PullRequestWebhookMatch) =>
+  Effect.gen(function* () {
+    const key = pullRequestTicketLockKey(match)
+    const cached = pullRequestTicketLocks.get(key)
+    if (cached) return cached
+    const created = yield* Effect.makeSemaphore(1)
+    pullRequestTicketLocks.set(key, created)
+    return created
+  })
+
+const withPullRequestTicketLock = <A, E, R>(
+  match: PullRequestWebhookMatch,
+  body: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Effect.gen(function* () {
+    const sem = yield* pullRequestTicketLockFor(match)
+    return yield* sem.withPermits(1)(body)
+  })
+
 export const applyPullRequestWebhookToTicket = (
   deps: {
     readonly ticketDocs: TicketDocsShape
@@ -45,7 +65,7 @@ export const applyPullRequestWebhookToTicket = (
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
 ): Effect.Effect<void, MarkdownError> =>
-  Effect.gen(function* () {
+  withPullRequestTicketLock(match, Effect.gen(function* () {
     const ticket = yield* deps.ticketDocs
       .read(match.orgSlug, match.projectSlug, match.ticketId)
       .pipe(
@@ -143,13 +163,20 @@ export const applyPullRequestWebhookToTicket = (
       projectId: match.projectId,
       projectSlug: match.projectSlug
     }
-    yield* bestEffortTicketIndexWrite(
-      "upsertTicket",
-      indexProject,
-      match.ticketId,
-      deps.ticketIndex.upsertTicket(indexProject, next)
+    yield* deps.ticketIndex.upsertTicket(indexProject, next)
+    yield* Effect.logInfo("github pull_request ticket updated").pipe(
+      Effect.annotateLogs({
+        module: "GitHubWebhooks",
+        deliveryId,
+        orgSlug: match.orgSlug,
+        slug: match.projectSlug,
+        ticketId: match.ticketId,
+        pr: next.pr,
+        prState: next.prState,
+        status: next.status
+      })
     )
-  })
+  }))
 
 const GitHubId = Schema.Union(Schema.Number, Schema.String)
 

@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import type {
@@ -19,24 +18,6 @@ export interface TicketIndexProject {
   readonly projectId: string
   readonly projectSlug: string
 }
-
-export const bestEffortTicketIndexWrite = (
-  operation: string,
-  project: TicketIndexProject,
-  ticketId: string,
-  effect: Effect.Effect<void>
-): Effect.Effect<void> =>
-  effect.pipe(
-    Effect.catchAllCause((cause) =>
-      Effect.logWarning("ticket index write failed", {
-        operation,
-        orgSlug: project.orgSlug,
-        slug: project.projectSlug,
-        ticketId,
-        cause: Cause.pretty(cause)
-      })
-    )
-  )
 
 export interface TicketIndexEntry {
   readonly id: TicketId
