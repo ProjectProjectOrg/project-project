@@ -13,6 +13,7 @@ import { MarkdownLive } from "./Layers/Markdown"
 import { OAuthApplicationsLive } from "./Layers/OAuthApplications"
 import { ProjectDocsLive } from "./Layers/ProjectDocs"
 import { ProjectsLive } from "./Layers/Projects"
+import { ReviewsLive } from "./Layers/Reviews"
 import { TagsLive } from "./Layers/Tags"
 import { TicketDocsLive } from "./Layers/TicketDocs"
 import { TicketsLive } from "./Layers/Tickets"
@@ -26,6 +27,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
 
 export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(CommentsLive),
+  Layer.provideMerge(ReviewsLive),
   Layer.provideMerge(TicketsLive),
   Layer.provideMerge(GroupsLive),
   Layer.provideMerge(ProjectsLive),

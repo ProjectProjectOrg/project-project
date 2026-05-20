@@ -4,6 +4,7 @@ import type {
   BranchExists,
   BranchListResponse,
   BranchProtected,
+  ChecksStatus,
   Conflict,
   GitHubError,
   GitHubScopeInsufficient,
@@ -66,6 +67,26 @@ export interface RawReviewPullRequest {
     readonly deletions: number
     readonly comments: number
     readonly reviewComments: number
+  }
+  readonly checks: {
+    readonly status: ChecksStatus
+    readonly totalCount: number
+    readonly completedCount: number
+  }
+  readonly reviewers: ReadonlyArray<{
+    readonly actor: RawReviewActor
+    readonly requested: boolean
+    readonly decision:
+      | "approved"
+      | "changes_requested"
+      | "commented"
+      | "pending"
+      | "dismissed"
+      | "none"
+  }>
+  readonly mergeMethods: {
+    readonly allowed: ReadonlyArray<"merge" | "squash" | "rebase">
+    readonly defaultMethod: "merge" | "squash" | "rebase" | null
   }
   readonly createdAt: Date
   readonly updatedAt: Date

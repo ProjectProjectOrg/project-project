@@ -443,7 +443,7 @@ git commit -m "feat(review): add GitHub review operations"
 - Modify: `packages/backend/src/main.ts`
 - Add tests for `Reviews`
 
-- [ ] **Step 1: Define `ReviewsShape`**
+- [x] **Step 1: Define `ReviewsShape`**
 
 Methods should mirror the HttpApi endpoint names:
 
@@ -459,7 +459,7 @@ Methods should mirror the HttpApi endpoint names:
 - `close`
 - `reopen`
 
-- [ ] **Step 2: Implement linked-ticket resolution**
+- [x] **Step 2: Implement linked-ticket resolution**
 
 Flow:
 
@@ -472,7 +472,7 @@ Flow:
 
 Do this before returning any GitHub PR data.
 
-- [ ] **Step 3: Implement read methods**
+- [x] **Step 3: Implement read methods**
 
 Build shared DTOs from raw GitHub data:
 
@@ -481,11 +481,11 @@ Build shared DTOs from raw GitHub data:
 - `files` returns patch pages
 - `comments` returns review threads and any unmapped outdated threads
 
-- [ ] **Step 4: Implement capability calculation**
+- [x] **Step 4: Implement capability calculation**
 
 Capabilities are backend-owned. Include disabled reasons exactly from the shared schema. Do not let the frontend infer from PR state alone.
 
-- [ ] **Step 5: Implement write methods**
+- [x] **Step 5: Implement write methods**
 
 Every write must:
 
@@ -497,15 +497,15 @@ Every write must:
 
 Do not mutate the ticket status directly on merge; rely on the existing merged-PR observation rule.
 
-- [ ] **Step 6: Add the handler group**
+- [x] **Step 6: Add the handler group**
 
 Add `ReviewsHandlerLive` with thin `HttpApiBuilder.group(AppApi, "reviews", ...)` handlers, following the existing project/ticket handler style.
 
-- [ ] **Step 7: Wire the handler and layer**
+- [x] **Step 7: Wire the handler and layer**
 
 Provide `ReviewsHandlerLive` and `ReviewsLive` in `packages/backend/src/main.ts` / runtime wiring according to the existing layer structure.
 
-- [ ] **Step 8: Add backend tests**
+- [x] **Step 8: Add backend tests**
 
 Cover:
 

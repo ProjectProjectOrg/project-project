@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+import { GitState } from "./GitState"
 import { TicketId, TicketPriority, TicketStatus, TicketType } from "./Ticket"
 
 export const ReviewPositiveInt = Schema.Number.pipe(
@@ -80,7 +81,8 @@ export const ReviewLinkedTicket = Schema.Struct({
   type: TicketType,
   priority: TicketPriority,
   assignees: Schema.Array(Schema.String),
-  branch: Schema.NullOr(Schema.String)
+  branch: Schema.NullOr(Schema.String),
+  gitState: GitState
 })
 export type ReviewLinkedTicket = typeof ReviewLinkedTicket.Type
 

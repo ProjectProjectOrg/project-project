@@ -2,6 +2,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import { RepoGone } from "@projectproject/shared"
 import type {
+  ChecksStatus,
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
@@ -10,6 +11,7 @@ import type {
 import type {
   RawMergeReviewInput,
   RawPendingReviewComment,
+  RawReviewActor,
   RawReviewComment,
   RawReviewComments,
   RawReviewFile,
@@ -54,9 +56,7 @@ export interface MergePullRequestPayload {
   readonly commit_message?: string
 }
 
-const eventToGithub = (
-  event: RawSubmitReviewInput["event"]
-): ReviewEvent => {
+const eventToGithub = (event: RawSubmitReviewInput["event"]): ReviewEvent => {
   if (event === "approve") return "APPROVE"
   if (event === "request_changes") return "REQUEST_CHANGES"
   return "COMMENT"
@@ -89,7 +89,9 @@ export const buildMergePullRequestPayload = (
   input: RawMergeReviewInput
 ): MergePullRequestPayload => ({
   merge_method: input.method,
-  ...(input.commitTitle !== undefined ? { commit_title: input.commitTitle } : {}),
+  ...(input.commitTitle !== undefined
+    ? { commit_title: input.commitTitle }
+    : {}),
   ...(input.commitMessage !== undefined
     ? { commit_message: input.commitMessage }
     : {})
@@ -112,14 +114,48 @@ const positiveNumber = (value: unknown): number | null =>
 const isoDate = (value: string): Date =>
   DateTime.toDate(DateTime.unsafeMake(value))
 
-const actorFrom = (value: {
-  readonly login?: string | null
-  readonly avatar_url?: string | null
-  readonly html_url?: string | null
-} | null | undefined) => ({
+const actorFrom = (
+  value:
+    | {
+        readonly login?: string | null
+        readonly avatar_url?: string | null
+        readonly html_url?: string | null
+      }
+    | null
+    | undefined
+) => ({
   login: value?.login ?? "unknown",
   avatarUrl: value?.avatar_url ?? null,
   url: value?.html_url ?? null
+})
+
+const actorFromRequestedReviewer = (value: {
+  readonly login?: string | null
+  readonly slug?: string | null
+  readonly avatar_url?: string | null
+  readonly html_url?: string | null
+  readonly url?: string | null
+}): RawReviewActor => ({
+  login: value.login ?? value.slug ?? "unknown",
+  avatarUrl: value.avatar_url ?? null,
+  url: value.html_url ?? value.url ?? null
+})
+
+const defaultMergeMethod = (
+  allowed: ReadonlyArray<"merge" | "squash" | "rebase">
+) =>
+  allowed.includes("squash")
+    ? "squash"
+    : allowed.includes("merge")
+      ? "merge"
+      : allowed.includes("rebase")
+        ? "rebase"
+        : null
+
+const checksFromState = (status: ChecksStatus) => ({
+  status,
+  totalCount: status === "none" ? 0 : 1,
+  completedCount: status === "pending" || status === "none" ? 0 : 1
 })
 
 const rawPullRequestFromRest = (data: {
@@ -145,6 +181,9 @@ const rawPullRequestFromRest = (data: {
     readonly repo: {
       readonly owner: { readonly login: string }
       readonly name: string
+      readonly allow_merge_commit?: boolean | null
+      readonly allow_squash_merge?: boolean | null
+      readonly allow_rebase_merge?: boolean | null
     }
   }
   readonly head: {
@@ -162,49 +201,71 @@ const rawPullRequestFromRest = (data: {
   readonly deletions?: number
   readonly comments?: number
   readonly review_comments?: number
+  readonly requested_reviewers?: ReadonlyArray<{
+    readonly login?: string | null
+    readonly avatar_url?: string | null
+    readonly html_url?: string | null
+  }> | null
   readonly created_at: string
   readonly updated_at: string
   readonly closed_at?: string | null
   readonly merged_at?: string | null
-}): RawReviewPullRequest => ({
-  id: String(data.id),
-  nodeId: data.node_id ?? String(data.id),
-  number: data.number,
-  title: data.title,
-  body: data.body ?? "",
-  state: data.merged ? "merged" : data.state === "closed" ? "closed" : "open",
-  draft: data.draft ?? false,
-  merged: data.merged ?? false,
-  mergeable: data.mergeable ?? null,
-  htmlUrl: data.html_url,
-  author: actorFrom(data.user),
-  base: {
-    label: data.base.label,
-    ref: data.base.ref,
-    sha: data.base.sha,
-    repoOwner: data.base.repo.owner.login,
-    repoName: data.base.repo.name
-  },
-  head: {
-    label: data.head.label,
-    ref: data.head.ref,
-    sha: data.head.sha,
-    repoOwner: data.head.repo?.owner?.login ?? "",
-    repoName: data.head.repo?.name ?? ""
-  },
-  counts: {
-    commits: data.commits ?? 0,
-    filesChanged: data.changed_files ?? 0,
-    additions: data.additions ?? 0,
-    deletions: data.deletions ?? 0,
-    comments: data.comments ?? 0,
-    reviewComments: data.review_comments ?? 0
-  },
-  createdAt: isoDate(data.created_at),
-  updatedAt: isoDate(data.updated_at),
-  closedAt: data.closed_at ? isoDate(data.closed_at) : null,
-  mergedAt: data.merged_at ? isoDate(data.merged_at) : null
-})
+}): RawReviewPullRequest => {
+  const allowed = [
+    ...(data.base.repo.allow_squash_merge === false ? [] : ["squash" as const]),
+    ...(data.base.repo.allow_merge_commit === false ? [] : ["merge" as const]),
+    ...(data.base.repo.allow_rebase_merge === false ? [] : ["rebase" as const])
+  ]
+  return {
+    id: String(data.id),
+    nodeId: data.node_id ?? String(data.id),
+    number: data.number,
+    title: data.title,
+    body: data.body ?? "",
+    state: data.merged ? "merged" : data.state === "closed" ? "closed" : "open",
+    draft: data.draft ?? false,
+    merged: data.merged ?? false,
+    mergeable: data.mergeable ?? null,
+    htmlUrl: data.html_url,
+    author: actorFrom(data.user),
+    base: {
+      label: data.base.label,
+      ref: data.base.ref,
+      sha: data.base.sha,
+      repoOwner: data.base.repo.owner.login,
+      repoName: data.base.repo.name
+    },
+    head: {
+      label: data.head.label,
+      ref: data.head.ref,
+      sha: data.head.sha,
+      repoOwner: data.head.repo?.owner?.login ?? "",
+      repoName: data.head.repo?.name ?? ""
+    },
+    counts: {
+      commits: data.commits ?? 0,
+      filesChanged: data.changed_files ?? 0,
+      additions: data.additions ?? 0,
+      deletions: data.deletions ?? 0,
+      comments: data.comments ?? 0,
+      reviewComments: data.review_comments ?? 0
+    },
+    checks: checksFromState("none"),
+    reviewers: (data.requested_reviewers ?? []).map((reviewer) => ({
+      actor: actorFromRequestedReviewer(reviewer),
+      requested: true,
+      decision: "pending" as const
+    })),
+    mergeMethods: {
+      allowed,
+      defaultMethod: defaultMergeMethod(allowed)
+    },
+    createdAt: isoDate(data.created_at),
+    updatedAt: isoDate(data.updated_at),
+    closedAt: data.closed_at ? isoDate(data.closed_at) : null,
+    mergedAt: data.merged_at ? isoDate(data.merged_at) : null
+  }
+}
 
 const rawFileFromRest = (file: {
   readonly filename: string
@@ -604,13 +665,10 @@ export const setReviewThreadResolvedWithToken = (
         operation: resolved ? "resolveReviewThread" : "unresolveReviewThread"
       },
       (signal) =>
-        gql(
-          resolved ? RESOLVE_THREAD_MUTATION : UNRESOLVE_THREAD_MUTATION,
-          {
-            ...buildResolveThreadVariables(threadId),
-            request: { signal }
-          }
-        ),
+        gql(resolved ? RESOLVE_THREAD_MUTATION : UNRESOLVE_THREAD_MUTATION, {
+          ...buildResolveThreadVariables(threadId),
+          request: { signal }
+        }),
       narrow([
         "GitHubTokenExpired",
         "GitHubScopeInsufficient",
@@ -628,7 +686,11 @@ export const mergePullRequestWithToken = (
   prNumber: number,
   input: RawMergeReviewInput
 ): Effect.Effect<
-  { readonly merged: boolean; readonly sha: string | null; readonly message: string },
+  {
+    readonly merged: boolean
+    readonly sha: string | null
+    readonly message: string
+  },
   GitHubUserWriteError
 > =>
   Effect.gen(function* () {
