@@ -78,6 +78,7 @@ import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { ProjectsHandlerLive } from "./handlers/projects"
+import { StatusesHandlerLive } from "./handlers/statuses"
 import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
 import { McpHttp } from "./Services/McpHttp"
@@ -133,6 +134,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
+  Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(BackendHttpServicesLive)
