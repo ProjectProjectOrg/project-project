@@ -226,6 +226,31 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(updated[0])
       })
 
+    const reorder: ProjectStatusesShape["reorder"] = (
+      orgSlug,
+      userId,
+      slug,
+      statusSlug,
+      input
+    ) =>
+      Effect.gen(function* () {
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        const projectId = yield* projectIdFromSlug(slug)
+        const updated = yield* db
+          .update(projectStatus)
+          .set({ orderKey: input.orderKey })
+          .where(
+            and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          )
+          .returning()
+          .pipe(Effect.orDie)
+        if (updated.length === 0) return yield* new NotFound()
+        return rowToStatus(updated[0])
+      })
+
     const stub = (): never => {
       throw new Error("not implemented")
     }
@@ -234,7 +259,7 @@ export const ProjectStatusesLive = Layer.effect(
       list,
       create,
       update,
-      reorder: stub as never,
+      reorder,
       remove: stub as never
     }
   })
