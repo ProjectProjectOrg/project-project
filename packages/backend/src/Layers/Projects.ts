@@ -975,12 +975,15 @@ export const ProjectsLive = Layer.effect(
                 .pipe(
                   Effect.catchTag("NotFound", () => Effect.succeed(null)),
                   Effect.catchTag("MalformedTicketDocument", (error) =>
-                    Effect.logWarning("Skipping unreadable ticket pr metadata", {
-                      orgSlug,
-                      slug,
-                      ticketId: id,
-                      error
-                    }).pipe(Effect.as(null))
+                    Effect.logWarning("Skipping unreadable ticket pr metadata").pipe(
+                      Effect.annotateLogs({
+                        orgSlug,
+                        slug,
+                        ticketId: id,
+                        error
+                      }),
+                      Effect.as(null)
+                    )
                   )
                 )
               if (
