@@ -9,6 +9,7 @@ import {
   type TicketListQuery,
   type TicketSort
 } from "./Ticket"
+import { StatusSlug } from "../schemas/Status"
 
 const MultiStringParam = Schema.optional(Schema.Array(Schema.String))
 
@@ -44,7 +45,7 @@ export type TicketCountParamsInput =
 const ASSIGNEE_UNASSIGNED_SENTINEL = "unassigned"
 const GROUP_UNASSIGNED_SENTINEL = "unassigned"
 
-const STATUS_VALUES = ["todo", "in_progress", "done"] as const
+const isStatusSlug = Schema.is(StatusSlug)
 const TYPE_VALUES = ["feat", "bug", "chore", "other"] as const
 const SORT_KEY_VALUES = ["id", "created", "updated", "title", "priority"] as const
 const SORT_DIR_VALUES = ["asc", "desc"] as const
@@ -58,9 +59,7 @@ const asArray = <T>(value: unknown): ReadonlyArray<T> | undefined => {
 const decodeStatus = (value: unknown) => {
   const arr = asArray<string>(value)
   if (!arr) return undefined
-  const filtered = arr.filter((s): s is (typeof STATUS_VALUES)[number] =>
-    (STATUS_VALUES as ReadonlyArray<string>).includes(s)
-  )
+  const filtered = arr.filter(isStatusSlug)
   return filtered.length === 0 ? undefined : filtered
 }
 
@@ -204,7 +203,7 @@ const isDefaultSort = (sort: TicketSort) =>
 
 type TicketListQueryInput = {
   filter?: {
-    status?: ReadonlyArray<"todo" | "in_progress" | "done">
+    status?: ReadonlyArray<StatusSlug>
     type?: ReadonlyArray<"feat" | "bug" | "chore" | "other">
     assignee?: ReadonlyArray<AssigneeFilter>
     tags?: ReadonlyArray<string>

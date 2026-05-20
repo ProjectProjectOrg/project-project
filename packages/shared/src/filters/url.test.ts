@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest"
+import * as Schema from "effect/Schema"
+import { StatusSlug } from "../schemas/Status"
 import {
   ticketListQueryFromSearch,
   ticketListQueryToSearch
 } from "./url"
+
+const s = Schema.decodeUnknownSync(StatusSlug)
 
 describe("ticketListQueryFromSearch", () => {
   it("decodes a flat search record into the composite query", () => {
@@ -31,14 +35,21 @@ describe("ticketListQueryFromSearch", () => {
     expect(result.q).toBeUndefined()
   })
 
-  it("ignores unknown keys and malformed values", () => {
+  it("ignores malformed sort and unknown keys, passes slug-shaped status", () => {
     const result = ticketListQueryFromSearch({
       status: "garbage_status",
       sort: "no-colon",
       unrelated: "ignored"
     } as never)
-    expect(result.filter).toBeUndefined()
+    expect(result.filter?.status).toEqual(["garbage_status"])
     expect(result.sort).toEqual({ key: "created", dir: "desc" })
+  })
+
+  it("rejects status values that fail the slug pattern", () => {
+    const result = ticketListQueryFromSearch({
+      status: "INVALID STATUS!"
+    } as never)
+    expect(result.filter).toBeUndefined()
   })
 })
 
@@ -46,7 +57,7 @@ describe("ticketListQueryToSearch", () => {
   it("encodes a query into a flat search record", () => {
     const search = ticketListQueryToSearch({
       filter: {
-        status: ["todo"],
+        status: [s("todo")],
         assignee: ["mine", null]
       },
       sort: { key: "updated", dir: "desc" },
@@ -77,7 +88,7 @@ describe("ticketListQueryToSearch", () => {
   it("round-trips for non-trivial queries", () => {
     const original = {
       filter: {
-        status: ["todo", "in_progress"] as const,
+        status: [s("todo"), s("in_progress")] as const,
         assignee: ["mine", null, "user_abc"] as const
       },
       sort: { key: "title" as const, dir: "asc" as const },

@@ -13,6 +13,7 @@ import {
   sprintState
 } from "./sprintLogic"
 import { isCarryover, type TicketStatus } from "./schemas/Ticket"
+import { StatusSlug } from "./schemas/Status"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const groupColor = Schema.decodeUnknownSync(GroupColor)
@@ -38,11 +39,13 @@ const makeSprint = (
 
 const NOW = isoDate("2026-05-09T00:00:00.000Z")
 
+const decodeStatus = Schema.decodeUnknownSync(StatusSlug)
+
 describe("isCarryover", () => {
   it.each([
-    ["todo", true],
-    ["in_progress", true],
-    ["done", false]
+    [decodeStatus("todo"), true],
+    [decodeStatus("in_progress"), true],
+    [decodeStatus("done"), false]
   ] as ReadonlyArray<[TicketStatus, boolean]>)(
     "%s -> %s",
     (status: TicketStatus, expected: boolean) => {
