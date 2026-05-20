@@ -54,6 +54,19 @@ import {
   OpenPrInput,
   OpenPrResult
 } from "./schemas/GitState"
+import {
+  MergeReviewInput,
+  MergeReviewResult,
+  ReplyReviewCommentInput,
+  ReviewCommentsResponse,
+  ReviewFilePatchPage,
+  ReviewFileSummaryPage,
+  ReviewPage,
+  ReviewPrMutationResult,
+  ReviewThreadMutationResult,
+  SubmitReviewInput,
+  SubmitReviewResult
+} from "./schemas/Review"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
 import {
   Comment,
@@ -145,6 +158,26 @@ const GroupPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
   id: GroupId
+})
+const ReviewPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  prNumber: Schema.NumberFromString.pipe(Schema.int(), Schema.positive())
+})
+const ReviewCommentPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  prNumber: Schema.NumberFromString.pipe(Schema.int(), Schema.positive()),
+  commentId: Schema.String
+})
+const ReviewThreadPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  prNumber: Schema.NumberFromString.pipe(Schema.int(), Schema.positive()),
+  threadId: Schema.String
+})
+const ReviewCursorParams = Schema.Struct({
+  cursor: Schema.optional(Schema.String)
 })
 const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
@@ -699,6 +732,191 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .middleware(Authentication)
 
+const ReviewsGroup = HttpApiGroup.make("reviews")
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/projects/:slug/reviews/:prNumber")
+      .setPath(ReviewPath)
+      .addSuccess(ReviewPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "fileSummaries",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/file-summaries"
+    )
+      .setPath(ReviewPath)
+      .setUrlParams(ReviewCursorParams)
+      .addSuccess(ReviewFileSummaryPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "files",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/files"
+    )
+      .setPath(ReviewPath)
+      .setUrlParams(ReviewCursorParams)
+      .addSuccess(ReviewFilePatchPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "comments",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/comments"
+    )
+      .setPath(ReviewPath)
+      .addSuccess(ReviewCommentsResponse)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "submit",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/reviews"
+    )
+      .setPath(ReviewPath)
+      .setPayload(SubmitReviewInput)
+      .addSuccess(SubmitReviewResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "reply",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/comments/:commentId/replies"
+    )
+      .setPath(ReviewCommentPath)
+      .setPayload(ReplyReviewCommentInput)
+      .addSuccess(ReviewThreadMutationResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Validation)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "resolveThread",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/threads/:threadId/resolve"
+    )
+      .setPath(ReviewThreadPath)
+      .addSuccess(ReviewThreadMutationResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unresolveThread",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/threads/:threadId/unresolve"
+    )
+      .setPath(ReviewThreadPath)
+      .addSuccess(ReviewThreadMutationResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "merge",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/merge"
+    )
+      .setPath(ReviewPath)
+      .setPayload(MergeReviewInput)
+      .addSuccess(MergeReviewResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+      .addError(Validation)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "close",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/close"
+    )
+      .setPath(ReviewPath)
+      .addSuccess(ReviewPrMutationResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "reopen",
+      "/orgs/:orgSlug/projects/:slug/reviews/:prNumber/reopen"
+    )
+      .setPath(ReviewPath)
+      .addSuccess(ReviewPrMutationResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(GitHubTokenExpired)
+      .addError(GitHubScopeInsufficient)
+      .addError(RepoGone)
+      .addError(RateLimited)
+      .addError(GitHubError)
+  )
+  .middleware(Authentication)
+
 const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   .add(
     HttpApiEndpoint.get("list", "/oauth-applications")
@@ -735,6 +953,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(TicketCommentsGroup)
   .add(TagsGroup)
   .add(GroupsGroup)
+  .add(ReviewsGroup)
   .add(OAuthApplicationsGroup)
   .annotateContext(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

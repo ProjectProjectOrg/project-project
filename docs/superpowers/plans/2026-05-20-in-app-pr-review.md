@@ -235,11 +235,11 @@ git commit -m "feat(review): add shared review schemas"
 - Modify: `packages/shared/src/api.ts`
 - Modify: `packages/shared/src/errors.ts` only if an existing error cannot express a needed failure
 
-- [ ] **Step 1: Import review schemas**
+- [x] **Step 1: Import review schemas**
 
 Import the DTOs and inputs from `./schemas/Review`.
 
-- [ ] **Step 2: Add review path/url schemas**
+- [x] **Step 2: Add review path/url schemas**
 
 Add:
 
@@ -253,7 +253,7 @@ const ReviewPath = Schema.Struct({
 
 Add thread/comment paths and cursor params as needed.
 
-- [ ] **Step 3: Add the `reviews` HttpApi group**
+- [x] **Step 3: Add the `reviews` HttpApi group**
 
 Add endpoints from the spec:
 
@@ -273,7 +273,7 @@ All endpoints are nested under `/orgs/:orgSlug/projects/:slug/reviews/:prNumber`
 
 Audit note: this group was initially added, then removed before moving on because a wired placeholder backend would expose callable review endpoints that returned fake `GitHubError` 502s. Re-add the HttpApi group with the first real backend endpoint slice.
 
-- [ ] **Step 4: Model errors conservatively**
+- [x] **Step 4: Model errors conservatively**
 
 Use existing errors where possible:
 
@@ -290,7 +290,7 @@ Use existing errors where possible:
 
 Only add new tagged errors if the frontend needs a distinct recoverable UI path that capabilities cannot represent.
 
-- [ ] **Step 5: Typecheck shared**
+- [x] **Step 5: Typecheck shared**
 
 ```bash
 bun --filter @projectproject/shared run typecheck
