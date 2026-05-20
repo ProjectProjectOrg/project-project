@@ -12,6 +12,8 @@ import { BetterAuth } from "../../Services/BetterAuth"
 import {
   GitHub,
   type GitHubInstallationAccount,
+  type RawMergeReviewInput,
+  type RawSubmitReviewInput,
   type GitHubShape,
   type VerifiedInstallationRepo
 } from "../../Services/GitHub"
@@ -24,6 +26,18 @@ import {
   listBranchesWithToken
 } from "./projectState"
 import { githubRequest } from "./request"
+import {
+  closePullRequestWithToken,
+  fetchReviewCommentsWithToken,
+  fetchReviewFilesWithToken,
+  fetchReviewPullRequestWithToken,
+  fetchReviewThreadsWithToken,
+  mergePullRequestWithToken,
+  reopenPullRequestWithToken,
+  replyToReviewCommentWithToken,
+  setReviewThreadResolvedWithToken,
+  submitReviewWithToken
+} from "./reviews"
 
 export function githubRepoMatchesQuery(
   repo: {
@@ -413,6 +427,173 @@ export const GitHubLive = Layer.effect(
       )
     })
 
+    const fetchReviewPullRequestInstallation = Effect.fn(
+      "GitHub.fetchReviewPullRequestInstallation"
+    )(function* (
+      installationId: string,
+      owner: string,
+      name: string,
+      prNumber: number
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* fetchReviewPullRequestWithToken(
+        token,
+        owner,
+        name,
+        prNumber,
+        "installation"
+      )
+    })
+
+    const fetchReviewFilesInstallation = Effect.fn(
+      "GitHub.fetchReviewFilesInstallation"
+    )(function* (
+      installationId: string,
+      owner: string,
+      name: string,
+      prNumber: number,
+      page: number,
+      perPage: number
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* fetchReviewFilesWithToken(
+        token,
+        owner,
+        name,
+        prNumber,
+        page,
+        perPage,
+        "installation"
+      )
+    })
+
+    const fetchReviewCommentsInstallation = Effect.fn(
+      "GitHub.fetchReviewCommentsInstallation"
+    )(function* (
+      installationId: string,
+      owner: string,
+      name: string,
+      prNumber: number
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* fetchReviewCommentsWithToken(
+        token,
+        owner,
+        name,
+        prNumber,
+        "installation"
+      )
+    })
+
+    const fetchReviewThreadsInstallation = Effect.fn(
+      "GitHub.fetchReviewThreadsInstallation"
+    )(function* (
+      installationId: string,
+      owner: string,
+      name: string,
+      prNumber: number
+    ) {
+      const token = yield* installationTokenFor(installationId)
+      return yield* fetchReviewThreadsWithToken(
+        token,
+        owner,
+        name,
+        prNumber,
+        "installation"
+      )
+    })
+
+    const submitReviewAsUser = Effect.fn("GitHub.submitReviewAsUser")(
+      function* (
+        owner: string,
+        name: string,
+        prNumber: number,
+        input: RawSubmitReviewInput,
+        userId: string
+      ) {
+        const token = yield* tokenFor(userId)
+        return yield* submitReviewWithToken(token, owner, name, prNumber, input)
+      }
+    )
+
+    const replyToReviewCommentAsUser = Effect.fn(
+      "GitHub.replyToReviewCommentAsUser"
+    )(function* (
+      owner: string,
+      name: string,
+      prNumber: number,
+      commentId: number,
+      body: string,
+      userId: string
+    ) {
+      const token = yield* tokenFor(userId)
+      return yield* replyToReviewCommentWithToken(
+        token,
+        owner,
+        name,
+        prNumber,
+        commentId,
+        body
+      )
+    })
+
+    const resolveReviewThreadAsUser = Effect.fn(
+      "GitHub.resolveReviewThreadAsUser"
+    )(function* (threadId: string, userId: string) {
+      const token = yield* tokenFor(userId)
+      return yield* setReviewThreadResolvedWithToken(token, threadId, true)
+    })
+
+    const unresolveReviewThreadAsUser = Effect.fn(
+      "GitHub.unresolveReviewThreadAsUser"
+    )(function* (threadId: string, userId: string) {
+      const token = yield* tokenFor(userId)
+      return yield* setReviewThreadResolvedWithToken(token, threadId, false)
+    })
+
+    const mergePullRequestAsUser = Effect.fn("GitHub.mergePullRequestAsUser")(
+      function* (
+        owner: string,
+        name: string,
+        prNumber: number,
+        input: RawMergeReviewInput,
+        userId: string
+      ) {
+        const token = yield* tokenFor(userId)
+        return yield* mergePullRequestWithToken(
+          token,
+          owner,
+          name,
+          prNumber,
+          input
+        )
+      }
+    )
+
+    const closePullRequestAsUser = Effect.fn("GitHub.closePullRequestAsUser")(
+      function* (
+        owner: string,
+        name: string,
+        prNumber: number,
+        userId: string
+      ) {
+        const token = yield* tokenFor(userId)
+        return yield* closePullRequestWithToken(token, owner, name, prNumber)
+      }
+    )
+
+    const reopenPullRequestAsUser = Effect.fn("GitHub.reopenPullRequestAsUser")(
+      function* (
+        owner: string,
+        name: string,
+        prNumber: number,
+        userId: string
+      ) {
+        const token = yield* tokenFor(userId)
+        return yield* reopenPullRequestWithToken(token, owner, name, prNumber)
+      }
+    )
+
     return {
       getInstallationAccount,
       listInstallationRepos,
@@ -423,7 +604,18 @@ export const GitHubLive = Layer.effect(
       openPullRequestAsUser,
       fetchInstallationProjectStates,
       listInstallationBranches,
-      branchExistsInstallation
+      branchExistsInstallation,
+      fetchReviewPullRequestInstallation,
+      fetchReviewFilesInstallation,
+      fetchReviewCommentsInstallation,
+      fetchReviewThreadsInstallation,
+      submitReviewAsUser,
+      replyToReviewCommentAsUser,
+      resolveReviewThreadAsUser,
+      unresolveReviewThreadAsUser,
+      mergePullRequestAsUser,
+      closePullRequestAsUser,
+      reopenPullRequestAsUser
     } satisfies GitHubShape
   })
 )

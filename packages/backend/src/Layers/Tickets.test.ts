@@ -74,7 +74,25 @@ const FakeGitHub = Layer.succeed(GitHub, {
   fetchInstallationProjectStates: () =>
     unexpected("GitHub.fetchInstallationProjectStates"),
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
-  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
+  branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation"),
+  fetchReviewPullRequestInstallation: () =>
+    unexpected("GitHub.fetchReviewPullRequestInstallation"),
+  fetchReviewFilesInstallation: () =>
+    unexpected("GitHub.fetchReviewFilesInstallation"),
+  fetchReviewCommentsInstallation: () =>
+    unexpected("GitHub.fetchReviewCommentsInstallation"),
+  fetchReviewThreadsInstallation: () =>
+    unexpected("GitHub.fetchReviewThreadsInstallation"),
+  submitReviewAsUser: () => unexpected("GitHub.submitReviewAsUser"),
+  replyToReviewCommentAsUser: () =>
+    unexpected("GitHub.replyToReviewCommentAsUser"),
+  resolveReviewThreadAsUser: () =>
+    unexpected("GitHub.resolveReviewThreadAsUser"),
+  unresolveReviewThreadAsUser: () =>
+    unexpected("GitHub.unresolveReviewThreadAsUser"),
+  mergePullRequestAsUser: () => unexpected("GitHub.mergePullRequestAsUser"),
+  closePullRequestAsUser: () => unexpected("GitHub.closePullRequestAsUser"),
+  reopenPullRequestAsUser: () => unexpected("GitHub.reopenPullRequestAsUser")
 } satisfies GitHubShape)
 
 const FakeDb = Layer.succeed(

@@ -362,11 +362,11 @@ git commit -m "feat(review): resolve tickets by linked PR number"
 - Modify: `packages/backend/src/Layers/GitHub/index.ts`
 - Add tests under `packages/backend/src/Layers/GitHub/`
 
-- [ ] **Step 1: Add raw GitHub review types**
+- [x] **Step 1: Add raw GitHub review types**
 
 Keep these backend-local. They should represent enough GitHub data to build shared DTOs without leaking Octokit response types through service boundaries.
 
-- [ ] **Step 2: Add installation-read methods to `GitHubShape`**
+- [x] **Step 2: Add installation-read methods to `GitHubShape`**
 
 Add methods for:
 
@@ -378,7 +378,7 @@ Add methods for:
 
 Reads take installation id, owner, repo name, and PR number.
 
-- [ ] **Step 3: Add user-write methods to `GitHubShape`**
+- [x] **Step 3: Add user-write methods to `GitHubShape`**
 
 Add methods for:
 
@@ -391,7 +391,7 @@ Add methods for:
 
 Writes take `userId`; the live layer gets the personal GitHub token using the existing Better Auth path.
 
-- [ ] **Step 4: Implement REST helpers first**
+- [x] **Step 4: Implement REST helpers first**
 
 Use REST for:
 
@@ -402,7 +402,7 @@ Use REST for:
 - close/reopen
 - review comment replies if supported cleanly
 
-- [ ] **Step 5: Implement GraphQL helpers where needed**
+- [x] **Step 5: Implement GraphQL helpers where needed**
 
 Use `@octokit/graphql` for:
 
@@ -410,15 +410,15 @@ Use `@octokit/graphql` for:
 - resolve/unresolve thread mutations
 - richer mergeability/review decision if REST is insufficient
 
-- [ ] **Step 6: Map GitHub failures to existing tagged errors**
+- [x] **Step 6: Map GitHub failures to existing tagged errors**
 
 Use existing `githubRequest`, `mapHttpError`, and `narrow` patterns. Preserve rate limit, repo gone, token expired/scope insufficient, and generic GitHub errors.
 
-- [ ] **Step 7: Test request mapping**
+- [x] **Step 7: Test request mapping**
 
 Add tests that mock Octokit/request boundaries where existing GitHub layer tests do this already. Cover REST payload shapes for submit/merge/close/reopen and GraphQL variable shapes for thread resolution.
 
-- [ ] **Step 8: Run GitHub layer tests**
+- [x] **Step 8: Run GitHub layer tests**
 
 ```bash
 bun --filter @projectproject/backend test -- src/Layers/GitHub
