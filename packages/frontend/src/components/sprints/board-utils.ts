@@ -1,52 +1,56 @@
-import type { Ticket, TicketId, TicketStatus } from "@projectproject/shared"
-
-export const BOARD_STATUSES: ReadonlyArray<TicketStatus> = [
-  "todo",
-  "in_progress",
-  "done"
-]
+import type { ProjectStatus, Ticket, TicketId } from "@projectproject/shared"
 
 export type DragData = {
   type: "card"
   id: TicketId
-  status: TicketStatus
+  status: string
 }
 
 export type CardDropData = {
   type: "card"
   id: TicketId
-  status: TicketStatus
+  status: string
   edge: "top" | "bottom"
 }
 
 export type ColumnDropData = {
   type: "column"
-  status: TicketStatus
+  status: string
 }
 
 export type DropData = CardDropData | ColumnDropData
 
 export function effectiveStatus(
   ticket: Ticket,
-  overlay: ReadonlyMap<TicketId, TicketStatus>
-): TicketStatus {
+  overlay: ReadonlyMap<TicketId, string>
+): string {
   return overlay.get(ticket.id) ?? ticket.status
+}
+
+export function boardStatusesFor(
+  statuses: ReadonlyArray<ProjectStatus>
+): ReadonlyArray<string> {
+  return [...statuses]
+    .toSorted((a, b) =>
+      a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
+    )
+    .map((s) => s.slug)
 }
 
 export function groupTicketsByStatus(
   ticketIds: ReadonlyArray<TicketId>,
   ticketById: ReadonlyMap<TicketId, Ticket>,
-  overlay: ReadonlyMap<TicketId, TicketStatus>
-): Record<TicketStatus, ReadonlyArray<Ticket>> {
-  const out: Record<TicketStatus, Array<Ticket>> = {
-    todo: [],
-    in_progress: [],
-    done: []
-  }
+  overlay: ReadonlyMap<TicketId, string>,
+  statusSlugs: ReadonlyArray<string>
+): Record<string, ReadonlyArray<Ticket>> {
+  const out: Record<string, Array<Ticket>> = {}
+  for (const slug of statusSlugs) out[slug] = []
   for (const tid of ticketIds) {
     const ticket = ticketById.get(tid)
     if (!ticket) continue
-    out[effectiveStatus(ticket, overlay)].push(ticket)
+    const status = effectiveStatus(ticket, overlay)
+    if (!out[status]) out[status] = []
+    out[status].push(ticket)
   }
   return out
 }
