@@ -281,6 +281,7 @@ function PanelForState({
             orgSlug={orgSlug}
             slug={slug}
             ticket={ticket}
+            github={github}
             variant={variant}
           />
         </InlineForm.Form>
