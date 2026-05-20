@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { STATUS_META } from "@/lib/ticket-meta"
 import { useProjectRole } from "@/lib/projectRole"
+import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
   projectAtom,
   projectKey,
@@ -148,6 +149,11 @@ function ProjectLayout() {
     onSuccess: ({ value }) => (
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
+          <ProjectGitStatePolling
+            orgSlug={orgSlug}
+            slug={slug}
+            enabled={value.github !== null}
+          />
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
           <div className="flex flex-1 flex-col gap-6">
             {!onTicketDetail && !onSettings && (
@@ -167,6 +173,19 @@ function ProjectLayout() {
       </ProjectContext.Provider>
     )
   })
+}
+
+function ProjectGitStatePolling({
+  orgSlug,
+  slug,
+  enabled
+}: {
+  orgSlug: string
+  slug: string
+  enabled: boolean
+}) {
+  useProjectGitStatePolling(orgSlug, slug, enabled)
+  return null
 }
 
 function ProjectHeader({

@@ -48,6 +48,11 @@ import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
+import {
+  TicketIndex,
+  type TicketIndexEntry,
+  type TicketIndexProject
+} from "../Services/TicketIndex"
 import { Db } from "../Services/Db"
 import { projectIndex, projectTag } from "../db/schema"
 import { eq } from "drizzle-orm"
@@ -72,14 +77,6 @@ function numericTail(id: string): number {
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
-type TicketCollectionRead =
-  | { readonly _tag: "Readable"; readonly document: TicketDocument }
-  | {
-      readonly _tag: "Unreadable"
-      readonly ticketId: string
-      readonly error: MalformedTicketDocument
-    }
-
 function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
   let max = 0
   for (const id of ids) {
@@ -90,20 +87,42 @@ function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
 }
 
 function pendingGitState(
-  document: TicketDocument,
+  document: Omit<TicketDocument, "body">,
   github: ProjectGithubIntegration | null
 ): Ticket["gitState"] {
   const baseBranch = github?.defaultBaseBranch ?? "main"
   if (!document.branch) return { tag: "no_branch", baseBranch }
   if (document.pr !== null) {
+    const url = github
+      ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
+      : ""
+    if (document.prState === "merged") {
+      return {
+        tag: "pr_merged",
+        branch: document.branch,
+        baseBranch,
+        number: document.pr,
+        url,
+        title: "",
+        mergedAt: null
+      }
+    }
+    if (document.prState === "closed") {
+      return {
+        tag: "pr_closed",
+        branch: document.branch,
+        baseBranch,
+        number: document.pr,
+        url,
+        title: ""
+      }
+    }
     return {
       tag: "pr_pending",
       branch: document.branch,
       baseBranch,
       number: document.pr,
-      url: github
-        ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
-        : ""
+      url
     }
   }
   return { tag: "branch_pending", name: document.branch, baseBranch }
@@ -115,6 +134,13 @@ function documentToTicket(
 ): Ticket {
   const { body: _body, ...ticket } = document
   return { ...ticket, gitState: pendingGitState(document, github) }
+}
+
+function indexEntryToTicket(
+  entry: TicketIndexEntry,
+  github: ProjectGithubIntegration | null
+): Ticket {
+  return { ...entry, gitState: pendingGitState(entry, github) }
 }
 
 function documentToDetail(
@@ -164,6 +190,7 @@ export const TicketsLive = Layer.effect(
   Effect.gen(function* () {
     const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
+    const ticketIndex = yield* TicketIndex
     const github = yield* GitHub
     const groups = yield* Groups
     const db = yield* Db
@@ -176,6 +203,7 @@ export const TicketsLive = Layer.effect(
       projects.requireMember(orgSlug, userId, slug).pipe(Effect.asVoid)
 
     const resolveGroupMembers = (
+      project: TicketIndexProject,
       orgSlug: string,
       userId: string,
       slug: string,
@@ -207,7 +235,7 @@ export const TicketsLive = Layer.effect(
             if (g.completedAt !== null) continue
             for (const t of g.tickets) inAnyActiveSprint.add(t)
           }
-          const allTicketIds = yield* ticketDocs.listIds(orgSlug, slug)
+          const allTicketIds = yield* ticketIndex.listIds(project)
           for (const id of allTicketIds) {
             if (!inAnyActiveSprint.has(id)) memberSet.add(id)
           }
@@ -224,45 +252,6 @@ export const TicketsLive = Layer.effect(
       NotFound | MarkdownError | MalformedTicketDocument
     > => ticketDocs.read(orgSlug, slug, id)
 
-    const readTicketForCollection = (
-      orgSlug: string,
-      slug: string,
-      id: string
-    ): Effect.Effect<TicketCollectionRead | null, MarkdownError> =>
-      readTicket(orgSlug, slug, id).pipe(
-        Effect.map(
-          (document): TicketCollectionRead => ({ _tag: "Readable", document })
-        ),
-        Effect.catchTag("MalformedTicketDocument", (error) =>
-          Effect.logWarning("Skipping unreadable ticket", {
-            orgSlug,
-            slug,
-            ticketId: id,
-            error
-          }).pipe(
-            Effect.as<TicketCollectionRead>({
-              _tag: "Unreadable",
-              ticketId: id,
-              error
-            })
-          )
-        ),
-        Effect.catchTag("NotFound", () =>
-          Effect.logDebug("Skipping vanished ticket reference", {
-            orgSlug,
-            slug,
-            ticketId: id
-          }).pipe(Effect.as(null))
-        )
-      )
-
-    const readableTickets = (
-      reads: ReadonlyArray<TicketCollectionRead | null>
-    ): ReadonlyArray<TicketDocument> =>
-      reads.flatMap((read) =>
-        read !== null && read._tag === "Readable" ? [read.document] : []
-      )
-
     const list = (
       orgSlug: string,
       userId: string,
@@ -272,29 +261,26 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketListPage, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
         const groupMemberSet = yield* resolveGroupMembers(
+          project,
           orgSlug,
           userId,
           slug,
           query.filter?.groupId
         )
-        const ids =
-          groupMemberSet === null
-            ? yield* ticketDocs.listIds(orgSlug, slug)
-            : [...groupMemberSet]
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
+        const entries = yield* ticketIndex.list(
+          project,
+          groupMemberSet === null ? undefined : [...groupMemberSet]
+        )
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
           slug
         )
 
-        const filtered = tickets
-          .map((ticket) => documentToTicket(ticket, projectGithub))
+        const filtered = entries
+          .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => matchesTicketQuery(t, query, userId))
         const sorted = sortTickets(filtered, query.sort)
         const cursor = tryDecodeCursor(query.cursor)
@@ -315,18 +301,19 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
         const group = yield* groups.get(orgSlug, userId, slug, groupId)
-        const tickets = yield* Effect.forEach(
-          group.tickets,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
+        const entries = yield* ticketIndex.list(project, group.tickets)
+        const byId = new Map(entries.map((entry) => [entry.id, entry]))
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
           slug
         )
-        return tickets.map((ticket) => documentToTicket(ticket, projectGithub))
+        return group.tickets.flatMap((id) => {
+          const entry = byId.get(id)
+          return entry ? [indexEntryToTicket(entry, projectGithub)] : []
+        })
       })
 
     const SEARCH_DEFAULT_LIMIT = 24
@@ -344,6 +331,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
         const excluded = options.excludeGroupId
           ? new Set(
               (yield* groups
@@ -355,12 +343,7 @@ export const TicketsLive = Layer.effect(
                 )).tickets
             )
           : null
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
+        const entries = yield* ticketIndex.list(project)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -369,8 +352,8 @@ export const TicketsLive = Layer.effect(
         const queryForMatch: Pick<TicketListQuery, "q"> = {
           q: options.q
         }
-        const matched = tickets
-          .map((ticket) => documentToTicket(ticket, projectGithub))
+        const matched = entries
+          .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => {
             if (excluded !== null && excluded.has(t.id)) return false
             return matchesTicketQuery(t, queryForMatch, userId)
@@ -392,19 +375,8 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
-        const counts: Record<string, number> = {}
-        for (const t of tickets) {
-          for (const tag of t.tags) {
-            counts[tag] = (counts[tag] ?? 0) + 1
-          }
-        }
-        return counts
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
+        return yield* ticketIndex.tagUsageCounts(project)
       })
 
     const count = (
@@ -415,21 +387,18 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketCounts, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const project = yield* ticketIndex.projectFor(orgSlug, slug)
         const groupMemberSet = yield* resolveGroupMembers(
+          project,
           orgSlug,
           userId,
           slug,
           query.filter?.groupId
         )
-        const ids =
-          groupMemberSet === null
-            ? yield* ticketDocs.listIds(orgSlug, slug)
-            : [...groupMemberSet]
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
+        const entries = yield* ticketIndex.list(
+          project,
+          groupMemberSet === null ? undefined : [...groupMemberSet]
+        )
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -444,8 +413,8 @@ export const TicketsLive = Layer.effect(
           q: query.q
         }
 
-        const matching = tickets
-          .map((ticket) => documentToTicket(ticket, projectGithub))
+        const matching = entries
+          .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
         const byStatus: Record<TicketStatus, number> = {
@@ -578,6 +547,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const now = yield* DateTime.nowAsDate
         const document = yield* writeWithIdAllocation(
@@ -593,6 +563,7 @@ export const TicketsLive = Layer.effect(
             tags: [],
             branch: null,
             pr: null,
+            prState: null,
             lastTransitionedPr: null,
             assignees: [],
             createdBy: ownerId,
@@ -601,6 +572,7 @@ export const TicketsLive = Layer.effect(
             body: `# ${input.title}\n`
           })
         )
+        yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           ownerId,
@@ -620,6 +592,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         if (input.tags !== undefined) {
           yield* validateTagsExist(slug, input.tags)
@@ -644,6 +617,7 @@ export const TicketsLive = Layer.effect(
             tags: input.tags !== undefined ? [...input.tags] : [],
             branch: null,
             pr: null,
+            prState: null,
             lastTransitionedPr: null,
             assignees:
               input.assignees !== undefined ? [...input.assignees] : [],
@@ -653,6 +627,7 @@ export const TicketsLive = Layer.effect(
             body: input.body ?? `# ${input.title}\n`
           })
         )
+        yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           ownerId,
@@ -673,6 +648,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
 
         if (input.tags !== undefined) {
@@ -702,6 +678,7 @@ export const TicketsLive = Layer.effect(
           tags: input.tags !== undefined ? [...input.tags] : existing.tags,
           branch: existing.branch,
           pr: existing.pr,
+          prState: existing.prState,
           lastTransitionedPr: existing.lastTransitionedPr,
           assignees:
             input.assignees !== undefined
@@ -714,6 +691,7 @@ export const TicketsLive = Layer.effect(
         }
 
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
 
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
@@ -731,8 +709,10 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<void, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
         yield* ticketDocs.remove(orgSlug, slug, id)
+        yield* ticketIndex.deleteTicket(indexProject, id)
       })
 
     const replaceTag = (
@@ -743,6 +723,7 @@ export const TicketsLive = Layer.effect(
       newName: string | null
     ): Effect.Effect<boolean, TicketReadError> =>
       Effect.gen(function* () {
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const existing = yield* readTicket(orgSlug, slug, id)
         if (!existing.tags.some((tag) => tag === oldName)) return false
         const nextTags =
@@ -757,6 +738,7 @@ export const TicketsLive = Layer.effect(
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
         return true
       })
 
@@ -764,10 +746,13 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       slug: string,
       id: string,
+      indexProject: TicketIndexProject,
       existing: TicketDocument,
+      _projectGithub: ProjectGithubIntegration | null | undefined,
       patch: {
         branch?: string | null
         pr?: number | null
+        prState?: TicketDocument["prState"]
         lastTransitionedPr?: number | null
         status?: TicketDocument["status"]
       }
@@ -777,6 +762,8 @@ export const TicketsLive = Layer.effect(
           ...existing,
           branch: patch.branch !== undefined ? patch.branch : existing.branch,
           pr: patch.pr !== undefined ? patch.pr : existing.pr,
+          prState:
+            patch.prState !== undefined ? patch.prState : existing.prState,
           lastTransitionedPr:
             patch.lastTransitionedPr !== undefined
               ? patch.lastTransitionedPr
@@ -785,6 +772,7 @@ export const TicketsLive = Layer.effect(
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
         return next
       })
 
@@ -810,6 +798,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -829,11 +818,20 @@ export const TicketsLive = Layer.effect(
           userId
         )
 
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: input.name,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          indexProject,
+          ticket,
+          projectGithub,
+          {
+            branch: input.name,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, projectGithub)
       })
 
@@ -858,6 +856,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -878,11 +877,20 @@ export const TicketsLive = Layer.effect(
           return yield* new BranchNotFound({ name: input.name })
         }
 
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: input.name,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          indexProject,
+          ticket,
+          projectGithub,
+          {
+            branch: input.name,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, projectGithub)
       })
 
@@ -907,6 +915,7 @@ export const TicketsLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -937,10 +946,19 @@ export const TicketsLive = Layer.effect(
           userId
         )
 
-        yield* writeGitFields(orgSlug, slug, id, ticket, {
-          pr: result.number,
-          lastTransitionedPr: null
-        })
+        yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          indexProject,
+          ticket,
+          projectGithub,
+          {
+            pr: result.number,
+            prState: "open",
+            lastTransitionedPr: null
+          }
+        )
         return result
       })
 
@@ -952,12 +970,27 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<TicketDetail, TicketReadError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
         const ticket = yield* readTicket(orgSlug, slug, id)
-        const next = yield* writeGitFields(orgSlug, slug, id, ticket, {
-          branch: null,
-          pr: null,
-          lastTransitionedPr: null
-        })
+        const next = yield* writeGitFields(
+          orgSlug,
+          slug,
+          id,
+          indexProject,
+          ticket,
+          projectGithub,
+          {
+            branch: null,
+            pr: null,
+            prState: null,
+            lastTransitionedPr: null
+          }
+        )
         return documentToDetail(next, null)
       })
 
@@ -968,6 +1001,7 @@ export const TicketsLive = Layer.effect(
     ): Effect.Effect<GitStatesResponse, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,
@@ -983,12 +1017,7 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        const tickets = yield* Effect.forEach(
-          ids,
-          (id) => readTicketForCollection(orgSlug, slug, id),
-          { concurrency: 8 }
-        ).pipe(Effect.map(readableTickets))
+        const tickets = yield* ticketIndex.list(indexProject)
         const branches = [
           ...new Set(
             tickets.flatMap((ticket) =>
@@ -996,7 +1025,6 @@ export const TicketsLive = Layer.effect(
             )
           )
         ]
-
         const result = yield* github
           .fetchInstallationProjectStates(
             projectGithub.installationId,
@@ -1038,7 +1066,6 @@ export const TicketsLive = Layer.effect(
           }
         }
 
-        const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]))
         const plan = planTicketGitStates(
           tickets,
           result.raw,
@@ -1046,13 +1073,31 @@ export const TicketsLive = Layer.effect(
         )
 
         for (const write of plan.writes) {
-          const ticket = ticketById.get(write.ticketId)
-          if (!ticket) continue
+          const ticket = yield* readTicket(orgSlug, slug, write.ticketId).pipe(
+            Effect.catchTag("MalformedTicketDocument", (error) =>
+              Effect.logWarning("Skipping unreadable ticket for git state", {
+                orgSlug,
+                slug,
+                ticketId: write.ticketId,
+                error
+              }).pipe(Effect.as(null))
+            ),
+            Effect.catchTag("NotFound", () =>
+              Effect.logDebug("Skipping vanished indexed ticket", {
+                orgSlug,
+                slug,
+                ticketId: write.ticketId
+              }).pipe(Effect.as(null))
+            )
+          )
+          if (ticket === null) continue
           yield* writeGitFields(
             orgSlug,
             slug,
             write.ticketId,
+            indexProject,
             ticket,
+            projectGithub,
             write.patch
           )
         }

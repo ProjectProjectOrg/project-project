@@ -31,6 +31,10 @@ export interface ProjectMembership {
 }
 
 export interface ProjectGithubIntegration {
+  readonly projectIntegrationLinkId: string
+  readonly organizationId: string
+  readonly projectId: string
+  readonly projectSlug: string
   readonly installationId: string
   readonly repoId: string
   readonly repoOwner: string

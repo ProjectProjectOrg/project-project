@@ -20,6 +20,7 @@ import { Db } from "../Services/Db"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
 import { Tags, type TagsShape } from "../Services/Tags"
+import { TicketIndex } from "../Services/TicketIndex"
 import { TicketDocs } from "../Services/TicketDocs"
 import { Tickets } from "../Services/Tickets"
 
@@ -38,6 +39,7 @@ export const TagsLive = Layer.effect(
   Tags,
   Effect.gen(function* () {
     const db = yield* Db
+    const ticketIndex = yield* TicketIndex
     const ticketDocs = yield* TicketDocs
     const projects = yield* Projects
     const tickets = yield* Tickets
@@ -62,16 +64,36 @@ export const TagsLive = Layer.effect(
       newName: string | null
     ): Effect.Effect<void, MarkdownError> =>
       Effect.gen(function* () {
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const project = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.orDie)
+        const ids = yield* ticketIndex.findTicketIdsByTag(project, oldName)
+        const rewritten = new Set<string>()
         for (const id of ids) {
-          yield* tickets
-            .replaceTag(orgSlug, slug, id, oldName, newName)
-            .pipe(
-              Effect.catchTag("NotFound", () => Effect.succeed(false)),
-              Effect.catchTag("MalformedTicketDocument", () =>
-                Effect.succeed(false)
-              )
+          rewritten.add(id)
+          yield* tickets.replaceTag(orgSlug, slug, id, oldName, newName).pipe(
+            Effect.catchTag("NotFound", () => Effect.succeed(false)),
+            Effect.catchTag("MalformedTicketDocument", () =>
+              Effect.succeed(false)
             )
+          )
+        }
+        const canonicalIds = yield* ticketDocs.listIds(orgSlug, slug)
+        for (const id of canonicalIds) {
+          if (rewritten.has(id)) continue
+          const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
+            Effect.catchTag("NotFound", () => Effect.succeed(null)),
+            Effect.catchTag("MalformedTicketDocument", () => Effect.succeed(null))
+          )
+          if (ticket === null || !ticket.tags.some((tag) => tag === oldName)) {
+            continue
+          }
+          yield* tickets.replaceTag(orgSlug, slug, id, oldName, newName).pipe(
+            Effect.catchTag("NotFound", () => Effect.succeed(false)),
+            Effect.catchTag("MalformedTicketDocument", () =>
+              Effect.succeed(false)
+            )
+          )
         }
       })
 

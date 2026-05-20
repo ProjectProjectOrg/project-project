@@ -3,6 +3,7 @@ import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
 import type {
   NotFound,
+  PullRequestState,
   TagName,
   TicketId,
   TicketPriority,
@@ -31,6 +32,7 @@ export interface TicketDocument {
   readonly tags: ReadonlyArray<TagName>
   readonly branch: string | null
   readonly pr: number | null
+  readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null
   readonly assignees: ReadonlyArray<string>
   readonly createdBy: string
@@ -72,7 +74,10 @@ export interface TicketDocsShape {
     orgSlug: string,
     slug: string,
     id: string
-  ) => Effect.Effect<{ path: string; content: string }, NotFound | MarkdownError>
+  ) => Effect.Effect<
+    { path: string; content: string },
+    NotFound | MarkdownError
+  >
 }
 
 export class TicketDocs extends Context.Tag(

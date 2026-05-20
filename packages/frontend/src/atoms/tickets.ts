@@ -230,6 +230,7 @@ const predictedTicketFromCreate = (
   tags: [],
   branch: null,
   pr: null,
+  prState: null,
   assignees: [],
   updatedAt: DateTime.toDate(DateTime.unsafeNow())
 })
@@ -261,7 +262,10 @@ export const ticketBaseAtom = Atom.family((key: string) => {
         return yield* client.tickets.get({ path: { orgSlug, slug, id } })
       })
     )
-    .pipe(Atom.setIdleTTL("2 minutes"))
+    .pipe(
+      Atom.withReactivity(["tickets", orgSlug, slug]),
+      Atom.setIdleTTL("2 minutes")
+    )
 })
 
 export const ticketAtom = ticketBaseAtom
@@ -315,7 +319,11 @@ const splitSprintKey = (
   key: string
 ): { orgSlug: string; slug: string; groupId: string } => {
   const parts = key.split("/")
-  return { orgSlug: parts[0], slug: parts[1], groupId: parts.slice(2).join("/") }
+  return {
+    orgSlug: parts[0],
+    slug: parts[1],
+    groupId: parts.slice(2).join("/")
+  }
 }
 
 export const ticketsInSprintAtom = Atom.family((key: string) => {

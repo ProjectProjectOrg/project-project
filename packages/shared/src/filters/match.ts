@@ -1,4 +1,8 @@
-import type { TicketStatus, TicketType } from "../schemas/Ticket"
+import type {
+  PullRequestState,
+  TicketStatus,
+  TicketType
+} from "../schemas/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 export interface MatchableTicket {
@@ -9,6 +13,7 @@ export interface MatchableTicket {
   readonly tags: ReadonlyArray<string>
   readonly branch: string | null
   readonly pr: number | null
+  readonly prState?: PullRequestState | null
   readonly assignees: ReadonlyArray<string>
   readonly updatedAt: Date
 }
@@ -56,7 +61,8 @@ export const matchesTicketFilter = (
   }
 
   if (filter.updatedAfter !== undefined) {
-    if (ticket.updatedAt.getTime() <= filter.updatedAfter.getTime()) return false
+    if (ticket.updatedAt.getTime() <= filter.updatedAfter.getTime())
+      return false
   }
 
   return true

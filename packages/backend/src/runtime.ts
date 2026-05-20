@@ -14,6 +14,7 @@ import { OAuthApplicationsLive } from "./Layers/OAuthApplications"
 import { ProjectDocsLive } from "./Layers/ProjectDocs"
 import { ProjectsLive } from "./Layers/Projects"
 import { TagsLive } from "./Layers/Tags"
+import { TicketIndexLive } from "./Layers/TicketIndex"
 import { TicketDocsLive } from "./Layers/TicketDocs"
 import { TicketsLive } from "./Layers/Tickets"
 import { UsersLive } from "./Layers/Users"
@@ -38,6 +39,7 @@ export const BackendServicesLive = TagsLive.pipe(
     )
   ),
   Layer.provideMerge(UsersLive),
+  Layer.provideMerge(TicketIndexLive),
   Layer.provideMerge(ProjectDocsLive),
   Layer.provideMerge(TicketDocsLive),
   Layer.provideMerge(GroupDocsLive),

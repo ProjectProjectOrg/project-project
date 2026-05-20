@@ -52,6 +52,7 @@ import {
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
+import { TicketIndex } from "../Services/TicketIndex"
 import type { MarkdownError } from "../Services/Markdown"
 import type { MalformedTicketDocument } from "../Services/TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
@@ -125,6 +126,7 @@ export const ProjectsLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const projectDocs = yield* ProjectDocs
     const ticketDocs = yield* TicketDocs
+    const ticketIndex = yield* TicketIndex
     const users = yield* Users
     const github = yield* GitHub
 
@@ -265,6 +267,10 @@ export const ProjectsLive = Layer.effect(
     ): Effect.Effect<ProjectGithubIntegration | null> =>
       db
         .select({
+          projectIntegrationLinkId: projectIntegrationLink.id,
+          organizationId: projectIntegrationLink.organizationId,
+          projectId: projectIntegrationLink.projectId,
+          projectSlug: projectIndex.slug,
           installationId: organizationGithubIntegration.installationId,
           repoId: projectGithubRepository.repoId,
           repoOwner: projectGithubRepository.repoOwner,
@@ -272,6 +278,10 @@ export const ProjectsLive = Layer.effect(
           defaultBaseBranch: projectGithubRepository.defaultBranch
         })
         .from(projectIntegrationLink)
+        .innerJoin(
+          projectIndex,
+          eq(projectIndex.id, projectIntegrationLink.projectId)
+        )
         .innerJoin(
           projectGithubRepository,
           eq(
@@ -909,6 +919,9 @@ export const ProjectsLive = Layer.effect(
       userId: string
     ): Effect.Effect<void, MarkdownError | MalformedTicketDocument> =>
       Effect.gen(function* () {
+        const project = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.orDie)
         const ids = yield* ticketDocs.listIds(orgSlug, slug)
         yield* Effect.forEach(
           ids,
@@ -924,11 +937,64 @@ export const ProjectsLive = Layer.effect(
               ) {
                 return
               }
-              yield* ticketDocs.write(orgSlug, slug, id, {
+              const next = {
                 ...ticket,
                 assignees: ticket.assignees.filter((id) => id !== userId),
                 updatedAt: yield* DateTime.nowAsDate
-              })
+              }
+              yield* ticketDocs.write(orgSlug, slug, id, next)
+              yield* ticketIndex.upsertTicket(project, next)
+            }),
+          { concurrency: 8 }
+        )
+      })
+
+    const clearTicketPrMetadata = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        const project = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.orDie)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        yield* Effect.forEach(
+          ids,
+          (id) =>
+            Effect.gen(function* () {
+              const ticket = yield* ticketDocs
+                .read(orgSlug, slug, id)
+                .pipe(
+                  Effect.catchTag("NotFound", () => Effect.succeed(null)),
+                  Effect.catchTag("MalformedTicketDocument", (error) =>
+                    Effect.logWarning("Skipping unreadable ticket pr metadata").pipe(
+                      Effect.annotateLogs({
+                        orgSlug,
+                        slug,
+                        ticketId: id,
+                        error
+                      }),
+                      Effect.as(null)
+                    )
+                  )
+                )
+              if (
+                ticket === null ||
+                (ticket.pr === null &&
+                  ticket.prState === null &&
+                  ticket.lastTransitionedPr === null)
+              ) {
+                return
+              }
+              const next = {
+                ...ticket,
+                pr: null,
+                prState: null,
+                lastTransitionedPr: null,
+                updatedAt: yield* DateTime.nowAsDate
+              }
+              yield* ticketDocs.write(orgSlug, slug, id, next)
+              yield* ticketIndex.upsertTicket(project, next)
             }),
           { concurrency: 8 }
         )
@@ -1289,69 +1355,71 @@ export const ProjectsLive = Layer.effect(
             .pipe(Effect.orDie)
           if (!target) return yield* new NotFound()
 
-          yield* sql.withTransaction(
-            Effect.gen(function* () {
-              const currentOwners = yield* db.query.projectMember
-                .findMany({
-                  columns: { userId: true },
-                  where: and(
-                    eq(projectMember.projectSlug, slug),
-                    eq(projectMember.role, "owner")
-                  )
-                })
-                .pipe(Effect.orDie)
-              if (
-                currentOwners.length !== 1 ||
-                currentOwners[0].userId !== sourceUserId
-              ) {
-                return yield* new Validation({
-                  reason: "invalid_project_owner_count"
-                })
-              }
+          yield* sql
+            .withTransaction(
+              Effect.gen(function* () {
+                const currentOwners = yield* db.query.projectMember
+                  .findMany({
+                    columns: { userId: true },
+                    where: and(
+                      eq(projectMember.projectSlug, slug),
+                      eq(projectMember.role, "owner")
+                    )
+                  })
+                  .pipe(Effect.orDie)
+                if (
+                  currentOwners.length !== 1 ||
+                  currentOwners[0].userId !== sourceUserId
+                ) {
+                  return yield* new Validation({
+                    reason: "invalid_project_owner_count"
+                  })
+                }
 
-              const currentTarget = yield* db.query.projectMember
-                .findFirst({
-                  columns: { userId: true },
-                  where: and(
-                    eq(projectMember.projectSlug, slug),
-                    eq(projectMember.userId, targetUserId)
-                  )
-                })
-                .pipe(Effect.orDie)
-              if (!currentTarget) return yield* new NotFound()
+                const currentTarget = yield* db.query.projectMember
+                  .findFirst({
+                    columns: { userId: true },
+                    where: and(
+                      eq(projectMember.projectSlug, slug),
+                      eq(projectMember.userId, targetUserId)
+                    )
+                  })
+                  .pipe(Effect.orDie)
+                if (!currentTarget) return yield* new NotFound()
 
-              const demoted = yield* db
-                .update(projectMember)
-                .set({ role: "admin" })
-                .where(
-                  and(
-                    eq(projectMember.projectSlug, slug),
-                    eq(projectMember.userId, sourceUserId),
-                    eq(projectMember.role, "owner")
+                const demoted = yield* db
+                  .update(projectMember)
+                  .set({ role: "admin" })
+                  .where(
+                    and(
+                      eq(projectMember.projectSlug, slug),
+                      eq(projectMember.userId, sourceUserId),
+                      eq(projectMember.role, "owner")
+                    )
                   )
-                )
-                .returning({ userId: projectMember.userId })
-                .pipe(Effect.orDie)
-              if (demoted.length !== 1) {
-                return yield* new Validation({ reason: "transfer_failed" })
-              }
+                  .returning({ userId: projectMember.userId })
+                  .pipe(Effect.orDie)
+                if (demoted.length !== 1) {
+                  return yield* new Validation({ reason: "transfer_failed" })
+                }
 
-              const promoted = yield* db
-                .update(projectMember)
-                .set({ role: "owner" })
-                .where(
-                  and(
-                    eq(projectMember.projectSlug, slug),
-                    eq(projectMember.userId, targetUserId)
+                const promoted = yield* db
+                  .update(projectMember)
+                  .set({ role: "owner" })
+                  .where(
+                    and(
+                      eq(projectMember.projectSlug, slug),
+                      eq(projectMember.userId, targetUserId)
+                    )
                   )
-                )
-                .returning({ userId: projectMember.userId })
-                .pipe(Effect.orDie)
-              if (promoted.length !== 1) {
-                return yield* new Validation({ reason: "transfer_failed" })
-              }
-            })
-          ).pipe(Effect.catchTag("SqlError", Effect.die))
+                  .returning({ userId: projectMember.userId })
+                  .pipe(Effect.orDie)
+                if (promoted.length !== 1) {
+                  return yield* new Validation({ reason: "transfer_failed" })
+                }
+              })
+            )
+            .pipe(Effect.catchTag("SqlError", Effect.die))
 
           return yield* replayDetail(orgSlug, slug)
         })
@@ -1445,6 +1513,7 @@ export const ProjectsLive = Layer.effect(
           )
           if (!orgGithub) return yield* new NotFound()
           const file = yield* projectDocs.read(orgSlug, slug)
+          const currentConnection = yield* loadGithubConnection(indexRow)
 
           const verified = yield* github.verifyInstallationRepo(
             orgGithub.installationId,
@@ -1466,96 +1535,107 @@ export const ProjectsLive = Layer.effect(
           }
 
           const now = yield* DateTime.nowAsDate
-          yield* sql.withTransaction(
-            Effect.gen(function* () {
-              const activeLinks = yield* db
-                .update(projectIntegrationLink)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(
-                  and(
-                    eq(projectIntegrationLink.projectId, indexRow.id),
-                    eq(projectIntegrationLink.provider, "github"),
-                    eq(projectIntegrationLink.status, "active")
+          const repoChanged =
+            currentConnection !== null &&
+            (currentConnection.repoId !== next.repoId ||
+              currentConnection.repoOwner !== next.repoOwner ||
+              currentConnection.repoName !== next.repoName)
+          yield* sql
+            .withTransaction(
+              Effect.gen(function* () {
+                const activeLinks = yield* db
+                  .update(projectIntegrationLink)
+                  .set({
+                    status: "disconnected",
+                    disconnectedAt: now,
+                    updatedAt: now
+                  })
+                  .where(
+                    and(
+                      eq(projectIntegrationLink.projectId, indexRow.id),
+                      eq(projectIntegrationLink.provider, "github"),
+                      eq(projectIntegrationLink.status, "active")
+                    )
                   )
-                )
-                .returning({ id: projectIntegrationLink.id })
-                .pipe(Effect.orDie)
+                  .returning({ id: projectIntegrationLink.id })
+                  .pipe(Effect.orDie)
 
-              yield* Effect.forEach(
-                activeLinks,
-                (link) =>
-                  db
-                    .update(projectGithubRepository)
-                    .set({ status: "disconnected" })
-                    .where(
-                      eq(
-                        projectGithubRepository.projectIntegrationLinkId,
-                        link.id
+                yield* Effect.forEach(
+                  activeLinks,
+                  (link) =>
+                    db
+                      .update(projectGithubRepository)
+                      .set({ status: "disconnected" })
+                      .where(
+                        eq(
+                          projectGithubRepository.projectIntegrationLinkId,
+                          link.id
+                        )
                       )
-                    )
-                    .pipe(Effect.orDie),
-                { concurrency: 1 }
-              )
-
-              const [link] = yield* db
-                .insert(projectIntegrationLink)
-                .values({
-                  projectId: indexRow.id,
-                  organizationId: indexRow.organizationId,
-                  organizationIntegrationId: orgGithub.integrationId,
-                  provider: "github",
-                  status: "active",
-                  lastCheckedAt: now,
-                  lastCheckStatus: "ok"
-                })
-                .returning()
-                .pipe(
-                  Effect.catchAll((cause) =>
-                    uniqueConstraint(
-                      cause,
-                      "project_integration_link_active_provider_uidx"
-                    )
-                      ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
-                          })
-                        )
-                      : Effect.die(cause)
-                  )
+                      .pipe(Effect.asVoid, Effect.orDie),
+                  { concurrency: 1 }
                 )
 
-              yield* db
-                .insert(projectGithubRepository)
-                .values({
-                  projectIntegrationLinkId: link.id,
-                  organizationId: indexRow.organizationId,
-                  status: "active",
-                  repoId: verified.repoId,
-                  repoOwner: verified.owner,
-                  repoName: verified.name,
-                  defaultBranch:
-                    next.defaultBaseBranch ?? verified.defaultBranch
-                })
-                .pipe(
-                  Effect.catchAll((cause) =>
-                    uniqueConstraint(
-                      cause,
-                      "project_github_repository_active_repo_uidx"
+                const [link] = yield* db
+                  .insert(projectIntegrationLink)
+                  .values({
+                    projectId: indexRow.id,
+                    organizationId: indexRow.organizationId,
+                    organizationIntegrationId: orgGithub.integrationId,
+                    provider: "github",
+                    status: "active",
+                    lastCheckedAt: now,
+                    lastCheckStatus: "ok"
+                  })
+                  .returning()
+                  .pipe(
+                    Effect.catchAll((cause) =>
+                      uniqueConstraint(
+                        cause,
+                        "project_integration_link_active_provider_uidx"
+                      )
+                        ? Effect.fail(
+                            new Conflict({
+                              reason: "github_repo_already_connected"
+                            })
+                          )
+                        : Effect.die(cause)
                     )
-                      ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
-                          })
-                        )
-                      : Effect.die(cause)
                   )
-                )
-            })
-          ).pipe(Effect.catchTag("SqlError", Effect.die))
+
+                yield* db
+                  .insert(projectGithubRepository)
+                  .values({
+                    projectIntegrationLinkId: link.id,
+                    organizationId: indexRow.organizationId,
+                    status: "active",
+                    repoId: verified.repoId,
+                    repoOwner: verified.owner,
+                    repoName: verified.name,
+                    defaultBranch:
+                      next.defaultBaseBranch ?? verified.defaultBranch
+                  })
+                  .pipe(
+                    Effect.catchAll((cause) =>
+                      uniqueConstraint(
+                        cause,
+                        "project_github_repository_active_repo_uidx"
+                      )
+                        ? Effect.fail(
+                            new Conflict({
+                              reason: "github_repo_already_connected"
+                            })
+                          )
+                        : Effect.die(cause)
+                    )
+                  )
+
+                if (repoChanged) {
+                  yield* clearTicketPrMetadata(orgSlug, slug)
+                }
+              })
+            )
+            .pipe(Effect.catchTag("SqlError", Effect.die))
 
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)
@@ -1639,7 +1719,7 @@ export const ProjectsLive = Layer.effect(
                           link.id
                         )
                       )
-                      .pipe(Effect.orDie),
+                      .pipe(Effect.asVoid, Effect.orDie),
                   { concurrency: 1 }
                 )
               })

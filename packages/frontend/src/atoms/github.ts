@@ -18,6 +18,7 @@ import type {
   ConnectGithubInput,
   CreateBranchInput,
   GitState,
+  GitStatesResponse,
   Slug,
   TicketId
 } from "@projectproject/shared"
@@ -33,6 +34,10 @@ const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
 }
 
+export const shouldInvalidateTicketsForGitStates = (
+  states: Pick<GitStatesResponse, "transitioned">
+) => states.transitioned.length > 0
+
 export const projectGitStatesBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
@@ -40,9 +45,13 @@ export const projectGitStatesBaseAtom = Atom.family((key: string) => {
       get(githubAuthEpochAtom)
       return Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.gitStates({
+        const states = yield* client.projects.gitStates({
           path: { orgSlug, slug }
         })
+        if (shouldInvalidateTicketsForGitStates(states)) {
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        }
+        return states
       })
     })
     .pipe(Atom.setIdleTTL("30 seconds"))
