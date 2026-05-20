@@ -1,13 +1,14 @@
 import type {
   GitState,
   TicketId,
+  TicketStatus,
   TransitionRecord
 } from "@projectproject/shared"
 import type { RawProjectStates } from "./Services/GitHub"
 
 export interface TicketGitStateInput {
   readonly id: TicketId
-  readonly status: "todo" | "in_progress" | "done"
+  readonly status: TicketStatus
   readonly branch: string | null
   readonly pr: number | null
   readonly prState: "open" | "closed" | "merged" | null
@@ -44,7 +45,7 @@ export function planPullRequestWebhookTicket(
       return {
         ticketId: ticket.id,
         patch: {
-          status: "done",
+          status: "done" as TicketStatus,
           pr: pr.number,
           prState: "merged",
           lastTransitionedPr: pr.number
@@ -113,7 +114,7 @@ export function planTicketGitStates(
         writes.push({
           ticketId: ticket.id,
           patch: {
-            status: "done",
+            status: "done" as TicketStatus,
             pr: pr.number,
             prState: "merged",
             lastTransitionedPr: pr.number
@@ -122,7 +123,7 @@ export function planTicketGitStates(
         transitioned.push({
           ticketId: ticket.id,
           fromStatus: ticket.status,
-          toStatus: "done",
+          toStatus: "done" as TicketStatus,
           prNumber: pr.number
         })
       } else if (ticket.lastTransitionedPr !== pr.number) {

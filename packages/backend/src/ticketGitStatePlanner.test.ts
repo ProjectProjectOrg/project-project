@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import { TicketId } from "@projectproject/shared"
+import { TicketId, TicketStatus } from "@projectproject/shared"
 import type { RawProjectStates } from "./Services/GitHub"
 import {
   planPullRequestWebhookTicket,
@@ -11,10 +11,11 @@ import {
 
 const now = DateTime.toDate(DateTime.unsafeMake("2026-05-08T10:00:00.000Z"))
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
 const baseTicket = {
   id: ticketId("T-1"),
-  status: "in_progress",
+  status: ticketStatus("in_progress"),
   branch: null,
   pr: null,
   prState: null,
@@ -92,8 +93,8 @@ describe("planTicketGitStates", () => {
     expect(plan.transitioned).toEqual([
       {
         ticketId: "T-1",
-        fromStatus: "in_progress",
-        toStatus: "done",
+        fromStatus: ticketStatus("in_progress"),
+        toStatus: ticketStatus("done"),
         prNumber: 42
       }
     ])
@@ -101,7 +102,7 @@ describe("planTicketGitStates", () => {
       {
         ticketId: "T-1",
         patch: {
-          status: "done",
+          status: ticketStatus("done"),
           pr: 42,
           prState: "merged",
           lastTransitionedPr: 42
@@ -115,7 +116,7 @@ describe("planTicketGitStates", () => {
       [
         {
           ...baseTicket,
-          status: "done",
+          status: ticketStatus("done"),
           branch: "feat/T-1",
           pr: 42,
           prState: "merged",
@@ -154,7 +155,7 @@ describe("planPullRequestWebhookTicket", () => {
     input: Partial<TicketGitStateInput> = {}
   ): TicketGitStateInput => ({
     id: ticketId("T-84"),
-    status: "in_progress",
+    status: ticketStatus("in_progress"),
     branch: "feat/T-84-pr-webhook-lifecycle",
     pr: null,
     prState: null,
@@ -204,7 +205,7 @@ describe("planPullRequestWebhookTicket", () => {
     ).toEqual({
       ticketId: "T-84",
       patch: {
-        status: "done",
+        status: ticketStatus("done"),
         pr: 80,
         prState: "merged",
         lastTransitionedPr: 80
@@ -213,7 +214,7 @@ describe("planPullRequestWebhookTicket", () => {
     expect(
       planPullRequestWebhookTicket(
         webhookTicket({
-          status: "done",
+          status: ticketStatus("done"),
           pr: 80,
           prState: "merged",
           lastTransitionedPr: 80
@@ -225,7 +226,7 @@ describe("planPullRequestWebhookTicket", () => {
 
   it("records lastTransitionedPr for already-done merged pull requests", () => {
     expect(
-      planPullRequestWebhookTicket(webhookTicket({ status: "done" }), {
+      planPullRequestWebhookTicket(webhookTicket({ status: ticketStatus("done") }), {
         number: 80,
         state: "merged"
       })

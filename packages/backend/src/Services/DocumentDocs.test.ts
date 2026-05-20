@@ -11,7 +11,8 @@ import {
   GroupId,
   ProjectKey,
   TagName,
-  TicketId
+  TicketId,
+  TicketStatus
 } from "@projectproject/shared"
 import { GroupDocsLive } from "../Layers/GroupDocs"
 import { ProjectDocsLive } from "../Layers/ProjectDocs"
@@ -23,6 +24,7 @@ import { TicketDocs } from "./TicketDocs"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const tagName = Schema.decodeUnknownSync(TagName)
 const groupColor = Schema.decodeUnknownSync(GroupColor)
@@ -73,7 +75,7 @@ it.effect(
       expect(document).toMatchObject({
         id: "T-1",
         title: "Fix auth",
-        status: "todo",
+        status: ticketStatus("todo"),
         type: "bug",
         priority: "med",
         tags: [],
@@ -97,7 +99,7 @@ it.effect(
                   data: {
                     id: "T-1",
                     title: "Fix auth",
-                    status: "todo",
+                    status: ticketStatus("todo"),
                     type: "bug",
                     branch: null,
                     assignee: "user-1",
@@ -131,7 +133,7 @@ it.effect(
       yield* docs.write("org", "project", "T-2", {
         id: ticketId("T-2"),
         title: "Write tests",
-        status: "in_progress",
+        status: ticketStatus("in_progress"),
         type: "chore",
         priority: "high",
         tags: [tagName("backend")],
@@ -151,7 +153,7 @@ it.effect(
         frontmatter: {
           id: "T-2",
           title: "Write tests",
-          status: "in_progress",
+          status: ticketStatus("in_progress"),
           type: "chore",
           priority: "high",
           tags: ["backend"],

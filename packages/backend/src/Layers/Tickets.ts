@@ -417,7 +417,7 @@ export const TicketsLive = Layer.effect(
           .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
-        const byStatus: Record<TicketStatus, number> = {
+        const byStatus: Record<string, number> = {
           todo: 0,
           in_progress: 0,
           done: 0
@@ -426,7 +426,7 @@ export const TicketsLive = Layer.effect(
 
         return {
           total: matching.length,
-          byStatus
+          byStatus: byStatus as TicketCounts["byStatus"]
         }
       })
 
@@ -557,7 +557,7 @@ export const TicketsLive = Layer.effect(
           (id) => ({
             id,
             title: input.title,
-            status: "todo",
+            status: "todo" as TicketStatus,
             type: input.type ?? "other",
             priority: "med",
             tags: [],
@@ -611,7 +611,7 @@ export const TicketsLive = Layer.effect(
           (id) => ({
             id,
             title: input.title,
-            status: input.status ?? "todo",
+            status: (input.status ?? "todo") as TicketStatus,
             type: input.type ?? "other",
             priority: input.priority ?? "med",
             tags: input.tags !== undefined ? [...input.tags] : [],

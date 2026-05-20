@@ -5,7 +5,8 @@ import {
   NotFound,
   PullRequestState,
   TagName,
-  TicketId
+  TicketId,
+  TicketStatus
 } from "@projectproject/shared"
 import {
   Markdown,
@@ -22,7 +23,7 @@ import {
 const TicketFrontmatter = Schema.Struct({
   id: TicketId,
   title: Schema.String,
-  status: Schema.Literal("todo", "in_progress", "done"),
+  status: TicketStatus,
   type: Schema.Literal("feat", "bug", "chore", "other"),
   priority: Schema.optionalWith(Schema.Literal("low", "med", "high"), {
     default: () => "med" as const
