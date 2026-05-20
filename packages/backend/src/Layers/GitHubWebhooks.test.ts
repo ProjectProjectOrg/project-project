@@ -369,10 +369,14 @@ it.effect("applyPullRequestWebhookToTicket serializes same-ticket deliveries", (
           activeReads += 1
           maxActiveReads = Math.max(maxActiveReads, activeReads)
           yield* Effect.yieldNow()
-          const ticket = yield* docs.shape.read(org, slug, id)
-          activeReads -= 1
-          return ticket
-        })
+          return yield* docs.shape.read(org, slug, id)
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              activeReads -= 1
+            })
+          )
+        )
     }
 
     yield* Effect.all(

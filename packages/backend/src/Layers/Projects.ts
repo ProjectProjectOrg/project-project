@@ -1576,10 +1576,6 @@ export const ProjectsLive = Layer.effect(
                   { concurrency: 1 }
                 )
 
-                if (repoChanged) {
-                  yield* clearTicketPrMetadata(orgSlug, slug)
-                }
-
                 const [link] = yield* db
                   .insert(projectIntegrationLink)
                   .values({
@@ -1633,6 +1629,10 @@ export const ProjectsLive = Layer.effect(
                         : Effect.die(cause)
                     )
                   )
+
+                if (repoChanged) {
+                  yield* clearTicketPrMetadata(orgSlug, slug)
+                }
               })
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
