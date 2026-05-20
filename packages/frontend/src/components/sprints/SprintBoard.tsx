@@ -8,16 +8,19 @@ import {
   sprintKey
 } from "@/atoms/sprints"
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
 import type {
   GroupId,
   Member,
   Ticket,
-  TicketId,
-  TicketStatus
+  TicketId
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 import {
-  BOARD_STATUSES,
+  boardStatusesFor,
   groupTicketsByStatus,
   type CardDropData,
   type ColumnDropData,
@@ -92,6 +95,11 @@ export function SprintBoard({
   )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statusSlugs = boardStatusesFor(statuses)
 
   const [lastFlash, setLastFlash] = useState<{
     id: TicketId
@@ -109,8 +117,8 @@ export function SprintBoard({
   }, [list])
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(ticketIds, ticketById, overlay),
-    [ticketIds, ticketById, overlay]
+    () => groupTicketsByStatus(ticketIds, ticketById, overlay, statusSlugs),
+    [ticketIds, ticketById, overlay, statusSlugs]
   )
   const groupedRef = useRef(grouped)
   groupedRef.current = grouped
@@ -130,10 +138,10 @@ export function SprintBoard({
 
         const current = groupedRef.current
         let after: TicketId | null
-        let nextStatus: TicketStatus
+        let nextStatus: string
         if (dst.type === "card") {
           nextStatus = dst.status
-          const inColumn = current[dst.status]
+          const inColumn = current[dst.status] ?? []
           const idx = inColumn.findIndex((t) => t.id === dst.id)
           if (dst.edge === "bottom") {
             after = dst.id
@@ -142,11 +150,14 @@ export function SprintBoard({
           }
         } else {
           nextStatus = dst.status
-          const inColumn = current[dst.status]
+          const inColumn = current[dst.status] ?? []
           after = inColumn.length > 0 ? inColumn[inColumn.length - 1].id : null
         }
         if (after === src.id) return
-        const status = nextStatus !== src.status ? nextStatus : undefined
+        const status =
+          nextStatus !== src.status
+            ? (nextStatus as import("@projectproject/shared").TicketStatus)
+            : undefined
         place({ ticketId: src.id, status, after })
         flash(src.id)
       }
@@ -168,13 +179,14 @@ export function SprintBoard({
       )}
     >
       <div className="flex h-full gap-3">
-        {BOARD_STATUSES.map((status) => (
+        {statusSlugs.map((status) => (
           <SprintBoardColumn
             key={status}
             orgSlug={orgSlug}
             slug={slug}
             status={status}
-            tickets={grouped[status]}
+            statuses={statuses}
+            tickets={grouped[status] ?? []}
             members={members}
             isDraggable={!isCompleted}
             overlay={overlay}

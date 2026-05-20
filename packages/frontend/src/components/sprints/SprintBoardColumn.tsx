@@ -9,13 +9,13 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
-import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
+import { statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import type {
   Member,
+  ProjectStatus,
   Ticket,
-  TicketId,
-  TicketStatus
+  TicketId
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
 import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
@@ -24,6 +24,7 @@ export function SprintBoardColumn({
   orgSlug,
   slug,
   status,
+  statuses,
   tickets,
   members,
   isDraggable,
@@ -32,15 +33,16 @@ export function SprintBoardColumn({
 }: {
   orgSlug: string
   slug: string
-  status: TicketStatus
+  status: string
+  statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
   isDraggable: boolean
-  overlay: ReadonlyMap<TicketId, TicketStatus>
+  overlay: ReadonlyMap<TicketId, string>
   lastFlash: { id: TicketId; tick: number } | null
 }) {
   const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
-  const meta = STATUS_META[status]
+  const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
   const columnRef = useRef<HTMLDivElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -79,8 +81,12 @@ export function SprintBoardColumn({
     >
       <div className="flex items-center justify-between px-6 pt-3 pb-2">
         <span className="inline-flex items-center gap-2 text-sm font-medium">
-          <Icon className={cn("size-4", meta.className)} strokeWidth={1.75} />
-          {STATUS_LABELS[status]()}
+          <Icon
+            className={cn("size-4", meta.className)}
+            style={meta.color ? { color: meta.color } : undefined}
+            strokeWidth={1.75}
+          />
+          {meta.label}
         </span>
         <NumberFlow
           value={tickets.length}
@@ -134,7 +140,7 @@ function CardSlot({
   orgSlug: string
   slug: string
   ticket: Ticket
-  status: TicketStatus
+  status: string
   members: ReadonlyArray<Member>
   isDraggable: boolean
   pending: boolean

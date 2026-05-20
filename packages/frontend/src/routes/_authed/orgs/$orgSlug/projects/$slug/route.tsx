@@ -23,7 +23,12 @@ import {
   X,
   type LucideIcon
 } from "lucide-react"
-import { STATUS_META } from "@/lib/ticket-meta"
+import { statusMetaFor } from "@/lib/ticket-meta"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
@@ -72,7 +77,7 @@ import { ProjectContext } from "./-context"
 import type {
   Group,
   ProjectDetail as ProjectDetailType,
-  TicketStatus
+  ProjectStatus
 } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
@@ -529,15 +534,17 @@ function TabsNav({
           location.pathname.startsWith(target + "/")
   }
 
-  const ticketBreakdown: Record<TicketStatus, number> = Result.isSuccess(
-    ticketsResult
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-    ? {
-        todo: ticketsResult.value.byStatus.todo ?? 0,
-        in_progress: ticketsResult.value.byStatus.in_progress ?? 0,
-        done: ticketsResult.value.byStatus.done ?? 0
-      }
-    : { todo: 0, in_progress: 0, done: 0 }
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statusSlugs = boardStatusesFor(statuses)
+  const byStatusRaw = Result.isSuccess(ticketsResult)
+    ? (ticketsResult.value.byStatus as Record<string, number>)
+    : {}
+  const ticketBreakdown: Record<string, number> = Object.fromEntries(
+    statusSlugs.map((s) => [s, byStatusRaw[s] ?? 0])
+  )
   const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
   const sprintTarget = Result.isSuccess(sprintsResult)
     ? pickSprintNavigationTarget(sprintsResult.value)
@@ -593,7 +600,7 @@ function TabsNav({
                   </span>
                 </span>
                 <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <TicketsBreakdown counts={ticketBreakdown} />
+                  <TicketsBreakdown counts={ticketBreakdown} statuses={statuses} />
                 </span>
               </Link>
             )
@@ -735,22 +742,27 @@ function SprintViewSwitcher({
 }
 
 function TicketsBreakdown({
-  counts
+  counts,
+  statuses
 }: {
-  counts: Record<TicketStatus, number>
+  counts: Record<string, number>
+  statuses: ReadonlyArray<ProjectStatus>
 }) {
+  const slugs = boardStatusesFor(statuses)
   return (
     <>
-      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map(
-        (s) => (
+      {slugs.map((s) => {
+        const meta = statusMetaFor(s, statuses)
+        return (
           <BadgeStat
             key={s}
-            count={counts[s]}
-            icon={STATUS_META[s].icon}
-            className={STATUS_META[s].className}
+            count={counts[s] ?? 0}
+            icon={meta.icon}
+            className={meta.className}
+            color={meta.color ?? undefined}
           />
         )
-      )}
+      })}
     </>
   )
 }
@@ -781,15 +793,21 @@ function SprintsBreakdown({ sprints }: { sprints: ReadonlyArray<Group> }) {
 function BadgeStat({
   count,
   icon: Icon,
-  className
+  className,
+  color
 }: {
   count: number
   icon: LucideIcon
   className: string
+  color?: string
 }) {
   return (
     <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums text-foreground">
-      <Icon className={`size-3 ${className}`} strokeWidth={1.75} />
+      <Icon
+        className={`size-3 ${className}`}
+        style={color ? { color } : undefined}
+        strokeWidth={1.75}
+      />
       {count}
     </span>
   )

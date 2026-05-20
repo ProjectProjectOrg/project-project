@@ -35,11 +35,16 @@ import { TagChip } from "@/components/TagChip"
 import { Kbd } from "@/components/ui/kbd"
 import { meAtom } from "@/atoms/auth"
 import {
-  STATUS_LABELS,
-  STATUS_META,
+  statusMetaFor,
+  statusLabelFor,
   TYPE_LABELS,
   TYPE_META
 } from "@/lib/ticket-meta"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { m } from "@/paraglide/messages"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
@@ -58,6 +63,7 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
+  type ProjectStatus,
   type TicketStatus,
   type TicketType
 } from "@projectproject/shared"
@@ -290,24 +296,21 @@ export function Toolbar({
   const countsResult = useAtomValue(
     ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
   )
-  const previousCountsRef = useRef<Record<TicketStatus | "all", number> | null>(
-    null
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const previousCountsRef = useRef<Record<string, number> | null>(null)
   if (Result.isSuccess(countsResult)) {
-    previousCountsRef.current = {
-      all: countsResult.value.total,
-      todo: countsResult.value.byStatus.todo ?? 0,
-      in_progress: countsResult.value.byStatus.in_progress ?? 0,
-      done: countsResult.value.byStatus.done ?? 0
+    const byStatus = countsResult.value.byStatus as Record<string, number>
+    const next: Record<string, number> = { all: countsResult.value.total }
+    for (const s of boardStatusesFor(statuses)) {
+      next[s] = byStatus[s] ?? 0
     }
+    previousCountsRef.current = next
   }
-  const counts: Record<TicketStatus | "all", number> =
-    previousCountsRef.current ?? {
-      all: 0,
-      todo: 0,
-      in_progress: 0,
-      done: 0
-    }
+  const counts: Record<string, number> =
+    previousCountsRef.current ?? { all: 0 }
 
   const FULL_FITS_ROW = 1040
   const STATUS_COMPACT_FITS_ROW = 760
@@ -370,6 +373,7 @@ export function Toolbar({
             onChange={setStatus}
             counts={counts}
             compact={statusCompact}
+            statuses={statuses}
           />
         </motion.div>
 
@@ -431,22 +435,28 @@ function StatusChips({
   value,
   onChange,
   counts,
-  compact
+  compact,
+  statuses
 }: {
   value: TicketStatus | "all"
   onChange: (v: TicketStatus | "all") => void
-  counts: Record<TicketStatus | "all", number>
+  counts: Record<string, number>
   compact: boolean
+  statuses: ReadonlyArray<ProjectStatus>
 }) {
-  const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
-    { key: "all", label: m.tickets_status_all(), badge: counts.all },
-    ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
-      key: s,
-      label: STATUS_LABELS[s](),
-      icon: STATUS_META[s].icon,
-      iconClassName: STATUS_META[s].className,
-      badge: counts[s]
-    }))
+  const slugs = boardStatusesFor(statuses)
+  const items: ReadonlyArray<SegmentedItem<string>> = [
+    { key: "all", label: m.tickets_status_all(), badge: counts.all ?? 0 },
+    ...slugs.map((s) => {
+      const sMeta = statusMetaFor(s, statuses)
+      return {
+        key: s,
+        label: statusLabelFor(s, statuses),
+        icon: sMeta.icon,
+        iconClassName: sMeta.className,
+        badge: counts[s] ?? 0
+      }
+    })
   ]
   return (
     <SegmentedTabs
@@ -457,7 +467,7 @@ function StatusChips({
       renderItem={(item, content, { active }) => (
         <button
           type="button"
-          onClick={() => onChange(item.key)}
+          onClick={() => onChange(item.key as TicketStatus | "all")}
           aria-pressed={active}
           aria-label={
             compact

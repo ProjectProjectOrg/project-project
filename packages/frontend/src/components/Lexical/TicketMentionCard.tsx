@@ -4,13 +4,17 @@ import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
 import { useMentionScope, type MentionScope } from "@/mentions/scope"
-import type { Member } from "@projectproject/shared"
+import type { Member, ProjectStatus } from "@projectproject/shared"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
 import { cn } from "@/lib/utils"
 import { PRIORITY_LABELS, PRIORITY_META } from "@/lib/priority-meta"
 import {
-  STATUS_LABELS,
-  STATUS_META,
+  statusMetaFor,
+  statusLabelFor,
   TYPE_LABELS,
   TYPE_META
 } from "@/lib/ticket-meta"
@@ -28,6 +32,10 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const result = useAtomValue(
     ticketAtom(ticketKey(scope.orgSlug, scope.slug, ticketId))
   )
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
   if (Result.isFailure(result)) {
     return (
@@ -50,7 +58,7 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
       <div className="line-clamp-2 text-sm font-medium leading-snug">
         {ticket.title}
       </div>
-      <MetaRow ticket={ticket} scope={scope} />
+      <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
       {body.length > 0 && (
         <div className="relative">
           <Markdown className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1">
@@ -92,7 +100,8 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
 
 function MetaRow({
   ticket,
-  scope
+  scope,
+  statuses
 }: {
   ticket: {
     status: TicketStatus
@@ -101,11 +110,12 @@ function MetaRow({
     assignees: ReadonlyArray<string>
   }
   scope: MentionScope
+  statuses: ReadonlyArray<ProjectStatus>
 }) {
-  const status = STATUS_META[ticket.status]
+  const statusMeta = statusMetaFor(ticket.status, statuses)
   const type = TYPE_META[ticket.type]
   const priority = PRIORITY_META[ticket.priority]
-  const StatusIcon = status.icon
+  const StatusIcon = statusMeta.icon
   const TypeIcon = type.icon
   const PriorityIcon = priority.icon
   const visibleAssignees: Member[] = scope.members
@@ -118,10 +128,11 @@ function MetaRow({
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1">
         <StatusIcon
-          className={cn("size-3.5", status.className)}
+          className={cn("size-3.5", statusMeta.className)}
+          style={statusMeta.color ? { color: statusMeta.color } : undefined}
           strokeWidth={1.75}
         />
-        <span>{STATUS_LABELS[ticket.status]()}</span>
+        <span>{statusLabelFor(ticket.status, statuses)}</span>
       </span>
       <span className="inline-flex items-center gap-1">
         <TypeIcon className="size-3.5" strokeWidth={1.75} />
