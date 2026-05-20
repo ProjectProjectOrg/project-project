@@ -478,6 +478,30 @@ export const TicketsLive = Layer.effect(
         return documentToDetail(ticket, projectGithub)
       })
 
+    const findByPrNumber = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      prNumber: number
+    ): Effect.Effect<TicketDetail, TicketReadError> =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        const documents = yield* Effect.forEach(
+          ids,
+          (id) => readTicketForCollection(orgSlug, slug, id),
+          { concurrency: 8 }
+        ).pipe(Effect.map(readableTickets))
+        const document = documents.find((ticket) => ticket.pr === prNumber)
+        if (!document) return yield* new NotFound()
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+        return documentToDetail(document, projectGithub)
+      })
+
     const validateTagsExist = (
       slug: string,
       requested: ReadonlyArray<string>
@@ -1090,6 +1114,7 @@ export const TicketsLive = Layer.effect(
       listInGroup,
       tagUsageCounts,
       get,
+      findByPrNumber,
       quickCreate,
       create,
       update,

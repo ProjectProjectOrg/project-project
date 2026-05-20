@@ -74,6 +74,12 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<TicketDetail, TicketReadError>
+  readonly findByPrNumber: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    prNumber: number
+  ) => Effect.Effect<TicketDetail, TicketReadError>
   readonly quickCreate: (
     orgSlug: string,
     ownerId: string,
@@ -95,7 +101,10 @@ export interface TicketsShape {
     slug: string,
     id: string,
     input: UpdateTicketInput
-  ) => Effect.Effect<TicketDetail, TicketReadError | Validation | MentionInvalid>
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError | Validation | MentionInvalid
+  >
   readonly remove: (
     orgSlug: string,
     ownerId: string,

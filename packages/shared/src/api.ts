@@ -146,7 +146,6 @@ const GroupPath = Schema.Struct({
   slug: Slug,
   id: GroupId
 })
-
 const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects")

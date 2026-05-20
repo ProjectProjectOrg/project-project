@@ -253,6 +253,112 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect(
+  "findByPrNumber returns the ticket with matching stored PR number",
+  () => {
+    const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-2"])
+    documents.set(
+      "T-2",
+      makeTicketDocument("T-2", {
+        title: "Review this",
+        branch: "feat/T-2-review-this",
+        pr: 42
+      })
+    )
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.findByPrNumber("org", "user-1", "p", 42)
+
+      expect(result.id).toBe("T-2")
+      expect(result.pr).toBe(42)
+      expect(result.gitState).toEqual({
+        tag: "pr_pending",
+        branch: "feat/T-2-review-this",
+        baseBranch: "main",
+        number: 42,
+        url: ""
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("findByPrNumber hides projects from non-members", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  docs.documents.set("T-1", makeTicketDocument("T-1", { pr: 42 }))
+  const layer = TicketsLive.pipe(
+    Layer.provide(docs.layer),
+    Layer.provide(
+      makeFakeProjects("T", {
+        requireMember: () => Effect.fail(new NotFound())
+      })
+    ),
+    Layer.provide(FakeGroups),
+    Layer.provide(makeFakeGitHub()),
+    Layer.provide(FakeDb)
+  )
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets
+      .findByPrNumber("org", "user-2", "p", 42)
+      .pipe(Effect.either)
+
+    expect(result._tag).toBe("Left")
+    if (result._tag === "Left") expect(result.left._tag).toBe("NotFound")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "findByPrNumber fails with NotFound when no stored PR matches",
+  () => {
+    const { documents, layer } = makeTicketsFixture("T", ["T-1", "T-2"])
+    documents.set("T-1", makeTicketDocument("T-1", { pr: 41 }))
+    documents.set("T-2", makeTicketDocument("T-2", { pr: null }))
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets
+        .findByPrNumber("org", "user-1", "p", 42)
+        .pipe(Effect.either)
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") expect(result.left._tag).toBe("NotFound")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("findByPrNumber skips malformed unrelated ticket documents", () => {
+  const docs = Layer.succeed(TicketDocs, {
+    listIds: () => Effect.succeed([ticketId("T-1"), ticketId("T-2")]),
+    read: (_org, _slug, id) =>
+      id === "T-1"
+        ? Effect.fail(
+            new MalformedTicketDocument({
+              orgSlug: "org",
+              slug: "project",
+              ticketId: id,
+              path: `orgs/org/projects/project/tickets/${id}.md`,
+              reason: "invalid_frontmatter",
+              cause: undefined
+            })
+          )
+        : Effect.succeed(makeTicketDocument("T-2", { pr: 42 })),
+    create: () => unexpected("TicketDocs.create"),
+    write: () => unexpected("TicketDocs.write"),
+    remove: () => unexpected("TicketDocs.remove"),
+    readRaw: () => unexpected("TicketDocs.readRaw")
+  } satisfies TicketDocsShape)
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.findByPrNumber("org", "user-1", "project", 42)
+
+    expect(result.id).toBe("T-2")
+    expect(result.pr).toBe(42)
+  }).pipe(Effect.provide(makeTicketsLayer("T", docs)))
+})
+
 it.effect("create allocates the next id from the project key", () => {
   const { documents, layer } = makeTicketsFixture("FOO", ["FOO-1", "FOO-3"])
   return Effect.gen(function* () {
