@@ -1,14 +1,20 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import { GripVertical, Trash } from "lucide-react"
+import { generateKeyBetween } from "fractional-indexing"
+import { ArrowDown, ArrowUp, Trash } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
-import { projectKey, updateStatusAtom } from "@/atoms/projectStatuses"
+import {
+  projectKey,
+  reorderStatusAtom,
+  updateStatusAtom
+} from "@/atoms/projectStatuses"
 import { ColorPicker } from "@/components/ColorPicker"
 import { StatusIconPicker } from "@/components/StatusIconPicker"
 import { getStatusIcon } from "@/lib/status-icons"
 import { isBaselineStatus } from "@/lib/status-baseline"
 import { statusLabelFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 type Props = {
   status: ProjectStatus
@@ -16,6 +22,8 @@ type Props = {
   orgSlug: string
   slug: string
   onRequestDelete: (status: ProjectStatus) => void
+  prev?: ProjectStatus
+  next?: ProjectStatus
 }
 
 export function StatusEditorRow({
@@ -23,10 +31,31 @@ export function StatusEditorRow({
   statuses,
   orgSlug,
   slug,
-  onRequestDelete
+  onRequestDelete,
+  prev,
+  next
 }: Props) {
   const key = projectKey(orgSlug, slug)
   const update = useAtomSet(updateStatusAtom(key))
+  const reorder = useAtomSet(reorderStatusAtom(key))
+
+  const moveUp = () => {
+    if (!prev) return
+    const newKey = generateKeyBetween(
+      statuses[statuses.indexOf(prev) - 1]?.orderKey ?? null,
+      prev.orderKey
+    )
+    reorder({ statusSlug: status.slug, orderKey: newKey })
+  }
+
+  const moveDown = () => {
+    if (!next) return
+    const newKey = generateKeyBetween(
+      next.orderKey,
+      statuses[statuses.indexOf(next) + 1]?.orderKey ?? null
+    )
+    reorder({ statusSlug: status.slug, orderKey: newKey })
+  }
   const baseline = isBaselineStatus(status.slug)
   const [draftLabel, setDraftLabel] = useState<string>(status.label)
 
@@ -52,7 +81,26 @@ export function StatusEditorRow({
 
   return (
     <div className="flex items-center gap-3 rounded-md border border-border bg-card p-2 transition-colors duration-100 hover:bg-accent/40">
-      <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+      <div className="flex flex-col">
+        <button
+          type="button"
+          onClick={moveUp}
+          disabled={!prev}
+          aria-label={m.tickets_status_reorder_up()}
+          className="flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors duration-100 hover:text-foreground disabled:opacity-30"
+        >
+          <ArrowUp className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onClick={moveDown}
+          disabled={!next}
+          aria-label={m.tickets_status_reorder_down()}
+          className="flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors duration-100 hover:text-foreground disabled:opacity-30"
+        >
+          <ArrowDown className="h-3 w-3" />
+        </button>
+      </div>
 
       {baseline ? (
         <div className="flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-border">
@@ -111,7 +159,7 @@ export function StatusEditorRow({
         <button
           type="button"
           onClick={() => onRequestDelete(status)}
-          aria-label="Delete status"
+          aria-label={m.tickets_status_delete_button()}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-destructive/10 hover:text-destructive active:scale-[0.97]"
         >
           <Trash className="h-4 w-4" />
