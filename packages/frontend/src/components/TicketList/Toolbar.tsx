@@ -64,6 +64,7 @@ import {
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
+import { transitions } from "@/lib/springs"
 import { SORT_LABELS } from "./sort"
 import { TICKET_SEARCH_KEYS } from "./url"
 
@@ -300,12 +301,13 @@ export function Toolbar({
       done: countsResult.value.byStatus.done ?? 0
     }
   }
-  const counts: Record<TicketStatus | "all", number> = previousCountsRef.current ?? {
-    all: 0,
-    todo: 0,
-    in_progress: 0,
-    done: 0
-  }
+  const counts: Record<TicketStatus | "all", number> =
+    previousCountsRef.current ?? {
+      all: 0,
+      todo: 0,
+      in_progress: 0,
+      done: 0
+    }
 
   const FULL_FITS_ROW = 1040
   const STATUS_COMPACT_FITS_ROW = 760
@@ -361,49 +363,55 @@ export function Toolbar({
         ) : null}
       </InputGroup>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusChips
-          value={status}
-          onChange={setStatus}
-          counts={counts}
-          compact={statusCompact}
-        />
+      <div className="relative flex flex-wrap items-center gap-2">
+        <motion.div layout="position" transition={transitions.layout}>
+          <StatusChips
+            value={status}
+            onChange={setStatus}
+            counts={counts}
+            compact={statusCompact}
+          />
+        </motion.div>
 
-        <FiltersMenu
-          orgSlug={orgSlug}
-          slug={slug}
-          members={members}
-          myId={myId}
-          compact={controlsCompact}
-          showSprintFilter={showSprintFilter}
-          typeFilter={typeFilter}
-          assigneeFilter={assigneeFilter}
-          selectedTags={selectedTags}
-          sprintFilter={sprintFilter}
-          onTypeChange={setTypeFilter}
-          onAssigneeChange={setAssigneeFilter}
-          onTagsChange={setSelectedTags}
-          onSprintChange={setSprintFilter}
-        />
+        <motion.div layout="position" transition={transitions.layout}>
+          <FiltersMenu
+            orgSlug={orgSlug}
+            slug={slug}
+            members={members}
+            myId={myId}
+            compact={controlsCompact}
+            showSprintFilter={showSprintFilter}
+            typeFilter={typeFilter}
+            assigneeFilter={assigneeFilter}
+            selectedTags={selectedTags}
+            sprintFilter={sprintFilter}
+            onTypeChange={setTypeFilter}
+            onAssigneeChange={setAssigneeFilter}
+            onTagsChange={setSelectedTags}
+            onSprintChange={setSprintFilter}
+          />
+        </motion.div>
 
-        <SortMenu
-          value={sortKey}
-          onChange={setSortKey}
-          compact={controlsCompact}
-        />
+        <motion.div layout="position" transition={transitions.layout}>
+          <SortMenu
+            value={sortKey}
+            onChange={setSortKey}
+            compact={controlsCompact}
+          />
+        </motion.div>
 
-        <AnimatePresence initial={false}>
+        <AnimatePresence initial={false} mode="popLayout">
           {hasActiveFilters && (
             <motion.button
               key="clear"
               type="button"
               onClick={clearAll}
-              initial={{ opacity: 0, width: 0, marginLeft: -8 }}
-              animate={{ opacity: 1, width: 36, marginLeft: 0 }}
-              exit={{ opacity: 0, width: 0, marginLeft: -8 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={transitions.pop}
               className={cn(
-                "grid h-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-all duration-100 active:scale-[0.97]",
+                "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
                 "hover:bg-destructive/15 hover:border-destructive/60",
                 "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
               )}

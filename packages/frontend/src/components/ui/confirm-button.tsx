@@ -2,6 +2,7 @@ import { createContext, useCallback, useMemo, useState, use } from "react"
 import { motion } from "motion/react"
 import { X } from "lucide-react"
 import { Button, type ButtonProps } from "@/components/ui/button"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 interface ConfirmButtonContextValue {
@@ -23,8 +24,6 @@ export function useConfirmButton() {
   }
   return ctx
 }
-
-const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 
 function Root({
   className,
@@ -64,7 +63,7 @@ function Trigger({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={FADE_TRANSITION}
+      transition={transitions.fade}
     >
       <Button {...rest} disabled={disabled || busy} onClick={open}>
         {children}
@@ -86,7 +85,7 @@ function Confirm({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={FADE_TRANSITION}
+      transition={transitions.fade}
       onKeyDown={(e) => {
         if (e.key === "Escape" && !busy && !e.defaultPrevented) {
           e.preventDefault()

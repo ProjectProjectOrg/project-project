@@ -3,6 +3,7 @@ import { useAtomValue, Result } from "@effect-atom/atom-react"
 import { motion, AnimatePresence } from "motion/react"
 import { ChevronRight } from "lucide-react"
 import { commentsAtom, commentsKey } from "@/atoms/comments"
+import { transitions } from "@/lib/springs"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -65,7 +66,7 @@ export function CommentsSection({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              transition={transitions.layout}
               className="overflow-hidden"
             >
               <div className="mb-3">

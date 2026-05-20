@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react"
 import { useState, type ReactElement } from "react"
 import { motion } from "motion/react"
 import { ColorPicker } from "@/components/ColorPicker"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import {
   Popover,
@@ -15,7 +16,6 @@ import { m } from "@/paraglide/messages"
 import { TagColor, TagName, type Tag } from "@projectproject/shared"
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
-const FADE_TRANSITION = { duration: 0.15, ease: "easeOut" } as const
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
@@ -81,7 +81,7 @@ function Body({
         key={state}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={FADE_TRANSITION}
+        transition={transitions.fade}
       >
         {state === "idle" ? (
           <Editor

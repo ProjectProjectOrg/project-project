@@ -10,7 +10,8 @@ export const ChecksStatus = Schema.Literal(
 export type ChecksStatus = typeof ChecksStatus.Type
 
 const NoBranch = Schema.Struct({
-  tag: Schema.Literal("no_branch")
+  tag: Schema.Literal("no_branch"),
+  baseBranch: Schema.optional(Schema.String)
 })
 
 const BranchNoPr = Schema.Struct({
@@ -22,7 +23,8 @@ const BranchNoPr = Schema.Struct({
 const BranchPending = Schema.Struct({
   tag: Schema.Literal("branch_pending"),
   name: Schema.String,
-  baseBranch: Schema.String
+  baseBranch: Schema.String,
+  pendingOperation: Schema.optional(Schema.Literal("create", "connect"))
 })
 
 const PrPending = Schema.Struct({

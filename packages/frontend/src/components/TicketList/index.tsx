@@ -1,5 +1,5 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { useRef, type ReactNode } from "react"
+import { useDeferredValue, useRef, type ReactNode } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription } from "@/components/ui/empty"
@@ -48,23 +48,16 @@ export function TicketList({
   showSprintFilter?: boolean
 }) {
   const listKey = ticketsListKey(orgSlug, slug, query)
-  const list = useAtomValue(ticketsListAtom(listKey))
+  const deferredListKey = useDeferredValue(listKey)
+  const list = useAtomValue(ticketsListAtom(deferredListKey))
+  const isStaleKey = listKey !== deferredListKey
   const resetFilters = useResetTicketSearch()
 
-  const previousListRef = useRef<{
-    listKey: string
-    value: TicketsListValue
-  } | null>(null)
-  if (previousListRef.current?.listKey !== listKey) {
-    previousListRef.current = null
-  }
+  const previousListRef = useRef<TicketsListValue | null>(null)
   if (Result.isSuccess(list)) {
-    previousListRef.current = { listKey, value: list.value }
+    previousListRef.current = list.value
   }
-  const previousList =
-    previousListRef.current?.listKey === listKey
-      ? previousListRef.current.value
-      : null
+  const previousList = previousListRef.current
 
   const hasActiveFilter =
     (query.filter !== undefined && Object.keys(query.filter).length > 0) ||
@@ -74,7 +67,7 @@ export function TicketList({
     <FilteredList
       orgSlug={orgSlug}
       slug={slug}
-      listKey={listKey}
+      listKey={deferredListKey}
       items={value.items}
       nextCursor={value.nextCursor}
       waiting={waiting}
@@ -131,7 +124,8 @@ export function TicketList({
               {ticketListDefectMessage(defect)}
             </Empty>
           ),
-          onSuccess: ({ value, waiting }) => renderList(value, waiting === true)
+          onSuccess: ({ value, waiting }) =>
+            renderList(value, waiting === true || isStaleKey)
         })}
       </div>
     </div>

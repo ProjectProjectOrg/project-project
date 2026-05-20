@@ -34,7 +34,9 @@ describe("planTicketGitStates", () => {
   it("marks tickets without branches without writes", () => {
     const plan = planTicketGitStates([baseTicket], raw(), now)
 
-    expect(plan.states).toEqual({ "T-1": { tag: "no_branch" } })
+    expect(plan.states).toEqual({
+      "T-1": { tag: "no_branch", baseBranch: "main" }
+    })
     expect(plan.transitioned).toEqual([])
     expect(plan.writes).toEqual([])
   })

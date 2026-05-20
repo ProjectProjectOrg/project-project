@@ -2,9 +2,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Check, Copy } from "lucide-react"
 import { useState } from "react"
 import { Button, type ButtonProps } from "@/components/ui/button"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
-const TRANSITION = { duration: 0.15, ease: [0.215, 0.61, 0.355, 1] } as const
 const CONFIRM_DURATION_MS = 1200
 
 export function CopyButton({
@@ -55,7 +55,7 @@ export function CopyButton({
             exit={
               reduceMotion ? undefined : { opacity: 0, filter: "blur(4px)" }
             }
-            transition={TRANSITION}
+            transition={transitions.fade}
             className="absolute inset-0 grid place-items-center"
           >
             <Check className={cn(iconClassName)} strokeWidth={2} />
@@ -68,7 +68,7 @@ export function CopyButton({
             exit={
               reduceMotion ? undefined : { opacity: 0, filter: "blur(4px)" }
             }
-            transition={TRANSITION}
+            transition={transitions.fade}
             className="absolute inset-0 grid place-items-center"
           >
             <Copy className={cn(iconClassName)} strokeWidth={1.75} />

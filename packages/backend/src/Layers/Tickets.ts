@@ -91,8 +91,8 @@ function pendingGitState(
   document: Omit<TicketDocument, "body">,
   github: ProjectGithubIntegration | null
 ): Ticket["gitState"] {
-  if (!document.branch) return { tag: "no_branch" }
   const baseBranch = github?.defaultBaseBranch ?? "main"
+  if (!document.branch) return { tag: "no_branch", baseBranch }
   if (document.pr !== null) {
     const url = github
       ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`

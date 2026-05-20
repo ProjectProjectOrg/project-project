@@ -1,6 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
-import { type KeyboardEvent, type MouseEvent, type ReactNode } from "react"
+import {
+  memo,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode
+} from "react"
 import { FilterX, ListChecks, Loader2 } from "lucide-react"
 import { TicketGitChip } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
@@ -135,7 +140,7 @@ export function FilteredList({
   )
 }
 
-function Row({
+function RowImpl({
   orgSlug,
   slug,
   ticket,
@@ -244,6 +249,8 @@ function Row({
     </div>
   )
 }
+
+const Row = memo(RowImpl)
 
 function isInteractiveTarget(
   target: EventTarget,

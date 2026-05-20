@@ -371,7 +371,10 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
       name: "feat/T-1",
       baseBranch: "main"
     })
-    expect(result.states["T-4"]).toEqual({ tag: "no_branch" })
+    expect(result.states["T-4"]).toEqual({
+      tag: "no_branch",
+      baseBranch: "main"
+    })
   }).pipe(Effect.provide(layer))
 })
 
