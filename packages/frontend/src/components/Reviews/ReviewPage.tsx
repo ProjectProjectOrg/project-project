@@ -64,7 +64,7 @@ export function ReviewPage({
         </div>
       )}
 
-      <div className="flex flex-col gap-3 border-b border-border/70 pb-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4">
         <SegmentedTabs
           items={viewItems}
           layoutId="review-view"

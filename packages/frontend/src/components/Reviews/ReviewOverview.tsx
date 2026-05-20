@@ -1,18 +1,28 @@
 import { Link } from "@tanstack/react-router"
 import {
   CalendarClock,
+  Check,
   CircleDot,
+  Copy,
   FileCode2,
   GitBranch,
   GitCommitVertical,
   GitPullRequest,
   MessageSquareText,
+  MoreHorizontal,
   Ticket
 } from "lucide-react"
+import { useState } from "react"
 import { Markdown } from "@/components/Markdown"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -38,78 +48,80 @@ export function ReviewOverview({
 }) {
   const pr = review.pr
   return (
-    <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <main className="flex min-w-0 flex-col gap-6">
-        <header className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <GitPullRequest
-                className={cn(
-                  "mt-1 size-6 shrink-0",
-                  pr.state === "open"
-                    ? "text-state-success"
-                    : pr.state === "merged"
-                      ? "text-state-merged"
-                      : "text-muted-foreground"
-                )}
-                strokeWidth={2}
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
-                    {pr.title}
-                  </h1>
-                  {pr.draft && (
-                    <Badge tone="muted">{m.reviews_pr_draft()}</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
-              <Badge tone={stateTone(pr.state)} className="shrink-0">
-                {stateLabel(pr.state)}
-              </Badge>
-              <ActorMerge
-                actor={pr.author}
-                base={pr.base.label}
-                head={pr.head.label}
-              />
-            </div>
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <GitPullRequest
+            className={cn(
+              "mt-1 size-6 shrink-0",
+              pr.state === "open"
+                ? "text-state-success"
+                : pr.state === "merged"
+                  ? "text-state-merged"
+                  : "text-muted-foreground"
+            )}
+            strokeWidth={2}
+            aria-hidden
+          />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
+              {pr.title}
+            </h1>
+            {pr.draft && <Badge tone="muted">{m.reviews_pr_draft()}</Badge>}
           </div>
-        </header>
+        </div>
+        <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <Badge tone={stateTone(pr.state)} className="shrink-0">
+            {stateLabel(pr.state)}
+          </Badge>
+          <ActorMerge
+            actor={pr.author}
+            base={pr.base.label}
+            head={pr.head.label}
+          />
+        </div>
+      </header>
 
-        <StatsStrip review={review} orgSlug={orgSlug} slug={slug} />
+      <div className="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <main className="flex min-w-0 flex-col gap-6">
+          <StatsStrip review={review} orgSlug={orgSlug} slug={slug} />
 
-        <section className="min-w-0">
-          {pr.body.trim().length > 0 ? (
-            <Markdown htmlPolicy="skip" className="max-w-none">
-              {pr.body}
-            </Markdown>
-          ) : (
-            <div className="rounded-lg border border-border bg-background px-5 py-4 text-sm text-muted-foreground">
-              {m.reviews_overview_empty_body()}
-            </div>
-          )}
-        </section>
-      </main>
+          <section className="min-w-0">
+            {pr.body.trim().length > 0 ? (
+              <div className="flex min-w-0 items-start gap-2">
+                <Markdown
+                  htmlPolicy="skip"
+                  className="min-w-0 max-w-none flex-1"
+                >
+                  {pr.body}
+                </Markdown>
+                <BodyActionsMenu body={pr.body} />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-background px-5 py-4 text-sm text-muted-foreground">
+                {m.reviews_overview_empty_body()}
+              </div>
+            )}
+          </section>
+        </main>
 
-      <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
-        <LinkedTicket orgSlug={orgSlug} slug={slug} review={review} />
-        <PeopleSection
-          title={m.reviews_reviewers_title()}
-          empty={m.reviews_reviewers_empty()}
-          people={review.reviewers}
-          renderMeta={(reviewer) => decisionLabel(reviewer.decision)}
-        />
-        <PeopleSection
-          title={m.reviews_participants_title()}
-          empty={m.reviews_participants_empty()}
-          people={review.participants}
-          renderMeta={(participant) => roleLabel(participant.role)}
-        />
-        <Details review={review} />
-      </aside>
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
+          <LinkedTicket orgSlug={orgSlug} slug={slug} review={review} />
+          <PeopleSection
+            title={m.reviews_reviewers_title()}
+            empty={m.reviews_reviewers_empty()}
+            people={review.reviewers}
+            renderMeta={(reviewer) => decisionLabel(reviewer.decision)}
+          />
+          <PeopleSection
+            title={m.reviews_participants_title()}
+            empty={m.reviews_participants_empty()}
+            people={review.participants}
+            renderMeta={(participant) => roleLabel(participant.role)}
+          />
+          <Details review={review} />
+        </aside>
+      </div>
     </div>
   )
 }
@@ -168,6 +180,63 @@ function StatsStrip({
         {m.reviews_action_review_changes()}
       </Button>
     </div>
+  )
+}
+
+function BodyActionsMenu({ body }: { body: string }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(body)
+      setCopied(true)
+      window.setTimeout(() => {
+        setCopied(false)
+        setOpen(false)
+      }, 1000)
+    } catch {}
+  }
+
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setCopied(false)
+      }}
+    >
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.reviews_body_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-all duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-48">
+        <DropdownMenuItem
+          closeOnClick={false}
+          onClick={handleCopy}
+          className="cursor-pointer"
+        >
+          {copied ? (
+            <>
+              <Check className="size-4 text-state-success" strokeWidth={2} />
+              {m.reviews_action_copy_markdown_done()}
+            </>
+          ) : (
+            <>
+              <Copy className="size-4" strokeWidth={1.75} />
+              {m.reviews_action_copy_markdown()}
+            </>
+          )}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -332,22 +401,32 @@ function Details({ review }: { review: ReviewPageDto }) {
   const pr = review.pr
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">{m.reviews_details_repo()}</h2>
-      <div className="flex flex-col gap-2 text-sm">
-        <DetailRow icon={GitBranch} label={m.reviews_details_repo()}>
-          <span className="font-mono text-xs">
+      <h2 className="text-sm font-medium">{m.reviews_details_title()}</h2>
+      <dl className="flex flex-col gap-2 text-sm">
+        <DetailRow icon={GitBranch} label={m.reviews_details_repo()} showLabel>
+          <Badge
+            tone="outline"
+            size="sm"
+            render={
+              <a
+                href={`https://github.com/${pr.repoOwner}/${pr.repoName}`}
+                target="_blank"
+                rel="noreferrer"
+              />
+            }
+          >
             {pr.repoOwner}/{pr.repoName}
-          </span>
+          </Badge>
         </DetailRow>
-        <DetailRow icon={CircleDot} label={m.reviews_check_label()}>
-          <span>{checkStatusLabel(pr.checks.status)}</span>
+        <DetailRow icon={CircleDot} label={m.reviews_check_label()} showLabel>
+          {checkStatusLabel(pr.checks.status)}
         </DetailRow>
         <DateRow label={m.reviews_details_created()} date={pr.createdAt} />
         <DateRow label={m.reviews_details_updated()} date={pr.updatedAt} />
         {pr.mergedAt && (
           <DateRow label={m.reviews_details_merged()} date={pr.mergedAt} />
         )}
-      </div>
+      </dl>
     </section>
   )
 }
@@ -355,7 +434,7 @@ function Details({ review }: { review: ReviewPageDto }) {
 function DateRow({ label, date }: { label: string; date: Date }) {
   const locale = getLocale()
   return (
-    <DetailRow icon={CalendarClock} label={label}>
+    <DetailRow icon={CalendarClock} label={label} showLabel>
       <time dateTime={date.toISOString()} title={date.toLocaleString(locale)}>
         {date.toLocaleDateString(locale, {
           year: "numeric",
@@ -370,17 +449,29 @@ function DateRow({ label, date }: { label: string; date: Date }) {
 function DetailRow({
   icon: Icon,
   label,
+  showLabel = false,
   children
 }: {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
   label: string
+  showLabel?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Icon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-      <span className="sr-only">{label}</span>
-      <span className="min-w-0 truncate">{children}</span>
+    <div className="relative flex items-center gap-2 text-sm">
+      <Icon
+        className="size-3.5 shrink-0 text-muted-foreground"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      {showLabel ? (
+        <dt className="text-muted-foreground">{label}</dt>
+      ) : (
+        <dt className="sr-only">{label}</dt>
+      )}
+      <dd className="ml-auto min-w-0 truncate text-foreground/80">
+        {children}
+      </dd>
     </div>
   )
 }
@@ -395,7 +486,7 @@ function ActorMerge({
   head: string
 }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+    <span className="flex min-w-0 flex-1 items-center gap-2">
       <ActorAvatar actor={actor} size="xs" />
       <span className="shrink-0 font-medium text-foreground">
         {actor.login}
@@ -440,10 +531,10 @@ function BranchChip({
     <span
       className={cn(
         "inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground",
-        fixed ? "shrink-0" : "min-w-0 max-w-[16rem]"
+        fixed ? "shrink-0" : "min-w-0"
       )}
     >
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </span>
   )
 }

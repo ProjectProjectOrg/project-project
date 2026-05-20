@@ -96,7 +96,7 @@ export function TicketPage({
 
       <div className="h-px bg-border/60" />
 
-      <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-8">
           <DescriptionField
             orgSlug={orgSlug}
