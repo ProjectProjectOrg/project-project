@@ -91,7 +91,7 @@
   "reviews_files_placeholder_body": "The files workspace lands in the next slice.",
   "reviews_files_placeholder_title": "Files view is being wired",
   "reviews_files_search_placeholder": "Search files...",
-  "reviews_linked_ticket": "linked ticket",
+  "reviews_linked_ticket": "ticket",
   "reviews_loading_overview": "Loading review...",
   "reviews_loading_title": "Loading PR",
   "reviews_merge_commit_message_label": "Commit message",

@@ -112,12 +112,12 @@ function StatsStrip({
 }) {
   const counts = review.pr.counts
   return (
-    <div className="@container flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/70 px-4 py-3">
-      <div className="flex items-center gap-x-3 gap-y-2 whitespace-nowrap text-sm text-muted-foreground @max-md:flex-col @max-md:items-start">
+    <div className="@container flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/70 px-4 py-3 @max-xs:flex-col @max-xs:items-start">
+      <div className="flex items-center gap-x-3 gap-y-2 whitespace-nowrap text-sm text-muted-foreground @max-xs:flex-col @max-xs:items-start">
         <Stat icon={GitCommitVertical}>
           {m.reviews_counts_commits({ count: counts.commits })}
         </Stat>
-        <span className="text-muted-foreground/50 @max-md:hidden">·</span>
+        <span className="text-muted-foreground/50 @max-xs:hidden">·</span>
         <Stat icon={FileCode2}>
           {m.reviews_counts_files({ count: counts.filesChanged })}
         </Stat>
