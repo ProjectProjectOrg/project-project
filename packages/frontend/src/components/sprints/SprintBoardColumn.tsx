@@ -18,7 +18,15 @@ import type {
   TicketId
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
-import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
+import type {
+  CardDropData,
+  ColumnDragData,
+  ColumnDropData,
+  ColumnReorderDropData,
+  DragData
+} from "./board-utils"
+
+const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 
 export function SprintBoardColumn({
   orgSlug,
@@ -29,7 +37,9 @@ export function SprintBoardColumn({
   members,
   isDraggable,
   overlay,
-  lastFlash
+  lastFlash,
+  reorderMode,
+  longPressHandlers
 }: {
   orgSlug: string
   slug: string
@@ -40,23 +50,35 @@ export function SprintBoardColumn({
   isDraggable: boolean
   overlay: ReadonlyMap<TicketId, string>
   lastFlash: { id: TicketId; tick: number } | null
+  reorderMode: boolean
+  longPressHandlers: {
+    onPointerDown: (e: React.PointerEvent) => void
+    onPointerMove: (e: React.PointerEvent) => void
+    onPointerUp: () => void
+    onPointerCancel: () => void
+    onPointerLeave: () => void
+  }
 }) {
   const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
   const columnRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [reorderEdge, setReorderEdge] = useState<"left" | "right" | null>(null)
+
   useEffect(() => {
-    if (!isDraggable) return
+    if (!isDraggable || reorderMode) return
     const el = columnRef.current
     if (!el) return
     return dropTargetForElements({
       element: el,
       getData: (): ColumnDropData => ({ type: "column", status })
     })
-  }, [isDraggable, status])
+  }, [isDraggable, status, reorderMode])
+
   useEffect(() => {
-    if (!isDraggable) return
+    if (!isDraggable || reorderMode) return
     const update = ({
       location
     }: {
@@ -73,13 +95,74 @@ export function SprintBoardColumn({
       onDrag: update,
       onDrop: () => setDragOver(false)
     })
-  }, [isDraggable])
+  }, [isDraggable, reorderMode])
+
+  useEffect(() => {
+    if (!reorderMode) {
+      setReorderEdge(null)
+      return
+    }
+    const header = headerRef.current
+    if (!header) return
+
+    const cleanupDrag = draggable({
+      element: header,
+      getInitialData: (): ColumnDragData => ({
+        type: "column-reorder",
+        slug: status
+      })
+    })
+
+    const cleanupDrop = dropTargetForElements({
+      element: header,
+      getData: ({ input, element }): ColumnReorderDropData => {
+        const rect = element.getBoundingClientRect()
+        const edge: "left" | "right" =
+          input.clientX < rect.left + rect.width / 2 ? "left" : "right"
+        return { type: "column-reorder-target", slug: status, edge }
+      },
+      onDragEnter: ({ self, source }) => {
+        const src = source.data as unknown as ColumnDragData
+        if (src.slug === status) return
+        setReorderEdge((self.data as unknown as ColumnReorderDropData).edge)
+      },
+      onDrag: ({ self, source }) => {
+        const src = source.data as unknown as ColumnDragData
+        if (src.slug === status) return
+        const next = (self.data as unknown as ColumnReorderDropData).edge
+        setReorderEdge((prev) => (prev === next ? prev : next))
+      },
+      onDragLeave: () => setReorderEdge(null),
+      onDrop: () => setReorderEdge(null)
+    })
+
+    return () => {
+      cleanupDrag()
+      cleanupDrop()
+    }
+  }, [reorderMode, status])
+
   return (
-    <div
+    <motion.div
       ref={columnRef}
+      animate={{
+        scale: reorderMode ? 0.96 : 1,
+        filter: reorderMode
+          ? "drop-shadow(0 10px 24px rgb(0 0 0 / 0.12))"
+          : "drop-shadow(0 0 0 transparent)"
+      }}
+      transition={{ duration: 0.18, ease: REORDER_EASE }}
       className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
     >
-      <div className="flex items-center justify-between px-6 pt-3 pb-2">
+      <div
+        ref={headerRef}
+        data-column-header
+        className={cn(
+          "relative flex items-center justify-between px-6 pt-3 pb-2",
+          reorderMode && "cursor-grab select-none active:cursor-grabbing"
+        )}
+        {...(reorderMode ? longPressHandlers : {})}
+      >
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <Icon
             className={cn("size-4", meta.className)}
@@ -95,8 +178,25 @@ export function SprintBoardColumn({
           opacityTiming={{ duration: 180, easing: "ease-out" }}
           className="font-mono text-xs text-muted-foreground tabular-nums"
         />
+        {reorderMode && reorderEdge && (
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-y-2 z-10 w-0.5 rounded-full bg-foreground/60",
+              reorderEdge === "left" ? "left-0" : "right-0"
+            )}
+          />
+        )}
       </div>
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <motion.div
+        animate={{
+          opacity: reorderMode ? 0 : 1,
+          y: reorderMode ? -8 : 0
+        }}
+        transition={{ duration: 0.18, ease: REORDER_EASE }}
+        style={{ pointerEvents: reorderMode ? "none" : undefined }}
+        className="relative flex min-h-0 flex-1 flex-col"
+      >
         <div
           aria-hidden
           className={cn(
@@ -116,14 +216,14 @@ export function SprintBoardColumn({
               ticket={t}
               status={status}
               members={members}
-              isDraggable={isDraggable}
+              isDraggable={isDraggable && !reorderMode}
               pending={overlay.has(t.id)}
               flashKey={lastFlash?.id === t.id ? lastFlash.tick : undefined}
             />
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

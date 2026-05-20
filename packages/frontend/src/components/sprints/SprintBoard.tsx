@@ -1,5 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -10,7 +10,8 @@ import {
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
 import {
   projectKey as projectStatusKey,
-  projectStatusesAtom
+  projectStatusesAtom,
+  reorderStatusAtom
 } from "@/atoms/projectStatuses"
 import type {
   GroupId,
@@ -27,6 +28,7 @@ import {
   type DragData
 } from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
+import { useLongPress, useColumnReorderMonitor } from "./BoardReorderMode"
 
 export function SprintBoard({
   orgSlug,
@@ -46,6 +48,7 @@ export function SprintBoard({
   const ref = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | null>(null)
   const [hasRightOverflow, setHasRightOverflow] = useState(true)
+  const [reorderMode, setReorderMode] = useState(false)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -89,15 +92,24 @@ export function SprintBoard({
     }
   }, [])
 
+  useEffect(() => {
+    if (!reorderMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setReorderMode(false)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [reorderMode])
+
   const key = sprintKey(orgSlug, slug, groupId)
+  const statusKey = projectStatusKey(orgSlug, slug)
   const list = useAtomValue(
     ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
   )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const reorder = useAtomSet(reorderStatusAtom(statusKey))
+  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const statusSlugs = boardStatusesFor(statuses)
 
@@ -168,6 +180,32 @@ export function SprintBoard({
     }
   }, [isCompleted, place])
 
+  const handleReorder = useCallback(
+    (statusSlug: string, orderKey: string) => {
+      reorder({ statusSlug, orderKey })
+      setReorderMode(false)
+    },
+    [reorder]
+  )
+
+  useColumnReorderMonitor({
+    reorderMode,
+    statuses,
+    onReorder: handleReorder
+  })
+
+  const enterReorderMode = useCallback(() => {
+    if (!isCompleted) setReorderMode(true)
+  }, [isCompleted])
+
+  const longPressHandlers = useLongPress(enterReorderMode)
+
+  const onBoardClick = (e: React.MouseEvent) => {
+    if (!reorderMode) return
+    const isHeader = (e.target as HTMLElement).closest("[data-column-header]")
+    if (!isHeader) setReorderMode(false)
+  }
+
   return (
     <div
       ref={ref}
@@ -177,6 +215,7 @@ export function SprintBoard({
         hasRightOverflow &&
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}
+      onClick={onBoardClick}
     >
       <div className="flex h-full gap-3">
         {statusSlugs.map((status) => (
@@ -191,6 +230,8 @@ export function SprintBoard({
             isDraggable={!isCompleted}
             overlay={overlay}
             lastFlash={lastFlash}
+            reorderMode={reorderMode}
+            longPressHandlers={longPressHandlers}
           />
         ))}
       </div>
