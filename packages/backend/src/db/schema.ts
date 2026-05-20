@@ -162,6 +162,31 @@ export const projectTag = pgTable(
   ]
 )
 
+export const projectStatus = pgTable(
+  "project_status",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    label: text("label").notNull(),
+    icon: text("icon").notNull(),
+    color: text("color").notNull(),
+    orderKey: text("order_key").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.slug] }),
+    index("project_status_project_idx").on(t.projectId),
+    index("project_status_order_idx").on(t.projectId, t.orderKey)
+  ]
+)
+
 export const organizationIntegration = pgTable(
   "organization_integration",
   {
@@ -337,9 +362,7 @@ export const ticketIndex = pgTable(
     projectSlug: text("project_slug").notNull(),
     ticketId: text("ticket_id").notNull(),
     title: text("title").notNull(),
-    status: text("status", {
-      enum: ["todo", "in_progress", "done"]
-    }).notNull(),
+    status: text("status").notNull(),
     type: text("type", {
       enum: ["feat", "bug", "chore", "other"]
     }).notNull(),
@@ -392,6 +415,7 @@ export const projectIndexRelations = relations(
     members: many(projectMember),
     inviteGrants: many(projectInviteGrant),
     tags: many(projectTag),
+    statuses: many(projectStatus),
     integrationLinks: many(projectIntegrationLink)
   })
 )
@@ -428,6 +452,17 @@ export const projectTagRelations = relations(projectTag, ({ one }) => ({
   }),
   createdByUser: one(user, {
     fields: [projectTag.createdBy],
+    references: [user.id]
+  })
+}))
+
+export const projectStatusRelations = relations(projectStatus, ({ one }) => ({
+  project: one(projectIndex, {
+    fields: [projectStatus.projectId],
+    references: [projectIndex.id]
+  }),
+  createdByUser: one(user, {
+    fields: [projectStatus.createdBy],
     references: [user.id]
   })
 }))
