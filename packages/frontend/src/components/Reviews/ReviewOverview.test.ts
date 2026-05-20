@@ -1,5 +1,36 @@
 import { describe, expect, it } from "vitest"
-import { diffPipTones } from "./ReviewOverview"
+import { checkSummaryLabel, diffPipTones } from "./ReviewOverview"
+
+describe("checkSummaryLabel", () => {
+  it.each([
+    {
+      checks: { status: "passing", completedCount: 1, totalCount: 1 },
+      expected: "1 of 1 checks passed"
+    },
+    {
+      checks: { status: "passing", completedCount: 3, totalCount: 3 },
+      expected: "3 of 3 checks passed"
+    },
+    {
+      checks: { status: "pending", completedCount: 1, totalCount: 2 },
+      expected: "1 of 2 checks completed · pending"
+    },
+    {
+      checks: { status: "failing", completedCount: 2, totalCount: 2 },
+      expected: "2 of 2 checks completed · failing"
+    },
+    {
+      checks: { status: "neutral", completedCount: 1, totalCount: 1 },
+      expected: "1 of 1 checks completed · neutral"
+    },
+    {
+      checks: { status: "none", completedCount: 0, totalCount: 0 },
+      expected: "No checks"
+    }
+  ] as const)("returns $expected", ({ checks, expected }) => {
+    expect(checkSummaryLabel(checks)).toBe(expected)
+  })
+})
 
 describe("diffPipTones", () => {
   it.each([

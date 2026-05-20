@@ -5,7 +5,6 @@ import {
   Copy,
   FileCode2,
   GitCommitVertical,
-  GitPullRequest,
   MessageSquareText,
   MoreHorizontal,
   Ticket
@@ -14,7 +13,7 @@ import { useState } from "react"
 import { Markdown } from "@/components/Markdown"
 import { TicketMentionCard } from "@/components/Lexical/TicketMentionCard"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge, type BadgeTone } from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -35,7 +34,6 @@ import type {
   ReviewActor,
   ReviewDecision,
   ReviewParticipant,
-  ReviewPrState,
   TicketStatus
 } from "@projectproject/shared"
 
@@ -54,39 +52,6 @@ export function ReviewOverview({
   const pr = review.pr
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <GitPullRequest
-            className={cn(
-              "mt-1 size-6 shrink-0",
-              pr.state === "open"
-                ? "text-state-success"
-                : pr.state === "merged"
-                  ? "text-state-merged"
-                  : "text-muted-foreground"
-            )}
-            strokeWidth={2}
-            aria-hidden
-          />
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
-              {pr.title}
-            </h1>
-            {pr.draft && <Badge tone="muted">{m.reviews_pr_draft()}</Badge>}
-          </div>
-        </div>
-        <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-          <Badge tone={stateTone(pr.state)} className="shrink-0">
-            {stateLabel(pr.state)}
-          </Badge>
-          <ActorMerge
-            actor={pr.author}
-            base={pr.base.label}
-            head={pr.head.label}
-          />
-        </div>
-      </header>
-
       <div className="grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-6">
           <StatsStrip review={review} orgSlug={orgSlug} slug={slug} />
@@ -147,12 +112,12 @@ function StatsStrip({
 }) {
   const counts = review.pr.counts
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-muted/70 px-4 py-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+    <div className="@container flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/70 px-4 py-3">
+      <div className="flex items-center gap-x-3 gap-y-2 whitespace-nowrap text-sm text-muted-foreground @max-md:flex-col @max-md:items-start">
         <Stat icon={GitCommitVertical}>
           {m.reviews_counts_commits({ count: counts.commits })}
         </Stat>
-        <span className="text-muted-foreground/50">·</span>
+        <span className="text-muted-foreground/50 @max-md:hidden">·</span>
         <Stat icon={FileCode2}>
           {m.reviews_counts_files({ count: counts.filesChanged })}
         </Stat>
@@ -185,7 +150,6 @@ function StatsStrip({
         }
         size="sm"
         variant="primary"
-        className="self-start md:self-auto"
       >
         {m.reviews_action_review_changes()}
       </Button>
@@ -435,7 +399,7 @@ function DetailsRows({ review }: { review: ReviewPageDto }) {
         </Badge>
       </MetaRow>
       <MetaRow label={m.reviews_check_label()}>
-        <span className="text-xs">{checkStatusLabel(pr.checks.status)}</span>
+        <span className="text-xs">{checkSummaryLabel(pr.checks)}</span>
       </MetaRow>
       <DateRow label={m.reviews_details_created()} date={pr.createdAt} />
       <DateRow label={m.reviews_details_updated()} date={pr.updatedAt} />
@@ -480,30 +444,7 @@ function MetaRow({
   )
 }
 
-function ActorMerge({
-  actor,
-  base,
-  head
-}: {
-  actor: ReviewActor
-  base: string
-  head: string
-}) {
-  return (
-    <span className="flex min-w-0 flex-1 items-center gap-2">
-      <ActorAvatar actor={actor} size="xs" />
-      <span className="shrink-0 font-medium text-foreground">
-        {actor.login}
-      </span>
-      <span className="shrink-0">{m.reviews_branch_merge_into()}</span>
-      <BranchChip value={base} fixed />
-      <span className="shrink-0">{m.reviews_branch_merge_from()}</span>
-      <BranchChip value={head} />
-    </span>
-  )
-}
-
-function ActorAvatar({
+export function ActorAvatar({
   actor,
   size = "sm"
 }: {
@@ -521,51 +462,40 @@ function ActorAvatar({
   )
 }
 
-function BranchChip({
-  value,
-  fixed = false
-}: {
-  value: string
-  fixed?: boolean
-}) {
-  const label = value.includes(":")
-    ? value.split(":").slice(1).join(":")
-    : value
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground",
-        fixed ? "shrink-0" : "min-w-0"
-      )}
-    >
-      <span className="min-w-0 truncate">{label}</span>
-    </span>
-  )
-}
-
-function stateTone(state: ReviewPrState): BadgeTone {
-  if (state === "open") return "emerald"
-  if (state === "merged") return "violet"
-  return "muted"
-}
-
-function stateLabel(state: ReviewPrState): string {
-  if (state === "open") return m.reviews_pr_open()
-  if (state === "merged") return m.reviews_pr_merged()
-  return m.reviews_pr_closed()
-}
-
 function ticketStatusLabel(status: TicketStatus): string {
   if (status === "todo") return m.tickets_status_todo()
   if (status === "in_progress") return m.tickets_status_in_progress()
   return m.tickets_status_done()
 }
 
-function checkStatusLabel(status: ReviewPageDto["pr"]["checks"]["status"]) {
-  if (status === "passing") return m.reviews_check_status_passing()
-  if (status === "failing") return m.reviews_check_status_failing()
-  if (status === "pending") return m.reviews_check_status_pending()
-  if (status === "neutral") return m.reviews_check_status_neutral()
+export function checkSummaryLabel(checks: ReviewPageDto["pr"]["checks"]) {
+  if (checks.status === "none" || checks.totalCount === 0) {
+    return m.reviews_check_status_none()
+  }
+  if (checks.status === "passing") {
+    return m.reviews_check_summary_passing({
+      completed: checks.completedCount,
+      total: checks.totalCount
+    })
+  }
+  if (checks.status === "failing") {
+    return m.reviews_check_summary_failing({
+      completed: checks.completedCount,
+      total: checks.totalCount
+    })
+  }
+  if (checks.status === "pending") {
+    return m.reviews_check_summary_pending({
+      completed: checks.completedCount,
+      total: checks.totalCount
+    })
+  }
+  if (checks.status === "neutral") {
+    return m.reviews_check_summary_neutral({
+      completed: checks.completedCount,
+      total: checks.totalCount
+    })
+  }
   return m.reviews_check_status_none()
 }
 
