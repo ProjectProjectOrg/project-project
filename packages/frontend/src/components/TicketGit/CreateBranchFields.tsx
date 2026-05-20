@@ -129,11 +129,12 @@ export function CreateBranchFields({
     setBusy(true)
     setDidSubmit(true)
     const branchName = name.trim()
+    const baseBranch = base.trim() || github.defaultBaseBranch || "main"
     setAttemptedName(branchName)
     const exit = await create({
       id: ticket.id,
       name: branchName,
-      baseBranch: base.trim() || undefined
+      baseBranch
     })
     if (Exit.isSuccess(exit)) {
       if (status !== ticket.status) updateTicket({ status })

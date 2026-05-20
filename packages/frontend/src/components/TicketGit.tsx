@@ -59,6 +59,16 @@ function checksColor(s: string): string {
   return "text-muted-foreground"
 }
 
+function branchPendingLabel(state: GitState): string {
+  if ("pendingOperation" in state && state.pendingOperation === "create") {
+    return m.git_create_branch_checking()
+  }
+  if ("pendingOperation" in state && state.pendingOperation === "connect") {
+    return m.git_connect_branch_checking()
+  }
+  return m.git_live_state_pending()
+}
+
 export function TicketGitChip({
   orgSlug,
   slug,
@@ -213,7 +223,7 @@ function PanelForState({
     const Root = InlineForm.Root<NoBranchAction>
     const baseBranch = github.defaultBaseBranch ?? "main"
     return (
-      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+      <Root key="no_branch" variant={variant} className={GIT_PANEL_CONTAINER}>
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display<NoBranchAction>
             previews={{
@@ -269,6 +279,7 @@ function PanelForState({
             orgSlug={orgSlug}
             slug={slug}
             ticket={ticket}
+            baseBranch={baseBranch}
             variant={variant}
           />
         </InlineForm.Form>
@@ -276,11 +287,54 @@ function PanelForState({
     )
   }
 
-  if (state.tag === "branch_no_pr" || state.tag === "branch_pending") {
+  if (state.tag === "branch_pending") {
+    const Root = InlineForm.Root<"clear">
+    return (
+      <Root
+        key={`branch_pending:${state.name}`}
+        variant={variant}
+        className={GIT_PANEL_CONTAINER}
+      >
+        <InlineForm.Idle className={IDLE_STACK}>
+          <InlineForm.Display className={cn(pulse)}>
+            <div className={ROW_STACK}>
+              <BranchChip slug={repoSlug} name={state.name} />
+              <span className={WRAPPABLE_TEXT}>
+                {branchPendingLabel(state)}
+              </span>
+            </div>
+          </InlineForm.Display>
+          <InlineForm.Actions className={ACTIONS_STACK}>
+            <InlineForm.Trigger
+              action="clear"
+              size={buttonSize}
+              variant="ghost"
+            >
+              {m.git_clear_branch_button()}
+            </InlineForm.Trigger>
+          </InlineForm.Actions>
+        </InlineForm.Idle>
+        <InlineForm.Form action="clear">
+          <ClearBranchFields
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+            variant={variant}
+          />
+        </InlineForm.Form>
+      </Root>
+    )
+  }
+
+  if (state.tag === "branch_no_pr") {
     const baseBranch = state.baseBranch ?? github.defaultBaseBranch ?? "main"
     const Root = InlineForm.Root<"clear">
     return (
-      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+      <Root
+        key={`branch_no_pr:${state.name}`}
+        variant={variant}
+        className={GIT_PANEL_CONTAINER}
+      >
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
             <BranchChip slug={repoSlug} name={state.name} />
@@ -394,7 +448,11 @@ function PanelForState({
   if (state.tag === "stale_branch") {
     const Root = InlineForm.Root<"clear">
     return (
-      <Root variant={variant} className={GIT_PANEL_CONTAINER}>
+      <Root
+        key={`stale_branch:${state.name}`}
+        variant={variant}
+        className={GIT_PANEL_CONTAINER}
+      >
         <InlineForm.Idle className={IDLE_STACK}>
           <InlineForm.Display className={cn(pulse)}>
             <div className="flex min-w-0 items-start gap-1.5 text-xs text-state-warning">

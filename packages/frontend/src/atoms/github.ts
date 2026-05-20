@@ -26,6 +26,8 @@ import { ticketBaseAtom, ticketKey } from "./tickets"
 
 export const githubAuthEpochAtom = Atom.make(0)
 
+type BranchPendingOperation = "create" | "connect"
+
 const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
@@ -67,6 +69,18 @@ const splitOrgRepoKey = (key: string): { orgSlug: string; query: string } => {
   const sep = key.indexOf(" ")
   return { orgSlug: key.slice(0, sep), query: key.slice(sep + 1) }
 }
+
+const optimisticBranchPending = (
+  name: string,
+  baseBranch: string,
+  operation: BranchPendingOperation
+): GitState =>
+  ({
+    tag: "branch_pending",
+    name,
+    baseBranch,
+    pendingOperation: operation
+  }) as GitState
 
 export const githubInstallationReposKey = (orgSlug: string, query: string) =>
   `${orgSlug} ${query}`
@@ -184,10 +198,31 @@ export const disconnectGithubAtom = Atom.family((key: string) => {
 export const createBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (current, _input: { id: TicketId } & CreateBranchInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
+    reducer: (current, input: { id: TicketId } & CreateBranchInput) => {
+      const optimistic = optimisticBranchPending(
+        input.name,
+        input.baseBranch ?? "main",
+        "create"
+      )
+      if (!Result.isSuccess(current)) {
+        return Result.success(
+          {
+            states: { [input.id]: optimistic },
+            transitioned: [],
+            tokenStatus: "ok",
+            repoStatus: "ok"
+          },
+          { waiting: true }
+        )
+      }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
     fn: runtime.fn(
       Effect.fn(function* (input: { id: TicketId } & CreateBranchInput, get) {
         const client = yield* ApiClient
@@ -207,12 +242,39 @@ export const createBranchAtom = Atom.family((key: string) => {
 export const attachBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (current, _input: { id: TicketId } & AttachBranchInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
+    reducer: (
+      current,
+      input: { id: TicketId } & AttachBranchInput & { baseBranch: string }
+    ) => {
+      const optimistic = optimisticBranchPending(
+        input.name,
+        input.baseBranch,
+        "connect"
+      )
+      if (!Result.isSuccess(current)) {
+        return Result.success(
+          {
+            states: { [input.id]: optimistic },
+            transitioned: [],
+            tokenStatus: "ok",
+            repoStatus: "ok"
+          },
+          { waiting: true }
+        )
+      }
+      return Result.success(
+        {
+          ...current.value,
+          states: { ...current.value.states, [input.id]: optimistic }
+        },
+        { waiting: true }
+      )
+    },
     fn: runtime.fn(
-      Effect.fn(function* (input: { id: TicketId } & AttachBranchInput, get) {
+      Effect.fn(function* (
+        input: { id: TicketId } & AttachBranchInput & { baseBranch: string },
+        get
+      ) {
         const client = yield* ApiClient
         const updated = yield* client.tickets.attachBranch({
           path: { orgSlug, slug, id: input.id },
