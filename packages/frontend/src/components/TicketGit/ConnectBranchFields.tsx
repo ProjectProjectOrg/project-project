@@ -87,13 +87,25 @@ export function ConnectBranchFields({
     repoId: string
     name: string
   } | null>(null)
-  const [activeIdx, setActiveIdx] = useState(0)
+  const [activeState, setActiveState] = useState<{
+    repoId: string
+    index: number
+  } | null>(null)
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
   const selected =
     selectedState?.repoId === github.repoId ? selectedState.name : null
   const setSelected = (name: string | null) =>
     setSelectedState(name === null ? null : { repoId: github.repoId, name })
+  const activeIdx =
+    activeState?.repoId === github.repoId ? activeState.index : 0
+  const setActiveIdx = (next: number | ((current: number) => number)) =>
+    setActiveState((current) => {
+      const currentIndex =
+        current?.repoId === github.repoId ? current.index : 0
+      const index = typeof next === "function" ? next(currentIndex) : next
+      return { repoId: github.repoId, index }
+    })
 
   useEffect(() => {
     const fiber = Effect.runFork(
@@ -126,16 +138,9 @@ export function ConnectBranchFields({
   })
   itemsCacheRef.current = view.cache
   const { items, showSkeleton, isRefetching } = view
+  const clampedActiveIdx =
+    items.length === 0 ? 0 : Math.min(activeIdx, items.length - 1)
   const listRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setSelectedState(null)
-    setActiveIdx(0)
-  }, [github.repoId])
-
-  useEffect(() => {
-    if (activeIdx >= items.length) setActiveIdx(0)
-  }, [items.length, activeIdx])
 
   const errorString =
     didSubmit && !attachState.waiting
@@ -188,7 +193,7 @@ export function ConnectBranchFields({
       setActiveIdx((i) => Math.max(i - 1, 0))
     } else if (e.key === "Enter") {
       e.preventDefault()
-      const item = items[activeIdx]
+      const item = items[clampedActiveIdx]
       if (item) {
         setSelected(item.name)
         void submit(item.name)
@@ -248,7 +253,7 @@ export function ConnectBranchFields({
                     "flex w-full items-center justify-between px-2 py-1 text-left font-mono text-xs transition-colors",
                     selected === b.name
                       ? "bg-selected text-foreground font-medium"
-                      : activeIdx === i && "bg-muted"
+                      : clampedActiveIdx === i && "bg-muted"
                   )}
                   disabled={busy}
                 >
