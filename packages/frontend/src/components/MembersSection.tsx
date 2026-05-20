@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/input-group"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { MemberAvatar } from "@/components/MemberAvatar"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import type {
   AssignableRole,
@@ -94,7 +95,7 @@ export function MembersSection({
 
       <motion.ul
         animate={{ opacity: adding ? 0.35 : 1 }}
-        transition={{ duration: 0.18, ease: "easeOut" }}
+        transition={transitions.presence}
         className="divide-y divide-border rounded-xl border border-border bg-background"
       >
         {members.map((member) => (

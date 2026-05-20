@@ -28,6 +28,7 @@ import {
 } from "@/atoms/oauthApplications"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import type { OAuthApplication } from "@projectproject/shared"
 
@@ -226,7 +227,7 @@ function ProviderItem({
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: [0.215, 0.61, 0.355, 1] }}
+            transition={transitions.presence}
             className="overflow-hidden"
           >
             <div className="space-y-2 px-3 pb-3">

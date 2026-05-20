@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { authedRouteRedirect } from "@/lib/authRedirect"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -104,7 +105,7 @@ function Sidebar({ user }: { user: User }) {
               initial={{ opacity: 0, scale: railScale }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
-              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              transition={transitions.pop}
               className="absolute inset-0 overflow-y-auto px-3 py-2 will-change-transform"
             >
               {slot}
@@ -115,7 +116,7 @@ function Sidebar({ user }: { user: User }) {
               initial={{ opacity: 0, scale: navScale }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
-              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+              transition={transitions.pop}
               className="absolute inset-0 overflow-y-auto will-change-transform"
             >
               <PrimaryNav orgSlug={orgSlug} />
@@ -126,7 +127,7 @@ function Sidebar({ user }: { user: User }) {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+                    transition={transitions.presence}
                   >
                     {section}
                   </motion.div>
@@ -183,10 +184,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
 
   return (
     <div
-      className={cn(
-        "rounded-lg transition-colors",
-        expanded && "bg-accent"
-      )}
+      className={cn("rounded-lg transition-colors", expanded && "bg-accent")}
     >
       <NavItem
         to="/orgs/$orgSlug/projects"
@@ -201,7 +199,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+            transition={transitions.layout}
             className="overflow-hidden"
           >
             <ul className="flex flex-col gap-0.5 pb-2">
@@ -307,7 +305,8 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
       activeOptions={{ exact: exact ?? false }}
       className={base}
       inactiveProps={{
-        className: "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+        className:
+          "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       }}
       activeProps={{
         className: "bg-accent text-foreground font-medium"

@@ -64,6 +64,7 @@ import {
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
+import { transitions } from "@/lib/springs"
 import { SORT_LABELS } from "./sort"
 import { TICKET_SEARCH_KEYS } from "./url"
 
@@ -75,9 +76,6 @@ const TOOLBAR_BUTTON_CLASS = cn(
   "text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]",
   "ring-offset-background focus-visible:ring-2 focus-visible:ring-ring outline-none"
 )
-
-const LAYOUT_T = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const }
-const POP_T = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const }
 
 type SprintFilterValue = "all" | "unassigned" | GroupId
 
@@ -303,12 +301,13 @@ export function Toolbar({
       done: countsResult.value.byStatus.done ?? 0
     }
   }
-  const counts: Record<TicketStatus | "all", number> = previousCountsRef.current ?? {
-    all: 0,
-    todo: 0,
-    in_progress: 0,
-    done: 0
-  }
+  const counts: Record<TicketStatus | "all", number> =
+    previousCountsRef.current ?? {
+      all: 0,
+      todo: 0,
+      in_progress: 0,
+      done: 0
+    }
 
   const FULL_FITS_ROW = 1040
   const STATUS_COMPACT_FITS_ROW = 760
@@ -365,7 +364,7 @@ export function Toolbar({
       </InputGroup>
 
       <div className="relative flex flex-wrap items-center gap-2">
-        <motion.div layout="position" transition={LAYOUT_T}>
+        <motion.div layout="position" transition={transitions.layout}>
           <StatusChips
             value={status}
             onChange={setStatus}
@@ -374,7 +373,7 @@ export function Toolbar({
           />
         </motion.div>
 
-        <motion.div layout="position" transition={LAYOUT_T}>
+        <motion.div layout="position" transition={transitions.layout}>
           <FiltersMenu
             orgSlug={orgSlug}
             slug={slug}
@@ -393,7 +392,7 @@ export function Toolbar({
           />
         </motion.div>
 
-        <motion.div layout="position" transition={LAYOUT_T}>
+        <motion.div layout="position" transition={transitions.layout}>
           <SortMenu
             value={sortKey}
             onChange={setSortKey}
@@ -410,7 +409,7 @@ export function Toolbar({
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.6 }}
-              transition={POP_T}
+              transition={transitions.pop}
               className={cn(
                 "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
                 "hover:bg-destructive/15 hover:border-destructive/60",

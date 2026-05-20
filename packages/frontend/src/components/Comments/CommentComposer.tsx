@@ -5,6 +5,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { commentsKey, createCommentAtom } from "@/atoms/comments"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import type { TicketId } from "@projectproject/shared"
 
@@ -52,7 +53,7 @@ export function CommentComposer({
         paddingTop: expanded ? 12 : 6,
         paddingBottom: expanded ? 12 : 6
       }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
+      transition={transitions.layout}
       className="border-border bg-background rounded-md border px-3"
     >
       <LexicalEditor
@@ -69,7 +70,7 @@ export function CommentComposer({
             initial={{ opacity: 0, height: 0, marginTop: 0 }}
             animate={{ opacity: 1, height: "auto", marginTop: 8 }}
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            transition={transitions.presence}
             className="overflow-hidden"
           >
             {error && <p className="text-destructive mb-2 text-sm">{error}</p>}
