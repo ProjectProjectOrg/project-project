@@ -70,6 +70,10 @@ export interface TicketIndexShape {
     project: TicketIndexProject,
     tag: string
   ) => Effect.Effect<ReadonlyArray<string>>
+  readonly findTicketIdsByStatus: (
+    project: TicketIndexProject,
+    status: string
+  ) => Effect.Effect<ReadonlyArray<string>>
   readonly findTicketsByBranch: (
     projectId: string,
     branch: string

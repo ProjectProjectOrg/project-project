@@ -162,6 +162,7 @@ function makeFakeDocs(initial?: {
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
     upsertTicket: (_project, document) =>
       Effect.sync(() => {

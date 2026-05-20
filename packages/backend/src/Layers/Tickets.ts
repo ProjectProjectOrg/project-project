@@ -742,6 +742,26 @@ export const TicketsLive = Layer.effect(
         return true
       })
 
+    const replaceStatus = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      newStatus: string
+    ): Effect.Effect<boolean, TicketReadError> =>
+      Effect.gen(function* () {
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const existing = yield* readTicket(orgSlug, slug, id)
+        if (existing.status === newStatus) return false
+        const next: TicketDocument = {
+          ...existing,
+          status: newStatus as typeof existing.status,
+          updatedAt: yield* DateTime.nowAsDate
+        }
+        yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
+        return true
+      })
+
     const writeGitFields = (
       orgSlug: string,
       slug: string,
@@ -1140,6 +1160,7 @@ export const TicketsLive = Layer.effect(
       update,
       remove,
       replaceTag,
+      replaceStatus,
       createBranch,
       attachBranch,
       openPr,

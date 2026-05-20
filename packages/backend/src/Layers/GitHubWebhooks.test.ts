@@ -294,6 +294,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     listIds: () => Effect.succeed([]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
     upsertTicket: (project, document) =>
       Effect.sync(() => {

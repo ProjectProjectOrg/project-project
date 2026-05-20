@@ -168,6 +168,24 @@ export const TicketIndexLive = Layer.effect(
           Effect.orDie
         )
 
+    const findTicketIdsByStatus = (
+      project: TicketIndexProject,
+      status: string
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      db
+        .select({ ticketId: ticketIndex.ticketId })
+        .from(ticketIndex)
+        .where(
+          and(
+            eq(ticketIndex.projectId, project.projectId),
+            eq(ticketIndex.status, status)
+          )
+        )
+        .pipe(
+          Effect.map((rows) => rows.map((r) => r.ticketId)),
+          Effect.orDie
+        )
+
     const findTicketsByBranch = (
       projectId: string,
       branch: string
@@ -315,6 +333,7 @@ export const TicketIndexLive = Layer.effect(
       listIds,
       tagUsageCounts,
       findTicketIdsByTag,
+      findTicketIdsByStatus,
       findTicketsByBranch,
       upsertTicket,
       deleteTicket,

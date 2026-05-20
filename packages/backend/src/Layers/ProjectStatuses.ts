@@ -1,10 +1,11 @@
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { asc, eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { generateKeyBetween } from "fractional-indexing"
 import {
   Conflict,
+  Forbidden,
   NotFound,
   OUTER_RING,
   ProjectStatus,
@@ -21,6 +22,8 @@ import {
   ProjectStatuses,
   type ProjectStatusesShape
 } from "../Services/ProjectStatuses"
+import { TicketIndex } from "../Services/TicketIndex"
+import { Tickets } from "../Services/Tickets"
 
 const makeSlug = Schema.decodeUnknownSync(StatusSlug)
 const makeLabel = Schema.decodeUnknownSync(StatusLabel)
@@ -41,6 +44,8 @@ export const ProjectStatusesLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const projects = yield* Projects
+    const ticketIndex = yield* TicketIndex
+    const tickets = yield* Tickets
 
     const projectIdFromSlug = (slug: string) =>
       db.query.projectIndex
@@ -120,6 +125,107 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(inserted[0])
       })
 
+    const update: ProjectStatusesShape["update"] = (
+      orgSlug,
+      userId,
+      slug,
+      statusSlug,
+      input
+    ) =>
+      Effect.gen(function* () {
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        const projectId = yield* projectIdFromSlug(slug)
+
+        const current = yield* db.query.projectStatus
+          .findFirst({
+            where: and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          })
+          .pipe(Effect.orDie)
+        if (!current) return yield* new NotFound()
+
+        if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
+
+        const newLabel = input.label ?? current.label
+        const newSlug = input.label ? deriveStatusSlug(input.label) : current.slug
+
+        if (newSlug.length === 0)
+          return yield* new Conflict({ reason: "invalid_label" })
+
+        if (newSlug !== current.slug) {
+          if (isReservedStatusSlug(newSlug))
+            return yield* new Conflict({ reason: "reserved_slug" })
+          const collision = yield* db.query.projectStatus
+            .findFirst({
+              where: and(
+                eq(projectStatus.projectId, projectId),
+                eq(projectStatus.slug, newSlug)
+              )
+            })
+            .pipe(Effect.orDie)
+          if (collision) return yield* new Conflict({ reason: "slug_exists" })
+        }
+
+        const cosmetic = newSlug === current.slug
+
+        if (cosmetic) {
+          const updated = yield* db
+            .update(projectStatus)
+            .set({
+              label: newLabel,
+              icon: input.icon ?? current.icon,
+              color: input.color ?? current.color
+            })
+            .where(
+              and(
+                eq(projectStatus.projectId, projectId),
+                eq(projectStatus.slug, statusSlug)
+              )
+            )
+            .returning()
+            .pipe(Effect.orDie)
+          return rowToStatus(updated[0])
+        }
+
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const affectedIds = yield* ticketIndex.findTicketIdsByStatus(
+          indexProject,
+          current.slug
+        )
+        yield* Effect.forEach(
+          affectedIds,
+          (id) =>
+            tickets
+              .replaceStatus(orgSlug, slug, id, newSlug)
+              .pipe(
+                Effect.catchTag("NotFound", () => Effect.succeed(false)),
+                Effect.catchTag("MalformedTicketDocument", () =>
+                  Effect.succeed(false)
+                )
+              ),
+          { concurrency: 8 }
+        )
+        const updated = yield* db
+          .update(projectStatus)
+          .set({
+            slug: newSlug,
+            label: newLabel,
+            icon: input.icon ?? current.icon,
+            color: input.color ?? current.color
+          })
+          .where(
+            and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          )
+          .returning()
+          .pipe(Effect.orDie)
+        return rowToStatus(updated[0])
+      })
+
     const stub = (): never => {
       throw new Error("not implemented")
     }
@@ -127,7 +233,7 @@ export const ProjectStatusesLive = Layer.effect(
     return {
       list,
       create,
-      update: stub as never,
+      update,
       reorder: stub as never,
       remove: stub as never
     }

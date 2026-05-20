@@ -234,6 +234,12 @@ const makeFakeTicketIndex = (
           .filter((document) => document.tags.some((t) => t === tag))
           .map((document) => document.id)
       ),
+    findTicketIdsByStatus: (_project, status) =>
+      Effect.sync(() =>
+        [...documents.values()]
+          .filter((document) => document.status === status)
+          .map((document) => document.id)
+      ),
     findTicketsByBranch: (projectId, branch) =>
       Effect.sync(() =>
         [...documents.values()].flatMap((document) =>
