@@ -50,7 +50,7 @@ export function ReviewPage({
     review.capabilities.disabledReasons.reopen === "personal_github_required"
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       {showGithubBanner && (
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-background px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
@@ -91,7 +91,7 @@ export function ReviewPage({
         </Button>
       </div>
 
-      <div className={cn("min-h-0 min-w-0", waiting && "animate-pulse")}>
+      <div className={cn(waiting && "animate-pulse")}>
         {view === "overview" ? (
           <ReviewOverview
             orgSlug={orgSlug}

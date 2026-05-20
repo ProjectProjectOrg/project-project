@@ -38,80 +38,78 @@ export function ReviewOverview({
 }) {
   const pr = review.pr
   return (
-    <div className="@container/review-overview min-w-0">
-      <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-8 @[58rem]/review-overview:grid-cols-[minmax(0,1fr)_20rem]">
-        <main className="flex min-w-0 flex-col gap-6">
-          <header className="flex flex-col gap-5">
-            <div className="flex flex-col gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <GitPullRequest
-                  className={cn(
-                    "mt-1 size-6 shrink-0",
-                    pr.state === "open"
-                      ? "text-state-success"
-                      : pr.state === "merged"
-                        ? "text-state-merged"
-                        : "text-muted-foreground"
+    <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <main className="flex min-w-0 flex-col gap-6">
+        <header className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <GitPullRequest
+                className={cn(
+                  "mt-1 size-6 shrink-0",
+                  pr.state === "open"
+                    ? "text-state-success"
+                    : pr.state === "merged"
+                      ? "text-state-merged"
+                      : "text-muted-foreground"
+                )}
+                strokeWidth={2}
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
+                    {pr.title}
+                  </h1>
+                  {pr.draft && (
+                    <Badge tone="muted">{m.reviews_pr_draft()}</Badge>
                   )}
-                  strokeWidth={2}
-                  aria-hidden
-                />
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
-                      {pr.title}
-                    </h1>
-                    {pr.draft && (
-                      <Badge tone="muted">{m.reviews_pr_draft()}</Badge>
-                    )}
-                  </div>
                 </div>
               </div>
-              <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
-                <Badge tone={stateTone(pr.state)} className="shrink-0">
-                  {stateLabel(pr.state)}
-                </Badge>
-                <ActorMerge
-                  actor={pr.author}
-                  base={pr.base.label}
-                  head={pr.head.label}
-                />
-              </div>
             </div>
-          </header>
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
+              <Badge tone={stateTone(pr.state)} className="shrink-0">
+                {stateLabel(pr.state)}
+              </Badge>
+              <ActorMerge
+                actor={pr.author}
+                base={pr.base.label}
+                head={pr.head.label}
+              />
+            </div>
+          </div>
+        </header>
 
-          <StatsStrip review={review} orgSlug={orgSlug} slug={slug} />
+        <StatsStrip review={review} orgSlug={orgSlug} slug={slug} />
 
-          <section className="min-w-0">
-            {pr.body.trim().length > 0 ? (
-              <Markdown htmlPolicy="skip" className="max-w-none">
-                {pr.body}
-              </Markdown>
-            ) : (
-              <div className="rounded-lg border border-border bg-background px-5 py-4 text-sm text-muted-foreground">
-                {m.reviews_overview_empty_body()}
-              </div>
-            )}
-          </section>
-        </main>
+        <section className="min-w-0">
+          {pr.body.trim().length > 0 ? (
+            <Markdown htmlPolicy="skip" className="max-w-none">
+              {pr.body}
+            </Markdown>
+          ) : (
+            <div className="rounded-lg border border-border bg-background px-5 py-4 text-sm text-muted-foreground">
+              {m.reviews_overview_empty_body()}
+            </div>
+          )}
+        </section>
+      </main>
 
-        <aside className="flex min-w-0 flex-col gap-6 @[58rem]/review-overview:sticky @[58rem]/review-overview:top-6 @[58rem]/review-overview:self-start @[58rem]/review-overview:border-l @[58rem]/review-overview:border-border/60 @[58rem]/review-overview:pl-6">
-          <LinkedTicket orgSlug={orgSlug} slug={slug} review={review} />
-          <PeopleSection
-            title={m.reviews_reviewers_title()}
-            empty={m.reviews_reviewers_empty()}
-            people={review.reviewers}
-            renderMeta={(reviewer) => decisionLabel(reviewer.decision)}
-          />
-          <PeopleSection
-            title={m.reviews_participants_title()}
-            empty={m.reviews_participants_empty()}
-            people={review.participants}
-            renderMeta={(participant) => roleLabel(participant.role)}
-          />
-          <Details review={review} />
-        </aside>
-      </div>
+      <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
+        <LinkedTicket orgSlug={orgSlug} slug={slug} review={review} />
+        <PeopleSection
+          title={m.reviews_reviewers_title()}
+          empty={m.reviews_reviewers_empty()}
+          people={review.reviewers}
+          renderMeta={(reviewer) => decisionLabel(reviewer.decision)}
+        />
+        <PeopleSection
+          title={m.reviews_participants_title()}
+          empty={m.reviews_participants_empty()}
+          people={review.participants}
+          renderMeta={(participant) => roleLabel(participant.role)}
+        />
+        <Details review={review} />
+      </aside>
     </div>
   )
 }
