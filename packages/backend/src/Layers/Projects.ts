@@ -957,6 +957,59 @@ export const ProjectsLive = Layer.effect(
         )
       })
 
+    const clearTicketPrMetadata = (
+      orgSlug: string,
+      slug: string
+    ): Effect.Effect<void, MarkdownError> =>
+      Effect.gen(function* () {
+        const project = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.orDie)
+        const ids = yield* ticketDocs.listIds(orgSlug, slug)
+        yield* Effect.forEach(
+          ids,
+          (id) =>
+            Effect.gen(function* () {
+              const ticket = yield* ticketDocs
+                .read(orgSlug, slug, id)
+                .pipe(
+                  Effect.catchTag("NotFound", () => Effect.succeed(null)),
+                  Effect.catchTag("MalformedTicketDocument", (error) =>
+                    Effect.logWarning("Skipping unreadable ticket pr metadata", {
+                      orgSlug,
+                      slug,
+                      ticketId: id,
+                      error
+                    }).pipe(Effect.as(null))
+                  )
+                )
+              if (
+                ticket === null ||
+                (ticket.pr === null &&
+                  ticket.prState === null &&
+                  ticket.lastTransitionedPr === null)
+              ) {
+                return
+              }
+              const next = {
+                ...ticket,
+                pr: null,
+                prState: null,
+                lastTransitionedPr: null,
+                updatedAt: yield* DateTime.nowAsDate
+              }
+              yield* ticketDocs.write(orgSlug, slug, id, next)
+              yield* bestEffortTicketIndexWrite(
+                "upsertTicket",
+                project,
+                id,
+                ticketIndex.upsertTicket(project, next)
+              )
+            }),
+          { concurrency: 8 }
+        )
+      })
+
     const attachProjectInviteGrant = (
       orgSlug: string,
       inviterId: string,
@@ -1583,6 +1636,15 @@ export const ProjectsLive = Layer.effect(
               })
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
+
+          const repoChanged =
+            file.github !== null &&
+            (file.github.repoId !== next.repoId ||
+              file.github.repoOwner !== next.repoOwner ||
+              file.github.repoName !== next.repoName)
+          if (repoChanged) {
+            yield* clearTicketPrMetadata(orgSlug, slug)
+          }
 
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)

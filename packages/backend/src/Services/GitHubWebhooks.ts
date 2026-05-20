@@ -1,8 +1,9 @@
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type { GitHubError } from "@projectproject/shared"
+import type { MarkdownError } from "./Markdown"
 
-export type GitHubWebhookHandleError = GitHubError
+export type GitHubWebhookHandleError = GitHubError | MarkdownError
 
 export interface GitHubWebhookDelivery {
   readonly event: string

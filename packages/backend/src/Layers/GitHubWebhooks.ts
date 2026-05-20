@@ -11,6 +11,7 @@ import {
   projectIntegrationLink
 } from "../db/schema"
 import { Db } from "../Services/Db"
+import type { MarkdownError } from "../Services/Markdown"
 import {
   GitHubWebhooks,
   type GitHubWebhookDelivery,
@@ -43,12 +44,25 @@ export const applyPullRequestWebhookToTicket = (
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.Effect<void> =>
+): Effect.Effect<void, MarkdownError> =>
   Effect.gen(function* () {
     const ticket = yield* deps.ticketDocs
       .read(match.orgSlug, match.projectSlug, match.ticketId)
       .pipe(
-        Effect.catchAll((error) =>
+        Effect.catchTag("NotFound", (error) =>
+          Effect.logWarning("github pull_request ticket ignored").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              orgSlug: match.orgSlug,
+              slug: match.projectSlug,
+              ticketId: match.ticketId,
+              error
+            }),
+            Effect.as(null)
+          )
+        ),
+        Effect.catchTag("MalformedTicketDocument", (error) =>
           Effect.logWarning("github pull_request ticket ignored").pipe(
             Effect.annotateLogs({
               module: "GitHubWebhooks",
@@ -107,11 +121,10 @@ export const applyPullRequestWebhookToTicket = (
       status: write.patch.status ?? ticket.status,
       updatedAt: yield* DateTime.nowAsDate
     }
-    const wrote = yield* deps.ticketDocs
+    yield* deps.ticketDocs
       .write(match.orgSlug, match.projectSlug, match.ticketId, next)
       .pipe(
-        Effect.as(true),
-        Effect.catchAll((error) =>
+        Effect.tapError((error) =>
           Effect.logWarning("github pull_request ticket write failed").pipe(
             Effect.annotateLogs({
               module: "GitHubWebhooks",
@@ -120,12 +133,10 @@ export const applyPullRequestWebhookToTicket = (
               slug: match.projectSlug,
               ticketId: match.ticketId,
               error
-            }),
-            Effect.as(false)
+            })
           )
         )
       )
-    if (!wrote) return
     const indexProject = {
       orgSlug: match.orgSlug,
       organizationId: match.organizationId,

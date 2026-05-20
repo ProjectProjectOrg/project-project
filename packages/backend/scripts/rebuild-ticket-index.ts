@@ -8,7 +8,9 @@ const argValue = (name: string): string | undefined => {
   const match = process.argv.find((arg) => arg.startsWith(prefix))
   if (match) return match.slice(prefix.length)
   const index = process.argv.indexOf(name)
-  return index >= 0 ? process.argv[index + 1] : undefined
+  if (index < 0 || index + 1 >= process.argv.length) return undefined
+  const value = process.argv[index + 1]
+  return value.startsWith("-") ? undefined : value
 }
 
 const main = Effect.gen(function* () {
