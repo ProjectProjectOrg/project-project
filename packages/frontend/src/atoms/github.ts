@@ -70,17 +70,37 @@ const splitOrgRepoKey = (key: string): { orgSlug: string; query: string } => {
   return { orgSlug: key.slice(0, sep), query: key.slice(sep + 1) }
 }
 
+type CreateBranchMutationInput = { id: TicketId } & Omit<
+  CreateBranchInput,
+  "baseBranch"
+> & {
+    baseBranch: string
+  }
+
+const gitStateBaseBranch = (
+  state: GitState | undefined,
+  fallback: string
+): string => {
+  if (state?.tag === "no_branch" && state.baseBranch) return state.baseBranch
+  if (state?.tag === "branch_no_pr") return state.baseBranch
+  if (state?.tag === "branch_pending") return state.baseBranch
+  if (state?.tag === "pr_pending") return state.baseBranch
+  if (state?.tag === "pr_open") return state.baseBranch
+  if (state?.tag === "pr_merged") return state.baseBranch
+  if (state?.tag === "pr_closed") return state.baseBranch
+  return fallback
+}
+
 const optimisticBranchPending = (
   name: string,
   baseBranch: string,
   operation: BranchPendingOperation
-): GitState =>
-  ({
-    tag: "branch_pending",
-    name,
-    baseBranch,
-    pendingOperation: operation
-  }) as GitState
+): GitState => ({
+  tag: "branch_pending",
+  name,
+  baseBranch,
+  pendingOperation: operation
+})
 
 export const githubInstallationReposKey = (orgSlug: string, query: string) =>
   `${orgSlug} ${query}`
@@ -198,10 +218,10 @@ export const disconnectGithubAtom = Atom.family((key: string) => {
 export const createBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (current, input: { id: TicketId } & CreateBranchInput) => {
+    reducer: (current, input: CreateBranchMutationInput) => {
       const optimistic = optimisticBranchPending(
         input.name,
-        input.baseBranch ?? "main",
+        input.baseBranch,
         "create"
       )
       if (!Result.isSuccess(current)) {
@@ -224,7 +244,7 @@ export const createBranchAtom = Atom.family((key: string) => {
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (input: { id: TicketId } & CreateBranchInput, get) {
+      Effect.fn(function* (input: CreateBranchMutationInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.tickets.createBranch({
           path: { orgSlug, slug, id: input.id },
@@ -242,13 +262,13 @@ export const createBranchAtom = Atom.family((key: string) => {
 export const attachBranchAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(projectGitStatesAtom(key), {
-    reducer: (
-      current,
-      input: { id: TicketId } & AttachBranchInput & { baseBranch: string }
-    ) => {
+    reducer: (current, input: { id: TicketId } & AttachBranchInput) => {
+      const baseBranch = Result.isSuccess(current)
+        ? gitStateBaseBranch(current.value.states[input.id], "")
+        : ""
       const optimistic = optimisticBranchPending(
         input.name,
-        input.baseBranch,
+        baseBranch,
         "connect"
       )
       if (!Result.isSuccess(current)) {
@@ -271,10 +291,7 @@ export const attachBranchAtom = Atom.family((key: string) => {
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (
-        input: { id: TicketId } & AttachBranchInput & { baseBranch: string },
-        get
-      ) {
+      Effect.fn(function* (input: { id: TicketId } & AttachBranchInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.tickets.attachBranch({
           path: { orgSlug, slug, id: input.id },
@@ -294,7 +311,10 @@ export const clearBranchAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(projectGitStatesAtom(key), {
     reducer: (current, input: { id: TicketId }) => {
       if (!Result.isSuccess(current)) return current
-      const optimistic: GitState = { tag: "no_branch" }
+      const baseBranch = gitStateBaseBranch(current.value.states[input.id], "")
+      const optimistic: GitState = baseBranch
+        ? { tag: "no_branch", baseBranch }
+        : { tag: "no_branch" }
       return Result.success(
         {
           ...current.value,

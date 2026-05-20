@@ -93,8 +93,8 @@ function pendingGitState(
   document: TicketDocument,
   github: ProjectGithubIntegration | null
 ): Ticket["gitState"] {
-  if (!document.branch) return { tag: "no_branch" }
   const baseBranch = github?.defaultBaseBranch ?? "main"
+  if (!document.branch) return { tag: "no_branch", baseBranch }
   if (document.pr !== null) {
     return {
       tag: "pr_pending",

@@ -59,11 +59,13 @@ function checksColor(s: string): string {
   return "text-muted-foreground"
 }
 
-function branchPendingLabel(state: GitState): string {
-  if ("pendingOperation" in state && state.pendingOperation === "create") {
+function branchPendingLabel(
+  state: Extract<GitState, { tag: "branch_pending" }>
+): string {
+  if (state.pendingOperation === "create") {
     return m.git_create_branch_checking()
   }
-  if ("pendingOperation" in state && state.pendingOperation === "connect") {
+  if (state.pendingOperation === "connect") {
     return m.git_connect_branch_checking()
   }
   return m.git_live_state_pending()
@@ -279,7 +281,6 @@ function PanelForState({
             orgSlug={orgSlug}
             slug={slug}
             ticket={ticket}
-            baseBranch={baseBranch}
             variant={variant}
           />
         </InlineForm.Form>

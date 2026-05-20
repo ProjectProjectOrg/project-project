@@ -33,13 +33,11 @@ export function ConnectBranchFields({
   orgSlug,
   slug,
   ticket,
-  baseBranch,
   variant = "bordered"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
-  baseBranch: string
   variant?: "bordered" | "ghost"
 }) {
   const buttonSize = variant === "bordered" ? "sm" : "xs"
@@ -104,8 +102,7 @@ export function ConnectBranchFields({
     setAttemptedName(branchName)
     const exit = await attach({
       id: ticket.id,
-      name: branchName,
-      baseBranch
+      name: branchName
     })
     if (Exit.isSuccess(exit)) {
       close()
