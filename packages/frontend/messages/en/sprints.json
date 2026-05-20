@@ -1,6 +1,9 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "sprints_actions_aria_label": "Sprint actions",
+  "sprints_board_reorder_banner_cancel": "Cancel",
+  "sprints_board_reorder_banner_message": "Drag column headers to reorder.",
+  "sprints_board_reorder_banner_save": "Save order",
   "sprints_active_label": "Active",
   "sprints_active_with_days_left": "{days}d left",
   "sprints_add_tickets_in_other_sprint": "in {name}",

@@ -18,17 +18,6 @@ export type ColumnDropData = {
   status: string
 }
 
-export type ColumnDragData = {
-  type: "column-reorder"
-  slug: string
-}
-
-export type ColumnReorderDropData = {
-  type: "column-reorder-target"
-  slug: string
-  edge: "left" | "right"
-}
-
 export type DropData = CardDropData | ColumnDropData
 
 export function effectiveStatus(

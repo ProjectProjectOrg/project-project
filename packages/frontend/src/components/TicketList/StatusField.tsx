@@ -65,7 +65,7 @@ function StatusMenuItems({
       <DropdownMenuItem
         render={
           <Link
-            to="/orgs/$orgSlug/projects/$slug/settings/statuses"
+            to="/orgs/$orgSlug/projects/$slug/settings/workflow"
             params={{ orgSlug, slug }}
             className="cursor-pointer"
           />

@@ -1,6 +1,7 @@
 import NumberFlow from "@number-flow/react"
 import { useAutoAnimate } from "@formkit/auto-animate/react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion, Reorder, useDragControls } from "motion/react"
+import { GripVertical } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import {
   draggable,
@@ -18,15 +19,20 @@ import type {
   TicketId
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
+import { useLongPress } from "./BoardReorderMode"
 import type {
   CardDropData,
-  ColumnDragData,
   ColumnDropData,
-  ColumnReorderDropData,
   DragData
 } from "./board-utils"
 
+const LONG_PRESS_MS = 1500
+const LONG_PRESS_S = LONG_PRESS_MS / 1000
+const QUICK_S = 0.2
 const REORDER_EASE = [0.32, 0.72, 0, 1] as const
+const HOLD_EASE = "linear" as const
+const REORDER_SCALE = 0.96
+const HOLD_PEAK_SCALE = 1.015
 
 export function SprintBoardColumn({
   orgSlug,
@@ -39,7 +45,7 @@ export function SprintBoardColumn({
   overlay,
   lastFlash,
   reorderMode,
-  longPressHandlers
+  onActivateReorder
 }: {
   orgSlug: string
   slug: string
@@ -51,34 +57,31 @@ export function SprintBoardColumn({
   overlay: ReadonlyMap<TicketId, string>
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
-  longPressHandlers: {
-    onPointerDown: (e: React.PointerEvent) => void
-    onPointerMove: (e: React.PointerEvent) => void
-    onPointerUp: () => void
-    onPointerCancel: () => void
-    onPointerLeave: () => void
-  }
+  onActivateReorder: () => void
 }) {
   const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
-  const columnRef = useRef<HTMLDivElement>(null)
-  const headerRef = useRef<HTMLDivElement>(null)
+  const [columnEl, setColumnEl] = useState<HTMLElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [reorderEdge, setReorderEdge] = useState<"left" | "right" | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragControls = useDragControls()
+
+  const { holding, handlers: longPressHandlers } = useLongPress(
+    onActivateReorder,
+    LONG_PRESS_MS
+  )
 
   useEffect(() => {
-    if (!isDraggable || reorderMode) return
-    const el = columnRef.current
-    if (!el) return
+    if (!isDraggable || reorderMode || !columnEl) return
     return dropTargetForElements({
-      element: el,
+      element: columnEl,
       getData: (): ColumnDropData => ({ type: "column", status })
     })
-  }, [isDraggable, status, reorderMode])
+  }, [isDraggable, status, reorderMode, columnEl])
 
   useEffect(() => {
-    if (!isDraggable || reorderMode) return
+    if (!isDraggable || reorderMode || !columnEl) return
     const update = ({
       location
     }: {
@@ -86,115 +89,154 @@ export function SprintBoardColumn({
         current: { dropTargets: ReadonlyArray<{ element: Element }> }
       }
     }) => {
-      const el = columnRef.current
       const inner = location.current.dropTargets[0]?.element
-      setDragOver(el != null && inner != null && el.contains(inner))
+      setDragOver(inner != null && columnEl.contains(inner))
     }
     return monitorForElements({
       onDragStart: update,
       onDrag: update,
       onDrop: () => setDragOver(false)
     })
-  }, [isDraggable, reorderMode])
+  }, [isDraggable, reorderMode, columnEl])
 
-  useEffect(() => {
-    if (!reorderMode) {
-      setReorderEdge(null)
+  const headerHoldable = isDraggable && !reorderMode
+  const columnScale = isDragging
+    ? 1
+    : reorderMode
+      ? REORDER_SCALE
+      : holding
+        ? HOLD_PEAK_SCALE
+        : 1
+  const isHoldingRamp = holding && !reorderMode
+  const scaleDuration = isHoldingRamp ? LONG_PRESS_S : QUICK_S
+  const scaleEase = isHoldingRamp ? HOLD_EASE : REORDER_EASE
+
+  const onHeaderPointerDown = (e: React.PointerEvent) => {
+    if (reorderMode) {
+      dragControls.start(e)
       return
     }
-    const header = headerRef.current
-    if (!header) return
-
-    const cleanupDrag = draggable({
-      element: header,
-      getInitialData: (): ColumnDragData => ({
-        type: "column-reorder",
-        slug: status
-      })
-    })
-
-    const cleanupDrop = dropTargetForElements({
-      element: header,
-      getData: ({ input, element }): ColumnReorderDropData => {
-        const rect = element.getBoundingClientRect()
-        const edge: "left" | "right" =
-          input.clientX < rect.left + rect.width / 2 ? "left" : "right"
-        return { type: "column-reorder-target", slug: status, edge }
-      },
-      onDragEnter: ({ self, source }) => {
-        const src = source.data as unknown as ColumnDragData
-        if (src.slug === status) return
-        setReorderEdge((self.data as unknown as ColumnReorderDropData).edge)
-      },
-      onDrag: ({ self, source }) => {
-        const src = source.data as unknown as ColumnDragData
-        if (src.slug === status) return
-        const next = (self.data as unknown as ColumnReorderDropData).edge
-        setReorderEdge((prev) => (prev === next ? prev : next))
-      },
-      onDragLeave: () => setReorderEdge(null),
-      onDrop: () => setReorderEdge(null)
-    })
-
-    return () => {
-      cleanupDrag()
-      cleanupDrop()
-    }
-  }, [reorderMode, status])
+    if (headerHoldable) longPressHandlers.onPointerDown(e)
+  }
 
   return (
-    <motion.div
-      ref={columnRef}
+    <Reorder.Item
+      value={status}
+      dragListener={false}
+      dragControls={dragControls}
+      dragElastic={0.05}
+      onDragStart={() => setIsDragging(true)}
+      onDragEnd={() => setIsDragging(false)}
+      ref={setColumnEl}
       animate={{
-        scale: reorderMode ? 0.96 : 1,
-        filter: reorderMode
-          ? "drop-shadow(0 10px 24px rgb(0 0 0 / 0.12))"
-          : "drop-shadow(0 0 0 transparent)"
+        scale: columnScale,
+        filter:
+          reorderMode || isDragging
+            ? "drop-shadow(0 10px 24px rgb(0 0 0 / 0.12))"
+            : "drop-shadow(0 0 0 transparent)",
+        zIndex: isDragging ? 20 : 0
       }}
-      transition={{ duration: 0.18, ease: REORDER_EASE }}
+      transition={{
+        scale: { duration: scaleDuration, ease: scaleEase },
+        filter: { duration: QUICK_S, ease: REORDER_EASE },
+        zIndex: { duration: 0 }
+      }}
       className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
     >
       <div
-        ref={headerRef}
         data-column-header
+        onPointerDown={onHeaderPointerDown}
+        onPointerMove={
+          headerHoldable ? longPressHandlers.onPointerMove : undefined
+        }
+        onPointerUp={
+          headerHoldable ? longPressHandlers.onPointerUp : undefined
+        }
+        onPointerCancel={
+          headerHoldable ? longPressHandlers.onPointerCancel : undefined
+        }
+        onPointerLeave={
+          headerHoldable ? longPressHandlers.onPointerLeave : undefined
+        }
         className={cn(
-          "relative flex items-center justify-between px-6 pt-3 pb-2",
-          reorderMode && "cursor-grab select-none active:cursor-grabbing"
+          "relative flex items-center justify-between px-6 pt-3 pb-2 select-none",
+          headerHoldable && "cursor-grab touch-none active:cursor-grabbing",
+          reorderMode && "cursor-grab active:cursor-grabbing"
         )}
-        {...(reorderMode ? longPressHandlers : {})}
       >
-        <span className="inline-flex items-center gap-2 text-sm font-medium">
+        <motion.span
+          className="inline-flex items-center gap-2 text-sm font-medium"
+          animate={
+            reorderMode
+              ? { rotate: [-0.8, 0.8, -0.8] }
+              : { rotate: 0 }
+          }
+          transition={
+            reorderMode
+              ? {
+                  rotate: {
+                    duration: 0.5,
+                    ease: "easeInOut",
+                    repeat: Infinity,
+                    repeatType: "loop"
+                  }
+                }
+              : { rotate: { duration: 0.2, ease: REORDER_EASE } }
+          }
+          style={{ transformOrigin: "center" }}
+        >
           <Icon
             className={cn("size-4", meta.className)}
             style={meta.color ? { color: meta.color } : undefined}
             strokeWidth={1.75}
           />
           {meta.label}
-        </span>
-        <NumberFlow
-          value={tickets.length}
-          transformTiming={{ duration: 180, easing: "ease-out" }}
-          spinTiming={{ duration: 180, easing: "ease-out" }}
-          opacityTiming={{ duration: 180, easing: "ease-out" }}
-          className="font-mono text-xs text-muted-foreground tabular-nums"
-        />
-        {reorderMode && reorderEdge && (
-          <div
-            aria-hidden
-            className={cn(
-              "pointer-events-none absolute inset-y-2 z-10 w-0.5 rounded-full bg-foreground/60",
-              reorderEdge === "left" ? "left-0" : "right-0"
-            )}
-          />
-        )}
+        </motion.span>
+        <AnimatePresence mode="wait" initial={false}>
+          {reorderMode ? (
+            <motion.span
+              key="handle"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ duration: QUICK_S, ease: REORDER_EASE }}
+              className="text-muted-foreground"
+              aria-hidden
+            >
+              <GripVertical className="size-4" strokeWidth={1.75} />
+            </motion.span>
+          ) : (
+            <motion.span
+              key="count"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ duration: QUICK_S, ease: REORDER_EASE }}
+            >
+              <NumberFlow
+                value={tickets.length}
+                transformTiming={{ duration: 180, easing: "ease-out" }}
+                spinTiming={{ duration: 180, easing: "ease-out" }}
+                opacityTiming={{ duration: 180, easing: "ease-out" }}
+                className="font-mono text-xs text-muted-foreground tabular-nums"
+              />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
       <motion.div
         animate={{
           opacity: reorderMode ? 0 : 1,
           y: reorderMode ? -8 : 0
         }}
-        transition={{ duration: 0.18, ease: REORDER_EASE }}
-        style={{ pointerEvents: reorderMode ? "none" : undefined }}
+        transition={{
+          opacity: { duration: QUICK_S, ease: REORDER_EASE },
+          y: { duration: QUICK_S, ease: REORDER_EASE }
+        }}
+        style={{
+          pointerEvents: reorderMode ? "none" : undefined,
+          transformOrigin: "top center"
+        }}
         className="relative flex min-h-0 flex-1 flex-col"
       >
         <div
@@ -223,7 +265,7 @@ export function SprintBoardColumn({
           ))}
         </div>
       </motion.div>
-    </motion.div>
+    </Reorder.Item>
   )
 }
 

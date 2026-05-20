@@ -4,7 +4,7 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
 
-**For any UI/frontend work**, also read `.impeccable.md` first — it's the design context (users, brand personality, aesthetic direction, design principles) and is binding for visual and interaction decisions. Invoke the `/impeccable` skill when working on UI so its checklist runs against the change.
+**For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Invoke the `/impeccable` skill when working on UI so its checklist runs against the change.
 
 The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.
 

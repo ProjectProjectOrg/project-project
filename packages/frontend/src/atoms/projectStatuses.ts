@@ -5,12 +5,20 @@ import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
+  OUTER_RING,
+  deriveStatusSlug,
   type CreateStatusInput,
   type ProjectStatus,
   type ReorderStatusInput,
   type StatusSlug,
   type UpdateStatusInput
 } from "@projectproject/shared"
+
+const pickColor = (used: ReadonlyArray<string>): string => {
+  const palette = OUTER_RING.map((c) => c.hex)
+  for (const c of palette) if (!used.includes(c)) return c
+  return palette[used.length % palette.length]
+}
 
 export const projectKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
@@ -41,11 +49,16 @@ export const createStatusAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(projectStatusesAtom(key), {
     reducer: (current, input: CreateStatusInput) => {
       if (!Result.isSuccess(current)) return current
+      const derivedSlug = deriveStatusSlug(input.label)
+      if (derivedSlug.length === 0) return current
+      if (current.value.some((s) => s.slug === derivedSlug)) return current
+      const color =
+        input.color ?? pickColor(current.value.map((s) => s.color))
       const synthetic: ProjectStatus = {
-        slug: input.label as unknown as ProjectStatus["slug"],
+        slug: derivedSlug as ProjectStatus["slug"],
         label: input.label,
         icon: (input.icon ?? "Circle") as ProjectStatus["icon"],
-        color: (input.color ?? "#3b82f6") as ProjectStatus["color"],
+        color: color as ProjectStatus["color"],
         orderKey: "zzz" as ProjectStatus["orderKey"],
         createdBy: "",
         createdAt: DateTime.toDate(DateTime.unsafeNow())
@@ -148,9 +161,12 @@ type DeleteInput = {
 export const deleteStatusAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitKey(key)
   return Atom.optimisticFn(projectStatusesAtom(key), {
-    reducer: (current, _input: DeleteInput) =>
+    reducer: (current, input: DeleteInput) =>
       Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
+        ? Result.success(
+            current.value.filter((s) => s.slug !== input.statusSlug),
+            { waiting: true }
+          )
         : current,
     fn: runtime.fn(
       Effect.fn(function* (input: DeleteInput, get) {

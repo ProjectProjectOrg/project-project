@@ -9,9 +9,16 @@ type Props = {
   onChange: (icon: string) => void
   className?: string
   disabled?: boolean
+  color?: string
 }
 
-export function StatusIconPicker({ value, onChange, className, disabled }: Props) {
+export function StatusIconPicker({
+  value,
+  onChange,
+  className,
+  disabled,
+  color
+}: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -44,7 +51,7 @@ export function StatusIconPicker({ value, onChange, className, disabled }: Props
         onClick={() => setOpen((o) => !o)}
         className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background transition-colors duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <Current className="h-4 w-4" />
+        <Current className="h-4 w-4" style={color ? { color } : undefined} />
       </button>
       <AnimatePresence>
         {open ? (

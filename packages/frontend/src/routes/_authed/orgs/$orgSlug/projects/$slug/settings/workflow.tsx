@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
+import { StatusList } from "@/components/StatusList"
 import { Button } from "@/components/ui/button"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
@@ -28,7 +29,7 @@ function WorkflowSettings() {
   const reviewedAt = project.setup.workflowReviewedAt
 
   return (
-    <section className="flex w-full flex-col gap-4">
+    <div className="flex w-full flex-col gap-8">
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3">
         <div>
           <p className="text-sm font-medium">
@@ -64,6 +65,18 @@ function WorkflowSettings() {
           </Button>
         ) : null}
       </div>
-    </section>
+
+      <div className="flex w-full flex-col gap-3">
+        <div>
+          <p className="text-sm font-medium">
+            {m.project_settings_workflow_statuses_label()}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {m.project_settings_workflow_statuses_description()}
+          </p>
+        </div>
+        <StatusList orgSlug={orgSlug} slug={project.slug} />
+      </div>
+    </div>
   )
 }

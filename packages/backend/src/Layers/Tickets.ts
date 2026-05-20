@@ -422,7 +422,8 @@ export const TicketsLive = Layer.effect(
           in_progress: 0,
           done: 0
         }
-        for (const t of matching) byStatus[t.status]++
+        for (const t of matching)
+          byStatus[t.status] = (byStatus[t.status] ?? 0) + 1
 
         return {
           total: matching.length,
