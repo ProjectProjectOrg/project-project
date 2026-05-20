@@ -3,7 +3,10 @@ import {
   buildClosePullRequestPayload,
   buildMergePullRequestPayload,
   buildResolveThreadVariables,
-  buildSubmitReviewPayload
+  buildSubmitReviewPayload,
+  combineReviewChecks,
+  reviewChecksFromCommitStatuses,
+  reviewChecksFromRuns
 } from "./reviews"
 
 describe("GitHub review request mapping", () => {
@@ -51,6 +54,67 @@ describe("GitHub review request mapping", () => {
   it("uses the review thread node id as the GraphQL mutation variable", () => {
     expect(buildResolveThreadVariables("PRRT_kwDOA123")).toEqual({
       threadId: "PRRT_kwDOA123"
+    })
+  })
+
+  it("maps GitHub check runs into review checks", () => {
+    expect(
+      reviewChecksFromRuns([
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "neutral" }
+      ])
+    ).toEqual({
+      status: "passing",
+      totalCount: 2,
+      completedCount: 2
+    })
+
+    expect(
+      reviewChecksFromRuns([
+        { status: "completed", conclusion: "success" },
+        { status: "in_progress", conclusion: null }
+      ])
+    ).toEqual({
+      status: "pending",
+      totalCount: 2,
+      completedCount: 1
+    })
+
+    expect(
+      reviewChecksFromRuns([{ status: "completed", conclusion: "failure" }])
+    ).toEqual({
+      status: "failing",
+      totalCount: 1,
+      completedCount: 1
+    })
+  })
+
+  it("maps GitHub commit statuses into review checks", () => {
+    expect(reviewChecksFromCommitStatuses([{ state: "success" }])).toEqual({
+      status: "passing",
+      totalCount: 1,
+      completedCount: 1
+    })
+
+    expect(
+      reviewChecksFromCommitStatuses([{ state: "success" }, { state: "pending" }])
+    ).toEqual({
+      status: "pending",
+      totalCount: 2,
+      completedCount: 1
+    })
+  })
+
+  it("combines check runs and commit statuses for the GitHub PR summary", () => {
+    expect(
+      combineReviewChecks(
+        { status: "none", totalCount: 0, completedCount: 0 },
+        { status: "passing", totalCount: 1, completedCount: 1 }
+      )
+    ).toEqual({
+      status: "passing",
+      totalCount: 1,
+      completedCount: 1
     })
   })
 })

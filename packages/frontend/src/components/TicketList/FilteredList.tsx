@@ -7,7 +7,7 @@ import {
   type ReactNode
 } from "react"
 import { FilterX, ListChecks, Loader2 } from "lucide-react"
-import { TicketGitChip } from "@/components/TicketGit"
+import { TicketGitChip, TicketReviewLink } from "@/components/TicketGit"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -211,6 +211,7 @@ function RowImpl({
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
             <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            <TicketReviewLink orgSlug={orgSlug} slug={slug} ticket={ticket} />
             {showSprintCol && (
               <SprintField
                 orgSlug={orgSlug}

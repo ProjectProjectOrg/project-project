@@ -1,4 +1,5 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { Link } from "@tanstack/react-router"
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -7,6 +8,7 @@ import {
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
+  PanelsTopLeft,
   Plus
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -155,6 +157,45 @@ export function TicketGitChip({
   }
 
   return null
+}
+
+export function TicketReviewLink({
+  orgSlug,
+  slug,
+  ticket,
+  variant = "ghost"
+}: {
+  orgSlug: string
+  slug: string
+  ticket: Pick<Ticket, "id" | "gitState">
+  variant?: "ghost" | "tertiary"
+}) {
+  const { state } = useGitState(orgSlug, slug, ticket)
+  if (
+    !state ||
+    (state.tag !== "pr_open" &&
+      state.tag !== "pr_merged" &&
+      state.tag !== "pr_closed")
+  ) {
+    return null
+  }
+  return (
+    <Button
+      render={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/reviews/$prNumber"
+          params={{ orgSlug, slug, prNumber: String(state.number) }}
+          search={{ view: "overview" }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      }
+      variant={variant}
+      size="xs"
+      leadingIcon={PanelsTopLeft}
+    >
+      {m.reviews_action_review()}
+    </Button>
+  )
 }
 
 export function TicketGitPanel({
@@ -378,7 +419,7 @@ function PanelForState({
 
   if (state.tag === "pr_open") {
     return (
-      <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER, ROW_STACK)}>
         <div className={cn(ROW_STACK, pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink
@@ -388,6 +429,14 @@ function PanelForState({
             checks={state.checks}
           />
           <span className={WRAPPABLE_TEXT}>{state.title}</span>
+        </div>
+        <div className="ml-auto @max-sm/git-panel:ml-0">
+          <ReviewPrButton
+            orgSlug={orgSlug}
+            slug={slug}
+            prNumber={state.number}
+            size={buttonSize}
+          />
         </div>
       </div>
     )
@@ -407,13 +456,21 @@ function PanelForState({
 
   if (state.tag === "pr_merged") {
     return (
-      <div className={cn(panelChrome, GIT_PANEL_CONTAINER)}>
+      <div className={cn(panelChrome, GIT_PANEL_CONTAINER, ROW_STACK)}>
         <div className={cn(ROW_STACK, pulse)}>
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="merged" />
           <span className={WRAPPABLE_TEXT}>
             {m.git_pr_merged_status_note()}
           </span>
+        </div>
+        <div className="ml-auto @max-sm/git-panel:ml-0">
+          <ReviewPrButton
+            orgSlug={orgSlug}
+            slug={slug}
+            prNumber={state.number}
+            size={buttonSize}
+          />
         </div>
       </div>
     )
@@ -427,7 +484,13 @@ function PanelForState({
           <BranchChip slug={repoSlug} name={state.branch} />
           <PrLink number={state.number} url={state.url} tone="closed" />
         </div>
-        <div className="ml-auto @max-sm/git-panel:ml-0">
+        <div className="ml-auto flex items-center gap-2 @max-sm/git-panel:ml-0 @max-3xs/git-panel:flex-col @max-3xs/git-panel:items-stretch">
+          <ReviewPrButton
+            orgSlug={orgSlug}
+            slug={slug}
+            prNumber={state.number}
+            size={buttonSize}
+          />
           <Button
             render={
               <a
@@ -492,6 +555,35 @@ function PanelForState({
   }
 
   return null
+}
+
+function ReviewPrButton({
+  orgSlug,
+  slug,
+  prNumber,
+  size
+}: {
+  orgSlug: string
+  slug: string
+  prNumber: number
+  size: "xs" | "sm"
+}) {
+  return (
+    <Button
+      render={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/reviews/$prNumber"
+          params={{ orgSlug, slug, prNumber: String(prNumber) }}
+          search={{ view: "overview" }}
+        />
+      }
+      size={size}
+      variant="tertiary"
+      leadingIcon={PanelsTopLeft}
+    >
+      {m.reviews_action_review_pr()}
+    </Button>
+  )
 }
 
 const PANEL_CHROME = "rounded-lg border border-border bg-background px-3 py-2"

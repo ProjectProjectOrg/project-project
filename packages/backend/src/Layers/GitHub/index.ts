@@ -19,7 +19,7 @@ import {
 } from "../../Services/GitHub"
 import { appAuth } from "./appAuth"
 import { octokitFor } from "./clients"
-import { githubErrorMessage, mapHttpError, narrow } from "./errors"
+import { mapHttpError, narrow } from "./errors"
 import {
   branchExistsWithToken,
   fetchProjectStatesWithToken,
@@ -253,10 +253,11 @@ export const GitHubLive = Layer.effect(
               request: { signal }
             }
           ),
-        (cause) =>
-          new GitHubError({
-            message: githubErrorMessage(cause)
-          })
+        narrow([
+          "GitHubTokenExpired",
+          "GitHubScopeInsufficient",
+          "RateLimited"
+        ] as const)
       )
       return installations.some(
         (installation) => String(installation.id) === installationId

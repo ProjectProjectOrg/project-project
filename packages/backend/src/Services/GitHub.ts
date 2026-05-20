@@ -213,7 +213,10 @@ export interface GitHubShape {
   readonly appUserCanAccessInstallation: (
     userAccessToken: string,
     installationId: string
-  ) => Effect.Effect<boolean, GitHubError>
+  ) => Effect.Effect<
+    boolean,
+    GitHubTokenExpired | GitHubScopeInsufficient | RateLimited | GitHubError
+  >
   readonly createBranchAsUser: (
     owner: string,
     name: string,

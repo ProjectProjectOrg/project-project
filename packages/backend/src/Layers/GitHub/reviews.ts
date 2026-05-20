@@ -27,6 +27,9 @@ import { narrow } from "./errors"
 import { githubRequest } from "./request"
 
 type GitHubReadError = RepoGone | RateLimited | GitHubError
+type GitHubOptionalReadError =
+  | GitHubReadError
+  | GitHubScopeInsufficient
 type GitHubUserWriteError =
   | GitHubTokenExpired
   | GitHubScopeInsufficient
@@ -158,6 +161,80 @@ const checksFromState = (status: ChecksStatus) => ({
   completedCount: status === "pending" || status === "none" ? 0 : 1
 })
 
+type ReviewCheckRun = {
+  readonly status?: string | null
+  readonly conclusion?: string | null
+}
+
+type ReviewCommitStatus = {
+  readonly state?: string | null
+}
+
+const failingCheckRunConclusions = new Set([
+  "action_required",
+  "cancelled",
+  "failure",
+  "startup_failure",
+  "timed_out"
+])
+
+const reviewChecksFromParts = ({
+  totalCount,
+  completedCount,
+  hasFailing,
+  hasPending
+}: {
+  totalCount: number
+  completedCount: number
+  hasFailing: boolean
+  hasPending: boolean
+}): RawReviewPullRequest["checks"] => {
+  if (totalCount === 0) return checksFromState("none")
+  if (hasFailing) return { status: "failing", totalCount, completedCount }
+  if (hasPending) return { status: "pending", totalCount, completedCount }
+  return { status: "passing", totalCount, completedCount }
+}
+
+export const reviewChecksFromRuns = (
+  runs: ReadonlyArray<ReviewCheckRun>
+): RawReviewPullRequest["checks"] => {
+  const completedCount = runs.filter((run) => run.status === "completed").length
+  return reviewChecksFromParts({
+    totalCount: runs.length,
+    completedCount,
+    hasFailing: runs.some((run) =>
+      failingCheckRunConclusions.has(run.conclusion ?? "")
+    ),
+    hasPending: runs.some(
+      (run) => run.status !== "completed" || run.conclusion === null
+    )
+  })
+}
+
+export const reviewChecksFromCommitStatuses = (
+  statuses: ReadonlyArray<ReviewCommitStatus>
+): RawReviewPullRequest["checks"] =>
+  reviewChecksFromParts({
+    totalCount: statuses.length,
+    completedCount: statuses.filter((status) => status.state !== "pending")
+      .length,
+    hasFailing: statuses.some(
+      (status) => status.state === "failure" || status.state === "error"
+    ),
+    hasPending: statuses.some((status) => status.state === "pending")
+  })
+
+export const combineReviewChecks = (
+  a: RawReviewPullRequest["checks"],
+  b: RawReviewPullRequest["checks"]
+): RawReviewPullRequest["checks"] =>
+  reviewChecksFromParts({
+    totalCount: a.totalCount + b.totalCount,
+    completedCount: a.completedCount + b.completedCount,
+    hasFailing: a.status === "failing" || b.status === "failing",
+    hasPending: a.status === "pending" || b.status === "pending"
+  })
+
 const rawPullRequestFromRest = (data: {
   readonly id: number
   readonly node_id?: string
@@ -267,6 +344,77 @@ const rawPullRequestFromRest = (data: {
   }
 }
 
+const fetchReviewChecksWithToken = (
+  token: string,
+  owner: string,
+  name: string,
+  headSha: string,
+  tokenSource: "user" | "installation"
+): Effect.Effect<RawReviewPullRequest["checks"], GitHubReadError> =>
+  Effect.gen(function* () {
+    const octokit = octokitFor(token)
+    const runs = yield* githubRequest(
+      {
+        tokenSource,
+        operation: "fetchReviewChecks",
+        repoOwner: owner,
+        repoName: name
+      },
+      (signal) =>
+        octokit.paginate(octokit.rest.checks.listForRef, {
+          owner,
+          repo: name,
+          ref: headSha,
+          filter: "latest",
+          per_page: 100,
+          request: { signal }
+        }),
+      narrow(["RepoGone", "RateLimited"] as const)
+    )
+    yield* Effect.logDebug("github review checks fetched").pipe(
+      Effect.annotateLogs({
+        operation: "fetchReviewChecks",
+        repoOwner: owner,
+        repoName: name,
+        headSha,
+        totalCount: runs.length,
+        checkRuns: runs
+          .map((run) => `${run.name}:${run.status}:${run.conclusion}`)
+          .join(",")
+      })
+    )
+    return reviewChecksFromRuns(runs)
+  })
+
+const fetchReviewCommitStatusesWithToken = (
+  token: string,
+  owner: string,
+  name: string,
+  headSha: string,
+  tokenSource: "user" | "installation"
+): Effect.Effect<RawReviewPullRequest["checks"], GitHubOptionalReadError> =>
+  Effect.gen(function* () {
+    const octokit = octokitFor(token)
+    const response = yield* githubRequest(
+      {
+        tokenSource,
+        operation: "fetchReviewCommitStatuses",
+        repoOwner: owner,
+        repoName: name,
+        failureLogLevel: "debug"
+      },
+      (signal) =>
+        octokit.rest.repos.getCombinedStatusForRef({
+          owner,
+          repo: name,
+          ref: headSha,
+          request: { signal }
+        }),
+      narrow(["GitHubScopeInsufficient", "RepoGone", "RateLimited"] as const)
+    )
+    return reviewChecksFromCommitStatuses(response.data.statuses)
+  })
+
 const rawFileFromRest = (file: {
   readonly filename: string
   readonly previous_filename?: string
@@ -343,7 +491,38 @@ export const fetchReviewPullRequestWithToken = (
         }),
       narrow(["RepoGone", "RateLimited"] as const)
     )
-    return rawPullRequestFromRest(response.data)
+    const pr = rawPullRequestFromRest(response.data)
+    const checkRuns = yield* fetchReviewChecksWithToken(
+      token,
+      owner,
+      name,
+      pr.head.sha,
+      tokenSource
+    ).pipe(
+      Effect.catchTags({
+        GitHubScopeInsufficient: () => Effect.succeed(checksFromState("none")),
+        GitHubError: () => Effect.succeed(checksFromState("none")),
+        RateLimited: () => Effect.succeed(checksFromState("none")),
+        RepoGone: () => Effect.succeed(checksFromState("none"))
+      })
+    )
+    const commitStatuses = yield* fetchReviewCommitStatusesWithToken(
+      token,
+      owner,
+      name,
+      pr.head.sha,
+      tokenSource
+    ).pipe(
+      Effect.catchTags({
+        GitHubError: () => Effect.succeed(checksFromState("none")),
+        RateLimited: () => Effect.succeed(checksFromState("none")),
+        RepoGone: () => Effect.succeed(checksFromState("none"))
+      })
+    )
+    return {
+      ...pr,
+      checks: combineReviewChecks(checkRuns, commitStatuses)
+    }
   })
 
 export const fetchReviewFilesWithToken = (

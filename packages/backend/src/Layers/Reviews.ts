@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer"
 import {
   Forbidden,
   type GitHubError,
+  type GitHubScopeInsufficient,
   GitHubTokenExpired,
   NotFound,
   Validation,
@@ -27,6 +28,7 @@ import {
   type ReviewParticipant,
   type ReviewPr,
   type ReviewReviewer,
+  type RateLimited,
   type SubmitReviewInput,
   type TicketDetail
 } from "@projectproject/shared"
@@ -372,8 +374,9 @@ export const ReviewsLive = Layer.effect(
     const writeAccess = (
       userId: string,
       installationId: string
-    ): Effect.Effect<WriteAccess, GitHubError> =>
+    ): Effect.Effect<WriteAccess, GitHubError | RateLimited> =>
       Effect.gen(function* () {
+        void installationId
         const token = yield* betterAuth.getGithubAccessToken(userId).pipe(
           Effect.catchTag("NoGithubToken", () =>
             Effect.succeed(null as string | null)
@@ -383,19 +386,20 @@ export const ReviewsLive = Layer.effect(
         if (token === null) {
           return { ok: false, reason: "personal_github_required" as const }
         }
-        const canAccess = yield* github.appUserCanAccessInstallation(
-          token,
-          installationId
-        )
-        return canAccess
-          ? { ok: true as const }
-          : { ok: false as const, reason: "insufficient_permission" as const }
+        return { ok: true as const }
       })
 
     const requireWriteAccess = (
       userId: string,
       installationId: string
-    ): Effect.Effect<void, GitHubTokenExpired | Forbidden | GitHubError> =>
+    ): Effect.Effect<
+      void,
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | Forbidden
+      | RateLimited
+      | GitHubError
+    > =>
       Effect.gen(function* () {
         const access = yield* writeAccess(userId, installationId)
         if (access.ok) return

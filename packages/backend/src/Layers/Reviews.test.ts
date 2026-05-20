@@ -196,7 +196,8 @@ function makeGitHub(overrides: Partial<GitHubShape> = {}) {
     listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
     verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
     exchangeAppUserCode: () => unexpected("GitHub.exchangeAppUserCode"),
-    appUserCanAccessInstallation: () => Effect.succeed(true),
+    appUserCanAccessInstallation: () =>
+      unexpected("GitHub.appUserCanAccessInstallation"),
     createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
     openPullRequestAsUser: () => unexpected("GitHub.openPullRequestAsUser"),
     fetchInstallationProjectStates: () =>

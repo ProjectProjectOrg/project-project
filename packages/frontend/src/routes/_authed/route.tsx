@@ -64,8 +64,8 @@ function AuthedLayout() {
 
 function Shell({ user }: { user: User }) {
   return (
-    <div className="h-full p-3">
-      <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
+    <div className="box-border h-full overflow-hidden p-3">
+      <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_minmax(0,1fr)] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">

@@ -589,11 +589,11 @@ git commit -m "feat(review): add review translations"
 
 - Create: `packages/frontend/src/atoms/reviews.ts`
 
-- [ ] **Step 1: Add `reviewKey` helpers**
+- [x] **Step 1: Add `reviewKey` helpers**
 
 Use a stable key containing org slug, project slug, and PR number. Parse it with explicit helper functions; do not duplicate parsing in atom bodies.
 
-- [ ] **Step 2: Add read atoms**
+- [x] **Step 2: Add read atoms**
 
 Add base + optimistic wrapper where mutations affect the result:
 
@@ -604,7 +604,7 @@ Add base + optimistic wrapper where mutations affect the result:
 
 Use separate reads for overview, file summaries, patch pages, and comments.
 
-- [ ] **Step 3: Add mutation atoms**
+- [x] **Step 3: Add mutation atoms**
 
 Add:
 
@@ -618,7 +618,7 @@ Add:
 
 Use pulse-only optimistic reducers unless the returned state is trivial and reliable.
 
-- [ ] **Step 4: Refresh base atoms after mutations**
+- [x] **Step 4: Refresh base atoms after mutations**
 
 Refresh:
 
@@ -627,7 +627,7 @@ Refresh:
 
 Always refresh base atoms, not optimistic wrappers.
 
-- [ ] **Step 5: Typecheck frontend**
+- [x] **Step 5: Typecheck frontend**
 
 ```bash
 bun --filter @projectproject/frontend run typecheck
@@ -650,19 +650,19 @@ git commit -m "feat(review): add review atoms"
 - Create: `packages/frontend/src/components/Reviews/ReviewPage.tsx`
 - Create: `packages/frontend/src/components/Reviews/ReviewOverview.tsx`
 
-- [ ] **Step 1: Add route search validation**
+- [x] **Step 1: Add route search validation**
 
 Validate `view` as `overview | files`; default to `overview`.
 
-- [ ] **Step 2: Mount review overview atom in the loader**
+- [x] **Step 2: Mount review overview atom in the loader**
 
 Decode `prNumber` as a positive number and mount `reviewBaseAtom(reviewKey(...))`.
 
-- [ ] **Step 3: Add route-level result handling**
+- [x] **Step 3: Add route-level result handling**
 
 Use existing `ErrorPage` / `NotFoundPage` patterns. `NotFound` means the PR is not linked to a ticket in the current project or the project is unavailable to the user.
 
-- [ ] **Step 4: Build `ReviewPage` shell**
+- [x] **Step 4: Build `ReviewPage` shell**
 
 Render:
 
@@ -671,7 +671,7 @@ Render:
 - explicit refresh action
 - overview/files view switch
 
-- [ ] **Step 5: Build overview**
+- [x] **Step 5: Build overview**
 
 Render:
 
@@ -683,7 +683,7 @@ Render:
 
 Use restrained chrome from `.impeccable.md`; no decorative card-heavy layout.
 
-- [ ] **Step 6: Typecheck**
+- [x] **Step 6: Typecheck**
 
 ```bash
 bun --filter @projectproject/frontend run typecheck
@@ -708,19 +708,19 @@ Use shell quoting correctly when adding files whose path contains `$`.
 - Modify: `packages/frontend/src/components/TicketList/FilteredList.tsx`
 - Modify: `packages/frontend/messages/en/git.json` or `reviews.json`
 
-- [ ] **Step 1: Add ticket detail entry point**
+- [x] **Step 1: Add ticket detail entry point**
 
 For `pr_open`, `pr_merged`, and `pr_closed` states in `TicketGitPanel`, add an internal `Review PR` action to `/orgs/$orgSlug/projects/$slug/reviews/$prNumber`. Keep the existing GitHub external link available.
 
-- [ ] **Step 2: Add ticket list entry point**
+- [x] **Step 2: Add ticket list entry point**
 
 For PR chips in ticket list rows, add a menu or secondary action to open the review route. Do not make row clicks ambiguous.
 
-- [ ] **Step 3: Preserve external GitHub affordances**
+- [x] **Step 3: Preserve external GitHub affordances**
 
 Existing `PrLink` can still open GitHub. The new action is the ProjectProject review entry, not a replacement for the external link unless Wouter explicitly chooses that.
 
-- [ ] **Step 4: Typecheck**
+- [x] **Step 4: Typecheck**
 
 ```bash
 bun --filter @projectproject/frontend run typecheck

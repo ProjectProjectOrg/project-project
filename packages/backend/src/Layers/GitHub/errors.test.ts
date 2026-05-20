@@ -1,5 +1,5 @@
 import { expect, it } from "vitest"
-import { mapHttpError } from "./errors"
+import { mapHttpError, narrow } from "./errors"
 
 const nowSeconds = 1_000
 
@@ -36,4 +36,13 @@ it("does not fabricate an empty branch when context is missing", () => {
   )
 
   expect(error._tag).toBe("GitHubError")
+})
+
+it("preserves allowed GitHub App permission errors", () => {
+  const error = narrow(["GitHubScopeInsufficient"] as const)(
+    { status: 403, message: "Resource not accessible by integration" },
+    nowSeconds
+  )
+
+  expect(error._tag).toBe("GitHubScopeInsufficient")
 })

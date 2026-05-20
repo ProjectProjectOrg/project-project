@@ -112,6 +112,9 @@ function ProjectLayout() {
   const onTicketDetail = location.pathname.startsWith(
     `/orgs/${orgSlug}/projects/${slug}/tickets/`
   )
+  const onReview = location.pathname.startsWith(
+    `/orgs/${orgSlug}/projects/${slug}/reviews/`
+  )
   const onSettings = location.pathname.startsWith(
     `/orgs/${orgSlug}/projects/${slug}/settings`
   )
@@ -150,7 +153,7 @@ function ProjectLayout() {
         <TagRenamesProvider>
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
           <div className="flex flex-1 flex-col gap-6">
-            {!onTicketDetail && !onSettings && (
+            {!onTicketDetail && !onReview && !onSettings && (
               <PageContainer wide={wide}>
                 <ProjectHeader
                   orgSlug={orgSlug}
@@ -785,4 +788,3 @@ function Skeleton() {
     </div>
   )
 }
-

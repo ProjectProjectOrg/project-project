@@ -31,6 +31,7 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport } fro
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTeamRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/team'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/general'
+import { Route as AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -155,6 +156,12 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute =
     path: '/general',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute =
+  AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRouteImport.update({
+    id: '/reviews/$prNumber',
+    path: '/reviews/$prNumber',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/orgs/$orgSlug/projects/$slug/reviews/$prNumber': typeof AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
@@ -189,6 +197,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/orgs/$orgSlug/projects/$slug/reviews/$prNumber': typeof AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
@@ -214,6 +223,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/reviews/$prNumber': typeof AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/team': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTeamRoute
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug/'
+    | '/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug'
+    | '/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/orgs/$orgSlug/projects/$slug/settings/team'
@@ -282,6 +294,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
     | '/_authed/orgs/$orgSlug/projects/$slug/'
+    | '/_authed/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/general'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/team'
@@ -455,6 +468,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/reviews/$prNumber': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
+      path: '/reviews/$prNumber'
+      fullPath: '/orgs/$orgSlug/projects/$slug/reviews/$prNumber'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
   }
 }
 
@@ -508,6 +528,7 @@ interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsSlugAboutRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   AuthedOrgsOrgSlugProjectsSlugIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
+  AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute: typeof AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute
   AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
 }
 
@@ -521,6 +542,8 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjects
       AuthedOrgsOrgSlugProjectsSlugAboutRoute,
     AuthedOrgsOrgSlugProjectsSlugIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugIndexRoute,
+    AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute:
+      AuthedOrgsOrgSlugProjectsSlugReviewsPrNumberRoute,
     AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute:
       AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute,
   }

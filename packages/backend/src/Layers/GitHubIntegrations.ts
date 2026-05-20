@@ -215,10 +215,16 @@ export const GitHubIntegrationsLive = Layer.effect(
         const session = yield* sessionForState(state)
         if (!session.installationId) return yield* new NotFound()
         const userToken = yield* github.exchangeAppUserCode(code)
-        const canAccess = yield* github.appUserCanAccessInstallation(
-          userToken,
-          session.installationId
-        )
+        const canAccess = yield* github
+          .appUserCanAccessInstallation(userToken, session.installationId)
+          .pipe(
+            Effect.catchTags({
+              GitHubTokenExpired: () => Effect.fail(new Forbidden()),
+              GitHubScopeInsufficient: () => Effect.fail(new Forbidden()),
+              RateLimited: () =>
+                Effect.fail(new GitHubError({ message: "GitHub rate limited" }))
+            })
+          )
         if (!canAccess) return yield* new Forbidden()
         const account = yield* github
           .getInstallationAccount(session.installationId)

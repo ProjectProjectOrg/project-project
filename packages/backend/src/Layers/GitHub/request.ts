@@ -9,6 +9,7 @@ const nowSeconds = Clock.currentTimeMillis.pipe(
 export type GitHubRequestAttributes = Record<string, unknown> & {
   readonly tokenSource: "user" | "installation"
   readonly operation: string
+  readonly failureLogLevel?: "debug" | "warning"
 }
 
 const telemetryAttributeKeys = [
@@ -31,6 +32,15 @@ const telemetryAttributes = (
     )
   )
 
+const failureAttributes = (error: TaggedFailure): Record<string, unknown> => ({
+  error: error._tag,
+  ...("message" in error &&
+  typeof error.message === "string" &&
+  error.message.length > 0
+    ? { errorMessage: error.message }
+    : {})
+})
+
 export const githubRequest = <A, EOut extends TaggedFailure>(
   attributes: GitHubRequestAttributes,
   fn: (signal: AbortSignal) => Promise<A>,
@@ -45,9 +55,10 @@ export const githubRequest = <A, EOut extends TaggedFailure>(
     })
   }).pipe(
     Effect.tapError((error) =>
-      Effect.logWarning("github request failed").pipe(
-        Effect.annotateLogs({ error: error._tag })
-      )
+      (attributes.failureLogLevel === "debug"
+        ? Effect.logDebug("github request failed")
+        : Effect.logWarning("github request failed")
+      ).pipe(Effect.annotateLogs(failureAttributes(error)))
     ),
     Effect.withSpan(`GitHub.${attributes.operation}`, {
       attributes: safeAttributes

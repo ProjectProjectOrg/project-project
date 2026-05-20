@@ -83,6 +83,14 @@ The GitHub App webhook URL must be:
 https://<your-public-host>/api/integrations/github/webhook
 ```
 
+The GitHub App needs these repository permissions:
+
+- Metadata: read
+- Contents: read and write
+- Pull requests: read and write
+- Checks: read
+- Commit statuses: read
+
 Subscribe the GitHub App webhook to `installation` and
 `installation_repositories` events.
 
