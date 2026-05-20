@@ -251,16 +251,79 @@ export const ProjectStatusesLive = Layer.effect(
         return rowToStatus(updated[0])
       })
 
-    const stub = (): never => {
-      throw new Error("not implemented")
-    }
+    const remove: ProjectStatusesShape["remove"] = (
+      orgSlug,
+      userId,
+      slug,
+      statusSlug,
+      input
+    ) =>
+      Effect.gen(function* () {
+        yield* projects.requireRole(orgSlug, userId, slug, ["owner", "admin"])
+        if (isReservedStatusSlug(statusSlug)) return yield* new Forbidden()
+        const projectId = yield* projectIdFromSlug(slug)
+
+        const current = yield* db.query.projectStatus
+          .findFirst({
+            where: and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          })
+          .pipe(Effect.orDie)
+        if (!current) return yield* new NotFound()
+
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const affectedIds = yield* ticketIndex.findTicketIdsByStatus(
+          indexProject,
+          statusSlug
+        )
+        if (affectedIds.length > 0) {
+          if (!input.reassignTo)
+            return yield* new Conflict({ reason: "reassign_required" })
+          const target = yield* db.query.projectStatus
+            .findFirst({
+              where: and(
+                eq(projectStatus.projectId, projectId),
+                eq(projectStatus.slug, input.reassignTo)
+              )
+            })
+            .pipe(Effect.orDie)
+          if (!target)
+            return yield* new Conflict({ reason: "reassign_target_missing" })
+
+          const reassignSlug = input.reassignTo
+          yield* Effect.forEach(
+            affectedIds,
+            (id) =>
+              tickets
+                .replaceStatus(orgSlug, slug, id, reassignSlug)
+                .pipe(
+                  Effect.catchTag("NotFound", () => Effect.succeed(false)),
+                  Effect.catchTag("MalformedTicketDocument", () =>
+                    Effect.succeed(false)
+                  )
+                ),
+            { concurrency: 8 }
+          )
+        }
+        yield* db
+          .delete(projectStatus)
+          .where(
+            and(
+              eq(projectStatus.projectId, projectId),
+              eq(projectStatus.slug, statusSlug)
+            )
+          )
+          .pipe(Effect.orDie)
+      })
 
     return {
       list,
       create,
       update,
       reorder,
-      remove: stub as never
+      remove
     }
   })
 )
