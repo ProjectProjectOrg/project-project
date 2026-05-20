@@ -171,6 +171,7 @@ export function CreateBranchFields({
           <BaseBranchCombobox
             orgSlug={orgSlug}
             slug={slug}
+            repoId={github.repoId}
             value={base}
             onChange={setBase}
             placeholder={github.defaultBaseBranch ?? "main"}
@@ -338,6 +339,7 @@ function StatusDropdown({
 function BaseBranchCombobox({
   orgSlug,
   slug,
+  repoId,
   value,
   onChange,
   placeholder,
@@ -345,6 +347,7 @@ function BaseBranchCombobox({
 }: {
   orgSlug: string
   slug: string
+  repoId: string
   value: string
   onChange: (next: string) => void
   placeholder: string
@@ -363,7 +366,9 @@ function BaseBranchCombobox({
     }
   }, [search])
 
-  const result = useAtomValue(branchesAtom(branchesKey(orgSlug, slug, q)))
+  const result = useAtomValue(
+    branchesAtom(branchesKey(orgSlug, slug, repoId, q))
+  )
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)
 

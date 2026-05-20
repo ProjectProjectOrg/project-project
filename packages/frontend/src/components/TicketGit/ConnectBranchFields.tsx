@@ -2,7 +2,7 @@
 // scrollable result list below, footer with cancel + connect. Hand-rolled
 // (no cmdk in this workspace) but keyboard-navigable.
 //
-// branchesAtom is keyed on slug + q so each query has its own cache cell;
+// branchesAtom is keyed on slug + repo + q so each query has its own cache cell;
 // we debounce input by 200ms before the q changes (avoids a fetch per
 // keystroke).
 
@@ -27,27 +27,73 @@ import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import type { TicketDetail } from "@projectproject/shared"
+import type {
+  BranchListItem,
+  GithubConnection,
+  TicketDetail
+} from "@projectproject/shared"
+
+export interface BranchItemsCache {
+  repoId: string
+  items: readonly BranchListItem[]
+  hasLoadedOnce: boolean
+}
+
+export function branchItemsView({
+  repoId,
+  cache,
+  successItems,
+  loading
+}: {
+  repoId: string
+  cache: BranchItemsCache
+  successItems: readonly BranchListItem[] | null
+  loading: boolean
+}) {
+  const repoCache =
+    cache.repoId === repoId
+      ? cache
+      : { repoId, items: [], hasLoadedOnce: false }
+  const nextCache =
+    successItems === null
+      ? repoCache
+      : { repoId, items: successItems, hasLoadedOnce: true }
+  return {
+    cache: nextCache,
+    items: successItems ?? nextCache.items,
+    showSkeleton: !nextCache.hasLoadedOnce && loading,
+    isRefetching: nextCache.hasLoadedOnce && loading
+  }
+}
 
 export function ConnectBranchFields({
   orgSlug,
   slug,
   ticket,
+  github,
   variant = "bordered"
 }: {
   orgSlug: string
   slug: string
   ticket: TicketDetail
+  github: GithubConnection
   variant?: "bordered" | "ghost"
 }) {
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [input, setInput] = useState("")
   const [q, setQ] = useState("")
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selectedState, setSelectedState] = useState<{
+    repoId: string
+    name: string
+  } | null>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
+  const selected =
+    selectedState?.repoId === github.repoId ? selectedState.name : null
+  const setSelected = (name: string | null) =>
+    setSelectedState(name === null ? null : { repoId: github.repoId, name })
 
   useEffect(() => {
     const fiber = Effect.runFork(
@@ -58,17 +104,35 @@ export function ConnectBranchFields({
     }
   }, [input])
 
-  const key = branchesKey(orgSlug, slug, q)
+  const key = branchesKey(orgSlug, slug, github.repoId, q)
   const result = useAtomValue(branchesAtom(key))
   const refreshBranches = useAtomRefresh(branchesAtom(key))
   const pKey = projectKey(orgSlug, slug)
   const attach = useAtomSet(attachBranchAtom(pKey), { mode: "promiseExit" })
   const attachState = useAtomValue(attachBranchAtom(pKey))
 
-  const items = Result.isSuccess(result) ? result.value.items : []
+  const itemsCacheRef = useRef<BranchItemsCache>({
+    repoId: github.repoId,
+    items: [],
+    hasLoadedOnce: false
+  })
+  const isLoading =
+    Result.isInitial(result) || Result.isWaiting(result) || input !== q
+  const view = branchItemsView({
+    repoId: github.repoId,
+    cache: itemsCacheRef.current,
+    successItems: Result.isSuccess(result) ? result.value.items : null,
+    loading: isLoading
+  })
+  itemsCacheRef.current = view.cache
+  const { items, showSkeleton, isRefetching } = view
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Keep activeIdx in range when the result list shrinks.
+  useEffect(() => {
+    setSelected(null)
+    setActiveIdx(0)
+  }, [github.repoId])
+
   useEffect(() => {
     if (activeIdx >= items.length) setActiveIdx(0)
   }, [items.length, activeIdx])
@@ -145,9 +209,9 @@ export function ConnectBranchFields({
       />
       <div
         ref={listRef}
-        className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/30"
+        className="max-h-48 overflow-hidden overflow-y-auto rounded-md border border-border bg-muted/30"
       >
-        {Result.isInitial(result) || Result.isWaiting(result) ? (
+        {showSkeleton ? (
           <div className="space-y-1 p-1">
             <div className="h-6 skeleton rounded bg-muted/60" />
             <div className="h-6 skeleton rounded bg-muted/60" />
@@ -162,7 +226,12 @@ export function ConnectBranchFields({
             {m.git_no_branches_found()}
           </p>
         ) : (
-          <ul role="listbox" className="py-1">
+          <ul
+            role="listbox"
+            className={cn(
+              isRefetching && "animate-pulse [animation-duration:1s]"
+            )}
+          >
             {items.map((b, i) => (
               <li key={b.name}>
                 <button
