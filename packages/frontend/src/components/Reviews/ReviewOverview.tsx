@@ -1,12 +1,9 @@
 import { Link } from "@tanstack/react-router"
 import {
   ArrowUpRight,
-  CalendarClock,
   Check,
-  CircleDot,
   Copy,
   FileCode2,
-  GitBranch,
   GitCommitVertical,
   GitPullRequest,
   MessageSquareText,
@@ -15,6 +12,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { Markdown } from "@/components/Markdown"
+import { TicketMentionCard } from "@/components/Lexical/TicketMentionCard"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import type {
@@ -107,20 +111,25 @@ export function ReviewOverview({
         </main>
 
         <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
-          <LinkedTicket orgSlug={orgSlug} slug={slug} review={review} />
+          <LinkedTicket
+            orgSlug={orgSlug}
+            slug={slug}
+            review={review}
+            label={m.reviews_linked_ticket()}
+          />
           <PeopleSection
-            title={m.reviews_reviewers_title()}
+            label={m.reviews_reviewers_title()}
             empty={m.reviews_reviewers_empty()}
             people={review.reviewers}
             renderMeta={(reviewer) => decisionLabel(reviewer.decision)}
           />
           <PeopleSection
-            title={m.reviews_participants_title()}
+            label={m.reviews_participants_title()}
             empty={m.reviews_participants_empty()}
             people={review.participants}
             renderMeta={(participant) => roleLabel(participant.role)}
           />
-          <Details review={review} />
+          <DetailsRows review={review} />
         </aside>
       </div>
     </div>
@@ -312,65 +321,72 @@ function Stat({
 function LinkedTicket({
   orgSlug,
   slug,
-  review
+  review,
+  label
 }: {
   orgSlug: string
   slug: string
   review: ReviewPageDto
+  label: string
 }) {
   const ticket = review.linkedTicket
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">{m.reviews_linked_ticket()}</h2>
-      <Link
-        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-        params={{ orgSlug, slug, id: ticket.id }}
-        className="group flex flex-col gap-2 rounded-lg border border-border bg-background p-3 transition-colors hover:bg-accent/40"
-      >
-        <div className="flex items-center gap-2">
-          <Ticket
-            className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-            strokeWidth={1.75}
-            aria-hidden
-          />
-          <span className="font-mono text-xs text-muted-foreground">
-            {ticket.id}
-          </span>
-          <Badge tone="outline" size="xs">
-            {ticketStatusLabel(ticket.status)}
-          </Badge>
-        </div>
-        <p className="line-clamp-2 text-sm font-medium leading-snug">
-          {ticket.title}
-        </p>
-        {ticket.branch && (
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {ticket.branch}
-          </span>
-        )}
-      </Link>
-    </section>
+    <MetaRow label={label}>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: ticket.id }}
+            />
+          }
+          openOnHover
+          className="group flex flex-col gap-1.5 rounded-lg bg-muted/70 px-4 py-3 text-left transition-colors hover:bg-muted"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <Ticket
+              className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            <span className="font-mono text-xs text-muted-foreground">
+              {ticket.id}
+            </span>
+            <Badge tone="outline" size="xs">
+              {ticketStatusLabel(ticket.status)}
+            </Badge>
+          </div>
+          <p className="line-clamp-2 text-sm font-medium leading-snug">
+            {ticket.title}
+          </p>
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="start">
+          <MentionScopeProvider scope={{ orgSlug, slug }}>
+            <TicketMentionCard ticketId={ticket.id} />
+          </MentionScopeProvider>
+        </PopoverContent>
+      </Popover>
+    </MetaRow>
   )
 }
 
 function PeopleSection<T extends { actor: ReviewActor }>({
-  title,
+  label,
   empty,
   people,
   renderMeta
 }: {
-  title: string
+  label: string
   empty: string
   people: ReadonlyArray<T>
   renderMeta: (item: T) => string
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-medium">{title}</h2>
+    <MetaRow label={label}>
       {people.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {people.map((item) => (
             <PersonRow
               key={`${item.actor.login}-${renderMeta(item)}`}
@@ -380,7 +396,7 @@ function PeopleSection<T extends { actor: ReviewActor }>({
           ))}
         </div>
       )}
-    </section>
+    </MetaRow>
   )
 }
 
@@ -398,82 +414,68 @@ function PersonRow({ actor, meta }: { actor: ReviewActor; meta: string }) {
   )
 }
 
-function Details({ review }: { review: ReviewPageDto }) {
+function DetailsRows({ review }: { review: ReviewPageDto }) {
   const pr = review.pr
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium">{m.reviews_details_title()}</h2>
-      <dl className="flex flex-col gap-2 text-sm">
-        <DetailRow icon={GitBranch} label={m.reviews_details_repo()} showLabel>
-          <Badge
-            tone="outline"
-            size="sm"
-            render={
-              <a
-                href={`https://github.com/${pr.repoOwner}/${pr.repoName}`}
-                target="_blank"
-                rel="noreferrer"
-              />
-            }
-          >
-            {pr.repoOwner}/{pr.repoName}
-            <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
-          </Badge>
-        </DetailRow>
-        <DetailRow icon={CircleDot} label={m.reviews_check_label()} showLabel>
-          {checkStatusLabel(pr.checks.status)}
-        </DetailRow>
-        <DateRow label={m.reviews_details_created()} date={pr.createdAt} />
-        <DateRow label={m.reviews_details_updated()} date={pr.updatedAt} />
-        {pr.mergedAt && (
-          <DateRow label={m.reviews_details_merged()} date={pr.mergedAt} />
-        )}
-      </dl>
-    </section>
+    <>
+      <MetaRow label={m.reviews_details_repo()}>
+        <Badge
+          tone="outline"
+          size="sm"
+          render={
+            <a
+              href={`https://github.com/${pr.repoOwner}/${pr.repoName}`}
+              target="_blank"
+              rel="noreferrer"
+            />
+          }
+        >
+          {pr.repoOwner}/{pr.repoName}
+          <ArrowUpRight className="size-3 shrink-0" strokeWidth={1.75} />
+        </Badge>
+      </MetaRow>
+      <MetaRow label={m.reviews_check_label()}>
+        <span className="text-xs">{checkStatusLabel(pr.checks.status)}</span>
+      </MetaRow>
+      <DateRow label={m.reviews_details_created()} date={pr.createdAt} />
+      <DateRow label={m.reviews_details_updated()} date={pr.updatedAt} />
+      {pr.mergedAt && (
+        <DateRow label={m.reviews_details_merged()} date={pr.mergedAt} />
+      )}
+    </>
   )
 }
 
 function DateRow({ label, date }: { label: string; date: Date }) {
   const locale = getLocale()
   return (
-    <DetailRow icon={CalendarClock} label={label} showLabel>
-      <time dateTime={date.toISOString()} title={date.toLocaleString(locale)}>
+    <MetaRow label={label}>
+      <time
+        dateTime={date.toISOString()}
+        title={date.toLocaleString(locale)}
+        className="text-xs"
+      >
         {date.toLocaleDateString(locale, {
           year: "numeric",
           month: "short",
           day: "numeric"
         })}
       </time>
-    </DetailRow>
+    </MetaRow>
   )
 }
 
-function DetailRow({
-  icon: Icon,
+function MetaRow({
   label,
-  showLabel = false,
   children
 }: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
   label: string
-  showLabel?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div className="relative flex items-center gap-2 text-sm">
-      <Icon
-        className="size-3.5 shrink-0 text-muted-foreground"
-        strokeWidth={1.75}
-        aria-hidden
-      />
-      {showLabel ? (
-        <dt className="text-muted-foreground">{label}</dt>
-      ) : (
-        <dt className="sr-only">{label}</dt>
-      )}
-      <dd className="ml-auto min-w-0 truncate text-foreground/80">
-        {children}
-      </dd>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0">{children}</div>
     </div>
   )
 }
