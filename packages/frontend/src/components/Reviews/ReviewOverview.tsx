@@ -121,7 +121,7 @@ function StatsStrip({
 }) {
   const counts = review.pr.counts
   return (
-    <div className="@container flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/70 px-4 py-3 @max-xs:flex-col @max-xs:items-start">
+    <div className="@container flex flex-wrap items-center justify-between gap-3 rounded-lg bg-accent px-4 py-3 @max-xs:flex-col @max-xs:items-start">
       <div className="flex items-center gap-x-3 gap-y-2 whitespace-nowrap text-sm text-muted-foreground @max-xs:flex-col @max-xs:items-start">
         <Stat icon={GitCommitVertical}>
           {m.reviews_counts_commits({ count: counts.commits })}
@@ -314,7 +314,7 @@ function LinkedTicket({
             />
           }
           openOnHover
-          className="group flex flex-col gap-1.5 rounded-lg bg-muted/70 px-4 py-3 text-left transition-colors hover:bg-muted"
+          className="group flex flex-col gap-1.5 rounded-lg bg-accent px-4 py-3 text-left transition-colors hover:bg-accent/80"
         >
           <div className="flex min-w-0 items-center gap-2">
             <Ticket

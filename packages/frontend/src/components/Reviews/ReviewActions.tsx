@@ -2,7 +2,6 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
 import {
   ChevronDown,
-  GitMerge,
   MoreHorizontal,
   RotateCcw,
   X
@@ -137,7 +136,7 @@ export function ReviewActions({
   }
 
   return (
-    <section className="overflow-hidden rounded-lg bg-muted/70">
+    <section className="overflow-hidden rounded-lg bg-accent">
       <StatusStrip review={review} />
       <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -219,7 +218,7 @@ function Verdict({
   error?: string | null
 }) {
   return (
-    <section className="overflow-hidden rounded-lg bg-muted/70">
+    <section className="overflow-hidden rounded-lg bg-accent">
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
         <Pip tone={tone} />
         <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
@@ -318,11 +317,14 @@ function MergeAction({
       <Button
         size="md"
         variant="primary"
-        leadingIcon={GitMerge}
         disabled={disabled}
         loading={loading}
         onClick={onMerge}
-        className={cn(hasChevron && "rounded-r-none", readyClass)}
+        className={cn(
+          "text-sm font-medium",
+          hasChevron && "rounded-r-none",
+          readyClass
+        )}
       >
         <CollapsingLabel show contentKey={currentMethod}>
           {mergeMethodLabel(currentMethod)}

@@ -93,5 +93,8 @@ export default defineConfig({
         rewrite: () => "/api/auth/.well-known/oauth-protected-resource"
       }
     }
+  },
+  worker: {
+    format: "es"
   }
 })

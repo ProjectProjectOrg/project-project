@@ -2,8 +2,18 @@ import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, notFound } from "@tanstack/react-router"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
-import { ReviewPage, ReviewPageSkeleton } from "@/components/Reviews/ReviewPage"
-import { reviewAtom, reviewBaseAtom, reviewKey } from "@/atoms/reviews"
+import {
+  ReviewFilesPageSkeleton,
+  ReviewPage,
+  ReviewPageSkeleton
+} from "@/components/Reviews/ReviewPage"
+import {
+  reviewAtom,
+  reviewBaseAtom,
+  reviewFileSummariesAtom,
+  reviewFilesAtom,
+  reviewKey
+} from "@/atoms/reviews"
 import { m } from "@/paraglide/messages"
 
 type ReviewSearch = {
@@ -43,9 +53,15 @@ function ReviewRoute() {
   const prNumber = decodePrNumber(rawPrNumber)
   const key = reviewKey(orgSlug, slug, prNumber)
   const result = useAtomValue(reviewAtom(key))
+  const filesResult = useAtomValue(reviewFilesAtom(key))
+  const summariesResult = useAtomValue(reviewFileSummariesAtom(key))
+  const filesInitial =
+    search.view === "files" &&
+    (!Result.isSuccess(filesResult) || !Result.isSuccess(summariesResult))
 
   return Result.matchWithError(result, {
-    onInitial: () => <ReviewPageSkeleton />,
+    onInitial: () =>
+      search.view === "files" ? <ReviewFilesPageSkeleton /> : <ReviewPageSkeleton />,
     onError: (error) =>
       error._tag === "NotFound" ? (
         <NotFoundPage
@@ -63,15 +79,18 @@ function ReviewRoute() {
     onDefect: (defect) => (
       <ErrorPage contained error={defect} title={m.reviews_error_overview()} />
     ),
-    onSuccess: ({ value, waiting }) => (
-      <ReviewPage
-        orgSlug={orgSlug}
-        slug={slug}
-        prNumber={prNumber}
-        review={value}
-        view={search.view}
-        waiting={waiting}
-      />
-    )
+    onSuccess: ({ value, waiting }) =>
+      filesInitial ? (
+        <ReviewFilesPageSkeleton />
+      ) : (
+        <ReviewPage
+          orgSlug={orgSlug}
+          slug={slug}
+          prNumber={prNumber}
+          review={value}
+          view={search.view}
+          waiting={waiting}
+        />
+      )
   })
 }

@@ -350,7 +350,7 @@ const fetchReviewChecksWithToken = (
   name: string,
   headSha: string,
   tokenSource: "user" | "installation"
-): Effect.Effect<RawReviewPullRequest["checks"], GitHubReadError> =>
+): Effect.Effect<RawReviewPullRequest["checks"], GitHubOptionalReadError> =>
   Effect.gen(function* () {
     const octokit = octokitFor(token)
     const runs = yield* githubRequest(
@@ -514,6 +514,7 @@ export const fetchReviewPullRequestWithToken = (
       tokenSource
     ).pipe(
       Effect.catchTags({
+        GitHubScopeInsufficient: () => Effect.succeed(checksFromState("none")),
         GitHubError: () => Effect.succeed(checksFromState("none")),
         RateLimited: () => Effect.succeed(checksFromState("none")),
         RepoGone: () => Effect.succeed(checksFromState("none"))

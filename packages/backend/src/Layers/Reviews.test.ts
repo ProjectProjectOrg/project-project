@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import {
+  GitHubError,
   NotFound,
   ProjectKey,
   TicketId,
@@ -436,6 +437,47 @@ it.effect(
         })
       )
     )
+)
+
+it.effect("returns file patches when review threads are unavailable", () =>
+  Effect.gen(function* () {
+    const reviews = yield* Reviews
+    const page = yield* reviews.files("org", "user-1", "app", 42, undefined)
+
+    expect(page.files).toHaveLength(1)
+    expect(page.files[0].summary.filename).toBe("src/app.ts")
+    expect(page.files[0].summary.threadCount).toBe(0)
+  }).pipe(
+    Effect.provide(
+      makeLayer({
+        github: {
+          fetchReviewFilesInstallation: () =>
+            Effect.succeed({
+              files: [
+                {
+                  filename: "src/app.ts",
+                  previousFilename: null,
+                  status: "modified",
+                  additions: 1,
+                  deletions: 1,
+                  changes: 2,
+                  patch: "@@ -1 +1 @@\n-old\n+new",
+                  htmlUrl: "https://github.test/acme/app/pull/42/files",
+                  binary: false
+                }
+              ],
+              page: 1,
+              perPage: 30,
+              hasMore: false
+            }),
+          fetchReviewThreadsInstallation: () =>
+            Effect.fail(
+              new GitHubError({ message: "GraphQL refused threads" })
+            )
+        }
+      })
+    )
+  )
 )
 
 it.effect(

@@ -444,6 +444,19 @@ export const ReviewsLive = Layer.effect(
         { concurrency: 2 }
       )
 
+    const fetchFileDiscussion = (ctx: ReviewContext, prNumber: number) =>
+      Effect.all(
+        {
+          comments: fetchComments(ctx, prNumber).pipe(
+            Effect.map((response) => response.comments)
+          ),
+          threads: fetchThreads(ctx, prNumber).pipe(
+            Effect.catchTag("GitHubError", () => Effect.succeed([]))
+          )
+        },
+        { concurrency: 2 }
+      )
+
     const get = Effect.fn("Reviews.get")(function* (
       orgSlug: string,
       userId: string,
@@ -500,7 +513,7 @@ export const ReviewsLive = Layer.effect(
               page,
               FILE_PAGE_SIZE
             ),
-            fetchReviewDiscussion(ctx, prNumber)
+            fetchFileDiscussion(ctx, prNumber)
           ])
           const comments = [
             ...discussion.comments,
@@ -548,7 +561,7 @@ export const ReviewsLive = Layer.effect(
               page,
               FILE_PAGE_SIZE
             ),
-            fetchReviewDiscussion(ctx, prNumber)
+            fetchFileDiscussion(ctx, prNumber)
           ])
           const comments = [
             ...discussion.comments,
