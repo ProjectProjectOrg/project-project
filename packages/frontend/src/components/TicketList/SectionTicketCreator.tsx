@@ -84,13 +84,15 @@ export function SectionTicketCreator({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
+    const submittedTitle = trimmed
+    setTitle("")
+    inputRef.current?.focus()
     const exit = await create({
-      ticket: { title: trimmed, type, status },
+      ticket: { title: submittedTitle, type, status },
       viewerId
     })
-    if (Exit.isSuccess(exit)) {
-      setTitle("")
-      inputRef.current?.focus()
+    if (Exit.isFailure(exit)) {
+      setTitle(submittedTitle)
     }
   }
 
