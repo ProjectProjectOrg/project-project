@@ -428,16 +428,6 @@ export const deleteTicketAtom = Atom.family((key: string) => {
   )
 })
 
-export const projectKeyFor = (orgSlug: string, slug: string) =>
-  `${orgSlug}/${slug}`
-
-const splitProjectKeyTickets = (
-  key: string
-): { orgSlug: string; slug: string } => {
-  const sep = key.indexOf("/")
-  return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
-}
-
 export interface UpdateTicketStatusArg {
   readonly id: TicketId
   readonly status: TicketStatus
@@ -446,7 +436,9 @@ export interface UpdateTicketStatusArg {
 }
 
 export const updateTicketStatusAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKeyTickets(key)
+  const sep = key.indexOf("/")
+  const orgSlug = key.slice(0, sep)
+  const slug = key.slice(sep + 1)
   return runtime.fn(
     Effect.fn(function* (input: UpdateTicketStatusArg, get) {
       const client = yield* ApiClient
