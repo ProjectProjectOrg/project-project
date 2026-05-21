@@ -61,7 +61,7 @@ function RowImpl({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors hover:bg-accent/30 focus-visible:ring-1 focus-visible:ring-ring"
+          "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-1 focus-visible:ring-ring"
         )}
       >
         <StatusButton

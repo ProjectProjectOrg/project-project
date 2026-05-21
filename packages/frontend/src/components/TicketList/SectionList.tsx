@@ -81,18 +81,17 @@ export function SectionList({
   const remaining = Math.max(0, count - items.length)
 
   const gridCols = cn(
-    "grid divide-y divide-border border-x border-b border-border bg-background",
+    "grid gap-y-1",
     showExtraActionsCol
       ? "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto_auto]"
       : "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto]",
-    waiting && "animate-pulse",
-    "rounded-b-xl"
+    waiting && "animate-pulse"
   )
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-1">
       {creating ? (
-        <div className="sticky top-0 z-10 rounded-t-xl border border-border bg-background/95 px-2 py-2 backdrop-blur">
+        <div className="sticky top-0 z-10 rounded-lg bg-background/95 px-2 py-2 backdrop-blur">
           <SectionTicketCreator
             orgSlug={orgSlug}
             slug={slug}
@@ -122,10 +121,10 @@ export function SectionList({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="overflow-hidden"
+            className="flex flex-col gap-1 overflow-hidden"
           >
             {items.length === 0 ? (
-              <div className="rounded-b-xl border-x border-b border-border bg-background px-3 py-4 text-center text-xs text-muted-foreground">
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                 —
               </div>
             ) : (
@@ -155,7 +154,7 @@ export function SectionList({
             )}
 
             {nextCursor !== null && (
-              <div className="flex justify-center border-x border-b border-border bg-background py-2">
+              <div className="flex justify-center py-2">
                 <Button
                   type="button"
                   variant="tertiary"
