@@ -50,7 +50,7 @@ export function StatusIconPicker({
         aria-label={m.tickets_status_icon_picker_aria()}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background transition-[color,background-color,transform] duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background transition-all duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Current className="h-4 w-4" style={color ? { color } : undefined} />
       </button>
@@ -77,7 +77,7 @@ export function StatusIconPicker({
                       setOpen(false)
                     }}
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded transition-[color,background-color,transform] duration-100 hover:bg-accent active:scale-[0.97]",
+                      "flex h-7 w-7 items-center justify-center rounded transition-all duration-100 hover:bg-accent active:scale-[0.97]",
                       name === value && "bg-accent"
                     )}
                   >
