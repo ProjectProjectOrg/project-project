@@ -7,17 +7,13 @@ import {
   ArrowDownAZ,
   Check,
   ChevronDown,
+  Circle,
   Search,
   SlidersHorizontal,
   UserRound,
   X
 } from "lucide-react"
-import {
-  CollapsingLabel,
-  SEGMENTED_ITEM_CLASS,
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/SegmentedTabs"
+import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import {
   InputGroup,
@@ -312,21 +308,15 @@ export function Toolbar({
   const counts: Record<string, number> =
     previousCountsRef.current ?? { all: 0 }
 
-  const FULL_FITS_ROW = 1040
-  const STATUS_COMPACT_FITS_ROW = 760
-  const ALL_COMPACT_FITS_ROW = 600
-  const STATUS_COMPACT_FITS_WRAPPED = 540
+  const FULL_FITS_ROW = 720
+  const ALL_COMPACT_FITS_ROW = 460
+  const COMPACT_FITS_WRAPPED = 360
   const measured = width > 0
   const onSameRow = measured && width >= ALL_COMPACT_FITS_ROW
-  const statusCompact = measured
-    ? onSameRow
-      ? compact || width < FULL_FITS_ROW
-      : true
-    : false
   const controlsCompact = measured
     ? onSameRow
-      ? compact || width < STATUS_COMPACT_FITS_ROW
-      : width < STATUS_COMPACT_FITS_WRAPPED
+      ? compact || width < FULL_FITS_ROW
+      : width < COMPACT_FITS_WRAPPED
     : false
 
   return (
@@ -368,12 +358,12 @@ export function Toolbar({
 
       <div className="relative flex flex-wrap items-center gap-2">
         <motion.div layout="position" transition={transitions.layout}>
-          <StatusChips
+          <StatusSelect
             value={status}
             onChange={setStatus}
             counts={counts}
-            compact={statusCompact}
             statuses={statuses}
+            compact={controlsCompact}
           />
         </motion.div>
 
@@ -431,58 +421,109 @@ export function Toolbar({
   )
 }
 
-function StatusChips({
+function StatusSelect({
   value,
   onChange,
   counts,
-  compact,
-  statuses
+  statuses,
+  compact
 }: {
   value: TicketStatus | "all"
   onChange: (v: TicketStatus | "all") => void
   counts: Record<string, number>
-  compact: boolean
   statuses: ReadonlyArray<ProjectStatus>
+  compact: boolean
 }) {
   const slugs = boardStatusesFor(statuses)
-  const items: ReadonlyArray<SegmentedItem<string>> = [
-    { key: "all", label: m.tickets_status_all(), badge: counts.all ?? 0 },
-    ...slugs.map((s) => {
-      const sMeta = statusMetaFor(s, statuses)
-      return {
-        key: s,
-        label: statusLabelFor(s, statuses),
-        icon: sMeta.icon,
-        iconClassName: sMeta.className,
-        badge: counts[s] ?? 0
-      }
-    })
-  ]
+  const active = value !== "all"
+  const currentMeta = active ? statusMetaFor(value, statuses) : null
+  const currentLabel = active
+    ? statusLabelFor(value, statuses)
+    : m.tickets_status_all()
+  const CurrentIcon = currentMeta?.icon ?? Circle
   return (
-    <SegmentedTabs
-      items={items}
-      layoutId="status-chips"
-      isActive={(k) => k === value}
-      compact={compact}
-      renderItem={(item, content, { active }) => (
-        <button
-          type="button"
-          onClick={() => onChange(item.key as TicketStatus | "all")}
-          aria-pressed={active}
-          aria-label={
-            compact
-              ? m.tickets_status_chip_aria_label({
-                  label: item.label,
-                  count: counts[item.key]
-                })
-              : undefined
-          }
-          className={SEGMENTED_ITEM_CLASS(active)}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BUTTON_CLASS,
+              active && "bg-accent text-foreground hover:text-foreground"
+            )}
+            aria-label={m.tickets_status_aria_label({ label: currentLabel })}
+            aria-pressed={active}
+          >
+            <CurrentIcon
+              className={cn("size-4", currentMeta?.className)}
+              style={currentMeta?.color ? { color: currentMeta.color } : undefined}
+              strokeWidth={1.75}
+            />
+            <CollapsingLabel show={!compact}>{currentLabel}</CollapsingLabel>
+            <span
+              className={cn(
+                "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                active
+                  ? "bg-foreground/10 text-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {counts[value] ?? 0}
+            </span>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-52"
+        finalFocus={false}
+      >
+        <DropdownMenuItem
+          onClick={() => onChange("all")}
+          className="cursor-pointer"
         >
-          {content}
-        </button>
-      )}
-    />
+          <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
+          <span>{m.tickets_status_all()}</span>
+          <span className="ml-auto inline-flex items-center gap-2">
+            <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+              {counts.all ?? 0}
+            </span>
+            {value === "all" && (
+              <Check className="size-3.5 text-muted-foreground" />
+            )}
+          </span>
+        </DropdownMenuItem>
+        {slugs.length > 0 && <div className="my-1 h-px bg-border" />}
+        {slugs.map((s) => {
+          const meta = statusMetaFor(s, statuses)
+          const SIcon = meta.icon
+          return (
+            <DropdownMenuItem
+              key={s}
+              onClick={() => onChange(s as TicketStatus)}
+              className="cursor-pointer"
+            >
+              <SIcon
+                className={cn("size-4", meta.className)}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+              <span className="truncate">{statusLabelFor(s, statuses)}</span>
+              <span className="ml-auto inline-flex items-center gap-2">
+                <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {counts[s] ?? 0}
+                </span>
+                {value === s && (
+                  <Check className="size-3.5 text-muted-foreground" />
+                )}
+              </span>
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

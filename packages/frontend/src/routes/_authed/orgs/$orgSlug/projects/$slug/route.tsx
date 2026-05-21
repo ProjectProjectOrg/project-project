@@ -8,7 +8,15 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
 import {
   CalendarRange,
   Columns3,
@@ -599,8 +607,13 @@ function TabsNav({
                     {ticketsCount}
                   </span>
                 </span>
-                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <TicketsBreakdown counts={ticketBreakdown} statuses={statuses} />
+                <span className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <MarqueeIfOverflow>
+                    <TicketsBreakdown
+                      counts={ticketBreakdown}
+                      statuses={statuses}
+                    />
+                  </MarqueeIfOverflow>
                 </span>
               </Link>
             )
@@ -737,6 +750,83 @@ function SprintViewSwitcher({
           </button>
         )}
       />
+    </div>
+  )
+}
+
+function MarqueeIfOverflow({
+  children,
+  speedPxPerSec = 35
+}: {
+  children: ReactNode
+  speedPxPerSec?: number
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [state, setState] = useState<{ overflow: boolean; duration: number }>({
+    overflow: false,
+    duration: 20
+  })
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const measure = measureRef.current
+    if (!container || !measure) return
+    const update = () => {
+      const cw = container.clientWidth
+      const iw = measure.scrollWidth
+      if (cw === 0 || iw === 0) return
+      const overflow = iw > cw
+      const duration = Math.max(8, iw / speedPxPerSec)
+      setState((prev) =>
+        prev.overflow === overflow &&
+        Math.abs(prev.duration - duration) < 0.5
+          ? prev
+          : { overflow, duration }
+      )
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(container)
+    ro.observe(measure)
+    return () => ro.disconnect()
+  }, [speedPxPerSec, children])
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "flex h-full w-full items-center overflow-hidden",
+        state.overflow &&
+          "[mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+      )}
+    >
+      {state.overflow ? (
+        <div
+          className="flex w-max items-center animate-marquee-x [animation-play-state:paused] group-hover/seg-item:[animation-play-state:running]"
+          style={{ animationDuration: `${state.duration}s` }}
+        >
+          <div
+            ref={measureRef}
+            className="flex shrink-0 items-center gap-2 pr-2"
+          >
+            {children}
+          </div>
+          <div
+            aria-hidden
+            className="flex shrink-0 items-center gap-2 pr-2"
+          >
+            {children}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={measureRef}
+          className="flex w-full items-center justify-center gap-2 whitespace-nowrap"
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }

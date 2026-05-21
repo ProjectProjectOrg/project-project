@@ -160,6 +160,19 @@
   }
 }
 
+@keyframes marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.animate-marquee-x {
+  animation: marquee-x linear infinite;
+  will-change: transform;
+}
+
 .transition-expand {
   transition-property: padding, background-color, color;
   transition-duration: 200ms;
