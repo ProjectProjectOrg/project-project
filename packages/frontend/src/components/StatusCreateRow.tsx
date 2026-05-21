@@ -43,6 +43,7 @@ function CreateFields({ orgSlug, slug }: Props) {
   const submit = () => {
     const trimmed = draft.trim()
     if (trimmed.length === 0) {
+      setDraft("")
       close()
       return
     }
@@ -75,9 +76,17 @@ function CreateFields({ orgSlug, slug }: Props) {
         placeholder={m.tickets_status_create_placeholder()}
         className="h-8 flex-1 rounded-md"
       />
-      <InlineForm.Cancel size="sm" variant="ghost">
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          setDraft("")
+          close()
+        }}
+      >
         {m.tickets_status_delete_cancel()}
-      </InlineForm.Cancel>
+      </Button>
       <Button
         type="submit"
         size="sm"

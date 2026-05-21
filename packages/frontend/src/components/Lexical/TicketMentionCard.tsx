@@ -26,6 +26,14 @@ import type {
   TicketType
 } from "@projectproject/shared"
 
+const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+
+const MentionCardError = () => (
+  <div className="text-xs text-muted-foreground">
+    {m.tickets_mention_card_not_available()}
+  </div>
+)
+
 export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const scope = useMentionScope()
   if (!scope) return null
@@ -35,67 +43,62 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
   )
-  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+    ? statusesResult.value
+    : EMPTY_STATUSES
 
-  if (Result.isFailure(result)) {
-    return (
-      <div className="text-xs text-muted-foreground">
-        {m.tickets_mention_card_not_available()}
-      </div>
-    )
-  }
-
-  if (!Result.isSuccess(result)) {
-    return <CardSkeleton />
-  }
-
-  const ticket = result.value
-  const body = ticket.body.trim()
-  const isOverflowing = body.split("\n").length > 6 || body.length > 320
-
-  return (
-    <div className="space-y-2">
-      <div className="line-clamp-2 text-sm font-medium leading-snug">
-        {ticket.title}
-      </div>
-      <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
-      {body.length > 0 && (
-        <div className="relative">
-          <Markdown className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1">
-            {body}
-          </Markdown>
-          {isOverflowing && (
-            <>
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
+  return Result.matchWithError(result, {
+    onInitial: () => <CardSkeleton />,
+    onError: () => <MentionCardError />,
+    onDefect: () => <MentionCardError />,
+    onSuccess: ({ value: ticket }) => {
+      const body = ticket.body.trim()
+      const isOverflowing = body.split("\n").length > 6 || body.length > 320
+      return (
+        <div className="space-y-2">
+          <div className="line-clamp-2 text-sm font-medium leading-snug">
+            {ticket.title}
+          </div>
+          <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
+          {body.length > 0 && (
+            <div className="relative">
+              <Markdown className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1">
+                {body}
+              </Markdown>
+              {isOverflowing && (
+                <>
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
+                  />
+                  <Link
+                    to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                    params={{
+                      orgSlug: scope.orgSlug,
+                      slug: scope.slug,
+                      id: ticketId
+                    }}
+                    className="absolute bottom-0 right-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {m.tickets_mention_card_read_more()} →
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
+          {ticket.branch && (
+            <div>
+              <TicketGitChip
+                orgSlug={scope.orgSlug}
+                slug={scope.slug}
+                ticket={ticket}
               />
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                params={{
-                  orgSlug: scope.orgSlug,
-                  slug: scope.slug,
-                  id: ticketId
-                }}
-                className="absolute bottom-0 right-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {m.tickets_mention_card_read_more()} →
-              </Link>
-            </>
+            </div>
           )}
         </div>
-      )}
-      {ticket.branch && (
-        <div>
-          <TicketGitChip
-            orgSlug={scope.orgSlug}
-            slug={scope.slug}
-            ticket={ticket}
-          />
-        </div>
-      )}
-    </div>
-  )
+      )
+    }
+  })
 }
 
 function MetaRow({

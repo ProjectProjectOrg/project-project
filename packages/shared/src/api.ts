@@ -613,7 +613,7 @@ const TagsGroup = HttpApiGroup.make("tags")
 
 const ProjectStatusPath = Schema.Struct({
   ...ProjectPath.fields,
-  statusSlug: Schema.String
+  statusSlug: StatusSlug
 })
 
 const StatusesGroup = HttpApiGroup.make("statuses")

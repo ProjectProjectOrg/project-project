@@ -13,6 +13,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { compareByOrderKey } from "@/components/sprints/board-utils"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
 import { StatusRow } from "@/components/StatusRow"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -31,17 +32,23 @@ export function StatusList({ orgSlug, slug }: Props) {
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => (
-      <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
+    onSuccess: ({ value, waiting }) => (
+      <OrderedStatuses
+        orgSlug={orgSlug}
+        slug={slug}
+        statuses={value}
+        waiting={waiting}
+      />
     )
   })
 }
 
 type OrderedProps = Props & {
   statuses: ReadonlyArray<ProjectStatus>
+  waiting: boolean
 }
 
-function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
+function OrderedStatuses({ orgSlug, slug, statuses, waiting }: OrderedProps) {
   const key = projectKey(orgSlug, slug)
   const reorder = useAtomSet(reorderStatusAtom(key))
   useAtomValue(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))
@@ -96,7 +103,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
         axis="y"
         values={order as ProjectStatus[]}
         onReorder={(next) => setDragOrder(next)}
-        className="flex flex-col gap-0.5"
+        className={cn("flex flex-col gap-0.5", waiting && "animate-pulse")}
       >
         {order.map((s, i) => (
           <StatusRow

@@ -92,7 +92,7 @@ export function StatusRow({
     >
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md px-1 py-1 transition-colors duration-100",
+          "flex items-center gap-2 rounded-md px-1 py-1 transition-colors duration-150",
           isDragging ? "bg-card" : "hover:bg-accent/40"
         )}
       >

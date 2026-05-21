@@ -100,7 +100,11 @@ export const updateStatusAtom = Atom.family((key: string) => {
       Effect.fn(function* (input: UpdateInput, get) {
         const client = yield* ApiClient
         const updated = yield* client.statuses.update({
-          path: { orgSlug, slug, statusSlug: input.statusSlug },
+          path: {
+            orgSlug,
+            slug,
+            statusSlug: input.statusSlug as StatusSlug
+          },
           payload: input.patch
         })
         get.refresh(projectStatusesBaseAtom(key))
@@ -136,7 +140,11 @@ export const reorderStatusAtom = Atom.family((key: string) => {
       Effect.fn(function* (input: ReorderInput, get) {
         const client = yield* ApiClient
         const reordered = yield* client.statuses.reorder({
-          path: { orgSlug, slug, statusSlug: input.statusSlug },
+          path: {
+            orgSlug,
+            slug,
+            statusSlug: input.statusSlug as StatusSlug
+          },
           payload: { orderKey: input.orderKey as ReorderStatusInput["orderKey"] }
         })
         get.refresh(projectStatusesBaseAtom(key))
@@ -165,7 +173,11 @@ export const deleteStatusAtom = Atom.family((key: string) => {
       Effect.fn(function* (input: DeleteInput, get) {
         const client = yield* ApiClient
         yield* client.statuses.remove({
-          path: { orgSlug, slug, statusSlug: input.statusSlug },
+          path: {
+            orgSlug,
+            slug,
+            statusSlug: input.statusSlug as StatusSlug
+          },
           urlParams: input.reassignTo ? { reassignTo: input.reassignTo } : {}
         })
         get.refresh(projectStatusesBaseAtom(key))

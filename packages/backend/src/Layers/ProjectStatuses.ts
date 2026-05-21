@@ -283,6 +283,8 @@ export const ProjectStatusesLive = Layer.effect(
         if (affectedIds.length > 0) {
           if (!input.reassignTo)
             return yield* new Conflict({ reason: "reassign_required" })
+          if (input.reassignTo === statusSlug)
+            return yield* new Conflict({ reason: "reassign_target_invalid" })
           const target = yield* db.query.projectStatus
             .findFirst({
               where: and(

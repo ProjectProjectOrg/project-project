@@ -65,7 +65,8 @@ export function SprintDetail({
   }, [])
 
   const saveReorder = useCallback(() => {
-    const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+    if (!Result.isSuccess(statusesResult)) return
+    const statuses = statusesResult.value
     if (dragOrder && statuses.length > 0) {
       const keys = new Map<string, string>(
         statuses.map((s) => [s.slug as string, s.orderKey as string])

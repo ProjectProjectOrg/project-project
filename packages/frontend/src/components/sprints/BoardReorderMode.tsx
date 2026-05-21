@@ -29,6 +29,10 @@ export function useLongPress(
   const handlers: LongPressHandlers = {
     onPointerDown: (e) => {
       if (e.button !== undefined && e.button !== 0) return
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
       startRef.current = { x: e.clientX, y: e.clientY }
       setHolding(true)
       timeoutRef.current = window.setTimeout(() => {
