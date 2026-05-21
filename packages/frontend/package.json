@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy cookie preferredLanguage baseLocale --emit-ts-declarations --silent",
     "typecheck": "bun run paraglide:compile && tsc --noEmit",
+    "test": "vitest run",
     "favicons": "bun scripts/generate-favicons.ts"
   },
   "dependencies": {
@@ -65,11 +66,14 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/router-plugin": "1.167.35",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@toolwind/corner-shape": "^0.0.8-3",
     "@types/prismjs": "^1.26.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.1.1",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.4",
