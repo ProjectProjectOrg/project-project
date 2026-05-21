@@ -253,6 +253,10 @@ export interface QuickCreateTicketArg {
   readonly viewerId: string
 }
 
+let optimisticTicketIdCounter = 1
+const nextOptimisticTicketId = (): TicketId =>
+  `T-${optimisticTicketIdCounter++}` as TicketId
+
 export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
   const { orgSlug, slug } = splitFamilyKey(sectionKey)
   return Atom.optimisticFn(ticketsListAtom(sectionKey), {
@@ -261,7 +265,7 @@ export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
       const status = input.ticket.status ?? ("todo" as TicketStatus)
       const now = DateTime.toDate(DateTime.unsafeNow())
       const predicted: Ticket = {
-        id: "" as TicketId,
+        id: nextOptimisticTicketId(),
         title: input.ticket.title,
         status,
         type: input.ticket.type ?? "other",
