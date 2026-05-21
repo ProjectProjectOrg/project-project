@@ -142,7 +142,7 @@ export function SegmentedList({
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 has-[[data-creating]]:[&>:not([data-creating])]:opacity-35">
       {filteredStatuses.map((status) => (
         <SectionList
           key={status}

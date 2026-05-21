@@ -1,8 +1,15 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { AnimatePresence, motion } from "motion/react"
-import { Loader2 } from "lucide-react"
-import { useDeferredValue, useRef, useState, type ReactNode } from "react"
+import { ChevronDown, Loader2, Plus } from "lucide-react"
+import {
+  useDeferredValue,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode
+} from "react"
 import { Button } from "@/components/ui/button"
+import { Hitbox } from "@/components/ui/hitbox"
 import {
   loadMoreTicketsAtom,
   ticketsListAtom,
@@ -11,6 +18,7 @@ import {
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import type {
   Group,
   Member,
@@ -88,31 +96,149 @@ export function SectionList({
     waiting && "animate-pulse"
   )
 
+  const meta = statusMetaFor(status, statuses)
+  const label = statusLabelFor(status, statuses)
+  const hasTint = meta.color !== null
+  const tintStyle: CSSProperties | undefined = hasTint
+    ? ({
+        "--status-tint": `color-mix(in oklch, ${meta.color} 9%, transparent)`,
+        "--status-tint-hover": `color-mix(in oklch, ${meta.color} 20%, transparent)`
+      } as CSSProperties)
+    : undefined
+
+  const morphTransition = { duration: 0.2, ease: "easeOut" as const }
+  const morphFrom = { opacity: 0, filter: "blur(8px)" }
+  const morphTo = { opacity: 1, filter: "blur(0px)" }
+
+  const shellRef = useRef<HTMLDivElement>(null)
+
+  const onStartCreate = () => {
+    if (collapsed) onToggleCollapsed()
+    setCreating(true)
+  }
+  const onDismissCreate = () => setCreating(false)
+
   return (
-    <div className="flex flex-col gap-1">
-      {creating ? (
-        <div className="sticky top-0 z-10 rounded-lg bg-background/95 px-2 py-2 backdrop-blur">
-          <SectionTicketCreator
-            orgSlug={orgSlug}
-            slug={slug}
-            status={status}
-            query={query}
-            onDone={() => setCreating(false)}
+    <div
+      className="flex flex-col gap-1 transition-opacity duration-200 ease-out"
+      data-creating={creating || undefined}
+    >
+      <div
+        ref={shellRef}
+        style={tintStyle}
+        className={cn(
+          "sticky top-0 z-10 flex items-center gap-2 rounded-lg px-3 py-2 backdrop-blur transition-colors",
+          hasTint ? "bg-[var(--status-tint)]" : "bg-muted/40",
+          !creating &&
+            (hasTint
+              ? "hover:bg-[var(--status-tint-hover)]"
+              : "hover:bg-muted/60")
+        )}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={m.tickets_section_collapse_aria_label({ label })}
+          className={cn(
+            "grid size-5 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
+            "transition-colors hover:text-foreground",
+            "focus-visible:ring-2 focus-visible:ring-ring",
+            "active:scale-[0.9]"
+          )}
+        >
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform duration-150",
+              collapsed && "-rotate-90"
+            )}
+            strokeWidth={1.75}
           />
+        </button>
+
+        <div className="grid min-w-0 flex-1">
+          <AnimatePresence mode="sync" initial={false}>
+            {creating ? (
+              <motion.div
+                key="creator"
+                initial={morphFrom}
+                animate={morphTo}
+                exit={morphFrom}
+                transition={morphTransition}
+                className="min-w-0 self-center [grid-area:1/1]"
+              >
+                <SectionTicketCreator
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  status={status}
+                  query={query}
+                  containerRef={shellRef}
+                  onDone={onDismissCreate}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="header"
+                initial={morphFrom}
+                animate={morphTo}
+                exit={morphFrom}
+                transition={morphTransition}
+                role="button"
+                tabIndex={0}
+                onClick={onToggleCollapsed}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onToggleCollapsed()
+                  }
+                }}
+                aria-expanded={!collapsed}
+                aria-label={m.tickets_section_collapse_aria_label({ label })}
+                className={cn(
+                  "cursor-pointer self-center rounded-md outline-none [grid-area:1/1]",
+                  "focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+              >
+                <SectionHeader
+                  status={status}
+                  statuses={statuses}
+                  count={count}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      ) : (
-        <SectionHeader
-          status={status}
-          statuses={statuses}
-          count={count}
-          collapsed={collapsed}
-          onToggleCollapsed={onToggleCollapsed}
-          onStartCreate={() => {
-            if (collapsed) onToggleCollapsed()
-            setCreating(true)
+
+        <Hitbox
+          mode="inline"
+          margin="2"
+          onClick={(e) => {
+            e.stopPropagation()
+            if (creating) onDismissCreate()
+            else onStartCreate()
           }}
-        />
-      )}
+          aria-label={
+            creating
+              ? m.tickets_section_create_dismiss_aria_label({ label })
+              : m.tickets_section_create_aria_label({ label })
+          }
+          title={
+            creating
+              ? m.tickets_section_create_dismiss_aria_label({ label })
+              : m.tickets_section_create_aria_label({ label })
+          }
+        >
+          <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.9]">
+            <Plus
+              className={cn(
+                "size-4 transition-transform duration-200 ease-out",
+                creating && "rotate-45"
+              )}
+              strokeWidth={1.75}
+            />
+          </span>
+        </Hitbox>
+      </div>
 
       <AnimatePresence initial={false}>
         {!collapsed && (
