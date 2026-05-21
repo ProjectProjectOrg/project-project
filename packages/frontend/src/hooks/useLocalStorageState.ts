@@ -6,9 +6,6 @@ export function useLocalStorageState<A, I>(
   schema: Schema.Schema<A, I>,
   initial: A
 ): readonly [A, (next: A) => void] {
-  const decode = Schema.decodeUnknownEither(schema)
-  const encode = Schema.encodeSync(schema)
-
   const read = (): A => {
     if (typeof window === "undefined") return initial
     const raw = window.localStorage.getItem(key)
@@ -19,7 +16,7 @@ export function useLocalStorageState<A, I>(
     } catch {
       return initial
     }
-    const decoded = decode(parsed)
+    const decoded = Schema.decodeUnknownEither(schema)(parsed)
     return Either.isRight(decoded) ? decoded.right : initial
   }
 
@@ -30,13 +27,13 @@ export function useLocalStorageState<A, I>(
       setValue(next)
       if (typeof window === "undefined") return
       try {
-        const encoded = encode(next)
+        const encoded = Schema.encodeSync(schema)(next)
         window.localStorage.setItem(key, JSON.stringify(encoded))
       } catch {
         return
       }
     },
-    [key, encode]
+    [key, schema]
   )
 
   return [value, write] as const
