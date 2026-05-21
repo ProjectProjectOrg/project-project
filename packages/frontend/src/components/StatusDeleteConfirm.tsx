@@ -2,7 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Check, ChevronDown, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { ProjectStatus, StatusSlug } from "@projectproject/shared"
 import { deleteStatusAtom, projectKey } from "@/atoms/projectStatuses"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
@@ -61,17 +61,15 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
     : 0
 
   const targets = statuses.filter((s) => s.slug !== status.slug)
-  const [target, setTarget] = useState<string>(targets[0]?.slug ?? "")
-
-  useEffect(() => {
-    if (!target && targets[0]) setTarget(targets[0].slug)
-  }, [target, targets])
+  const [target, setTarget] = useState<string>("")
+  const effectiveTarget = target || targets[0]?.slug || ""
 
   async function run() {
     setBusy(true)
     const exit = await remove({
       statusSlug: status.slug,
-      reassignTo: affectedCount > 0 ? (target as StatusSlug) : undefined
+      reassignTo:
+        affectedCount > 0 ? (effectiveTarget as StatusSlug) : undefined
     })
     if (Exit.isSuccess(exit)) {
       close()
@@ -81,7 +79,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
     throw Cause.squash(exit.cause)
   }
 
-  const blocked = busy || (affectedCount > 0 && !target)
+  const blocked = busy || (affectedCount > 0 && !effectiveTarget)
 
   return (
     <>
@@ -96,7 +94,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
         <TargetPicker
           targets={targets}
           statuses={statuses}
-          value={target}
+          value={effectiveTarget}
           onChange={setTarget}
         />
       ) : null}

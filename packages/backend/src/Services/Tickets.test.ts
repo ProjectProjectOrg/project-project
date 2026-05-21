@@ -743,7 +743,7 @@ it.effect("count returns zeros for every status on empty project", () => {
     const result = yield* tickets.count("org", "user-1", "p", {})
     expect(result).toEqual({
       total: 0,
-      byStatus: { todo: 0, in_progress: 0, done: 0 }
+      byStatus: {}
     })
   }).pipe(Effect.provide(layer))
 })
@@ -821,7 +821,7 @@ it.effect("count still applies non-status filters", () => {
     })
     expect(result).toEqual({
       total: 2,
-      byStatus: { todo: 1, in_progress: 1, done: 0 }
+      byStatus: { todo: 1, in_progress: 1 }
     })
   }).pipe(Effect.provide(layer))
 })
@@ -848,7 +848,7 @@ it.effect("count substitutes mine to viewerId like list", () => {
     })
     expect(result).toEqual({
       total: 2,
-      byStatus: { todo: 1, in_progress: 1, done: 0 }
+      byStatus: { todo: 1, in_progress: 1 }
     })
   }).pipe(Effect.provide(layer))
 })

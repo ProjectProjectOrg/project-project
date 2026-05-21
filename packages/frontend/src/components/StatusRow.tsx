@@ -2,7 +2,11 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
 import { GripVertical, Lock } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { ProjectStatus, StatusIconName } from "@projectproject/shared"
+import {
+  isReservedStatusSlug,
+  type ProjectStatus,
+  type StatusIconName
+} from "@projectproject/shared"
 import {
   projectKey,
   updateStatusAtom
@@ -11,7 +15,6 @@ import { ColorPicker } from "@/components/ColorPicker"
 import { Input } from "@/components/ui/input"
 import { StatusDeleteConfirm } from "@/components/StatusDeleteConfirm"
 import { StatusIconPicker } from "@/components/StatusIconPicker"
-import { isBaselineStatus } from "@/lib/status-baseline"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -37,7 +40,7 @@ export function StatusRow({
   onMoveUp,
   onMoveDown
 }: Props) {
-  const baseline = isBaselineStatus(status.slug)
+  const baseline = isReservedStatusSlug(status.slug)
   const key = projectKey(orgSlug, slug)
   const update = useAtomSet(updateStatusAtom(key))
   const controls = useDragControls()

@@ -417,11 +417,7 @@ export const TicketsLive = Layer.effect(
           .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
-        const byStatus: Record<string, number> = {
-          todo: 0,
-          in_progress: 0,
-          done: 0
-        }
+        const byStatus: Record<string, number> = {}
         for (const t of matching)
           byStatus[t.status] = (byStatus[t.status] ?? 0) + 1
 
@@ -497,16 +493,20 @@ export const TicketsLive = Layer.effect(
       assignees: ReadonlyArray<string>
     ): Effect.Effect<void, Validation> =>
       Effect.gen(function* () {
-        const invalid: string[] = []
-        for (const assigneeId of assignees) {
-          const ok = yield* projects
-            .requireMember(orgSlug, assigneeId, slug)
-            .pipe(
-              Effect.as(true as const),
-              Effect.catchTag("NotFound", () => Effect.succeed(false as const))
-            )
-          if (!ok) invalid.push(assigneeId)
-        }
+        const checks = yield* Effect.forEach(
+          assignees,
+          (assigneeId) =>
+            projects
+              .requireMember(orgSlug, assigneeId, slug)
+              .pipe(
+                Effect.as({ id: assigneeId, ok: true as const }),
+                Effect.catchTag("NotFound", () =>
+                  Effect.succeed({ id: assigneeId, ok: false as const })
+                )
+              ),
+          { concurrency: 8 }
+        )
+        const invalid = checks.filter((c) => !c.ok).map((c) => c.id)
         if (invalid.length > 0) {
           return yield* new Validation({
             reason: `non_member_assignees:${invalid.join(",")}`

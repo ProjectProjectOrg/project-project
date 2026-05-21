@@ -296,17 +296,16 @@ export function Toolbar({
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const previousCountsRef = useRef<Record<string, number> | null>(null)
-  if (Result.isSuccess(countsResult)) {
+  const [counts, setCounts] = useState<Record<string, number>>({ all: 0 })
+  useEffect(() => {
+    if (!Result.isSuccess(countsResult)) return
     const byStatus = countsResult.value.byStatus as Record<string, number>
     const next: Record<string, number> = { all: countsResult.value.total }
     for (const s of boardStatusesFor(statuses)) {
       next[s] = byStatus[s] ?? 0
     }
-    previousCountsRef.current = next
-  }
-  const counts: Record<string, number> =
-    previousCountsRef.current ?? { all: 0 }
+    setCounts(next)
+  }, [countsResult, statuses])
 
   const FULL_FITS_ROW = 720
   const ALL_COMPACT_FITS_ROW = 460

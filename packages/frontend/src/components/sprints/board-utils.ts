@@ -27,14 +27,15 @@ export function effectiveStatus(
   return overlay.get(ticket.id) ?? ticket.status
 }
 
+export const compareByOrderKey = <T extends { orderKey: string }>(
+  a: T,
+  b: T
+): number => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)
+
 export function boardStatusesFor(
   statuses: ReadonlyArray<ProjectStatus>
 ): ReadonlyArray<string> {
-  return [...statuses]
-    .toSorted((a, b) =>
-      a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
-    )
-    .map((s) => s.slug)
+  return [...statuses].toSorted(compareByOrderKey).map((s) => s.slug)
 }
 
 export function groupTicketsByStatus(

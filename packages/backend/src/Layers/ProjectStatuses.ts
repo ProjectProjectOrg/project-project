@@ -7,13 +7,13 @@ import {
   Conflict,
   Forbidden,
   NotFound,
-  OUTER_RING,
   ProjectStatus,
   StatusColor,
   StatusLabel,
   StatusSlug,
   deriveStatusSlug,
-  isReservedStatusSlug
+  isReservedStatusSlug,
+  pickStatusColor
 } from "@projectproject/shared"
 import { projectIndex, projectStatus } from "../db/schema"
 import { Db } from "../Services/Db"
@@ -75,11 +75,25 @@ export const ProjectStatusesLive = Layer.effect(
 
     const DEFAULT_ICON = "Circle"
 
-    const pickColor = (used: ReadonlyArray<string>): string => {
-      const palette = OUTER_RING.map((c) => c.hex)
-      for (const c of palette) if (!used.includes(c)) return c
-      return palette[used.length % palette.length]
-    }
+    const rewriteTicketsStatus = (
+      orgSlug: string,
+      slug: string,
+      ids: ReadonlyArray<string>,
+      toSlug: string
+    ) =>
+      Effect.forEach(
+        ids,
+        (id) =>
+          tickets
+            .replaceStatus(orgSlug, slug, id, toSlug)
+            .pipe(
+              Effect.catchTag("NotFound", () => Effect.succeed(false)),
+              Effect.catchTag("MalformedTicketDocument", () =>
+                Effect.succeed(false)
+              )
+            ),
+        { concurrency: 8 }
+      )
 
     const create: ProjectStatusesShape["create"] = (orgSlug, userId, slug, input) =>
       Effect.gen(function* () {
@@ -106,7 +120,7 @@ export const ProjectStatusesLive = Layer.effect(
           existing.length > 0 ? existing[existing.length - 1].orderKey : null
         const nextKey = generateKeyBetween(lastKey, null)
 
-        const color = input.color ?? pickColor(existing.map((s) => s.color))
+        const color = input.color ?? pickStatusColor(existing.map((s) => s.color))
         const icon = input.icon ?? DEFAULT_ICON
 
         const inserted = yield* db
@@ -194,19 +208,7 @@ export const ProjectStatusesLive = Layer.effect(
           indexProject,
           current.slug
         )
-        yield* Effect.forEach(
-          affectedIds,
-          (id) =>
-            tickets
-              .replaceStatus(orgSlug, slug, id, newSlug)
-              .pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(false)),
-                Effect.catchTag("MalformedTicketDocument", () =>
-                  Effect.succeed(false)
-                )
-              ),
-          { concurrency: 8 }
-        )
+        yield* rewriteTicketsStatus(orgSlug, slug, affectedIds, newSlug)
         const updated = yield* db
           .update(projectStatus)
           .set({
@@ -292,19 +294,11 @@ export const ProjectStatusesLive = Layer.effect(
           if (!target)
             return yield* new Conflict({ reason: "reassign_target_missing" })
 
-          const reassignSlug = input.reassignTo
-          yield* Effect.forEach(
+          yield* rewriteTicketsStatus(
+            orgSlug,
+            slug,
             affectedIds,
-            (id) =>
-              tickets
-                .replaceStatus(orgSlug, slug, id, reassignSlug)
-                .pipe(
-                  Effect.catchTag("NotFound", () => Effect.succeed(false)),
-                  Effect.catchTag("MalformedTicketDocument", () =>
-                    Effect.succeed(false)
-                  )
-                ),
-            { concurrency: 8 }
+            input.reassignTo
           )
         }
         yield* db

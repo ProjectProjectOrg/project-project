@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { STATUS_ICON_NAMES, getStatusIcon } from "@/lib/status-icons"
 import { springs } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 type Props = {
   value: string
@@ -46,10 +47,10 @@ export function StatusIconPicker({
       <button
         type="button"
         disabled={disabled}
-        aria-label="Pick status icon"
+        aria-label={m.tickets_status_icon_picker_aria()}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background transition-colors duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background transition-[color,background-color,transform] duration-100 hover:bg-accent active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Current className="h-4 w-4" style={color ? { color } : undefined} />
       </button>
@@ -70,13 +71,13 @@ export function StatusIconPicker({
                   <button
                     key={name}
                     type="button"
-                    aria-label={name}
+                    aria-label={m.tickets_status_icon_option_aria({ name })}
                     onClick={() => {
                       onChange(name)
                       setOpen(false)
                     }}
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded transition-colors duration-100 hover:bg-accent active:scale-[0.97]",
+                      "flex h-7 w-7 items-center justify-center rounded transition-[color,background-color,transform] duration-100 hover:bg-accent active:scale-[0.97]",
                       name === value && "bg-accent"
                     )}
                   >

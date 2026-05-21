@@ -4,9 +4,11 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { compareByOrderKey } from "@/components/sprints/board-utils"
+import { projectKey } from "@/atoms/projects"
 import {
-  OUTER_RING,
   deriveStatusSlug,
+  pickStatusColor,
   type CreateStatusInput,
   type ProjectStatus,
   type ReorderStatusInput,
@@ -14,14 +16,7 @@ import {
   type UpdateStatusInput
 } from "@projectproject/shared"
 
-const pickColor = (used: ReadonlyArray<string>): string => {
-  const palette = OUTER_RING.map((c) => c.hex)
-  for (const c of palette) if (!used.includes(c)) return c
-  return palette[used.length % palette.length]
-}
-
-export const projectKey = (orgSlug: string, slug: string) =>
-  `${orgSlug}/${slug}`
+export { projectKey }
 
 const splitKey = (key: string) => {
   const idx = key.indexOf("/")
@@ -53,7 +48,7 @@ export const createStatusAtom = Atom.family((key: string) => {
       if (derivedSlug.length === 0) return current
       if (current.value.some((s) => s.slug === derivedSlug)) return current
       const color =
-        input.color ?? pickColor(current.value.map((s) => s.color))
+        input.color ?? pickStatusColor(current.value.map((s) => s.color))
       const synthetic: ProjectStatus = {
         slug: derivedSlug as ProjectStatus["slug"],
         label: input.label,
@@ -134,9 +129,7 @@ export const reorderStatusAtom = Atom.family((key: string) => {
             ? { ...s, orderKey: input.orderKey as ProjectStatus["orderKey"] }
             : s
         )
-        .toSorted((a, b) =>
-          a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
-        )
+        .toSorted(compareByOrderKey)
       return Result.success(next, { waiting: true })
     },
     fn: runtime.fn(

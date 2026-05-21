@@ -10,8 +10,10 @@ import {
 } from "@/atoms/projectStatuses"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
 import { ErrorPage } from "@/components/ErrorPage"
+import { compareByOrderKey } from "@/components/sprints/board-utils"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
 import { StatusRow } from "@/components/StatusRow"
+import { m } from "@/paraglide/messages"
 
 type Props = {
   orgSlug: string
@@ -24,7 +26,7 @@ export function StatusList({ orgSlug, slug }: Props) {
   return Result.matchWithError(result, {
     onInitial: () => (
       <section className="flex w-full flex-col gap-2 text-sm text-muted-foreground">
-        Loading…
+        {m.tickets_status_loading()}
       </section>
     ),
     onError: (error) => <ErrorPage error={error} contained />,
@@ -45,10 +47,7 @@ function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
   useAtomValue(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))
 
   const sorted = useMemo(
-    () =>
-      [...statuses].toSorted((a, b) =>
-        a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0
-      ),
+    () => [...statuses].toSorted(compareByOrderKey),
     [statuses]
   )
 
