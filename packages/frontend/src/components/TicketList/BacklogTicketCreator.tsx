@@ -30,15 +30,18 @@ import {
   projectKey as sprintsKey,
   sprintsListAtom
 } from "@/atoms/sprints"
-import { quickCreateTicketAtom, ticketsCountKey } from "@/atoms/tickets"
+import {
+  quickCreateTicketAtom,
+  ticketsListKeyForStatus
+} from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import type {
   Group,
-  TicketCountQuery,
   TicketListQuery,
+  TicketStatus,
   TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -53,12 +56,16 @@ export function BacklogTicketCreator({
   query: TicketListQuery
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const countQuery: TicketCountQuery = { filter: query.filter, q: query.q }
-  const countKey = ticketsCountKey(orgSlug, slug, countQuery)
-  const create = useAtomSet(quickCreateTicketAtom(countKey), {
+  const sectionKey = ticketsListKeyForStatus(
+    orgSlug,
+    slug,
+    query,
+    "todo" as TicketStatus
+  )
+  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(countKey))
+  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()

@@ -34,7 +34,7 @@ import {
   quickCreateTicketAtom,
   ticketSearchAtom,
   ticketSearchKey,
-  ticketsCountKey
+  ticketsListKeyForStatus
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -43,6 +43,7 @@ import type {
   GroupId,
   Ticket,
   TicketId,
+  TicketStatus,
   TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -64,14 +65,17 @@ export function SprintTicketCreator({
 }) {
   const projKey = projectKey(orgSlug, slug)
   const sprintProjectKey = sprintsKey(orgSlug, slug)
-  const countKey = ticketsCountKey(orgSlug, slug, {
-    filter: { groupId: [groupId] }
-  })
+  const sectionKey = ticketsListKeyForStatus(
+    orgSlug,
+    slug,
+    { sort: { key: "updated", dir: "desc" }, filter: { groupId: [groupId] } },
+    "todo" as TicketStatus
+  )
 
-  const create = useAtomSet(quickCreateTicketAtom(countKey), {
+  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(countKey))
+  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
   const submitting = createState.waiting
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
