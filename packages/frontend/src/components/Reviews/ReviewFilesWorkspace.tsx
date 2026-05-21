@@ -3,7 +3,8 @@ import {
   FileCode2,
   GitPullRequestArrow,
   Rows3,
-  SquareSplitHorizontal
+  SquareSplitHorizontal,
+  WrapText
 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { CodeViewHandle } from "@pierre/diffs/react"
@@ -46,6 +47,7 @@ export function ReviewFilesWorkspace({
   const summariesResult = useAtomValue(reviewFileSummariesAtom(key))
   const filesResult = useAtomValue(reviewFilesAtom(key))
   const [desktopDiffStyle, setDesktopDiffStyle] = useState<DiffStyle>("split")
+  const [wordWrap, setWordWrap] = useState(false)
   const narrow = useMediaQuery("(max-width: 767px)")
   const viewerRef = useRef<CodeViewHandle<undefined> | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -107,22 +109,43 @@ export function ReviewFilesWorkspace({
           <span className="font-mono text-xs tabular-nums text-state-danger">
             -{review.pr.counts.deletions}
           </span>
-          <SegmentedTabs
-            items={DIFF_STYLE_ITEMS}
-            layoutId="review-diff-style"
-            variant="inline"
-            className="hidden rounded-lg border border-border bg-background p-1 md:inline-flex"
-            isActive={(key) => desktopDiffStyle === key}
-            renderItem={(item, content, { active }) => (
-              <button
-                type="button"
-                className={SEGMENTED_ITEM_CLASS(active, "inline")}
-                onClick={() => setDesktopDiffStyle(item.key)}
-              >
-                {content}
-              </button>
-            )}
-          />
+          <div
+            role="group"
+            aria-label={m.reviews_diff_controls_label()}
+            className="hidden shrink-0 items-center gap-1 rounded-lg border border-border bg-background p-1 md:flex"
+          >
+            <SegmentedTabs
+              items={DIFF_STYLE_ITEMS}
+              layoutId="review-diff-style"
+              variant="inline"
+              isActive={(key) => desktopDiffStyle === key}
+              renderItem={(item, content, { active }) => (
+                <button
+                  type="button"
+                  className={SEGMENTED_ITEM_CLASS(active, "inline")}
+                  onClick={() => setDesktopDiffStyle(item.key)}
+                >
+                  {content}
+                </button>
+              )}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-pressed={wordWrap}
+              aria-label={
+                wordWrap
+                  ? m.reviews_diff_word_wrap_disable()
+                  : m.reviews_diff_word_wrap_enable()
+              }
+              className="h-6 px-1.5 text-xs aria-pressed:bg-accent aria-pressed:text-foreground"
+              onClick={() => setWordWrap((value) => !value)}
+            >
+              <WrapText className="size-3" strokeWidth={1.75} aria-hidden />
+              {m.reviews_diff_word_wrap()}
+            </Button>
+          </div>
           {selectedRange && (
             <Badge tone="muted" className="max-w-[14rem]">
               <span className="truncate">{selectedRangeLabel}</span>
@@ -169,6 +192,7 @@ export function ReviewFilesWorkspace({
                   diffStyle={diffStyle}
                   viewerRef={viewerRef}
                   scrollRef={scrollRef}
+                  wordWrap={wordWrap}
                   onSelectedRange={setSelectedRange}
                 />
               )

@@ -10,6 +10,12 @@ import {
 import { useMemo, useState } from "react"
 import { parsePatchFiles } from "@pierre/diffs"
 import { Button } from "@/components/ui/button"
+import {
+  registerReviewDiffThemes,
+  REVIEW_DIFF_THEME,
+  REVIEW_DIFF_UNSAFE_CSS,
+  useReviewDiffThemeType
+} from "@/lib/reviewDiffTheme"
 import { m } from "@/paraglide/messages"
 import type { SelectedLineRange } from "@pierre/diffs"
 import type { FileDiffMetadata, VirtualFileMetrics } from "@pierre/diffs/react"
@@ -24,7 +30,7 @@ type DiffStyle = "unified" | "split"
 const DIFF_METRICS: VirtualFileMetrics = {
   hunkLineCount: 20,
   lineHeight: 20,
-  diffHeaderHeight: 0,
+  diffHeaderHeight: 44,
   hunkSeparatorHeight: 28,
   spacing: 16
 }
@@ -32,10 +38,12 @@ const DIFF_METRICS: VirtualFileMetrics = {
 export function ReviewFileDiffBlock({
   file,
   diffStyle,
+  wordWrap = false,
   onSelectedRange
 }: {
   file: ReviewFilePatch
   diffStyle: DiffStyle
+  wordWrap?: boolean
   onSelectedRange: (
     range: Omit<PendingReviewCommentInput, "body"> | null
   ) => void
@@ -44,6 +52,7 @@ export function ReviewFileDiffBlock({
   const [selectedLines, setSelectedLines] = useState<SelectedLineRange | null>(
     null
   )
+  const themeType = useReviewDiffThemeType()
   const fileDiff = useMemo(() => buildPierreFileDiff(file), [file])
   const unavailable = file.summary.binary || file.tooLarge || fileDiff === null
 
@@ -55,6 +64,8 @@ export function ReviewFileDiffBlock({
         : null
     )
   }
+
+  registerReviewDiffThemes()
 
   return (
     <section
@@ -125,13 +136,10 @@ export function ReviewFileDiffBlock({
               selectedLines={selectedLines}
               className="block min-w-0 overflow-hidden [font-family:var(--font-mono)] text-[12px] leading-5"
               options={{
-                theme: {
-                  light: "pierre-light",
-                  dark: "pierre-dark"
-                },
-                themeType: "system",
+                theme: REVIEW_DIFF_THEME,
+                themeType,
                 diffStyle,
-                overflow: "scroll",
+                overflow: wordWrap ? "wrap" : "scroll",
                 diffIndicators: "bars",
                 hunkSeparators: "line-info-basic",
                 lineDiffType: "word-alt",
@@ -140,6 +148,7 @@ export function ReviewFileDiffBlock({
                 disableFileHeader: true,
                 tokenizeMaxLineLength: 500,
                 maxLineDiffLength: 500,
+                unsafeCSS: REVIEW_DIFF_UNSAFE_CSS,
                 onLineSelected: updateSelection
               }}
             />
