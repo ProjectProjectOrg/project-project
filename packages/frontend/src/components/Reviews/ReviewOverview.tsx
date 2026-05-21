@@ -12,6 +12,7 @@ import {
 import { useState } from "react"
 import { Markdown } from "@/components/Markdown"
 import { TicketMentionCard } from "@/components/Lexical/TicketMentionCard"
+import { ReviewActions } from "@/components/Reviews/ReviewActions"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ import type { ReviewPage as ReviewPageDto } from "@projectproject/shared"
 export function ReviewOverview({
   orgSlug,
   slug,
+  prNumber,
   review
 }: {
   orgSlug: string
@@ -73,6 +75,13 @@ export function ReviewOverview({
               </div>
             )}
           </section>
+
+          <ReviewActions
+            orgSlug={orgSlug}
+            slug={slug}
+            prNumber={prNumber}
+            review={review}
+          />
         </main>
 
         <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">

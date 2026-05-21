@@ -956,7 +956,7 @@ git commit -m "feat(review): show and manage review threads"
 - Modify: `ReviewFilesWorkspace.tsx`
 - Modify: `ReviewOverview.tsx` if overview exposes actions
 
-- [ ] **Step 1: Implement primary action rules**
+- [x] **Step 1: Implement primary action rules**
 
 Rules:
 
@@ -966,23 +966,23 @@ Rules:
 - closed and unmerged PR: `Reopen PR`
 - merged PR: read-only state
 
-- [ ] **Step 2: Build merge surface**
+- [x] **Step 2: Build merge surface**
 
 Show allowed merge methods. Default to `squash` when allowed; otherwise default to the next available method.
 
-- [ ] **Step 3: Build close/reopen surfaces**
+- [x] **Step 3: Build close/reopen surfaces**
 
 Use overflow for close on open PRs. Use primary action for reopen on closed unmerged PRs.
 
-- [ ] **Step 4: Respect disabled reasons**
+- [x] **Step 4: Respect disabled reasons**
 
 Controls should be visible but disabled when the action is relevant and unavailable. Surface backend disabled reasons in concise copy.
 
-- [ ] **Step 5: Refresh after mutations**
+- [x] **Step 5: Refresh after mutations**
 
 Merge/close/reopen refresh review overview, comments if needed, project git states, and linked ticket atoms.
 
-- [ ] **Step 6: Typecheck**
+- [x] **Step 6: Typecheck**
 
 ```bash
 bun --filter @projectproject/frontend run typecheck
