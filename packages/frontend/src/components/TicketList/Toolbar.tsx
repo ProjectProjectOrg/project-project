@@ -73,6 +73,8 @@ import { TICKET_SEARCH_KEYS } from "./url"
 type SearchValue = string | ReadonlyArray<string> | undefined
 type SearchRecord = { readonly [k: string]: SearchValue }
 
+const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
   "text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]",
@@ -295,7 +297,9 @@ export function Toolbar({
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+    ? statusesResult.value
+    : EMPTY_STATUSES
   const [counts, setCounts] = useState<Record<string, number>>({ all: 0 })
   useEffect(() => {
     if (!Result.isSuccess(countsResult)) return

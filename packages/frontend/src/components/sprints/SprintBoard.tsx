@@ -22,6 +22,7 @@ import {
 import type {
   GroupId,
   Member,
+  ProjectStatus,
   Ticket,
   TicketId
 } from "@projectproject/shared"
@@ -34,6 +35,8 @@ import {
   type DragData
 } from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
+
+const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export function SprintBoard({
   orgSlug,
@@ -134,7 +137,9 @@ export function SprintBoard({
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
   const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+    ? statusesResult.value
+    : EMPTY_STATUSES
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const order = dragOrder ?? statusSlugs
