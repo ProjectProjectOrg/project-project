@@ -138,6 +138,7 @@ export function SectionList({
                         orgSlug={orgSlug}
                         slug={slug}
                         ticket={t}
+                        query={query}
                         members={members}
                         showSprintCol={showSprintCol}
                         showExtraActionsCol={showExtraActionsCol}

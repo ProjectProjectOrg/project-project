@@ -12,14 +12,23 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import {
+  ticketsListKeyForStatus,
+  updateTicketStatusAtom
+} from "@/atoms/tickets"
+import { projectKey } from "@/atoms/projects"
 import {
   projectKey as projectStatusKey,
   projectStatusesAtom
 } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { cn } from "@/lib/utils"
-import type { ProjectStatus, TicketId, TicketStatus } from "@projectproject/shared"
+import type {
+  ProjectStatus,
+  TicketId,
+  TicketListQuery,
+  TicketStatus
+} from "@projectproject/shared"
 
 function StatusMenuItems({
   orgSlug,
@@ -82,16 +91,16 @@ export function StatusBadgeTrigger({
   orgSlug,
   slug,
   ticket,
+  query,
   className
 }: {
   orgSlug: string
   slug: string
   ticket: { id: TicketId; status: TicketStatus }
+  query: TicketListQuery
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const update = useAtomSet(updateTicketStatusAtom(projectKey(orgSlug, slug)))
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
@@ -131,7 +140,24 @@ export function StatusBadgeTrigger({
           slug={slug}
           current={ticket.status}
           statuses={statuses}
-          onSelect={(status) => update({ status })}
+          onSelect={(status) =>
+            update({
+              id: ticket.id,
+              status,
+              sourceSectionKey: ticketsListKeyForStatus(
+                orgSlug,
+                slug,
+                query,
+                ticket.status
+              ),
+              destSectionKey: ticketsListKeyForStatus(
+                orgSlug,
+                slug,
+                query,
+                status
+              )
+            })
+          }
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -142,18 +168,18 @@ export function StatusButton({
   orgSlug,
   slug,
   ticket,
+  query,
   stopPropagation,
   size = "sm"
 }: {
   orgSlug: string
   slug: string
   ticket: { id: TicketId; status: TicketStatus }
+  query: TicketListQuery
   stopPropagation?: boolean
   size?: "sm" | "lg"
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const update = useAtomSet(updateTicketStatusAtom(projectKey(orgSlug, slug)))
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
@@ -202,7 +228,24 @@ export function StatusButton({
           slug={slug}
           current={ticket.status}
           statuses={statuses}
-          onSelect={(status) => update({ status })}
+          onSelect={(status) =>
+            update({
+              id: ticket.id,
+              status,
+              sourceSectionKey: ticketsListKeyForStatus(
+                orgSlug,
+                slug,
+                query,
+                ticket.status
+              ),
+              destSectionKey: ticketsListKeyForStatus(
+                orgSlug,
+                slug,
+                query,
+                status
+              )
+            })
+          }
         />
       </DropdownMenuContent>
     </DropdownMenu>
