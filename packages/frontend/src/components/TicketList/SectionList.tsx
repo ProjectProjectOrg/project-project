@@ -108,7 +108,10 @@ export function SectionList({
           count={count}
           collapsed={collapsed}
           onToggleCollapsed={onToggleCollapsed}
-          onStartCreate={() => setCreating(true)}
+          onStartCreate={() => {
+            if (collapsed) onToggleCollapsed()
+            setCreating(true)
+          }}
         />
       )}
 
