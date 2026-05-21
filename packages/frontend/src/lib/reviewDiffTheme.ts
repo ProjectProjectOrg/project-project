@@ -10,7 +10,7 @@ export const REVIEW_DIFF_UNSAFE_CSS = `
 :host {
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-mono);
-  --diffs-font-size: 12px;
+  --diffs-font-size: 14px;
   --diffs-line-height: 20px;
   --diffs-gap-inline: 8px;
   --diffs-scrollbar-gutter-override: 0px;
