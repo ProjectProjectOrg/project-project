@@ -54,7 +54,7 @@ import {
   type TicketIndexProject
 } from "../Services/TicketIndex"
 import { Db } from "../Services/Db"
-import { projectIndex, projectTag } from "../db/schema"
+import { projectIndex, projectStatus, projectTag } from "../db/schema"
 import { eq } from "drizzle-orm"
 import {
   MalformedTicketDocument,
@@ -472,6 +472,32 @@ export const TicketsLive = Layer.effect(
         }
       })
 
+    const validateStatusExists = (
+      slug: string,
+      requested: TicketStatus
+    ): Effect.Effect<void, NotFound | Validation> =>
+      Effect.gen(function* () {
+        const projectRow = yield* db.query.projectIndex
+          .findFirst({
+            columns: { id: true },
+            where: eq(projectIndex.slug, slug)
+          })
+          .pipe(Effect.orDie)
+        if (!projectRow) return yield* new NotFound()
+        const rows = yield* db.query.projectStatus
+          .findMany({
+            columns: { slug: true },
+            where: eq(projectStatus.projectId, projectRow.id)
+          })
+          .pipe(Effect.orDie)
+        const known = new Set<string>(rows.map((r) => r.slug))
+        if (!known.has(requested)) {
+          return yield* new Validation({
+            reason: `unknown_status:${requested}`
+          })
+        }
+      })
+
     const validateBody = (
       orgSlug: string,
       ownerId: string,
@@ -545,9 +571,12 @@ export const TicketsLive = Layer.effect(
       ownerId: string,
       slug: string,
       input: QuickCreateTicketInput
-    ): Effect.Effect<Ticket, NotFound | MarkdownError> =>
+    ): Effect.Effect<Ticket, NotFound | Validation | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, ownerId, slug)
+        if (input.status !== undefined) {
+          yield* validateStatusExists(slug, input.status)
+        }
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         const projectKey = yield* projects.getKey(orgSlug, ownerId, slug)
         const now = yield* DateTime.nowAsDate
@@ -558,7 +587,7 @@ export const TicketsLive = Layer.effect(
           (id) => ({
             id,
             title: input.title,
-            status: "todo" as TicketStatus,
+            status: (input.status ?? "todo") as TicketStatus,
             type: input.type ?? "other",
             priority: "med",
             tags: [],

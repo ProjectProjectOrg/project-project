@@ -407,6 +407,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       .addSuccess(Ticket)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.post("create", "/orgs/:orgSlug/projects/:slug/tickets")
