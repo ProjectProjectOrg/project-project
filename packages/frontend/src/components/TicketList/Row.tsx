@@ -2,7 +2,12 @@ import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from "react
 import { useNavigate } from "@tanstack/react-router"
 import { TicketGitChip } from "@/components/TicketGit"
 import { cn } from "@/lib/utils"
-import type { Group, Member, Ticket } from "@projectproject/shared"
+import type {
+  Group,
+  Member,
+  Ticket,
+  TicketListQuery
+} from "@projectproject/shared"
 import { AssigneeRowTrigger } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -13,6 +18,7 @@ function RowImpl({
   orgSlug,
   slug,
   ticket,
+  query,
   members,
   showSprintCol,
   showExtraActionsCol,
@@ -22,6 +28,7 @@ function RowImpl({
   orgSlug: string
   slug: string
   ticket: Ticket
+  query: TicketListQuery
   members: ReadonlyArray<Member>
   showSprintCol: boolean
   showExtraActionsCol: boolean
@@ -61,6 +68,7 @@ function RowImpl({
           orgSlug={orgSlug}
           slug={slug}
           ticket={ticket}
+          query={query}
           stopPropagation
         />
         <PriorityButton
