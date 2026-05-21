@@ -1,4 +1,5 @@
-import { Either, Schema } from "effect"
+import * as Either from "effect/Either"
+import * as Schema from "effect/Schema"
 import { useCallback, useState } from "react"
 
 export function useLocalStorageState<A, I>(
