@@ -1,5 +1,5 @@
 import { ChevronDown, Plus } from "lucide-react"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { Hitbox } from "@/components/ui/hitbox"
 import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,12 @@ export function SectionHeader({
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
   const label = statusLabelFor(status, statuses)
+  const tintStyle = meta.color
+    ? ({
+        "--status-tint": `color-mix(in oklch, ${meta.color} 9%, transparent)`,
+        "--status-tint-hover": `color-mix(in oklch, ${meta.color} 20%, transparent)`
+      } as CSSProperties)
+    : undefined
 
   return (
     <div
@@ -38,9 +44,13 @@ export function SectionHeader({
       }}
       aria-expanded={!collapsed}
       aria-label={m.tickets_section_collapse_aria_label({ label })}
+      style={tintStyle}
       className={cn(
-        "sticky top-0 z-10 flex cursor-pointer items-center gap-2 rounded-t-xl border-b border-border bg-background/95 px-3 py-2 backdrop-blur",
-        "transition-colors hover:bg-accent/30 active:scale-[0.997]",
+        "sticky top-0 z-10 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 backdrop-blur",
+        tintStyle
+          ? "bg-[var(--status-tint)] hover:bg-[var(--status-tint-hover)]"
+          : "bg-muted/40 hover:bg-muted/60",
+        "transition-colors active:scale-[0.997]",
         "outline-none focus-visible:ring-2 focus-visible:ring-ring"
       )}
     >

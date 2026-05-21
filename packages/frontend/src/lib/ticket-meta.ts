@@ -26,19 +26,19 @@ const BASELINE_META: Record<string, StatusMeta> = {
     label: "Todo",
     icon: CircleDashed,
     className: "text-muted-foreground",
-    color: null
+    color: "var(--muted-foreground)"
   },
   in_progress: {
     label: "In progress",
     icon: CircleDot,
     className: "text-state-info",
-    color: null
+    color: "var(--color-state-info)"
   },
   done: {
     label: "Done",
     icon: Check,
     className: "text-state-success",
-    color: null
+    color: "var(--color-state-success)"
   }
 }
 
