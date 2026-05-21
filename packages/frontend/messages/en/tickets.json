@@ -67,6 +67,7 @@
   "tickets_section_collapse_aria_label": "Toggle section {label}",
   "tickets_section_count_aria_label": "{count} tickets",
   "tickets_section_create_aria_label": "Create ticket in {label}",
+  "tickets_section_create_dismiss_aria_label": "Dismiss ticket creator for {label}",
   "tickets_section_create_placeholder": "Ticket title…",
   "tickets_section_load_more_button": "Load more ({remaining})",
   "tickets_sort_aria_label": "Sort tickets ({label})",
