@@ -46,12 +46,15 @@ export function groupTicketsByStatus(
 ): Record<string, ReadonlyArray<Ticket>> {
   const out: Record<string, Array<Ticket>> = {}
   for (const slug of statusSlugs) out[slug] = []
+  const fallback = statusSlugs[0]
+  const known = new Set(statusSlugs)
   for (const tid of ticketIds) {
     const ticket = ticketById.get(tid)
     if (!ticket) continue
     const status = effectiveStatus(ticket, overlay)
-    if (!out[status]) out[status] = []
-    out[status].push(ticket)
+    const bucket = known.has(status) ? status : fallback
+    if (bucket === undefined) continue
+    out[bucket].push(ticket)
   }
   return out
 }
