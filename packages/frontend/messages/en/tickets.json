@@ -91,6 +91,7 @@
   "tickets_status_delete_cancel": "Cancel",
   "tickets_status_delete_confirm_empty": "Delete this status?",
   "tickets_status_delete_confirm_with_tickets": "Move {count} tickets to",
+  "tickets_status_delete_error_fallback": "Couldn't delete this status. Try again.",
   "tickets_status_baseline_locked_aria": "Built-in status. Label, icon, and color are fixed — order can still be changed.",
   "tickets_status_deleting": "Deleting…",
   "tickets_status_done": "Done",

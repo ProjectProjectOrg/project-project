@@ -1,5 +1,4 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Check, ChevronDown, Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -63,9 +62,11 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
   const targets = statuses.filter((s) => s.slug !== status.slug)
   const [target, setTarget] = useState<string>("")
   const effectiveTarget = target || targets[0]?.slug || ""
+  const [error, setError] = useState<string | null>(null)
 
   async function run() {
     setBusy(true)
+    setError(null)
     const exit = await remove({
       statusSlug: status.slug,
       reassignTo:
@@ -76,7 +77,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
       return
     }
     setBusy(false)
-    throw Cause.squash(exit.cause)
+    setError(m.tickets_status_delete_error_fallback())
   }
 
   const blocked = busy || (affectedCount > 0 && !effectiveTarget)
@@ -101,7 +102,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
       <Button
         size="sm"
         onClick={() => {
-          void run().catch(() => {})
+          void run()
         }}
         disabled={blocked}
         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -109,6 +110,11 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
         {busy ? m.tickets_status_deleting() : m.tickets_status_delete_button()}
       </Button>
       <ConfirmButton.Cancel />
+      {error !== null ? (
+        <span role="alert" className="text-xs text-destructive">
+          {error}
+        </span>
+      ) : null}
     </>
   )
 }
