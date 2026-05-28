@@ -25,9 +25,9 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprintAtom,
   projectKey as sprintsKey,
-  sprintsListAtom
+  sprintsListAtom,
+  useAddTicketsToSprint
 } from "@/atoms/sprints"
 import { meAtom } from "@/atoms/auth"
 import {
@@ -107,7 +107,7 @@ export function SprintTicketCreator({
     )
   )
   const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
+  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()

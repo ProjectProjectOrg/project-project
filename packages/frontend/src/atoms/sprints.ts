@@ -1,4 +1,5 @@
-import { Atom, Result } from "@effect-atom/atom-react"
+import { Atom, Result, useAtomSet } from "@effect-atom/atom-react"
+import { useCallback } from "react"
 import * as Reactivity from "@effect/experimental/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -193,7 +194,7 @@ export const pendingSprintAssignmentAtom = Atom.family((_key: string) =>
   Atom.make<PendingSprintAssignment>(new Map())
 )
 
-const writePending = (
+export const writePendingSprintAssignments = (
   current: PendingSprintAssignment,
   entries: ReadonlyArray<readonly [TicketId, GroupId | null]>
 ): PendingSprintAssignment => {
@@ -204,6 +205,8 @@ const writePending = (
   }
   return next
 }
+
+const writePending = writePendingSprintAssignments
 
 const dropPending = (
   current: PendingSprintAssignment,
@@ -369,6 +372,40 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
     )
   })
 })
+
+export function useAddTicketsToSprint(key: string) {
+  const addToSprintRaw = useAtomSet(addTicketsToSprintAtom(key))
+  const setPending = useAtomSet(pendingSprintAssignmentAtom(key))
+  return useCallback(
+    (input: AddTicketsReducerInput) => {
+      setPending((current) =>
+        writePendingSprintAssignments(
+          current,
+          input.ticketIds.map((tid) => [tid, input.groupId] as const)
+        )
+      )
+      addToSprintRaw(input)
+    },
+    [addToSprintRaw, setPending]
+  )
+}
+
+export function useRemoveTicketsFromSprint(key: string) {
+  const removeRaw = useAtomSet(removeTicketsFromSprintAtom(key))
+  const setPending = useAtomSet(pendingSprintAssignmentAtom(key))
+  return useCallback(
+    (input: RemoveTicketsReducerInput) => {
+      setPending((current) =>
+        writePendingSprintAssignments(
+          current,
+          input.ticketIds.map((tid) => [tid, null as GroupId | null] as const)
+        )
+      )
+      removeRaw(input)
+    },
+    [removeRaw, setPending]
+  )
+}
 
 type CompleteSprintReducerInput = {
   groupId: GroupId

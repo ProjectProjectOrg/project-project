@@ -26,9 +26,9 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { meAtom } from "@/atoms/auth"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprintAtom,
   projectKey as sprintsKey,
-  sprintsListAtom
+  sprintsListAtom,
+  useAddTicketsToSprint
 } from "@/atoms/sprints"
 import {
   quickCreateTicketAtom,
@@ -82,7 +82,7 @@ export function SectionTicketCreator({
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
+  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
 
   const groupIdFilter = query.filter?.groupId
   const singleGroupIdFilter =

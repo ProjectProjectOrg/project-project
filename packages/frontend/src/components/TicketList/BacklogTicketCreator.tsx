@@ -26,9 +26,9 @@ import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprintAtom,
   projectKey as sprintsKey,
-  sprintsListAtom
+  sprintsListAtom,
+  useAddTicketsToSprint
 } from "@/atoms/sprints"
 import {
   quickCreateTicketAtom,
@@ -87,9 +87,7 @@ export function BacklogTicketCreator({
     [sprintListResult]
   )
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const addToSprint = useAtomSet(
-    addTicketsToSprintAtom(sprintsKey(orgSlug, slug))
-  )
+  const addToSprint = useAddTicketsToSprint(sprintsKey(orgSlug, slug))
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")

@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import { m } from "@/paraglide/messages"
 import {
-  addTicketsToSprintAtom,
   projectKey,
-  removeTicketsFromSprintAtom,
   sprintMembershipAtom,
-  sprintsListAtom
+  sprintsListAtom,
+  useAddTicketsToSprint,
+  useRemoveTicketsFromSprint
 } from "@/atoms/sprints"
 import { type Group, type TicketId } from "@projectproject/shared"
 import { Result } from "@effect-atom/atom-react"
@@ -31,8 +31,8 @@ export function SprintField({
 }) {
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(key))
-  const removeFromSprint = useAtomSet(removeTicketsFromSprintAtom(key))
+  const addToSprint = useAddTicketsToSprint(key)
+  const removeFromSprint = useRemoveTicketsFromSprint(key)
   const [open, setOpen] = useState(false)
 
   if (!membership) return null
@@ -85,8 +85,8 @@ export function SprintBadgeTrigger({
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
   const membership = useAtomValue(sprintMembershipAtom(key))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(key))
-  const removeFromSprint = useAtomSet(removeTicketsFromSprintAtom(key))
+  const addToSprint = useAddTicketsToSprint(key)
+  const removeFromSprint = useRemoveTicketsFromSprint(key)
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)
