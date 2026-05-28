@@ -13,6 +13,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty"
+import { ErrorPage } from "@/components/ErrorPage"
 import {
   projectKey as projectStatusKey,
   projectStatusesAtom
@@ -86,6 +87,25 @@ export function SegmentedList({
   }
   const active = activeRef.current
   const isStale = active === null || active.key !== currentCountsKey
+
+  if (active === null) {
+    if (Result.isFailure(statusesResult)) {
+      return Result.matchWithError(statusesResult, {
+        onInitial: () => null,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />,
+        onSuccess: () => null
+      })
+    }
+    if (Result.isFailure(countsResult)) {
+      return Result.matchWithError(countsResult, {
+        onInitial: () => null,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />,
+        onSuccess: () => null
+      })
+    }
+  }
 
   const renderQuery = active?.query ?? query
   const counts = active?.counts ?? EMPTY_COUNTS
