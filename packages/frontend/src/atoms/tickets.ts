@@ -254,20 +254,14 @@ export interface QuickCreateTicketArg {
   readonly projectPrefix: string
 }
 
-function predictNextTicketId(
+function optimisticTicketId(
   items: ReadonlyArray<Ticket>,
   prefix: string
 ): TicketId {
-  let next = 1
-  for (const t of items) {
-    const dash = t.id.lastIndexOf("-")
-    if (dash < 0) continue
-    const n = Number(t.id.slice(dash + 1))
-    if (Number.isFinite(n) && n + 1 > next) next = n + 1
-  }
   const taken = new Set<string>(items.map((t) => t.id))
-  while (taken.has(`${prefix}-${next}`)) next++
-  return `${prefix}-${next}` as TicketId
+  let n = 999999
+  while (taken.has(`${prefix}-${n}`)) n++
+  return `${prefix}-${n}` as TicketId
 }
 
 export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
@@ -278,7 +272,7 @@ export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
       const status = input.ticket.status ?? ("todo" as TicketStatus)
       const now = DateTime.toDate(DateTime.unsafeNow())
       const predicted: Ticket = {
-        id: predictNextTicketId(current.value.items, input.projectPrefix),
+        id: optimisticTicketId(current.value.items, input.projectPrefix),
         title: input.ticket.title,
         status,
         type: input.ticket.type ?? "other",
