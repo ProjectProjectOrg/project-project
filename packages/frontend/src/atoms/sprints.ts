@@ -229,6 +229,16 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
         for (const ev of result.evicted) {
           get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, ev.groupId)))
         }
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        yield* get.result(sprintsListBaseAtom(key), {
+          suspendOnWaiting: true
+        })
+        yield* get.result(
+          ticketsInSprintAtom(
+            ticketsInSprintKey(orgSlug, slug, input.groupId)
+          ),
+          { suspendOnWaiting: true }
+        )
         return result
       })
     )
@@ -272,6 +282,16 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
         })
         get.refresh(sprintsListBaseAtom(key))
         get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        yield* get.result(sprintsListBaseAtom(key), {
+          suspendOnWaiting: true
+        })
+        yield* get.result(
+          ticketsInSprintAtom(
+            ticketsInSprintKey(orgSlug, slug, input.groupId)
+          ),
+          { suspendOnWaiting: true }
+        )
         return result
       })
     )
