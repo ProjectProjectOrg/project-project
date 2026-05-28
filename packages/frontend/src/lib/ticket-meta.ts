@@ -52,35 +52,36 @@ export function statusLabelFor(
   status: string,
   statuses: ReadonlyArray<ProjectStatus>
 ): string {
+  const row = statuses.find((s) => s.slug === status)
+  if (row) return row.label
   const baseline = BASELINE_LABELS[status]
   if (baseline) return baseline()
-  const row = statuses.find((s) => s.slug === status)
-  return row?.label ?? status
+  return status
 }
 
 export function statusMetaFor(
   status: string,
   statuses: ReadonlyArray<ProjectStatus>
 ): StatusMeta {
+  const row = statuses.find((s) => s.slug === status)
+  if (row) {
+    return {
+      label: row.label,
+      icon: getStatusIcon(row.icon),
+      className: "",
+      color: row.color
+    }
+  }
   const baseline = BASELINE_META[status]
   if (baseline) {
     const labeled = BASELINE_LABELS[status]
     return { ...baseline, label: labeled ? labeled() : baseline.label }
   }
-  const row = statuses.find((s) => s.slug === status)
-  if (!row) {
-    return {
-      label: status,
-      icon: Circle,
-      className: "text-muted-foreground",
-      color: null
-    }
-  }
   return {
-    label: row.label,
-    icon: getStatusIcon(row.icon),
-    className: "",
-    color: row.color
+    label: status,
+    icon: Circle,
+    className: "text-muted-foreground",
+    color: null
   }
 }
 
