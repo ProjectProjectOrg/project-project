@@ -1,6 +1,7 @@
 import { Atom, Result, useAtomSet } from "@effect-atom/atom-react"
 import { useCallback } from "react"
 import * as Reactivity from "@effect/experimental/Reactivity"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -295,7 +296,12 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
             )
           }
           return result
-        }).pipe(Effect.tapErrorCause(() => releasePending))
+        }).pipe(
+          Effect.tapErrorCause((cause) =>
+            Cause.isInterruptedOnly(cause) ? Effect.void : releasePending
+          ),
+          Effect.uninterruptible
+        )
       })
     )
   })
@@ -367,7 +373,12 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
             )
           }
           return result
-        }).pipe(Effect.tapErrorCause(() => releasePending))
+        }).pipe(
+          Effect.tapErrorCause((cause) =>
+            Cause.isInterruptedOnly(cause) ? Effect.void : releasePending
+          ),
+          Effect.uninterruptible
+        )
       })
     )
   })
