@@ -1,7 +1,9 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Exit from "effect/Exit"
+import { Plus } from "lucide-react"
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -9,6 +11,11 @@ import {
   type RefObject
 } from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
+import { SprintStateIcon } from "@/components/sprints/SprintChip"
+import {
+  pickDefaultSprint,
+  SprintAssignMenu
+} from "@/components/sprints/SprintAssignMenu"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +26,11 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { meAtom } from "@/atoms/auth"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
+  addTicketsToSprintAtom,
+  projectKey as sprintsKey,
+  sprintsListAtom
+} from "@/atoms/sprints"
+import {
   quickCreateTicketAtom,
   ticketsListKeyForStatus
 } from "@/atoms/tickets"
@@ -26,6 +38,8 @@ import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import type {
+  Group,
+  GroupId,
   TicketListQuery,
   TicketStatus,
   TicketType
@@ -62,12 +76,39 @@ export function SectionTicketCreator({
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
+  const sprintProjectKey = sprintsKey(orgSlug, slug)
+  const sprintListResult = useAtomValue(sprintsListAtom(sprintProjectKey))
+  const sprints = useMemo<ReadonlyArray<Group>>(
+    () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
+    [sprintListResult]
+  )
+  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
+
+  const activeSprintId: GroupId | null = (() => {
+    const ids = query.filter?.groupId
+    if (!ids || ids.length !== 1) return null
+    const only = ids[0]
+    return only === null ? null : (only as GroupId)
+  })()
+  const hasSprints = sprints.some((s) => s.completedAt === null)
+  const showSprintAddon = activeSprintId === null && hasSprints
+
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
+  const [sprintMenuOpen, setSprintMenuOpen] = useState(false)
+  const [selectedSprint, setSelectedSprint] = useState<Group | null>(null)
+  const [sprintCleared, setSprintCleared] = useState(false)
   const [closingMenu, setClosingMenu] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmed = title.trim()
+
+  useEffect(() => {
+    if (!showSprintAddon) return
+    if (selectedSprint || sprintCleared) return
+    const def = pickDefaultSprint(sprints)
+    if (def) setSelectedSprint(def)
+  }, [showSprintAddon, sprints, selectedSprint, sprintCleared])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -83,7 +124,7 @@ export function SectionTicketCreator({
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
-      if (typeMenuOpen || closingMenu) return
+      if (typeMenuOpen || sprintMenuOpen || closingMenu) return
       const container = containerRef.current
       if (container && !container.contains(e.target as Node)) {
         onDone()
@@ -91,21 +132,33 @@ export function SectionTicketCreator({
     }
     document.addEventListener("mousedown", onMouseDown)
     return () => document.removeEventListener("mousedown", onMouseDown)
-  }, [typeMenuOpen, closingMenu, onDone, containerRef])
+  }, [typeMenuOpen, sprintMenuOpen, closingMenu, onDone, containerRef])
 
   const dismissGuardsRef = useRef({
     typeMenuOpen,
+    sprintMenuOpen,
     closingMenu,
     submitting
   })
-  dismissGuardsRef.current = { typeMenuOpen, closingMenu, submitting }
+  dismissGuardsRef.current = {
+    typeMenuOpen,
+    sprintMenuOpen,
+    closingMenu,
+    submitting
+  }
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
     const onFocusOut = (e: FocusEvent) => {
       const guards = dismissGuardsRef.current
-      if (guards.typeMenuOpen || guards.closingMenu || guards.submitting) return
+      if (
+        guards.typeMenuOpen ||
+        guards.sprintMenuOpen ||
+        guards.closingMenu ||
+        guards.submitting
+      )
+        return
       const next = e.relatedTarget as Node | null
       if (next !== null && container.contains(next)) return
       onDone()
@@ -127,6 +180,11 @@ export function SectionTicketCreator({
     })
     if (Exit.isFailure(exit)) {
       setTitle(submittedTitle)
+      return
+    }
+    const attachTo = activeSprintId ?? selectedSprint?.id ?? null
+    if (attachTo !== null) {
+      addToSprint({ groupId: attachTo, ticketIds: [exit.value.id] })
     }
   }
 
@@ -138,6 +196,65 @@ export function SectionTicketCreator({
   }
 
   const TypeIcon = TYPE_META[type].icon
+
+  const sprintAddon = showSprintAddon ? (
+    <SprintAssignMenu
+      open={sprintMenuOpen}
+      onOpenChange={(open) => {
+        setSprintMenuOpen(open)
+        if (!open) {
+          setClosingMenu(true)
+          // @effect-diagnostics-next-line globalTimers:off
+          setTimeout(() => {
+            inputRef.current?.focus()
+            setClosingMenu(false)
+          }, 0)
+        }
+      }}
+      finalFocus={() => {
+        setClosingMenu(false)
+        return inputRef.current
+      }}
+      sprints={sprints}
+      selectedId={selectedSprint?.id ?? null}
+      onSelect={(s) => {
+        setSelectedSprint(s)
+        setSprintCleared(false)
+      }}
+      onClear={() => {
+        setSelectedSprint(null)
+        setSprintCleared(true)
+      }}
+      clearLabel={m.tickets_sprint_popover_no_assignment_action()}
+      trigger={
+        <button
+          type="button"
+          aria-label={
+            selectedSprint
+              ? m.tickets_sprint_chip_aria({ name: selectedSprint.name })
+              : m.tickets_assign_sprint_chip()
+          }
+          className={cn(
+            "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 transition-expand",
+            BADGE_TONES.muted
+          )}
+        >
+          {selectedSprint ? (
+            <SprintStateIcon sprint={selectedSprint} size="md" />
+          ) : (
+            <Plus className="size-4 shrink-0" strokeWidth={1.75} />
+          )}
+          <CollapsingLabel show contentKey={selectedSprint?.id ?? "none"}>
+            <span className="max-w-[10ch] truncate text-xs">
+              {selectedSprint
+                ? selectedSprint.name
+                : m.tickets_assign_sprint_chip()}
+            </span>
+          </CollapsingLabel>
+        </button>
+      }
+    />
+  ) : null
 
   return (
     <form
@@ -201,6 +318,8 @@ export function SectionTicketCreator({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {sprintAddon}
 
       <input
         ref={inputRef}
