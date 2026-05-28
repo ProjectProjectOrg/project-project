@@ -84,14 +84,17 @@ export function SectionTicketCreator({
   )
   const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
 
-  const activeSprintId: GroupId | null = (() => {
-    const ids = query.filter?.groupId
-    if (!ids || ids.length !== 1) return null
-    const only = ids[0]
-    return only === null ? null : (only as GroupId)
-  })()
+  const groupIdFilter = query.filter?.groupId
+  const singleGroupIdFilter =
+    groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
+  const activeSprintId: GroupId | null =
+    singleGroupIdFilter && singleGroupIdFilter !== null
+      ? (singleGroupIdFilter as GroupId)
+      : null
+  const isExplicitNoSprintFilter = singleGroupIdFilter === null
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const showSprintAddon = activeSprintId === null && hasSprints
+  const showSprintAddon =
+    activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
