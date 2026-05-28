@@ -107,9 +107,7 @@ export function SprintTicketCreator({
     )
   )
   const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey), {
-    mode: "promiseExit"
-  })
+  const addToSprint = useAtomSet(addTicketsToSprintAtom(sprintProjectKey))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -158,7 +156,7 @@ export function SprintTicketCreator({
   async function commit(item: Item | undefined) {
     if (!item) return
     if (item.kind === "existing") {
-      await addToSprint({ groupId, ticketIds: [item.ticket.id] })
+      addToSprint({ groupId, ticketIds: [item.ticket.id] })
       reset()
       return
     }
@@ -169,7 +167,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      await addToSprint({ groupId, ticketIds: [exit.value.id] })
+      addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)
@@ -189,7 +187,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      await addToSprint({ groupId, ticketIds: [exit.value.id] })
+      addToSprint({ groupId, ticketIds: [exit.value.id] })
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)
