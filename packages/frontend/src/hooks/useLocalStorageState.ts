@@ -1,6 +1,6 @@
 import * as Either from "effect/Either"
 import * as Schema from "effect/Schema"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export function useLocalStorageState<A, I>(
   key: string,
@@ -9,7 +9,12 @@ export function useLocalStorageState<A, I>(
 ): readonly [A, (next: A) => void] {
   const read = (): A => {
     if (typeof window === "undefined") return initial
-    const raw = window.localStorage.getItem(key)
+    let raw: string | null
+    try {
+      raw = window.localStorage.getItem(key)
+    } catch {
+      return initial
+    }
     if (raw === null) return initial
     let parsed: unknown
     try {
@@ -22,6 +27,10 @@ export function useLocalStorageState<A, I>(
   }
 
   const [value, setValue] = useState<A>(read)
+
+  useEffect(() => {
+    setValue(read())
+  }, [key, schema])
 
   const write = useCallback(
     (next: A) => {
