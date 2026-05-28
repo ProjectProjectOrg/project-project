@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
+import { projectAtom, projectKey } from "@/atoms/projects"
 import {
   addTicketsToSprintAtom,
   projectKey as sprintsKey,
@@ -79,6 +79,8 @@ export function SprintTicketCreator({
   const submitting = createState.waiting
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const project = useAtomValue(projectAtom(projKey))
+  const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
@@ -161,7 +163,8 @@ export function SprintTicketCreator({
     if (submitting) return
     const exit = await create({
       ticket: { title: item.label, type },
-      viewerId
+      viewerId,
+      projectPrefix
     })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
@@ -180,7 +183,8 @@ export function SprintTicketCreator({
     if (!trimmed || submitting) return
     const exit = await create({
       ticket: { title: trimmed, type },
-      viewerId
+      viewerId,
+      projectPrefix
     })
     if (Exit.isSuccess(exit)) {
       addToSprint({ groupId, ticketIds: [exit.value.id] })
