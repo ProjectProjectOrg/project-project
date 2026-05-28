@@ -192,7 +192,7 @@ type AddTicketsReducerInput = {
 }
 
 export const pendingSprintAssignmentAtom = Atom.family((_key: string) =>
-  Atom.make<PendingSprintAssignment>(new Map())
+  Atom.keepAlive(Atom.make<PendingSprintAssignment>(new Map()))
 )
 
 export const writePendingSprintAssignments = (
