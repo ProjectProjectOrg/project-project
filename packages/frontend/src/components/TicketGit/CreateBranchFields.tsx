@@ -43,15 +43,20 @@ import {
 } from "@/components/SegmentedTabs"
 import { cn } from "@/lib/utils"
 import { slugify } from "@/lib/slug"
-import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
+import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { m } from "@/paraglide/messages"
 import type {
   GithubConnection,
+  ProjectStatus,
   TicketDetail,
   TicketStatus
 } from "@projectproject/shared"
 
-const STATUS_KEYS = Object.keys(STATUS_META) as ReadonlyArray<TicketStatus>
 const STATUS_SEGMENTED_THRESHOLD = 4
 
 function defaultBranchName(
@@ -88,7 +93,9 @@ export function CreateBranchFields({
     defaultBranchName(branchTemplate, ticket.type, ticket.id, ticket.title)
   )
   const [base, setBase] = useState(github.defaultBaseBranch ?? "")
-  const [status, setStatus] = useState<TicketStatus>("in_progress")
+  const [status, setStatus] = useState<TicketStatus>(
+    "in_progress" as TicketStatus
+  )
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
   const pKey = projectKey(orgSlug, slug)
@@ -97,6 +104,10 @@ export function CreateBranchFields({
   const updateTicket = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
   )
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
   const errorString =
     didSubmit && !createState.waiting
@@ -186,7 +197,7 @@ export function CreateBranchFields({
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 @max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch">
-        <StatusPicker value={status} onChange={setStatus} disabled={busy} />
+        <StatusPicker value={status} onChange={setStatus} disabled={busy} statuses={statuses} />
         <div className="flex gap-2 @max-sm/git-panel:justify-end">
           <InlineForm.Cancel size={buttonSize} />
           <Button
@@ -208,13 +219,16 @@ export function CreateBranchFields({
 function StatusPicker({
   value,
   onChange,
-  disabled
+  disabled,
+  statuses
 }: {
   value: TicketStatus
   onChange: (next: TicketStatus) => void
   disabled?: boolean
+  statuses: ReadonlyArray<ProjectStatus>
 }) {
-  const segmented = STATUS_KEYS.length <= STATUS_SEGMENTED_THRESHOLD
+  const slugs = boardStatusesFor(statuses)
+  const segmented = slugs.length <= STATUS_SEGMENTED_THRESHOLD
   return (
     <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span>{m.git_update_status_label()}</span>
@@ -223,9 +237,17 @@ function StatusPicker({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          statuses={statuses}
+          slugs={slugs}
         />
       ) : (
-        <StatusDropdown value={value} onChange={onChange} disabled={disabled} />
+        <StatusDropdown
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          statuses={statuses}
+          slugs={slugs}
+        />
       )}
     </div>
   )
@@ -234,20 +256,25 @@ function StatusPicker({
 function StatusInlinePills({
   value,
   onChange,
-  disabled
+  disabled,
+  statuses,
+  slugs
 }: {
   value: TicketStatus
   onChange: (next: TicketStatus) => void
   disabled?: boolean
+  statuses: ReadonlyArray<ProjectStatus>
+  slugs: ReadonlyArray<string>
 }) {
-  const items: ReadonlyArray<SegmentedItem<TicketStatus>> = STATUS_KEYS.map(
-    (key) => ({
+  const items: ReadonlyArray<SegmentedItem<string>> = slugs.map((key) => {
+    const sMeta = statusMetaFor(key, statuses)
+    return {
       key,
-      label: STATUS_LABELS[key](),
-      icon: STATUS_META[key].icon,
-      iconClassName: STATUS_META[key].className
-    })
-  )
+      label: statusLabelFor(key, statuses),
+      icon: sMeta.icon,
+      iconClassName: sMeta.className
+    }
+  })
   return (
     <SegmentedTabs
       items={items}
@@ -257,7 +284,7 @@ function StatusInlinePills({
       renderItem={(item, content, { active }) => (
         <button
           type="button"
-          onClick={() => onChange(item.key)}
+          onClick={() => onChange(item.key as TicketStatus)}
           disabled={disabled}
           aria-pressed={active}
           className={cn(
@@ -275,17 +302,19 @@ function StatusInlinePills({
 function StatusDropdown({
   value,
   onChange,
-  disabled
+  disabled,
+  statuses,
+  slugs
 }: {
   value: TicketStatus
   onChange: (next: TicketStatus) => void
   disabled?: boolean
+  statuses: ReadonlyArray<ProjectStatus>
+  slugs: ReadonlyArray<string>
 }) {
-  const current = STATUS_META[value] ?? STATUS_META.todo
+  const current = statusMetaFor(value, statuses)
   const Icon = current.icon
-  const currentLabel = STATUS_LABELS[value]
-    ? STATUS_LABELS[value]()
-    : STATUS_LABELS.todo()
+  const currentLabel = statusLabelFor(value, statuses)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -304,6 +333,7 @@ function StatusDropdown({
           >
             <Icon
               className={cn("size-3", current.className)}
+              style={current.color ? { color: current.color } : undefined}
               strokeWidth={1.75}
             />
             <span>{currentLabel}</span>
@@ -312,20 +342,21 @@ function StatusDropdown({
         }
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        {STATUS_KEYS.map((key) => {
-          const meta = STATUS_META[key]
+        {slugs.map((key) => {
+          const meta = statusMetaFor(key, statuses)
           const SIcon = meta.icon
           return (
             <DropdownMenuItem
               key={key}
-              onClick={() => onChange(key)}
+              onClick={() => onChange(key as TicketStatus)}
               className="cursor-pointer"
             >
               <SIcon
                 className={cn("size-4", meta.className)}
+                style={meta.color ? { color: meta.color } : undefined}
                 strokeWidth={1.75}
               />
-              {STATUS_LABELS[key]()}
+              {statusLabelFor(key, statuses)}
               {value === key && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}

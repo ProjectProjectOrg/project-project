@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
+import * as Schema from "effect/Schema"
+import { StatusSlug } from "@projectproject/shared"
 import { branchesKey, shouldInvalidateTicketsForGitStates } from "./github"
+
+const s = Schema.decodeUnknownSync(StatusSlug)
 
 describe("branchesKey", () => {
   it("separates branch caches by connected repo", () => {
@@ -26,8 +30,8 @@ describe("shouldInvalidateTicketsForGitStates", () => {
         transitioned: [
           {
             ticketId: "T-1",
-            fromStatus: "in_progress",
-            toStatus: "done",
+            fromStatus: s("in_progress"),
+            toStatus: s("done"),
             prNumber: 80
           }
         ]

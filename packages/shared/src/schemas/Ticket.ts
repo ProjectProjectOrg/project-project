@@ -8,6 +8,7 @@
 import * as Schema from "effect/Schema"
 import { GitState } from "./GitState"
 import { ProjectKey } from "./Project"
+import { StatusSlug } from "./Status"
 import { TagName } from "./Tag"
 
 export const TicketId = Schema.String.pipe(
@@ -21,7 +22,7 @@ export const TicketId = Schema.String.pipe(
 )
 export type TicketId = typeof TicketId.Type
 
-export const TicketStatus = Schema.Literal("todo", "in_progress", "done")
+export const TicketStatus = StatusSlug
 export type TicketStatus = typeof TicketStatus.Type
 
 export function isCarryover(status: TicketStatus): boolean {

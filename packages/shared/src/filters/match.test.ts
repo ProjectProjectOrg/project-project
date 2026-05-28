@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import type { Ticket } from "../schemas/Ticket"
 import { TagName } from "../schemas/Tag"
 import { TicketId } from "../schemas/Ticket"
+import { StatusSlug } from "../schemas/Status"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 import {
   matchesTicketFilter,
@@ -13,12 +14,13 @@ import {
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
+const s = Schema.decodeUnknownSync(StatusSlug)
 const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 
 const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   id: decodeTicketId("T-1"),
   title: "Test",
-  status: "todo",
+  status: s("todo"),
   type: "feat",
   priority: "med",
   tags: [],
@@ -44,10 +46,10 @@ describe("matchesTicketFilter", () => {
   })
 
   it("status filter ORs across entries", () => {
-    const t = baseTicket({ status: "in_progress" })
-    const f: TicketFilter = { status: ["in_progress", "done"] }
+    const t = baseTicket({ status: s("in_progress") })
+    const f: TicketFilter = { status: [s("in_progress"), s("done")] }
     expect(matchesTicketFilter(t, f)).toBe(true)
-    expect(matchesTicketFilter(baseTicket({ status: "todo" }), f)).toBe(false)
+    expect(matchesTicketFilter(baseTicket({ status: s("todo") }), f)).toBe(false)
   })
 
   it("empty status array matches nothing", () => {
@@ -134,12 +136,12 @@ describe("matchesTicketFilter", () => {
   })
 
   it("ANDs across fields", () => {
-    const t = baseTicket({ status: "in_progress", type: "bug" })
+    const t = baseTicket({ status: s("in_progress"), type: "bug" })
     expect(
-      matchesTicketFilter(t, { status: ["in_progress"], type: ["bug"] })
+      matchesTicketFilter(t, { status: [s("in_progress")], type: ["bug"] })
     ).toBe(true)
     expect(
-      matchesTicketFilter(t, { status: ["in_progress"], type: ["feat"] })
+      matchesTicketFilter(t, { status: [s("in_progress")], type: ["feat"] })
     ).toBe(false)
   })
 })
@@ -182,9 +184,9 @@ describe("matchesTicketQuery", () => {
   })
 
   it("ANDs q and filter — both must match", () => {
-    const ticket = baseTicket({ status: "in_progress", title: "hello" })
+    const ticket = baseTicket({ status: s("in_progress"), title: "hello" })
     const both: Pick<TicketListQuery, "filter" | "q"> = {
-      filter: { status: ["in_progress"] },
+      filter: { status: [s("in_progress")] },
       q: "hello"
     }
     expect(matchesTicketQuery(ticket, both, "user-a")).toBe(true)
@@ -192,14 +194,14 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         ticket,
-        { filter: { status: ["todo"] }, q: "hello" },
+        { filter: { status: [s("todo")] }, q: "hello" },
         "user-a"
       )
     ).toBe(false)
     expect(
       matchesTicketQuery(
         ticket,
-        { filter: { status: ["in_progress"] }, q: "goodbye" },
+        { filter: { status: [s("in_progress")] }, q: "goodbye" },
         "user-a"
       )
     ).toBe(false)
@@ -221,7 +223,7 @@ describe("matchesTicketQuery", () => {
     const predicted: MatchableTicket = {
       id: "",
       title: "new ticket",
-      status: "todo",
+      status: s("todo"),
       type: "feat",
       tags: [],
       branch: null,
@@ -231,10 +233,10 @@ describe("matchesTicketQuery", () => {
       updatedAt: isoDate("2026-05-10T00:00:00.000Z")
     }
     expect(
-      matchesTicketQuery(predicted, { filter: { status: ["todo"] } }, "user-a")
+      matchesTicketQuery(predicted, { filter: { status: [s("todo")] } }, "user-a")
     ).toBe(true)
     expect(
-      matchesTicketQuery(predicted, { filter: { status: ["done"] } }, "user-a")
+      matchesTicketQuery(predicted, { filter: { status: [s("done")] } }, "user-a")
     ).toBe(false)
     expect(matchesTicketQuery(predicted, { q: "anything" }, "user-a")).toBe(
       false

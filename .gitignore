@@ -37,5 +37,8 @@ packages/frontend/src/paraglide/
 # Claude Code local state
 .claude/
 
+# Impeccable live helper local state
+.impeccable/
+
 # opensrc - source code for packages
 opensrc/

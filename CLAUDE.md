@@ -4,7 +4,7 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
 
-**For any UI/frontend work**, also read `.impeccable.md` first — it's the design context (users, brand personality, aesthetic direction, design principles) and is binding for visual and interaction decisions. Invoke the `/impeccable` skill when working on UI so its checklist runs against the change.
+**For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Invoke the `/impeccable` skill when working on UI so its checklist runs against the change.
 
 The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.
 
@@ -192,6 +192,40 @@ update({ status: "in_progress" })
    Forms wired through reusable shells (`InlineForm`, `ConfirmButton`) keep their imperative `setBusy` / `setError` API — the shell doesn't know which atom is firing, so it needs an explicit signal. Same for callsites whose UX needs richer state than the atom carries (e.g. tracking _which_ row in a list is in flight when the atom only says "something is").
 
 Reference: `packages/frontend/src/atoms/github.ts` (`createBranchAtom`, `attachBranchAtom`); `packages/frontend/src/components/CreateTicketRow.tsx` for the direct-form pattern.
+
+## Rendering atom Results — `Result.matchWithError` + `ErrorPage`
+
+A `useAtomValue` on a runtime atom returns a `Result<A, E>` with four variants: `Initial`, `Success`, `Failure-with-typed-error`, `Failure-with-defect`. **Always handle all four — never just check `Result.isSuccess` and render a forever-loading state on anything else.** That swallows real errors silently and makes failures invisible.
+
+**The canonical helper is `Result.matchWithError`** from `@effect-atom/atom-react`. It splits the failure path into `onError` (your typed `E` channel — `NotFound`, `Unauthorized`, etc.) and `onDefect` (unexpected throws, decode failures, interruptions). Failed renders use the shared `ErrorPage` component (`packages/frontend/src/components/ErrorPage.tsx`), which wraps the dither shell with a retry button and a home link. Pass `contained` when rendering inside a settings panel or any non-full-page surface.
+
+The minimal pattern:
+
+```tsx
+import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { ErrorPage } from "@/components/ErrorPage"
+
+function ProjectStatusesSettings() {
+  const result = useAtomValue(projectStatusesAtom(projectKey(orgSlug, slug)))
+
+  return Result.matchWithError(result, {
+    onInitial: () => <LoadingSkeleton />,
+    onError: (error) => <ErrorPage error={error} contained />,
+    onDefect: (defect) => <ErrorPage error={defect} contained />,
+    onSuccess: ({ value }) => <StatusList statuses={value} />
+  })
+}
+```
+
+A few details worth knowing:
+
+- **`onError` receives the typed error itself** (the value from the `E` channel, with its `_tag`), not the Failure variant. Narrow on `error._tag` if you want to render different messages per error kind — but `ErrorPage` already does this via `lib/errorMessage.ts` for any `AppError`, so most callsites just pass `error` through.
+- **`onDefect` receives the unknown cause** (a Cause defect, a thrown JS error, a decode failure). Treat it the same way — pass it to `ErrorPage`, which falls back to `String(defect)` for the detail line.
+- **`onSuccess` argument is the Success variant** (`{ value, waiting }`), not the raw value. Destructure `value` to get your data. The `waiting: true` flag is set during an in-flight optimistic mutation (per the optimistic-mutation conventions above) — useful when you want to pulse the success view while a refresh is happening.
+- **Don't combine `Result.matchWithError` with a separate `if (!Result.isSuccess) ...` early return.** Pick one. The `match` form handles every case; mixing both is dead code and a refactor hazard.
+- **For tiny callsites where you only care about success vs anything else** (e.g. a sidebar count that defaults to 0), `Result.isSuccess(result) ? result.value : fallback` is fine. The match form pays for itself once the failure case needs visible UI.
+
+Reference: `packages/frontend/src/routes/_authed/orgs/$orgSlug/projects/index.tsx` for the standard project-list pattern; `packages/frontend/src/atoms/auth.ts` for the long-form docstring explaining the Result variants.
 
 ## Backend stack
 

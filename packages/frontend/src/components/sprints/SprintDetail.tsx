@@ -1,7 +1,15 @@
-import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { useState } from "react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { generateKeyBetween } from "fractional-indexing"
+import { AnimatePresence, motion } from "motion/react"
+import { useCallback, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom,
+  reorderStatusAtom
+} from "@/atoms/projectStatuses"
 import {
   projectKey,
   sprintAtom,
@@ -19,6 +27,7 @@ import {
   type TicketListQuery
 } from "@projectproject/shared"
 import { CompleteSprintForm } from "./CompleteSprintForm"
+import { ReorderBoardBanner } from "./ReorderBoardBanner"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDetailHeader } from "./SprintDetailHeader"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
@@ -41,6 +50,53 @@ export function SprintDetail({
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
   const [showCompleteForm, setShowCompleteForm] = useState(false)
+  const [reorderMode, setReorderMode] = useState(false)
+  const [dragOrder, setDragOrder] = useState<ReadonlyArray<string> | null>(null)
+
+  const statusKey = projectStatusKey(orgSlug, slug)
+  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
+  const reorderStatus = useAtomSet(reorderStatusAtom(statusKey))
+
+  const enterReorder = useCallback(() => setReorderMode(true), [])
+
+  const cancelReorder = useCallback(() => {
+    setDragOrder(null)
+    setReorderMode(false)
+  }, [])
+
+  const saveReorder = useCallback(() => {
+    if (!Result.isSuccess(statusesResult)) return
+    const statuses = statusesResult.value
+    if (dragOrder && statuses.length > 0) {
+      const keys = new Map<string, string>(
+        statuses.map((s) => [s.slug as string, s.orderKey as string])
+      )
+      let lastKey: string | null = null
+      for (let i = 0; i < dragOrder.length; i++) {
+        const slug = dragOrder[i]
+        const myKey = keys.get(slug)
+        if (!myKey) continue
+        if (lastKey === null || myKey > lastKey) {
+          lastKey = myKey
+          continue
+        }
+        let nextValid: string | null = null
+        for (let j = i + 1; j < dragOrder.length; j++) {
+          const k = keys.get(dragOrder[j])
+          if (k && k > lastKey) {
+            nextValid = k
+            break
+          }
+        }
+        const newKey = generateKeyBetween(lastKey, nextValid)
+        keys.set(slug, newKey)
+        reorderStatus({ statusSlug: slug, orderKey: newKey })
+        lastKey = newKey
+      }
+    }
+    setDragOrder(null)
+    setReorderMode(false)
+  }, [dragOrder, statusesResult, reorderStatus])
 
   const wide = view === "board"
 
@@ -106,6 +162,28 @@ export function SprintDetail({
         />
       )
 
+      const boardSlot = (
+        <AnimatePresence mode="wait" initial={false}>
+          {reorderMode ? (
+            <ReorderBoardBanner
+              key="banner"
+              onSave={saveReorder}
+              onCancel={cancelReorder}
+            />
+          ) : (
+            <motion.div
+              key="creator"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={transitions.fade}
+            >
+              {creator}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )
+
       const body = wide ? (
         <PageContainer wide>
           <SprintBoard
@@ -115,6 +193,11 @@ export function SprintDetail({
             ticketIds={ticketIds}
             members={project.members}
             isCompleted={isCompleted}
+            reorderMode={reorderMode}
+            onEnterReorder={enterReorder}
+            onExitReorder={cancelReorder}
+            dragOrder={dragOrder}
+            setDragOrder={setDragOrder}
           />
         </PageContainer>
       ) : (
@@ -141,7 +224,7 @@ export function SprintDetail({
                   isCompleted ? undefined : () => setShowCompleteForm(true)
                 }
               />
-              {wide && creator}
+              {wide && boardSlot}
               {showCompleteForm && state === "active" && (
                 <CompleteSprintForm
                   orgSlug={orgSlug}

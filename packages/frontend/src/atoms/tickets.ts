@@ -16,6 +16,7 @@ import {
   type QuickCreateTicketInput,
   type Ticket,
   type TicketCounts,
+  type TicketStatus,
   type UpdateTicketInput
 } from "@projectproject/shared"
 
@@ -225,7 +226,7 @@ const predictedTicketFromCreate = (
 ): MatchableTicket => ({
   id: "",
   title: input.title,
-  status: "todo",
+  status: "todo" as TicketStatus,
   type: input.type ?? "other",
   tags: [],
   branch: null,

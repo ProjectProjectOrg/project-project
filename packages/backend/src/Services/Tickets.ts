@@ -109,6 +109,12 @@ export interface TicketsShape {
     oldName: string,
     newName: string | null
   ) => Effect.Effect<boolean, TicketReadError>
+  readonly replaceStatus: (
+    orgSlug: string,
+    slug: string,
+    id: string,
+    newStatus: string
+  ) => Effect.Effect<boolean, TicketReadError>
   readonly createBranch: (
     orgSlug: string,
     userId: string,

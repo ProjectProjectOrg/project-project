@@ -47,7 +47,8 @@ import {
   projectIndex,
   projectIntegrationLink,
   projectInviteGrant,
-  projectMember
+  projectMember,
+  projectStatus
 } from "../db/schema"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
@@ -654,6 +655,39 @@ export const ProjectsLive = Layer.effect(
               userId: createdBy,
               role: "owner"
             })
+            .pipe(Effect.orDie)
+
+          yield* db
+            .insert(projectStatus)
+            .values([
+              {
+                projectId: row.id,
+                slug: "todo",
+                label: "Todo",
+                icon: "Circle",
+                color: "#a3a3a3",
+                orderKey: "a0",
+                createdBy
+              },
+              {
+                projectId: row.id,
+                slug: "in_progress",
+                label: "In progress",
+                icon: "CircleDot",
+                color: "#3b82f6",
+                orderKey: "a1",
+                createdBy
+              },
+              {
+                projectId: row.id,
+                slug: "done",
+                label: "Done",
+                icon: "CheckCircle2",
+                color: "#22c55e",
+                orderKey: "a2",
+                createdBy
+              }
+            ])
             .pipe(Effect.orDie)
 
           const rollback = db

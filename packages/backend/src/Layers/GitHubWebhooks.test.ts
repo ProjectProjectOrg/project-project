@@ -12,7 +12,7 @@ import type {
   GitHubPullRequestWebhookChange,
   GitHubWebhookMutationSink
 } from "../Services/GitHubWebhooks"
-import { NotFound, TicketId } from "@projectproject/shared"
+import { NotFound, TicketId, TicketStatus } from "@projectproject/shared"
 import {
   MalformedTicketDocument,
   type TicketDocsShape,
@@ -233,11 +233,12 @@ it.effect("logs and ignores malformed handled payloads", () =>
 )
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
 const baseDocument = (overrides: Partial<TicketDocument> = {}): TicketDocument => ({
   id: ticketId("T-1"),
   title: "first",
-  status: "in_progress",
+  status: ticketStatus("in_progress"),
   type: "feat",
   priority: "med",
   tags: [],
@@ -294,6 +295,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
     listIds: () => Effect.succeed([]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
     upsertTicket: (project, document) =>
       Effect.sync(() => {

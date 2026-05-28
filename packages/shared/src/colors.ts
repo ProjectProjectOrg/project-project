@@ -29,6 +29,11 @@ export const TAG_DEFAULT_PALETTE: ReadonlyArray<string> = OUTER_RING.map(
   (c) => c.hex
 )
 
+export function pickStatusColor(used: ReadonlyArray<string>): string {
+  for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
+  return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]
+}
+
 function swatch(hue: number, L: number, C: number): ColorSwatch {
   return {
     hue,

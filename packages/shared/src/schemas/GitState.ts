@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+import { StatusSlug } from "./Status"
 
 export const ChecksStatus = Schema.Literal(
   "passing",
@@ -94,8 +95,8 @@ export type GitStateRepoStatus = typeof GitStateRepoStatus.Type
 
 export const TransitionRecord = Schema.Struct({
   ticketId: Schema.String,
-  fromStatus: Schema.Literal("todo", "in_progress", "done"),
-  toStatus: Schema.Literal("todo", "in_progress", "done"),
+  fromStatus: StatusSlug,
+  toStatus: StatusSlug,
   prNumber: Schema.Number
 })
 export type TransitionRecord = typeof TransitionRecord.Type

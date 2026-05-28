@@ -417,16 +417,13 @@ export const TicketsLive = Layer.effect(
           .map((entry) => indexEntryToTicket(entry, projectGithub))
           .filter((t) => matchesTicketQuery(t, queryForCount, userId))
 
-        const byStatus: Record<TicketStatus, number> = {
-          todo: 0,
-          in_progress: 0,
-          done: 0
-        }
-        for (const t of matching) byStatus[t.status]++
+        const byStatus: Record<string, number> = {}
+        for (const t of matching)
+          byStatus[t.status] = (byStatus[t.status] ?? 0) + 1
 
         return {
           total: matching.length,
-          byStatus
+          byStatus: byStatus as TicketCounts["byStatus"]
         }
       })
 
@@ -496,16 +493,20 @@ export const TicketsLive = Layer.effect(
       assignees: ReadonlyArray<string>
     ): Effect.Effect<void, Validation> =>
       Effect.gen(function* () {
-        const invalid: string[] = []
-        for (const assigneeId of assignees) {
-          const ok = yield* projects
-            .requireMember(orgSlug, assigneeId, slug)
-            .pipe(
-              Effect.as(true as const),
-              Effect.catchTag("NotFound", () => Effect.succeed(false as const))
-            )
-          if (!ok) invalid.push(assigneeId)
-        }
+        const checks = yield* Effect.forEach(
+          assignees,
+          (assigneeId) =>
+            projects
+              .requireMember(orgSlug, assigneeId, slug)
+              .pipe(
+                Effect.as({ id: assigneeId, ok: true as const }),
+                Effect.catchTag("NotFound", () =>
+                  Effect.succeed({ id: assigneeId, ok: false as const })
+                )
+              ),
+          { concurrency: 8 }
+        )
+        const invalid = checks.filter((c) => !c.ok).map((c) => c.id)
         if (invalid.length > 0) {
           return yield* new Validation({
             reason: `non_member_assignees:${invalid.join(",")}`
@@ -557,7 +558,7 @@ export const TicketsLive = Layer.effect(
           (id) => ({
             id,
             title: input.title,
-            status: "todo",
+            status: "todo" as TicketStatus,
             type: input.type ?? "other",
             priority: "med",
             tags: [],
@@ -611,7 +612,7 @@ export const TicketsLive = Layer.effect(
           (id) => ({
             id,
             title: input.title,
-            status: input.status ?? "todo",
+            status: (input.status ?? "todo") as TicketStatus,
             type: input.type ?? "other",
             priority: input.priority ?? "med",
             tags: input.tags !== undefined ? [...input.tags] : [],
@@ -735,6 +736,26 @@ export const TicketsLive = Layer.effect(
         const next: TicketDocument = {
           ...existing,
           tags: nextTags,
+          updatedAt: yield* DateTime.nowAsDate
+        }
+        yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
+        return true
+      })
+
+    const replaceStatus = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      newStatus: string
+    ): Effect.Effect<boolean, TicketReadError> =>
+      Effect.gen(function* () {
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const existing = yield* readTicket(orgSlug, slug, id)
+        if (existing.status === newStatus) return false
+        const next: TicketDocument = {
+          ...existing,
+          status: newStatus as typeof existing.status,
           updatedAt: yield* DateTime.nowAsDate
         }
         yield* ticketDocs.write(orgSlug, slug, id, next)
@@ -1140,6 +1161,7 @@ export const TicketsLive = Layer.effect(
       update,
       remove,
       replaceTag,
+      replaceStatus,
       createBranch,
       attachBranch,
       openPr,

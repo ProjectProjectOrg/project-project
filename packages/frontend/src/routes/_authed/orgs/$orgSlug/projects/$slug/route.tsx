@@ -8,7 +8,15 @@ import {
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
 import {
   CalendarRange,
   Columns3,
@@ -23,7 +31,12 @@ import {
   X,
   type LucideIcon
 } from "lucide-react"
-import { STATUS_META } from "@/lib/ticket-meta"
+import { statusMetaFor } from "@/lib/ticket-meta"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
@@ -72,7 +85,7 @@ import { ProjectContext } from "./-context"
 import type {
   Group,
   ProjectDetail as ProjectDetailType,
-  TicketStatus
+  ProjectStatus
 } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
@@ -529,15 +542,17 @@ function TabsNav({
           location.pathname.startsWith(target + "/")
   }
 
-  const ticketBreakdown: Record<TicketStatus, number> = Result.isSuccess(
-    ticketsResult
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-    ? {
-        todo: ticketsResult.value.byStatus.todo ?? 0,
-        in_progress: ticketsResult.value.byStatus.in_progress ?? 0,
-        done: ticketsResult.value.byStatus.done ?? 0
-      }
-    : { todo: 0, in_progress: 0, done: 0 }
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const statusSlugs = boardStatusesFor(statuses)
+  const byStatusRaw = Result.isSuccess(ticketsResult)
+    ? (ticketsResult.value.byStatus as Record<string, number>)
+    : {}
+  const ticketBreakdown: Record<string, number> = Object.fromEntries(
+    statusSlugs.map((s) => [s, byStatusRaw[s] ?? 0])
+  )
   const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
   const sprintTarget = Result.isSuccess(sprintsResult)
     ? pickSprintNavigationTarget(sprintsResult.value)
@@ -592,8 +607,13 @@ function TabsNav({
                     {ticketsCount}
                   </span>
                 </span>
-                <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
-                  <TicketsBreakdown counts={ticketBreakdown} />
+                <span className="pointer-events-none absolute inset-0 z-10 opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
+                  <MarqueeIfOverflow>
+                    <TicketsBreakdown
+                      counts={ticketBreakdown}
+                      statuses={statuses}
+                    />
+                  </MarqueeIfOverflow>
                 </span>
               </Link>
             )
@@ -734,23 +754,105 @@ function SprintViewSwitcher({
   )
 }
 
-function TicketsBreakdown({
-  counts
+function MarqueeIfOverflow({
+  children,
+  speedPxPerSec = 35
 }: {
-  counts: Record<TicketStatus, number>
+  children: ReactNode
+  speedPxPerSec?: number
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [state, setState] = useState<{ overflow: boolean; duration: number }>({
+    overflow: false,
+    duration: 20
+  })
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const measure = measureRef.current
+    if (!container || !measure) return
+    const update = () => {
+      const cw = container.clientWidth
+      const iw = measure.scrollWidth
+      if (cw === 0 || iw === 0) return
+      const overflow = iw > cw
+      const duration = Math.max(8, iw / speedPxPerSec)
+      setState((prev) =>
+        prev.overflow === overflow &&
+        Math.abs(prev.duration - duration) < 0.5
+          ? prev
+          : { overflow, duration }
+      )
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(container)
+    ro.observe(measure)
+    return () => ro.disconnect()
+  }, [speedPxPerSec, children])
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "flex h-full w-full items-center overflow-hidden",
+        state.overflow &&
+          "[mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+      )}
+    >
+      {state.overflow ? (
+        <div
+          className="flex w-max items-center animate-marquee-x [animation-play-state:paused] group-hover/seg-item:[animation-play-state:running]"
+          style={{ animationDuration: `${state.duration}s` }}
+        >
+          <div
+            ref={measureRef}
+            className="flex shrink-0 items-center gap-2 pr-2"
+          >
+            {children}
+          </div>
+          <div
+            aria-hidden
+            className="flex shrink-0 items-center gap-2 pr-2"
+          >
+            {children}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={measureRef}
+          className="flex w-full items-center justify-center gap-2 whitespace-nowrap"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TicketsBreakdown({
+  counts,
+  statuses
+}: {
+  counts: Record<string, number>
+  statuses: ReadonlyArray<ProjectStatus>
+}) {
+  const slugs = boardStatusesFor(statuses)
   return (
     <>
-      {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map(
-        (s) => (
+      {slugs.map((s) => {
+        const meta = statusMetaFor(s, statuses)
+        return (
           <BadgeStat
             key={s}
-            count={counts[s]}
-            icon={STATUS_META[s].icon}
-            className={STATUS_META[s].className}
+            count={counts[s] ?? 0}
+            icon={meta.icon}
+            className={meta.className}
+            color={meta.color ?? undefined}
           />
         )
-      )}
+      })}
     </>
   )
 }
@@ -781,15 +883,21 @@ function SprintsBreakdown({ sprints }: { sprints: ReadonlyArray<Group> }) {
 function BadgeStat({
   count,
   icon: Icon,
-  className
+  className,
+  color
 }: {
   count: number
   icon: LucideIcon
   className: string
+  color?: string
 }) {
   return (
     <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums text-foreground">
-      <Icon className={`size-3 ${className}`} strokeWidth={1.75} />
+      <Icon
+        className={`size-3 ${className}`}
+        style={color ? { color } : undefined}
+        strokeWidth={1.75}
+      />
       {count}
     </span>
   )

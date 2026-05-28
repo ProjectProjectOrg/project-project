@@ -1,51 +1,79 @@
-import { useAtomSet } from "@effect-atom/atom-react"
-import { Check } from "lucide-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Link } from "@tanstack/react-router"
+import { ArrowRight, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { STATUS_LABELS, STATUS_META } from "@/lib/ticket-meta"
+import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { cn } from "@/lib/utils"
-import type { TicketId, TicketStatus } from "@projectproject/shared"
+import type { ProjectStatus, TicketId, TicketStatus } from "@projectproject/shared"
 
 function StatusMenuItems({
+  orgSlug,
+  slug,
   current,
+  statuses,
   onSelect
 }: {
-  current: TicketStatus
+  orgSlug: string
+  slug: string
+  current: string
+  statuses: ReadonlyArray<ProjectStatus>
   onSelect: (next: TicketStatus) => void
 }) {
+  const slugs = boardStatusesFor(statuses)
   return (
     <>
-      {(Object.keys(STATUS_META) as TicketStatus[]).map((status) => {
-        const sMeta = STATUS_META[status]
+      {slugs.map((status) => {
+        const sMeta = statusMetaFor(status, statuses)
         const SIcon = sMeta.icon
         return (
           <DropdownMenuItem
             key={status}
             onClick={() => {
               if (status === current) return
-              onSelect(status)
+              onSelect(status as TicketStatus)
             }}
             className="cursor-pointer"
           >
             <SIcon
               className={cn("size-4", sMeta.className)}
+              style={sMeta.color ? { color: sMeta.color } : undefined}
               strokeWidth={1.75}
             />
-            {STATUS_LABELS[status]()}
+            {sMeta.label}
             {status === current && (
               <Check className="ml-auto size-3.5 text-muted-foreground" />
             )}
           </DropdownMenuItem>
         )
       })}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        render={
+          <Link
+            to="/orgs/$orgSlug/projects/$slug/settings/workflow"
+            params={{ orgSlug, slug }}
+            className="cursor-pointer"
+          />
+        }
+      >
+        {m.tickets_status_manage_link()}
+        <ArrowRight className="ml-auto size-3.5" />
+      </DropdownMenuItem>
     </>
   )
 }
@@ -64,9 +92,13 @@ export function StatusBadgeTrigger({
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
   )
-  const meta = STATUS_META[ticket.status]
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon
-  const statusLabel = STATUS_LABELS[ticket.status]()
+  const statusLabel = statusLabelFor(ticket.status, statuses)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -80,6 +112,7 @@ export function StatusBadgeTrigger({
           >
             <Icon
               className={cn("size-3.5", meta.className)}
+              style={meta.color ? { color: meta.color } : undefined}
               strokeWidth={1.75}
             />
             <span>{statusLabel}</span>
@@ -94,7 +127,10 @@ export function StatusBadgeTrigger({
         onClick={(e) => e.stopPropagation()}
       >
         <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
           current={ticket.status}
+          statuses={statuses}
           onSelect={(status) => update({ status })}
         />
       </DropdownMenuContent>
@@ -118,9 +154,13 @@ export function StatusButton({
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
   )
-  const meta = STATUS_META[ticket.status]
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon
-  const statusLabel = STATUS_LABELS[ticket.status]()
+  const statusLabel = statusLabelFor(ticket.status, statuses)
   const wrapperClass =
     size === "lg"
       ? "-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-accent"
@@ -142,7 +182,11 @@ export function StatusButton({
             title={statusLabel}
           >
             <span className={wrapperClass}>
-              <Icon className={iconClass} strokeWidth={1.75} />
+              <Icon
+                className={iconClass}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
             </span>
           </Hitbox>
         }
@@ -154,7 +198,10 @@ export function StatusButton({
         onClick={(e) => e.stopPropagation()}
       >
         <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
           current={ticket.status}
+          statuses={statuses}
           onSelect={(status) => update({ status })}
         />
       </DropdownMenuContent>

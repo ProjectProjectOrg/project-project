@@ -12,13 +12,13 @@ import {
   ProjectColor,
   ProjectIcon,
   ProjectKey,
-  TicketId
+  TicketId,
+  TicketStatus
 } from "@projectproject/shared"
 import type {
   GroupDetail,
   ProjectDetail,
-  Role,
-  TicketStatus
+  Role
 } from "@projectproject/shared"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
 import { Groups } from "./Groups"
@@ -37,6 +37,7 @@ const setTestNow = TestClock.setTime("2026-05-19T00:00:00.000Z")
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const projectIcon = Schema.decodeUnknownSync(ProjectIcon)
 const projectColor = Schema.decodeUnknownSync(ProjectColor)
@@ -45,9 +46,11 @@ function unexpectedTicketDocsCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected TicketDocs.${method} call`))
 }
 
+const defaultTicketStatus = ticketStatus("todo")
+
 function makeTicketDocument(
   id: string,
-  status: TicketStatus = "todo"
+  status: TicketStatus = defaultTicketStatus
 ): TicketDocument {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
@@ -81,7 +84,7 @@ function makeFakeDocs(initial?: {
   const ticketsById = new Map<string, TicketDocument>(
     ticketIds.map((id) => [
       id,
-      makeTicketDocument(id, initial?.ticketStatuses?.[id] ?? "todo")
+      makeTicketDocument(id, initial?.ticketStatuses?.[id] ?? defaultTicketStatus)
     ])
   )
 
@@ -162,6 +165,7 @@ function makeFakeDocs(initial?: {
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
+    findTicketIdsByStatus: () => Effect.succeed([]),
     findTicketsByBranch: () => Effect.succeed([]),
     upsertTicket: (_project, document) =>
       Effect.sync(() => {
@@ -570,9 +574,9 @@ it.effect(
           {
             ticketIds: ["T-1", "T-2", "T-3"],
             ticketStatuses: {
-              "T-1": "todo",
-              "T-2": "done",
-              "T-3": "in_progress"
+              "T-1": ticketStatus("todo"),
+              "T-2": ticketStatus("done"),
+              "T-3": ticketStatus("in_progress")
             }
           },
           { role: "admin" }
@@ -619,10 +623,10 @@ it.effect(
           {
             ticketIds: ["T-1", "T-2", "T-3", "T-4"],
             ticketStatuses: {
-              "T-1": "todo",
-              "T-2": "done",
-              "T-3": "in_progress",
-              "T-4": "todo"
+              "T-1": ticketStatus("todo"),
+              "T-2": ticketStatus("done"),
+              "T-3": ticketStatus("in_progress"),
+              "T-4": ticketStatus("todo")
             }
           },
           { role: "admin" }
@@ -823,7 +827,7 @@ it.effect("updateTicketOrder patches ticket status when provided", () =>
       created.id,
       {
         ticketId: ticketId("T-1"),
-        status: "in_progress",
+        status: ticketStatus("in_progress"),
         after: ticketId("T-2")
       }
     )
@@ -833,7 +837,7 @@ it.effect("updateTicketOrder patches ticket status when provided", () =>
       makeGroupsLayer(
         {
           ticketIds: ["T-1", "T-2"],
-          ticketStatuses: { "T-1": "todo", "T-2": "in_progress" }
+          ticketStatuses: { "T-1": ticketStatus("todo"), "T-2": ticketStatus("in_progress") }
         },
         { role: "member" }
       )
@@ -915,7 +919,7 @@ it.effect("updateTicketOrder rejects on completed sprint", () =>
       makeGroupsLayer(
         {
           ticketIds: ["T-1", "T-2"],
-          ticketStatuses: { "T-1": "done", "T-2": "done" }
+          ticketStatuses: { "T-1": ticketStatus("done"), "T-2": ticketStatus("done") }
         },
         { role: "admin" }
       )

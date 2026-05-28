@@ -7,17 +7,13 @@ import {
   ArrowDownAZ,
   Check,
   ChevronDown,
+  Circle,
   Search,
   SlidersHorizontal,
   UserRound,
   X
 } from "lucide-react"
-import {
-  CollapsingLabel,
-  SEGMENTED_ITEM_CLASS,
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/SegmentedTabs"
+import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import {
   InputGroup,
@@ -35,11 +31,16 @@ import { TagChip } from "@/components/TagChip"
 import { Kbd } from "@/components/ui/kbd"
 import { meAtom } from "@/atoms/auth"
 import {
-  STATUS_LABELS,
-  STATUS_META,
+  statusMetaFor,
+  statusLabelFor,
   TYPE_LABELS,
   TYPE_META
 } from "@/lib/ticket-meta"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
+import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { m } from "@/paraglide/messages"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
@@ -58,6 +59,7 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
+  type ProjectStatus,
   type TicketStatus,
   type TicketType
 } from "@projectproject/shared"
@@ -70,6 +72,8 @@ import { TICKET_SEARCH_KEYS } from "./url"
 
 type SearchValue = string | ReadonlyArray<string> | undefined
 type SearchRecord = { readonly [k: string]: SearchValue }
+
+const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
@@ -290,40 +294,32 @@ export function Toolbar({
   const countsResult = useAtomValue(
     ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
   )
-  const previousCountsRef = useRef<Record<TicketStatus | "all", number> | null>(
-    null
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-  if (Result.isSuccess(countsResult)) {
-    previousCountsRef.current = {
-      all: countsResult.value.total,
-      todo: countsResult.value.byStatus.todo ?? 0,
-      in_progress: countsResult.value.byStatus.in_progress ?? 0,
-      done: countsResult.value.byStatus.done ?? 0
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+    ? statusesResult.value
+    : EMPTY_STATUSES
+  const [counts, setCounts] = useState<Record<string, number>>({ all: 0 })
+  useEffect(() => {
+    if (!Result.isSuccess(countsResult)) return
+    const byStatus = countsResult.value.byStatus as Record<string, number>
+    const next: Record<string, number> = { all: countsResult.value.total }
+    for (const s of boardStatusesFor(statuses)) {
+      next[s] = byStatus[s] ?? 0
     }
-  }
-  const counts: Record<TicketStatus | "all", number> =
-    previousCountsRef.current ?? {
-      all: 0,
-      todo: 0,
-      in_progress: 0,
-      done: 0
-    }
+    setCounts(next)
+  }, [countsResult, statuses])
 
-  const FULL_FITS_ROW = 1040
-  const STATUS_COMPACT_FITS_ROW = 760
-  const ALL_COMPACT_FITS_ROW = 600
-  const STATUS_COMPACT_FITS_WRAPPED = 540
+  const FULL_FITS_ROW = 720
+  const ALL_COMPACT_FITS_ROW = 460
+  const COMPACT_FITS_WRAPPED = 360
   const measured = width > 0
   const onSameRow = measured && width >= ALL_COMPACT_FITS_ROW
-  const statusCompact = measured
-    ? onSameRow
-      ? compact || width < FULL_FITS_ROW
-      : true
-    : false
   const controlsCompact = measured
     ? onSameRow
-      ? compact || width < STATUS_COMPACT_FITS_ROW
-      : width < STATUS_COMPACT_FITS_WRAPPED
+      ? compact || width < FULL_FITS_ROW
+      : width < COMPACT_FITS_WRAPPED
     : false
 
   return (
@@ -365,11 +361,12 @@ export function Toolbar({
 
       <div className="relative flex flex-wrap items-center gap-2">
         <motion.div layout="position" transition={transitions.layout}>
-          <StatusChips
+          <StatusSelect
             value={status}
             onChange={setStatus}
             counts={counts}
-            compact={statusCompact}
+            statuses={statuses}
+            compact={controlsCompact}
           />
         </motion.div>
 
@@ -427,52 +424,109 @@ export function Toolbar({
   )
 }
 
-function StatusChips({
+function StatusSelect({
   value,
   onChange,
   counts,
+  statuses,
   compact
 }: {
   value: TicketStatus | "all"
   onChange: (v: TicketStatus | "all") => void
-  counts: Record<TicketStatus | "all", number>
+  counts: Record<string, number>
+  statuses: ReadonlyArray<ProjectStatus>
   compact: boolean
 }) {
-  const items: ReadonlyArray<SegmentedItem<TicketStatus | "all">> = [
-    { key: "all", label: m.tickets_status_all(), badge: counts.all },
-    ...(Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
-      key: s,
-      label: STATUS_LABELS[s](),
-      icon: STATUS_META[s].icon,
-      iconClassName: STATUS_META[s].className,
-      badge: counts[s]
-    }))
-  ]
+  const slugs = boardStatusesFor(statuses)
+  const active = value !== "all"
+  const currentMeta = active ? statusMetaFor(value, statuses) : null
+  const currentLabel = active
+    ? statusLabelFor(value, statuses)
+    : m.tickets_status_all()
+  const CurrentIcon = currentMeta?.icon ?? Circle
   return (
-    <SegmentedTabs
-      items={items}
-      layoutId="status-chips"
-      isActive={(k) => k === value}
-      compact={compact}
-      renderItem={(item, content, { active }) => (
-        <button
-          type="button"
-          onClick={() => onChange(item.key)}
-          aria-pressed={active}
-          aria-label={
-            compact
-              ? m.tickets_status_chip_aria_label({
-                  label: item.label,
-                  count: counts[item.key]
-                })
-              : undefined
-          }
-          className={SEGMENTED_ITEM_CLASS(active)}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              TOOLBAR_BUTTON_CLASS,
+              active && "bg-accent text-foreground hover:text-foreground"
+            )}
+            aria-label={m.tickets_status_aria_label({ label: currentLabel })}
+            aria-pressed={active}
+          >
+            <CurrentIcon
+              className={cn("size-4", currentMeta?.className)}
+              style={currentMeta?.color ? { color: currentMeta.color } : undefined}
+              strokeWidth={1.75}
+            />
+            <CollapsingLabel show={!compact}>{currentLabel}</CollapsingLabel>
+            <span
+              className={cn(
+                "rounded-full px-1.5 font-mono text-[10px] tabular-nums",
+                active
+                  ? "bg-foreground/10 text-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {counts[value] ?? 0}
+            </span>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-52"
+        finalFocus={false}
+      >
+        <DropdownMenuItem
+          onClick={() => onChange("all")}
+          className="cursor-pointer"
         >
-          {content}
-        </button>
-      )}
-    />
+          <Circle className="size-4 text-muted-foreground" strokeWidth={1.75} />
+          <span>{m.tickets_status_all()}</span>
+          <span className="ml-auto inline-flex items-center gap-2">
+            <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+              {counts.all ?? 0}
+            </span>
+            {value === "all" && (
+              <Check className="size-3.5 text-muted-foreground" />
+            )}
+          </span>
+        </DropdownMenuItem>
+        {slugs.length > 0 && <div className="my-1 h-px bg-border" />}
+        {slugs.map((s) => {
+          const meta = statusMetaFor(s, statuses)
+          const SIcon = meta.icon
+          return (
+            <DropdownMenuItem
+              key={s}
+              onClick={() => onChange(s as TicketStatus)}
+              className="cursor-pointer"
+            >
+              <SIcon
+                className={cn("size-4", meta.className)}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+              <span className="truncate">{statusLabelFor(s, statuses)}</span>
+              <span className="ml-auto inline-flex items-center gap-2">
+                <span className="rounded-full bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {counts[s] ?? 0}
+                </span>
+                {value === s && (
+                  <Check className="size-3.5 text-muted-foreground" />
+                )}
+              </span>
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

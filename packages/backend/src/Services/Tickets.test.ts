@@ -10,6 +10,7 @@ import {
   ProjectKey,
   TICKET_LIST_LIMIT,
   TicketId,
+  TicketStatus,
   type TicketListQuery
 } from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
@@ -36,6 +37,7 @@ import { Tickets } from "./Tickets"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.unsafeMake(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const githubIntegration = {
   projectIntegrationLinkId: "link-1",
@@ -67,7 +69,7 @@ function makeTicketDocument(
   return {
     id: ticketId(id),
     title: id,
-    status: "todo",
+    status: ticketStatus("todo"),
     type: "other",
     priority: "med",
     tags: [],
@@ -232,6 +234,12 @@ const makeFakeTicketIndex = (
       Effect.sync(() =>
         [...documents.values()]
           .filter((document) => document.tags.some((t) => t === tag))
+          .map((document) => document.id)
+      ),
+    findTicketIdsByStatus: (_project, status) =>
+      Effect.sync(() =>
+        [...documents.values()]
+          .filter((document) => document.status === status)
           .map((document) => document.id)
       ),
     findTicketsByBranch: (projectId, branch) =>
@@ -483,7 +491,7 @@ it.effect("get uses persisted prState for the fallback git state", () => {
       branch: "feat/T-1",
       pr: 80,
       prState: "merged",
-      status: "done"
+      status: ticketStatus("done")
     })
   )
   const layer = makeTicketsLayer("T", docs.layer, {
@@ -735,19 +743,19 @@ it.effect("count returns zeros for every status on empty project", () => {
     const result = yield* tickets.count("org", "user-1", "p", {})
     expect(result).toEqual({
       total: 0,
-      byStatus: { todo: 0, in_progress: 0, done: 0 }
+      byStatus: {}
     })
   }).pipe(Effect.provide(layer))
 })
 
 it.effect("count aggregates byStatus across a mixed-status project", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
-  documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
-  documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
-  documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
-  documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
-  documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
-  documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+  documents.set("T-1", makeTicketDocument("T-1", { status: ticketStatus("todo") }))
+  documents.set("T-2", makeTicketDocument("T-2", { status: ticketStatus("todo") }))
+  documents.set("T-3", makeTicketDocument("T-3", { status: ticketStatus("todo") }))
+  documents.set("T-4", makeTicketDocument("T-4", { status: ticketStatus("in_progress") }))
+  documents.set("T-5", makeTicketDocument("T-5", { status: ticketStatus("in_progress") }))
+  documents.set("T-6", makeTicketDocument("T-6", { status: ticketStatus("done") }))
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
@@ -763,17 +771,17 @@ it.effect(
   "count strips status from filter so chip counts stay meaningful",
   () => {
     const { documents, layer } = makeTicketsFixture("T", [])
-    documents.set("T-1", makeTicketDocument("T-1", { status: "todo" }))
-    documents.set("T-2", makeTicketDocument("T-2", { status: "todo" }))
-    documents.set("T-3", makeTicketDocument("T-3", { status: "todo" }))
-    documents.set("T-4", makeTicketDocument("T-4", { status: "in_progress" }))
-    documents.set("T-5", makeTicketDocument("T-5", { status: "in_progress" }))
-    documents.set("T-6", makeTicketDocument("T-6", { status: "done" }))
+    documents.set("T-1", makeTicketDocument("T-1", { status: ticketStatus("todo") }))
+    documents.set("T-2", makeTicketDocument("T-2", { status: ticketStatus("todo") }))
+    documents.set("T-3", makeTicketDocument("T-3", { status: ticketStatus("todo") }))
+    documents.set("T-4", makeTicketDocument("T-4", { status: ticketStatus("in_progress") }))
+    documents.set("T-5", makeTicketDocument("T-5", { status: ticketStatus("in_progress") }))
+    documents.set("T-6", makeTicketDocument("T-6", { status: ticketStatus("done") }))
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const result = yield* tickets.count("org", "user-1", "p", {
-        filter: { status: ["done"] }
+        filter: { status: [ticketStatus("done")] }
       })
       expect(result).toEqual({
         total: 6,
@@ -787,23 +795,23 @@ it.effect("count still applies non-status filters", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(
     "T-1",
-    makeTicketDocument("T-1", { status: "todo", type: "feat" })
+    makeTicketDocument("T-1", { status: ticketStatus("todo"), type: "feat" })
   )
   documents.set(
     "T-2",
-    makeTicketDocument("T-2", { status: "in_progress", type: "feat" })
+    makeTicketDocument("T-2", { status: ticketStatus("in_progress"), type: "feat" })
   )
   documents.set(
     "T-3",
-    makeTicketDocument("T-3", { status: "done", type: "feat" })
+    makeTicketDocument("T-3", { status: ticketStatus("done"), type: "feat" })
   )
   documents.set(
     "T-4",
-    makeTicketDocument("T-4", { status: "todo", type: "bug" })
+    makeTicketDocument("T-4", { status: ticketStatus("todo"), type: "bug" })
   )
   documents.set(
     "T-5",
-    makeTicketDocument("T-5", { status: "in_progress", type: "bug" })
+    makeTicketDocument("T-5", { status: ticketStatus("in_progress"), type: "bug" })
   )
 
   return Effect.gen(function* () {
@@ -813,7 +821,7 @@ it.effect("count still applies non-status filters", () => {
     })
     expect(result).toEqual({
       total: 2,
-      byStatus: { todo: 1, in_progress: 1, done: 0 }
+      byStatus: { todo: 1, in_progress: 1 }
     })
   }).pipe(Effect.provide(layer))
 })
@@ -822,15 +830,15 @@ it.effect("count substitutes mine to viewerId like list", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(
     "T-1",
-    makeTicketDocument("T-1", { status: "todo", assignees: ["user-1"] })
+    makeTicketDocument("T-1", { status: ticketStatus("todo"), assignees: ["user-1"] })
   )
   documents.set(
     "T-2",
-    makeTicketDocument("T-2", { status: "in_progress", assignees: ["user-1"] })
+    makeTicketDocument("T-2", { status: ticketStatus("in_progress"), assignees: ["user-1"] })
   )
   documents.set(
     "T-3",
-    makeTicketDocument("T-3", { status: "done", assignees: ["user-2"] })
+    makeTicketDocument("T-3", { status: ticketStatus("done"), assignees: ["user-2"] })
   )
 
   return Effect.gen(function* () {
@@ -840,7 +848,7 @@ it.effect("count substitutes mine to viewerId like list", () => {
     })
     expect(result).toEqual({
       total: 2,
-      byStatus: { todo: 1, in_progress: 1, done: 0 }
+      byStatus: { todo: 1, in_progress: 1 }
     })
   }).pipe(Effect.provide(layer))
 })

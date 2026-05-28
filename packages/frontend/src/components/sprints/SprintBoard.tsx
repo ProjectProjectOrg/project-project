@@ -1,5 +1,12 @@
-import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Result, useAtomValue, useAtomSet } from "@effect-atom/atom-react"
+import { motion, Reorder } from "motion/react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -8,16 +15,20 @@ import {
   sprintKey
 } from "@/atoms/sprints"
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import {
+  projectKey as projectStatusKey,
+  projectStatusesAtom
+} from "@/atoms/projectStatuses"
 import type {
   GroupId,
   Member,
+  ProjectStatus,
   Ticket,
-  TicketId,
-  TicketStatus
+  TicketId
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 import {
-  BOARD_STATUSES,
+  boardStatusesFor,
   groupTicketsByStatus,
   type CardDropData,
   type ColumnDropData,
@@ -25,13 +36,20 @@ import {
 } from "./board-utils"
 import { SprintBoardColumn } from "./SprintBoardColumn"
 
+const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+
 export function SprintBoard({
   orgSlug,
   slug,
   groupId,
   ticketIds,
   members,
-  isCompleted
+  isCompleted,
+  reorderMode,
+  onEnterReorder,
+  onExitReorder,
+  dragOrder,
+  setDragOrder
 }: {
   orgSlug: string
   slug: string
@@ -39,10 +57,26 @@ export function SprintBoard({
   ticketIds: ReadonlyArray<TicketId>
   members: ReadonlyArray<Member>
   isCompleted: boolean
+  reorderMode: boolean
+  onEnterReorder: () => void
+  onExitReorder: () => void
+  dragOrder: ReadonlyArray<string> | null
+  setDragOrder: (next: ReadonlyArray<string> | null) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const groupRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState<number | null>(null)
+  const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
   const [hasRightOverflow, setHasRightOverflow] = useState(true)
+
+  useEffect(() => {
+    if (reorderMode) {
+      const w = groupRef.current?.scrollWidth ?? null
+      if (w) setFrozenWidth(w)
+    } else {
+      setFrozenWidth(null)
+    }
+  }, [reorderMode])
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -86,12 +120,29 @@ export function SprintBoard({
     }
   }, [])
 
+  useEffect(() => {
+    if (!reorderMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onExitReorder()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [reorderMode, onExitReorder])
+
   const key = sprintKey(orgSlug, slug, groupId)
+  const statusKey = projectStatusKey(orgSlug, slug)
   const list = useAtomValue(
     ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
   )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
+  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+    ? statusesResult.value
+    : EMPTY_STATUSES
+  const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
+
+  const order = dragOrder ?? statusSlugs
 
   const [lastFlash, setLastFlash] = useState<{
     id: TicketId
@@ -109,15 +160,15 @@ export function SprintBoard({
   }, [list])
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(ticketIds, ticketById, overlay),
-    [ticketIds, ticketById, overlay]
+    () => groupTicketsByStatus(ticketIds, ticketById, overlay, order),
+    [ticketIds, ticketById, overlay, order]
   )
   const groupedRef = useRef(grouped)
   groupedRef.current = grouped
 
   useEffect(() => {
     const el = ref.current
-    if (!el || isCompleted) return
+    if (!el || isCompleted || reorderMode) return
     const cleanupAutoScroll = autoScrollForElements({ element: el })
     const cleanupMonitor = monitorForElements({
       onDrop({ source, location }) {
@@ -130,10 +181,10 @@ export function SprintBoard({
 
         const current = groupedRef.current
         let after: TicketId | null
-        let nextStatus: TicketStatus
+        let nextStatus: string
         if (dst.type === "card") {
           nextStatus = dst.status
-          const inColumn = current[dst.status]
+          const inColumn = current[dst.status] ?? []
           const idx = inColumn.findIndex((t) => t.id === dst.id)
           if (dst.edge === "bottom") {
             after = dst.id
@@ -142,11 +193,14 @@ export function SprintBoard({
           }
         } else {
           nextStatus = dst.status
-          const inColumn = current[dst.status]
+          const inColumn = current[dst.status] ?? []
           after = inColumn.length > 0 ? inColumn[inColumn.length - 1].id : null
         }
         if (after === src.id) return
-        const status = nextStatus !== src.status ? nextStatus : undefined
+        const status =
+          nextStatus !== src.status
+            ? (nextStatus as import("@projectproject/shared").TicketStatus)
+            : undefined
         place({ ticketId: src.id, status, after })
         flash(src.id)
       }
@@ -155,33 +209,45 @@ export function SprintBoard({
       cleanupAutoScroll()
       cleanupMonitor()
     }
-  }, [isCompleted, place])
+  }, [isCompleted, reorderMode, place])
 
   return (
-    <div
+    <motion.div
       ref={ref}
+      layoutScroll
       style={{ height: height ? `${height}px` : undefined }}
       className={cn(
-        "overflow-x-auto pb-4",
+        "overflow-x-auto pt-2 pb-4",
         hasRightOverflow &&
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}
     >
-      <div className="flex h-full gap-3">
-        {BOARD_STATUSES.map((status) => (
+      <Reorder.Group
+        ref={groupRef}
+        as="div"
+        axis="x"
+        values={order as Array<string>}
+        onReorder={(next) => setDragOrder(next)}
+        style={frozenWidth ? { width: `${frozenWidth}px` } : undefined}
+        className="flex h-full gap-3"
+      >
+        {order.map((status) => (
           <SprintBoardColumn
             key={status}
             orgSlug={orgSlug}
             slug={slug}
             status={status}
-            tickets={grouped[status]}
+            statuses={statuses}
+            tickets={grouped[status] ?? []}
             members={members}
             isDraggable={!isCompleted}
             overlay={overlay}
             lastFlash={lastFlash}
+            reorderMode={reorderMode}
+            onActivateReorder={onEnterReorder}
           />
         ))}
-      </div>
-    </div>
+      </Reorder.Group>
+    </motion.div>
   )
 }
