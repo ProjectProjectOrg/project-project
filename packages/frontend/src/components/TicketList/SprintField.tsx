@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import { m } from "@/paraglide/messages"
 import {
-  addTicketsToSprintAtom,
   projectKey,
-  removeTicketsFromSprintAtom,
   sprintMembershipAtom,
-  sprintsListAtom
+  sprintsListAtom,
+  useAddTicketsToSprint,
+  useRemoveTicketsFromSprint
 } from "@/atoms/sprints"
 import { type Group, type TicketId } from "@projectproject/shared"
 import { Result } from "@effect-atom/atom-react"
@@ -31,8 +31,8 @@ export function SprintField({
 }) {
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(key))
-  const removeFromSprint = useAtomSet(removeTicketsFromSprintAtom(key))
+  const addToSprint = useAddTicketsToSprint(key)
+  const removeFromSprint = useRemoveTicketsFromSprint(key)
   const [open, setOpen] = useState(false)
 
   if (!membership) return null
@@ -61,7 +61,7 @@ export function SprintField({
           aria-label={m.tickets_sprint_chip_aria({ name: membership.name })}
           className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
             <SprintStateIcon sprint={membership} size="xs" />
             <span className="truncate">{membership.name}</span>
           </span>
@@ -85,8 +85,8 @@ export function SprintBadgeTrigger({
   const key = projectKey(orgSlug, slug)
   const list = useAtomValue(sprintsListAtom(key))
   const membership = useAtomValue(sprintMembershipAtom(key))
-  const addToSprint = useAtomSet(addTicketsToSprintAtom(key))
-  const removeFromSprint = useAtomSet(removeTicketsFromSprintAtom(key))
+  const addToSprint = useAddTicketsToSprint(key)
+  const removeFromSprint = useRemoveTicketsFromSprint(key)
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)

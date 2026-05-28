@@ -71,7 +71,8 @@ export type TicketDetail = typeof TicketDetail.Type
 
 export const QuickCreateTicketInput = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
-  type: Schema.optional(TicketType)
+  type: Schema.optional(TicketType),
+  status: Schema.optional(TicketStatus)
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 

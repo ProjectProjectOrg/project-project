@@ -62,7 +62,13 @@ export function TicketPage({
         <MarkdownSaveIndicator status={bodyStatus} />
       </div>
       <header className="flex items-start gap-3">
-        <StatusButton orgSlug={orgSlug} slug={slug} ticket={ticket} size="lg" />
+        <StatusButton
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          query={{ sort: { key: "updated", dir: "desc" } }}
+          size="lg"
+        />
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
           <h1 className="w-full">
             <TitleField orgSlug={orgSlug} slug={slug} ticket={ticket} />

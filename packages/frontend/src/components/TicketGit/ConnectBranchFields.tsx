@@ -1,10 +1,6 @@
 // Inline form body for "connect existing branch". Search input on top,
 // scrollable result list below, footer with cancel + connect. Hand-rolled
 // (no cmdk in this workspace) but keyboard-navigable.
-//
-// branchesAtom is keyed on slug + repo + q so each query has its own cache cell;
-// we debounce input by 200ms before the q changes (avoids a fetch per
-// keystroke).
 
 import {
   Result,
@@ -12,14 +8,13 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect-atom/atom-react"
+import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
-import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import * as Fiber from "effect/Fiber"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import { GitBranch } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
@@ -82,7 +77,7 @@ export function ConnectBranchFields({
   const buttonSize = variant === "bordered" ? "sm" : "xs"
   const { busy, setBusy, close } = useInlineForm()
   const [input, setInput] = useState("")
-  const [q, setQ] = useState("")
+  const [q] = useDebouncedValue(input, { wait: 200 })
   const [selectedState, setSelectedState] = useState<{
     repoId: string
     name: string
@@ -106,15 +101,6 @@ export function ConnectBranchFields({
       const index = typeof next === "function" ? next(currentIndex) : next
       return { repoId: github.repoId, index }
     })
-
-  useEffect(() => {
-    const fiber = Effect.runFork(
-      Effect.sleep(200).pipe(Effect.tap(() => Effect.sync(() => setQ(input))))
-    )
-    return () => {
-      Effect.runFork(Fiber.interrupt(fiber))
-    }
-  }, [input])
 
   const key = branchesKey(orgSlug, slug, github.repoId, q)
   const result = useAtomValue(branchesAtom(key))
