@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export type LongPressHandlers = {
   onPointerDown: (e: React.PointerEvent) => void
@@ -25,6 +25,8 @@ export function useLongPress(
     startRef.current = null
     setHolding(false)
   }, [])
+
+  useEffect(() => clear, [clear])
 
   const handlers: LongPressHandlers = {
     onPointerDown: (e) => {
