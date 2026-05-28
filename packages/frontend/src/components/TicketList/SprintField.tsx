@@ -61,7 +61,7 @@ export function SprintField({
           aria-label={m.tickets_sprint_chip_aria({ name: membership.name })}
           className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
             <SprintStateIcon sprint={membership} size="xs" />
             <span className="truncate">{membership.name}</span>
           </span>
