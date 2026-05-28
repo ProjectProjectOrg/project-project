@@ -1,18 +1,19 @@
 import { useRouter } from "@tanstack/react-router"
 import { GitPullRequestArrow, RefreshCw } from "lucide-react"
-import {
-  ActorAvatar,
-  ReviewOverview
-} from "@/components/Reviews/ReviewOverview"
+import { ActorAvatar } from "@/components/Reviews/ReviewActors"
+import { ReviewOverview } from "@/components/Reviews/ReviewOverview"
 import { ReviewFilesWorkspace } from "@/components/Reviews/ReviewFilesWorkspace"
-import { Badge, type BadgeTone } from "@/components/ui/badge"
+import {
+  reviewPrStateLabel,
+  reviewPrStateTone
+} from "@/components/Reviews/ReviewLabels"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type {
   ReviewActor,
-  ReviewPage as ReviewPageDto,
-  ReviewPrState
+  ReviewPage as ReviewPageDto
 } from "@projectproject/shared"
 
 type ReviewView = "overview" | "files"
@@ -94,8 +95,8 @@ export function ReviewPage({
             </Button>
           </div>
           <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <Badge tone={stateTone(pr.state)} className="shrink-0">
-              {stateLabel(pr.state)}
+            <Badge tone={reviewPrStateTone(pr.state)} className="shrink-0">
+              {reviewPrStateLabel(pr.state)}
             </Badge>
             <ActorMerge
               actor={pr.author}
@@ -175,18 +176,6 @@ function BranchChip({
       <span className="min-w-0 truncate">{label}</span>
     </span>
   )
-}
-
-function stateTone(state: ReviewPrState): BadgeTone {
-  if (state === "open") return "emerald"
-  if (state === "merged") return "violet"
-  return "muted"
-}
-
-function stateLabel(state: ReviewPrState): string {
-  if (state === "open") return m.reviews_pr_open()
-  if (state === "merged") return m.reviews_pr_merged()
-  return m.reviews_pr_closed()
 }
 
 export function ReviewPageSkeleton() {
