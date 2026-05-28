@@ -9,6 +9,7 @@ import {
   type ReactNode
 } from "react"
 import { Button } from "@/components/ui/button"
+import { ErrorPage } from "@/components/ErrorPage"
 import {
   loadMoreTicketsAtom,
   ticketsListAtom,
@@ -71,6 +72,9 @@ export function SectionList({
 
   const previousRef = useRef<TicketsListValue | null>(null)
   if (Result.isSuccess(list)) previousRef.current = list.value
+
+  const listFailure =
+    previousRef.current === null && Result.isFailure(list) ? list : null
 
   const loadMore = useAtomSet(loadMoreTicketsAtom(deferredKey))
   const loadMoreState = useAtomValue(loadMoreTicketsAtom(deferredKey))
@@ -148,7 +152,14 @@ export function SectionList({
             transition={transitions.fade}
             className="flex flex-col gap-1 overflow-hidden"
           >
-            {items.length === 0 ? (
+            {listFailure !== null ? (
+              Result.matchWithError(listFailure, {
+                onInitial: () => null,
+                onError: (error) => <ErrorPage error={error} contained />,
+                onDefect: (defect) => <ErrorPage error={defect} contained />,
+                onSuccess: () => null
+              })
+            ) : items.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                 —
               </div>
