@@ -1,6 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { AnimatePresence, motion } from "motion/react"
-import { ChevronDown, Loader2, Plus } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import {
   useDeferredValue,
   useEffect,
@@ -9,7 +9,6 @@ import {
   type ReactNode
 } from "react"
 import { Button } from "@/components/ui/button"
-import { Hitbox } from "@/components/ui/hitbox"
 import {
   loadMoreTicketsAtom,
   ticketsListAtom,
@@ -19,7 +18,6 @@ import {
 import { cn } from "@/lib/utils"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import { statusLabelFor } from "@/lib/ticket-meta"
 import type {
   Group,
   Member,
@@ -101,11 +99,6 @@ export function SectionList({
     waiting && "animate-pulse"
   )
 
-  const label = statusLabelFor(status, statuses)
-
-  const morphFrom = { opacity: 0, filter: "blur(8px)" }
-  const morphTo = { opacity: 1, filter: "blur(0px)" }
-
   const shellRef = useRef<HTMLDivElement>(null)
 
   const onStartCreate = () => {
@@ -119,109 +112,28 @@ export function SectionList({
       className="flex flex-col gap-1 transition-opacity duration-200 ease-out"
       data-creating={creating || undefined}
     >
-      <div
+      <SectionHeader
         ref={shellRef}
-        onClick={creating ? undefined : onToggleCollapsed}
-        className={cn(
-          "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
-          !creating && "cursor-pointer hover:bg-foreground/5"
-        )}
-      >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleCollapsed()
-          }}
-          aria-expanded={!collapsed}
-          aria-label={m.tickets_section_collapse_aria_label({ label })}
-          className={cn(
-            "grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
-            "transition-colors hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring",
-            "active:scale-[0.9]"
-          )}
-        >
-          <span className="translate-x-px">
-            <ChevronDown
-              className={cn(
-                "size-4 transition-transform duration-150",
-                collapsed && "-rotate-90"
-              )}
-              strokeWidth={1.75}
-            />
-          </span>
-        </button>
-
-        <div className="grid min-w-0 flex-1">
-          <AnimatePresence mode="sync" initial={false}>
-            {creating ? (
-              <motion.div
-                key="creator"
-                initial={morphFrom}
-                animate={morphTo}
-                exit={morphFrom}
-                transition={transitions.presence}
-                className="min-w-0 self-center [grid-area:1/1]"
-              >
-                <SectionTicketCreator
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  status={status}
-                  query={query}
-                  containerRef={shellRef}
-                  onDone={onDismissCreate}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="header"
-                initial={morphFrom}
-                animate={morphTo}
-                exit={morphFrom}
-                transition={transitions.presence}
-                className="self-center [grid-area:1/1]"
-              >
-                <SectionHeader
-                  status={status}
-                  statuses={statuses}
-                  count={count}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (creating) onDismissCreate()
-            else onStartCreate()
-          }}
-          aria-label={
-            creating
-              ? m.tickets_section_create_dismiss_aria_label({ label })
-              : m.tickets_section_create_aria_label({ label })
-          }
-          title={
-            creating
-              ? m.tickets_section_create_dismiss_aria_label({ label })
-              : m.tickets_section_create_aria_label({ label })
-          }
-        >
-          <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.9]">
-            <Plus
-              className={cn(
-                "size-4 transition-transform duration-200 ease-out",
-                creating && "rotate-45"
-              )}
-              strokeWidth={1.75}
-            />
-          </span>
-        </Hitbox>
-      </div>
+        variant="sticky"
+        status={status}
+        statuses={statuses}
+        count={count}
+        collapsed={collapsed}
+        creating={creating}
+        onToggleCollapsed={onToggleCollapsed}
+        onStartCreate={onStartCreate}
+        onDismissCreate={onDismissCreate}
+        creator={
+          <SectionTicketCreator
+            orgSlug={orgSlug}
+            slug={slug}
+            status={status}
+            query={query}
+            containerRef={shellRef}
+            onDone={onDismissCreate}
+          />
+        }
+      />
 
       <AnimatePresence initial={false}>
         {!collapsed && (
