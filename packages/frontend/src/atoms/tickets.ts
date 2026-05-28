@@ -40,7 +40,7 @@ export const ticketsListKeyForStatus = (
 ): string =>
   ticketsListKey(orgSlug, slug, {
     ...baseQuery,
-    filter: { ...(baseQuery.filter ?? {}), status: [status] },
+    filter: { ...baseQuery.filter, status: [status] },
     cursor: undefined
   })
 
