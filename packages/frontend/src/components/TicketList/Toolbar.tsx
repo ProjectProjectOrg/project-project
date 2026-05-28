@@ -1,7 +1,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as DateTime from "effect/DateTime"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
 import {
@@ -293,15 +293,14 @@ export function Toolbar({
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : EMPTY_STATUSES
-  const [counts, setCounts] = useState<Record<string, number>>({ all: 0 })
-  useEffect(() => {
-    if (!Result.isSuccess(countsResult)) return
+  const counts = useMemo<Record<string, number>>(() => {
+    if (!Result.isSuccess(countsResult)) return { all: 0 }
     const byStatus = countsResult.value.byStatus as Record<string, number>
     const next: Record<string, number> = { all: countsResult.value.total }
     for (const s of boardStatusesFor(statuses)) {
       next[s] = byStatus[s] ?? 0
     }
-    setCounts(next)
+    return next
   }, [countsResult, statuses])
 
   const FULL_FITS_ROW = 720
