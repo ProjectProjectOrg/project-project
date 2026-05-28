@@ -31,23 +31,10 @@ import type {
   TicketStatus
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
-import { useResetTicketSearch } from "./url"
+import { queryHasActiveFilter, useResetTicketSearch } from "./url"
 import { SectionList } from "./SectionList"
 
 const EMPTY_COUNTS: TicketCounts = { total: 0, byStatus: {} }
-
-function queryHasActiveFilter(q: TicketListQuery): boolean {
-  if (q.q !== undefined) return true
-  const f = q.filter
-  if (!f) return false
-  return (
-    (f.status?.length ?? 0) > 0 ||
-    (f.type?.length ?? 0) > 0 ||
-    (f.assignee?.length ?? 0) > 0 ||
-    (f.tags?.length ?? 0) > 0 ||
-    (f.groupId?.length ?? 0) > 0
-  )
-}
 
 type ActiveSnapshot = {
   readonly key: string
