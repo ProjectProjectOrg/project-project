@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
 import { Toolbar } from "./Toolbar"
+import { queryHasActiveFilter } from "./url"
 import type {
   Group,
   Member,
@@ -29,9 +30,7 @@ export function TicketList({
   creator?: ReactNode
   showSprintFilter?: boolean
 }) {
-  const hasActiveFilter =
-    (query.filter !== undefined && Object.keys(query.filter).length > 0) ||
-    (query.q !== undefined && query.q.length > 0)
+  const hasActiveFilter = queryHasActiveFilter(query)
 
   return (
     <div className="group/list flex flex-col gap-3">
