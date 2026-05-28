@@ -1,6 +1,8 @@
 import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import { useNavigate } from "@tanstack/react-router"
 import { TicketGitChip } from "@/components/TicketGit"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import type {
   Group,
@@ -23,7 +25,8 @@ function RowImpl({
   showSprintCol,
   showExtraActionsCol,
   sprintMembership,
-  extraRowActions
+  extraRowActions,
+  pending
 }: {
   orgSlug: string
   slug: string
@@ -34,7 +37,11 @@ function RowImpl({
   showExtraActionsCol: boolean
   sprintMembership: Group | null
   extraRowActions?: (ticket: Ticket) => ReactNode
+  pending?: boolean
 }) {
+  const dashIdx = ticket.id.lastIndexOf("-")
+  const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
+  const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const navigate = useNavigate()
   const open = () => {
     void navigate({
@@ -77,8 +84,22 @@ function RowImpl({
           ticket={ticket}
           stopPropagation
         />
-        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-          {ticket.id}
+        <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+          <span>{idPrefix}-</span>
+          <AnimatePresence initial={false} mode="popLayout">
+            {!pending && (
+              <motion.span
+                key={idTail}
+                initial={{ opacity: 0, filter: "blur(4px)" }}
+                animate={{ opacity: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, filter: "blur(4px)" }}
+                transition={transitions.presence}
+                className="inline-block"
+              >
+                {idTail}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </span>
         <div className="flex min-w-0 items-center">
           <span className="min-w-0 truncate text-sm font-medium">

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
 import { meAtom } from "@/atoms/auth"
+import { projectAtom, projectKey } from "@/atoms/projects"
 import {
   quickCreateTicketAtom,
   ticketsListKeyForStatus
@@ -58,6 +59,9 @@ export function SectionTicketCreator({
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
 
+  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
+
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [typeMenuOpen, setTypeMenuOpen] = useState(false)
@@ -68,6 +72,14 @@ export function SectionTicketCreator({
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  const wasSubmittingRef = useRef(false)
+  useEffect(() => {
+    if (wasSubmittingRef.current && !submitting) {
+      inputRef.current?.focus()
+    }
+    wasSubmittingRef.current = submitting
+  }, [submitting])
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -81,6 +93,27 @@ export function SectionTicketCreator({
     return () => document.removeEventListener("mousedown", onMouseDown)
   }, [typeMenuOpen, closingMenu, onDone, containerRef])
 
+  const dismissGuardsRef = useRef({
+    typeMenuOpen,
+    closingMenu,
+    submitting
+  })
+  dismissGuardsRef.current = { typeMenuOpen, closingMenu, submitting }
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const onFocusOut = (e: FocusEvent) => {
+      const guards = dismissGuardsRef.current
+      if (guards.typeMenuOpen || guards.closingMenu || guards.submitting) return
+      const next = e.relatedTarget as Node | null
+      if (next !== null && container.contains(next)) return
+      onDone()
+    }
+    container.addEventListener("focusout", onFocusOut)
+    return () => container.removeEventListener("focusout", onFocusOut)
+  }, [onDone, containerRef])
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!trimmed || submitting) return
@@ -89,7 +122,8 @@ export function SectionTicketCreator({
     inputRef.current?.focus()
     const exit = await create({
       ticket: { title: submittedTitle, type, status },
-      viewerId
+      viewerId,
+      projectPrefix
     })
     if (Exit.isFailure(exit)) {
       setTitle(submittedTitle)

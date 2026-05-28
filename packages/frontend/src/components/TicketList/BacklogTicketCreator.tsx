@@ -24,7 +24,7 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
+import { projectAtom, projectKey } from "@/atoms/projects"
 import {
   addTicketsToSprintAtom,
   projectKey as sprintsKey,
@@ -76,6 +76,9 @@ export function BacklogTicketCreator({
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
 
+  const project = useAtomValue(projectAtom(projKey))
+  const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
+
   const sprintListResult = useAtomValue(
     sprintsListAtom(sprintsKey(orgSlug, slug))
   )
@@ -114,7 +117,8 @@ export function BacklogTicketCreator({
     setFocused(false)
     const exit = await create({
       ticket: { title: trimmed, type },
-      viewerId
+      viewerId,
+      projectPrefix
     })
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
