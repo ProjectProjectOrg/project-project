@@ -29,6 +29,14 @@ export const TAG_DEFAULT_PALETTE: ReadonlyArray<string> = OUTER_RING.map(
   (c) => c.hex
 )
 
+export const STATE_COLORS = {
+  danger: swatch(15, OUTER.L, OUTER.C),
+  warning: swatch(75, OUTER.L, OUTER.C),
+  success: swatch(135, OUTER.L, OUTER.C),
+  info: swatch(255, OUTER.L, OUTER.C),
+  merged: swatch(285, OUTER.L, OUTER.C)
+} as const satisfies Record<string, ColorSwatch>
+
 export function pickStatusColor(used: ReadonlyArray<string>): string {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
   return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]

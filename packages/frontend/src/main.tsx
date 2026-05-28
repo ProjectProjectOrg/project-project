@@ -11,9 +11,16 @@ import { RegistryContext } from "@effect-atom/atom-react"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
+import { STATE_COLORS } from "@projectproject/shared"
 import { registry } from "./runtime"
 import { routeTree } from "./routeTree.gen"
 import "./styles.css"
+
+const stateColorStyle = document.createElement("style")
+stateColorStyle.textContent = `:root{${Object.entries(STATE_COLORS)
+  .map(([name, c]) => `--state-${name}:${c.oklch};`)
+  .join("")}}`
+document.head.appendChild(stateColorStyle)
 
 const router = createRouter({
   routeTree,
