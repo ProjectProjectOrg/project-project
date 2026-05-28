@@ -1,5 +1,5 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
-import { useMemo, type ReactNode } from "react"
+import { useMemo, useRef, type ReactNode } from "react"
 import { FilterX, ListChecks } from "lucide-react"
 import * as Schema from "effect/Schema"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
@@ -25,12 +25,35 @@ import type {
   ProjectStatus,
   Ticket,
   TicketCountQuery,
+  TicketCounts,
   TicketId,
   TicketListQuery,
   TicketStatus
 } from "@projectproject/shared"
+import { cn } from "@/lib/utils"
 import { useResetTicketSearch } from "./url"
 import { SectionList } from "./SectionList"
+
+const EMPTY_COUNTS: TicketCounts = { total: 0, byStatus: {} }
+
+function queryHasActiveFilter(q: TicketListQuery): boolean {
+  if (q.q !== undefined) return true
+  const f = q.filter
+  if (!f) return false
+  return (
+    (f.status?.length ?? 0) > 0 ||
+    (f.type?.length ?? 0) > 0 ||
+    (f.assignee?.length ?? 0) > 0 ||
+    (f.tags?.length ?? 0) > 0 ||
+    (f.groupId?.length ?? 0) > 0
+  )
+}
+
+type ActiveSnapshot = {
+  readonly key: string
+  readonly query: TicketListQuery
+  readonly counts: TicketCounts
+}
 
 const CollapsedSchema = Schema.Array(Schema.String)
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -63,23 +86,34 @@ export function SegmentedList({
     : EMPTY_STATUSES
 
   const countQuery: TicketCountQuery = { filter: query.filter, q: query.q }
-  const countsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
-  )
-  const counts = Result.isSuccess(countsResult)
-    ? countsResult.value
-    : { total: 0, byStatus: {} as Record<string, number> }
-  const byStatus = counts.byStatus as Record<string, number>
+  const currentCountsKey = ticketsCountKey(orgSlug, slug, countQuery)
+  const countsResult = useAtomValue(ticketsCountAtom(currentCountsKey))
+
+  const activeRef = useRef<ActiveSnapshot | null>(null)
+  if (Result.isSuccess(countsResult)) {
+    activeRef.current = {
+      key: currentCountsKey,
+      query,
+      counts: countsResult.value
+    }
+  }
+  const active = activeRef.current
+  const isStale = active === null || active.key !== currentCountsKey
+
+  const renderQuery = active?.query ?? query
+  const counts = active?.counts ?? EMPTY_COUNTS
+  const byStatus = counts.byStatus
+  const renderHasActiveFilter = queryHasActiveFilter(renderQuery)
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
-    const requested = query.filter?.status
+    const requested = renderQuery.filter?.status
     const allOrdered = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
     if (requested !== undefined && requested.length > 0) {
       return allOrdered.filter((s) => requested.includes(s))
     }
-    if (!hasActiveFilter) return allOrdered
+    if (!renderHasActiveFilter) return allOrdered
     return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)
-  }, [statuses, query.filter, hasActiveFilter, byStatus])
+  }, [statuses, renderQuery.filter, renderHasActiveFilter, byStatus])
 
   const [collapsedRaw, setCollapsedRaw] = useLocalStorageState(
     `projectproject:ticket-list-collapsed:${orgSlug}/${slug}`,
@@ -116,7 +150,7 @@ export function SegmentedList({
     )
   }
 
-  if (filteredStatuses.length === 0 && hasActiveFilter) {
+  if (filteredStatuses.length === 0 && hasActiveFilter && !isStale) {
     return (
       <Empty>
         <EmptyHeader>
@@ -142,25 +176,35 @@ export function SegmentedList({
   }
 
   return (
-    <div className="flex flex-col gap-1 has-[[data-creating]]:[&>:not([data-creating])]:opacity-35">
-      {filteredStatuses.map((status) => (
-        <SectionList
-          key={status}
-          orgSlug={orgSlug}
-          slug={slug}
-          status={status}
-          statuses={statuses}
-          query={query}
-          count={byStatus[status] ?? 0}
-          collapsed={collapsedSet.has(status)}
-          onToggleCollapsed={() => toggleCollapsed(status)}
-          members={members}
-          sprintMembership={sprintMembership}
-          extraRowActions={extraRowActions}
-          showSprintCol={showSprintCol}
-          showExtraActionsCol={showExtraActionsCol}
-        />
-      ))}
+    <div
+      className={cn(
+        "flex flex-col gap-1 has-[[data-creating]]:[&>:not([data-creating])]:opacity-35",
+        isStale && "animate-pulse"
+      )}
+    >
+      {filteredStatuses.map((status) => {
+        const forceExpanded =
+          renderQuery.q !== undefined && (byStatus[status] ?? 0) > 0
+        return (
+          <SectionList
+            key={status}
+            orgSlug={orgSlug}
+            slug={slug}
+            status={status}
+            statuses={statuses}
+            query={renderQuery}
+            count={byStatus[status] ?? 0}
+            collapsed={!forceExpanded && collapsedSet.has(status)}
+            forceExpanded={forceExpanded}
+            onToggleCollapsed={() => toggleCollapsed(status)}
+            members={members}
+            sprintMembership={sprintMembership}
+            extraRowActions={extraRowActions}
+            showSprintCol={showSprintCol}
+            showExtraActionsCol={showExtraActionsCol}
+          />
+        )
+      })}
     </div>
   )
 }

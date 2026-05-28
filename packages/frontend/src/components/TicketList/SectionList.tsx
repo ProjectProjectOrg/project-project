@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from "motion/react"
 import { ChevronDown, Loader2, Plus } from "lucide-react"
 import {
   useDeferredValue,
+  useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode
 } from "react"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,9 @@ import {
   type TicketsListValue
 } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import { statusLabelFor, statusMetaFor } from "@/lib/ticket-meta"
+import { statusLabelFor } from "@/lib/ticket-meta"
 import type {
   Group,
   Member,
@@ -42,6 +43,7 @@ export function SectionList({
   query,
   count,
   collapsed,
+  forceExpanded,
   onToggleCollapsed,
   members,
   sprintMembership,
@@ -56,6 +58,7 @@ export function SectionList({
   query: TicketListQuery
   count: number
   collapsed: boolean
+  forceExpanded: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
   sprintMembership?: ReadonlyMap<TicketId, Group>
@@ -86,6 +89,8 @@ export function SectionList({
   const waiting =
     (Result.isSuccess(list) && list.waiting === true) || isStaleKey
 
+  const itemRowState = useStableTicketKeys(items, waiting)
+
   const remaining = Math.max(0, count - items.length)
 
   const gridCols = cn(
@@ -96,17 +101,8 @@ export function SectionList({
     waiting && "animate-pulse"
   )
 
-  const meta = statusMetaFor(status, statuses)
   const label = statusLabelFor(status, statuses)
-  const hasTint = meta.color !== null
-  const tintStyle: CSSProperties | undefined = hasTint
-    ? ({
-        "--status-tint": `color-mix(in oklch, ${meta.color} 9%, transparent)`,
-        "--status-tint-hover": `color-mix(in oklch, ${meta.color} 20%, transparent)`
-      } as CSSProperties)
-    : undefined
 
-  const morphTransition = { duration: 0.2, ease: "easeOut" as const }
   const morphFrom = { opacity: 0, filter: "blur(8px)" }
   const morphTo = { opacity: 1, filter: "blur(0px)" }
 
@@ -125,35 +121,36 @@ export function SectionList({
     >
       <div
         ref={shellRef}
-        style={tintStyle}
+        onClick={creating ? undefined : onToggleCollapsed}
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-2 rounded-lg px-3 py-2 backdrop-blur transition-colors",
-          hasTint ? "bg-[var(--status-tint)]" : "bg-muted/40",
-          !creating &&
-            (hasTint
-              ? "hover:bg-[var(--status-tint-hover)]"
-              : "hover:bg-muted/60")
+          "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
+          !creating && "cursor-pointer hover:bg-foreground/5"
         )}
       >
         <button
           type="button"
-          onClick={onToggleCollapsed}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleCollapsed()
+          }}
           aria-expanded={!collapsed}
           aria-label={m.tickets_section_collapse_aria_label({ label })}
           className={cn(
-            "grid size-5 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
+            "grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
             "transition-colors hover:text-foreground",
             "focus-visible:ring-2 focus-visible:ring-ring",
             "active:scale-[0.9]"
           )}
         >
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform duration-150",
-              collapsed && "-rotate-90"
-            )}
-            strokeWidth={1.75}
-          />
+          <span className="translate-x-px">
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform duration-150",
+                collapsed && "-rotate-90"
+              )}
+              strokeWidth={1.75}
+            />
+          </span>
         </button>
 
         <div className="grid min-w-0 flex-1">
@@ -164,7 +161,7 @@ export function SectionList({
                 initial={morphFrom}
                 animate={morphTo}
                 exit={morphFrom}
-                transition={morphTransition}
+                transition={transitions.presence}
                 className="min-w-0 self-center [grid-area:1/1]"
               >
                 <SectionTicketCreator
@@ -182,22 +179,8 @@ export function SectionList({
                 initial={morphFrom}
                 animate={morphTo}
                 exit={morphFrom}
-                transition={morphTransition}
-                role="button"
-                tabIndex={0}
-                onClick={onToggleCollapsed}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    onToggleCollapsed()
-                  }
-                }}
-                aria-expanded={!collapsed}
-                aria-label={m.tickets_section_collapse_aria_label({ label })}
-                className={cn(
-                  "cursor-pointer self-center rounded-md outline-none [grid-area:1/1]",
-                  "focus-visible:ring-2 focus-visible:ring-ring"
-                )}
+                transition={transitions.presence}
+                className="self-center [grid-area:1/1]"
               >
                 <SectionHeader
                   status={status}
@@ -245,8 +228,12 @@ export function SectionList({
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            exit={{
+              height: 0,
+              opacity: 0,
+              transition: forceExpanded ? { duration: 0 } : transitions.fade
+            }}
+            transition={transitions.fade}
             className="flex flex-col gap-1 overflow-hidden"
           >
             {items.length === 0 ? (
@@ -255,27 +242,34 @@ export function SectionList({
               </div>
             ) : (
               <ul className={gridCols}>
-                {items.map((t) => {
-                  const membership = sprintMembership?.get(t.id) ?? null
-                  return (
-                    <li
-                      key={t.id}
-                      className="col-span-full grid grid-cols-subgrid"
-                    >
-                      <Row
-                        orgSlug={orgSlug}
-                        slug={slug}
-                        ticket={t}
-                        query={query}
-                        members={members}
-                        showSprintCol={showSprintCol}
-                        showExtraActionsCol={showExtraActionsCol}
-                        sprintMembership={membership}
-                        extraRowActions={extraRowActions}
-                      />
-                    </li>
-                  )
-                })}
+                <AnimatePresence initial={false}>
+                  {items.map((t, idx) => {
+                    const membership = sprintMembership?.get(t.id) ?? null
+                    const rowState = itemRowState[idx]
+                    return (
+                      <motion.li
+                        key={rowState.key}
+                        initial={{ opacity: 0, filter: "blur(8px)" }}
+                        animate={{ opacity: 1, filter: "blur(0px)" }}
+                        transition={transitions.presence}
+                        className="col-span-full grid grid-cols-subgrid"
+                      >
+                        <Row
+                          orgSlug={orgSlug}
+                          slug={slug}
+                          ticket={t}
+                          query={query}
+                          members={members}
+                          showSprintCol={showSprintCol}
+                          showExtraActionsCol={showExtraActionsCol}
+                          sprintMembership={membership}
+                          extraRowActions={extraRowActions}
+                          pending={rowState.pending}
+                        />
+                      </motion.li>
+                    )
+                  })}
+                </AnimatePresence>
               </ul>
             )}
 
@@ -307,4 +301,62 @@ export function SectionList({
       </AnimatePresence>
     </div>
   )
+}
+
+interface RowState {
+  readonly key: string
+  readonly pending: boolean
+}
+
+function useStableTicketKeys(
+  items: ReadonlyArray<Ticket>,
+  waiting: boolean
+): ReadonlyArray<RowState> {
+  const entriesRef = useRef<
+    Map<TicketId, { key: string; bornWaiting: boolean }>
+  >(new Map())
+  const prevItemsRef = useRef<ReadonlyArray<Ticket>>(items)
+  const prevWaitingRef = useRef<boolean>(waiting)
+
+  const justSettled = prevWaitingRef.current && !waiting
+  const prevItems = prevItemsRef.current
+  const currIds = new Set(items.map((t) => t.id))
+
+  const states = items.map<RowState>((t, idx) => {
+    const existing = entriesRef.current.get(t.id)
+    if (existing !== undefined) {
+      const stillPending = existing.bornWaiting && waiting
+      if (existing.bornWaiting && !waiting) {
+        entriesRef.current.set(t.id, { ...existing, bornWaiting: false })
+      }
+      return { key: existing.key, pending: stillPending }
+    }
+    if (justSettled) {
+      const prevAtIdx = prevItems[idx]
+      if (prevAtIdx && !currIds.has(prevAtIdx.id)) {
+        const prevEntry = entriesRef.current.get(prevAtIdx.id)
+        const inheritedKey = prevEntry?.key ?? prevAtIdx.id
+        entriesRef.current.set(t.id, {
+          key: inheritedKey,
+          bornWaiting: false
+        })
+        return { key: inheritedKey, pending: false }
+      }
+    }
+    entriesRef.current.set(t.id, { key: t.id, bornWaiting: waiting })
+    return { key: t.id, pending: waiting }
+  })
+
+  useEffect(() => {
+    prevItemsRef.current = items
+    prevWaitingRef.current = waiting
+    if (entriesRef.current.size > 200) {
+      const live = new Set(items.map((t) => t.id))
+      for (const id of entriesRef.current.keys()) {
+        if (!live.has(id)) entriesRef.current.delete(id)
+      }
+    }
+  }, [items, waiting])
+
+  return states
 }

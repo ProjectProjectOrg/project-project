@@ -19,11 +19,13 @@ export function SectionHeader({
 
   return (
     <div className="flex w-full items-center gap-2">
-      <Icon
-        className={cn("size-4 shrink-0", meta.className)}
-        style={meta.color ? { color: meta.color } : undefined}
-        strokeWidth={1.75}
-      />
+      <span className="grid size-6 shrink-0 place-items-center">
+        <Icon
+          className={cn("size-4", meta.className)}
+          style={meta.color ? { color: meta.color } : undefined}
+          strokeWidth={1.75}
+        />
+      </span>
       <span className="truncate text-sm font-medium">{label}</span>
       <span
         className="rounded-full bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground"
