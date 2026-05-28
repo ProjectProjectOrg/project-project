@@ -63,6 +63,7 @@
   "tickets_save_status_saving": "Saving…",
   "tickets_search_aria_label": "Search tickets",
   "tickets_search_clear_aria_label": "Clear search",
+  "tickets_search_min_hint": "Min. 3 characters",
   "tickets_search_placeholder": "Search tickets by title or id…",
   "tickets_section_collapse_aria_label": "Toggle section {label}",
   "tickets_section_count_aria_label": "{count} tickets",

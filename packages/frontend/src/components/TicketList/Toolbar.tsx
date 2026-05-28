@@ -1,4 +1,5 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
+import { useDebouncer } from "@tanstack/react-pacer"
 import * as DateTime from "effect/DateTime"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
@@ -74,6 +75,7 @@ type SearchValue = string | ReadonlyArray<string> | undefined
 type SearchRecord = { readonly [k: string]: SearchValue }
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
+const MIN_SEARCH_CHARS = 3
 
 const TOOLBAR_BUTTON_CLASS = cn(
   "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm",
@@ -216,42 +218,33 @@ export function Toolbar({
     latestQueryRef.current = query
   }, [query])
 
-  const queryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (queryDebounceRef.current) {
-        clearTimeout(queryDebounceRef.current)
-        queryDebounceRef.current = null
-      }
+  const effectiveQ = (q: string): string | undefined =>
+    q.length >= MIN_SEARCH_CHARS ? q : undefined
+  const searchDebouncer = useDebouncer(
+    (nextQ: string | undefined) => {
+      updateQuery({ ...latestQueryRef.current, q: nextQ })
     },
-    []
+    { wait: 200 }
   )
   const setSearchQuery = (q: string) => {
     setQueryInput(q)
-    if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
-    // @effect-diagnostics-next-line globalTimers:off
-    queryDebounceRef.current = setTimeout(() => {
-      updateQuery({
-        ...latestQueryRef.current,
-        q: q.length > 0 ? q : undefined
-      })
-    }, 200)
+    const nextQ = effectiveQ(q)
+    if (nextQ === undefined && latestQueryRef.current.q === undefined) {
+      searchDebouncer.cancel()
+      return
+    }
+    searchDebouncer.maybeExecute(nextQ)
   }
   const flushSearch = () => {
-    if (queryDebounceRef.current) {
-      clearTimeout(queryDebounceRef.current)
-      queryDebounceRef.current = null
-    }
-    if (queryInput !== queryStr) {
-      updateQuery({
-        ...latestQueryRef.current,
-        q: queryInput.length > 0 ? queryInput : undefined
-      })
+    searchDebouncer.flush()
+    const nextQ = effectiveQ(queryInput)
+    if ((nextQ ?? "") !== queryStr) {
+      updateQuery({ ...latestQueryRef.current, q: nextQ })
     }
   }
   const clearSearch = () => {
     setQueryInput("")
-    if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current)
+    searchDebouncer.cancel()
     updateQuery({ ...latestQueryRef.current, q: undefined })
   }
 
@@ -343,6 +336,12 @@ export function Toolbar({
           placeholder={m.tickets_search_placeholder()}
           aria-label={m.tickets_search_aria_label()}
         />
+        {queryInput.length > 0 &&
+        queryInput.length < MIN_SEARCH_CHARS ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {m.tickets_search_min_hint()}
+          </span>
+        ) : null}
         {queryInput ? (
           <Button
             type="button"
