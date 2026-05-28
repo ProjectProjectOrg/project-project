@@ -48,7 +48,7 @@ export function PriorityButton({
           >
             <span
               className={cn(
-                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-accent",
+                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
                 meta.className
               )}
             >
