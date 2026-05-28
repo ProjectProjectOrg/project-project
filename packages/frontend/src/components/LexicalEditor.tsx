@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import * as Effect from "effect/Effect"
-import * as Fiber from "effect/Fiber"
+import { useDebouncer } from "@tanstack/react-pacer"
 import {
   configExtension,
   defineExtension,
@@ -213,11 +213,11 @@ export function LexicalEditor({
 
   const liveRef = useRef(markdown)
   const pending = useRef<string | null>(null)
-  const timer = useRef<Fiber.RuntimeFiber<void> | null>(null)
   const inflight = useRef(false)
   const unmounted = useRef(false)
   const onChangeRef = useRef(onChange)
   const flushRef = useRef<(notify?: boolean) => void>(() => {})
+  const scheduleRef = useRef<() => void>(() => {})
   onChangeRef.current = onChange
 
   function setStatus(s: SaveStatus) {
@@ -243,30 +243,21 @@ export function LexicalEditor({
         inflight.current = false
         if (pending.current !== null) {
           if (unmounted.current) flush(false)
-          else schedule()
+          else scheduleRef.current()
         }
       })
   }
   flushRef.current = flush
 
-  function schedule() {
-    if (timer.current) Effect.runFork(Fiber.interrupt(timer.current))
-    timer.current = Effect.runFork(
-      Effect.sleep(debounceMs).pipe(Effect.tap(() => Effect.sync(flush)))
-    )
-  }
-
-  useEffect(
-    () => () => {
+  const saveDebouncer = useDebouncer(() => flush(), {
+    wait: debounceMs,
+    onUnmount: (d) => {
+      d.cancel()
       unmounted.current = true
-      if (timer.current) {
-        Effect.runFork(Fiber.interrupt(timer.current))
-        timer.current = null
-      }
       flushRef.current(false)
-    },
-    []
-  )
+    }
+  })
+  scheduleRef.current = () => saveDebouncer.maybeExecute()
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -326,7 +317,7 @@ export function LexicalEditor({
               onDraftChange?.(next)
               pending.current = changed
               setStatus("dirty")
-              schedule()
+              scheduleRef.current()
             })
           }}
           ignoreSelectionChange
