@@ -22,7 +22,7 @@ export const Route = createFileRoute(
     const { groupId: _groupId, ...sanitized } = ticketListQueryToSearch(
       ticketListQueryFromSearch(search)
     )
-    const view = search.view === "board" ? "board" : "list"
+    const view = search.view === "list" ? "list" : "board"
     return { ...sanitized, view }
   },
   loader: ({ params }) => ({
@@ -52,7 +52,7 @@ function SprintDetailRoute() {
       orgSlug={orgSlug}
       slug={slug}
       groupId={id}
-      view={search.view ?? "list"}
+      view={search.view ?? "board"}
       listQuery={scopedQuery}
     />
   )

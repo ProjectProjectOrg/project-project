@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
-import { ProjectKey } from "@projectproject/shared"
+import { ProjectKey, type TicketStatus } from "@projectproject/shared"
 import { Db } from "../Services/Db"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
 import { Groups, type GroupsShape } from "../Services/Groups"
@@ -102,15 +102,21 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
 
 const FakeDb = Layer.succeed(
   Db,
-  new Proxy(
-    {},
-    {
-      get:
-        (_target, prop) =>
-        (..._args: ReadonlyArray<unknown>) =>
-          unexpected(`Db.${String(prop)}`)
+  {
+    query: {
+      projectIndex: {
+        findFirst: () => Effect.succeed({ id: "project-1" })
+      },
+      projectStatus: {
+        findMany: () =>
+          Effect.succeed([
+            { slug: "todo" },
+            { slug: "in_progress" },
+            { slug: "done" }
+          ])
+      }
     }
-  ) as never
+  } as never
 )
 
 const TestLayer = Layer.unwrapScoped(
@@ -165,6 +171,43 @@ it.scoped("deleting a ticket removes its markdown file from disk", () =>
     yield* tickets.remove("org", "user-1", "p", created.id)
 
     expect(yield* fs.exists(filePath)).toBe(false)
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.scoped("honors a custom status on quickCreate", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "in progress at birth",
+      status: "in_progress" as TicketStatus
+    })
+    expect(created.status).toBe("in_progress")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.scoped("falls back to 'todo' when status is omitted on quickCreate", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "no status given"
+    })
+    expect(created.status).toBe("todo")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.scoped("rejects an unknown status on quickCreate", () =>
+  Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* Effect.either(
+      tickets.quickCreate("org", "user-1", "p", {
+        title: "bogus",
+        status: "not_a_real_status" as never
+      })
+    )
+    expect(result._tag).toBe("Left")
+    if (result._tag === "Left") {
+      expect(result.left._tag).toBe("Validation")
+    }
   }).pipe(Effect.provide(TestLayer))
 )
 

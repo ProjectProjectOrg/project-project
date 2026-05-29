@@ -1,5 +1,7 @@
-import { Atom, Result } from "@effect-atom/atom-react"
+import { Atom, Result, useAtomSet } from "@effect-atom/atom-react"
+import { useCallback } from "react"
 import * as Reactivity from "@effect/experimental/Reactivity"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -7,6 +9,10 @@ import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
 import { reconcilePendingTicketStatuses } from "@/lib/pendingTicketStatus"
+import {
+  reconcilePendingSprintAssignments,
+  type PendingSprintAssignment
+} from "@/lib/pendingSprintAssignment"
 import {
   GroupColor,
   GroupId,
@@ -185,6 +191,38 @@ type AddTicketsReducerInput = {
   ticketIds: ReadonlyArray<TicketId>
 }
 
+export const pendingSprintAssignmentAtom = Atom.family((_key: string) =>
+  Atom.keepAlive(Atom.make<PendingSprintAssignment>(new Map()))
+)
+
+export const writePendingSprintAssignments = (
+  current: PendingSprintAssignment,
+  entries: ReadonlyArray<readonly [TicketId, GroupId | null]>
+): PendingSprintAssignment => {
+  if (entries.length === 0) return current
+  const next = new Map(current)
+  for (const [tid, target] of entries) {
+    next.set(tid, target)
+  }
+  return next
+}
+
+const writePending = writePendingSprintAssignments
+
+const dropPending = (
+  current: PendingSprintAssignment,
+  ticketIds: ReadonlyArray<TicketId>
+): PendingSprintAssignment => {
+  if (current.size === 0) return current
+  let next: Map<TicketId, GroupId | null> | null = null
+  for (const tid of ticketIds) {
+    if (!current.has(tid)) continue
+    if (next === null) next = new Map(current)
+    next.delete(tid)
+  }
+  return next ?? current
+}
+
 export const addTicketsToSprintAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return Atom.optimisticFn(sprintsListAtom(key), {
@@ -209,27 +247,61 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
     },
     fn: runtime.fn(
       Effect.fn(function* (input: AddTicketsReducerInput, get) {
-        const client = yield* ApiClient
-        const targetKey = sprintKey(orgSlug, slug, input.groupId)
-        const list = get(sprintsListAtom(key))
-        const currentTickets = Result.isSuccess(list)
-          ? (list.value.find((g) => g.id === input.groupId)?.tickets ?? [])
-          : []
-        const union = [...currentTickets]
-        for (const tid of input.ticketIds) {
-          if (!union.includes(tid)) union.push(tid)
-        }
-        const result: UpdateGroupTicketsOutput =
-          yield* client.groups.updateTickets({
-            path: { orgSlug, slug, id: input.groupId },
-            payload: { tickets: union }
+        const pending = pendingSprintAssignmentAtom(key)
+        const entries = input.ticketIds.map(
+          (tid) => [tid, input.groupId] as const
+        )
+        get.set(pending, writePending(get(pending), entries))
+
+        const releasePending = Effect.sync(() => {
+          get.set(pending, dropPending(get(pending), input.ticketIds))
+        })
+
+        return yield* Effect.gen(function* () {
+          const client = yield* ApiClient
+          const targetKey = sprintKey(orgSlug, slug, input.groupId)
+          const list = get(sprintsListAtom(key))
+          const currentTickets = Result.isSuccess(list)
+            ? (list.value.find((g) => g.id === input.groupId)?.tickets ?? [])
+            : []
+          const union = [...currentTickets]
+          for (const tid of input.ticketIds) {
+            if (!union.includes(tid)) union.push(tid)
+          }
+          const result: UpdateGroupTicketsOutput =
+            yield* client.groups.updateTickets({
+              path: { orgSlug, slug, id: input.groupId },
+              payload: { tickets: union }
+            })
+          get.refresh(sprintsListBaseAtom(key))
+          get.refresh(sprintBaseAtom(targetKey))
+          for (const ev of result.evicted) {
+            get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, ev.groupId)))
+          }
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+          yield* get.result(sprintsListBaseAtom(key), {
+            suspendOnWaiting: true
           })
-        get.refresh(sprintsListBaseAtom(key))
-        get.refresh(sprintBaseAtom(targetKey))
-        for (const ev of result.evicted) {
-          get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, ev.groupId)))
-        }
-        return result
+          yield* get.result(
+            ticketsInSprintAtom(
+              ticketsInSprintKey(orgSlug, slug, input.groupId)
+            ),
+            { suspendOnWaiting: true }
+          )
+          const refreshed = get(sprintsListAtom(key))
+          if (Result.isSuccess(refreshed)) {
+            get.set(
+              pending,
+              reconcilePendingSprintAssignments(get(pending), refreshed.value)
+            )
+          }
+          return result
+        }).pipe(
+          Effect.tapErrorCause((cause) =>
+            Cause.isInterruptedOnly(cause) ? Effect.void : releasePending
+          ),
+          Effect.uninterruptible
+        )
       })
     )
   })
@@ -259,24 +331,92 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
     },
     fn: runtime.fn(
       Effect.fn(function* (input: RemoveTicketsReducerInput, get) {
-        const client = yield* ApiClient
-        const list = get(sprintsListAtom(key))
-        const currentTickets = Result.isSuccess(list)
-          ? (list.value.find((g) => g.id === input.groupId)?.tickets ?? [])
-          : []
-        const drop = new Set<string>(input.ticketIds)
-        const remaining = currentTickets.filter((tid) => !drop.has(tid))
-        const result = yield* client.groups.updateTickets({
-          path: { orgSlug, slug, id: input.groupId },
-          payload: { tickets: remaining }
+        const pending = pendingSprintAssignmentAtom(key)
+        const entries = input.ticketIds.map(
+          (tid) => [tid, null as GroupId | null] as const
+        )
+        get.set(pending, writePending(get(pending), entries))
+
+        const releasePending = Effect.sync(() => {
+          get.set(pending, dropPending(get(pending), input.ticketIds))
         })
-        get.refresh(sprintsListBaseAtom(key))
-        get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
-        return result
+
+        return yield* Effect.gen(function* () {
+          const client = yield* ApiClient
+          const list = get(sprintsListAtom(key))
+          const currentTickets = Result.isSuccess(list)
+            ? (list.value.find((g) => g.id === input.groupId)?.tickets ?? [])
+            : []
+          const drop = new Set<string>(input.ticketIds)
+          const remaining = currentTickets.filter((tid) => !drop.has(tid))
+          const result = yield* client.groups.updateTickets({
+            path: { orgSlug, slug, id: input.groupId },
+            payload: { tickets: remaining }
+          })
+          get.refresh(sprintsListBaseAtom(key))
+          get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
+          yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+          yield* get.result(sprintsListBaseAtom(key), {
+            suspendOnWaiting: true
+          })
+          yield* get.result(
+            ticketsInSprintAtom(
+              ticketsInSprintKey(orgSlug, slug, input.groupId)
+            ),
+            { suspendOnWaiting: true }
+          )
+          const refreshed = get(sprintsListAtom(key))
+          if (Result.isSuccess(refreshed)) {
+            get.set(
+              pending,
+              reconcilePendingSprintAssignments(get(pending), refreshed.value)
+            )
+          }
+          return result
+        }).pipe(
+          Effect.tapErrorCause((cause) =>
+            Cause.isInterruptedOnly(cause) ? Effect.void : releasePending
+          ),
+          Effect.uninterruptible
+        )
       })
     )
   })
 })
+
+export function useAddTicketsToSprint(key: string) {
+  const addToSprintRaw = useAtomSet(addTicketsToSprintAtom(key))
+  const setPending = useAtomSet(pendingSprintAssignmentAtom(key))
+  return useCallback(
+    (input: AddTicketsReducerInput) => {
+      setPending((current) =>
+        writePendingSprintAssignments(
+          current,
+          input.ticketIds.map((tid) => [tid, input.groupId] as const)
+        )
+      )
+      addToSprintRaw(input)
+    },
+    [addToSprintRaw, setPending]
+  )
+}
+
+export function useRemoveTicketsFromSprint(key: string) {
+  const removeRaw = useAtomSet(removeTicketsFromSprintAtom(key))
+  const setPending = useAtomSet(pendingSprintAssignmentAtom(key))
+  return useCallback(
+    (input: RemoveTicketsReducerInput) => {
+      setPending((current) =>
+        writePendingSprintAssignments(
+          current,
+          input.ticketIds.map((tid) => [tid, null as GroupId | null] as const)
+        )
+      )
+      removeRaw(input)
+    },
+    [removeRaw, setPending]
+  )
+}
 
 type CompleteSprintReducerInput = {
   groupId: GroupId
@@ -458,15 +598,26 @@ export const placeTicketAtom = Atom.family((key: string) => {
 export const sprintMembershipAtom = Atom.family((key: string) =>
   Atom.readable((get) => {
     const result = get(sprintsListAtom(key))
-    if (!Result.isSuccess(result)) {
-      return new Map<TicketId, Group>()
-    }
+    const pending = get(pendingSprintAssignmentAtom(key))
     const map = new Map<TicketId, Group>()
+    if (!Result.isSuccess(result)) {
+      return map
+    }
+    const sprintById = new Map<GroupId, Group>()
     for (const sprint of result.value) {
+      sprintById.set(sprint.id, sprint)
       if (sprint.completedAt !== null) continue
       for (const tid of sprint.tickets) {
         if (!map.has(tid)) map.set(tid, sprint)
       }
+    }
+    for (const [tid, target] of pending) {
+      if (target === null) {
+        map.delete(tid)
+        continue
+      }
+      const sprint = sprintById.get(target)
+      if (sprint && sprint.completedAt === null) map.set(tid, sprint)
     }
     return map
   })

@@ -109,7 +109,7 @@ export function TypeButton({
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
               className={className}
             >
-              <span className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+              <span className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
                 <Icon className="size-4" strokeWidth={1.75} />
               </span>
             </Hitbox>
@@ -121,7 +121,7 @@ export function TypeButton({
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
               className={className}
             >
-              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-accent group-hover/hitbox:text-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
                 <Icon className="size-3.5" strokeWidth={1.75} />
                 <span>{typeLabel}</span>
               </span>
