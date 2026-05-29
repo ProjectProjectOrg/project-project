@@ -8,6 +8,7 @@ import {
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
+import { EverhourIntegrations } from "../Services/EverhourIntegrations"
 import { Tickets } from "../Services/Tickets"
 import { dieOnMarkdown } from "./lib"
 
@@ -70,12 +71,15 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.quickCreate(
+          const result = yield* tickets.quickCreate(
             org.orgSlug,
             user.id,
             path.slug,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("create", ({ path, payload }) =>
@@ -84,7 +88,15 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.create(org.orgSlug, user.id, path.slug, payload)
+          const result = yield* tickets.create(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            payload
+          )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("get", ({ path }) =>
@@ -102,13 +114,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.update(
+          const result = yield* tickets.update(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ path }) =>
@@ -117,6 +132,13 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortCloseDeletedTicket(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id
+          )
           yield* tickets.remove(org.orgSlug, user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )

@@ -76,6 +76,7 @@ import { projectIndex } from "./db/schema"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
+import { EverhourHandlerLive } from "./handlers/everhour"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
@@ -131,6 +132,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(ProjectsHandlerLive),
+  Layer.provide(EverhourHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),

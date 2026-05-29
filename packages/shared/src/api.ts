@@ -70,6 +70,12 @@ import {
 } from "./schemas/Comment"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
+  ConnectEverhourProfileInput,
+  EverhourProjectIntegrationStatus,
+  EverhourSyncSummary,
+  PersonalEverhour
+} from "./schemas/Everhour"
+import {
   CompleteSprintInput,
   CreateGroupInput,
   Group,
@@ -87,6 +93,11 @@ import {
   BranchNotFound,
   BranchProtected,
   Conflict,
+  EverhourApiKeyMissing,
+  EverhourAuthInvalid,
+  EverhourConfigMissing,
+  EverhourError,
+  EverhourRateLimited,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
@@ -360,6 +371,82 @@ const ProjectsGroup = HttpApiGroup.make("projects")
       .addError(RepoGone)
       .addError(RateLimited)
       .addError(GitHubError)
+  )
+  .middleware(Authentication)
+
+const EverhourGroup = HttpApiGroup.make("everhour")
+  .add(
+    HttpApiEndpoint.get("profile", "/integrations/everhour/profile")
+      .addSuccess(PersonalEverhour)
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint.put("connectProfile", "/integrations/everhour/profile")
+      .setPayload(ConnectEverhourProfileInput)
+      .addSuccess(PersonalEverhour)
+      .addError(Unauthorized)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.del("disconnectProfile", "/integrations/everhour/profile")
+      .addSuccess(PersonalEverhour)
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "projectStatus",
+      "/orgs/:orgSlug/projects/:slug/integrations/everhour"
+    )
+      .setPath(ProjectPath)
+      .addSuccess(EverhourProjectIntegrationStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "connectProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/everhour/connect"
+    )
+      .setPath(ProjectPath)
+      .addSuccess(EverhourSyncSummary)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "syncProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/everhour/sync"
+    )
+      .setPath(ProjectPath)
+      .addSuccess(EverhourSyncSummary)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.del(
+      "disconnectProject",
+      "/orgs/:orgSlug/projects/:slug/integrations/everhour"
+    )
+      .setPath(ProjectPath)
+      .addSuccess(EverhourProjectIntegrationStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
   )
   .middleware(Authentication)
 
@@ -802,6 +889,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(DbGroup)
   .add(AuthGroup)
   .add(ProjectsGroup)
+  .add(EverhourGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TagsGroup)

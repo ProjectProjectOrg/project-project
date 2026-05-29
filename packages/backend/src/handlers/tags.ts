@@ -2,6 +2,7 @@ import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
+import { EverhourIntegrations } from "../Services/EverhourIntegrations"
 import { Tags } from "../Services/Tags"
 import { Tickets } from "../Services/Tickets"
 import { dieOnMarkdown } from "./lib"
@@ -26,11 +27,7 @@ export const TagsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.tagUsageCounts(
-            org.orgSlug,
-            user.id,
-            path.slug
-          )
+          return yield* tickets.tagUsageCounts(org.orgSlug, user.id, path.slug)
         }).pipe(dieOnMarkdown)
       )
       .handle("create", ({ path, payload }) =>
@@ -48,13 +45,16 @@ export const TagsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tags = yield* Tags
-          return yield* tags.update(
+          const result = yield* tags.update(
             org.orgSlug,
             user.id,
             path.slug,
             path.name,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ path }) =>
@@ -64,6 +64,8 @@ export const TagsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tags = yield* Tags
           yield* tags.remove(org.orgSlug, user.id, path.slug, path.name)
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
         }).pipe(dieOnMarkdown)
       )
 )

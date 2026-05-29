@@ -2,6 +2,7 @@ import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
+import { EverhourIntegrations } from "../Services/EverhourIntegrations"
 import { Groups } from "../Services/Groups"
 import { Tickets } from "../Services/Tickets"
 import { dieOnMarkdown } from "./lib"
@@ -26,7 +27,15 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          return yield* groups.create(org.orgSlug, user.id, path.slug, payload)
+          const result = yield* groups.create(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            payload
+          )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("get", ({ path }) =>
@@ -58,13 +67,16 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          return yield* groups.update(
+          const result = yield* groups.update(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("updateTickets", ({ path, payload }) =>
@@ -73,13 +85,16 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          return yield* groups.updateTickets(
+          const result = yield* groups.updateTickets(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("updateTicketOrder", ({ path, payload }) =>
@@ -88,13 +103,16 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          return yield* groups.updateTicketOrder(
+          const result = yield* groups.updateTicketOrder(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("complete", ({ path, payload }) =>
@@ -103,13 +121,16 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          return yield* groups.complete(
+          const result = yield* groups.complete(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
+          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ path }) =>
@@ -119,6 +140,8 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
           yield* groups.remove(org.orgSlug, user.id, path.slug, path.id)
+          const everhour = yield* EverhourIntegrations
+          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
         }).pipe(dieOnMarkdown)
       )
 )

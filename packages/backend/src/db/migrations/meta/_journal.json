@@ -120,6 +120,13 @@
       "when": 1779303164579,
       "tag": "0016_friendly_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1779971169423,
+      "tag": "0017_mixed_psylocke",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { type FormEvent, useEffect, useRef, useState } from "react"
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Option from "effect/Option"
@@ -8,6 +8,10 @@ import {
   disconnectPersonalGithubAtom,
   meAtom
 } from "@/atoms/auth"
+import {
+  connectEverhourProfileAtom,
+  disconnectEverhourProfileAtom
+} from "@/atoms/everhour"
 import githubLogo from "@/assets/github.svg"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -20,6 +24,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
+import { Input } from "@/components/ui/input"
 import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
@@ -111,6 +116,8 @@ function Profile() {
         oauthError={githubOAuthError}
       />
 
+      <PersonalEverhourCard everhour={user.personalEverhour} />
+
       <Card>
         <CardHeader>
           <CardTitle>{m.profile_section_security_title()}</CardTitle>
@@ -125,6 +132,95 @@ function Profile() {
 
       <ConnectedAgentsSection />
     </PageContainer>
+  )
+}
+
+function PersonalEverhourCard({
+  everhour
+}: {
+  everhour: {
+    connected: boolean
+    everhourUserId: string | null
+    name: string | null
+    email: string | null
+    lastCheckError: string | null
+  }
+}) {
+  const [apiKey, setApiKey] = useState("")
+  const connect = useAtomSet(connectEverhourProfileAtom, { mode: "promise" })
+  const disconnect = useAtomSet(disconnectEverhourProfileAtom, {
+    mode: "promise"
+  })
+  const connectState = useAtomValue(connectEverhourProfileAtom)
+  const disconnectState = useAtomValue(disconnectEverhourProfileAtom)
+  const waiting = connectState.waiting || disconnectState.waiting
+  const error = Result.isFailure(connectState)
+    ? m.profile_everhour_connect_error()
+    : Result.isFailure(disconnectState)
+      ? m.profile_everhour_disconnect_error()
+      : everhour.lastCheckError
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmed = apiKey.trim()
+    if (!trimmed) return
+    await connect({ apiKey: trimmed })
+    setApiKey("")
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{m.profile_everhour_title()}</CardTitle>
+        <CardDescription>{m.profile_everhour_description()}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className={waiting ? "min-w-0 animate-pulse" : "min-w-0"}>
+            <div className="text-sm font-medium">
+              {everhour.connected
+                ? m.profile_everhour_connected_status()
+                : m.profile_everhour_disconnected_status()}
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              {everhour.connected
+                ? (everhour.email ?? everhour.name ?? everhour.everhourUserId)
+                : m.profile_everhour_disconnected_description()}
+            </div>
+          </div>
+          {everhour.connected ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={waiting}
+              onClick={() => void disconnect()}
+            >
+              {m.profile_everhour_disconnect_button()}
+            </Button>
+          ) : null}
+        </div>
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={submit}>
+          <Input
+            type="password"
+            value={apiKey}
+            autoComplete="off"
+            placeholder={m.profile_everhour_api_key_placeholder()}
+            aria-label={m.profile_everhour_api_key_label()}
+            onChange={(event) => setApiKey(event.target.value)}
+          />
+          <Button type="submit" disabled={waiting || !apiKey.trim()}>
+            {everhour.connected
+              ? m.profile_everhour_update_button()
+              : m.profile_everhour_connect_button()}
+          </Button>
+        </form>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }
 
