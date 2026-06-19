@@ -1,0 +1,1 @@
+ALTER TABLE "organization_integration" ADD COLUMN "config" jsonb;

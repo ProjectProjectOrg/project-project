@@ -45,6 +45,7 @@ import {
   check,
   foreignKey,
   index,
+  jsonb,
   pgTable,
   integer,
   primaryKey,
@@ -54,6 +55,7 @@ import {
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
+import type { OrgEverhourConfig } from "@projectproject/shared"
 
 export * from "./auth-schema"
 import { invitation, organization, user } from "./auth-schema"
@@ -198,6 +200,7 @@ export const organizationIntegration = pgTable(
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
+    config: jsonb("config").$type<OrgEverhourConfig>(),
     connectedAt: timestamp("connected_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer"
 import * as SqlClient from "@effect/sql/SqlClient"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import {
+  DEFAULT_WORK_TYPES,
   EverhourApiKeyMissing,
   EverhourConfigMissing,
   EverhourError,
@@ -514,6 +515,7 @@ export const EverhourIntegrationsLive = Layer.effect(
                     organizationId: project.organizationId,
                     provider: "everhour",
                     status: "active",
+                    config: { workTypes: DEFAULT_WORK_TYPES },
                     lastCheckedAt: now,
                     lastCheckStatus: "ok"
                   })
@@ -527,6 +529,8 @@ export const EverhourIntegrationsLive = Layer.effect(
                   .update(organizationIntegration)
                   .set({
                     status: "active",
+                    config:
+                      orgIntegration.config ?? { workTypes: DEFAULT_WORK_TYPES },
                     lastCheckedAt: now,
                     lastCheckStatus: "ok",
                     lastCheckError: null,
