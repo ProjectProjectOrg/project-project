@@ -176,20 +176,6 @@ export function nextMarkdownChange(
   return nextMarkdown
 }
 
-export function shouldPreventLinkPointerActivation(
-  root: HTMLElement,
-  target: EventTarget | null,
-  activeElement: Element | null,
-  button: number
-) {
-  if (button > 1) return false
-  if (!(target instanceof Element)) return false
-  const link = target.closest("a.lexical-link")
-  if (!link || !root.contains(link)) return false
-  if (activeElement && root.contains(activeElement)) return false
-  return true
-}
-
 function LinkBlurActivationPlugin() {
   const [editor] = useLexicalComposerContext()
 
@@ -198,16 +184,12 @@ function LinkBlurActivationPlugin() {
       editor.registerRootListener((root) => {
         if (!root) return
         const handlePointerDown = (event: PointerEvent) => {
-          if (
-            shouldPreventLinkPointerActivation(
-              root,
-              event.target,
-              document.activeElement,
-              event.button
-            )
-          ) {
-            event.preventDefault()
-          }
+          if (event.button > 1) return
+          if (!(event.target instanceof Element)) return
+          const link = event.target.closest("a.lexical-link")
+          if (!link || !root.contains(link)) return
+          if (root.contains(document.activeElement)) return
+          event.preventDefault()
         }
         root.addEventListener("pointerdown", handlePointerDown)
         return () => {

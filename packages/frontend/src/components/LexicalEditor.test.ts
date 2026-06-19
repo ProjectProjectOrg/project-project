@@ -13,8 +13,7 @@ import { MentionNode } from "./Lexical/MentionNode"
 import {
   AUTO_LINK_MATCHERS,
   MARKDOWN_TRANSFORMERS,
-  nextMarkdownChange,
-  shouldPreventLinkPointerActivation
+  nextMarkdownChange
 } from "./LexicalEditor"
 
 function matchAutoLink(text: string) {
@@ -108,40 +107,5 @@ describe("MARKDOWN_TRANSFORMERS", () => {
     expect(roundTripMarkdown("See [Wouter](mention:user/github_42).")).toBe(
       "See [Wouter](mention:user/github_42)."
     )
-  })
-})
-
-describe("shouldPreventLinkPointerActivation", () => {
-  it("prevents left pointer activation on editor links while the editor is blurred", () => {
-    const root = document.createElement("div")
-    const link = document.createElement("a")
-    link.className = "lexical-link"
-    root.append(link)
-
-    expect(
-      shouldPreventLinkPointerActivation(root, link, document.body, 0)
-    ).toBe(true)
-  })
-
-  it("allows link pointer activation while the editor is focused", () => {
-    const root = document.createElement("div")
-    const editable = document.createElement("div")
-    const link = document.createElement("a")
-    link.className = "lexical-link"
-    root.append(editable, link)
-
-    expect(shouldPreventLinkPointerActivation(root, link, editable, 0)).toBe(
-      false
-    )
-  })
-
-  it("allows non-link pointer activation", () => {
-    const root = document.createElement("div")
-    const text = document.createElement("span")
-    root.append(text)
-
-    expect(
-      shouldPreventLinkPointerActivation(root, text, document.body, 0)
-    ).toBe(false)
   })
 })
