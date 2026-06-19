@@ -85,16 +85,13 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          const result = yield* groups.updateTickets(
+          return yield* groups.updateTickets(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
-          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("updateTicketOrder", ({ path, payload }) =>
@@ -103,16 +100,13 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const groups = yield* Groups
-          const result = yield* groups.updateTicketOrder(
+          return yield* groups.updateTicketOrder(
             org.orgSlug,
             user.id,
             path.slug,
             path.id,
             payload
           )
-          const everhour = yield* EverhourIntegrations
-          yield* everhour.bestEffortProjectSync(org.orgSlug, user.id, path.slug)
-          return result
         }).pipe(dieOnMarkdown)
       )
       .handle("complete", ({ path, payload }) =>
