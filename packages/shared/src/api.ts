@@ -76,6 +76,14 @@ import {
   PersonalEverhour
 } from "./schemas/Everhour"
 import {
+  ActiveTimer,
+  LogTimeInput,
+  StartSprintTimerInput,
+  StartTimerInput,
+  TicketTimeSummary,
+  WorkTypeOption
+} from "./schemas/TimeTracking"
+import {
   CompleteSprintInput,
   CreateGroupInput,
   Group,
@@ -447,6 +455,96 @@ const EverhourGroup = HttpApiGroup.make("everhour")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "ticketWorkTypes",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/everhour/work-types"
+    )
+      .setPath(TicketPath)
+      .addSuccess(Schema.Array(WorkTypeOption))
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "startTicketTimer",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/everhour/timer/start"
+    )
+      .setPath(TicketPath)
+      .setPayload(StartTimerInput)
+      .addSuccess(ActiveTimer)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "startSprintTimer",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/everhour/timer/start"
+    )
+      .setPath(GroupPath)
+      .setPayload(StartSprintTimerInput)
+      .addSuccess(ActiveTimer)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.post("stopTimer", "/orgs/:orgSlug/everhour/timer/stop")
+      .setPath(OrgPath)
+      .addSuccess(Schema.NullOr(ActiveTimer))
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.get("currentTimer", "/orgs/:orgSlug/everhour/timer/current")
+      .setPath(OrgPath)
+      .addSuccess(Schema.NullOr(ActiveTimer))
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "logTime",
+      "/orgs/:orgSlug/projects/:slug/everhour/time"
+    )
+      .setPath(ProjectPath)
+      .setPayload(LogTimeInput)
+      .addSuccess(Schema.NullOr(TicketTimeSummary))
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(EverhourApiKeyMissing)
+      .addError(EverhourAuthInvalid)
+      .addError(EverhourRateLimited)
+      .addError(EverhourConfigMissing)
+      .addError(EverhourError)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "ticketTime",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/everhour/time"
+    )
+      .setPath(TicketPath)
+      .addSuccess(TicketTimeSummary)
+      .addError(Unauthorized)
+      .addError(NotFound)
   )
   .middleware(Authentication)
 
