@@ -183,7 +183,7 @@ function LinkBlurActivationPlugin() {
     () =>
       editor.registerRootListener((root) => {
         if (!root) return
-        const handleMouseDown = (event: MouseEvent) => {
+        const handlePointerDown = (event: PointerEvent) => {
           if (event.button > 1) return
           if (!(event.target instanceof Element)) return
           const link = event.target.closest("a.lexical-link")
@@ -191,9 +191,9 @@ function LinkBlurActivationPlugin() {
           if (root.contains(document.activeElement)) return
           event.preventDefault()
         }
-        root.addEventListener("mousedown", handleMouseDown)
+        root.addEventListener("pointerdown", handlePointerDown)
         return () => {
-          root.removeEventListener("mousedown", handleMouseDown)
+          root.removeEventListener("pointerdown", handlePointerDown)
         }
       }),
     [editor]

@@ -9,9 +9,11 @@ import { ListItemNode, ListNode } from "@lexical/list"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { describe, expect, it } from "vitest"
 import { createEditor } from "lexical"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { MentionNode } from "./Lexical/MentionNode"
 import {
   AUTO_LINK_MATCHERS,
+  LexicalEditor,
   MARKDOWN_TRANSFORMERS,
   nextMarkdownChange
 } from "./LexicalEditor"
@@ -106,6 +108,26 @@ describe("MARKDOWN_TRANSFORMERS", () => {
   it("round-trips mention links as mentions", () => {
     expect(roundTripMarkdown("See [Wouter](mention:user/github_42).")).toBe(
       "See [Wouter](mention:user/github_42)."
+    )
+  })
+})
+
+describe("LexicalEditor links", () => {
+  it("does not focus a blurred editor on link pointer activation", async () => {
+    render(
+      <>
+        <button type="button">outside</button>
+        <LexicalEditor markdown="[docs](https://example.com)" onChange={() => {}} />
+      </>
+    )
+
+    screen.getByRole("button", { name: "outside" }).focus()
+    const link = await screen.findByRole("link", { name: "docs" })
+    const allowed = fireEvent.pointerDown(link, { button: 0 })
+
+    expect(allowed).toBe(false)
+    expect(document.activeElement).not.toBe(
+      document.querySelector('[contenteditable="true"]')
     )
   })
 })
