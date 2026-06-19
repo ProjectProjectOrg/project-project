@@ -31,6 +31,7 @@ export const LogTimeInput = Schema.Struct({
 export type LogTimeInput = typeof LogTimeInput.Type
 
 export const ActiveTimer = Schema.Struct({
+  slug: Schema.String,
   ticketId: Schema.NullOr(TicketId),
   ticketTitle: Schema.NullOr(Schema.String),
   groupId: GroupId,

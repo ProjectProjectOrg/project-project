@@ -311,25 +311,28 @@ export const EverhourTimeTrackingLive = Layer.effect(
           .pipe(Effect.orDie)
         let workTypeLabel = row.workTypeKey
         let title: string | null = null
+        let slug = ""
         if (link) {
           const config = yield* loadConfig(link.organizationId)
           workTypeLabel =
             config.workTypes.find(
               (workType) => workType.key === row.workTypeKey
             )?.label ?? row.workTypeKey
-          if (row.ticketId) {
-            const index = yield* db.query.projectIndex
-              .findFirst({
-                columns: { slug: true },
-                where: eq(projectIndex.id, link.projectId)
-              })
-              .pipe(Effect.orDie)
-            if (index) {
+          const index = yield* db.query.projectIndex
+            .findFirst({
+              columns: { slug: true },
+              where: eq(projectIndex.id, link.projectId)
+            })
+            .pipe(Effect.orDie)
+          if (index) {
+            slug = index.slug
+            if (row.ticketId) {
               title = yield* ticketTitle(orgSlug, index.slug, row.ticketId)
             }
           }
         }
         return {
+          slug,
           ticketId: row.ticketId,
           ticketTitle: title,
           groupId: row.groupId,
@@ -425,6 +428,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         return {
+          slug,
           ticketId,
           ticketTitle: title,
           groupId,

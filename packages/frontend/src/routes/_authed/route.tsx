@@ -13,6 +13,7 @@ import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Logo, Wordmark } from "@/components/Logo"
+import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
   SidebarSlotProvider,
   useSidebarSectionContent,
@@ -324,6 +325,9 @@ function Topbar({ user }: { user: User }) {
       <div className="min-w-0 flex-1">
         <Breadcrumbs />
       </div>
+      {user.activeOrgSlug ? (
+        <RunningTimerIndicator orgSlug={user.activeOrgSlug} />
+      ) : null}
       <UserMenu user={user} />
     </header>
   )
