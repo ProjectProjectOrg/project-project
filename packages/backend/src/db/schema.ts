@@ -433,27 +433,25 @@ export const everhourSectionLink = pgTable(
   ]
 )
 
-export const everhourTaskLink = pgTable(
-  "everhour_task_link",
+export const everhourWorkTypeTaskLink = pgTable(
+  "everhour_work_type_task_link",
   {
     projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
-    ticketId: text("ticket_id").notNull(),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
     everhourTaskId: text("everhour_task_id").notNull(),
+    name: text("name").notNull(),
     status: text("status", {
-      enum: ["active", "local_deleted", "broken"]
+      enum: ["active", "archived", "broken"]
     }).notNull(),
-    lastManagedLabels: text("last_managed_labels")
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-    lastSyncStatus: text("last_sync_status", { enum: ["ok", "error"] }),
-    lastSyncError: text("last_sync_error")
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
   },
   (t) => [
-    primaryKey({ columns: [t.projectIntegrationLinkId, t.ticketId] }),
+    primaryKey({
+      columns: [t.projectIntegrationLinkId, t.groupId, t.workTypeKey]
+    }),
     foreignKey({
-      name: "everhour_task_link_project_link_fkey",
+      name: "everhour_work_type_task_link_project_link_fkey",
       columns: [t.projectIntegrationLinkId],
       foreignColumns: [projectIntegrationLink.id]
     }).onDelete("cascade")
