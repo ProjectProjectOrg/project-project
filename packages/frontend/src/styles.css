@@ -250,14 +250,49 @@
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
    — that would override the spacing rule via specificity. */
-.prose-md a {
+.prose-md a,
+.prose-md .lexical-link {
   color: var(--foreground);
   text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 2px;
-  transition: text-decoration-color 0.12s ease;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--foreground) 38%,
+    transparent
+  );
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: auto;
+  border-radius: 3px;
+  padding: 0.08em 0.18em;
+  margin: -0.08em -0.18em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    text-decoration-color 150ms ease;
 }
-.prose-md a:hover {
+.prose-md .lexical-link {
+  cursor: pointer;
+}
+.prose-md a:hover,
+.prose-md .lexical-link:hover {
+  background-color: color-mix(
+    in oklch,
+    var(--foreground) 6%,
+    transparent
+  );
+  text-decoration-color: var(--foreground);
+}
+.prose-md a:focus-visible,
+.prose-md .lexical-link:focus-visible {
+  outline: none;
+  background-color: color-mix(
+    in oklch,
+    var(--foreground) 8%,
+    transparent
+  );
+  box-shadow: 0 0 0 2px var(--ring);
   text-decoration-color: var(--foreground);
 }
 .prose-md code {
@@ -526,12 +561,6 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-hr.selected {
   border-top-color: var(--foreground);
-}
-.prose-md .lexical-link {
-  color: var(--foreground);
-  text-decoration: underline;
-  text-decoration-color: var(--border);
-  text-underline-offset: 2px;
 }
 .prose-md .lexical-bold {
   font-weight: 600;
