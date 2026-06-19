@@ -12,12 +12,13 @@ import {
   Forbidden,
   NotFound,
   type EverhourProjectIntegrationStatus,
+  type OrgEverhourConfig,
   type PersonalEverhour
 } from "@projectproject/shared"
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 import {
   everhourSectionLink,
-  everhourTaskLink,
+  everhourWorkTypeTaskLink,
   member as orgMember,
   organizationIntegration,
   projectEverhourIntegration,
@@ -37,7 +38,6 @@ import {
   type EverhourIntegrationsShape
 } from "../Services/EverhourIntegrations"
 import { GroupDocs } from "../Services/GroupDocs"
-import { TicketDocs } from "../Services/TicketDocs"
 import { TicketIndex } from "../Services/TicketIndex"
 
 type MutableSummary = {
@@ -77,10 +77,6 @@ const emptySummary = (): MutableSummary => ({
   tasksSkipped: 0,
   errors: []
 })
-
-const publicBaseUrl = Effect.sync(
-  () => process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
-)
 
 const encryptionKey = Effect.gen(function* () {
   const raw = process.env.USER_SECRET_ENCRYPTION_KEY
@@ -155,20 +151,58 @@ const formatError = (error: unknown) => {
   return String(error)
 }
 
-const typeLabel = (type: string) =>
-  type === "feat" ? "type: feature" : `type: ${type}`
+export const workTypeTaskName = (sprintName: string, workTypeLabel: string) =>
+  `${sprintName} — ${workTypeLabel}`
 
-const managedLabels = (ticket: {
-  readonly tags: ReadonlyArray<string>
-  readonly type: string
-  readonly status: string
-  readonly priority: string
-}) => [
-  ...ticket.tags,
-  typeLabel(ticket.type),
-  `status: ${ticket.status}`,
-  `priority: ${ticket.priority}`
-]
+export interface DesiredWorkTypeTask {
+  readonly groupId: string
+  readonly workTypeKey: string
+  readonly everhourSectionId: string
+  readonly name: string
+  readonly status: "open" | "closed"
+}
+
+export const planWorkTypeTasks = (
+  sections: ReadonlyArray<{
+    readonly groupId: string | null
+    readonly name: string
+    readonly everhourSectionId: string
+    readonly status: "active" | "archived" | "broken"
+  }>,
+  config: OrgEverhourConfig
+): ReadonlyArray<DesiredWorkTypeTask> => {
+  const plan: Array<DesiredWorkTypeTask> = []
+  for (const section of sections) {
+    if (section.groupId === null) continue
+    const closed = section.status === "archived"
+    for (const workType of config.workTypes) {
+      plan.push({
+        groupId: section.groupId,
+        workTypeKey: workType.key,
+        everhourSectionId: section.everhourSectionId,
+        name: workTypeTaskName(section.name, workType.label),
+        status: closed ? "closed" : "open"
+      })
+    }
+  }
+  return plan
+}
+
+export const workTypeTaskAction = (
+  row: { readonly name: string; readonly status: string } | undefined,
+  desired: DesiredWorkTypeTask
+): "create" | "update" | "noop" => {
+  if (!row) return "create"
+  const closed = desired.status === "closed"
+  if (
+    row.name !== desired.name ||
+    (closed && row.status !== "archived") ||
+    (!closed && row.status === "archived")
+  ) {
+    return "update"
+  }
+  return "noop"
+}
 
 const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
   row === null
@@ -191,29 +225,12 @@ const toStatus = (row: ActiveLink | null): EverhourProjectIntegrationStatus =>
         needsSync: row.status !== "active" || row.lastSyncStatus === "error"
       }
 
-const sectionForTicket = (
-  ticketId: string,
-  sections: ReadonlyArray<typeof everhourSectionLink.$inferSelect>,
-  groups: ReadonlyArray<{
-    readonly id: string
-    readonly tickets: ReadonlyArray<string>
-  }>
-) => {
-  const group = groups.find((group) => group.tickets.includes(ticketId))
-  const key = group ? `sprint:${group.id}` : "backlog"
-  return (
-    sections.find((section) => section.localKey === key) ??
-    sections.find((section) => section.localKey === "backlog")
-  )
-}
-
 export const EverhourIntegrationsLive = Layer.effect(
   EverhourIntegrations,
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
     const everhour = yield* Everhour
-    const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
     const groupDocs = yield* GroupDocs
 
@@ -625,15 +642,7 @@ export const EverhourIntegrationsLive = Layer.effect(
                 ? ("open" as const)
                 : ("archived" as const)
           }))
-        const desired = [
-          {
-            localKey: "backlog",
-            groupId: null,
-            name: "Backlog",
-            status: "open" as const
-          },
-          ...sprintSections
-        ]
+        const desired = sprintSections
         const existing = yield* db.query.everhourSectionLink
           .findMany({
             where: eq(everhourSectionLink.projectIntegrationLinkId, link.linkId)
@@ -660,18 +669,6 @@ export const EverhourIntegrationsLive = Layer.effect(
                 lastSyncedAt: now
               })
               .pipe(Effect.orDie)
-            if (section.localKey === "backlog") {
-              yield* db
-                .update(projectEverhourIntegration)
-                .set({ backlogSectionId: created.id })
-                .where(
-                  eq(
-                    projectEverhourIntegration.projectIntegrationLinkId,
-                    link.linkId
-                  )
-                )
-                .pipe(Effect.orDie)
-            }
             summary.sectionsCreated++
           } else if (
             row.name !== section.name ||
@@ -722,164 +719,84 @@ export const EverhourIntegrationsLive = Layer.effect(
         }
       })
 
-    const syncTasks = (
+    const syncWorkTypeTasks = (
       apiKey: string,
       link: ActiveLink,
       summary: MutableSummary,
-      orgSlug: string,
-      slug: string
+      config: OrgEverhourConfig
     ) =>
+      // FIXME: when the org-settings work-type editor lands, propagate set edits to open sprints (rename→rename, add→create, remove→archive); completed sprints stay frozen.
       Effect.gen(function* () {
         const now = yield* DateTime.nowAsDate
-        const base = yield* publicBaseUrl
-        const ticketIds = yield* ticketDocs
-          .listIds(orgSlug, slug)
-          .pipe(Effect.orDie)
-        const groupIds = yield* groupDocs
-          .listIds(orgSlug, slug)
-          .pipe(Effect.orDie)
-        const groups = yield* Effect.forEach(groupIds, (id) =>
-          groupDocs.read(orgSlug, slug, id).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null)),
-            Effect.orDie
-          )
-        )
-        const sprints = groups.filter(
-          (group): group is NonNullable<(typeof groups)[number]> =>
-            group !== null && group.kind === "sprint"
-        )
         const sections = yield* db.query.everhourSectionLink
           .findMany({
             where: eq(everhourSectionLink.projectIntegrationLinkId, link.linkId)
           })
           .pipe(Effect.orDie)
-        for (const ticketId of ticketIds) {
-          const ticket = yield* ticketDocs.read(orgSlug, slug, ticketId).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(null)),
-            Effect.catchTag("MalformedTicketDocument", (error) =>
-              Effect.logWarning(
-                "Skipping malformed ticket during Everhour sync"
-              ).pipe(
-                Effect.annotateLogs({ orgSlug, slug, ticketId, error }),
-                Effect.as(null)
-              )
-            ),
-            Effect.orDie
-          )
-          if (ticket === null) {
-            summary.tasksSkipped++
-            continue
-          }
-          const section = sectionForTicket(ticket.id, sections, sprints)
-          if (!section) {
-            summary.tasksSkipped++
-            summary.errors.push(`No Everhour section for ${ticket.id}`)
-            continue
-          }
-          const nextLabels = managedLabels(ticket)
+        const existing = yield* db.query.everhourWorkTypeTaskLink
+          .findMany({
+            where: eq(
+              everhourWorkTypeTaskLink.projectIntegrationLinkId,
+              link.linkId
+            )
+          })
+          .pipe(Effect.orDie)
+        const byKey = new Map(
+          existing.map((row) => [`${row.groupId}:${row.workTypeKey}`, row])
+        )
+        for (const desired of planWorkTypeTasks(sections, config)) {
+          const row = byKey.get(`${desired.groupId}:${desired.workTypeKey}`)
+          const action = workTypeTaskAction(row, desired)
+          if (action === "noop") continue
+          const closed = desired.status === "closed"
           const payload = {
-            name: `${ticket.title} #${ticket.id}`,
-            section: section.everhourSectionId,
-            labels: nextLabels,
-            description: `${base}/orgs/${orgSlug}/projects/${slug}/tickets/${ticket.id}\n\n${ticket.body}`,
-            status:
-              ticket.status === "done" ? ("closed" as const) : ("open" as const)
+            name: desired.name,
+            section: desired.everhourSectionId,
+            labels: [],
+            description: "",
+            status: desired.status
           } satisfies EverhourTaskPayload
-          const row = yield* db.query.everhourTaskLink
-            .findFirst({
-              where: and(
-                eq(everhourTaskLink.projectIntegrationLinkId, link.linkId),
-                eq(everhourTaskLink.ticketId, ticket.id)
-              )
-            })
-            .pipe(Effect.orDie)
-          if (!row || row.status === "local_deleted") {
+          if (action === "create") {
             const created = yield* mutate(
               everhour.createTask(apiKey, link.everhourProjectId, payload)
             )
             yield* db
-              .insert(everhourTaskLink)
+              .insert(everhourWorkTypeTaskLink)
               .values({
                 projectIntegrationLinkId: link.linkId,
-                ticketId: ticket.id,
+                groupId: desired.groupId,
+                workTypeKey: desired.workTypeKey,
                 everhourTaskId: created.id,
-                status: "active",
-                lastManagedLabels: nextLabels,
-                lastSyncedAt: now,
-                lastSyncStatus: "ok",
-                lastSyncError: null
-              })
-              .onConflictDoUpdate({
-                target: [
-                  everhourTaskLink.projectIntegrationLinkId,
-                  everhourTaskLink.ticketId
-                ],
-                set: {
-                  everhourTaskId: created.id,
-                  status: "active",
-                  lastManagedLabels: nextLabels,
-                  lastSyncedAt: now,
-                  lastSyncStatus: "ok",
-                  lastSyncError: null
-                }
+                name: created.name,
+                status: closed ? "archived" : "active",
+                lastSyncedAt: now
               })
               .pipe(Effect.orDie)
             summary.tasksCreated++
             continue
           }
-          const existing = yield* everhour
-            .getTask(apiKey, row.everhourTaskId)
-            .pipe(Effect.either)
-          if (existing._tag === "Left") {
-            const created = yield* mutate(
-              everhour.createTask(apiKey, link.everhourProjectId, payload)
-            )
-            yield* db
-              .update(everhourTaskLink)
-              .set({
-                everhourTaskId: created.id,
-                status: "active",
-                lastManagedLabels: nextLabels,
-                lastSyncedAt: now,
-                lastSyncStatus: "ok",
-                lastSyncError: null
-              })
-              .where(
-                and(
-                  eq(everhourTaskLink.projectIntegrationLinkId, link.linkId),
-                  eq(everhourTaskLink.ticketId, ticket.id)
-                )
-              )
-              .pipe(Effect.orDie)
-            summary.tasksRecreated++
-            continue
-          }
-          const manualLabels = existing.right.labels.filter(
-            (label) => !row.lastManagedLabels.includes(label)
-          )
-          const updated = yield* mutate(
-            everhour.updateTask(apiKey, row.everhourTaskId, {
-              ...payload,
-              labels: [...manualLabels, ...nextLabels]
-            })
+          yield* mutate(
+            everhour.updateTask(apiKey, row!.everhourTaskId, payload)
           )
           yield* db
-            .update(everhourTaskLink)
+            .update(everhourWorkTypeTaskLink)
             .set({
-              status: "active",
-              lastManagedLabels: nextLabels,
-              lastSyncedAt: now,
-              lastSyncStatus: "ok",
-              lastSyncError: null
+              name: desired.name,
+              status: closed ? "archived" : "active",
+              lastSyncedAt: now
             })
             .where(
               and(
-                eq(everhourTaskLink.projectIntegrationLinkId, link.linkId),
-                eq(everhourTaskLink.ticketId, ticket.id)
+                eq(
+                  everhourWorkTypeTaskLink.projectIntegrationLinkId,
+                  link.linkId
+                ),
+                eq(everhourWorkTypeTaskLink.groupId, desired.groupId),
+                eq(everhourWorkTypeTaskLink.workTypeKey, desired.workTypeKey)
               )
             )
             .pipe(Effect.orDie)
-          if (updated.status === "closed") summary.tasksClosed++
+          if (closed) summary.tasksClosed++
           else summary.tasksUpdated++
         }
       })
@@ -935,7 +852,23 @@ export const EverhourIntegrationsLive = Layer.effect(
             .pipe(Effect.orDie)
         }
         yield* syncSections(apiKey, link, summary, orgSlug, slug)
-        yield* syncTasks(apiKey, link, summary, orgSlug, slug)
+        const orgIntegration = yield* db.query.organizationIntegration
+          .findFirst({
+            columns: { config: true },
+            where: and(
+              eq(
+                organizationIntegration.organizationId,
+                link.organizationId
+              ),
+              eq(organizationIntegration.provider, "everhour"),
+              inArray(organizationIntegration.status, ["active", "broken"])
+            )
+          })
+          .pipe(Effect.orDie)
+        const config = orgIntegration?.config ?? {
+          workTypes: DEFAULT_WORK_TYPES
+        }
+        yield* syncWorkTypeTasks(apiKey, link, summary, config)
         yield* recordProjectSync(link.linkId, "active", userId, "ok", null)
         return summary
       }).pipe(
@@ -1018,66 +951,6 @@ export const EverhourIntegrationsLive = Layer.effect(
         )
       )
 
-    const bestEffortCloseDeletedTicket = (
-      orgSlug: string,
-      userId: string,
-      slug: string,
-      ticketId: string
-    ) =>
-      Effect.gen(function* () {
-        const { apiKey } = yield* actorApiKey(userId)
-        const project = yield* projectRow(orgSlug, slug)
-        const link = yield* activeLink(project.projectId)
-        if (!link) return
-        const row = yield* db.query.everhourTaskLink
-          .findFirst({
-            where: and(
-              eq(everhourTaskLink.projectIntegrationLinkId, link.linkId),
-              eq(everhourTaskLink.ticketId, ticketId)
-            )
-          })
-          .pipe(Effect.orDie)
-        if (!row) return
-        const task = yield* everhour.getTask(apiKey, row.everhourTaskId)
-        yield* mutate(
-          everhour.updateTask(apiKey, row.everhourTaskId, {
-            name: task.name,
-            section: String(task.section ?? link.backlogSectionId ?? ""),
-            labels: task.labels,
-            description: "",
-            status: "closed"
-          })
-        )
-        yield* db
-          .update(everhourTaskLink)
-          .set({
-            status: "local_deleted",
-            lastSyncStatus: "ok",
-            lastSyncError: null
-          })
-          .where(
-            and(
-              eq(everhourTaskLink.projectIntegrationLinkId, link.linkId),
-              eq(everhourTaskLink.ticketId, ticketId)
-            )
-          )
-          .pipe(Effect.orDie)
-      }).pipe(
-        Effect.catchAll((error) =>
-          Effect.logWarning("Everhour deleted-ticket sync failed").pipe(
-            Effect.annotateLogs({
-              orgSlug,
-              slug,
-              userId,
-              ticketId,
-              errorTag: errorTag(error),
-              error: formatError(error)
-            }),
-            Effect.asVoid
-          )
-        )
-      )
-
     const connectProject = (orgSlug: string, userId: string, slug: string) =>
       runFullSync(orgSlug, userId, slug, true).pipe(
         Effect.catchAll((error) =>
@@ -1114,8 +987,7 @@ export const EverhourIntegrationsLive = Layer.effect(
       syncProject: (orgSlug, userId, slug) =>
         runFullSync(orgSlug, userId, slug, false),
       disconnectProject,
-      bestEffortProjectSync,
-      bestEffortCloseDeletedTicket
+      bestEffortProjectSync
     } satisfies EverhourIntegrationsShape
   })
 )

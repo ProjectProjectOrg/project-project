@@ -62,12 +62,6 @@ export interface EverhourIntegrationsShape {
     userId: string,
     slug: string
   ) => Effect.Effect<void>
-  readonly bestEffortCloseDeletedTicket: (
-    orgSlug: string,
-    userId: string,
-    slug: string,
-    ticketId: string
-  ) => Effect.Effect<void>
 }
 
 export class EverhourIntegrations extends Context.Tag(
