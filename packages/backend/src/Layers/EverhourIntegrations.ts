@@ -112,7 +112,7 @@ const encryptSecret = (value: string) =>
     }
   })
 
-const decryptSecret = (row: {
+export const decryptSecret = (row: {
   readonly encryptedApiKey: string
   readonly apiKeyNonce: string
   readonly apiKeyTag: string

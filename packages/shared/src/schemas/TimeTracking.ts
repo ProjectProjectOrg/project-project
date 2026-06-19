@@ -25,7 +25,8 @@ export const LogTimeInput = Schema.Struct({
   seconds: Schema.Number.pipe(Schema.int(), Schema.positive()),
   date: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
   comment: Schema.optional(Schema.String),
-  ticketId: Schema.optional(Schema.NullOr(TicketId))
+  ticketId: Schema.optional(Schema.NullOr(TicketId)),
+  groupId: Schema.optional(Schema.NullOr(GroupId))
 })
 export type LogTimeInput = typeof LogTimeInput.Type
 
