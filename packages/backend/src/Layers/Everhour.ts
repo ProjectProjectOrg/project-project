@@ -12,6 +12,8 @@ import {
   type EverhourSection,
   type EverhourShape,
   type EverhourTask,
+  type EverhourTimeRecord,
+  type EverhourTimer,
   type EverhourUser
 } from "../Services/Everhour"
 
@@ -73,6 +75,40 @@ const mapTask = (value: unknown): EverhourTask => {
   }
 }
 
+const numberField = (
+  value: Record<string, unknown>,
+  key: string
+): number | null => (typeof value[key] === "number" ? value[key] : null)
+
+const mapTimer = (value: unknown): EverhourTimer => {
+  const record = isRecord(value) ? value : {}
+  const task = isRecord(record.task) ? record.task : null
+  const user = isRecord(record.user) ? record.user : null
+  return {
+    id: textField(record, "id"),
+    status: record.status === "active" ? "active" : "stopped",
+    taskId: task ? idField(task) : null,
+    userId: user ? String(user.id) : null,
+    startedAt: textField(record, "startedAt")
+  }
+}
+
+const mapTimeRecord = (value: unknown): EverhourTimeRecord => {
+  const record = isRecord(value) ? value : {}
+  const task = isRecord(record.task) ? record.task : null
+  return {
+    id: idField(record),
+    taskId: task ? idField(task) : null,
+    userId: record.user != null ? String(record.user) : null,
+    seconds: numberField(record, "time") ?? 0,
+    date: textField(record, "date") ?? "",
+    comment: textField(record, "comment")
+  }
+}
+
+const mapTimeRecords = (value: unknown): ReadonlyArray<EverhourTimeRecord> =>
+  Array.isArray(value) ? value.map(mapTimeRecord) : []
+
 const errorMessage = (body: unknown) => {
   if (!isRecord(body)) return "Everhour error"
   const message = body.message ?? body.error ?? body.detail
@@ -93,12 +129,13 @@ const isEverhourClientError = (cause: unknown): cause is EverhourClientError =>
   hasTag(cause, "EverhourRateLimited") ||
   hasTag(cause, "EverhourError")
 
-const request = <A>(
+const send = <A>(
   apiKey: string,
   method: string,
   path: string,
   body: unknown,
-  map: (value: unknown) => A
+  onOk: (payload: unknown, status: number) => A,
+  treatNotFound: boolean
 ) =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
@@ -118,7 +155,9 @@ const request = <A>(
       response.status === 204
         ? null
         : yield* Effect.promise(() => response.json().catch(() => null))
-    if (response.ok) return map(payload)
+    if (response.ok || (treatNotFound && response.status === 404)) {
+      return onOk(payload, response.status)
+    }
     const message = errorMessage(payload)
     const endpoint = `${method} ${baseUrl}${path}`
     yield* Effect.logWarning(
@@ -147,6 +186,30 @@ const request = <A>(
         ? Effect.fail(cause)
         : Effect.fail(new EverhourError({ message: String(cause) }))
     )
+  )
+
+const request = <A>(
+  apiKey: string,
+  method: string,
+  path: string,
+  body: unknown,
+  map: (value: unknown) => A
+) => send(apiKey, method, path, body, (payload) => map(payload), false)
+
+const requestNullable = <A>(
+  apiKey: string,
+  method: string,
+  path: string,
+  body: unknown,
+  map: (value: unknown) => A
+) =>
+  send(
+    apiKey,
+    method,
+    path,
+    body,
+    (payload, status): A | null => (status === 404 ? null : map(payload)),
+    true
   )
 
 export const EverhourLive = Layer.succeed(Everhour, {
@@ -209,5 +272,61 @@ export const EverhourLive = Layer.succeed(Everhour, {
       `/tasks/${encodeURIComponent(taskId)}`,
       payload,
       mapTask
-    )
+    ),
+  startTimer: (apiKey, input) =>
+    request(apiKey, "POST", "/timers", input, mapTimer),
+  getCurrentTimer: (apiKey) =>
+    requestNullable(
+      apiKey,
+      "GET",
+      "/timers/current",
+      undefined,
+      mapTimer
+    ).pipe(
+      Effect.map((timer) =>
+        timer && timer.status === "active" && timer.taskId ? timer : null
+      )
+    ),
+  stopTimer: (apiKey) =>
+    requestNullable(apiKey, "DELETE", "/timers/current", undefined, (value) => {
+      const record = isRecord(value) ? value : {}
+      const task = isRecord(record.task) ? record.task : null
+      const user = isRecord(record.user) ? record.user : null
+      return {
+        taskId: task ? idField(task) : null,
+        userId: user ? String(user.id) : null,
+        date: textField(record, "userDate")
+      }
+    }).pipe(
+      Effect.flatMap((stopped) => {
+        if (!stopped || !stopped.taskId) {
+          return Effect.succeed<EverhourTimeRecord | null>(null)
+        }
+        const taskId = stopped.taskId
+        const userId = stopped.userId
+        const query = stopped.date
+          ? `?from=${encodeURIComponent(stopped.date)}&to=${encodeURIComponent(stopped.date)}`
+          : ""
+        return request(
+          apiKey,
+          "GET",
+          `/tasks/${encodeURIComponent(taskId)}/time${query}`,
+          undefined,
+          mapTimeRecords
+        ).pipe(
+          Effect.map((records) => {
+            const matching = records.filter(
+              (record) => userId === null || record.userId === userId
+            )
+            const pool = matching.length > 0 ? matching : records
+            if (pool.length === 0) return null
+            return pool.reduce((newest, record) =>
+              Number(record.id) > Number(newest.id) ? record : newest
+            )
+          })
+        )
+      })
+    ),
+  addTime: (apiKey, input) =>
+    request(apiKey, "POST", "/time", input, mapTimeRecord)
 } satisfies EverhourShape)

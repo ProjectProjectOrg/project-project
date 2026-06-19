@@ -40,6 +40,23 @@ export interface EverhourTaskPayload {
   readonly status: "open" | "closed"
 }
 
+export interface EverhourTimer {
+  readonly id: string | null
+  readonly status: "active" | "stopped"
+  readonly taskId: string | null
+  readonly userId: string | null
+  readonly startedAt: string | null
+}
+
+export interface EverhourTimeRecord {
+  readonly id: string
+  readonly taskId: string | null
+  readonly userId: string | null
+  readonly seconds: number
+  readonly date: string
+  readonly comment: string | null
+}
+
 export type EverhourClientError =
   | EverhourAuthInvalid
   | EverhourRateLimited
@@ -90,6 +107,29 @@ export interface EverhourShape {
     taskId: string,
     payload: EverhourTaskPayload
   ) => Effect.Effect<EverhourTask, EverhourClientError>
+  readonly startTimer: (
+    apiKey: string,
+    input: {
+      readonly task: string
+      readonly comment?: string
+      readonly userDate?: string
+    }
+  ) => Effect.Effect<EverhourTimer, EverhourClientError>
+  readonly stopTimer: (
+    apiKey: string
+  ) => Effect.Effect<EverhourTimeRecord | null, EverhourClientError>
+  readonly getCurrentTimer: (
+    apiKey: string
+  ) => Effect.Effect<EverhourTimer | null, EverhourClientError>
+  readonly addTime: (
+    apiKey: string,
+    input: {
+      readonly task: string
+      readonly time: number
+      readonly date: string
+      readonly comment?: string
+    }
+  ) => Effect.Effect<EverhourTimeRecord, EverhourClientError>
 }
 
 export class Everhour extends Context.Tag(
