@@ -15,6 +15,13 @@ import {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
+const idString = (value: unknown): string | null =>
+  typeof value === "string"
+    ? value
+    : typeof value === "number"
+      ? String(value)
+      : null
+
 const decodeJson = Schema.decodeUnknownEither(Schema.parseJson())
 
 export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
@@ -30,15 +37,15 @@ export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
   }
   for (const candidate of candidates) {
     if (!isRecord(candidate)) continue
-    if (candidate.id === undefined || candidate.id === null) continue
-    const time =
-      typeof candidate.time === "number" ? candidate.time : undefined
+    const id = idString(candidate.id)
+    if (id === null) continue
+    const time = typeof candidate.time === "number" ? candidate.time : undefined
     if (time === undefined) continue
     const task = isRecord(candidate.task) ? candidate.task : null
     return {
-      id: String(candidate.id),
-      taskId: task && task.id != null ? String(task.id) : null,
-      userId: candidate.user != null ? String(candidate.user) : null,
+      id,
+      taskId: task ? idString(task.id) : null,
+      userId: idString(candidate.user),
       seconds: time,
       date: typeof candidate.date === "string" ? candidate.date : "",
       comment: typeof candidate.comment === "string" ? candidate.comment : null

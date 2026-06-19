@@ -167,7 +167,9 @@ export const logTimeAtom = Atom.family((key: string) => {
       })
       get.refresh(activeTimerBaseAtom(orgSlug))
       if (input.ticketId) {
-        get.refresh(ticketTimeBaseAtom(ticketKey(orgSlug, slug, input.ticketId)))
+        get.refresh(
+          ticketTimeBaseAtom(ticketKey(orgSlug, slug, input.ticketId))
+        )
       }
       return summary
     })

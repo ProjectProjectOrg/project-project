@@ -550,8 +550,9 @@ export const EverhourIntegrationsLive = Layer.effect(
                   .update(organizationIntegration)
                   .set({
                     status: "active",
-                    config:
-                      orgIntegration.config ?? { workTypes: DEFAULT_WORK_TYPES },
+                    config: orgIntegration.config ?? {
+                      workTypes: DEFAULT_WORK_TYPES
+                    },
                     lastCheckedAt: now,
                     lastCheckStatus: "ok",
                     lastCheckError: null,
@@ -860,10 +861,7 @@ export const EverhourIntegrationsLive = Layer.effect(
           .findFirst({
             columns: { config: true },
             where: and(
-              eq(
-                organizationIntegration.organizationId,
-                link.organizationId
-              ),
+              eq(organizationIntegration.organizationId, link.organizationId),
               eq(organizationIntegration.provider, "everhour"),
               inArray(organizationIntegration.status, ["active", "broken"])
             )

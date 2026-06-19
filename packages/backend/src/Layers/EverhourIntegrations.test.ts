@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_WORK_TYPES, type OrgEverhourConfig } from "@projectproject/shared"
+import {
+  DEFAULT_WORK_TYPES,
+  type OrgEverhourConfig
+} from "@projectproject/shared"
 import {
   planWorkTypeTasks,
   workTypeTaskAction,
@@ -45,9 +48,13 @@ describe("planWorkTypeTasks", () => {
 
   it("opens tasks for active sprints and closes them for completed ones", () => {
     const plan = planWorkTypeTasks([openSprint, completedSprint], config)
-    expect(plan.filter((t) => t.groupId === "G-1").every((t) => t.status === "open")).toBe(true)
     expect(
-      plan.filter((t) => t.groupId === "G-2").every((t) => t.status === "closed")
+      plan.filter((t) => t.groupId === "G-1").every((t) => t.status === "open")
+    ).toBe(true)
+    expect(
+      plan
+        .filter((t) => t.groupId === "G-2")
+        .every((t) => t.status === "closed")
     ).toBe(true)
   })
 
@@ -61,10 +68,7 @@ describe("planWorkTypeTasks", () => {
   })
 
   it("ignores sections that are not bound to a sprint group", () => {
-    const plan = planWorkTypeTasks(
-      [{ ...openSprint, groupId: null }],
-      config
-    )
+    const plan = planWorkTypeTasks([{ ...openSprint, groupId: null }], config)
     expect(plan).toHaveLength(0)
   })
 })

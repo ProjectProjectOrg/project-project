@@ -141,9 +141,7 @@ export function TicketTimePanel({
                 type="button"
                 size="sm"
                 disabled={busy}
-                onClick={() =>
-                  void start({ workTypeKey: effectiveWorkType })
-                }
+                onClick={() => void start({ workTypeKey: effectiveWorkType })}
               >
                 {m.time_start_button()}
               </Button>
@@ -176,13 +174,7 @@ export function TicketTimePanel({
   })
 }
 
-function TrackedFigure({
-  label,
-  seconds
-}: {
-  label: string
-  seconds: number
-}) {
+function TrackedFigure({ label, seconds }: { label: string; seconds: number }) {
   return (
     <div className="flex flex-col">
       <span className="text-xs text-muted-foreground">{label}</span>

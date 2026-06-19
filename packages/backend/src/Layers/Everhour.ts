@@ -80,6 +80,13 @@ const numberField = (
   key: string
 ): number | null => (typeof value[key] === "number" ? value[key] : null)
 
+const idString = (value: unknown): string | null =>
+  typeof value === "string"
+    ? value
+    : typeof value === "number"
+      ? String(value)
+      : null
+
 const mapTimer = (value: unknown): EverhourTimer => {
   const record = isRecord(value) ? value : {}
   const task = isRecord(record.task) ? record.task : null
@@ -88,7 +95,7 @@ const mapTimer = (value: unknown): EverhourTimer => {
     id: textField(record, "id"),
     status: record.status === "active" ? "active" : "stopped",
     taskId: task ? idField(task) : null,
-    userId: user ? String(user.id) : null,
+    userId: user ? idString(user.id) : null,
     startedAt: textField(record, "startedAt")
   }
 }
@@ -99,7 +106,7 @@ const mapTimeRecord = (value: unknown): EverhourTimeRecord => {
   return {
     id: idField(record),
     taskId: task ? idField(task) : null,
-    userId: record.user != null ? String(record.user) : null,
+    userId: idString(record.user),
     seconds: numberField(record, "time") ?? 0,
     date: textField(record, "date") ?? "",
     comment: textField(record, "comment")
@@ -276,13 +283,7 @@ export const EverhourLive = Layer.succeed(Everhour, {
   startTimer: (apiKey, input) =>
     request(apiKey, "POST", "/timers", input, mapTimer),
   getCurrentTimer: (apiKey) =>
-    requestNullable(
-      apiKey,
-      "GET",
-      "/timers/current",
-      undefined,
-      mapTimer
-    ).pipe(
+    requestNullable(apiKey, "GET", "/timers/current", undefined, mapTimer).pipe(
       Effect.map((timer) =>
         timer && timer.status === "active" && timer.taskId ? timer : null
       )

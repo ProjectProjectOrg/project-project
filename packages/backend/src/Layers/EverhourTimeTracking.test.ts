@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_WORK_TYPES, type OrgEverhourConfig } from "@projectproject/shared"
+import {
+  DEFAULT_WORK_TYPES,
+  type OrgEverhourConfig
+} from "@projectproject/shared"
 import {
   resolveSprintForTicket,
   summariseAttribution,

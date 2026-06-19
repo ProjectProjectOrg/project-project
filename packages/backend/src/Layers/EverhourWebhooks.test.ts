@@ -14,7 +14,9 @@ import { EverhourWebhooksLive, parseTimeRecord } from "./EverhourWebhooks"
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const fakeDb = (integration: { projectIntegrationLinkId: string } | undefined) =>
+const fakeDb = (
+  integration: { projectIntegrationLinkId: string } | undefined
+) =>
   Layer.succeed(Db, {
     query: {
       projectEverhourIntegration: {
@@ -109,13 +111,14 @@ describe("EverhourWebhooks.handle", () => {
   )
 })
 
-const dispatchedForKnown: Array<{ linkId: string; record: EverhourTimeRecord }> =
-  []
+const dispatchedForKnown: Array<{
+  linkId: string
+  record: EverhourTimeRecord
+}> = []
 const recordingTimeTrackingFixture = recordingTimeTracking(dispatchedForKnown)
 const dispatchedForUnknown: Array<{
   linkId: string
   record: EverhourTimeRecord
 }> = []
-const recordingTimeTrackingFixtureUnknown = recordingTimeTracking(
-  dispatchedForUnknown
-)
+const recordingTimeTrackingFixtureUnknown =
+  recordingTimeTracking(dispatchedForUnknown)

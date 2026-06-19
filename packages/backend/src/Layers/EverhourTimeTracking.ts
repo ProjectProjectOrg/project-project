@@ -480,7 +480,16 @@ export const EverhourTimeTrackingLive = Layer.effect(
       slug,
       groupId,
       input
-    ) => startTimer(orgSlug, userId, slug, null, groupId, input.workTypeKey, input.comment)
+    ) =>
+      startTimer(
+        orgSlug,
+        userId,
+        slug,
+        null,
+        groupId,
+        input.workTypeKey,
+        input.comment
+      )
 
     const stopTimer: EverhourTimeTrackingShape["stopTimer"] = (
       orgSlug,
@@ -598,10 +607,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
           .findMany({
             columns: { everhourUserId: true, seconds: true },
             where: and(
-              eq(
-                everhourTimeAttribution.projectIntegrationLinkId,
-                link.linkId
-              ),
+              eq(everhourTimeAttribution.projectIntegrationLinkId, link.linkId),
               eq(everhourTimeAttribution.ticketId, ticketId)
             )
           })
@@ -653,7 +659,11 @@ export const EverhourTimeTrackingLive = Layer.effect(
           if (existing) {
             yield* db
               .update(everhourTimeAttribution)
-              .set({ seconds: record.seconds, date: record.date, updatedAt: now })
+              .set({
+                seconds: record.seconds,
+                date: record.date,
+                updatedAt: now
+              })
               .where(eq(everhourTimeAttribution.everhourTimeId, record.id))
               .pipe(Effect.orDie)
           }
