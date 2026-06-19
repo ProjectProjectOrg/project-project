@@ -390,6 +390,8 @@ export const projectEverhourIntegration = pgTable(
     everhourProjectId: text("everhour_project_id").notNull(),
     everhourProjectName: text("everhour_project_name").notNull(),
     backlogSectionId: text("backlog_section_id"),
+    webhookId: text("webhook_id"),
+    webhookSecret: text("webhook_secret"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastSyncStatus: text("last_sync_status", { enum: ["ok", "error"] }),
     lastSyncError: text("last_sync_error"),
@@ -455,6 +457,56 @@ export const everhourWorkTypeTaskLink = pgTable(
       columns: [t.projectIntegrationLinkId],
       foreignColumns: [projectIntegrationLink.id]
     }).onDelete("cascade")
+  ]
+)
+
+export const everhourActiveTimer = pgTable(
+  "everhour_active_timer",
+  {
+    everhourUserId: text("everhour_user_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    ticketId: text("ticket_id"),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
+    everhourTaskId: text("everhour_task_id").notNull(),
+    everhourTimerId: text("everhour_timer_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull()
+  },
+  (t) => [
+    foreignKey({
+      name: "everhour_active_timer_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade"),
+    index("everhour_active_timer_user_idx").on(t.userId)
+  ]
+)
+
+export const everhourTimeAttribution = pgTable(
+  "everhour_time_attribution",
+  {
+    everhourTimeId: text("everhour_time_id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    ticketId: text("ticket_id"),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
+    everhourUserId: text("everhour_user_id").notNull(),
+    userId: text("user_id").notNull(),
+    seconds: integer("seconds").notNull(),
+    date: text("date").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+  },
+  (t) => [
+    foreignKey({
+      name: "everhour_time_attribution_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade"),
+    index("everhour_time_attribution_ticket_idx").on(
+      t.projectIntegrationLinkId,
+      t.ticketId
+    )
   ]
 )
 
