@@ -15,6 +15,7 @@ import { StatusButton } from "@/components/TicketList/StatusField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
+import { TicketTimePanel } from "@/components/time/TicketTimePanel"
 import { DescriptionField } from "@/components/TicketPage/DescriptionField"
 import { TitleField } from "@/components/TicketPage/TitleField"
 import { useProjectRole } from "@/lib/projectRole"
@@ -159,6 +160,9 @@ export function TicketPage({
               />
             </MetaRow>
           )}
+          <MetaRow label={m.time_tracked_total()}>
+            <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          </MetaRow>
           <MetaRow label={m.tickets_page_meta_created()}>
             <time
               dateTime={ticket.createdAt.toISOString()}
