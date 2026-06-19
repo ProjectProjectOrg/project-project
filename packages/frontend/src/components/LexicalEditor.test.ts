@@ -9,13 +9,12 @@ import { ListItemNode, ListNode } from "@lexical/list"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { describe, expect, it } from "vitest"
 import { createEditor } from "lexical"
-import { fireEvent, render, screen } from "@testing-library/react"
 import { MentionNode } from "./Lexical/MentionNode"
 import {
   AUTO_LINK_MATCHERS,
-  LexicalEditor,
   MARKDOWN_TRANSFORMERS,
-  nextMarkdownChange
+  nextMarkdownChange,
+  shouldPreventLinkPointerActivation
 } from "./LexicalEditor"
 
 function matchAutoLink(text: string) {
@@ -112,22 +111,37 @@ describe("MARKDOWN_TRANSFORMERS", () => {
   })
 })
 
-describe("LexicalEditor links", () => {
-  it("does not focus a blurred editor on link pointer activation", async () => {
-    render(
-      <>
-        <button type="button">outside</button>
-        <LexicalEditor markdown="[docs](https://example.com)" onChange={() => {}} />
-      </>
-    )
+describe("shouldPreventLinkPointerActivation", () => {
+  it("prevents left pointer activation on editor links while the editor is blurred", () => {
+    const root = document.createElement("div")
+    const link = document.createElement("a")
+    link.className = "lexical-link"
+    root.append(link)
 
-    screen.getByRole("button", { name: "outside" }).focus()
-    const link = await screen.findByRole("link", { name: "docs" })
-    const allowed = fireEvent.pointerDown(link, { button: 0 })
+    expect(
+      shouldPreventLinkPointerActivation(root, link, document.body, 0)
+    ).toBe(true)
+  })
 
-    expect(allowed).toBe(false)
-    expect(document.activeElement).not.toBe(
-      document.querySelector('[contenteditable="true"]')
+  it("allows link pointer activation while the editor is focused", () => {
+    const root = document.createElement("div")
+    const editable = document.createElement("div")
+    const link = document.createElement("a")
+    link.className = "lexical-link"
+    root.append(editable, link)
+
+    expect(shouldPreventLinkPointerActivation(root, link, editable, 0)).toBe(
+      false
     )
+  })
+
+  it("allows non-link pointer activation", () => {
+    const root = document.createElement("div")
+    const text = document.createElement("span")
+    root.append(text)
+
+    expect(
+      shouldPreventLinkPointerActivation(root, text, document.body, 0)
+    ).toBe(false)
   })
 })
