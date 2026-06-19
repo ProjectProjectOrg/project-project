@@ -328,5 +328,25 @@ export const EverhourLive = Layer.succeed(Everhour, {
       })
     ),
   addTime: (apiKey, input) =>
-    request(apiKey, "POST", "/time", input, mapTimeRecord)
+    request(apiKey, "POST", "/time", input, mapTimeRecord),
+  createWebhook: (apiKey, input) =>
+    request(
+      apiKey,
+      "POST",
+      "/hooks",
+      {
+        targetUrl: input.targetUrl,
+        events: ["api:time:updated"],
+        project: input.project
+      },
+      (value) => ({ id: idField(isRecord(value) ? value : {}) })
+    ),
+  deleteWebhook: (apiKey, webhookId) =>
+    request(
+      apiKey,
+      "DELETE",
+      `/hooks/${encodeURIComponent(webhookId)}`,
+      undefined,
+      () => undefined
+    )
 } satisfies EverhourShape)

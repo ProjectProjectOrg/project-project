@@ -78,6 +78,10 @@ const emptySummary = (): MutableSummary => ({
   errors: []
 })
 
+const publicBaseUrl = Effect.sync(
+  () => process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
+)
+
 const encryptionKey = Effect.gen(function* () {
   const raw = process.env.USER_SECRET_ENCRYPTION_KEY
   if (!raw) {
@@ -900,6 +904,69 @@ export const EverhourIntegrationsLive = Layer.effect(
         )
       )
 
+    const ensureWebhook = (
+      orgSlug: string,
+      slug: string,
+      apiKey: string,
+      everhourProjectId: string,
+      linkId: string
+    ) =>
+      Effect.gen(function* () {
+        const row = yield* db.query.projectEverhourIntegration
+          .findFirst({
+            columns: { webhookId: true },
+            where: eq(
+              projectEverhourIntegration.projectIntegrationLinkId,
+              linkId
+            )
+          })
+          .pipe(Effect.orDie)
+        if (row?.webhookId) return
+        const base = yield* publicBaseUrl
+        const secret = randomBytes(24).toString("base64url")
+        const created = yield* everhour.createWebhook(apiKey, {
+          targetUrl: `${base}/api/integrations/everhour/webhook/${secret}`,
+          project: everhourProjectId
+        })
+        yield* db
+          .update(projectEverhourIntegration)
+          .set({ webhookId: created.id, webhookSecret: secret })
+          .where(
+            eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
+          )
+          .pipe(Effect.orDie)
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.logWarning("Everhour webhook registration failed").pipe(
+            Effect.annotateLogs({
+              orgSlug,
+              slug,
+              errorTag: errorTag(error),
+              error: formatError(error)
+            }),
+            Effect.asVoid
+          )
+        )
+      )
+
+    const deleteWebhookBestEffort = (
+      apiKey: string,
+      linkId: string,
+      webhookId: string
+    ) =>
+      everhour.deleteWebhook(apiKey, webhookId).pipe(
+        Effect.zipRight(
+          db
+            .update(projectEverhourIntegration)
+            .set({ webhookId: null, webhookSecret: null })
+            .where(
+              eq(projectEverhourIntegration.projectIntegrationLinkId, linkId)
+            )
+            .pipe(Effect.orDie)
+        ),
+        Effect.catchAll(() => Effect.void)
+      )
+
     const disconnectProject = (orgSlug: string, userId: string, slug: string) =>
       Effect.gen(function* () {
         yield* requireAdmin(orgSlug, userId, slug)
@@ -907,6 +974,27 @@ export const EverhourIntegrationsLive = Layer.effect(
         const link = yield* activeLink(project.projectId)
         if (link) {
           const now = yield* DateTime.nowAsDate
+          const integration = yield* db.query.projectEverhourIntegration
+            .findFirst({
+              columns: { webhookId: true },
+              where: eq(
+                projectEverhourIntegration.projectIntegrationLinkId,
+                link.linkId
+              )
+            })
+            .pipe(Effect.orDie)
+          if (integration?.webhookId) {
+            yield* actorApiKey(userId).pipe(
+              Effect.flatMap((actor) =>
+                deleteWebhookBestEffort(
+                  actor.apiKey,
+                  link.linkId,
+                  integration.webhookId!
+                )
+              ),
+              Effect.catchAll(() => Effect.void)
+            )
+          }
           yield* db
             .update(projectIntegrationLink)
             .set({
@@ -975,6 +1063,25 @@ export const EverhourIntegrationsLive = Layer.effect(
               errors: [formatError(error)]
             }
           })
+        ),
+        Effect.tap(() =>
+          actorApiKey(userId).pipe(
+            Effect.flatMap((actor) =>
+              Effect.gen(function* () {
+                const project = yield* projectRow(orgSlug, slug)
+                const link = yield* activeLink(project.projectId)
+                if (!link) return
+                yield* ensureWebhook(
+                  orgSlug,
+                  slug,
+                  actor.apiKey,
+                  link.everhourProjectId,
+                  link.linkId
+                )
+              })
+            ),
+            Effect.catchAll(() => Effect.void)
+          )
         )
       )
 

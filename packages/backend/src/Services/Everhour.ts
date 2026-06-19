@@ -130,6 +130,14 @@ export interface EverhourShape {
       readonly comment?: string
     }
   ) => Effect.Effect<EverhourTimeRecord, EverhourClientError>
+  readonly createWebhook: (
+    apiKey: string,
+    input: { readonly targetUrl: string; readonly project: string }
+  ) => Effect.Effect<{ readonly id: string }, EverhourClientError>
+  readonly deleteWebhook: (
+    apiKey: string,
+    webhookId: string
+  ) => Effect.Effect<void, EverhourClientError>
 }
 
 export class Everhour extends Context.Tag(

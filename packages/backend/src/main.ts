@@ -90,6 +90,8 @@ import { Db } from "./Services/Db"
 import { GitHubIntegrations } from "./Services/GitHubIntegrations"
 import { GitHubWebhooks } from "./Services/GitHubWebhooks"
 import { GitHubWebhooksLive } from "./Layers/GitHubWebhooks"
+import { EverhourWebhooks } from "./Services/EverhourWebhooks"
+import { EverhourWebhooksLive } from "./Layers/EverhourWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 
 // Exported so tests can compose them without booting a real Bun server.
@@ -342,10 +344,38 @@ const githubIntegrationRoutes = HttpRouter.empty.pipe(
   HttpRouter.post("/webhook", githubWebhookRoute)
 )
 
+export const everhourWebhookRoute = Effect.gen(function* () {
+  const webhooks = yield* EverhourWebhooks
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const url = new URL(webReq.url)
+  const match = url.pathname.match(/\/webhook\/([^/]+)\/?$/)
+  const secret = match?.[1] ? decodeURIComponent(match[1]) : null
+  if (!secret) return badRequest("Missing webhook secret")
+  const body = yield* Effect.promise(() => webReq.text().catch(() => ""))
+  yield* webhooks.handle({ secret, body })
+  return HttpServerResponse.text("ok")
+}).pipe(
+  Effect.catchAllCause((cause) =>
+    Effect.zipRight(
+      Effect.logError("everhour webhook route failure", cause),
+      HttpServerResponse.text("ok")
+    )
+  )
+)
+
+const everhourIntegrationRoutes = HttpRouter.empty.pipe(
+  HttpRouter.post("/webhook/:secret", everhourWebhookRoute)
+)
+
 const ServerLive = HttpApiBuilder.serve((apiApp) =>
   HttpRouter.empty.pipe(
     HttpRouter.mountApp("/api/auth", betterAuthApp),
     HttpRouter.mountApp("/api/integrations/github", githubIntegrationRoutes),
+    HttpRouter.mountApp(
+      "/api/integrations/everhour",
+      everhourIntegrationRoutes
+    ),
     HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
@@ -358,6 +388,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   Layer.provide(McpHttpLive),
   Layer.provide(McpServerLive),
   Layer.provide(GitHubWebhooksLive),
+  Layer.provide(EverhourWebhooksLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive),
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
