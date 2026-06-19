@@ -30,6 +30,7 @@ import { CompleteSprintForm } from "./CompleteSprintForm"
 import { ReorderBoardBanner } from "./ReorderBoardBanner"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDetailHeader } from "./SprintDetailHeader"
+import { SprintTimePanel } from "@/components/time/SprintTimePanel"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 
@@ -223,6 +224,11 @@ export function SprintDetail({
                 onRequestComplete={
                   isCompleted ? undefined : () => setShowCompleteForm(true)
                 }
+              />
+              <SprintTimePanel
+                orgSlug={orgSlug}
+                slug={slug}
+                groupId={display.id}
               />
               {wide && boardSlot}
               {showCompleteForm && state === "active" && (
