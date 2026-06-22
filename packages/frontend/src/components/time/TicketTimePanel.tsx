@@ -13,9 +13,8 @@ import {
 } from "@/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/components/time/ConnectEverhourInline"
 import { LogTimeForm } from "@/components/time/LogTimeForm"
-import { WorkTypeSelect } from "@/components/time/WorkTypeSelect"
+import { TimeControls } from "@/components/time/TimeControls"
 import { ErrorPage } from "@/components/ErrorPage"
-import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
@@ -90,8 +89,8 @@ export function TicketTimePanel({
           <div
             className={
               timePulse
-                ? "flex items-center gap-4 animate-pulse"
-                : "flex items-center gap-4"
+                ? "flex items-center gap-5 tabular-nums animate-pulse"
+                : "flex items-center gap-5 tabular-nums"
             }
           >
             <TrackedFigure
@@ -109,7 +108,7 @@ export function TicketTimePanel({
             <Popover>
               <PopoverTrigger
                 aria-label={m.time_sync_explainer()}
-                className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
+                className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:text-foreground active:scale-[0.97]"
               >
                 <Info className="h-4 w-4" />
               </PopoverTrigger>
@@ -119,36 +118,17 @@ export function TicketTimePanel({
             </Popover>
           </div>
 
-          <div className="flex items-center gap-2">
-            <WorkTypeSelect
-              value={effectiveWorkType}
-              onChange={setWorkType}
-              options={options}
-              disabled={running || busy}
-            />
-            {running ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={busy}
-                onClick={() => void stop()}
-              >
-                {m.time_stop_button()}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() => void start({ workTypeKey: effectiveWorkType })}
-              >
-                {m.time_start_button()}
-              </Button>
-            )}
-          </div>
-
-          {showLog ? (
+          <TimeControls
+            value={effectiveWorkType}
+            onValueChange={setWorkType}
+            options={options}
+            running={running}
+            busy={busy}
+            onStart={() => void start({ workTypeKey: effectiveWorkType })}
+            onStop={() => void stop()}
+            logOpen={showLog}
+            onLogOpenChange={setShowLog}
+          >
             <LogTimeForm
               orgSlug={orgSlug}
               slug={slug}
@@ -157,17 +137,7 @@ export function TicketTimePanel({
               defaultWorkType={effectiveWorkType}
               onDone={() => setShowLog(false)}
             />
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="self-start"
-              onClick={() => setShowLog(true)}
-            >
-              {m.time_log_button()}
-            </Button>
-          )}
+          </TimeControls>
         </div>
       )
     }
@@ -176,7 +146,7 @@ export function TicketTimePanel({
 
 function TrackedFigure({ label, seconds }: { label: string; seconds: number }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-20 flex-col">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-sm font-medium tabular-nums">
         {formatDuration(seconds)}

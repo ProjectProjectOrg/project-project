@@ -18,6 +18,7 @@
   "time_log_title": "Log time",
   "time_no_sprint_hint": "Add this ticket to a sprint to track time against it.",
   "time_not_connected_short": "Connect Everhour to track time.",
+  "time_section_label": "Time",
   "time_start_button": "Start timer",
   "time_stop_button": "Stop timer",
   "time_sync_explainer": "Time is tracked in Everhour against this sprint's work-type task. ProjectProject records which ticket each entry belongs to. Edits and deletions happen in Everhour and sync back here.",

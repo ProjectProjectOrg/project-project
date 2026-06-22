@@ -10,9 +10,7 @@ import {
 } from "@/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/components/time/ConnectEverhourInline"
 import { LogTimeForm } from "@/components/time/LogTimeForm"
-import { WorkTypeSelect } from "@/components/time/WorkTypeSelect"
-import { Button } from "@/components/ui/button"
-import * as m from "@/paraglide/messages"
+import { TimeControls } from "@/components/time/TimeControls"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
   key: workType.key,
@@ -52,44 +50,18 @@ export function SprintTimePanel({
   const busy = startState.waiting || stopState.waiting
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/60 p-3">
-      <div className="flex items-center gap-2">
-        <WorkTypeSelect
-          value={workType}
-          onChange={setWorkType}
-          options={options}
-          disabled={running || busy}
-        />
-        {running ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => void stop()}
-          >
-            {m.time_stop_button()}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={() => void start({ workTypeKey: workType })}
-          >
-            {m.time_start_button()}
-          </Button>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowLog((value) => !value)}
-        >
-          {m.time_log_button()}
-        </Button>
-      </div>
-      {showLog ? (
+    <div className="flex flex-col gap-2">
+      <TimeControls
+        value={workType}
+        onValueChange={setWorkType}
+        options={options}
+        running={running}
+        busy={busy}
+        onStart={() => void start({ workTypeKey: workType })}
+        onStop={() => void stop()}
+        logOpen={showLog}
+        onLogOpenChange={setShowLog}
+      >
         <LogTimeForm
           orgSlug={orgSlug}
           slug={slug}
@@ -99,7 +71,7 @@ export function SprintTimePanel({
           defaultWorkType={workType}
           onDone={() => setShowLog(false)}
         />
-      ) : null}
+      </TimeControls>
     </div>
   )
 }
