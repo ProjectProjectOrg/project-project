@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { Clock3, Play, Square } from "lucide-react"
 import type { WorkTypeOption } from "@projectproject/shared"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,19 @@ export interface TimeControlsProps {
   children: React.ReactNode
 }
 
+export const disclosureMotion = (reduceMotion: boolean) =>
+  reduceMotion
+    ? {
+        initial: false as const,
+        animate: { opacity: 1 },
+        exit: { opacity: 0 }
+      }
+    : {
+        initial: { opacity: 0, height: 0, y: -4 },
+        animate: { opacity: 1, height: "auto", y: 0 },
+        exit: { opacity: 0, height: 0, y: -4 }
+      }
+
 export function TimeControls({
   value,
   onValueChange,
@@ -31,6 +44,8 @@ export function TimeControls({
   onLogOpenChange,
   children
 }: TimeControlsProps) {
+  const reduceMotion = useReducedMotion()
+  const disclosure = disclosureMotion(reduceMotion ?? false)
   return (
     <div className="flex min-w-0 flex-col gap-2.5">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -79,9 +94,9 @@ export function TimeControls({
         {logOpen ? (
           <motion.div
             key="manual-log"
-            initial={{ opacity: 0, height: 0, y: -4 }}
-            animate={{ opacity: 1, height: "auto", y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -4 }}
+            initial={disclosure.initial}
+            animate={disclosure.animate}
+            exit={disclosure.exit}
             transition={transitions.layout}
             className="overflow-hidden"
           >

@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest"
-import { formatClock } from "./RunningTimerIndicator"
+import { describe, expect, it, vi } from "vitest"
+import {
+  formatClock,
+  startSecondInterval,
+  timerEntryMotion
+} from "./RunningTimerIndicator"
 
 describe("formatClock", () => {
   it.each([
@@ -10,5 +14,26 @@ describe("formatClock", () => {
     [3661, "1:01:01"]
   ])("formats %i seconds as %s", (seconds, expected) => {
     expect(formatClock(seconds)).toBe(expected)
+  })
+})
+
+describe("timerEntryMotion", () => {
+  it("removes entry movement for reduced motion", () => {
+    expect(timerEntryMotion(true)).toEqual({
+      initial: false,
+      animate: { opacity: 1 }
+    })
+  })
+})
+
+describe("startSecondInterval", () => {
+  it("runs immediately and clears its interval", () => {
+    const update = vi.fn()
+    const clearInterval = vi.spyOn(window, "clearInterval")
+    const cleanup = startSecondInterval(update)
+    expect(update).toHaveBeenCalledOnce()
+    cleanup()
+    expect(clearInterval).toHaveBeenCalledOnce()
+    clearInterval.mockRestore()
   })
 })

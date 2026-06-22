@@ -2,10 +2,11 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import { Timer } from "lucide-react"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useState } from "react"
 import { activeTimerAtom, stopTimerAtom } from "@/atoms/timeTracking"
 import { Button } from "@/components/ui/button"
+import { ErrorPage } from "@/components/ErrorPage"
 import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
@@ -29,6 +30,17 @@ export const formatClock = (seconds: number): string => {
     : `${minutes}:${padClockPart(secs)}`
 }
 
+export const timerEntryMotion = (reduceMotion: boolean) =>
+  reduceMotion
+    ? { initial: false as const, animate: { opacity: 1 } }
+    : { initial: { opacity: 0, y: -2 }, animate: { opacity: 1, y: 0 } }
+
+export const startSecondInterval = (update: () => void): (() => void) => {
+  update()
+  const interval = window.setInterval(update, 1000)
+  return () => window.clearInterval(interval)
+}
+
 function useElapsed(startedAt: Date | null): number {
   const [seconds, setSeconds] = useState(() =>
     startedAt ? elapsedSeconds(startedAt) : 0
@@ -39,9 +51,7 @@ function useElapsed(startedAt: Date | null): number {
       return undefined
     }
     const update = () => setSeconds(elapsedSeconds(startedAt))
-    update()
-    const interval = window.setInterval(update, 1000)
-    return () => window.clearInterval(interval)
+    return startSecondInterval(update)
   }, [startedAt])
   return seconds
 }
@@ -50,10 +60,22 @@ export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
   const activeTimerResult = useAtomValue(activeTimerAtom(orgSlug))
   const stop = useAtomSet(stopTimerAtom(orgSlug), { mode: "promiseExit" })
   const stopState = useAtomValue(stopTimerAtom(orgSlug))
+  const reduceMotion = useReducedMotion()
   const timer = Result.isSuccess(activeTimerResult)
     ? activeTimerResult.value
     : null
   const elapsed = useElapsed(timer ? timer.startedAt : null)
+  if (Result.isInitial(activeTimerResult)) {
+    return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
+  }
+  if (Result.isFailure(activeTimerResult)) {
+    return Result.matchWithError(activeTimerResult, {
+      onInitial: () => null,
+      onError: (error) => <ErrorPage error={error} contained />,
+      onDefect: (defect) => <ErrorPage error={defect} contained />,
+      onSuccess: () => null
+    })
+  }
 
   if (!timer) return null
 
@@ -66,7 +88,8 @@ export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
       type="button"
       variant="ghost"
       size="xs"
-      loading={stopState.waiting}
+      loading={stopState.waiting || activeTimerResult.waiting}
+      disabled={activeTimerResult.waiting}
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -79,8 +102,8 @@ export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
 
   const content = (
     <motion.span
-      initial={{ opacity: 0, y: -2 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={timerEntryMotion(reduceMotion ?? false).initial}
+      animate={timerEntryMotion(reduceMotion ?? false).animate}
       transition={transitions.fade}
       className="flex min-w-0 items-center gap-2"
     >

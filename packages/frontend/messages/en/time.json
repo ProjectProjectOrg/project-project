@@ -6,6 +6,8 @@
   "time_connect_in_progress": "Connecting…",
   "time_connect_key_placeholder": "Everhour API key",
   "time_connect_prompt": "Connect your Everhour account to track time on this ticket.",
+  "time_duration_hours": "{hours}h",
+  "time_duration_minutes": "{minutes}m",
   "time_log_button": "Log time",
   "time_log_date_label": "Date",
   "time_log_duration_invalid": "Enter a duration like 1h 30m.",

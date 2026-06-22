@@ -26,10 +26,12 @@ export const formatDuration = (seconds: number): string => {
   const total = Math.max(0, Math.round(seconds / 60))
   const hours = Math.floor(total / 60)
   const minutes = total % 60
-  if (hours === 0 && minutes === 0) return "0m"
-  return [hours > 0 ? `${hours}h` : null, minutes > 0 ? `${minutes}m` : null]
-    .filter((part): part is string => part !== null)
-    .join(" ")
+  if (hours === 0 && minutes === 0)
+    return m.time_duration_minutes({ minutes: 0 })
+  return [
+    ...(hours > 0 ? [m.time_duration_hours({ hours })] : []),
+    ...(minutes > 0 ? [m.time_duration_minutes({ minutes })] : [])
+  ].join(" ")
 }
 
 export function TicketTimePanel({
@@ -53,14 +55,43 @@ export function TicketTimePanel({
   const [workType, setWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
 
-  if (profileResult.waiting && !Result.isSuccess(profileResult)) {
+  if (Result.isInitial(profileResult)) {
     return <div className="h-8 animate-pulse rounded bg-muted/40" />
+  }
+
+  if (Result.isFailure(profileResult)) {
+    return Result.matchWithError(profileResult, {
+      onInitial: () => null,
+      onError: (error) => <ErrorPage error={error} contained />,
+      onDefect: (defect) => <ErrorPage error={defect} contained />,
+      onSuccess: () => null
+    })
   }
 
   const connected =
     Result.isSuccess(profileResult) && profileResult.value.connected
   if (!connected) {
     return <ConnectEverhourInline />
+  }
+
+  if (Result.isInitial(timeResult) || Result.isInitial(activeTimerResult)) {
+    return <div className="h-16 animate-pulse rounded bg-muted/40" />
+  }
+  if (Result.isFailure(timeResult)) {
+    return Result.matchWithError(timeResult, {
+      onInitial: () => null,
+      onError: (error) => <ErrorPage error={error} contained />,
+      onDefect: (defect) => <ErrorPage error={defect} contained />,
+      onSuccess: () => null
+    })
+  }
+  if (Result.isFailure(activeTimerResult)) {
+    return Result.matchWithError(activeTimerResult, {
+      onInitial: () => null,
+      onError: (error) => <ErrorPage error={error} contained />,
+      onDefect: (defect) => <ErrorPage error={defect} contained />,
+      onSuccess: () => null
+    })
   }
 
   return Result.matchWithError(workTypesResult, {
@@ -77,12 +108,15 @@ export function TicketTimePanel({
       }
       const effectiveWorkType = workType ?? options[0].key
       const running =
-        Result.isSuccess(activeTimerResult) &&
         activeTimerResult.value !== null &&
         activeTimerResult.value.ticketId === ticket.id
-      const busy = startState.waiting || stopState.waiting
+      const busy =
+        startState.waiting || stopState.waiting || activeTimerResult.waiting
       const timePulse =
-        timeResult.waiting || startState.waiting || stopState.waiting
+        timeResult.waiting ||
+        activeTimerResult.waiting ||
+        startState.waiting ||
+        stopState.waiting
 
       return (
         <div className="flex flex-col gap-3">
@@ -95,15 +129,11 @@ export function TicketTimePanel({
           >
             <TrackedFigure
               label={m.time_tracked_total()}
-              seconds={
-                Result.isSuccess(timeResult) ? timeResult.value.totalSeconds : 0
-              }
+              seconds={timeResult.value.totalSeconds}
             />
             <TrackedFigure
               label={m.time_tracked_yours()}
-              seconds={
-                Result.isSuccess(timeResult) ? timeResult.value.userSeconds : 0
-              }
+              seconds={timeResult.value.userSeconds}
             />
             <Popover>
               <PopoverTrigger

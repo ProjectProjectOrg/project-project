@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { ComponentProps } from "react"
-import { describe, expect, it, vi } from "vitest"
-import { TimeControls } from "./TimeControls"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { disclosureMotion, TimeControls } from "./TimeControls"
+
+afterEach(cleanup)
 
 vi.mock("@/components/time/WorkTypeSelect", () => ({
   WorkTypeSelect: ({ value }: { value: string }) => <span>{value}</span>
@@ -56,5 +58,13 @@ describe("TimeControls", () => {
     expect(screen.getByText("Manual fields")).not.toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Log time" }))
     expect(onLogOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it("removes disclosure movement for reduced motion", () => {
+    expect(disclosureMotion(true)).toEqual({
+      initial: false,
+      animate: { opacity: 1 },
+      exit: { opacity: 0 }
+    })
   })
 })
