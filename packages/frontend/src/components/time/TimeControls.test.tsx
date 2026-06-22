@@ -7,7 +7,9 @@ vi.mock("@/components/time/WorkTypeSelect", () => ({
   WorkTypeSelect: ({ value }: { value: string }) => <span>{value}</span>
 }))
 
-const renderControls = (overrides: Partial<ComponentProps<typeof TimeControls>> = {}) => {
+const renderControls = (
+  overrides: Partial<ComponentProps<typeof TimeControls>> = {}
+) => {
   const props: ComponentProps<typeof TimeControls> = {
     value: "development",
     onValueChange: vi.fn(),
