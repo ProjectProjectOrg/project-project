@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 import { GroupId, TicketId, type ActiveTimer } from "@projectproject/shared"
 import { optimisticStopTimer, ticketTimeKeysForTimers } from "./timeTracking"
 
-const groupId = Schema.decodeUnknownSync(GroupId)("sprint-1")
+const groupId = Schema.decodeUnknownSync(GroupId)("G-1")
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
 const timer = (id: ActiveTimer["ticketId"]): ActiveTimer => ({
