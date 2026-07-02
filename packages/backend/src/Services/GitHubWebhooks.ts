@@ -19,6 +19,14 @@ export interface GitHubPullRequestWebhookChange {
   readonly state: "open" | "closed" | "merged"
 }
 
+export interface GitHubRepositoryMetadataChange {
+  readonly installationId: string
+  readonly repoId: string
+  readonly owner: string
+  readonly name: string
+  readonly defaultBranch: string
+}
+
 export interface GitHubWebhookMutationSink {
   readonly installationDeleted: (
     installationId: string,
@@ -35,6 +43,29 @@ export interface GitHubWebhookMutationSink {
   readonly repositoriesRemoved: (
     installationId: string,
     repoIds: ReadonlyArray<string>,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly repositoryRenamed: (
+    change: GitHubRepositoryMetadataChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly repositoryTransferred: (
+    change: GitHubRepositoryMetadataChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly repositoryArchived: (
+    installationId: string,
+    repoId: string,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly repositoryUnarchived: (
+    installationId: string,
+    repoId: string,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly repositoryDeleted: (
+    installationId: string,
+    repoId: string,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
   readonly pullRequestChanged: (
