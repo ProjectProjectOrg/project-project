@@ -284,6 +284,7 @@ export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
         lastTransitionedPr: null,
         gitState: { tag: "no_branch", baseBranch: "" },
         assignees: [],
+        archivedAt: null,
         createdBy: input.viewerId,
         createdAt: now,
         updatedAt: now
@@ -419,6 +420,37 @@ export const updateTicketAtom = Atom.family((key: string) => {
       const updated = yield* client.tickets.update({
         path: { orgSlug, slug, id },
         payload: input
+      })
+      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+      return updated
+    })
+  )
+})
+
+export const archiveTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id } = splitTicketKey(key)
+  return runtime.fn(
+    Effect.fn(function* (input: { reason?: string }, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.tickets.archive({
+        path: { orgSlug, slug, id },
+        payload: { reason: input.reason }
+      })
+      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
+      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+      return updated
+    })
+  )
+})
+
+export const unarchiveTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id } = splitTicketKey(key)
+  return runtime.fn(
+    Effect.fn(function* (_input: void, get) {
+      const client = yield* ApiClient
+      const updated = yield* client.tickets.unarchive({
+        path: { orgSlug, slug, id }
       })
       get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
       yield* Reactivity.invalidate(["tickets", orgSlug, slug])
