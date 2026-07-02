@@ -44,6 +44,9 @@ const TicketFrontmatter = Schema.Struct({
   assignees: Schema.optionalWith(Schema.Array(Schema.String), {
     default: () => []
   }),
+  archivedAt: Schema.optionalWith(Schema.NullOr(Schema.Date), {
+    default: () => null
+  }),
   createdBy: Schema.String,
   createdAt: Schema.Date,
   updatedAt: Schema.Date
@@ -76,6 +79,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
     prState: document.prState,
     lastTransitionedPr: document.lastTransitionedPr,
     assignees: document.assignees,
+    archivedAt: document.archivedAt ? document.archivedAt.toISOString() : null,
     createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString()

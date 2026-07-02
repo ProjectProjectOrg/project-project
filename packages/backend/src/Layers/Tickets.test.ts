@@ -9,6 +9,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { ProjectKey, type TicketStatus } from "@projectproject/shared"
 import { Db } from "../Services/Db"
+import { Comments, type CommentsShape } from "../Services/Comments"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
 import { Groups, type GroupsShape } from "../Services/Groups"
 import { Projects, type ProjectsShape } from "../Services/Projects"
@@ -78,6 +79,18 @@ const FakeGitHub = Layer.succeed(GitHub, {
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
 
+const recordedCommentBodies: Array<string> = []
+
+const FakeComments = Layer.succeed(Comments, {
+  list: () => unexpected("Comments.list"),
+  create: (_orgSlug, _userId, _slug, _ticketId, input) => {
+    recordedCommentBodies.push(input.body)
+    return Effect.succeed({} as never)
+  },
+  edit: () => unexpected("Comments.edit"),
+  remove: () => unexpected("Comments.remove")
+} satisfies CommentsShape)
+
 const ticketIndexProject = {
   orgSlug: "org",
   organizationId: "org-1",
@@ -129,6 +142,7 @@ const TestLayer = Layer.unwrapScoped(
       Layer.provide(TicketDocsLive),
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
+      Layer.provide(FakeComments),
       Layer.provide(FakeGitHub),
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),
@@ -208,6 +222,42 @@ it.scoped("rejects an unknown status on quickCreate", () =>
     if (result._tag === "Left") {
       expect(result.left._tag).toBe("Validation")
     }
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.scoped("archiving sets archivedAt and records the reason as a comment", () =>
+  Effect.gen(function* () {
+    recordedCommentBodies.length = 0
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "archive me"
+    })
+    expect(created.archivedAt).toBeNull()
+
+    const archived = yield* tickets.archive(
+      "org",
+      "user-1",
+      "p",
+      created.id,
+      "no longer relevant"
+    )
+    expect(archived.archivedAt).not.toBeNull()
+    expect(recordedCommentBodies).toEqual(["no longer relevant"])
+
+    const unarchived = yield* tickets.unarchive("org", "user-1", "p", created.id)
+    expect(unarchived.archivedAt).toBeNull()
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.scoped("archiving without a reason posts no comment", () =>
+  Effect.gen(function* () {
+    recordedCommentBodies.length = 0
+    const tickets = yield* Tickets
+    const created = yield* tickets.quickCreate("org", "user-1", "p", {
+      title: "silent archive"
+    })
+    yield* tickets.archive("org", "user-1", "p", created.id, "   ")
+    expect(recordedCommentBodies).toEqual([])
   }).pipe(Effect.provide(TestLayer))
 )
 

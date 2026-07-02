@@ -120,6 +120,35 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           yield* tickets.remove(org.orgSlug, user.id, path.slug, path.id)
         }).pipe(dieOnMarkdown)
       )
+      .handle("archive", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.archive(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload.reason
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("unarchive", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.unarchive(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("createBranch", ({ path, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

@@ -142,6 +142,7 @@ it.effect(
         prState: "open",
         lastTransitionedPr: null,
         assignees: ["user-1", "user-2"],
+        archivedAt: null,
         createdBy: "user-1",
         createdAt: isoDate("2026-02-01T10:00:00.000Z"),
         updatedAt: isoDate("2026-02-02T10:00:00.000Z"),

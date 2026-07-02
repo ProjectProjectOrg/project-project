@@ -102,6 +102,19 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly archive: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    reason?: string
+  ) => Effect.Effect<TicketDetail, TicketReadError | MentionInvalid>
+  readonly unarchive: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<TicketDetail, TicketReadError>
   readonly replaceTag: (
     orgSlug: string,
     slug: string,
