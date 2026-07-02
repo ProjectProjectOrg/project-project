@@ -6,7 +6,6 @@ import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useState } from "react"
 import { activeTimerAtom, stopTimerAtom } from "@/atoms/timeTracking"
 import { Button } from "@/components/ui/button"
-import { ErrorPage } from "@/components/ErrorPage"
 import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
@@ -68,15 +67,6 @@ export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
   if (Result.isInitial(activeTimerResult)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
   }
-  if (Result.isFailure(activeTimerResult)) {
-    return Result.matchWithError(activeTimerResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
-  }
-
   if (!timer) return null
 
   const label =
