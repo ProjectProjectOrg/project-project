@@ -15,6 +15,7 @@ export interface MatchableTicket {
   readonly pr: number | null
   readonly prState?: PullRequestState | null
   readonly assignees: ReadonlyArray<string>
+  readonly archivedAt: Date | null
   readonly updatedAt: Date
 }
 
@@ -73,6 +74,9 @@ export const matchesTicketQuery = (
   query: Pick<TicketListQuery, "filter" | "q">,
   viewerId: string
 ): boolean => {
+  const showArchived = query.filter?.archived === true
+  if ((ticket.archivedAt !== null) !== showArchived) return false
+
   if (query.filter !== undefined) {
     const resolvedFilter: TicketFilter = query.filter.assignee
       ? {
