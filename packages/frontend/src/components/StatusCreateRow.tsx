@@ -1,8 +1,10 @@
-import { useAtomSet } from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
 import { useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
 import { createStatusAtom, projectKey } from "@/atoms/projectStatuses"
+import { statusCreateErrorMessage } from "@/lib/errorMessage"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
@@ -36,65 +38,92 @@ export function StatusCreateRow({ orgSlug, slug }: Props) {
 
 function CreateFields({ orgSlug, slug }: Props) {
   const key = projectKey(orgSlug, slug)
-  const create = useAtomSet(createStatusAtom(key))
-  const { close } = useInlineForm<"create">()
+  const create = useAtomSet(createStatusAtom(key), { mode: "promiseExit" })
+  const createState = useAtomValue(createStatusAtom(key))
+  const { close, busy, setBusy } = useInlineForm<"create">()
   const [draft, setDraft] = useState("")
+  const [didSubmit, setDidSubmit] = useState(false)
 
-  const submit = () => {
+  const error =
+    didSubmit && !createState.waiting
+      ? Result.matchWithError(createState, {
+          onInitial: () => null,
+          onSuccess: () => null,
+          onError: (e) => statusCreateErrorMessage(e),
+          onDefect: () => m.tickets_status_create_error_fallback()
+        })
+      : null
+
+  const submit = async () => {
     const trimmed = draft.trim()
     if (trimmed.length === 0) {
       setDraft("")
       close()
       return
     }
-    create({ label: trimmed as ProjectStatus["label"] })
-    setDraft("")
-    close()
+    setBusy(true)
+    setDidSubmit(true)
+    const exit = await create({ label: trimmed as ProjectStatus["label"] })
+    if (Exit.isSuccess(exit)) {
+      setDraft("")
+      close()
+    } else {
+      setBusy(false)
+    }
   }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        submit()
+        void submit()
       }}
-      className="flex items-center gap-2 px-1 py-1"
+      className="space-y-1 px-1 py-1"
     >
-      <span className="flex h-8 w-5 shrink-0 items-center justify-center text-muted-foreground/40">
-        <Plus className="h-4 w-4" />
-      </span>
-      <Input
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-5 shrink-0 items-center justify-center text-muted-foreground/40">
+          <Plus className="h-4 w-4" />
+        </span>
+        <Input
+          autoFocus
+          value={draft}
+          disabled={busy}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) {
+              setDraft("")
+              close()
+            }
+          }}
+          placeholder={m.tickets_status_create_placeholder()}
+          className="h-8 flex-1 rounded-md"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => {
             setDraft("")
             close()
-          }
-        }}
-        placeholder={m.tickets_status_create_placeholder()}
-        className="h-8 flex-1 rounded-md"
-      />
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        onClick={() => {
-          setDraft("")
-          close()
-        }}
-      >
-        {m.tickets_status_delete_cancel()}
-      </Button>
-      <Button
-        type="submit"
-        size="sm"
-        variant="primary"
-        disabled={!draft.trim()}
-      >
-        {m.tickets_status_create_add()}
-      </Button>
+          }}
+        >
+          {m.tickets_status_delete_cancel()}
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          disabled={busy || !draft.trim()}
+        >
+          {m.tickets_status_create_add()}
+        </Button>
+      </div>
+      {error ? (
+        <p className="pl-7 text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </form>
   )
 }
