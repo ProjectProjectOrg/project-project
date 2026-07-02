@@ -3,7 +3,7 @@ import { useEffect } from "react"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
 
-const POLL_INTERVAL_MS = 20_000
+const POLL_INTERVAL_MS = 60_000
 
 export function useProjectGitStatePolling(
   orgSlug: string,
