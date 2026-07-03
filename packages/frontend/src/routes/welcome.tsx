@@ -10,7 +10,7 @@ import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
-import { useCallback, useContext, useState, type ReactNode } from "react"
+import { useCallback, useContext, useState } from "react"
 import {
   acceptInviteAtom,
   declineInvitationAtom,
@@ -20,7 +20,10 @@ import {
   setActiveOrganizationAtom
 } from "@/atoms/auth"
 import { Button } from "@/components/ui/button"
-import { DitherBackdrop } from "@/components/ui/button-dither"
+import {
+  OnboardingGateStatus,
+  OnboardingShell
+} from "@/components/OnboardingShell"
 import { ErrorPage } from "@/components/ErrorPage"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
@@ -43,7 +46,7 @@ function WelcomePage() {
 
   return Result.matchWithError(me, {
     onInitial: () => (
-      <WelcomeGateStatus>{m.chrome_loading()}</WelcomeGateStatus>
+      <OnboardingGateStatus>{m.chrome_loading()}</OnboardingGateStatus>
     ),
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => <ErrorPage error={defect} />,
@@ -64,7 +67,7 @@ function WelcomeContent() {
   const invites = useAtomValue(pendingInvitesAtom)
 
   return (
-    <WelcomeShell>
+    <OnboardingShell icon={Inbox}>
       {Result.match(invites, {
         onInitial: () => <WelcomeSkeleton />,
         onFailure: () => <WelcomeNoAccess />,
@@ -75,36 +78,7 @@ function WelcomeContent() {
             <WelcomeNoAccess />
           )
       })}
-    </WelcomeShell>
-  )
-}
-
-function WelcomeGateStatus({ children }: { children: ReactNode }) {
-  return (
-    <main className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-      {children}
-    </main>
-  )
-}
-
-function WelcomeShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-xl flex-col justify-center gap-6">
-      <div className="relative h-28 overflow-hidden rounded-2xl border border-border bg-background">
-        <DitherBackdrop
-          from="var(--background)"
-          to="var(--muted-foreground)"
-          direction="tr"
-          stops={[0.16, 0.92]}
-          matrix="8x8"
-          pixelSize={4}
-        />
-        <div className="absolute bottom-4 left-4 flex size-11 items-center justify-center rounded-xl bg-background shadow-sm ring-1 ring-border">
-          <Inbox className="size-5 text-foreground" strokeWidth={1.75} />
-        </div>
-      </div>
-      {children}
-    </div>
+    </OnboardingShell>
   )
 }
 
