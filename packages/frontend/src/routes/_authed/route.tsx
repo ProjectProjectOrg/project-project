@@ -13,6 +13,7 @@ import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Logo, Wordmark } from "@/components/Logo"
+import { OrgSwitcher } from "@/components/OrgSwitcher"
 import {
   SidebarSlotProvider,
   useSidebarSectionContent,
@@ -96,6 +97,7 @@ function Sidebar({ user }: { user: User }) {
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
+        {orgSlug ? <OrgSwitcher /> : null}
       </div>
       <div className="relative min-h-0 flex-1">
         <AnimatePresence initial={false} mode="popLayout">
