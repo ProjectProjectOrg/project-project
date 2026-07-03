@@ -35,7 +35,8 @@ export const user = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
   username: text("username").unique(),
-  lastActiveOrganizationId: text("last_active_organization_id")
+  lastActiveOrganizationId: text("last_active_organization_id"),
+  editorPreference: text("editor_preference")
 })
 
 export const session = pgTable(

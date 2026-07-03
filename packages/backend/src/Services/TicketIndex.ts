@@ -53,6 +53,29 @@ export interface TicketIndexRebuildSummary {
   readonly projects: ReadonlyArray<TicketIndexRebuildProjectSummary>
 }
 
+export interface TicketIndexDrift {
+  readonly missing: ReadonlyArray<string>
+  readonly orphaned: ReadonlyArray<string>
+  readonly stale: ReadonlyArray<string>
+}
+
+export interface TicketIndexReconcileProjectSummary {
+  readonly project: TicketIndexProject
+  readonly drift: TicketIndexDrift
+  readonly rebuilt: boolean
+  readonly indexed: number
+  readonly skipped: number
+}
+
+export interface TicketIndexReconcileSummary {
+  readonly projects: ReadonlyArray<TicketIndexReconcileProjectSummary>
+  readonly reconciled: number
+}
+
+export interface TicketIndexReconcileOptions {
+  readonly force?: boolean
+}
+
 export interface TicketIndexShape {
   readonly projectFor: (
     orgSlug: string,
@@ -105,6 +128,17 @@ export interface TicketIndexShape {
   >
   readonly rebuildAllProjects: () => Effect.Effect<
     TicketIndexRebuildSummary,
+    MarkdownError | MalformedTicketDocument
+  >
+  readonly reconcileProject: (
+    project: TicketIndexProject,
+    options?: TicketIndexReconcileOptions
+  ) => Effect.Effect<
+    TicketIndexReconcileProjectSummary,
+    MarkdownError | MalformedTicketDocument
+  >
+  readonly reconcileAllProjects: () => Effect.Effect<
+    TicketIndexReconcileSummary,
     MarkdownError | MalformedTicketDocument
   >
 }

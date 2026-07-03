@@ -29,6 +29,7 @@ import { Tags } from "../Services/Tags"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import { GroupDocs } from "../Services/GroupDocs"
 import { TicketDocs } from "../Services/TicketDocs"
+import { TicketIndex } from "../Services/TicketIndex"
 import type { HandlersMap } from "./dispatch"
 
 const DEFAULT_LIMIT = 50
@@ -87,6 +88,7 @@ type Env =
   | ProjectDocs
   | GroupDocs
   | TicketDocs
+  | TicketIndex
 
 const me = (_input: {}) =>
   Effect.gen(function* () {
@@ -447,6 +449,39 @@ const complete_sprint = (
     return yield* groups.complete(orgSlug, current.id, projectSlug, id, payload)
   })
 
+const rebuild_ticket_index = (input: {
+  orgSlug: string
+  projectSlug: string
+}) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const projects = yield* Projects
+    yield* projects.requireRole(input.orgSlug, current.id, input.projectSlug, [
+      "owner",
+      "admin"
+    ])
+    const ticketIndex = yield* TicketIndex
+    const project = yield* ticketIndex.projectFor(
+      input.orgSlug,
+      input.projectSlug
+    )
+    const summary = yield* ticketIndex.reconcileProject(project, {
+      force: true
+    })
+    return {
+      orgSlug: project.orgSlug,
+      projectSlug: project.projectSlug,
+      rebuilt: summary.rebuilt,
+      indexed: summary.indexed,
+      skipped: summary.skipped,
+      drift: {
+        missing: summary.drift.missing,
+        orphaned: summary.drift.orphaned,
+        stale: summary.drift.stale
+      }
+    }
+  })
+
 const add_tickets_to_group = (input: {
   orgSlug: string
   projectSlug: string
@@ -486,6 +521,7 @@ export const handlers: HandlersMap<Env> = {
   update_ticket: (i) => dieInternal(update_ticket(i)),
   create_comment: (i) => dieInternal(create_comment(i)),
   attach_branch: (i) => dieInternal(attach_branch(i)),
+  rebuild_ticket_index: (i) => dieInternal(rebuild_ticket_index(i)),
   add_tickets_to_group: (i) => dieInternal(add_tickets_to_group(i)),
   create_sprint: (i) => dieInternal(create_sprint(i)),
   update_sprint: (i) => dieInternal(update_sprint(i)),

@@ -1,5 +1,5 @@
 {
-  "id": "febbc12c-9633-4606-8508-09de883d1bf2",
+  "id": "3953b263-1360-44b7-acea-12cf0a6cb797",
   "prevId": "9fcac6f1-f0fb-4659-9380-f3ca7567713d",
   "version": "7",
   "dialect": "postgresql",
@@ -1943,12 +1943,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "branch_deleted_at": {
-          "name": "branch_deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "archived_at": {
           "name": "archived_at",
           "type": "timestamp with time zone",
@@ -3201,6 +3195,12 @@
         },
         "last_active_organization_id": {
           "name": "last_active_organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "editor_preference": {
+          "name": "editor_preference",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -43,6 +43,14 @@ export const PersonalGithub = Schema.Struct({
 })
 export type PersonalGithub = typeof PersonalGithub.Type
 
+export const EditorPreference = Schema.Literal(
+  "github",
+  "github_dev",
+  "vscode",
+  "cursor"
+)
+export type EditorPreference = typeof EditorPreference.Type
+
 export const User = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
@@ -57,6 +65,7 @@ export const User = Schema.Struct({
   // without a second fetch.
   activeOrgSlug: Schema.NullOr(Schema.String),
   personalGithub: PersonalGithub,
+  editorPreference: EditorPreference,
   personalEverhour: PersonalEverhour
 })
 export type User = typeof User.Type

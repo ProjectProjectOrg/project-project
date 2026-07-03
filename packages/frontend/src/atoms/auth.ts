@@ -98,6 +98,7 @@
 // the argument is the Failure variant, not the error.
 
 import { Atom, Result } from "@effect-atom/atom-react"
+import type { EditorPreference } from "@projectproject/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import {
@@ -146,6 +147,15 @@ export const disconnectPersonalGithubAtom = runtime.fn(
       authData(authClient.unlinkAccount({ providerId: "github" }))
     )
     get.set(githubAuthEpochAtom, get(githubAuthEpochAtom) + 1)
+    get.refresh(meAtom)
+  })
+)
+
+export const updateEditorPreferenceAtom = runtime.fn(
+  Effect.fn(function* (editorPreference: EditorPreference, get) {
+    yield* Effect.tryPromise(() =>
+      authData(authClient.updateUser({ editorPreference }))
+    )
     get.refresh(meAtom)
   })
 )

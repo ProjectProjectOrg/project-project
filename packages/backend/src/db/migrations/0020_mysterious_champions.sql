@@ -1,1 +1,0 @@
-ALTER TABLE "ticket_index" ADD COLUMN "branch_deleted_at" timestamp with time zone;
