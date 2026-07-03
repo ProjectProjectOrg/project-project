@@ -19,7 +19,7 @@
 // `session.activeOrganizationId` server-side. The org switcher (T-08)
 // will be the first consumer; sync gets added there.
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -55,7 +55,9 @@ export const CurrentOrgLive = Layer.effect(
             eq(member.userId, userId)
           )
         )
-        .where(eq(organization.slug, orgSlug))
+        .where(
+          and(eq(organization.slug, orgSlug), isNull(organization.deletedAt))
+        )
         .limit(1)
         .pipe(
           Effect.orDie,

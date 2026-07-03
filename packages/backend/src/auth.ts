@@ -102,6 +102,34 @@ function roleList(role: string): ReadonlyArray<string> {
   return role.split(",").map((r) => r.trim())
 }
 
+export function lastOrgOwnerBlocked(input: {
+  nextRole: string | null
+  targetRole: string | null
+  otherOwnerCount: number
+}): boolean {
+  if (input.nextRole !== null && roleList(input.nextRole).includes("owner")) {
+    return false
+  }
+  if (
+    input.targetRole === null ||
+    !roleList(input.targetRole).includes("owner")
+  ) {
+    return false
+  }
+  return input.otherOwnerCount === 0
+}
+
+export function projectOwnerRemovalError(
+  projectSlugs: ReadonlyArray<string>
+): APIError | undefined {
+  if (projectSlugs.length === 0) return undefined
+  return new APIError(409, {
+    code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+    message: "Transfer project ownership before removing this member",
+    projectSlugs: [...projectSlugs]
+  })
+}
+
 async function assertNotLastOrgOwner(
   organizationId: string,
   targetUserId: string,
@@ -124,11 +152,18 @@ async function assertNotLastOrgOwner(
       ne(member.userId, targetUserId)
     )
   })
-  if (others.length > 0) return
-  throw new APIError("BAD_REQUEST", {
-    code: "LAST_ORG_OWNER_BLOCKED",
-    message: "Cannot remove or demote the last organization owner"
-  })
+  if (
+    lastOrgOwnerBlocked({
+      nextRole,
+      targetRole: target.role,
+      otherOwnerCount: others.length
+    })
+  ) {
+    throw new APIError("BAD_REQUEST", {
+      code: "LAST_ORG_OWNER_BLOCKED",
+      message: "Cannot remove or demote the last organization owner"
+    })
+  }
 }
 
 async function projectOwnerSlugs(organizationId: string, userId: string) {
@@ -426,13 +461,10 @@ export const auth = betterAuth({
             member.organizationId,
             member.userId
           )
-          if (owned.length > 0) {
-            throw new APIError(409, {
-              code: "PROJECT_OWNER_REMOVAL_BLOCKED",
-              message: "Transfer project ownership before removing this member",
-              projectSlugs: owned.map((project) => project.slug)
-            })
-          }
+          const blocked = projectOwnerRemovalError(
+            owned.map((project) => project.slug)
+          )
+          if (blocked) throw blocked
         },
         afterRemoveMember: async ({ member, organization }) => {
           await cleanupRemovedOrgMemberProjectAccess(

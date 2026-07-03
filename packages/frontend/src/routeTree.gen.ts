@@ -17,7 +17,12 @@ import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
+import { Route as AuthedOrgsOrgSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/route'
+import { Route as AuthedOrgsOrgSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
+import { Route as AuthedOrgsOrgSlugSettingsMembersRouteImport } from './routes/_authed/orgs/$orgSlug/settings/members'
+import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/settings/general'
+import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
@@ -71,11 +76,41 @@ const AuthedOrgsOrgSlugIndexRoute = AuthedOrgsOrgSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
 } as any)
+const AuthedOrgsOrgSlugSettingsRouteRoute =
+  AuthedOrgsOrgSlugSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsIndexRoute =
+  AuthedOrgsOrgSlugSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsIndexRoute =
   AuthedOrgsOrgSlugProjectsIndexRouteImport.update({
     id: '/projects/',
     path: '/projects/',
     getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsMembersRoute =
+  AuthedOrgsOrgSlugSettingsMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsGeneralRoute =
+  AuthedOrgsOrgSlugSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsDangerRoute =
+  AuthedOrgsOrgSlugSettingsDangerRouteImport.update({
+    id: '/danger',
+    path: '/danger',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugRouteRouteImport.update({
@@ -163,9 +198,14 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthedProfileRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
+  '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
+  '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -186,7 +226,11 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
+  '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
+  '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
@@ -207,9 +251,14 @@ export interface FileRoutesById {
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
+  '/_authed/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  '/_authed/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  '/_authed/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
+  '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -232,9 +281,14 @@ export interface FileRouteTypes {
     | '/profile'
     | '/orgs/$orgSlug'
     | '/oauth/consent'
+    | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
+    | '/orgs/$orgSlug/settings/danger'
+    | '/orgs/$orgSlug/settings/general'
+    | '/orgs/$orgSlug/settings/members'
     | '/orgs/$orgSlug/projects/'
+    | '/orgs/$orgSlug/settings/'
     | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -255,7 +309,11 @@ export interface FileRouteTypes {
     | '/'
     | '/oauth/consent'
     | '/orgs/$orgSlug'
+    | '/orgs/$orgSlug/settings/danger'
+    | '/orgs/$orgSlug/settings/general'
+    | '/orgs/$orgSlug/settings/members'
     | '/orgs/$orgSlug/projects'
+    | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/projects/$slug/about'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
@@ -275,9 +333,14 @@ export interface FileRouteTypes {
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
     | '/(public)/oauth/consent'
+    | '/_authed/orgs/$orgSlug/settings'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
+    | '/_authed/orgs/$orgSlug/settings/danger'
+    | '/_authed/orgs/$orgSlug/settings/general'
+    | '/_authed/orgs/$orgSlug/settings/members'
     | '/_authed/orgs/$orgSlug/projects/'
+    | '/_authed/orgs/$orgSlug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
@@ -357,12 +420,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings': {
+      id: '/_authed/orgs/$orgSlug/settings'
+      path: '/settings'
+      fullPath: '/orgs/$orgSlug/settings'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsRouteRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/': {
+      id: '/_authed/orgs/$orgSlug/settings/'
+      path: '/'
+      fullPath: '/orgs/$orgSlug/settings/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/': {
       id: '/_authed/orgs/$orgSlug/projects/'
       path: '/projects'
       fullPath: '/orgs/$orgSlug/projects/'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/members': {
+      id: '/_authed/orgs/$orgSlug/settings/members'
+      path: '/members'
+      fullPath: '/orgs/$orgSlug/settings/members'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsMembersRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/general': {
+      id: '/_authed/orgs/$orgSlug/settings/general'
+      path: '/general'
+      fullPath: '/orgs/$orgSlug/settings/general'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/danger': {
+      id: '/_authed/orgs/$orgSlug/settings/danger'
+      path: '/danger'
+      fullPath: '/orgs/$orgSlug/settings/danger'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsDangerRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug': {
       id: '/_authed/orgs/$orgSlug/projects/$slug'
@@ -458,6 +556,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
+  AuthedOrgsOrgSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRoute
+  AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  AuthedOrgsOrgSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIndexRoute
+}
+
+const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRouteRouteChildren =
+  {
+    AuthedOrgsOrgSlugSettingsDangerRoute: AuthedOrgsOrgSlugSettingsDangerRoute,
+    AuthedOrgsOrgSlugSettingsGeneralRoute:
+      AuthedOrgsOrgSlugSettingsGeneralRoute,
+    AuthedOrgsOrgSlugSettingsMembersRoute:
+      AuthedOrgsOrgSlugSettingsMembersRoute,
+    AuthedOrgsOrgSlugSettingsIndexRoute: AuthedOrgsOrgSlugSettingsIndexRoute,
+  }
+
+const AuthedOrgsOrgSlugSettingsRouteRouteWithChildren =
+  AuthedOrgsOrgSlugSettingsRouteRoute._addFileChildren(
+    AuthedOrgsOrgSlugSettingsRouteRouteChildren,
+  )
+
 interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
@@ -531,6 +651,7 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
   )
 
 interface AuthedOrgsOrgSlugRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsRouteRoute: typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   AuthedOrgsOrgSlugIndexRoute: typeof AuthedOrgsOrgSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsIndexRoute: typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -538,6 +659,8 @@ interface AuthedOrgsOrgSlugRouteRouteChildren {
 
 const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugSettingsRouteRoute:
+      AuthedOrgsOrgSlugSettingsRouteRouteWithChildren,
     AuthedOrgsOrgSlugIndexRoute: AuthedOrgsOrgSlugIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugRouteRoute:
       AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren,

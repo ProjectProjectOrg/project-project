@@ -122,9 +122,13 @@ describe("acceptInvitations", () => {
     const ok = pendingInvite({ id: "ok", organizationSlug: "ok" })
     const failed = pendingInvite({ id: "failed", organizationSlug: "failed" })
 
-    const result = await acceptInvitations([ok, failed], async (i) => {
-      if (i.id === "failed") throw new Error("failed")
-    })
+    const result = await acceptInvitations(
+      [ok, failed],
+      async (i) => {
+        if (i.id === "failed") throw new Error("failed")
+      },
+      now
+    )
 
     expect(result.successes.map((success) => success.invite.id)).toEqual(["ok"])
     expect(result.failures.map((failure) => failure.invite.id)).toEqual([
