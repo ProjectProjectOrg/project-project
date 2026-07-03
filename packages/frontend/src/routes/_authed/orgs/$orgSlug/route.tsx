@@ -3,6 +3,7 @@ import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
+import { DeletedOrgPage } from "@/components/DeletedOrgPage"
 import { ApiClient } from "@/services/ApiClient"
 import { AppLayer } from "@/runtime"
 
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
     const exit = await Effect.runPromiseExit(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        yield* client.projects.list({ path: { orgSlug: params.orgSlug } })
+        return yield* client.org.get({ path: { orgSlug: params.orgSlug } })
       }).pipe(Effect.provide(AppLayer))
     )
 
@@ -23,9 +24,15 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
       }
       throw Cause.squash(exit.cause)
     }
-  },
+
+    return { deleted: exit.value.deletedAt != null }
+  }
 })
 
 function OrgLayout() {
+  const { orgSlug } = Route.useParams()
+  const { deleted } = Route.useLoaderData()
+
+  if (deleted) return <DeletedOrgPage orgSlug={orgSlug} />
   return <Outlet />
 }

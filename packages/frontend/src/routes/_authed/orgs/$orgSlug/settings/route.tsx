@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
-import { SlidersHorizontal, Users } from "lucide-react"
+import { SlidersHorizontal, TriangleAlert, Users } from "lucide-react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
@@ -24,10 +24,21 @@ const SECTIONS = [
     icon: Users,
     heading: m.org_settings_members_heading(),
     description: m.org_settings_members_description()
+  },
+  {
+    key: "danger",
+    to: "/orgs/$orgSlug/settings/danger",
+    label: m.org_settings_danger_tab(),
+    icon: TriangleAlert,
+    heading: m.org_settings_danger_heading(),
+    description: m.org_settings_danger_description()
   }
 ] satisfies ReadonlyArray<{
   key: string
-  to: "/orgs/$orgSlug/settings/general" | "/orgs/$orgSlug/settings/members"
+  to:
+    | "/orgs/$orgSlug/settings/general"
+    | "/orgs/$orgSlug/settings/members"
+    | "/orgs/$orgSlug/settings/danger"
   label: string
   icon: typeof SlidersHorizontal
   heading: string
