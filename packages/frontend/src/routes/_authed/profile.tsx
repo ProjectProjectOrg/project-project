@@ -14,10 +14,7 @@ import githubLogo from "@/assets/github.svg"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  SEGMENTED_ITEM_CLASS,
-  SegmentedTabs
-} from "@/components/SegmentedTabs"
+import { SEGMENTED_ITEM_CLASS, SegmentedTabs } from "@/components/SegmentedTabs"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -312,11 +309,14 @@ function GithubDisconnectConfirm({
   )
 }
 
-const EDITOR_OPTIONS: ReadonlyArray<{ key: EditorPreference; label: string }> = [
-  { key: "github", label: m.profile_editor_option_github() },
-  { key: "github_dev", label: m.profile_editor_option_github_dev() },
-  { key: "vscode", label: m.profile_editor_option_vscode() },
-  { key: "cursor", label: m.profile_editor_option_cursor() }
+const EDITOR_OPTIONS: ReadonlyArray<{
+  key: EditorPreference
+  label: () => string
+}> = [
+  { key: "github", label: m.profile_editor_option_github },
+  { key: "github_dev", label: m.profile_editor_option_github_dev },
+  { key: "vscode", label: m.profile_editor_option_vscode },
+  { key: "cursor", label: m.profile_editor_option_cursor }
 ]
 
 function editorHint(preference: EditorPreference): string {
@@ -365,7 +365,10 @@ function EditorPreferenceCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <SegmentedTabs
-          items={EDITOR_OPTIONS}
+          items={EDITOR_OPTIONS.map(({ key, label }) => ({
+            key,
+            label: label()
+          }))}
           layoutId="editor-preference"
           isActive={(key) => key === selected}
           renderItem={(item, content, { active }) => (
