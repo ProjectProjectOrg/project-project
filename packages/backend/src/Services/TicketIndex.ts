@@ -30,6 +30,7 @@ export interface TicketIndexEntry {
   readonly pr: number | null
   readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null
+  readonly branchDeletedAt: Date | null
   readonly assignees: ReadonlyArray<string>
   readonly archivedAt: Date | null
   readonly createdBy: string
@@ -105,6 +106,15 @@ export interface TicketIndexShape {
   readonly upsertTicket: (
     project: TicketIndexProject,
     document: TicketDocument
+  ) => Effect.Effect<void>
+  readonly markBranchStale: (
+    projectId: string,
+    branch: string,
+    deletedAt: Date
+  ) => Effect.Effect<ReadonlyArray<string>>
+  readonly clearBranchStale: (
+    project: TicketIndexProject,
+    ticketIds: ReadonlyArray<string>
   ) => Effect.Effect<void>
   readonly deleteTicket: (
     project: TicketIndexProject,

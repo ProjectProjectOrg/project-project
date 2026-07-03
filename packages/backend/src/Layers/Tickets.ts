@@ -89,7 +89,8 @@ function nextIdFrom(key: ProjectKey, ids: ReadonlyArray<TicketId>): TicketId {
 
 function pendingGitState(
   document: Omit<TicketDocument, "body">,
-  github: ProjectGithubIntegration | null
+  github: ProjectGithubIntegration | null,
+  branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
   const baseBranch = github?.defaultBaseBranch ?? "main"
   if (!document.branch) return { tag: "no_branch", baseBranch }
@@ -126,6 +127,9 @@ function pendingGitState(
       url
     }
   }
+  if (branchDeletedAt !== null) {
+    return { tag: "stale_branch", name: document.branch }
+  }
   return { tag: "branch_pending", name: document.branch, baseBranch }
 }
 
@@ -141,14 +145,22 @@ function indexEntryToTicket(
   entry: TicketIndexEntry,
   github: ProjectGithubIntegration | null
 ): Ticket {
-  return { ...entry, gitState: pendingGitState(entry, github) }
+  const { branchDeletedAt: _branchDeletedAt, ...ticket } = entry
+  return {
+    ...ticket,
+    gitState: pendingGitState(entry, github, entry.branchDeletedAt)
+  }
 }
 
 function documentToDetail(
   document: TicketDocument,
-  github: ProjectGithubIntegration | null
+  github: ProjectGithubIntegration | null,
+  branchDeletedAt: Date | null = null
 ): TicketDetail {
-  return { ...document, gitState: pendingGitState(document, github) }
+  return {
+    ...document,
+    gitState: pendingGitState(document, github, branchDeletedAt)
+  }
 }
 
 const PRIORITY_ORDINAL: Record<TicketPriority, number> = {
@@ -444,7 +456,14 @@ export const TicketsLive = Layer.effect(
           slug
         )
         const ticket = yield* readTicket(orgSlug, slug, id)
-        return documentToDetail(ticket, projectGithub)
+        const indexProject = yield* ticketIndex
+          .projectFor(orgSlug, slug)
+          .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
+        const branchDeletedAt = indexProject
+          ? (yield* ticketIndex.list(indexProject, [id]))[0]?.branchDeletedAt ??
+            null
+          : null
+        return documentToDetail(ticket, projectGithub, branchDeletedAt)
       })
 
     const validateTagsExist = (
@@ -1188,6 +1207,15 @@ export const TicketsLive = Layer.effect(
           result.raw,
           yield* DateTime.nowAsDate
         )
+
+        const resurrected = tickets.flatMap((ticket) =>
+          ticket.branchDeletedAt !== null &&
+          ticket.branch !== null &&
+          result.raw.existingBranches.has(ticket.branch)
+            ? [ticket.id]
+            : []
+        )
+        yield* ticketIndex.clearBranchStale(indexProject, resurrected)
 
         for (const write of plan.writes) {
           const ticket = yield* readTicket(orgSlug, slug, write.ticketId).pipe(
