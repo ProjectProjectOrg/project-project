@@ -54,16 +54,24 @@ function InvitePage() {
 function InviteResolver({ invitationId }: { invitationId: string }) {
   const invitation = useAtomValue(invitationAtom(invitationId))
 
-  return (
-    <OnboardingShell icon={MailCheck}>
-      {Result.matchWithError(invitation, {
-        onInitial: () => <InviteSkeleton />,
-        onError: () => <InviteUnavailable />,
-        onDefect: () => <InviteUnavailable />,
-        onSuccess: ({ value }) => <InviteAccept invite={value} />
-      })}
-    </OnboardingShell>
-  )
+  return Result.matchWithError(invitation, {
+    onInitial: () => (
+      <OnboardingShell icon={MailCheck}>
+        <InviteSkeleton />
+      </OnboardingShell>
+    ),
+    onError: () => (
+      <OnboardingShell icon={MailCheck}>
+        <InviteUnavailable />
+      </OnboardingShell>
+    ),
+    onDefect: (defect) => <ErrorPage error={defect} />,
+    onSuccess: ({ value }) => (
+      <OnboardingShell icon={MailCheck}>
+        <InviteAccept invite={value} />
+      </OnboardingShell>
+    )
+  })
 }
 
 function InviteAccept({ invite }: { invite: PendingInvite }) {
@@ -79,39 +87,50 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
   const activateOrg = useAtomSet(setActiveOrganizationAtom("me"), {
     mode: "promiseExit"
   })
+  const [pending, setPending] = useState<"accept" | "decline" | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const accepting = acceptState.waiting
-  const declining = declineState.waiting
+  const accepting = acceptState.waiting || pending === "accept"
+  const declining = declineState.waiting || pending === "decline"
   const busy = accepting || declining
 
   const onAccept = async () => {
     setError(null)
-    const acceptExit = await accept()
-    if (Exit.isFailure(acceptExit)) {
-      setError(m.auth_invite_accept_error())
-      return
+    setPending("accept")
+    try {
+      const acceptExit = await accept()
+      if (Exit.isFailure(acceptExit)) {
+        setError(m.auth_invite_accept_error())
+        return
+      }
+      const activeExit = await activateOrg(invite.organizationSlug)
+      if (Exit.isFailure(activeExit)) {
+        setError(m.auth_invite_accept_error())
+        return
+      }
+      await navigate({
+        to: "/orgs/$orgSlug",
+        params: { orgSlug: invite.organizationSlug },
+        replace: true
+      })
+    } finally {
+      setPending(null)
     }
-    const activeExit = await activateOrg(invite.organizationSlug)
-    if (Exit.isFailure(activeExit)) {
-      setError(m.auth_invite_accept_error())
-      return
-    }
-    await navigate({
-      to: "/orgs/$orgSlug",
-      params: { orgSlug: invite.organizationSlug },
-      replace: true
-    })
   }
 
   const onDecline = async () => {
     setError(null)
-    const declineExit = await decline()
-    if (Exit.isFailure(declineExit)) {
-      setError(m.auth_invite_decline_error())
-      return
+    setPending("decline")
+    try {
+      const declineExit = await decline()
+      if (Exit.isFailure(declineExit)) {
+        setError(m.auth_invite_decline_error())
+        return
+      }
+      await navigate({ to: "/welcome", replace: true })
+    } finally {
+      setPending(null)
     }
-    await navigate({ to: "/welcome", replace: true })
   }
 
   const initial = invite.organizationName.trim().charAt(0).toUpperCase() || "·"
@@ -154,7 +173,11 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
           </div>
         </div>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
