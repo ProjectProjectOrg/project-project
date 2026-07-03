@@ -127,6 +127,13 @@
       "when": 1783032724869,
       "tag": "0017_famous_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783114940296,
+      "tag": "0018_status_icon_circlecheck",
+      "breakpoints": true
     }
   ]
 }

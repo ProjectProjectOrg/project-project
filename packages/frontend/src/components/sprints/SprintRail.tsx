@@ -2,7 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import { CheckCircle2, Plus } from "lucide-react"
+import { CircleCheck, Plus } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
@@ -328,7 +328,7 @@ function CreateSprintFields({
           type="submit"
           variant="primary"
           size="xs"
-          leadingIcon={CheckCircle2}
+          leadingIcon={CircleCheck}
           disabled={!name.trim() || !range.from || !range.to || busy}
         >
           {busy ? m.sprints_create_in_progress() : m.sprints_create_button()}
