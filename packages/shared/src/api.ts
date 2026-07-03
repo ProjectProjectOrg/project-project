@@ -22,6 +22,7 @@ import {
 } from "@effect/platform"
 import * as Schema from "effect/Schema"
 import { User } from "./schemas/User"
+import { Org, OrgDetail } from "./schemas/Org"
 import {
   AddMemberInput,
   ConnectGithubInput,
@@ -125,6 +126,38 @@ const AuthGroup = HttpApiGroup.make("auth")
   .middleware(Authentication)
 
 const OrgPath = Schema.Struct({ orgSlug: Slug })
+
+const OrgGroup = HttpApiGroup.make("org")
+  .add(
+    HttpApiEndpoint.get("myOrgs", "/orgs")
+      .addSuccess(Schema.Array(Org))
+      .addError(Unauthorized)
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug")
+      .setPath(OrgPath)
+      .addSuccess(OrgDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post("softDelete", "/orgs/:orgSlug/soft-delete")
+      .setPath(OrgPath)
+      .addSuccess(OrgDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.post("restore", "/orgs/:orgSlug/restore")
+      .setPath(OrgPath)
+      .addSuccess(OrgDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(Conflict)
+  )
+  .middleware(Authentication)
 const ProjectPath = Schema.Struct({ orgSlug: Slug, slug: Slug })
 const ProjectMemberPath = Schema.Struct({
   orgSlug: Slug,
@@ -802,6 +835,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
+  .add(OrgGroup)
   .add(ProjectsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
