@@ -24,6 +24,7 @@ export const STATUS_ICONS = [
   "CircleDot",
   "CircleDashed",
   "CircleDotDashed",
+  "CircleCheck",
   "Loader",
   "Hourglass",
   "Timer",

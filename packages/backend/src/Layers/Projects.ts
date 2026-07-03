@@ -664,7 +664,7 @@ export const ProjectsLive = Layer.effect(
                 projectId: row.id,
                 slug: "todo",
                 label: "Todo",
-                icon: "Circle",
+                icon: "CircleDashed",
                 color: "#a3a3a3",
                 orderKey: "a0",
                 createdBy
@@ -682,7 +682,7 @@ export const ProjectsLive = Layer.effect(
                 projectId: row.id,
                 slug: "done",
                 label: "Done",
-                icon: "CheckCircle2",
+                icon: "CircleCheck",
                 color: "#22c55e",
                 orderKey: "a2",
                 createdBy

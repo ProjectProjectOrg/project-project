@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import { CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react"
+import { CircleCheck, MoreHorizontal, Trash2 } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import {
@@ -405,7 +405,7 @@ function SprintMenu({
               onClick={() => onRequestComplete()}
               className="cursor-pointer"
             >
-              <CheckCircle2 className="size-4" strokeWidth={1.75} />
+              <CircleCheck className="size-4" strokeWidth={1.75} />
               {m.sprints_complete_button()}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
