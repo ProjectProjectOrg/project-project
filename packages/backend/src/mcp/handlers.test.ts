@@ -6,6 +6,7 @@ import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Schema from "effect/Schema"
 import {
   BranchNotFound,
+  Forbidden,
   GroupId,
   NotFound,
   SprintCompletedImmutable,
@@ -23,6 +24,11 @@ import { BetterAuth } from "../Services/BetterAuth"
 import { ProjectDocs, type ProjectDocsShape } from "../Services/ProjectDocs"
 import { GroupDocs, type GroupDocsShape } from "../Services/GroupDocs"
 import { TicketDocs, type TicketDocsShape } from "../Services/TicketDocs"
+import {
+  TicketIndex,
+  type TicketIndexProject,
+  type TicketIndexShape
+} from "../Services/TicketIndex"
 import { registerAllTools } from "./dispatch"
 import { handlers } from "./handlers"
 
@@ -72,8 +78,29 @@ const EmptyStub = <T>(tag: T) => Layer.succeed(tag as any, {} as any)
 
 const ProjectsStub = Layer.succeed(Projects, {
   requireMember: (_o: any, _u: any, _s: any) =>
+    Effect.succeed({ role: "admin" } as any),
+  requireRole: (_o: any, _u: any, _s: any) =>
     Effect.succeed({ role: "admin" } as any)
 } as unknown as ProjectsShape)
+
+const ticketIndexProject: TicketIndexProject = {
+  orgSlug: "acme",
+  organizationId: "org-1",
+  projectId: "project-1",
+  projectSlug: "demo"
+}
+
+const TicketIndexStub = Layer.succeed(TicketIndex, {
+  projectFor: (_o: any, _s: any) => Effect.succeed(ticketIndexProject),
+  reconcileProject: (project: TicketIndexProject, options?: any) =>
+    Effect.succeed({
+      project,
+      drift: { missing: ["T-2"], orphaned: ["T-9"], stale: ["T-1"] },
+      rebuilt: options?.force === true,
+      indexed: 3,
+      skipped: 1
+    })
+} as unknown as TicketIndexShape)
 
 const ProjectDocsStub = Layer.succeed(ProjectDocs, {
   readRaw: (_o: any, _s: any) =>
@@ -109,7 +136,8 @@ const TestLayer = Layer.mergeAll(
   EmptyStub(BetterAuth),
   ProjectDocsStub,
   GroupDocsStub,
-  TicketDocsStub
+  TicketDocsStub,
+  TicketIndexStub
 )
 
 describe("MCP dispatcher → list_tickets", () => {
@@ -320,7 +348,8 @@ describe("MCP dispatcher → write tools", () => {
     EmptyStub(BetterAuth),
     ProjectDocsStub,
     GroupDocsStub,
-    TicketDocsStub
+    TicketDocsStub,
+    TicketIndexStub
   )
 
   const makeServer = (layer: Layer.Layer<any, never, never>) => {
@@ -447,6 +476,56 @@ describe("MCP dispatcher → write tools", () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text.toLowerCase()).toContain("branch not found")
+
+    await runtime.dispose()
+  })
+
+  test("rebuild_ticket_index force rebuilds and returns the detected drift", async () => {
+    const { runtime, registered } = makeServer(WriteTestLayer)
+    const cb = registered.get("rebuild_ticket_index")!
+    const result = await withFakeUser(() =>
+      cb({ orgSlug: "acme", projectSlug: "demo" })
+    )
+
+    expect(result.isError).toBeUndefined()
+    const payload = JSON.parse(result.content[0].text)
+    expect(payload).toEqual({
+      orgSlug: "acme",
+      projectSlug: "demo",
+      rebuilt: true,
+      indexed: 3,
+      skipped: 1,
+      drift: { missing: ["T-2"], orphaned: ["T-9"], stale: ["T-1"] }
+    })
+
+    await runtime.dispose()
+  })
+
+  test("rebuild_ticket_index surfaces Forbidden when the caller lacks the role", async () => {
+    const ForbiddenProjectsStub = Layer.succeed(Projects, {
+      requireRole: (_o: any, _u: any, _s: any) => Effect.fail(new Forbidden())
+    } as unknown as ProjectsShape)
+    const layer = Layer.mergeAll(
+      WriteTicketsStub,
+      WriteCommentsStub,
+      ForbiddenProjectsStub,
+      EmptyStub(Groups),
+      EmptyStub(Tags),
+      EmptyStub(Users),
+      EmptyStub(BetterAuth),
+      ProjectDocsStub,
+      GroupDocsStub,
+      TicketDocsStub,
+      TicketIndexStub
+    )
+    const { runtime, registered } = makeServer(layer)
+    const cb = registered.get("rebuild_ticket_index")!
+    const result = await withFakeUser(() =>
+      cb({ orgSlug: "acme", projectSlug: "demo" })
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text.toLowerCase()).toContain("forbidden")
 
     await runtime.dispose()
   })

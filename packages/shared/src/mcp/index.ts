@@ -37,12 +37,14 @@ import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
+import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
 import { Page, Pagination } from "../Pagination"
 import { TicketFilter, GroupFilter } from "../filters"
 import { SprintState } from "../sprintLogic"
 
 export * from "./DocFile"
 export * from "./MeOutput"
+export * from "./RebuildTicketIndexOutput"
 
 export interface McpToolSpec<
   Input extends Schema.Schema.Any,
@@ -371,6 +373,24 @@ export const McpTools = {
       SprintCompletedImmutable,
       Validation
     ] as const
+  },
+  rebuild_ticket_index: {
+    description:
+      "Rebuild the operational ticket index for a project from its markdown " +
+      "ticket documents (the source of truth). The index powers ticket " +
+      "lists, counts, search, tag usage, and branch/PR routing; it is kept " +
+      "in sync on every write and reconciled on backend boot, so this repair " +
+      "action is only needed when drift is suspected. The rebuild is " +
+      "transactional (the project's rows are replaced atomically) and " +
+      "idempotent. Requires an owner or admin role on the project. Returns " +
+      "the drift that was detected (ticket ids `missing` from the index, " +
+      "`orphaned` rows with no backing document, and `stale` rows whose " +
+      "content was out of date), the number of documents `indexed`, the " +
+      "number `skipped` because they were unreadable, and whether the index " +
+      "was actually `rebuilt`.",
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: RebuildTicketIndexOutput,
+    errors: [Unauthorized, NotFound, Forbidden] as const
   },
   add_tickets_to_group: {
     description:

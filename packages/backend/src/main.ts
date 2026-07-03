@@ -91,6 +91,7 @@ import { GitHubIntegrations } from "./Services/GitHubIntegrations"
 import { GitHubWebhooks } from "./Services/GitHubWebhooks"
 import { GitHubWebhooksLive } from "./Layers/GitHubWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
+import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -363,10 +364,17 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   Layer.provide(BunHttpServer.layer({ port: 3000 }))
 )
 
+const ReconcilerLive = TicketIndexReconcilerLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
+const AppLive = Layer.merge(ServerLive, ReconcilerLive)
+
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we
 // skip the bind. (Bun-specific — Node has no equivalent built-in, but we're
 // running on Bun.)
 if (import.meta.main) {
-  BunRuntime.runMain(Layer.launch(ServerLive))
+  BunRuntime.runMain(Layer.launch(AppLive))
 }
