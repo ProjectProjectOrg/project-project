@@ -144,7 +144,7 @@ const toInviteAcceptError = (
   return { _tag: "InviteAcceptFailed", inviteId: invite.id, cause }
 }
 
-const hasErrorCode = (cause: unknown, code: string) =>
+export const hasErrorCode = (cause: unknown, code: string) =>
   typeof cause === "object" &&
   cause !== null &&
   "code" in cause &&
