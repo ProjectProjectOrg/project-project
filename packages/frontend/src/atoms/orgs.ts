@@ -104,6 +104,32 @@ export const renameOrgAtom = Atom.family((orgSlug: string) =>
   })
 )
 
+export const softDeleteOrgAtom = Atom.family((orgSlug: string) =>
+  runtime.fn(
+    Effect.fn(function* (_input: void, get) {
+      const client = yield* ApiClient
+      const detail = yield* client.org.softDelete({ path: { orgSlug } })
+      get.refresh(orgDetailBaseAtom(orgSlug))
+      get.refresh(userOrgsAtom)
+      get.refresh(meAtom)
+      return detail
+    })
+  )
+)
+
+export const restoreOrgAtom = Atom.family((orgSlug: string) =>
+  runtime.fn(
+    Effect.fn(function* (_input: void, get) {
+      const client = yield* ApiClient
+      const detail = yield* client.org.restore({ path: { orgSlug } })
+      get.refresh(orgDetailBaseAtom(orgSlug))
+      get.refresh(userOrgsAtom)
+      get.refresh(meAtom)
+      return detail
+    })
+  )
+)
+
 const orgMembersBaseAtom = Atom.family((orgSlug: string) =>
   runtime
     .atom(
