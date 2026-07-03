@@ -14,6 +14,7 @@ import {
   type TicketListQuery
 } from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
+import { Comments, type CommentsShape } from "./Comments"
 import { Db } from "./Db"
 import { GitHub, type GitHubShape } from "./GitHub"
 import { Groups, type GroupsShape } from "./Groups"
@@ -78,6 +79,7 @@ function makeTicketDocument(
     prState: null,
     lastTransitionedPr: null,
     assignees: [],
+    archivedAt: null,
     createdBy: "user-1",
     createdAt: now,
     updatedAt: now,
@@ -181,6 +183,13 @@ const FakeGroups = Layer.succeed(Groups, {
   remove: () => unexpected("Groups.remove"),
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
+
+const FakeComments = Layer.succeed(Comments, {
+  list: () => unexpected("Comments.list"),
+  create: () => Effect.succeed({} as never),
+  edit: () => unexpected("Comments.edit"),
+  remove: () => unexpected("Comments.remove")
+} satisfies CommentsShape)
 
 const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
   Layer.succeed(GitHub, {
@@ -317,6 +326,7 @@ function makeTicketsLayer(
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(FakeGroups),
+    Layer.provide(FakeComments),
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(FakeDb)
@@ -348,6 +358,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
       })
     ),
     Layer.provide(FakeGroups),
+    Layer.provide(FakeComments),
     Layer.provide(
       makeFakeGitHub({
         fetchInstallationProjectStates: (

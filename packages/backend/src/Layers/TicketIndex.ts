@@ -73,6 +73,7 @@ export const TicketIndexLive = Layer.effect(
       pr: document.pr,
       prState: document.prState,
       lastTransitionedPr: document.lastTransitionedPr,
+      archivedAt: document.archivedAt,
       createdBy: document.createdBy,
       createdAt: document.createdAt,
       updatedAt: document.updatedAt
@@ -92,6 +93,7 @@ export const TicketIndexLive = Layer.effect(
       prState: row.prState as PullRequestState | null,
       lastTransitionedPr: row.lastTransitionedPr,
       assignees: row.assignees,
+      archivedAt: row.archivedAt,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt

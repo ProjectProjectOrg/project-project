@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { useNavigate } from "@tanstack/react-router"
+import { Archive } from "lucide-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useState } from "react"
@@ -8,6 +9,7 @@ import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
+import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
@@ -78,8 +80,20 @@ export function TicketPage({
               {ticket.id}
             </span>
             <TypeBadgeTrigger orgSlug={orgSlug} slug={slug} ticket={ticket} />
+            {ticket.archivedAt !== null && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <Archive className="size-3" strokeWidth={1.75} />
+                {m.tickets_archived_badge()}
+              </span>
+            )}
           </div>
         </div>
+        <ArchiveTicketControl
+          orgSlug={orgSlug}
+          slug={slug}
+          id={ticket.id}
+          archived={ticket.archivedAt !== null}
+        />
         <ConfirmDeleteIcon
           ariaLabel={m.tickets_detail_delete_aria_label()}
           message={m.tickets_detail_delete_confirm()}
@@ -116,7 +130,7 @@ export function TicketPage({
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-border/60 lg:pl-6 lg:[scrollbar-gutter:stable]">
           <MetaRow label={m.tickets_page_meta_priority()}>
             <PriorityBadgeTrigger
               orgSlug={orgSlug}

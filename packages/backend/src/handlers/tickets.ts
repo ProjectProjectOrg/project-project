@@ -4,7 +4,8 @@ import { HttpApiBuilder } from "@effect/platform"
 import {
   AppApi,
   CurrentUser,
-  ticketListQueryFromSearch
+  ticketListQueryFromSearch,
+  Validation
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
@@ -118,6 +119,40 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const tickets = yield* Tickets
           yield* tickets.remove(org.orgSlug, user.id, path.slug, path.id)
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("archive", ({ path, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.archive(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id,
+            payload.reason
+          )
+        }).pipe(
+          Effect.catchTag("InvalidCommentBody", (error) =>
+            Effect.fail(new Validation({ reason: error.reason }))
+          ),
+          dieOnMarkdown
+        )
+      )
+      .handle("unarchive", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(path.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.unarchive(
+            org.orgSlug,
+            user.id,
+            path.slug,
+            path.id
+          )
         }).pipe(dieOnMarkdown)
       )
       .handle("createBranch", ({ path, payload }) =>

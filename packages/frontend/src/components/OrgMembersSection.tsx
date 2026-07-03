@@ -679,7 +679,7 @@ function ConfirmBlock({
           type="button"
           disabled={busy}
           onClick={onConfirm}
-          className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-transform duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
+          className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-all duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
         >
           {confirmLabel}
         </button>

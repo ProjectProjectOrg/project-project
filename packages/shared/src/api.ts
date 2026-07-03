@@ -40,6 +40,7 @@ import {
   UpdateProjectSetupInput
 } from "./schemas/Project"
 import {
+  ArchiveTicketInput,
   CreateTicketInput,
   QuickCreateTicketInput,
   Ticket,
@@ -472,6 +473,29 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.del("delete", "/orgs/:orgSlug/projects/:slug/tickets/:id")
       .setPath(TicketPath)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "archive",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/archive"
+    )
+      .setPath(TicketPath)
+      .setPayload(ArchiveTicketInput)
+      .addSuccess(TicketDetail)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Validation)
+      .addError(MentionInvalid)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unarchive",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/unarchive"
+    )
+      .setPath(TicketPath)
+      .addSuccess(TicketDetail)
       .addError(Unauthorized)
       .addError(NotFound)
   )

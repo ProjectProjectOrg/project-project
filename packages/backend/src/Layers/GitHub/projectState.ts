@@ -180,20 +180,16 @@ export const projectStatesFromBatchResponses = (
     return batch.branches.map((_, index) => {
       const branch = batch.response.repository?.[`b${index}`]
       const pullRequests = batch.response.repository?.[`p${index}`]
+      const existingBranch = isBranchRef(branch) ? branch.name : null
       if (!isPullRequestConnection(pullRequests)) {
-        return branch === null && pullRequests === null
-          ? branchEntryFromParts(null, null)
-          : null
+        return branchEntryFromParts(existingBranch, null)
       }
       const sameRepoPr = pullRequests.nodes.find(
         (pr) =>
           pr.headRepository?.id !== undefined &&
           pr.headRepository.id === pr.baseRepository?.id
       )
-      return branchEntryFromParts(
-        isBranchRef(branch) ? branch.name : null,
-        sameRepoPr ?? null
-      )
+      return branchEntryFromParts(existingBranch, sameRepoPr ?? null)
     })
   })
   if (branchStates.some((entry) => entry === null)) return null

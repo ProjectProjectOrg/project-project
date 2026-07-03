@@ -29,8 +29,8 @@ export const BackendInfrastructureLive = Layer.mergeAll(
 
 export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectStatusesLive),
-  Layer.provideMerge(CommentsLive),
   Layer.provideMerge(TicketsLive),
+  Layer.provideMerge(CommentsLive),
   Layer.provideMerge(GroupsLive),
   Layer.provideMerge(ProjectsLive),
   Layer.provideMerge(CurrentOrgLive),

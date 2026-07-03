@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { AnimatePresence, motion } from "motion/react"
 import {
+  Archive,
   ArrowDownAZ,
   Check,
   ChevronDown,
@@ -95,7 +96,8 @@ const pruneFilter = (f: TicketFilter | undefined): TicketFilter | undefined => {
     (f.groupId && f.groupId.length > 0) ||
     f.hasBranch !== undefined ||
     f.hasPr !== undefined ||
-    f.updatedAfter !== undefined
+    f.updatedAfter !== undefined ||
+    f.archived !== undefined
   return hasAny ? f : undefined
 }
 
@@ -136,6 +138,7 @@ export function Toolbar({
         ? "unassigned"
         : (filter.groupId[0] as SprintFilterValue)
       : "all"
+  const archivedFilter = filter?.archived === true
   const sortKey: SortKey = query.sort.key
   const queryStr = query.q ?? ""
 
@@ -197,6 +200,14 @@ export function Toolbar({
     const nextFilter: TicketFilter = {
       ...filter,
       groupId: nextGroupId
+    }
+    updateQuery({ ...query, filter: pruneFilter(nextFilter) })
+  }
+
+  const setArchivedFilter = (on: boolean) => {
+    const nextFilter: TicketFilter = {
+      ...filter,
+      archived: on ? true : undefined
     }
     updateQuery({ ...query, filter: pruneFilter(nextFilter) })
   }
@@ -274,6 +285,7 @@ export function Toolbar({
     assigneeFilter !== "all" ||
     selectedTags.length > 0 ||
     (showSprintFilter && sprintFilter !== "all") ||
+    archivedFilter ||
     queryStr.length > 0
 
   const clearAll = () => {
@@ -380,10 +392,12 @@ export function Toolbar({
             assigneeFilter={assigneeFilter}
             selectedTags={selectedTags}
             sprintFilter={sprintFilter}
+            archivedFilter={archivedFilter}
             onTypeChange={setTypeFilter}
             onAssigneeChange={setAssigneeFilter}
             onTagsChange={setSelectedTags}
             onSprintChange={setSprintFilter}
+            onArchivedChange={setArchivedFilter}
           />
         </motion.div>
 
@@ -539,10 +553,12 @@ function FiltersMenu({
   assigneeFilter,
   selectedTags,
   sprintFilter,
+  archivedFilter,
   onTypeChange,
   onAssigneeChange,
   onTagsChange,
-  onSprintChange
+  onSprintChange,
+  onArchivedChange
 }: {
   orgSlug: string
   slug: string
@@ -554,10 +570,12 @@ function FiltersMenu({
   assigneeFilter: string
   selectedTags: ReadonlyArray<TagName>
   sprintFilter: SprintFilterValue
+  archivedFilter: boolean
   onTypeChange: (t: TicketType | "all") => void
   onAssigneeChange: (a: string) => void
   onTagsChange: (tags: ReadonlyArray<TagName>) => void
   onSprintChange: (s: SprintFilterValue) => void
+  onArchivedChange: (on: boolean) => void
 }) {
   const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
   const tagList = Result.isSuccess(tags) ? tags.value : []
@@ -583,7 +601,8 @@ function FiltersMenu({
     (typeFilter !== "all" ? 1 : 0) +
     (assigneeFilter !== "all" ? 1 : 0) +
     (selectedTags.length > 0 ? 1 : 0) +
-    (showSprintFilter && sprintFilter !== "all" ? 1 : 0)
+    (showSprintFilter && sprintFilter !== "all" ? 1 : 0) +
+    (archivedFilter ? 1 : 0)
   const active = activeCount > 0
   return (
     <DropdownMenu>
@@ -621,6 +640,20 @@ function FiltersMenu({
         className="w-56"
         finalFocus={false}
       >
+        <SectionLabel>{m.tickets_filters_section_archived()}</SectionLabel>
+        <DropdownMenuItem
+          closeOnClick={false}
+          onClick={() => onArchivedChange(!archivedFilter)}
+          className="cursor-pointer"
+        >
+          <Archive className="size-4" strokeWidth={1.75} />
+          {m.tickets_filters_archived_show()}
+          {archivedFilter && (
+            <Check className="ml-auto size-3.5 text-muted-foreground" />
+          )}
+        </DropdownMenuItem>
+
+        <div className="my-1 h-px bg-border" />
         <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
         <DropdownMenuItem
           closeOnClick={false}

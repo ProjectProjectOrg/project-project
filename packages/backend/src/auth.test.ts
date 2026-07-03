@@ -169,11 +169,10 @@ describe("Better Auth plugin wiring", () => {
       invitationIds.toSorted()
     )
 
-    const { error: rejectError } =
-      await client.organization.rejectInvitation({
-        invitationId: invitationIds[0],
-        fetchOptions: { headers: invited.headers }
-      })
+    const { error: rejectError } = await client.organization.rejectInvitation({
+      invitationId: invitationIds[0],
+      fetchOptions: { headers: invited.headers }
+    })
     expect(rejectError).toBeNull()
 
     const rejected = await db.findOne<{ status: string }>({
@@ -183,11 +182,10 @@ describe("Better Auth plugin wiring", () => {
     })
     expect(rejected?.status).toBe("rejected")
 
-    const { error: acceptError } =
-      await client.organization.acceptInvitation({
-        invitationId: invitationIds[1],
-        fetchOptions: { headers: invited.headers }
-      })
+    const { error: acceptError } = await client.organization.acceptInvitation({
+      invitationId: invitationIds[1],
+      fetchOptions: { headers: invited.headers }
+    })
     expect(acceptError).toBeNull()
 
     const invitedUser = await db.findOne<{ id: string }>({
@@ -227,9 +225,9 @@ describe("Better Auth plugin wiring", () => {
     expect(auth.options.account?.accountLinking?.trustedProviders).toContain(
       "github"
     )
-    expect(
-      auth.options.account?.accountLinking?.allowDifferentEmails
-    ).toBe(true)
+    expect(auth.options.account?.accountLinking?.allowDifferentEmails).toBe(
+      true
+    )
   })
 
   it("requests GitHub repository and organization membership scopes", () => {

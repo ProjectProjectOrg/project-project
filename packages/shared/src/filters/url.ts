@@ -22,6 +22,7 @@ export const BaseTicketFilterParams = Schema.Struct({
   hasBranch: Schema.optional(Schema.String),
   hasPr: Schema.optional(Schema.String),
   updatedAfter: Schema.optional(Schema.String),
+  archived: Schema.optional(Schema.String),
   q: Schema.optional(Schema.String)
 })
 
@@ -176,6 +177,8 @@ export const ticketListQueryFromSearch = (
   if (hasPr !== undefined) filter.hasPr = hasPr
   const updatedAfter = decodeDate(search.updatedAfter)
   if (updatedAfter !== undefined) filter.updatedAfter = updatedAfter
+  const archived = decodeBoolean(search.archived)
+  if (archived !== undefined) filter.archived = archived
 
   const out: MutableTicketListQuery = {
     sort: decodeSort(search.sort)
@@ -211,6 +214,7 @@ type TicketListQueryInput = {
     hasBranch?: boolean
     hasPr?: boolean
     updatedAfter?: Date
+    archived?: boolean
   }
   sort?: TicketSort
   q?: string
@@ -231,6 +235,7 @@ export const ticketListQueryToSearch = (
     if (f.hasBranch !== undefined) out.hasBranch = String(f.hasBranch)
     if (f.hasPr !== undefined) out.hasPr = String(f.hasPr)
     if (f.updatedAfter) out.updatedAfter = f.updatedAfter.toISOString()
+    if (f.archived !== undefined) out.archived = String(f.archived)
   }
   if (query.sort && !isDefaultSort(query.sort)) {
     out.sort = `${query.sort.key}:${query.sort.dir}`
