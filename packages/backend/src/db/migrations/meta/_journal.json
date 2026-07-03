@@ -141,6 +141,13 @@
       "when": 1783115918963,
       "tag": "0019_glossy_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1783120137578,
+      "tag": "0020_mysterious_champions",
+      "breakpoints": true
     }
   ]
 }

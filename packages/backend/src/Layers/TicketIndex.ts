@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "@effect/sql/SqlClient"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNull } from "drizzle-orm"
 import {
   NotFound,
   TagName,
@@ -92,6 +92,7 @@ export const TicketIndexLive = Layer.effect(
       pr: row.pr,
       prState: row.prState as PullRequestState | null,
       lastTransitionedPr: row.lastTransitionedPr,
+      branchDeletedAt: row.branchDeletedAt,
       assignees: row.assignees,
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
@@ -239,6 +240,44 @@ export const TicketIndexLive = Layer.effect(
         })
         .pipe(Effect.asVoid, Effect.orDie)
 
+    const markBranchStale = (
+      projectId: string,
+      branch: string,
+      deletedAt: Date
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      db
+        .update(ticketIndex)
+        .set({ branchDeletedAt: deletedAt })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.branch, branch),
+            isNull(ticketIndex.branchDeletedAt)
+          )
+        )
+        .returning({ ticketId: ticketIndex.ticketId })
+        .pipe(
+          Effect.map((rows) => rows.map((row) => row.ticketId)),
+          Effect.orDie
+        )
+
+    const clearBranchStale = (
+      project: TicketIndexProject,
+      ticketIds: ReadonlyArray<string>
+    ): Effect.Effect<void> => {
+      if (ticketIds.length === 0) return Effect.void
+      return db
+        .update(ticketIndex)
+        .set({ branchDeletedAt: null })
+        .where(
+          and(
+            eq(ticketIndex.projectId, project.projectId),
+            inArray(ticketIndex.ticketId, [...ticketIds])
+          )
+        )
+        .pipe(Effect.asVoid, Effect.orDie)
+    }
+
     const deleteTicket = (
       project: TicketIndexProject,
       ticketId: string
@@ -338,6 +377,8 @@ export const TicketIndexLive = Layer.effect(
       findTicketIdsByStatus,
       findTicketsByBranch,
       upsertTicket,
+      markBranchStale,
+      clearBranchStale,
       deleteTicket,
       rebuildProject,
       rebuildAllProjects
