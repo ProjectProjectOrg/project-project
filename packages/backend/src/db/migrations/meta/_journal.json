@@ -148,6 +148,13 @@
       "when": 1783120137578,
       "tag": "0020_mysterious_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1783121317544,
+      "tag": "0021_ticket_check_state",
+      "breakpoints": true
     }
   ]
 }

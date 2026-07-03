@@ -1,6 +1,6 @@
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
-import type { GitHubError } from "@projectproject/shared"
+import type { ChecksStatus, GitHubError } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
 
 export type GitHubWebhookHandleError = GitHubError | MarkdownError
@@ -31,6 +31,15 @@ export interface GitHubBranchDeletionChange {
   readonly installationId: string
   readonly repositoryId: string
   readonly branch: string
+}
+
+export interface GitHubCheckWebhookChange {
+  readonly installationId: string
+  readonly repositoryId: string
+  readonly branch: string
+  readonly headSha: string
+  readonly checks: ChecksStatus
+  readonly updatedAt: Date
 }
 
 export interface GitHubWebhookMutationSink {
@@ -80,6 +89,10 @@ export interface GitHubWebhookMutationSink {
   ) => Effect.Effect<void, GitHubWebhookHandleError>
   readonly branchDeleted: (
     change: GitHubBranchDeletionChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly checkStateChanged: (
+    change: GitHubCheckWebhookChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
 }

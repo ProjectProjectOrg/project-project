@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "@effect/sql/SqlClient"
+import type { ChecksStatus } from "@projectproject/shared"
 import { and, eq, inArray } from "drizzle-orm"
 import {
   organizationGithubIntegration,
@@ -15,6 +16,7 @@ import type { MarkdownError } from "../Services/Markdown"
 import {
   GitHubWebhooks,
   type GitHubBranchDeletionChange,
+  type GitHubCheckWebhookChange,
   type GitHubWebhookDelivery,
   type GitHubWebhookMutationSink,
   type GitHubPullRequestWebhookChange,
@@ -250,7 +252,66 @@ const RepositoryPayload = Schema.Struct({
   })
 })
 
+const CheckSuitePayload = Schema.Struct({
+  installation: Schema.Struct({
+    id: GitHubId
+  }),
+  repository: Schema.Struct({
+    id: GitHubId
+  }),
+  check_suite: Schema.Struct({
+    head_branch: Schema.NullOr(Schema.String),
+    head_sha: Schema.String,
+    status: Schema.String,
+    conclusion: Schema.NullOr(Schema.String),
+    updated_at: Schema.DateFromString
+  })
+})
+
+const StatusPayload = Schema.Struct({
+  installation: Schema.Struct({
+    id: GitHubId
+  }),
+  repository: Schema.Struct({
+    id: GitHubId
+  }),
+  sha: Schema.String,
+  state: Schema.String,
+  updated_at: Schema.DateFromString,
+  branches: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      commit: Schema.Struct({
+        sha: Schema.String
+      })
+    })
+  )
+})
+
 const idToString = (id: typeof GitHubId.Type): string => String(id)
+
+const checkSuiteChecks = (
+  status: string,
+  conclusion: string | null
+): ChecksStatus => {
+  if (status !== "completed") return "pending"
+  if (conclusion === "success") return "passing"
+  if (
+    conclusion === "failure" ||
+    conclusion === "timed_out" ||
+    conclusion === "startup_failure"
+  ) {
+    return "failing"
+  }
+  return "neutral"
+}
+
+const statusChecks = (state: string): ChecksStatus | null => {
+  if (state === "pending") return "pending"
+  if (state === "success") return "passing"
+  if (state === "failure" || state === "error") return "failing"
+  return null
+}
 
 const repositoryMetadata = (
   repository: typeof RepositoryPayload.Type.repository
@@ -468,6 +529,86 @@ const handleDelete = (
     )
   })
 
+const handleCheckSuite = (
+  sink: GitHubWebhookMutationSink,
+  delivery: GitHubWebhookDelivery
+) =>
+  Effect.gen(function* () {
+    const payload = yield* decodePayload(CheckSuitePayload, delivery)
+    if (!payload) return
+    const installationId = idToString(payload.installation.id)
+    const repositoryId = idToString(payload.repository.id)
+    const branch = payload.check_suite.head_branch
+    if (!branch) {
+      yield* logIgnored("github check_suite without head branch ignored", delivery, {
+        installationId,
+        repositoryId
+      })
+      return
+    }
+    yield* sink.checkStateChanged(
+      {
+        installationId,
+        repositoryId,
+        branch,
+        headSha: payload.check_suite.head_sha,
+        checks: checkSuiteChecks(
+          payload.check_suite.status,
+          payload.check_suite.conclusion
+        ),
+        updatedAt: payload.check_suite.updated_at
+      },
+      delivery.deliveryId
+    )
+  })
+
+const handleStatus = (
+  sink: GitHubWebhookMutationSink,
+  delivery: GitHubWebhookDelivery
+) =>
+  Effect.gen(function* () {
+    const payload = yield* decodePayload(StatusPayload, delivery)
+    if (!payload) return
+    const installationId = idToString(payload.installation.id)
+    const repositoryId = idToString(payload.repository.id)
+    const checks = statusChecks(payload.state)
+    if (!checks) {
+      yield* logIgnored("github status state ignored", delivery, {
+        state: payload.state,
+        installationId,
+        repositoryId
+      })
+      return
+    }
+    const branches = payload.branches.filter(
+      (entry) => entry.commit.sha === payload.sha
+    )
+    if (branches.length === 0) {
+      yield* logIgnored("github status without matching branch ignored", delivery, {
+        installationId,
+        repositoryId,
+        sha: payload.sha
+      })
+      return
+    }
+    yield* Effect.forEach(
+      branches,
+      (entry) =>
+        sink.checkStateChanged(
+          {
+            installationId,
+            repositoryId,
+            branch: entry.name,
+            headSha: payload.sha,
+            checks,
+            updatedAt: payload.updated_at
+          },
+          delivery.deliveryId
+        ),
+      { concurrency: 1 }
+    )
+  })
+
 const handleRepository = (
   sink: GitHubWebhookMutationSink,
   delivery: GitHubWebhookDelivery
@@ -540,6 +681,14 @@ export const makeGitHubWebhooks = (
     }
     if (delivery.event === "delete") {
       yield* handleDelete(sink, delivery)
+      return
+    }
+    if (delivery.event === "check_suite") {
+      yield* handleCheckSuite(sink, delivery)
+      return
+    }
+    if (delivery.event === "status") {
+      yield* handleStatus(sink, delivery)
       return
     }
     yield* logIgnored("github webhook event ignored", delivery)
@@ -1149,6 +1298,72 @@ export const GitHubWebhooksLive = Layer.effect(
       }
     )
 
+    const checkStateChanged = Effect.fn("GitHubWebhooks.checkStateChanged")(
+      function* (
+        change: GitHubCheckWebhookChange,
+        deliveryId: string | null
+      ) {
+        const links = yield* activeProjectLinksForRepository(change)
+        if (links.length === 0) {
+          yield* Effect.logDebug("github check repository unknown").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              installationId: change.installationId,
+              repositoryId: change.repositoryId
+            })
+          )
+          return
+        }
+        yield* sql
+          .withTransaction(
+            Effect.forEach(
+              links,
+              (link) =>
+                ticketIndex
+                  .updateBranchChecks(
+                    link.projectId,
+                    change.branch,
+                    change.checks,
+                    change.headSha,
+                    change.updatedAt
+                  )
+                  .pipe(
+                    Effect.flatMap((ticketIds) =>
+                      ticketIds.length === 0
+                        ? Effect.logDebug(
+                            "github check branch unknown or stale"
+                          ).pipe(
+                            Effect.annotateLogs({
+                              module: "GitHubWebhooks",
+                              deliveryId,
+                              installationId: change.installationId,
+                              repositoryId: change.repositoryId,
+                              branch: change.branch,
+                              projectIntegrationLinkId: link.id
+                            })
+                          )
+                        : Effect.logInfo("github check state updated").pipe(
+                            Effect.annotateLogs({
+                              module: "GitHubWebhooks",
+                              deliveryId,
+                              installationId: change.installationId,
+                              repositoryId: change.repositoryId,
+                              branch: change.branch,
+                              projectIntegrationLinkId: link.id,
+                              checks: change.checks,
+                              ticketIds
+                            })
+                          )
+                    )
+                  ),
+              { concurrency: 1 }
+            ).pipe(Effect.asVoid)
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+      }
+    )
+
     return makeGitHubWebhooks({
       installationDeleted: (installationId, deliveryId) =>
         updateInstallation(
@@ -1205,7 +1420,8 @@ export const GitHubWebhooksLive = Layer.effect(
           deliveryId
         ),
       pullRequestChanged,
-      branchDeleted
+      branchDeleted,
+      checkStateChanged
     })
   })
 )

@@ -109,6 +109,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   upsertTicket: () => Effect.void,
   markBranchStale: () => Effect.succeed([]),
   clearBranchStale: () => Effect.void,
+  updateBranchChecks: () => Effect.succeed([]),
   deleteTicket: () => Effect.void,
   rebuildProject: () =>
     Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),

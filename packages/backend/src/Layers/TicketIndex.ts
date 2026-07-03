@@ -2,11 +2,12 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "@effect/sql/SqlClient"
-import { and, eq, inArray, isNull } from "drizzle-orm"
+import { and, eq, inArray, isNull, lt, or } from "drizzle-orm"
 import {
   NotFound,
   TagName,
   TicketId,
+  type ChecksStatus,
   type PullRequestState,
   type TicketPriority,
   type TicketStatus,
@@ -93,6 +94,9 @@ export const TicketIndexLive = Layer.effect(
       prState: row.prState as PullRequestState | null,
       lastTransitionedPr: row.lastTransitionedPr,
       branchDeletedAt: row.branchDeletedAt,
+      checks: row.checks as ChecksStatus | null,
+      checksHeadSha: row.checksHeadSha,
+      checksUpdatedAt: row.checksUpdatedAt,
       assignees: row.assignees,
       archivedAt: row.archivedAt,
       createdBy: row.createdBy,
@@ -278,6 +282,32 @@ export const TicketIndexLive = Layer.effect(
         .pipe(Effect.asVoid, Effect.orDie)
     }
 
+    const updateBranchChecks = (
+      projectId: string,
+      branch: string,
+      checks: ChecksStatus,
+      headSha: string,
+      updatedAt: Date
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      db
+        .update(ticketIndex)
+        .set({ checks, checksHeadSha: headSha, checksUpdatedAt: updatedAt })
+        .where(
+          and(
+            eq(ticketIndex.projectId, projectId),
+            eq(ticketIndex.branch, branch),
+            or(
+              isNull(ticketIndex.checksUpdatedAt),
+              lt(ticketIndex.checksUpdatedAt, updatedAt)
+            )
+          )
+        )
+        .returning({ ticketId: ticketIndex.ticketId })
+        .pipe(
+          Effect.map((rows) => rows.map((row) => row.ticketId)),
+          Effect.orDie
+        )
+
     const deleteTicket = (
       project: TicketIndexProject,
       ticketId: string
@@ -379,6 +409,7 @@ export const TicketIndexLive = Layer.effect(
       upsertTicket,
       markBranchStale,
       clearBranchStale,
+      updateBranchChecks,
       deleteTicket,
       rebuildProject,
       rebuildAllProjects

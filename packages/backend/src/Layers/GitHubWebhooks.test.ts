@@ -10,6 +10,7 @@ import {
 } from "./GitHubWebhooks"
 import type {
   GitHubBranchDeletionChange,
+  GitHubCheckWebhookChange,
   GitHubPullRequestWebhookChange,
   GitHubRepositoryMetadataChange,
   GitHubWebhookMutationSink
@@ -62,6 +63,10 @@ type Call =
       readonly type: "branchDeleted"
       readonly change: GitHubBranchDeletionChange
     }
+  | {
+      readonly type: "checkStateChanged"
+      readonly change: GitHubCheckWebhookChange
+    }
 
 const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   installationDeleted: (installationId) =>
@@ -107,6 +112,10 @@ const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   branchDeleted: (change) =>
     Effect.sync(() => {
       calls.push({ type: "branchDeleted", change })
+    }),
+  checkStateChanged: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "checkStateChanged", change })
     })
 })
 
@@ -499,6 +508,182 @@ it.effect("logs and ignores malformed delete payloads", () =>
   })
 )
 
+it.effect("maps check_suite status and conclusion to check state", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const cases = [
+      { status: "completed", conclusion: "success", checks: "passing" },
+      { status: "completed", conclusion: "failure", checks: "failing" },
+      { status: "completed", conclusion: "timed_out", checks: "failing" },
+      { status: "completed", conclusion: "neutral", checks: "neutral" },
+      { status: "completed", conclusion: "cancelled", checks: "neutral" },
+      { status: "completed", conclusion: null, checks: "neutral" },
+      { status: "queued", conclusion: null, checks: "pending" },
+      { status: "in_progress", conclusion: null, checks: "pending" }
+    ] as const
+    for (const input of cases) {
+      yield* webhooks.handle(
+        delivery("check_suite", {
+          action: input.status === "completed" ? "completed" : "requested",
+          installation: { id: "123" },
+          repository: { id: "456" },
+          check_suite: {
+            head_branch: "feat/T-83-check-status-webhooks",
+            head_sha: "sha-1",
+            status: input.status,
+            conclusion: input.conclusion,
+            updated_at: "2026-07-04T10:00:00.000Z"
+          }
+        })
+      )
+    }
+    expect(calls).toEqual(
+      cases.map((input) => ({
+        type: "checkStateChanged",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-83-check-status-webhooks",
+          headSha: "sha-1",
+          checks: input.checks,
+          updatedAt: DateTime.toDate(DateTime.unsafeMake("2026-07-04T10:00:00.000Z"))
+        }
+      }))
+    )
+  })
+)
+
+it.effect("ignores check_suite deliveries without a head branch", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("check_suite", {
+        action: "completed",
+        installation: { id: "123" },
+        repository: { id: "456" },
+        check_suite: {
+          head_branch: null,
+          head_sha: "sha-1",
+          status: "completed",
+          conclusion: "success",
+          updated_at: "2026-07-04T10:00:00.000Z"
+        }
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("dispatches commit status state as check state for branch heads", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const cases = [
+      { state: "success", checks: "passing" },
+      { state: "failure", checks: "failing" },
+      { state: "error", checks: "failing" },
+      { state: "pending", checks: "pending" }
+    ] as const
+    for (const input of cases) {
+      yield* webhooks.handle(
+        delivery("status", {
+          installation: { id: "123" },
+          repository: { id: "456" },
+          sha: "sha-1",
+          state: input.state,
+          updated_at: "2026-07-04T10:00:00.000Z",
+          branches: [
+            { name: "feat/T-83-check-status-webhooks", commit: { sha: "sha-1" } },
+            { name: "main", commit: { sha: "other-sha" } }
+          ]
+        })
+      )
+    }
+    expect(calls).toEqual(
+      cases.map((input) => ({
+        type: "checkStateChanged",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-83-check-status-webhooks",
+          headSha: "sha-1",
+          checks: input.checks,
+          updatedAt: DateTime.toDate(DateTime.unsafeMake("2026-07-04T10:00:00.000Z"))
+        }
+      }))
+    )
+  })
+)
+
+it.effect("ignores commit status for commits that are not a branch head", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("status", {
+        installation: { id: "123" },
+        repository: { id: "456" },
+        sha: "sha-1",
+        state: "success",
+        updated_at: "2026-07-04T10:00:00.000Z",
+        branches: [{ name: "main", commit: { sha: "other-sha" } }]
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("ignores check_run events and unknown commit status states", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("check_run", {
+        action: "completed",
+        installation: { id: "123" },
+        repository: { id: "456" }
+      })
+    )
+    yield* webhooks.handle(
+      delivery("status", {
+        installation: { id: "123" },
+        repository: { id: "456" },
+        sha: "sha-1",
+        state: "unknown",
+        updated_at: "2026-07-04T10:00:00.000Z",
+        branches: [
+          { name: "feat/T-83-check-status-webhooks", commit: { sha: "sha-1" } }
+        ]
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("logs and ignores malformed check payloads", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("check_suite", {
+        action: "completed",
+        installation: { id: "123" },
+        repository: { id: "456" }
+      })
+    )
+    yield* webhooks.handle(
+      delivery("status", {
+        installation: { id: "123" },
+        repository: { id: "456" },
+        state: "success"
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
@@ -571,6 +756,7 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
       }),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
+    updateBranchChecks: () => Effect.succeed([]),
     deleteTicket: () => Effect.void,
     rebuildProject: () =>
       Effect.die(new Error("unexpected TicketIndex.rebuildProject call")),
