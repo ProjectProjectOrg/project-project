@@ -62,7 +62,6 @@
   "org_settings_name_label": "Organization name",
   "org_settings_rename_error": "Couldn't rename the organization. Try again.",
   "org_settings_save_button": "Save",
-  "org_settings_saved": "Saved.",
   "org_settings_slug_label": "URL slug",
   "org_settings_slug_readonly_note": "The slug is baked into every URL for this organization, so it can't be changed.",
   "org_switcher_create_new": "Create new org",
