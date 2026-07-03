@@ -138,6 +138,7 @@ it.effect(
       const deletedAt = daysBefore(3)
       const org = yield* Org
       const detail = yield* org.get("acme", "user-1")
+      expect(detail.id).toBe("org-1")
       expect(detail.slug).toBe("acme")
       expect(detail.role).toBe("admin")
       expect(detail.deletedAt).toEqual(deletedAt)

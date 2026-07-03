@@ -37,6 +37,7 @@ interface OrgRow {
 }
 
 const toDetail = (row: OrgRow, deletedAt: Date | null): OrgDetail => ({
+  id: row.organizationId,
   slug: row.slug,
   name: row.name,
   role: makeRole(row.role),

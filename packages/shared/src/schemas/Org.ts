@@ -14,6 +14,7 @@ export const Org = Schema.Struct({
 export type Org = typeof Org.Type
 
 export const OrgDetail = Schema.Struct({
+  id: Schema.String,
   slug: Slug,
   name: Schema.String,
   role: OrgRole,
