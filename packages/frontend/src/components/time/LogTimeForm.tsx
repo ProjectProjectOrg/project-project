@@ -88,10 +88,11 @@ export function LogTimeForm({
   }
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={submit}>
+    <form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={submit}>
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         {m.time_log_duration_label()}
         <Input
+          autoFocus
           value={duration}
           placeholder={m.time_log_duration_placeholder()}
           onChange={(event) => setDuration(event.target.value)}
@@ -105,7 +106,7 @@ export function LogTimeForm({
           onChange={(event) => setDate(event.target.value)}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:col-span-2">
         {m.time_work_type_label()}
         <WorkTypeSelect
           value={workType}
@@ -113,7 +114,7 @@ export function LogTimeForm({
           options={options}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:col-span-2">
         {m.time_log_note_label()}
         <Input
           value={note}
@@ -121,8 +122,8 @@ export function LogTimeForm({
           onChange={(event) => setNote(event.target.value)}
         />
       </label>
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={submitting}>
+      <div className="flex items-center gap-1.5 sm:col-span-2">
+        <Button type="submit" size="sm" loading={submitting}>
           {m.time_log_submit()}
         </Button>
         {onDone ? (
@@ -138,11 +139,11 @@ export function LogTimeForm({
         ) : null}
       </div>
       {invalid ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-destructive sm:col-span-2">
           {m.time_log_duration_invalid()}
         </p>
       ) : error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-destructive sm:col-span-2">
           {error}
         </p>
       ) : null}

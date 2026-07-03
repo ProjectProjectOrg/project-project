@@ -160,7 +160,7 @@ export function TicketPage({
               />
             </MetaRow>
           )}
-          <MetaRow label={m.time_tracked_total()}>
+          <MetaRow label={m.time_section_label()}>
             <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_created()}>
