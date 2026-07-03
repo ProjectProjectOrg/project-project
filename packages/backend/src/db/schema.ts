@@ -45,6 +45,7 @@ import {
   check,
   foreignKey,
   index,
+  jsonb,
   pgTable,
   integer,
   primaryKey,
@@ -54,6 +55,7 @@ import {
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
+import type { OrgEverhourConfig } from "@projectproject/shared"
 
 export * from "./auth-schema"
 import { invitation, organization, user } from "./auth-schema"
@@ -194,10 +196,11 @@ export const organizationIntegration = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["github"] }).notNull(),
+    provider: text("provider", { enum: ["github", "everhour"] }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
+    config: jsonb("config").$type<OrgEverhourConfig>(),
     connectedAt: timestamp("connected_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -280,7 +283,7 @@ export const projectIntegrationLink = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     organizationIntegrationId: uuid("organization_integration_id").notNull(),
-    provider: text("provider", { enum: ["github"] }).notNull(),
+    provider: text("provider", { enum: ["github", "everhour"] }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
@@ -350,6 +353,160 @@ export const projectGithubRepository = pgTable(
     uniqueIndex("project_github_repository_active_repo_uidx")
       .on(t.organizationId, t.repoId)
       .where(sql`${t.status} = 'active'`)
+  ]
+)
+
+export const userEverhourIntegration = pgTable("user_everhour_integration", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  encryptedApiKey: text("encrypted_api_key").notNull(),
+  apiKeyNonce: text("api_key_nonce").notNull(),
+  apiKeyTag: text("api_key_tag").notNull(),
+  everhourUserId: text("everhour_user_id").notNull(),
+  name: text("name"),
+  email: text("email"),
+  connectedAt: timestamp("connected_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+  lastCheckStatus: text("last_check_status", { enum: ["ok", "error"] }),
+  lastCheckError: text("last_check_error")
+})
+
+export const projectEverhourIntegration = pgTable(
+  "project_everhour_integration",
+  {
+    projectIntegrationLinkId: uuid("project_integration_link_id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    status: text("status", {
+      enum: ["active", "disconnected", "broken"]
+    }).notNull(),
+    everhourProjectId: text("everhour_project_id").notNull(),
+    everhourProjectName: text("everhour_project_name").notNull(),
+    backlogSectionId: text("backlog_section_id"),
+    webhookId: text("webhook_id"),
+    webhookSecret: text("webhook_secret"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncStatus: text("last_sync_status", { enum: ["ok", "error"] }),
+    lastSyncError: text("last_sync_error"),
+    lastSyncActorUserId: text("last_sync_actor_user_id")
+  },
+  (t) => [
+    foreignKey({
+      name: "project_everhour_integration_link_id_organization_id_fkey",
+      columns: [t.projectIntegrationLinkId, t.organizationId],
+      foreignColumns: [
+        projectIntegrationLink.id,
+        projectIntegrationLink.organizationId
+      ]
+    }).onDelete("cascade"),
+    uniqueIndex("project_everhour_integration_active_project_uidx")
+      .on(t.organizationId, t.everhourProjectId)
+      .where(sql`${t.status} = 'active'`)
+  ]
+)
+
+export const everhourSectionLink = pgTable(
+  "everhour_section_link",
+  {
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    localKey: text("local_key").notNull(),
+    groupId: text("group_id"),
+    everhourSectionId: text("everhour_section_id").notNull(),
+    name: text("name").notNull(),
+    status: text("status", {
+      enum: ["active", "archived", "broken"]
+    }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectIntegrationLinkId, t.localKey] }),
+    foreignKey({
+      name: "everhour_section_link_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade")
+  ]
+)
+
+export const everhourWorkTypeTaskLink = pgTable(
+  "everhour_work_type_task_link",
+  {
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
+    everhourTaskId: text("everhour_task_id").notNull(),
+    name: text("name").notNull(),
+    status: text("status", {
+      enum: ["active", "archived", "broken"]
+    }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.projectIntegrationLinkId, t.groupId, t.workTypeKey]
+    }),
+    foreignKey({
+      name: "everhour_work_type_task_link_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade")
+  ]
+)
+
+export const everhourActiveTimer = pgTable(
+  "everhour_active_timer",
+  {
+    everhourUserId: text("everhour_user_id").primaryKey(),
+    userId: text("user_id").notNull(),
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    ticketId: text("ticket_id"),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
+    everhourTaskId: text("everhour_task_id").notNull(),
+    everhourTimerId: text("everhour_timer_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull()
+  },
+  (t) => [
+    foreignKey({
+      name: "everhour_active_timer_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade"),
+    index("everhour_active_timer_user_idx").on(t.userId)
+  ]
+)
+
+export const everhourTimeAttribution = pgTable(
+  "everhour_time_attribution",
+  {
+    everhourTimeId: text("everhour_time_id").primaryKey(),
+    projectIntegrationLinkId: uuid("project_integration_link_id").notNull(),
+    ticketId: text("ticket_id"),
+    groupId: text("group_id").notNull(),
+    workTypeKey: text("work_type_key").notNull(),
+    everhourUserId: text("everhour_user_id").notNull(),
+    userId: text("user_id").notNull(),
+    seconds: integer("seconds").notNull(),
+    date: text("date").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+  },
+  (t) => [
+    foreignKey({
+      name: "everhour_time_attribution_project_link_fkey",
+      columns: [t.projectIntegrationLinkId],
+      foreignColumns: [projectIntegrationLink.id]
+    }).onDelete("cascade"),
+    index("everhour_time_attribution_ticket_idx").on(
+      t.projectIntegrationLinkId,
+      t.ticketId
+    )
   ]
 )
 
@@ -526,7 +683,8 @@ export const projectIntegrationLinkRelations = relations(
       fields: [projectIntegrationLink.organizationIntegrationId],
       references: [organizationIntegration.id]
     }),
-    githubRepository: one(projectGithubRepository)
+    githubRepository: one(projectGithubRepository),
+    everhourIntegration: one(projectEverhourIntegration)
   })
 )
 
@@ -535,6 +693,26 @@ export const projectGithubRepositoryRelations = relations(
   ({ one }) => ({
     projectLink: one(projectIntegrationLink, {
       fields: [projectGithubRepository.projectIntegrationLinkId],
+      references: [projectIntegrationLink.id]
+    })
+  })
+)
+
+export const userEverhourIntegrationRelations = relations(
+  userEverhourIntegration,
+  ({ one }) => ({
+    user: one(user, {
+      fields: [userEverhourIntegration.userId],
+      references: [user.id]
+    })
+  })
+)
+
+export const projectEverhourIntegrationRelations = relations(
+  projectEverhourIntegration,
+  ({ one }) => ({
+    projectLink: one(projectIntegrationLink, {
+      fields: [projectEverhourIntegration.projectIntegrationLinkId],
       references: [projectIntegrationLink.id]
     })
   })

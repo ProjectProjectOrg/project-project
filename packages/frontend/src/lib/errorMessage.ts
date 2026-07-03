@@ -4,6 +4,11 @@ import type {
   BranchNotFound,
   BranchProtected,
   Conflict,
+  EverhourApiKeyMissing,
+  EverhourAuthInvalid,
+  EverhourConfigMissing,
+  EverhourError,
+  EverhourRateLimited,
   Forbidden,
   GitHubError,
   GitHubScopeInsufficient,
@@ -23,6 +28,11 @@ export type AppError =
   | NotFound
   | Forbidden
   | Conflict
+  | EverhourApiKeyMissing
+  | EverhourAuthInvalid
+  | EverhourConfigMissing
+  | EverhourError
+  | EverhourRateLimited
   | GitHubTokenExpired
   | GitHubScopeInsufficient
   | RepoGone
@@ -55,6 +65,19 @@ export const errorMessage = (error: AppError): string =>
         : m.error_unknown()
     ),
     Match.tag("MentionInvalid", () => m.error_mention_invalid()),
+    Match.tag("EverhourApiKeyMissing", () =>
+      m.error_everhour_api_key_missing()
+    ),
+    Match.tag("EverhourAuthInvalid", () => m.error_everhour_auth_invalid()),
+    Match.tag("EverhourConfigMissing", () => m.error_everhour_config_missing()),
+    Match.tag("EverhourRateLimited", (error) =>
+      m.error_everhour_rate_limited({
+        seconds: String(error.retryAfterSeconds ?? 60)
+      })
+    ),
+    Match.tag("EverhourError", (error) =>
+      m.error_everhour_upstream({ message: error.message })
+    ),
     Match.tag("Unauthorized", () => m.error_unknown()),
     Match.orElse(() => m.error_unknown())
   )

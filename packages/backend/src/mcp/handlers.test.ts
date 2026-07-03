@@ -302,7 +302,15 @@ describe("MCP dispatcher → write tools", () => {
           personalGithub: {
             connected: false
           },
-          editorPreference: "github"
+          editorPreference: "github",
+          personalEverhour: {
+            connected: false,
+            everhourUserId: null,
+            name: null,
+            email: null,
+            lastVerifiedAt: null,
+            lastCheckError: null
+          }
         },
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),

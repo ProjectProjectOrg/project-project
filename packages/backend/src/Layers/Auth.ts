@@ -111,6 +111,9 @@ export const AuthenticationLive = Layer.effect(
           const personalGithub = yield* ba
             .getPersonalGithub(id)
             .pipe(Effect.orDie)
+          const personalEverhour = yield* ba
+            .getPersonalEverhour(id)
+            .pipe(Effect.orDie)
           return {
             id,
             email,
@@ -120,7 +123,8 @@ export const AuthenticationLive = Layer.effect(
             createdAt,
             activeOrgSlug,
             personalGithub,
-            editorPreference
+            editorPreference,
+            personalEverhour
           }
         })
     })

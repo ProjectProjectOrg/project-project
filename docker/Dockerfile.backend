@@ -33,6 +33,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY packages/backend ./packages/backend
+COPY docker/entrypoint.backend.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Markdown data root is bind-mounted at runtime; org-scoped projects live
 # at <PROJECTS_DIR>/orgs/<orgSlug>/projects/<projectSlug>/. We still create
@@ -42,4 +44,5 @@ ENV PROJECTS_DIR=/data
 ENV NODE_ENV=production
 
 EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bun", "run", "packages/backend/src/main.ts"]

@@ -36,6 +36,7 @@
 // to be strict at the schema boundary — declare ISO strings, validate, done.
 
 import * as Schema from "effect/Schema"
+import { PersonalEverhour } from "./Everhour"
 
 export const PersonalGithub = Schema.Struct({
   connected: Schema.Boolean
@@ -64,6 +65,7 @@ export const User = Schema.Struct({
   // without a second fetch.
   activeOrgSlug: Schema.NullOr(Schema.String),
   personalGithub: PersonalGithub,
-  editorPreference: EditorPreference
+  editorPreference: EditorPreference,
+  personalEverhour: PersonalEverhour
 })
 export type User = typeof User.Type

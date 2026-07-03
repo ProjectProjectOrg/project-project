@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { GitHub } from "../Services/GitHub"
 import { GitHubIntegrations } from "../Services/GitHubIntegrations"
+import { EverhourIntegrations } from "../Services/EverhourIntegrations"
 import { Projects } from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 
@@ -55,12 +56,21 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const projects = yield* Projects
-          return yield* projects.update(
+          const result = yield* projects.update(
             org.orgSlug,
             user.id,
             path.slug,
             payload
           )
+          if (payload.name !== undefined) {
+            const everhour = yield* EverhourIntegrations
+            yield* everhour.bestEffortProjectSync(
+              org.orgSlug,
+              user.id,
+              path.slug
+            )
+          }
+          return result
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("updateSetup", ({ path, payload }) =>

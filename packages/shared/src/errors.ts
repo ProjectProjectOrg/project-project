@@ -174,3 +174,33 @@ export class SprintCompletedImmutable extends Schema.TaggedError<SprintCompleted
   {},
   HttpApiSchema.annotations({ status: 409 })
 ) {}
+
+export class EverhourApiKeyMissing extends Schema.TaggedError<EverhourApiKeyMissing>()(
+  "EverhourApiKeyMissing",
+  {},
+  HttpApiSchema.annotations({ status: 401 })
+) {}
+
+export class EverhourAuthInvalid extends Schema.TaggedError<EverhourAuthInvalid>()(
+  "EverhourAuthInvalid",
+  {},
+  HttpApiSchema.annotations({ status: 401 })
+) {}
+
+export class EverhourRateLimited extends Schema.TaggedError<EverhourRateLimited>()(
+  "EverhourRateLimited",
+  { retryAfterSeconds: Schema.Number },
+  HttpApiSchema.annotations({ status: 429 })
+) {}
+
+export class EverhourConfigMissing extends Schema.TaggedError<EverhourConfigMissing>()(
+  "EverhourConfigMissing",
+  {},
+  HttpApiSchema.annotations({ status: 503 })
+) {}
+
+export class EverhourError extends Schema.TaggedError<EverhourError>()(
+  "EverhourError",
+  { message: Schema.String },
+  HttpApiSchema.annotations({ status: 502 })
+) {}

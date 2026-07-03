@@ -5,6 +5,9 @@ import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"
 import { CurrentOrgLive } from "./Layers/CurrentOrg"
 import { DbLive, PgLive } from "./Layers/Db"
+import { EverhourLive } from "./Layers/Everhour"
+import { EverhourIntegrationsLive } from "./Layers/EverhourIntegrations"
+import { EverhourTimeTrackingLive } from "./Layers/EverhourTimeTracking"
 import { GitHubLive } from "./Layers/GitHub"
 import { GitHubIntegrationsLive } from "./Layers/GitHubIntegrations"
 import { GroupDocsLive } from "./Layers/GroupDocs"
@@ -36,11 +39,18 @@ export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(CurrentOrgLive),
   Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
   Layer.provideMerge(GitHubLive),
+  Layer.provideMerge(EverhourLive),
   Layer.provideMerge(
     GitHubIntegrationsLive.pipe(
       Layer.provideMerge(CurrentOrgLive),
       Layer.provideMerge(GitHubLive)
     )
+  ),
+  Layer.provideMerge(
+    EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
+  ),
+  Layer.provideMerge(
+    EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
   ),
   Layer.provideMerge(UsersLive),
   Layer.provideMerge(TicketIndexLive),
