@@ -30,6 +30,7 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   lastTransitionedPr: null,
   gitState: { tag: "no_branch" },
   assignees: [],
+  archivedAt: null,
   createdBy: "user-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),
   updatedAt: isoDate("2026-05-10T00:00:00.000Z"),
@@ -151,6 +152,23 @@ describe("matchesTicketQuery", () => {
     expect(matchesTicketQuery(baseTicket(), {}, "user-a")).toBe(true)
   })
 
+  it("hides archived tickets by default", () => {
+    const archived = baseTicket({ archivedAt: isoDate("2026-05-11T00:00:00.000Z") })
+    expect(matchesTicketQuery(archived, {}, "user-a")).toBe(false)
+    expect(matchesTicketQuery(baseTicket(), {}, "user-a")).toBe(true)
+  })
+
+  it("shows only archived tickets when archived filter is set", () => {
+    const archived = baseTicket({ archivedAt: isoDate("2026-05-11T00:00:00.000Z") })
+    const active = baseTicket()
+    expect(
+      matchesTicketQuery(archived, { filter: { archived: true } }, "user-a")
+    ).toBe(true)
+    expect(
+      matchesTicketQuery(active, { filter: { archived: true } }, "user-a")
+    ).toBe(false)
+  })
+
   it("q matches on title case-insensitively", () => {
     const t = baseTicket({ title: "Hello world" })
     expect(matchesTicketQuery(t, { q: "HELLO" }, "user-a")).toBe(true)
@@ -230,6 +248,7 @@ describe("matchesTicketQuery", () => {
       pr: null,
       prState: null,
       assignees: [],
+      archivedAt: null,
       updatedAt: isoDate("2026-05-10T00:00:00.000Z")
     }
     expect(

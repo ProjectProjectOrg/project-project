@@ -54,7 +54,8 @@ export const TicketFilter = Schema.Struct({
   hasBranch: Schema.optional(Schema.Boolean),
   hasPr: Schema.optional(Schema.Boolean),
   updatedAfter: Schema.optional(Schema.Date),
-  groupId: Schema.optional(Schema.Array(GroupIdFilter))
+  groupId: Schema.optional(Schema.Array(GroupIdFilter)),
+  archived: Schema.optional(Schema.Boolean)
 })
 export type TicketFilter = typeof TicketFilter.Type
 

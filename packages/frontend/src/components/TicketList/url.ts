@@ -13,7 +13,8 @@ export function queryHasActiveFilter(q: TicketListQuery): boolean {
     (f.groupId?.length ?? 0) > 0 ||
     f.hasBranch !== undefined ||
     f.hasPr !== undefined ||
-    f.updatedAfter !== undefined
+    f.updatedAfter !== undefined ||
+    f.archived !== undefined
   )
 }
 
@@ -25,6 +26,7 @@ export const TICKET_SEARCH_KEYS = [
   "groupId",
   "hasBranch",
   "hasPr",
+  "archived",
   "sort",
   "q",
   "cursor"

@@ -408,6 +408,7 @@ const baseDocument = (overrides: Partial<TicketDocument> = {}): TicketDocument =
   prState: null,
   lastTransitionedPr: null,
   assignees: [],
+  archivedAt: null,
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.unsafeMake("2026-05-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.unsafeMake("2026-05-01T00:00:00.000Z")),

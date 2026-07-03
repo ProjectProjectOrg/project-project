@@ -57,6 +57,7 @@ export const Ticket = Schema.Struct({
   lastTransitionedPr: Schema.NullOr(Schema.Number),
   gitState: GitState,
   assignees: Schema.Array(Schema.String),
+  archivedAt: Schema.NullOr(Schema.Date),
   createdBy: Schema.String,
   createdAt: Schema.Date,
   updatedAt: Schema.Date
@@ -86,6 +87,11 @@ export const CreateTicketInput = Schema.Struct({
   body: Schema.optional(Schema.String)
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
+
+export const ArchiveTicketInput = Schema.Struct({
+  reason: Schema.optional(Schema.String.pipe(Schema.maxLength(20_000)))
+})
+export type ArchiveTicketInput = typeof ArchiveTicketInput.Type
 
 export const UpdateTicketInput = Schema.Struct({
   title: Schema.optional(

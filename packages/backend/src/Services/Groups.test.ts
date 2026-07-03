@@ -65,6 +65,7 @@ function makeTicketDocument(
     prState: null,
     lastTransitionedPr: null,
     assignees: [],
+    archivedAt: null,
     createdBy: "user-1",
     createdAt: now,
     updatedAt: now,
