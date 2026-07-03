@@ -212,7 +212,7 @@ const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
 
 const entryFromDocument = (document: TicketDocument) => {
   const { body: _body, ...entry } = document
-  return entry
+  return { ...entry, branchDeletedAt: null }
 }
 
 const makeFakeTicketIndex = (
@@ -270,6 +270,8 @@ const makeFakeTicketIndex = (
       Effect.sync(() => {
         documents.set(document.id, document)
       }),
+    markBranchStale: () => Effect.succeed([]),
+    clearBranchStale: () => Effect.void,
     deleteTicket: (_project, ticketId) =>
       Effect.sync(() => {
         documents.delete(ticketId)

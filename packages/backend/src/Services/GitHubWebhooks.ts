@@ -27,6 +27,12 @@ export interface GitHubRepositoryMetadataChange {
   readonly defaultBranch: string
 }
 
+export interface GitHubBranchDeletionChange {
+  readonly installationId: string
+  readonly repositoryId: string
+  readonly branch: string
+}
+
 export interface GitHubWebhookMutationSink {
   readonly installationDeleted: (
     installationId: string,
@@ -70,6 +76,10 @@ export interface GitHubWebhookMutationSink {
   ) => Effect.Effect<void, GitHubWebhookHandleError>
   readonly pullRequestChanged: (
     change: GitHubPullRequestWebhookChange,
+    deliveryId: string | null
+  ) => Effect.Effect<void, GitHubWebhookHandleError>
+  readonly branchDeleted: (
+    change: GitHubBranchDeletionChange,
     deliveryId: string | null
   ) => Effect.Effect<void, GitHubWebhookHandleError>
 }

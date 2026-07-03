@@ -9,6 +9,7 @@ import {
   type PullRequestWebhookMatch
 } from "./GitHubWebhooks"
 import type {
+  GitHubBranchDeletionChange,
   GitHubPullRequestWebhookChange,
   GitHubRepositoryMetadataChange,
   GitHubWebhookMutationSink
@@ -57,6 +58,10 @@ type Call =
       readonly installationId: string
       readonly repoId: string
     }
+  | {
+      readonly type: "branchDeleted"
+      readonly change: GitHubBranchDeletionChange
+    }
 
 const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   installationDeleted: (installationId) =>
@@ -98,6 +103,10 @@ const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   repositoryDeleted: (installationId, repoId) =>
     Effect.sync(() => {
       calls.push({ type: "repositoryDeleted", installationId, repoId })
+    }),
+  branchDeleted: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "branchDeleted", change })
     })
 })
 
@@ -393,6 +402,103 @@ it.effect("ignores repository.renamed missing metadata", () =>
   })
 )
 
+it.effect("dispatches delete of a branch ref matched by repo id", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("delete", {
+        ref: "feat/T-85-branch-deletion-webhooks",
+        ref_type: "branch",
+        installation: { id: 123 },
+        repository: { id: 456, default_branch: "main" }
+      })
+    )
+    expect(calls).toEqual([
+      {
+        type: "branchDeleted",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-85-branch-deletion-webhooks"
+        }
+      }
+    ])
+  })
+)
+
+it.effect("processes repeated delete deliveries idempotently at the sink", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const payload = {
+      ref: "feat/T-1",
+      ref_type: "branch",
+      installation: { id: "123" },
+      repository: { id: "456", default_branch: "main" }
+    }
+    yield* webhooks.handle(delivery("delete", payload))
+    yield* webhooks.handle(delivery("delete", payload))
+    expect(calls).toEqual([
+      {
+        type: "branchDeleted",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-1"
+        }
+      },
+      {
+        type: "branchDeleted",
+        change: {
+          installationId: "123",
+          repositoryId: "456",
+          branch: "feat/T-1"
+        }
+      }
+    ])
+  })
+)
+
+it.effect("ignores delete of the default branch and of tag refs", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("delete", {
+        ref: "main",
+        ref_type: "branch",
+        installation: { id: "123" },
+        repository: { id: "456", default_branch: "main" }
+      })
+    )
+    yield* webhooks.handle(
+      delivery("delete", {
+        ref: "v1.0.0",
+        ref_type: "tag",
+        installation: { id: "123" },
+        repository: { id: "456", default_branch: "main" }
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("logs and ignores malformed delete payloads", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("delete", {
+        ref_type: "branch",
+        installation: { id: "123" },
+        repository: { id: "456" }
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
@@ -463,6 +569,8 @@ const makeFakeIndex = (overrides: Partial<TicketIndexShape> = {}) => {
       Effect.sync(() => {
         upserts.push({ projectId: project.projectId, ticketId: document.id })
       }),
+    markBranchStale: () => Effect.succeed([]),
+    clearBranchStale: () => Effect.void,
     deleteTicket: () => Effect.void,
     rebuildProject: () =>
       Effect.die(new Error("unexpected TicketIndex.rebuildProject call")),

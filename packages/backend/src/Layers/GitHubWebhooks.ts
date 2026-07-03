@@ -14,6 +14,7 @@ import { Db } from "../Services/Db"
 import type { MarkdownError } from "../Services/Markdown"
 import {
   GitHubWebhooks,
+  type GitHubBranchDeletionChange,
   type GitHubWebhookDelivery,
   type GitHubWebhookMutationSink,
   type GitHubPullRequestWebhookChange,
@@ -220,6 +221,18 @@ const PullRequestPayload = Schema.Struct({
   })
 })
 
+const DeletePayload = Schema.Struct({
+  ref: Schema.String,
+  ref_type: Schema.String,
+  installation: Schema.Struct({
+    id: GitHubId
+  }),
+  repository: Schema.Struct({
+    id: GitHubId,
+    default_branch: Schema.optional(Schema.String)
+  })
+})
+
 const RepositoryPayload = Schema.Struct({
   action: Schema.String,
   installation: Schema.Struct({
@@ -421,6 +434,40 @@ const handlePullRequest = (
     )
   })
 
+const handleDelete = (
+  sink: GitHubWebhookMutationSink,
+  delivery: GitHubWebhookDelivery
+) =>
+  Effect.gen(function* () {
+    const payload = yield* decodePayload(DeletePayload, delivery)
+    if (!payload) return
+    const installationId = idToString(payload.installation.id)
+    const repositoryId = idToString(payload.repository.id)
+    if (payload.ref_type !== "branch") {
+      yield* logIgnored("github delete ref_type ignored", delivery, {
+        refType: payload.ref_type,
+        installationId,
+        repositoryId
+      })
+      return
+    }
+    if (
+      payload.repository.default_branch !== undefined &&
+      payload.ref === payload.repository.default_branch
+    ) {
+      yield* logIgnored("github delete default branch ignored", delivery, {
+        branch: payload.ref,
+        installationId,
+        repositoryId
+      })
+      return
+    }
+    yield* sink.branchDeleted(
+      { installationId, repositoryId, branch: payload.ref },
+      delivery.deliveryId
+    )
+  })
+
 const handleRepository = (
   sink: GitHubWebhookMutationSink,
   delivery: GitHubWebhookDelivery
@@ -489,6 +536,10 @@ export const makeGitHubWebhooks = (
     }
     if (delivery.event === "repository") {
       yield* handleRepository(sink, delivery)
+      return
+    }
+    if (delivery.event === "delete") {
+      yield* handleDelete(sink, delivery)
       return
     }
     yield* logIgnored("github webhook event ignored", delivery)
@@ -943,7 +994,10 @@ export const GitHubWebhooksLive = Layer.effect(
 
     const activeProjectLinksForRepository = Effect.fn(
       "GitHubWebhooks.activeProjectLinksForRepository"
-    )(function* (change: GitHubPullRequestWebhookChange) {
+    )(function* (change: {
+      readonly installationId: string
+      readonly repositoryId: string
+    }) {
       return yield* db
         .select({
           id: projectIntegrationLink.id,
@@ -1037,6 +1091,64 @@ export const GitHubWebhooksLive = Layer.effect(
       }
     )
 
+    const branchDeleted = Effect.fn("GitHubWebhooks.branchDeleted")(
+      function* (
+        change: GitHubBranchDeletionChange,
+        deliveryId: string | null
+      ) {
+        const links = yield* activeProjectLinksForRepository(change)
+        if (links.length === 0) {
+          yield* Effect.logDebug("github delete repository unknown").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              deliveryId,
+              installationId: change.installationId,
+              repositoryId: change.repositoryId
+            })
+          )
+          return
+        }
+        const now = yield* DateTime.nowAsDate
+        yield* sql
+          .withTransaction(
+            Effect.forEach(
+              links,
+              (link) =>
+                ticketIndex
+                  .markBranchStale(link.projectId, change.branch, now)
+                  .pipe(
+                    Effect.flatMap((ticketIds) =>
+                      ticketIds.length === 0
+                        ? Effect.logDebug("github delete branch unknown").pipe(
+                            Effect.annotateLogs({
+                              module: "GitHubWebhooks",
+                              deliveryId,
+                              installationId: change.installationId,
+                              repositoryId: change.repositoryId,
+                              branch: change.branch,
+                              projectIntegrationLinkId: link.id
+                            })
+                          )
+                        : Effect.logInfo("github delete branch marked stale").pipe(
+                            Effect.annotateLogs({
+                              module: "GitHubWebhooks",
+                              deliveryId,
+                              installationId: change.installationId,
+                              repositoryId: change.repositoryId,
+                              branch: change.branch,
+                              projectIntegrationLinkId: link.id,
+                              ticketIds
+                            })
+                          )
+                    )
+                  ),
+              { concurrency: 1 }
+            ).pipe(Effect.asVoid)
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+      }
+    )
+
     return makeGitHubWebhooks({
       installationDeleted: (installationId, deliveryId) =>
         updateInstallation(
@@ -1092,7 +1204,8 @@ export const GitHubWebhooksLive = Layer.effect(
           null,
           deliveryId
         ),
-      pullRequestChanged
+      pullRequestChanged,
+      branchDeleted
     })
   })
 )
