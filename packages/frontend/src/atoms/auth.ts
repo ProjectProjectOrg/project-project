@@ -235,12 +235,15 @@ export const setActiveOrganizationAtom = Atom.family((_key: "me") =>
   )
 )
 
-type AuthClientError = Pick<BetterFetchError, "status" | "statusText"> & {
+export type AuthClientError = Pick<
+  BetterFetchError,
+  "status" | "statusText"
+> & {
   code?: string
   message?: string
 }
 
-async function authData<T>(
+export async function authData<T>(
   response: Promise<{ data: T; error: AuthClientError | null }>
 ): Promise<T> {
   const { data, error } = await response

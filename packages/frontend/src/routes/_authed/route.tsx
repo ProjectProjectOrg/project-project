@@ -6,7 +6,13 @@ import {
   Outlet,
   useLocation
 } from "@tanstack/react-router"
-import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import {
+  FolderKanban,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  UserRound
+} from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
@@ -373,6 +379,20 @@ function UserMenu({ user }: { user: User }) {
             </Link>
           }
         />
+        {user.activeOrgSlug ? (
+          <DropdownMenuItem
+            render={
+              <Link
+                to="/orgs/$orgSlug/settings"
+                params={{ orgSlug: user.activeOrgSlug }}
+                className="cursor-pointer"
+              >
+                <Settings className="size-4" strokeWidth={1.75} />
+                {m.org_settings_menu_item()}
+              </Link>
+            }
+          />
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => logout()}
