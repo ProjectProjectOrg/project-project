@@ -1,4 +1,5 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Exit from "effect/Exit"
 import { Archive, ArchiveRestore } from "lucide-react"
 import { useState } from "react"
 import {
@@ -37,16 +38,25 @@ export function ArchiveTicketControl({
 function UnarchiveButton({ tKey }: { tKey: string }) {
   const unarchive = useAtomSet(unarchiveTicketAtom(tKey))
   const state = useAtomValue(unarchiveTicketAtom(tKey))
+  const failed = Result.isFailure(state)
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon-sm"
       aria-label={m.tickets_unarchive_action_aria_label()}
-      title={m.tickets_unarchive_button()}
+      title={
+        failed
+          ? m.tickets_unarchive_error_fallback()
+          : m.tickets_unarchive_button()
+      }
       disabled={state.waiting}
       onClick={() => unarchive()}
-      className="text-muted-foreground hover:text-foreground"
+      className={
+        failed
+          ? "text-destructive hover:text-destructive"
+          : "text-muted-foreground hover:text-foreground"
+      }
     >
       <ArchiveRestore strokeWidth={1.75} />
     </Button>
@@ -56,7 +66,7 @@ function UnarchiveButton({ tKey }: { tKey: string }) {
 function ArchivePopover({ tKey }: { tKey: string }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState("")
-  const archive = useAtomSet(archiveTicketAtom(tKey))
+  const archive = useAtomSet(archiveTicketAtom(tKey), { mode: "promiseExit" })
   const state = useAtomValue(archiveTicketAtom(tKey))
   const submitting = state.waiting
   const error = Result.isFailure(state)
@@ -65,9 +75,14 @@ function ArchivePopover({ tKey }: { tKey: string }) {
 
   const submit = () => {
     const trimmed = reason.trim()
-    archive({ reason: trimmed.length > 0 ? trimmed : undefined })
-    setReason("")
-    setOpen(false)
+    void archive({ reason: trimmed.length > 0 ? trimmed : undefined }).then(
+      (exit) => {
+        if (Exit.isSuccess(exit)) {
+          setReason("")
+          setOpen(false)
+        }
+      }
+    )
   }
 
   return (

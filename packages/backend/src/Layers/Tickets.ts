@@ -44,7 +44,7 @@ import {
 } from "@projectproject/shared"
 import { matchesTicketQuery } from "@projectproject/shared"
 import { validateBodyMentions } from "../Services/BodyMentions"
-import { Comments } from "../Services/Comments"
+import { Comments, type InvalidCommentBody } from "../Services/Comments"
 import { GitHub } from "../Services/GitHub"
 import { Groups } from "../Services/Groups"
 import type { MarkdownError } from "../Services/Markdown"
@@ -757,7 +757,10 @@ export const TicketsLive = Layer.effect(
       slug: string,
       id: string,
       reason?: string
-    ): Effect.Effect<TicketDetail, TicketReadError | MentionInvalid> =>
+    ): Effect.Effect<
+      TicketDetail,
+      TicketReadError | MentionInvalid | InvalidCommentBody
+    > =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
@@ -768,17 +771,14 @@ export const TicketsLive = Layer.effect(
           archivedAt: existing.archivedAt ?? now,
           updatedAt: now
         }
-        yield* ticketDocs.write(orgSlug, slug, id, next)
-        yield* ticketIndex.upsertTicket(indexProject, next)
         const trimmed = reason?.trim()
         if (trimmed !== undefined && trimmed.length > 0) {
           yield* comments
             .create(orgSlug, userId, slug, existing.id, { body: trimmed })
-            .pipe(
-              Effect.catchTag("InvalidCommentBody", Effect.die),
-              Effect.asVoid
-            )
+            .pipe(Effect.asVoid)
         }
+        yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* ticketIndex.upsertTicket(indexProject, next)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
           userId,

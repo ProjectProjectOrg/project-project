@@ -246,7 +246,9 @@ export const ticketBaseAtom = Atom.family((key: string) => {
     )
 })
 
-export const ticketAtom = ticketBaseAtom
+export const ticketAtom = Atom.family((key: string) =>
+  Atom.optimistic(ticketBaseAtom(key))
+)
 
 export interface QuickCreateTicketArg {
   readonly ticket: QuickCreateTicketInput
@@ -430,33 +432,56 @@ export const updateTicketAtom = Atom.family((key: string) => {
 
 export const archiveTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: { reason?: string }, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.tickets.archive({
-        path: { orgSlug, slug, id },
-        payload: { reason: input.reason }
+  return Atom.optimisticFn(ticketAtom(key), {
+    reducer: (current, _input: { reason?: string }) =>
+      Result.isSuccess(current)
+        ? Result.success(
+            current.value.archivedAt === null
+              ? {
+                  ...current.value,
+                  archivedAt: DateTime.toDate(DateTime.unsafeNow())
+                }
+              : current.value,
+            { waiting: true }
+          )
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (input: { reason?: string }, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.archive({
+          path: { orgSlug, slug, id },
+          payload: { reason: input.reason }
+        })
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        return updated
       })
-      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
-      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
-      return updated
-    })
-  )
+    )
+  })
 })
 
 export const unarchiveTicketAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.tickets.unarchive({
-        path: { orgSlug, slug, id }
+  return Atom.optimisticFn(ticketAtom(key), {
+    reducer: (current, _input: void) =>
+      Result.isSuccess(current)
+        ? Result.success(
+            { ...current.value, archivedAt: null },
+            { waiting: true }
+          )
+        : current,
+    fn: runtime.fn(
+      Effect.fn(function* (_input: void, get) {
+        const client = yield* ApiClient
+        const updated = yield* client.tickets.unarchive({
+          path: { orgSlug, slug, id }
+        })
+        get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
+        yield* Reactivity.invalidate(["tickets", orgSlug, slug])
+        return updated
       })
-      get.refresh(ticketBaseAtom(ticketKey(orgSlug, slug, id)))
-      yield* Reactivity.invalidate(["tickets", orgSlug, slug])
-      return updated
-    })
-  )
+    )
+  })
 })
 
 export const deleteTicketAtom = Atom.family((key: string) => {

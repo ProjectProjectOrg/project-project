@@ -4,7 +4,8 @@ import { HttpApiBuilder } from "@effect/platform"
 import {
   AppApi,
   CurrentUser,
-  ticketListQueryFromSearch
+  ticketListQueryFromSearch,
+  Validation
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
@@ -133,7 +134,12 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             path.id,
             payload.reason
           )
-        }).pipe(dieOnMarkdown)
+        }).pipe(
+          Effect.catchTag("InvalidCommentBody", (error) =>
+            Effect.fail(new Validation({ reason: error.reason }))
+          ),
+          dieOnMarkdown
+        )
       )
       .handle("unarchive", ({ path }) =>
         Effect.gen(function* () {
