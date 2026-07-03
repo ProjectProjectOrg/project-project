@@ -123,8 +123,11 @@ docker compose run --rm app bun run bootstrap:org
 ```
 
 The command is repeat-safe. Re-running it reports the existing org, owner,
-and membership instead of creating duplicates. After bootstrap, sign in with
-the configured GitHub account.
+and membership instead of creating duplicates. After bootstrap, the owner signs
+in with the configured email (magic link or Google), then invites teammates
+from org settings. Invited users open their invite link (or `/welcome`), sign
+in with the invited email, and land inside the org. Connecting a personal
+GitHub account for branch automation happens later, from the profile page.
 
 ### 6. nginx-proxy-manager
 

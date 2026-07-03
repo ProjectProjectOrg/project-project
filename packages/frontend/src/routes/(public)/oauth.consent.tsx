@@ -15,6 +15,15 @@ type Search = {
   scope?: string
 }
 
+const consentRedirect = (search: Search): string => {
+  const params = new URLSearchParams()
+  if (search.consent_code) params.set("consent_code", search.consent_code)
+  if (search.client_id) params.set("client_id", search.client_id)
+  if (search.scope) params.set("scope", search.scope)
+  const query = params.toString()
+  return query ? `/oauth/consent?${query}` : "/oauth/consent"
+}
+
 export const Route = createFileRoute("/(public)/oauth/consent")({
   component: OauthConsentPage,
   validateSearch: (raw): Search => ({
@@ -31,7 +40,9 @@ function OauthConsentPage() {
   const { consent_code, client_id } = search
 
   if (Result.isFailure(me)) {
-    return <Navigate to="/login" search={search} />
+    return (
+      <Navigate to="/login" search={{ redirect: consentRedirect(search) }} />
+    )
   }
 
   if (!consent_code) {

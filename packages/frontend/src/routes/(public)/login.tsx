@@ -8,6 +8,7 @@ import { Logo, Wordmark } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { Input } from "@/components/ui/input"
+import { safeInternalPath } from "@/lib/safeRedirect"
 import { m } from "@/paraglide/messages"
 import { authClient } from "@/services/AuthClient"
 
@@ -20,19 +21,39 @@ const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
   }
 ]
 
+type Search = {
+  redirect?: string
+}
+
 export const Route = createFileRoute("/(public)/login")({
-  component: LoginPage
+  component: LoginPage,
+  validateSearch: (raw): Search => ({
+    redirect: typeof raw.redirect === "string" ? raw.redirect : undefined
+  })
 })
 
 function LoginPage() {
   const me = useAtomValue(meAtom)
+  const { redirect } = Route.useSearch()
+  const redirectTarget = safeInternalPath(redirect)
   const [email, setEmail] = useState("")
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [magicLinkPending, setMagicLinkPending] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
-  if (Result.isSuccess(me)) return <Navigate to="/" />
+  if (Result.isSuccess(me)) {
+    const queryIndex = redirectTarget.indexOf("?")
+    const pathname =
+      queryIndex === -1 ? redirectTarget : redirectTarget.slice(0, queryIndex)
+    const search =
+      queryIndex === -1
+        ? {}
+        : Object.fromEntries(
+            new URLSearchParams(redirectTarget.slice(queryIndex + 1))
+          )
+    return <Navigate to={pathname as never} search={search as never} />
+  }
 
   async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -42,7 +63,7 @@ function LoginPage() {
     try {
       const { error } = await authClient.signIn.magicLink({
         email,
-        callbackURL: "/"
+        callbackURL: redirectTarget
       })
       if (error) {
         setAuthError(m.auth_magic_link_error())
@@ -61,7 +82,7 @@ function LoginPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/"
+        callbackURL: redirectTarget
       })
     } catch {
       setAuthError(m.auth_google_sign_in_error())
