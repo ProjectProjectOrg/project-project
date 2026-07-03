@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
-import { SlidersHorizontal } from "lucide-react"
+import { SlidersHorizontal, Users } from "lucide-react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
@@ -16,10 +16,18 @@ const SECTIONS = [
     icon: SlidersHorizontal,
     heading: m.org_settings_general_heading(),
     description: m.org_settings_general_description()
+  },
+  {
+    key: "members",
+    to: "/orgs/$orgSlug/settings/members",
+    label: m.org_settings_members_tab(),
+    icon: Users,
+    heading: m.org_settings_members_heading(),
+    description: m.org_settings_members_description()
   }
 ] satisfies ReadonlyArray<{
   key: string
-  to: "/orgs/$orgSlug/settings/general"
+  to: "/orgs/$orgSlug/settings/general" | "/orgs/$orgSlug/settings/members"
   label: string
   icon: typeof SlidersHorizontal
   heading: string
