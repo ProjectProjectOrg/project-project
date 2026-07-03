@@ -10,6 +10,7 @@ import {
 } from "./GitHubWebhooks"
 import type {
   GitHubPullRequestWebhookChange,
+  GitHubRepositoryMetadataChange,
   GitHubWebhookMutationSink
 } from "../Services/GitHubWebhooks"
 import { NotFound, TicketId, TicketStatus } from "@projectproject/shared"
@@ -33,6 +34,29 @@ type Call =
       readonly type: "pullRequestChanged"
       readonly change: GitHubPullRequestWebhookChange
     }
+  | {
+      readonly type: "repositoryRenamed"
+      readonly change: GitHubRepositoryMetadataChange
+    }
+  | {
+      readonly type: "repositoryTransferred"
+      readonly change: GitHubRepositoryMetadataChange
+    }
+  | {
+      readonly type: "repositoryArchived"
+      readonly installationId: string
+      readonly repoId: string
+    }
+  | {
+      readonly type: "repositoryUnarchived"
+      readonly installationId: string
+      readonly repoId: string
+    }
+  | {
+      readonly type: "repositoryDeleted"
+      readonly installationId: string
+      readonly repoId: string
+    }
 
 const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   installationDeleted: (installationId) =>
@@ -54,6 +78,26 @@ const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
   pullRequestChanged: (change) =>
     Effect.sync(() => {
       calls.push({ type: "pullRequestChanged", change })
+    }),
+  repositoryRenamed: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "repositoryRenamed", change })
+    }),
+  repositoryTransferred: (change) =>
+    Effect.sync(() => {
+      calls.push({ type: "repositoryTransferred", change })
+    }),
+  repositoryArchived: (installationId, repoId) =>
+    Effect.sync(() => {
+      calls.push({ type: "repositoryArchived", installationId, repoId })
+    }),
+  repositoryUnarchived: (installationId, repoId) =>
+    Effect.sync(() => {
+      calls.push({ type: "repositoryUnarchived", installationId, repoId })
+    }),
+  repositoryDeleted: (installationId, repoId) =>
+    Effect.sync(() => {
+      calls.push({ type: "repositoryDeleted", installationId, repoId })
     })
 })
 
@@ -226,6 +270,123 @@ it.effect("logs and ignores malformed handled payloads", () =>
       delivery("installation_repositories", {
         action: "removed",
         installation: { id: 123 }
+      })
+    )
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("dispatches repository.renamed with metadata matched by repo id", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("repository", {
+        action: "renamed",
+        installation: { id: "123" },
+        repository: {
+          id: 456,
+          name: "new-name",
+          owner: { login: "acme" },
+          default_branch: "main"
+        }
+      })
+    )
+    expect(calls).toEqual([
+      {
+        type: "repositoryRenamed",
+        change: {
+          installationId: "123",
+          repoId: "456",
+          owner: "acme",
+          name: "new-name",
+          defaultBranch: "main"
+        }
+      }
+    ])
+  })
+)
+
+it.effect("dispatches repository.transferred with metadata", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("repository", {
+        action: "transferred",
+        installation: { id: 123 },
+        repository: {
+          id: "456",
+          name: "repo",
+          owner: { login: "newowner" },
+          default_branch: "trunk"
+        }
+      })
+    )
+    expect(calls).toEqual([
+      {
+        type: "repositoryTransferred",
+        change: {
+          installationId: "123",
+          repoId: "456",
+          owner: "newowner",
+          name: "repo",
+          defaultBranch: "trunk"
+        }
+      }
+    ])
+  })
+)
+
+it.effect(
+  "dispatches repository.archived, unarchived and deleted by repo id",
+  () =>
+    Effect.gen(function* () {
+      const calls: Array<Call> = []
+      const webhooks = makeGitHubWebhooks(makeSink(calls))
+      for (const action of ["archived", "unarchived", "deleted"]) {
+        yield* webhooks.handle(
+          delivery("repository", {
+            action,
+            installation: { id: "123" },
+            repository: { id: 456 }
+          })
+        )
+      }
+      expect(calls).toEqual([
+        { type: "repositoryArchived", installationId: "123", repoId: "456" },
+        { type: "repositoryUnarchived", installationId: "123", repoId: "456" },
+        { type: "repositoryDeleted", installationId: "123", repoId: "456" }
+      ])
+    })
+)
+
+it.effect("ignores unhandled repository actions", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    for (const action of ["created", "edited", "publicized", "privatized"]) {
+      yield* webhooks.handle(
+        delivery("repository", {
+          action,
+          installation: { id: "123" },
+          repository: { id: 456 }
+        })
+      )
+    }
+    expect(calls).toEqual([])
+  })
+)
+
+it.effect("ignores repository.renamed missing metadata", () =>
+  Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("repository", {
+        action: "renamed",
+        installation: { id: "123" },
+        repository: { id: 456, name: "new-name" }
       })
     )
     expect(calls).toEqual([])
