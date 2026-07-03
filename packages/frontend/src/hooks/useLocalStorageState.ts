@@ -1,6 +1,6 @@
 import * as Either from "effect/Either"
 import * as Schema from "effect/Schema"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 function readFromStorage<A, I>(
   key: string,
@@ -30,13 +30,18 @@ export function useLocalStorageState<A, I>(
   schema: Schema.Schema<A, I>,
   initial: A
 ): readonly [A, (next: A) => void] {
+  const schemaRef = useRef(schema)
+  schemaRef.current = schema
+  const initialRef = useRef(initial)
+  initialRef.current = initial
+
   const [value, setValue] = useState<A>(() =>
     readFromStorage(key, schema, initial)
   )
 
   useEffect(() => {
-    setValue(readFromStorage(key, schema, initial))
-  }, [key, schema, initial])
+    setValue(readFromStorage(key, schemaRef.current, initialRef.current))
+  }, [key])
 
   const write = useCallback(
     (next: A) => {
