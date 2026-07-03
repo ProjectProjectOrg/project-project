@@ -80,7 +80,8 @@ export const UsersLive = Layer.effect(
                 activeOrgSlug: null,
                 personalGithub: {
                   connected: false
-                }
+                },
+                editorPreference: "github"
               })
             )
           ),

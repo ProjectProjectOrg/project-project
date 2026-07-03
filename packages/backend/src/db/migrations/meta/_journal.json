@@ -134,6 +134,13 @@
       "when": 1783114940296,
       "tag": "0018_status_icon_circlecheck",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783116437473,
+      "tag": "0019_mighty_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

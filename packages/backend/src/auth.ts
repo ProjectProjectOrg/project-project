@@ -314,6 +314,11 @@ export const auth = betterAuth({
         required: false,
         input: false,
         unique: true
+      },
+      editorPreference: {
+        type: "string",
+        required: false,
+        input: true
       }
     }
   },

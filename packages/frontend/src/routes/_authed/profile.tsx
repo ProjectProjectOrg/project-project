@@ -1,16 +1,23 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import type { EditorPreference } from "@projectproject/shared"
 import {
   connectPersonalGithubAtom,
   disconnectPersonalGithubAtom,
-  meAtom
+  meAtom,
+  updateEditorPreferenceAtom
 } from "@/atoms/auth"
 import githubLogo from "@/assets/github.svg"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
+import {
+  SEGMENTED_ITEM_CLASS,
+  SegmentedTabs
+} from "@/components/SegmentedTabs"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -110,6 +117,8 @@ function Profile() {
         email={user.email}
         oauthError={githubOAuthError}
       />
+
+      <EditorPreferenceCard preference={user.editorPreference} />
 
       <Card>
         <CardHeader>
@@ -300,6 +309,95 @@ function GithubDisconnectConfirm({
       </Button>
       <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
     </>
+  )
+}
+
+const EDITOR_OPTIONS: ReadonlyArray<{ key: EditorPreference; label: string }> = [
+  { key: "github", label: m.profile_editor_option_github() },
+  { key: "github_dev", label: m.profile_editor_option_github_dev() },
+  { key: "vscode", label: m.profile_editor_option_vscode() },
+  { key: "cursor", label: m.profile_editor_option_cursor() }
+]
+
+function editorHint(preference: EditorPreference): string {
+  switch (preference) {
+    case "github_dev":
+      return m.profile_editor_hint_github_dev()
+    case "vscode":
+      return m.profile_editor_hint_vscode()
+    case "cursor":
+      return m.profile_editor_hint_cursor()
+    case "github":
+    default:
+      return m.profile_editor_hint_github()
+  }
+}
+
+function EditorPreferenceCard({
+  preference
+}: {
+  preference: EditorPreference
+}) {
+  const update = useAtomSet(updateEditorPreferenceAtom, { mode: "promise" })
+  const updateState = useAtomValue(updateEditorPreferenceAtom)
+  const [selected, setSelected] = useState(preference)
+
+  useEffect(() => {
+    setSelected(preference)
+  }, [preference])
+
+  const waiting = updateState.waiting
+  const error = Result.isFailure(updateState)
+    ? m.profile_editor_update_error()
+    : null
+
+  function choose(next: EditorPreference) {
+    if (next === selected) return
+    setSelected(next)
+    void update(next).catch(() => setSelected(preference))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{m.profile_editor_title()}</CardTitle>
+        <CardDescription>{m.profile_editor_description()}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <SegmentedTabs
+          items={EDITOR_OPTIONS}
+          layoutId="editor-preference"
+          isActive={(key) => key === selected}
+          renderItem={(item, content, { active }) => (
+            <button
+              type="button"
+              onClick={() => choose(item.key)}
+              disabled={waiting}
+              aria-pressed={active}
+              className={cn(
+                SEGMENTED_ITEM_CLASS(active),
+                "disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+            >
+              {content}
+            </button>
+          )}
+        />
+        <p
+          className={cn(
+            "text-xs text-muted-foreground",
+            waiting && "animate-pulse"
+          )}
+        >
+          {editorHint(selected)}
+        </p>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
