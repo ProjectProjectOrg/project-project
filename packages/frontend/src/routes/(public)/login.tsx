@@ -42,7 +42,18 @@ function LoginPage() {
   const [authError, setAuthError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
-  if (Result.isSuccess(me)) return <Navigate to={redirectTarget as never} />
+  if (Result.isSuccess(me)) {
+    const queryIndex = redirectTarget.indexOf("?")
+    const pathname =
+      queryIndex === -1 ? redirectTarget : redirectTarget.slice(0, queryIndex)
+    const search =
+      queryIndex === -1
+        ? {}
+        : Object.fromEntries(
+            new URLSearchParams(redirectTarget.slice(queryIndex + 1))
+          )
+    return <Navigate to={pathname as never} search={search as never} />
+  }
 
   async function handleMagicLinkSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
