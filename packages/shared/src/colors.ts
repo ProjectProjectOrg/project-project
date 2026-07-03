@@ -29,13 +29,25 @@ export const TAG_DEFAULT_PALETTE: ReadonlyArray<string> = OUTER_RING.map(
   (c) => c.hex
 )
 
+export type StateColorToken = {
+  readonly light: ColorSwatch
+  readonly dark: ColorSwatch
+}
+
+function monoState(s: ColorSwatch): StateColorToken {
+  return { light: s, dark: s }
+}
+
 export const STATE_COLORS = {
-  danger: swatch(15, OUTER.L, OUTER.C),
-  warning: swatch(75, OUTER.L, OUTER.C),
-  success: swatch(135, OUTER.L, OUTER.C),
-  info: swatch(255, OUTER.L, OUTER.C),
-  merged: swatch(285, OUTER.L, OUTER.C)
-} as const satisfies Record<string, ColorSwatch>
+  danger: monoState(swatch(15, OUTER.L, OUTER.C)),
+  warning: {
+    light: swatch(75, 0.5, 0.16),
+    dark: swatch(75, 0.78, 0.07)
+  },
+  success: monoState(swatch(135, OUTER.L, OUTER.C)),
+  info: monoState(swatch(255, OUTER.L, OUTER.C)),
+  merged: monoState(swatch(285, OUTER.L, OUTER.C))
+} as const satisfies Record<string, StateColorToken>
 
 export function pickStatusColor(used: ReadonlyArray<string>): string {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c

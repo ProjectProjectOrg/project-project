@@ -42,6 +42,7 @@ const fakeTicket = {
   lastTransitionedPr: null,
   gitState: { tag: "no_branch" as const },
   assignees: [],
+  archivedAt: null,
   createdBy: "u-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),
   updatedAt: isoDate("2026-05-10T00:00:00.000Z")

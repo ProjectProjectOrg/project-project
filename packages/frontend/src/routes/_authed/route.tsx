@@ -6,13 +6,20 @@ import {
   Outlet,
   useLocation
 } from "@tanstack/react-router"
-import { FolderKanban, LayoutDashboard, LogOut, UserRound } from "lucide-react"
+import {
+  FolderKanban,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  UserRound
+} from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Logo, Wordmark } from "@/components/Logo"
+import { OrgSwitcher } from "@/components/OrgSwitcher"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
   SidebarSlotProvider,
@@ -97,6 +104,7 @@ function Sidebar({ user }: { user: User }) {
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
+        {orgSlug ? <OrgSwitcher /> : null}
       </div>
       <div className="relative min-h-0 flex-1">
         <AnimatePresence initial={false} mode="popLayout">
@@ -375,6 +383,20 @@ function UserMenu({ user }: { user: User }) {
             </Link>
           }
         />
+        {user.activeOrgSlug ? (
+          <DropdownMenuItem
+            render={
+              <Link
+                to="/orgs/$orgSlug/settings"
+                params={{ orgSlug: user.activeOrgSlug }}
+                className="cursor-pointer"
+              >
+                <Settings className="size-4" strokeWidth={1.75} />
+                {m.org_settings_menu_item()}
+              </Link>
+            }
+          />
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => logout()}

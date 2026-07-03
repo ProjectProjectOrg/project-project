@@ -99,4 +99,39 @@ describe("projectState", () => {
     expect(states?.prByBranch.has("feat/live")).toBe(true)
     expect(states?.prByBranch.has("feat/stale")).toBe(false)
   })
+
+  it("keeps the batch when a branch's pull-request alias is missing", () => {
+    const states = projectStatesFromBatchResponses([
+      {
+        branches: ["feat/has-pr", "feat/no-pr"],
+        response: {
+          repository: {
+            defaultBranchRef: { name: "main" },
+            b0: { name: "feat/has-pr" },
+            p0: { nodes: [pr("feat/has-pr")] },
+            b1: { name: "feat/no-pr" }
+          }
+        }
+      }
+    ])
+
+    expect(states).not.toBeNull()
+    expect([...(states?.existingBranches ?? [])].toSorted()).toEqual([
+      "feat/has-pr",
+      "feat/no-pr"
+    ])
+    expect(states?.prByBranch.has("feat/has-pr")).toBe(true)
+    expect(states?.prByBranch.has("feat/no-pr")).toBe(false)
+  })
+
+  it("maps a missing repository to RepoGone", () => {
+    const states = projectStatesFromBatchResponses([
+      {
+        branches: ["feat/whatever"],
+        response: { repository: null }
+      }
+    ])
+
+    expect(states).toBeNull()
+  })
 })

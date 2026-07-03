@@ -11,6 +11,7 @@ import {
 } from "lexical"
 import { LexicalExtensionComposer } from "@lexical/react/LexicalExtensionComposer"
 import { ContentEditable } from "@lexical/react/LexicalContentEditable"
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin"
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import {
@@ -26,7 +27,13 @@ import {
   ListExtension,
   $isListItemNode
 } from "@lexical/list"
-import { LinkExtension } from "@lexical/link"
+import {
+  AutoLinkExtension,
+  ClickableLinkExtension,
+  LinkExtension,
+  createLinkMatcherWithRegExp,
+  formatUrl
+} from "@lexical/link"
 import { CodeExtension, registerCodeHighlighting } from "@lexical/code"
 import {
   AutoFocusExtension,
@@ -46,12 +53,24 @@ import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const MARKDOWN_TRANSFORMERS = [
+export const MARKDOWN_TRANSFORMERS = [
   MENTION_TRANSFORMER,
   CHECK_LIST,
   HORIZONTAL_RULE,
   ...TRANSFORMERS
 ]
+
+const URL_MATCHER = createLinkMatcherWithRegExp(
+  /(?:https?:\/\/|www\.)[^\s<>()]+[^\s<>().,;:!?]/i,
+  formatUrl
+)
+
+const EMAIL_MATCHER = createLinkMatcherWithRegExp(
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  formatUrl
+)
+
+export const AUTO_LINK_MATCHERS = [URL_MATCHER, EMAIL_MATCHER]
 
 const lexicalTheme = {
   paragraph: "lexical-paragraph",
@@ -157,6 +176,32 @@ export function nextMarkdownChange(
   return nextMarkdown
 }
 
+function LinkBlurActivationPlugin() {
+  const [editor] = useLexicalComposerContext()
+
+  useEffect(
+    () =>
+      editor.registerRootListener((root) => {
+        if (!root) return
+        const handlePointerDown = (event: PointerEvent) => {
+          if (event.button > 1) return
+          if (!(event.target instanceof Element)) return
+          const link = event.target.closest("a.lexical-link")
+          if (!link || !root.contains(link)) return
+          if (root.contains(document.activeElement)) return
+          event.preventDefault()
+        }
+        root.addEventListener("pointerdown", handlePointerDown)
+        return () => {
+          root.removeEventListener("pointerdown", handlePointerDown)
+        }
+      }),
+    [editor]
+  )
+
+  return null
+}
+
 export function LexicalEditor({
   markdown,
   onChange,
@@ -194,6 +239,13 @@ export function LexicalEditor({
         ChecklistClickExtension,
         ListTabExtension,
         LinkExtension,
+        configExtension(ClickableLinkExtension, {
+          newTab: true,
+          disabled: false
+        }),
+        configExtension(AutoLinkExtension, {
+          matchers: AUTO_LINK_MATCHERS
+        }),
         CodeExtension,
         CodeHighlightExtension,
         HorizontalRuleExtension,
@@ -306,6 +358,7 @@ export function LexicalEditor({
         contentEditable={contentEditable}
       >
         <MentionsPlugin />
+        <LinkBlurActivationPlugin />
         <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin
           onChange={(editorState) => {

@@ -1,1 +1,0 @@
-DROP TABLE "everhour_task_link" CASCADE;

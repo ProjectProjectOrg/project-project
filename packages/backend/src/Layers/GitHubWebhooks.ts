@@ -17,6 +17,7 @@ import {
   type GitHubWebhookDelivery,
   type GitHubWebhookMutationSink,
   type GitHubPullRequestWebhookChange,
+  type GitHubRepositoryMetadataChange,
   type GitHubWebhooksShape
 } from "../Services/GitHubWebhooks"
 import { TicketDocs, type TicketDocsShape } from "../Services/TicketDocs"
@@ -219,7 +220,41 @@ const PullRequestPayload = Schema.Struct({
   })
 })
 
+const RepositoryPayload = Schema.Struct({
+  action: Schema.String,
+  installation: Schema.Struct({
+    id: GitHubId
+  }),
+  repository: Schema.Struct({
+    id: GitHubId,
+    name: Schema.optional(Schema.String),
+    owner: Schema.optional(
+      Schema.Struct({
+        login: Schema.String
+      })
+    ),
+    default_branch: Schema.optional(Schema.String)
+  })
+})
+
 const idToString = (id: typeof GitHubId.Type): string => String(id)
+
+const repositoryMetadata = (
+  repository: typeof RepositoryPayload.Type.repository
+): { owner: string; name: string; defaultBranch: string } | null => {
+  if (
+    repository.name === undefined ||
+    repository.owner === undefined ||
+    repository.default_branch === undefined
+  ) {
+    return null
+  }
+  return {
+    owner: repository.owner.login,
+    name: repository.name,
+    defaultBranch: repository.default_branch
+  }
+}
 
 const parseJson = (body: string) =>
   Schema.decodeUnknown(Schema.parseJson())(body)
@@ -386,6 +421,54 @@ const handlePullRequest = (
     )
   })
 
+const handleRepository = (
+  sink: GitHubWebhookMutationSink,
+  delivery: GitHubWebhookDelivery
+) =>
+  Effect.gen(function* () {
+    const payload = yield* decodePayload(RepositoryPayload, delivery)
+    if (!payload) return
+    const installationId = idToString(payload.installation.id)
+    const repoId = idToString(payload.repository.id)
+    if (payload.action === "archived") {
+      yield* sink.repositoryArchived(installationId, repoId, delivery.deliveryId)
+      return
+    }
+    if (payload.action === "unarchived") {
+      yield* sink.repositoryUnarchived(
+        installationId,
+        repoId,
+        delivery.deliveryId
+      )
+      return
+    }
+    if (payload.action === "deleted") {
+      yield* sink.repositoryDeleted(installationId, repoId, delivery.deliveryId)
+      return
+    }
+    if (payload.action === "renamed" || payload.action === "transferred") {
+      const metadata = repositoryMetadata(payload.repository)
+      if (!metadata) {
+        yield* logMalformed(delivery, "invalid_payload", {
+          action: payload.action,
+          installationId,
+          repoId
+        })
+        return
+      }
+      const change = { installationId, repoId, ...metadata }
+      yield* payload.action === "renamed"
+        ? sink.repositoryRenamed(change, delivery.deliveryId)
+        : sink.repositoryTransferred(change, delivery.deliveryId)
+      return
+    }
+    yield* logIgnored("github webhook action ignored", delivery, {
+      action: payload.action,
+      installationId,
+      repoId
+    })
+  })
+
 export const makeGitHubWebhooks = (
   sink: GitHubWebhookMutationSink
 ): GitHubWebhooksShape => ({
@@ -404,12 +487,18 @@ export const makeGitHubWebhooks = (
       yield* handlePullRequest(sink, delivery)
       return
     }
+    if (delivery.event === "repository") {
+      yield* handleRepository(sink, delivery)
+      return
+    }
     yield* logIgnored("github webhook event ignored", delivery)
   })
 })
 
 const disconnectMessage = "GitHub App installation removed"
 const suspendMessage = "GitHub App installation suspended"
+const repositoryArchivedMessage = "GitHub repository archived"
+const repositoryTransferredMessage = "GitHub repository transferred"
 
 export const GitHubWebhooksLive = Layer.effect(
   GitHubWebhooks,
@@ -644,6 +733,214 @@ export const GitHubWebhooksLive = Layer.effect(
       }
     )
 
+    const connectedRepoLinks = Effect.fn("GitHubWebhooks.connectedRepoLinks")(
+      function* (
+        integrationId: string,
+        organizationId: string,
+        repoId: string,
+        currentStatuses: ReadonlyArray<"active" | "broken" | "disconnected">
+      ) {
+        const rows = yield* db
+          .select({ id: projectIntegrationLink.id })
+          .from(projectGithubRepository)
+          .innerJoin(
+            projectIntegrationLink,
+            eq(
+              projectIntegrationLink.id,
+              projectGithubRepository.projectIntegrationLinkId
+            )
+          )
+          .where(
+            and(
+              eq(
+                projectIntegrationLink.organizationIntegrationId,
+                integrationId
+              ),
+              eq(projectGithubRepository.organizationId, organizationId),
+              eq(projectGithubRepository.repoId, repoId),
+              inArray(projectGithubRepository.status, [...currentStatuses]),
+              inArray(projectIntegrationLink.status, [...currentStatuses])
+            )
+          )
+          .pipe(Effect.orDie)
+        return rows.map((row) => row.id)
+      }
+    )
+
+    const writeRepositoryMetadata = (
+      linkIds: ReadonlyArray<string>,
+      change: GitHubRepositoryMetadataChange
+    ) =>
+      linkIds.length === 0
+        ? Effect.void
+        : db
+            .update(projectGithubRepository)
+            .set({
+              repoOwner: change.owner,
+              repoName: change.name,
+              defaultBranch: change.defaultBranch
+            })
+            .where(
+              inArray(projectGithubRepository.projectIntegrationLinkId, [
+                ...linkIds
+              ])
+            )
+            .pipe(Effect.orDie)
+
+    const setRepositoryConnectionStatus = Effect.fn(
+      "GitHubWebhooks.setRepositoryConnectionStatus"
+    )(function* (
+      installationId: string,
+      repoId: string,
+      status: "active" | "broken" | "disconnected",
+      currentStatuses: ReadonlyArray<"active" | "broken" | "disconnected">,
+      message: string | null,
+      deliveryId: string | null
+    ) {
+      const row = yield* installationRow(installationId)
+      if (!row) {
+        yield* Effect.logDebug("github webhook installation unknown").pipe(
+          Effect.annotateLogs({
+            module: "GitHubWebhooks",
+            installationId,
+            deliveryId
+          })
+        )
+        return
+      }
+      const now = yield* DateTime.nowAsDate
+      const lastCheckStatus = status === "broken" ? "error" : "ok"
+      yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            const linkIds = yield* connectedRepoLinks(
+              row.integrationId,
+              row.organizationId,
+              repoId,
+              currentStatuses
+            )
+            if (linkIds.length === 0) return
+            yield* db
+              .update(projectIntegrationLink)
+              .set({
+                status,
+                disconnectedAt: status === "disconnected" ? now : null,
+                lastCheckedAt: now,
+                lastCheckStatus,
+                lastCheckError: message,
+                updatedAt: now
+              })
+              .where(inArray(projectIntegrationLink.id, linkIds))
+              .pipe(Effect.orDie)
+            yield* updateProjectRepositories(linkIds, status, currentStatuses)
+          })
+        )
+        .pipe(Effect.catchTag("SqlError", Effect.die))
+    })
+
+    const repositoryRenamed = Effect.fn("GitHubWebhooks.repositoryRenamed")(
+      function* (
+        change: GitHubRepositoryMetadataChange,
+        deliveryId: string | null
+      ) {
+        const row = yield* installationRow(change.installationId)
+        if (!row) {
+          yield* Effect.logDebug("github webhook installation unknown").pipe(
+            Effect.annotateLogs({
+              module: "GitHubWebhooks",
+              installationId: change.installationId,
+              deliveryId
+            })
+          )
+          return
+        }
+        yield* sql
+          .withTransaction(
+            Effect.gen(function* () {
+              const linkIds = yield* connectedRepoLinks(
+                row.integrationId,
+                row.organizationId,
+                change.repoId,
+                ["active", "broken"]
+              )
+              yield* writeRepositoryMetadata(linkIds, change)
+            })
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+      }
+    )
+
+    const repositoryTransferred = Effect.fn(
+      "GitHubWebhooks.repositoryTransferred"
+    )(function* (
+      change: GitHubRepositoryMetadataChange,
+      _deliveryId: string | null
+    ) {
+      const row = yield* installationRow(change.installationId)
+      const now = yield* DateTime.nowAsDate
+      yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            const matches = yield* db
+              .select({
+                id: projectIntegrationLink.id,
+                organizationIntegrationId:
+                  projectIntegrationLink.organizationIntegrationId
+              })
+              .from(projectGithubRepository)
+              .innerJoin(
+                projectIntegrationLink,
+                eq(
+                  projectIntegrationLink.id,
+                  projectGithubRepository.projectIntegrationLinkId
+                )
+              )
+              .where(
+                and(
+                  eq(projectGithubRepository.repoId, change.repoId),
+                  inArray(projectGithubRepository.status, ["active", "broken"]),
+                  inArray(projectIntegrationLink.status, ["active", "broken"])
+                )
+              )
+              .pipe(Effect.orDie)
+            const retained = row
+              ? matches.filter(
+                  (match) =>
+                    match.organizationIntegrationId === row.integrationId
+                )
+              : []
+            const lost = matches.filter(
+              (match) =>
+                !row || match.organizationIntegrationId !== row.integrationId
+            )
+            yield* writeRepositoryMetadata(
+              retained.map((match) => match.id),
+              change
+            )
+            const lostIds = lost.map((match) => match.id)
+            if (lostIds.length > 0) {
+              yield* db
+                .update(projectIntegrationLink)
+                .set({
+                  status: "broken",
+                  disconnectedAt: null,
+                  lastCheckedAt: now,
+                  lastCheckStatus: "error",
+                  lastCheckError: repositoryTransferredMessage,
+                  updatedAt: now
+                })
+                .where(inArray(projectIntegrationLink.id, lostIds))
+                .pipe(Effect.orDie)
+              yield* updateProjectRepositories(lostIds, "broken", [
+                "active",
+                "broken"
+              ])
+            }
+          })
+        )
+        .pipe(Effect.catchTag("SqlError", Effect.die))
+    })
+
     const activeProjectLinksForRepository = Effect.fn(
       "GitHubWebhooks.activeProjectLinksForRepository"
     )(function* (change: GitHubPullRequestWebhookChange) {
@@ -766,6 +1063,35 @@ export const GitHubWebhooksLive = Layer.effect(
           deliveryId
         ),
       repositoriesRemoved,
+      repositoryRenamed,
+      repositoryTransferred,
+      repositoryArchived: (installationId, repoId, deliveryId) =>
+        setRepositoryConnectionStatus(
+          installationId,
+          repoId,
+          "broken",
+          ["active"],
+          repositoryArchivedMessage,
+          deliveryId
+        ),
+      repositoryUnarchived: (installationId, repoId, deliveryId) =>
+        setRepositoryConnectionStatus(
+          installationId,
+          repoId,
+          "active",
+          ["broken"],
+          null,
+          deliveryId
+        ),
+      repositoryDeleted: (installationId, repoId, deliveryId) =>
+        setRepositoryConnectionStatus(
+          installationId,
+          repoId,
+          "disconnected",
+          ["active", "broken"],
+          null,
+          deliveryId
+        ),
       pullRequestChanged
     })
   })

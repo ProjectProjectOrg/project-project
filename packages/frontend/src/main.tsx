@@ -17,9 +17,13 @@ import { routeTree } from "./routeTree.gen"
 import "./styles.css"
 
 const stateColorStyle = document.createElement("style")
-stateColorStyle.textContent = `:root{${Object.entries(STATE_COLORS)
-  .map(([name, c]) => `--state-${name}:${c.oklch};`)
-  .join("")}}`
+const lightStateVars = Object.entries(STATE_COLORS)
+  .map(([name, c]) => `--state-${name}:${c.light.oklch};`)
+  .join("")
+const darkStateVars = Object.entries(STATE_COLORS)
+  .map(([name, c]) => `--state-${name}:${c.dark.oklch};`)
+  .join("")
+stateColorStyle.textContent = `:root{${lightStateVars}}.dark{${darkStateVars}}`
 document.head.appendChild(stateColorStyle)
 
 const router = createRouter({

@@ -35,6 +35,7 @@ export interface TicketDocument {
   readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null
   readonly assignees: ReadonlyArray<string>
+  readonly archivedAt: Date | null
   readonly createdBy: string
   readonly createdAt: Date
   readonly updatedAt: Date

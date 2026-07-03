@@ -8,6 +8,7 @@ import { m } from "@/paraglide/messages"
 type Props = {
   value: string
   onChange: (icon: string) => void
+  onOpenChange?: (open: boolean) => void
   className?: string
   disabled?: boolean
   color?: string
@@ -16,12 +17,17 @@ type Props = {
 export function StatusIconPicker({
   value,
   onChange,
+  onOpenChange,
   className,
   disabled,
   color
 }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (!open) return

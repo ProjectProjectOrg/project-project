@@ -54,6 +54,7 @@ export const GitHubLive = Layer.effect(
   GitHub,
   Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
+    const auth = yield* appAuth()
 
     const tokenFor = (
       userId: string
@@ -70,7 +71,6 @@ export const GitHubLive = Layer.effect(
       timeToLive: Duration.minutes(45),
       lookup: (installationId: string) =>
         Effect.gen(function* () {
-          const auth = yield* appAuth()
           const result = yield* Effect.tryPromise({
             try: () =>
               auth({
@@ -90,7 +90,6 @@ export const GitHubLive = Layer.effect(
 
     const appToken = (): Effect.Effect<string, GitHubError> =>
       Effect.gen(function* () {
-        const auth = yield* appAuth()
         const result = yield* Effect.tryPromise({
           try: () => auth({ type: "app" }),
           catch: (cause) => new GitHubError({ message: String(cause) })
@@ -206,7 +205,6 @@ export const GitHubLive = Layer.effect(
 
     const exchangeAppUserCode = Effect.fn("GitHub.exchangeAppUserCode")(
       function* (code: string) {
-        const auth = yield* appAuth()
         const result = yield* Effect.tryPromise({
           try: () => auth({ type: "oauth-user", code }),
           catch: (cause) => new GitHubError({ message: String(cause) })

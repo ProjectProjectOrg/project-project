@@ -28,6 +28,7 @@ import type {
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
+import type { InvalidCommentBody } from "./Comments"
 import type { MarkdownError } from "./Markdown"
 import type { MalformedTicketDocument } from "./TicketDocs"
 
@@ -102,6 +103,22 @@ export interface TicketsShape {
     slug: string,
     id: string
   ) => Effect.Effect<void, NotFound | MarkdownError>
+  readonly archive: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    reason?: string
+  ) => Effect.Effect<
+    TicketDetail,
+    TicketReadError | MentionInvalid | InvalidCommentBody
+  >
+  readonly unarchive: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<TicketDetail, TicketReadError>
   readonly replaceTag: (
     orgSlug: string,
     slug: string,

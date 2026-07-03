@@ -5,9 +5,9 @@ import * as Fiber from "effect/Fiber"
 import * as Match from "effect/Match"
 import {
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronsUpDown,
+  CircleCheck,
   GitBranch
 } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -202,7 +202,7 @@ export function CreateBranchFields({
           <InlineForm.Cancel size={buttonSize} />
           <Button
             size={buttonSize}
-            leadingIcon={CheckCircle2}
+            leadingIcon={CircleCheck}
             onClick={() => void submit()}
             disabled={busy || !name.trim()}
           >

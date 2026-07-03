@@ -5,6 +5,7 @@ import {
   ticketListQueryToSearch
 } from "@projectproject/shared"
 import { TicketList } from "@/components/TicketList"
+import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { PageContainer } from "@/components/page"
 import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
 import { useProject } from "./-context"
@@ -32,6 +33,14 @@ function TicketsTab() {
         members={project.members}
         sprintMembership={sprintMembership}
         showSprintFilter
+        extraRowActions={(ticket) => (
+          <ArchiveTicketControl
+            orgSlug={orgSlug}
+            slug={slug}
+            id={ticket.id}
+            archived={ticket.archivedAt !== null}
+          />
+        )}
       />
     </PageContainer>
   )

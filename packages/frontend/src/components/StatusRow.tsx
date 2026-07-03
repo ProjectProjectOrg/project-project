@@ -7,10 +7,7 @@ import {
   type ProjectStatus,
   type StatusIconName
 } from "@projectproject/shared"
-import {
-  projectKey,
-  updateStatusAtom
-} from "@/atoms/projectStatuses"
+import { projectKey, updateStatusAtom } from "@/atoms/projectStatuses"
 import { ColorPicker } from "@/components/ColorPicker"
 import { Input } from "@/components/ui/input"
 import { StatusDeleteConfirm } from "@/components/StatusDeleteConfirm"
@@ -46,6 +43,9 @@ export function StatusRow({
   const controls = useDragControls()
   const [draftLabel, setDraftLabel] = useState<string>(status.label)
   const [isDragging, setIsDragging] = useState(false)
+  const [iconMenuOpen, setIconMenuOpen] = useState(false)
+  const [colorMenuOpen, setColorMenuOpen] = useState(false)
+  const menuOpen = iconMenuOpen || colorMenuOpen
 
   useEffect(() => {
     setDraftLabel(status.label)
@@ -85,7 +85,8 @@ export function StatusRow({
       }}
       className={cn(
         "list-none rounded-md",
-        isDragging && "z-10 shadow-md"
+        isDragging && "z-10 shadow-md",
+        menuOpen && "z-20"
       )}
       animate={{ scale: isDragging ? 1.01 : 1 }}
       transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
@@ -133,6 +134,7 @@ export function StatusRow({
             <StatusIconPicker
               value={status.icon}
               color={status.color}
+              onOpenChange={setIconMenuOpen}
               onChange={(icon) =>
                 update({
                   statusSlug: status.slug,
@@ -143,6 +145,7 @@ export function StatusRow({
             <div className="flex h-8 w-8 shrink-0 items-center justify-center">
               <ColorPicker
                 value={status.color}
+                onOpenChange={setColorMenuOpen}
                 onChange={(color) =>
                   update({
                     statusSlug: status.slug,

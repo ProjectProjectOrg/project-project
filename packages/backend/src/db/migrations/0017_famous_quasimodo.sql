@@ -1,0 +1,1 @@
+ALTER TABLE "ticket_index" ADD COLUMN "archived_at" timestamp with time zone;

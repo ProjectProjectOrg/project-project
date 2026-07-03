@@ -180,6 +180,18 @@ const pendingInvitesBaseAtom = runtime
 
 export const pendingInvitesAtom = Atom.optimistic(pendingInvitesBaseAtom)
 
+export const invitationAtom = Atom.family((invitationId: string) =>
+  runtime.atom(
+    Effect.tryPromise(async (): Promise<PendingInvite> => {
+      const invite = await authData(
+        authClient.organization.getInvitation({ query: { id: invitationId } })
+      )
+      if (!invite) throw new Error("invitation not found")
+      return toPendingInvite(invite)
+    })
+  )
+)
+
 export const declineInvitationAtom = Atom.family((invitationId: string) =>
   Atom.optimisticFn(pendingInvitesAtom, {
     reducer: (current) =>
@@ -235,12 +247,15 @@ export const setActiveOrganizationAtom = Atom.family((_key: "me") =>
   )
 )
 
-type AuthClientError = Pick<BetterFetchError, "status" | "statusText"> & {
+export type AuthClientError = Pick<
+  BetterFetchError,
+  "status" | "statusText"
+> & {
   code?: string
   message?: string
 }
 
-async function authData<T>(
+export async function authData<T>(
   response: Promise<{ data: T; error: AuthClientError | null }>
 ): Promise<T> {
   const { data, error } = await response
