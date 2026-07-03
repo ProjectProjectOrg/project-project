@@ -116,7 +116,7 @@ export function TicketPage({
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start lg:border-l lg:border-border/60 lg:pl-6">
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-border/60 lg:pl-6 lg:[scrollbar-gutter:stable]">
           <MetaRow label={m.tickets_page_meta_priority()}>
             <PriorityBadgeTrigger
               orgSlug={orgSlug}
