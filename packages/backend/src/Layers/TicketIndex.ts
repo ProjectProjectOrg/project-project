@@ -12,17 +12,147 @@ import {
   type TicketStatus,
   type TicketType
 } from "@projectproject/shared"
+import type { MarkdownError } from "../Services/Markdown"
 import { organization, projectIndex, ticketIndex } from "../db/schema"
 import { Db } from "../Services/Db"
 import {
   TicketIndex,
+  type TicketIndexDrift,
   type TicketIndexEntry,
-  type TicketIndexProject
+  type TicketIndexProject,
+  type TicketIndexReconcileOptions,
+  type TicketIndexReconcileProjectSummary,
+  type TicketIndexReconcileSummary
 } from "../Services/TicketIndex"
 import { TicketDocs, type TicketDocument } from "../Services/TicketDocs"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
+
+export interface IndexedTicketRef {
+  readonly ticketId: string
+  readonly updatedAt: Date
+}
+
+export interface DocumentTicketRef {
+  readonly id: string
+  readonly updatedAt: Date
+}
+
+export const detectTicketIndexDrift = (
+  indexed: ReadonlyArray<IndexedTicketRef>,
+  documents: ReadonlyArray<DocumentTicketRef>
+): TicketIndexDrift => {
+  const indexedTimes = new Map(
+    indexed.map((row) => [row.ticketId, row.updatedAt.getTime()])
+  )
+  const documentTimes = new Map(
+    documents.map((doc) => [doc.id, doc.updatedAt.getTime()])
+  )
+  const missing: Array<string> = []
+  const stale: Array<string> = []
+  for (const [id, time] of documentTimes) {
+    const indexedTime = indexedTimes.get(id)
+    if (indexedTime === undefined) missing.push(id)
+    else if (indexedTime !== time) stale.push(id)
+  }
+  const orphaned: Array<string> = []
+  for (const id of indexedTimes.keys()) {
+    if (!documentTimes.has(id)) orphaned.push(id)
+  }
+  return {
+    missing: missing.sort(),
+    orphaned: orphaned.sort(),
+    stale: stale.sort()
+  }
+}
+
+export const ticketIndexHasDrift = (drift: TicketIndexDrift): boolean =>
+  drift.missing.length > 0 ||
+  drift.orphaned.length > 0 ||
+  drift.stale.length > 0
+
+export interface TicketIndexReconcilerDeps {
+  readonly listProjects: Effect.Effect<ReadonlyArray<TicketIndexProject>>
+  readonly collectDocuments: (
+    project: TicketIndexProject
+  ) => Effect.Effect<
+    { documents: ReadonlyArray<TicketDocument>; skipped: number },
+    MarkdownError
+  >
+  readonly indexedRefs: (
+    project: TicketIndexProject
+  ) => Effect.Effect<ReadonlyArray<IndexedTicketRef>>
+  readonly writeProject: (
+    project: TicketIndexProject,
+    documents: ReadonlyArray<TicketDocument>
+  ) => Effect.Effect<void>
+}
+
+export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
+  const reconcileProject = (
+    project: TicketIndexProject,
+    options?: TicketIndexReconcileOptions
+  ): Effect.Effect<TicketIndexReconcileProjectSummary, MarkdownError> =>
+    Effect.gen(function* () {
+      const { documents, skipped } = yield* deps.collectDocuments(project)
+      const indexed = yield* deps.indexedRefs(project)
+      const drift = detectTicketIndexDrift(
+        indexed,
+        documents.map((doc) => ({ id: doc.id, updatedAt: doc.updatedAt }))
+      )
+      const shouldRebuild =
+        (options?.force ?? false) || ticketIndexHasDrift(drift)
+      if (!shouldRebuild) {
+        return {
+          project,
+          drift,
+          rebuilt: false,
+          indexed: indexed.length,
+          skipped
+        }
+      }
+      if (ticketIndexHasDrift(drift)) {
+        yield* Effect.logWarning("ticket index drift detected; rebuilding", {
+          orgSlug: project.orgSlug,
+          slug: project.projectSlug,
+          projectId: project.projectId,
+          missing: drift.missing,
+          orphaned: drift.orphaned,
+          stale: drift.stale,
+          indexedCount: indexed.length,
+          documentCount: documents.length
+        })
+      }
+      yield* deps.writeProject(project, documents)
+      return {
+        project,
+        drift,
+        rebuilt: true,
+        indexed: documents.length,
+        skipped
+      }
+    })
+
+  const reconcileAllProjects = (): Effect.Effect<
+    TicketIndexReconcileSummary,
+    MarkdownError
+  > =>
+    Effect.gen(function* () {
+      const projects = yield* deps.listProjects
+      const summaries = yield* Effect.forEach(
+        projects,
+        (project) => reconcileProject(project),
+        { concurrency: 1 }
+      )
+      return {
+        projects: summaries,
+        reconciled: summaries.filter((summary) => summary.rebuilt).length
+      }
+    })
+
+  return { reconcileProject, reconcileAllProjects }
+}
 
 export const TicketIndexLive = Layer.effect(
   TicketIndex,
@@ -253,7 +383,7 @@ export const TicketIndexLive = Layer.effect(
         )
         .pipe(Effect.asVoid, Effect.orDie)
 
-    const rebuildProject = (project: TicketIndexProject) =>
+    const collectDocuments = (project: TicketIndexProject) =>
       Effect.gen(function* () {
         const ids = yield* ticketDocs.listIds(
           project.orgSlug,
@@ -285,49 +415,77 @@ export const TicketIndexLive = Layer.effect(
             ),
           { concurrency: 8 }
         )
-        const tickets = reads.flatMap((read) =>
+        const documents = reads.flatMap((read) =>
           read.ticket === null ? [] : [read.ticket]
         )
         const skipped = reads.filter((read) => read.skipped).length
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
+        return { documents, skipped }
+      })
+
+    const writeProjectIndex = (
+      project: TicketIndexProject,
+      documents: ReadonlyArray<TicketDocument>
+    ): Effect.Effect<void> =>
+      sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* db
+              .delete(ticketIndex)
+              .where(eq(ticketIndex.projectId, project.projectId))
+              .pipe(Effect.asVoid, Effect.orDie)
+            if (documents.length > 0) {
               yield* db
-                .delete(ticketIndex)
-                .where(eq(ticketIndex.projectId, project.projectId))
+                .insert(ticketIndex)
+                .values(documents.map((document) => rowFor(project, document)))
                 .pipe(Effect.asVoid, Effect.orDie)
-              if (tickets.length > 0) {
-                yield* db
-                  .insert(ticketIndex)
-                  .values(tickets.map((ticket) => rowFor(project, ticket)))
-                  .pipe(Effect.asVoid, Effect.orDie)
-              }
-            })
-          )
-          .pipe(Effect.catchTag("SqlError", Effect.die))
-        return { project, indexed: tickets.length, skipped }
+            }
+          })
+        )
+        .pipe(Effect.catchTag("SqlError", Effect.die), Effect.asVoid)
+
+    const indexedRefs = (project: TicketIndexProject) =>
+      db
+        .select({
+          ticketId: ticketIndex.ticketId,
+          updatedAt: ticketIndex.updatedAt
+        })
+        .from(ticketIndex)
+        .where(eq(ticketIndex.projectId, project.projectId))
+        .pipe(Effect.orDie)
+
+    const listProjects = db
+      .select({
+        orgSlug: organization.slug,
+        organizationId: projectIndex.organizationId,
+        projectId: projectIndex.id,
+        projectSlug: projectIndex.slug
+      })
+      .from(projectIndex)
+      .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
+      .pipe(Effect.orDie)
+
+    const rebuildProject = (project: TicketIndexProject) =>
+      Effect.gen(function* () {
+        const { documents, skipped } = yield* collectDocuments(project)
+        yield* writeProjectIndex(project, documents)
+        return { project, indexed: documents.length, skipped }
       })
 
     const rebuildAllProjects = () =>
       Effect.gen(function* () {
-        const projects = yield* db
-          .select({
-            orgSlug: organization.slug,
-            organizationId: projectIndex.organizationId,
-            projectId: projectIndex.id,
-            projectSlug: projectIndex.slug
-          })
-          .from(projectIndex)
-          .innerJoin(
-            organization,
-            eq(organization.id, projectIndex.organizationId)
-          )
-          .pipe(Effect.orDie)
+        const projects = yield* listProjects
         const summaries = yield* Effect.forEach(projects, rebuildProject, {
           concurrency: 1
         })
         return { projects: summaries }
       })
+
+    const reconciler = makeTicketIndexReconciler({
+      listProjects,
+      collectDocuments,
+      indexedRefs,
+      writeProject: writeProjectIndex
+    })
 
     return {
       projectFor,
@@ -340,7 +498,9 @@ export const TicketIndexLive = Layer.effect(
       upsertTicket,
       deleteTicket,
       rebuildProject,
-      rebuildAllProjects
+      rebuildAllProjects,
+      reconcileProject: reconciler.reconcileProject,
+      reconcileAllProjects: reconciler.reconcileAllProjects
     }
   })
 )
