@@ -301,6 +301,14 @@ describe("MCP dispatcher → write tools", () => {
           activeOrgSlug: null,
           personalGithub: {
             connected: false
+          },
+          personalEverhour: {
+            connected: false,
+            everhourUserId: null,
+            name: null,
+            email: null,
+            lastVerifiedAt: null,
+            lastCheckError: null
           }
         },
         body: input.body,

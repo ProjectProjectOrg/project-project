@@ -23,6 +23,7 @@ const fakeBetterAuth: BetterAuthShape = {
   getSession: () => Effect.die("not implemented"),
   getGithubAccessToken: () => Effect.die("not implemented"),
   getPersonalGithub: () => Effect.die("not implemented"),
+  getPersonalEverhour: () => Effect.die("not implemented"),
   getOrgSlugById: () => Effect.die("not implemented"),
   listOrganizations: () => Effect.die("not implemented"),
   listOrganizationsPaged: () => Effect.die("not implemented"),

@@ -134,6 +134,13 @@
       "when": 1783114940296,
       "tag": "0018_status_icon_circlecheck",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783115918963,
+      "tag": "0019_glossy_bromley",
+      "breakpoints": true
     }
   ]
 }

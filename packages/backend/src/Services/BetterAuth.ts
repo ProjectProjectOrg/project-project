@@ -6,6 +6,7 @@ import type {
   CursorPayload,
   NotFound,
   Org,
+  PersonalEverhour,
   PersonalGithub
 } from "@projectproject/shared"
 
@@ -30,6 +31,9 @@ export interface BetterAuthShape {
   readonly getPersonalGithub: (
     userId: string
   ) => Effect.Effect<PersonalGithub, BetterAuthError>
+  readonly getPersonalEverhour: (
+    userId: string
+  ) => Effect.Effect<PersonalEverhour, BetterAuthError>
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
   ) => Effect.Effect<string | null, BetterAuthError>

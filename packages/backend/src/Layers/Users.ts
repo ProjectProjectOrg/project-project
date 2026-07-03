@@ -80,6 +80,14 @@ export const UsersLive = Layer.effect(
                 activeOrgSlug: null,
                 personalGithub: {
                   connected: false
+                },
+                personalEverhour: {
+                  connected: false,
+                  everhourUserId: null,
+                  name: null,
+                  email: null,
+                  lastVerifiedAt: null,
+                  lastCheckError: null
                 }
               })
             )
