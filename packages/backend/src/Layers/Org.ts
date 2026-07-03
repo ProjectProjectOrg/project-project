@@ -18,8 +18,6 @@ import { Org, type OrgShape } from "../Services/Org"
 
 const makeRole = Schema.decodeUnknownSync(Role)
 
-const GRACE_MS = ORG_DELETE_GRACE_DAYS * 24 * 60 * 60 * 1000
-
 const purgeAtFor = (deletedAt: Date): Date =>
   DateTime.toDate(
     DateTime.add(DateTime.unsafeFromDate(deletedAt), {
@@ -124,7 +122,12 @@ export const OrgLive = Layer.effect(
         yield* db
           .update(organization)
           .set({ deletedAt: now })
-          .where(eq(organization.id, resolved.organizationId))
+          .where(
+            and(
+              eq(organization.id, resolved.organizationId),
+              isNull(organization.deletedAt)
+            )
+          )
           .pipe(Effect.orDie)
         return toDetail(row, now)
       })
@@ -142,13 +145,18 @@ export const OrgLive = Layer.effect(
           return yield* new Conflict({ reason: "not_deleted" })
         }
         const nowMs = DateTime.toEpochMillis(yield* DateTime.now)
-        if (nowMs > row.deletedAt.getTime() + GRACE_MS) {
+        if (nowMs > purgeAtFor(row.deletedAt).getTime()) {
           return yield* new Conflict({ reason: "grace_expired" })
         }
         yield* db
           .update(organization)
           .set({ deletedAt: null })
-          .where(eq(organization.id, row.organizationId))
+          .where(
+            and(
+              eq(organization.id, row.organizationId),
+              eq(organization.deletedAt, row.deletedAt)
+            )
+          )
           .pipe(Effect.orDie)
         return toDetail(row, null)
       })

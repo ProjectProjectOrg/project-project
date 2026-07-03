@@ -367,11 +367,25 @@ function InvitationMenu({
   const cancelState = useAtomValue(cancelOrgInvitationAtom(key))
   const canceling = cancelState.waiting
   const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState<OrgActionError | null>(null)
+
+  async function onCancelInvite() {
+    setError(null)
+    const exit = await cancel()
+    if (Exit.isSuccess(exit)) {
+      setConfirming(false)
+    } else {
+      setError(orgActionErrorFromExit(exit))
+    }
+  }
 
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (!open) setConfirming(false)
+        if (!open) {
+          setConfirming(false)
+          setError(null)
+        }
       }}
     >
       <DropdownMenuTrigger
@@ -387,33 +401,20 @@ function InvitationMenu({
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-52">
         {confirming ? (
-          <div className="flex flex-col gap-2 p-1">
-            <p className="px-2 pt-1 text-xs text-muted-foreground">
-              {m.members_pending_cancel_confirm_prompt({
-                email: invitation.email
-              })}
-            </p>
-            <div className="flex gap-1 px-1 pb-1">
-              <button
-                type="button"
-                disabled={canceling}
-                onClick={() => void cancel()}
-                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-transform duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
-              >
-                {canceling
-                  ? m.members_pending_cancel_in_progress()
-                  : m.members_pending_cancel_button()}
-              </button>
-              <button
-                type="button"
-                disabled={canceling}
-                onClick={() => setConfirming(false)}
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
-              >
-                {m.common_cancel_button()}
-              </button>
-            </div>
-          </div>
+          <ConfirmBlock
+            prompt={m.members_pending_cancel_confirm_prompt({
+              email: invitation.email
+            })}
+            confirmLabel={
+              canceling
+                ? m.members_pending_cancel_in_progress()
+                : m.members_pending_cancel_button()
+            }
+            busy={canceling}
+            error={error}
+            onConfirm={() => void onCancelInvite()}
+            onCancel={() => setConfirming(false)}
+          />
         ) : (
           <DropdownMenuItem
             closeOnClick={false}
@@ -686,7 +687,7 @@ function ConfirmBlock({
           type="button"
           disabled={busy}
           onClick={onCancel}
-          className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
+          className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]"
         >
           {m.common_cancel_button()}
         </button>

@@ -349,27 +349,34 @@ export const transferOrgOwnershipAtom = Atom.family((orgSlug: string) =>
           return yield* Effect.dieMessage("org detail not loaded")
         }
         const organizationId = detail.value.id
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.updateMemberRole({
-              role: "owner",
-              memberId: input.toMemberId,
-              organizationId
+        yield* Effect.gen(function* () {
+          yield* Effect.tryPromise(() =>
+            authData(
+              authClient.organization.updateMemberRole({
+                role: "owner",
+                memberId: input.toMemberId,
+                organizationId
+              })
+            )
+          )
+          yield* Effect.tryPromise(() =>
+            authData(
+              authClient.organization.updateMemberRole({
+                role: "admin",
+                memberId: input.selfMemberId,
+                organizationId
+              })
+            )
+          )
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.refresh(orgMembersBaseAtom(orgSlug))
+              get.refresh(orgDetailBaseAtom(orgSlug))
+              get.refresh(meAtom)
             })
           )
         )
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.updateMemberRole({
-              role: "admin",
-              memberId: input.selfMemberId,
-              organizationId
-            })
-          )
-        )
-        get.refresh(orgMembersBaseAtom(orgSlug))
-        get.refresh(orgDetailBaseAtom(orgSlug))
-        get.refresh(meAtom)
       })
     )
   })

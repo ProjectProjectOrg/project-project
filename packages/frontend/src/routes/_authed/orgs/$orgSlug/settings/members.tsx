@@ -33,24 +33,28 @@ function MembersBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const membersResult = useAtomValue(orgMembersAtom(orgSlug))
   const me = useAtomValue(meAtom)
 
-  if (!Result.isSuccess(me)) return <MembersSkeleton />
-
-  return Result.matchWithError(membersResult, {
+  return Result.matchWithError(me, {
     onInitial: () => <MembersSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value }) => (
-      <section className="flex w-full flex-col gap-4">
-        <OrgMembersSection
-          orgSlug={orgSlug}
-          orgName={org.name}
-          members={value.members}
-          invitations={value.invitations}
-          callerRole={org.role}
-          callerUserId={me.value.id}
-        />
-      </section>
-    )
+    onSuccess: ({ value: currentUser }) =>
+      Result.matchWithError(membersResult, {
+        onInitial: () => <MembersSkeleton />,
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />,
+        onSuccess: ({ value }) => (
+          <section className="flex w-full flex-col gap-4">
+            <OrgMembersSection
+              orgSlug={orgSlug}
+              orgName={org.name}
+              members={value.members}
+              invitations={value.invitations}
+              callerRole={org.role}
+              callerUserId={currentUser.id}
+            />
+          </section>
+        )
+      })
   })
 }
 

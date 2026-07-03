@@ -45,6 +45,11 @@ const SECTIONS = [
   description: string
 }>
 
+const isSectionActive = (pathname: string, orgSlug: string, key: string) => {
+  const base = `/orgs/${orgSlug}/settings/${key}`
+  return pathname === base || pathname.startsWith(`${base}/`)
+}
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings")({
   component: SettingsLayout,
   loader: () => ({
@@ -62,12 +67,9 @@ function SettingsLayout() {
   useSidebarSlot(`org-settings:${orgSlug}`, renderRail)
 
   const activeSection =
-    SECTIONS.find((section) => {
-      const base = `/orgs/${orgSlug}/settings/${section.key}`
-      return (
-        location.pathname === base || location.pathname.startsWith(`${base}/`)
-      )
-    }) ?? SECTIONS[0]
+    SECTIONS.find((section) =>
+      isSectionActive(location.pathname, orgSlug, section.key)
+    ) ?? SECTIONS[0]
 
   return (
     <PageContainer>
@@ -93,11 +95,11 @@ function SettingsRail({ orgSlug }: { orgSlug: string }) {
       <nav className="flex flex-col gap-1">
         {SECTIONS.map((section) => {
           const Icon = section.icon
-          const active =
-            location.pathname === `/orgs/${orgSlug}/settings/${section.key}` ||
-            location.pathname.startsWith(
-              `/orgs/${orgSlug}/settings/${section.key}/`
-            )
+          const active = isSectionActive(
+            location.pathname,
+            orgSlug,
+            section.key
+          )
           return (
             <Link
               key={section.key}
