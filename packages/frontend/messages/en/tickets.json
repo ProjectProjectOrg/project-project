@@ -86,6 +86,7 @@
   "tickets_status_aria_label": "Status: {label}. Click to change.",
   "tickets_status_chip_aria_label": "{label} ({count})",
   "tickets_status_create_add": "Add status",
+  "tickets_status_create_error_fallback": "Couldn't add this status. Try again.",
   "tickets_status_create_placeholder": "New status name",
   "tickets_status_delete_button": "Delete",
   "tickets_status_delete_cancel": "Cancel",

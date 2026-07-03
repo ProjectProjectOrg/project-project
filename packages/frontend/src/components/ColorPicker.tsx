@@ -12,6 +12,7 @@ import { m } from "@/paraglide/messages"
 type Props = {
   value: string
   onChange: (hex: string) => void
+  onOpenChange?: (open: boolean) => void
   className?: string
   ariaLabel?: string
   closeOnSelect?: boolean
@@ -27,12 +28,17 @@ const SVG = (OUTER_RADIUS + SWATCH / 2 + 2) * 2
 export function ColorPicker({
   value,
   onChange,
+  onOpenChange,
   className,
   ariaLabel,
   closeOnSelect = true
 }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (!open) return
