@@ -12,8 +12,10 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { CopyButton } from "@/components/ui/copy-button"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
+import { meAtom } from "@/atoms/auth"
 import { projectGitStatesAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
+import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
 import { CreateBranchFields } from "@/components/TicketGit/CreateBranchFields"
@@ -504,6 +506,20 @@ const ROW_STACK =
 const WRAPPABLE_TEXT =
   "min-w-0 truncate text-xs text-muted-foreground @max-sm/git-panel:whitespace-normal @max-sm/git-panel:overflow-visible"
 
+function usePreferredBranchLink(
+  slug: string,
+  name: string
+): { href: string; target?: "_blank"; rel?: "noreferrer" } {
+  const me = useAtomValue(meAtom)
+  const preference = Result.isSuccess(me)
+    ? me.value.editorPreference
+    : "github"
+  const href = branchUrl(preference, slug, name)
+  return branchOpensInNewTab(preference)
+    ? { href, target: "_blank", rel: "noreferrer" }
+    : { href }
+}
+
 export function BranchChip({
   slug,
   name,
@@ -515,12 +531,11 @@ export function BranchChip({
   displayName?: string
   variant?: "muted" | "ghost"
 }) {
+  const link = usePreferredBranchLink(slug, name)
   if (variant === "ghost") {
     return (
       <a
-        href={`https://github.com/${slug}/tree/${name}`}
-        target="_blank"
-        rel="noreferrer"
+        {...link}
         onClick={(e) => e.stopPropagation()}
         title={name}
         className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-foreground"
@@ -537,9 +552,7 @@ export function BranchChip({
       title={name}
     >
       <a
-        href={`https://github.com/${slug}/tree/${name}`}
-        target="_blank"
-        rel="noreferrer"
+        {...link}
         onClick={(e) => e.stopPropagation()}
         className="inline-flex min-w-0 items-center gap-1 rounded-md py-0.5 pl-1.5 transition-colors duration-100 hover:text-foreground"
       >

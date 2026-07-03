@@ -302,6 +302,7 @@ describe("MCP dispatcher → write tools", () => {
           personalGithub: {
             connected: false
           },
+          editorPreference: "github",
           personalEverhour: {
             connected: false,
             everhourUserId: null,
