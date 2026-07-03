@@ -1,8 +1,10 @@
+import { APIError } from "better-auth/api"
 import { getTestInstance } from "better-auth/test"
 import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
 import { organization } from "better-auth/plugins"
+import * as DateTime from "effect/DateTime"
 import { describe, expect, it, vi } from "vitest"
-import { auth } from "./auth"
+import { auth, lastOrgOwnerBlocked, projectOwnerRemovalError } from "./auth"
 
 describe("Better Auth plugin wiring", () => {
   it("signs users in through a magic link and marks the email verified", async () => {
@@ -242,6 +244,216 @@ describe("Better Auth plugin wiring", () => {
     expect(typeof auth.api.setRole).toBe("function")
     expect(typeof auth.api.banUser).toBe("function")
     expect(typeof auth.api.impersonateUser).toBe("function")
+  })
+})
+
+describe("organization owner guard invariants", () => {
+  it("blocks demoting the last remaining owner", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: "admin",
+        targetRole: "owner",
+        otherOwnerCount: 0
+      })
+    ).toBe(true)
+  })
+
+  it("blocks removing the last remaining owner", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: null,
+        targetRole: "owner",
+        otherOwnerCount: 0
+      })
+    ).toBe(true)
+  })
+
+  it("allows demoting an owner when another owner remains", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: "admin",
+        targetRole: "owner",
+        otherOwnerCount: 1
+      })
+    ).toBe(false)
+  })
+
+  it("never blocks a promotion to owner", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: "owner",
+        targetRole: "member",
+        otherOwnerCount: 0
+      })
+    ).toBe(false)
+  })
+
+  it("ignores non-owner targets", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: "member",
+        targetRole: "admin",
+        otherOwnerCount: 0
+      })
+    ).toBe(false)
+  })
+
+  it("permits the transfer order (promote target, then demote self)", () => {
+    const promoteTarget = lastOrgOwnerBlocked({
+      nextRole: "owner",
+      targetRole: "member",
+      otherOwnerCount: 1
+    })
+    const demoteSelf = lastOrgOwnerBlocked({
+      nextRole: "admin",
+      targetRole: "owner",
+      otherOwnerCount: 1
+    })
+    expect(promoteTarget).toBe(false)
+    expect(demoteSelf).toBe(false)
+  })
+
+  it("blocks the reverse transfer order (demote self while sole owner)", () => {
+    expect(
+      lastOrgOwnerBlocked({
+        nextRole: "admin",
+        targetRole: "owner",
+        otherOwnerCount: 0
+      })
+    ).toBe(true)
+  })
+})
+
+describe("project-owner removal guard", () => {
+  it("does not block when the member owns no projects", () => {
+    expect(projectOwnerRemovalError([])).toBeUndefined()
+  })
+
+  it("blocks with a 409 and the owned project slugs", () => {
+    const error = projectOwnerRemovalError(["alpha", "beta"])
+    expect(error).toBeInstanceOf(APIError)
+    expect(error?.statusCode).toBe(409)
+    expect(error?.body?.code).toBe("PROJECT_OWNER_REMOVAL_BLOCKED")
+    expect(
+      (error?.body as { projectSlugs?: ReadonlyArray<string> })?.projectSlugs
+    ).toEqual(["alpha", "beta"])
+  })
+})
+
+describe("organization role assignment access control", () => {
+  it("lets an owner assign owner and blocks admins, and enforces last-owner order", async () => {
+    const { client, signInWithTestUser, signInWithUser, db } =
+      await getTestInstance(
+        {
+          plugins: [testOrganizationPlugin()],
+          emailAndPassword: {
+            enabled: true,
+            requireEmailVerification: false
+          }
+        },
+        { clientOptions: { plugins: [organizationClient()] } }
+      )
+
+    const owner = await signInWithTestUser()
+    let organizationId = ""
+    let ownerMemberId = ""
+
+    await owner.runWithUser(async () => {
+      const { data, error } = await client.organization.create({
+        name: "Acme",
+        slug: "acme"
+      })
+      expect(error).toBeNull()
+      organizationId = data!.id
+    })
+
+    const ownerMember = await db.findOne<{ id: string }>({
+      model: "member",
+      where: [
+        { field: "organizationId", value: organizationId },
+        { field: "userId", value: owner.user.id }
+      ],
+      select: ["id"]
+    })
+    ownerMemberId = ownerMember!.id
+
+    await client.signUp.email({
+      email: "admin@example.com",
+      password: "password123",
+      name: "Admin User"
+    })
+    const adminUser = await db.findOne<{ id: string }>({
+      model: "user",
+      where: [{ field: "email", value: "admin@example.com" }],
+      select: ["id"]
+    })
+    await db.create({
+      model: "member",
+      data: {
+        organizationId,
+        userId: adminUser!.id,
+        role: "admin",
+        createdAt: DateTime.toDate(DateTime.unsafeNow())
+      }
+    })
+
+    await client.signUp.email({
+      email: "target@example.com",
+      password: "password123",
+      name: "Target User"
+    })
+    const targetUser = await db.findOne<{ id: string }>({
+      model: "user",
+      where: [{ field: "email", value: "target@example.com" }],
+      select: ["id"]
+    })
+    const targetMember = await db.create<
+      Record<string, unknown>,
+      { id: string }
+    >({
+      model: "member",
+      data: {
+        organizationId,
+        userId: targetUser!.id,
+        role: "member",
+        createdAt: DateTime.toDate(DateTime.unsafeNow())
+      }
+    })
+
+    const soleOwnerDemote = await client.organization.updateMemberRole({
+      organizationId,
+      memberId: ownerMemberId,
+      role: "admin",
+      fetchOptions: { headers: owner.headers }
+    })
+    expect(soleOwnerDemote.error).not.toBeNull()
+
+    const admin = await signInWithUser("admin@example.com", "password123")
+    const adminPromote = await client.organization.updateMemberRole({
+      organizationId,
+      memberId: targetMember.id,
+      role: "owner",
+      fetchOptions: { headers: admin.headers }
+    })
+    expect(adminPromote.error?.status).toBe(403)
+
+    const ownerPromote = await client.organization.updateMemberRole({
+      organizationId,
+      memberId: targetMember.id,
+      role: "owner",
+      fetchOptions: { headers: owner.headers }
+    })
+    expect(ownerPromote.error).toBeNull()
+    expect(ownerPromote.data?.role).toContain("owner")
+
+    const selfDemote = await client.organization.updateMemberRole({
+      organizationId,
+      memberId: ownerMemberId,
+      role: "admin",
+      fetchOptions: { headers: owner.headers }
+    })
+    expect(selfDemote.error).toBeNull()
+    expect(selfDemote.data?.role).toBe("admin")
   })
 })
 
