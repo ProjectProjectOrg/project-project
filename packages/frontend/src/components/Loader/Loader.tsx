@@ -1,13 +1,14 @@
 import { useMemo, useSyncExternalStore } from "react"
+import { type Animation, animations } from "./animations"
 import {
   DEFAULT_UNIFORMS,
   type DitherUniforms
 } from "./dither-shader"
 import { DitherCanvas } from "./DitherCanvas"
 
-export function breathingP(elapsedMs: number, periodMs: number): number {
-  return 0.5 - 0.5 * Math.cos((2 * Math.PI * elapsedMs) / periodMs)
-}
+export { breathingP } from "./animations"
+
+const defaultAnimation = animations[0].fn
 
 function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(
@@ -28,6 +29,7 @@ type LoaderProps = {
   paused?: boolean
   uniforms?: Partial<DitherUniforms>
   ditherCells?: number
+  animation?: Animation
 }
 
 export function Loader({
@@ -36,20 +38,20 @@ export function Loader({
   speed = 1,
   paused = false,
   uniforms,
-  ditherCells
+  ditherCells,
+  animation = defaultAnimation
 }: LoaderProps) {
   const reduced = usePrefersReducedMotion()
   const merged = useMemo(
     () => ({ ...DEFAULT_UNIFORMS, ...uniforms }),
     [uniforms]
   )
-  const period = 4000 / (speed || 1)
-  const getP = useMemo(
+  const getFrame = useMemo(
     () =>
       reduced
-        ? () => 0.5
-        : (elapsed: number) => breathingP(elapsed, period),
-    [reduced, period]
+        ? () => ({ p: 0.5, shift: [0, 0] as [number, number] })
+        : (elapsed: number) => animation(elapsed * (speed || 1)),
+    [reduced, animation, speed]
   )
   const dim = typeof size === "number" ? `${size}px` : size
 
@@ -57,7 +59,7 @@ export function Loader({
     <DitherCanvas
       className={className}
       style={{ width: dim, height: dim }}
-      getP={getP}
+      getFrame={getFrame}
       paused={paused || reduced}
       uniforms={merged}
       ditherCells={ditherCells}
