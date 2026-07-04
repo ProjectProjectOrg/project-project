@@ -151,6 +151,14 @@ function Button({
     size === "icon-lg"
   const iconSize =
     size === "xs" ? 12 : size === "sm" ? 14 : size === "lg" ? 20 : 16
+  const spinnerClassName =
+    size === "xs" || size === "icon-xs"
+      ? "size-3"
+      : size === "sm" || size === "icon-sm"
+        ? "size-4"
+        : size === "lg" || size === "icon-lg"
+          ? "size-6"
+          : "size-5"
   const shape = useShape()
 
   const compClassName = cn(
@@ -207,8 +215,8 @@ function Button({
             <TrailingIcon size={iconSize} strokeWidth={2} />
           )}
         </span>
-        <span className="absolute inset-0 z-10 flex items-center justify-center">
-          <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+        <span className="absolute inset-0 z-10 grid place-items-center">
+          <svg className={spinnerClassName} viewBox="0 0 24 24" fill="none">
             <path
               d="M 12 12 C 14 8.5 19 8.5 19 12 C 19 15.5 14 15.5 12 12 C 10 8.5 5 8.5 5 12 C 5 15.5 10 15.5 12 12 Z"
               stroke="currentColor"

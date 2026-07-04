@@ -121,22 +121,22 @@
     "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  @keyframes spinner-move {
-    to {
-      stroke-dashoffset: -100;
-    }
-  }
-  @keyframes spinner-dash {
-    0%,
-    100% {
-      stroke-dasharray: 15 85;
-    }
-    50% {
-      stroke-dasharray: 40 60;
-    }
-  }
 }
 
+@keyframes spinner-move {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes spinner-dash {
+  0%,
+  100% {
+    stroke-dasharray: 15 85;
+  }
+  50% {
+    stroke-dasharray: 40 60;
+  }
+}
 .skeleton {
   animation: skeleton-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
