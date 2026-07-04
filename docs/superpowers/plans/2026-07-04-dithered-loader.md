@@ -796,7 +796,7 @@ git commit -m "feat(loader): breathing clock, reduced-motion, public Loader comp
 ### Task 6: Debug page at `/dev/loader` (first usage, multiple contexts)
 
 **Files:**
-- Create: `src/routes/dev/loader.tsx`
+- Create: `src/routes/dev/loader/index.tsx`
 
 **Interfaces:**
 - Consumes: `Loader` (Task 5); `logoSvgString` (Task 1).
@@ -932,7 +932,7 @@ Expected: no errors.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/routes/dev/loader.tsx src/routeTree.gen.ts
+git add src/routes/dev/loader/index.tsx src/routeTree.gen.ts
 git commit -m "feat(loader): /dev/loader debug page across contexts"
 ```
 
