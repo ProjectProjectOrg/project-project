@@ -1,7 +1,8 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useState } from "react"
 import { DEFAULT_WORK_TYPES, type GroupId } from "@projectproject/shared"
-import { everhourProfileAtom } from "@/atoms/everhour"
+import { everhourProfileAtom, everhourProjectStatusAtom } from "@/atoms/everhour"
+import { projectKey } from "@/atoms/projects"
 import {
   activeTimerAtom,
   groupKey,
@@ -9,9 +10,11 @@ import {
   stopTimerAtom
 } from "@/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/components/time/ConnectEverhourInline"
+import { EverhourSetupHint } from "@/components/time/EverhourSetupHint"
 import { LogTimeForm } from "@/components/time/LogTimeForm"
 import { TimeControls } from "@/components/time/TimeControls"
 import { ErrorPage } from "@/components/ErrorPage"
+import { useProjectRole } from "@/lib/projectRole"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
   key: workType.key,
@@ -28,6 +31,10 @@ export function SprintTimePanel({
   groupId: GroupId
 }) {
   const gKey = groupKey(orgSlug, slug, groupId)
+  const statusResult = useAtomValue(
+    everhourProjectStatusAtom(projectKey(orgSlug, slug))
+  )
+  const { isOwner, isAdmin } = useProjectRole()
   const profileResult = useAtomValue(everhourProfileAtom)
   const activeTimerResult = useAtomValue(activeTimerAtom(orgSlug))
   const start = useAtomSet(startSprintTimerAtom(gKey), { mode: "promiseExit" })
@@ -37,8 +44,24 @@ export function SprintTimePanel({
   const [workType, setWorkType] = useState(options[0].key)
   const [showLog, setShowLog] = useState(false)
 
-  if (Result.isInitial(profileResult)) {
+  const notConnected =
+    Result.isSuccess(statusResult) &&
+    statusResult.value.status === "not_connected"
+  if (notConnected) {
+    return isOwner || isAdmin ? (
+      <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
+    ) : null
+  }
+  if (Result.isInitial(statusResult) || Result.isInitial(profileResult)) {
     return <div className="h-8 animate-pulse rounded bg-muted/40" />
+  }
+  if (Result.isFailure(statusResult)) {
+    return Result.matchWithError(statusResult, {
+      onInitial: () => null,
+      onError: (error) => <ErrorPage error={error} contained />,
+      onDefect: (defect) => <ErrorPage error={defect} contained />,
+      onSuccess: () => null
+    })
   }
   if (Result.isFailure(profileResult)) {
     return Result.matchWithError(profileResult, {

@@ -213,6 +213,7 @@ function EverhourSettingsContent({
           {canManage && hasKey && status.status === "not_connected" ? (
             <Button
               type="button"
+              loading={connectState.waiting}
               disabled={busy}
               onClick={() => void connect()}
             >
@@ -221,12 +222,18 @@ function EverhourSettingsContent({
           ) : null}
           {canManage && hasKey && status.status !== "not_connected" ? (
             <>
-              <Button type="button" disabled={busy} onClick={() => void sync()}>
+              <Button
+                type="button"
+                loading={syncState.waiting}
+                disabled={busy}
+                onClick={() => void sync()}
+              >
                 {m.project_settings_everhour_sync_button()}
               </Button>
               <Button
                 type="button"
                 variant="secondary"
+                loading={disconnectState.waiting}
                 disabled={busy}
                 onClick={() => void disconnect()}
               >
