@@ -12,8 +12,8 @@ function fillPanel(
   sy: number
 ) {
   const grad = ctx.createLinearGradient(gx1 * sx, 0, gx2 * sx, 0)
-  grad.addColorStop(0, "#ffffff")
-  grad.addColorStop(falloff, "#000000")
+  grad.addColorStop(0, "rgba(255,255,255,1)")
+  grad.addColorStop(falloff, "rgba(255,255,255,0)")
   ctx.fillStyle = grad
   ctx.beginPath()
   pts.forEach(([x, y], i) => {

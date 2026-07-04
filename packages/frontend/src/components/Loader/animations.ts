@@ -26,12 +26,12 @@ const gaze: Animation = (t, persp) => {
   return { p, persp: persp + 0.22 * (p - 0.5) * 2 }
 }
 
-const SWEEP_START = -1.2
-const SWEEP_SPAN = 3.4
-const SWEEP_FALLOFF = 0.5
+const SWEEP_START = -2.8
+const SWEEP_SPAN = 6.6
+const SWEEP_FALLOFF = 0.72
 
 const sweep: Animation = (t, persp) => ({
-  p: SWEEP_START + frac(t / 6000) * SWEEP_SPAN,
+  p: SWEEP_START + frac(t / 7000) * SWEEP_SPAN,
   persp,
   falloff: SWEEP_FALLOFF
 })

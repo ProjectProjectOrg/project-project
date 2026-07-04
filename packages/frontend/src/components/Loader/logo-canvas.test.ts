@@ -25,13 +25,13 @@ describe("drawLogo", () => {
     expect(ctx.createLinearGradient).toHaveBeenNthCalledWith(1, 100, 0, 0, 0)
     expect(ctx.createLinearGradient).toHaveBeenNthCalledWith(2, 100, 0, 200, 0)
     expect(ctx.fill).toHaveBeenCalledTimes(2)
-    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(0, "#ffffff")
-    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(1, "#000000")
+    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(0, "rgba(255,255,255,1)")
+    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(1, "rgba(255,255,255,0)")
   })
 
-  it("places the black stop at the falloff offset (tight highlight band)", () => {
+  it("fades to transparent at the falloff offset (tight highlight band)", () => {
     const ctx = fakeCtx()
     drawLogo(ctx as unknown as CanvasRenderingContext2D, 0.5, 0.5, 0.5, 200, 200)
-    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(0.5, "#000000")
+    expect(ctx.grad.addColorStop).toHaveBeenCalledWith(0.5, "rgba(255,255,255,0)")
   })
 })

@@ -44,7 +44,7 @@ export function panelGeometry(p: number, persp = 0.5): PanelGeometry {
 export function logoSvgString(p: number, persp = 0.5, falloff = 1): string {
   const { w, h } = LOGO_GEOMETRY
   const g = panelGeometry(p, persp)
-  const stops = `<stop stop-color="#ffffff"/><stop offset="${falloff}" stop-color="#000000"/>`
+  const stops = `<stop stop-color="#ffffff"/><stop offset="${falloff}" stop-color="#ffffff" stop-opacity="0"/>`
   return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <linearGradient id="lg" gradientUnits="userSpaceOnUse" x1="${g.leftGradient.x1}" y1="0" x2="${g.leftGradient.x2}" y2="0">${stops}</linearGradient>
