@@ -10,23 +10,30 @@ export const Route = createFileRoute("/dev/loader/")({
 
 function RawSvgPreview({
   animation,
-  speed
+  speed,
+  persp
 }: {
   animation: Animation
   speed: number
+  persp: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const animationRef = useRef(animation)
   const speedRef = useRef(speed)
+  const perspRef = useRef(persp)
   animationRef.current = animation
   speedRef.current = speed
+  perspRef.current = persp
   useEffect(() => {
     let raf = 0
     let start = 0
     const tick = (t: number) => {
       if (!start) start = t
-      const { p } = animationRef.current((t - start) * (speedRef.current || 1))
-      if (ref.current) ref.current.innerHTML = logoSvgString(p)
+      const { p, persp } = animationRef.current(
+        (t - start) * (speedRef.current || 1),
+        perspRef.current
+      )
+      if (ref.current) ref.current.innerHTML = logoSvgString(p, persp)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -41,6 +48,7 @@ function LoaderDebugPage() {
   const [paused, setPaused] = useState(false)
   const [orig, setOrig] = useState(true)
   const [animIdx, setAnimIdx] = useState(0)
+  const [persp, setPersp] = useState(0.5)
   const uniforms = { originalColors: orig }
   const anim = animations[animIdx].fn
   const sizes = [24, 48, 96, 240]
@@ -49,7 +57,8 @@ function LoaderDebugPage() {
     paused,
     ditherCells: cells,
     uniforms,
-    animation: anim
+    animation: anim,
+    perspective: persp
   }
 
   return (
@@ -104,6 +113,18 @@ function LoaderDebugPage() {
           <span className="tabular-nums">{cells}</span>
         </label>
         <label className="flex items-center gap-2">
+          perspective
+          <input
+            type="range"
+            min={0.2}
+            max={0.8}
+            step={0.01}
+            value={persp}
+            onChange={(e) => setPersp(Number(e.target.value))}
+          />
+          <span className="tabular-nums">{persp.toFixed(2)}</span>
+        </label>
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={orig}
@@ -149,7 +170,7 @@ function LoaderDebugPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Raw SVG (undithered source)</h2>
-        <RawSvgPreview animation={anim} speed={speed} />
+        <RawSvgPreview animation={anim} speed={speed} persp={persp} />
       </section>
 
       <section className="space-y-3">

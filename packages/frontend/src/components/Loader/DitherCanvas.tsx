@@ -7,7 +7,7 @@ import {
 import { drawLogo } from "./logo-canvas"
 
 type DitherCanvasProps = {
-  getFrame: (elapsedMs: number) => { p: number; shift: [number, number] }
+  getFrame: (elapsedMs: number) => { p: number; persp: number }
   paused?: boolean
   uniforms: DitherUniforms
   ditherCells?: number
@@ -89,7 +89,6 @@ export function DitherCanvas({
     const uImage = u("u_image")
     const uRes = u("u_resolution")
     const uPx = u("u_pxSize")
-    const uShift = u("u_ditherShift")
     const uSteps = u("u_colorSteps")
     const uOrig = u("u_originalColors")
     const uInv = u("u_inverted")
@@ -123,9 +122,9 @@ export function DitherCanvas({
     const frame = (t: number) => {
       if (!start) start = t
       const elapsed = pausedRef.current ? 0 : t - start
-      const { p, shift } = getFrameRef.current(elapsed)
+      const { p, persp } = getFrameRef.current(elapsed)
 
-      drawLogo(octx, p, w, h)
+      drawLogo(octx, p, persp, w, h)
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off)
 
@@ -133,7 +132,6 @@ export function DitherCanvas({
       gl.uniform1i(uImage, 0)
       gl.uniform2f(uRes, w, h)
       gl.uniform1f(uPx, Math.max(1, w / cellsRef.current))
-      gl.uniform2f(uShift, shift[0], shift[1])
       gl.uniform1f(uSteps, un.colorSteps)
       gl.uniform1i(uOrig, un.originalColors ? 1 : 0)
       gl.uniform1i(uInv, un.inverted ? 1 : 0)

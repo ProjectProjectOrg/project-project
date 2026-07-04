@@ -19,7 +19,7 @@ function fakeCtx() {
 describe("drawLogo", () => {
   it("clears then fills two gradient panels", () => {
     const ctx = fakeCtx()
-    drawLogo(ctx as unknown as CanvasRenderingContext2D, 0.5, 200, 200)
+    drawLogo(ctx as unknown as CanvasRenderingContext2D, 0.5, 0.5, 200, 200)
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 200, 200)
     expect(ctx.createLinearGradient).toHaveBeenCalledTimes(2)
     expect(ctx.createLinearGradient).toHaveBeenNthCalledWith(1, 100, 0, 0, 0)

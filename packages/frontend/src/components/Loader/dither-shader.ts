@@ -15,7 +15,6 @@ precision mediump float;
 uniform sampler2D u_image;
 uniform vec2 u_resolution;
 uniform float u_pxSize;
-uniform vec2 u_ditherShift;
 uniform float u_colorSteps;
 uniform bool u_originalColors;
 uniform bool u_inverted;
@@ -42,7 +41,7 @@ void main() {
   float lum = dot(vec3(0.2126, 0.7152, 0.0722), image.rgb);
   lum = u_inverted ? (1.0 - lum) : lum;
 
-  float dithering = bayer2x2(pxSizeUV - u_ditherShift) - 0.5;
+  float dithering = bayer2x2(pxSizeUV) - 0.5;
   float colorSteps = max(floor(u_colorSteps), 1.0);
   float brightness = clamp(lum + dithering / colorSteps, 0.0, 1.0);
   brightness = mix(0.0, brightness, image.a);

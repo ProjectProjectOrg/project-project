@@ -15,14 +15,20 @@ export type PanelGeometry = {
 }
 
 const clamp01 = (p: number) => (p < 0 ? 0 : p > 1 ? 1 : p)
+const clampPersp = (v: number) => (v < 0.2 ? 0.2 : v > 0.8 ? 0.8 : v)
 
-export function panelGeometry(p: number): PanelGeometry {
+export function foldCenterY(persp: number): number {
+  return clampPersp(persp) * LOGO_GEOMETRY.h
+}
+
+export function panelGeometry(p: number, persp = 0.5): PanelGeometry {
   const { w, cy, hTall, hShort } = LOGO_GEOMETRY
   const foldX = clamp01(p) * w
+  const fcy = foldCenterY(persp)
   const topTall = cy - hTall
   const botTall = cy + hTall
-  const topShort = cy - hShort
-  const botShort = cy + hShort
+  const topShort = fcy - hShort
+  const botShort = fcy + hShort
 
   const leftPath = `M 0 ${topTall} L ${foldX} ${topShort} L ${foldX} ${botShort} L 0 ${botTall} Z`
   const rightPath = `M ${foldX} ${topShort} L ${w} ${topTall} L ${w} ${botTall} L ${foldX} ${botShort} Z`
@@ -36,9 +42,9 @@ export function panelGeometry(p: number): PanelGeometry {
   }
 }
 
-export function logoSvgString(p: number): string {
+export function logoSvgString(p: number, persp = 0.5): string {
   const { w, h } = LOGO_GEOMETRY
-  const g = panelGeometry(p)
+  const g = panelGeometry(p, persp)
   return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <linearGradient id="lg" gradientUnits="userSpaceOnUse" x1="${g.leftGradient.x1}" y1="0" x2="${g.leftGradient.x2}" y2="0"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#000000"/></linearGradient>

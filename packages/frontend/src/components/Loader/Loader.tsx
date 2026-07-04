@@ -30,6 +30,7 @@ type LoaderProps = {
   uniforms?: Partial<DitherUniforms>
   ditherCells?: number
   animation?: Animation
+  perspective?: number
 }
 
 export function Loader({
@@ -39,7 +40,8 @@ export function Loader({
   paused = false,
   uniforms,
   ditherCells,
-  animation = defaultAnimation
+  animation = defaultAnimation,
+  perspective = 0.5
 }: LoaderProps) {
   const reduced = usePrefersReducedMotion()
   const merged = useMemo(
@@ -49,9 +51,9 @@ export function Loader({
   const getFrame = useMemo(
     () =>
       reduced
-        ? () => ({ p: 0.5, shift: [0, 0] as [number, number] })
-        : (elapsed: number) => animation(elapsed * (speed || 1)),
-    [reduced, animation, speed]
+        ? () => ({ p: 0.5, persp: perspective })
+        : (elapsed: number) => animation(elapsed * (speed || 1), perspective),
+    [reduced, animation, speed, perspective]
   )
   const dim = typeof size === "number" ? `${size}px` : size
 

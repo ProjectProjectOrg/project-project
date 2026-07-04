@@ -1,4 +1,4 @@
-import { LOGO_GEOMETRY, panelGeometry } from "./logo-geometry"
+import { foldCenterY, LOGO_GEOMETRY, panelGeometry } from "./logo-geometry"
 
 type Trapezoid = [number, number][]
 
@@ -28,27 +28,29 @@ function fillPanel(
 export function drawLogo(
   ctx: CanvasRenderingContext2D,
   p: number,
+  persp: number,
   w: number,
   h: number
 ): void {
   const { w: gw, h: gh, cy, hTall, hShort } = LOGO_GEOMETRY
   const sx = w / gw
   const sy = h / gh
-  const { foldX, leftGradient, rightGradient } = panelGeometry(p)
+  const { foldX, leftGradient, rightGradient } = panelGeometry(p, persp)
+  const fcy = foldCenterY(persp)
 
   ctx.clearRect(0, 0, w, h)
 
   const left: Trapezoid = [
     [0, cy - hTall],
-    [foldX, cy - hShort],
-    [foldX, cy + hShort],
+    [foldX, fcy - hShort],
+    [foldX, fcy + hShort],
     [0, cy + hTall]
   ]
   const right: Trapezoid = [
-    [foldX, cy - hShort],
+    [foldX, fcy - hShort],
     [gw, cy - hTall],
     [gw, cy + hTall],
-    [foldX, cy + hShort]
+    [foldX, fcy + hShort]
   ]
 
   fillPanel(ctx, left, leftGradient.x1, leftGradient.x2, sx, sy)
