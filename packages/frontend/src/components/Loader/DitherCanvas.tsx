@@ -152,7 +152,6 @@ export function DitherCanvas({
       gl.deleteShader(vs)
       gl.deleteShader(fs)
       gl.deleteProgram(prog)
-      gl.getExtension("WEBGL_lose_context")?.loseContext()
     }
   }, [])
 
