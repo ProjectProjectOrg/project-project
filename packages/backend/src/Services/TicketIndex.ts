@@ -1,6 +1,7 @@
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import type {
+  ChecksStatus,
   PullRequestState,
   TagName,
   TicketId,
@@ -31,6 +32,9 @@ export interface TicketIndexEntry {
   readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null
   readonly branchDeletedAt: Date | null
+  readonly checks: ChecksStatus | null
+  readonly checksHeadSha: string | null
+  readonly checksUpdatedAt: Date | null
   readonly assignees: ReadonlyArray<string>
   readonly archivedAt: Date | null
   readonly createdBy: string
@@ -116,6 +120,13 @@ export interface TicketIndexShape {
     project: TicketIndexProject,
     ticketIds: ReadonlyArray<string>
   ) => Effect.Effect<void>
+  readonly updateBranchChecks: (
+    projectId: string,
+    branch: string,
+    checks: ChecksStatus,
+    headSha: string,
+    updatedAt: Date
+  ) => Effect.Effect<ReadonlyArray<string>>
   readonly deleteTicket: (
     project: TicketIndexProject,
     ticketId: string

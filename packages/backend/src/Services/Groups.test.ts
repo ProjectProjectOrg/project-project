@@ -174,6 +174,7 @@ function makeFakeDocs(initial?: {
       }),
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
+    updateBranchChecks: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>
       Effect.sync(() => {
         ticketsById.delete(id)
