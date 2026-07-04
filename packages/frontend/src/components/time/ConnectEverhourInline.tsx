@@ -37,8 +37,8 @@ export function ConnectEverhourInline({
           aria-label={m.time_connect_key_placeholder()}
           onChange={(event) => setApiKey(event.target.value)}
         />
-        <Button type="submit" disabled={waiting || !apiKey.trim()}>
-          {waiting ? m.time_connect_in_progress() : m.time_connect_cta()}
+        <Button type="submit" loading={waiting} disabled={!apiKey.trim()}>
+          {m.time_connect_cta()}
         </Button>
       </form>
       {error ? (

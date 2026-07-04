@@ -103,6 +103,7 @@ export function LogTimeForm({
         <Input
           type="date"
           value={date}
+          className="min-w-0"
           onChange={(event) => setDate(event.target.value)}
         />
       </label>

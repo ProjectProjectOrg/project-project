@@ -2,7 +2,8 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Info } from "lucide-react"
 import { useState } from "react"
 import type { TicketDetail } from "@projectproject/shared"
-import { everhourProfileAtom } from "@/atoms/everhour"
+import { everhourProfileAtom, everhourProjectStatusAtom } from "@/atoms/everhour"
+import { projectKey } from "@/atoms/projects"
 import {
   activeTimerAtom,
   startTicketTimerAtom,
@@ -12,9 +13,12 @@ import {
   workTypesForTicketAtom
 } from "@/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/components/time/ConnectEverhourInline"
+import { EverhourSetupHint } from "@/components/time/EverhourSetupHint"
 import { LogTimeForm } from "@/components/time/LogTimeForm"
 import { TimeControls } from "@/components/time/TimeControls"
 import { ErrorPage } from "@/components/ErrorPage"
+import { MetaRow } from "@/components/TicketPage/MetaRow"
+import { useProjectRole } from "@/lib/projectRole"
 import {
   Popover,
   PopoverContent,
@@ -32,6 +36,45 @@ export const formatDuration = (seconds: number): string => {
     ...(hours > 0 ? [m.time_duration_hours({ hours })] : []),
     ...(minutes > 0 ? [m.time_duration_minutes({ minutes })] : [])
   ].join(" ")
+}
+
+export function TicketTimeSection({
+  orgSlug,
+  slug,
+  ticket
+}: {
+  orgSlug: string
+  slug: string
+  ticket: TicketDetail
+}) {
+  const statusResult = useAtomValue(
+    everhourProjectStatusAtom(projectKey(orgSlug, slug))
+  )
+  const { isOwner, isAdmin } = useProjectRole()
+  const canManage = isOwner || isAdmin
+
+  const notConnected =
+    Result.isSuccess(statusResult) &&
+    statusResult.value.status === "not_connected"
+  if (notConnected && !canManage) return null
+
+  return (
+    <MetaRow label={m.time_section_label()}>
+      {Result.matchWithError(statusResult, {
+        onInitial: () => (
+          <div className="h-8 animate-pulse rounded bg-muted/40" />
+        ),
+        onError: (error) => <ErrorPage error={error} contained />,
+        onDefect: (defect) => <ErrorPage error={defect} contained />,
+        onSuccess: ({ value }) =>
+          value.status === "not_connected" ? (
+            <EverhourSetupHint orgSlug={orgSlug} slug={slug} />
+          ) : (
+            <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
+          )
+      })}
+    </MetaRow>
+  )
 }
 
 export function TicketTimePanel({

@@ -17,8 +17,9 @@ import { StatusButton } from "@/components/TicketList/StatusField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
-import { TicketTimePanel } from "@/components/time/TicketTimePanel"
+import { TicketTimeSection } from "@/components/time/TicketTimePanel"
 import { DescriptionField } from "@/components/TicketPage/DescriptionField"
+import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { TitleField } from "@/components/TicketPage/TitleField"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
@@ -131,7 +132,7 @@ export function TicketPage({
           <CommentsSection orgSlug={orgSlug} slug={slug} ticketId={ticket.id} />
         </main>
 
-        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:border-l lg:border-border/60 lg:pl-6 lg:[scrollbar-gutter:stable]">
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-6 lg:[scrollbar-gutter:stable]">
           <MetaRow label={m.tickets_page_meta_priority()}>
             <PriorityBadgeTrigger
               orgSlug={orgSlug}
@@ -174,9 +175,7 @@ export function TicketPage({
               />
             </MetaRow>
           )}
-          <MetaRow label={m.time_section_label()}>
-            <TicketTimePanel orgSlug={orgSlug} slug={slug} ticket={ticket} />
-          </MetaRow>
+          <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <MetaRow label={m.tickets_page_meta_created()}>
             <time
               dateTime={ticket.createdAt.toISOString()}
@@ -205,21 +204,6 @@ export function TicketPage({
           </MetaRow>
         </aside>
       </div>
-    </div>
-  )
-}
-
-function MetaRow({
-  label,
-  children
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="min-w-0">{children}</div>
     </div>
   )
 }
