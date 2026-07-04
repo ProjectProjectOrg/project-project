@@ -15,6 +15,7 @@ import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
+import { Route as DevLoaderIndexRouteImport } from './routes/dev/loader/index'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
@@ -65,6 +66,11 @@ const AuthedProfileRoute = AuthedProfileRouteImport.update({
 const publicLoginRoute = publicLoginRouteImport.update({
   id: '/(public)/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevLoaderIndexRoute = DevLoaderIndexRouteImport.update({
+  id: '/dev/loader/',
+  path: '/dev/loader/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const publicOauthConsentRoute = publicOauthConsentRouteImport.update({
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/dev/loader/': typeof DevLoaderIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
+  '/dev/loader': typeof DevLoaderIndexRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/(public)/oauth/consent': typeof publicOauthConsentRoute
+  '/dev/loader/': typeof DevLoaderIndexRoute
   '/_authed/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
@@ -291,6 +300,7 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
     | '/oauth/consent'
+    | '/dev/loader/'
     | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/invite/$invitationId'
     | '/'
     | '/oauth/consent'
+    | '/dev/loader'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/general'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
     | '/(public)/oauth/consent'
+    | '/dev/loader/'
     | '/_authed/orgs/$orgSlug/settings'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
@@ -373,6 +385,7 @@ export interface RootRouteChildren {
   publicLoginRoute: typeof publicLoginRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   publicOauthConsentRoute: typeof publicOauthConsentRoute
+  DevLoaderIndexRoute: typeof DevLoaderIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof publicLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/loader/': {
+      id: '/dev/loader/'
+      path: '/dev/loader'
+      fullPath: '/dev/loader/'
+      preLoaderRoute: typeof DevLoaderIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(public)/oauth/consent': {
@@ -714,6 +734,7 @@ const rootRouteChildren: RootRouteChildren = {
   publicLoginRoute: publicLoginRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   publicOauthConsentRoute: publicOauthConsentRoute,
+  DevLoaderIndexRoute: DevLoaderIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
