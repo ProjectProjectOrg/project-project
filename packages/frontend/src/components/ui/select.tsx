@@ -153,6 +153,7 @@ interface SelectTriggerProps
     VariantProps<typeof triggerVariants> {
   icon?: IconComponent
   placeholder?: string
+  selectedLabel?: ReactNode | null
   error?: string
 }
 
@@ -163,6 +164,7 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
       variant,
       icon: Icon,
       placeholder = "Select…",
+      selectedLabel,
       error,
       ...props
     },
@@ -171,7 +173,12 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
     const { value, open, setOpen, disabled, triggerRef, labelMap } =
       useSelectContext()
     const shape = useShape()
-    const label = value ? (labelMap.current.get(value) ?? value) : undefined
+    const label =
+      selectedLabel !== undefined
+        ? selectedLabel
+        : value
+          ? (labelMap.current.get(value) ?? value)
+          : undefined
 
     return (
       <div className="flex flex-col gap-1">

@@ -79,6 +79,8 @@ export function TimeControls({
             {m.time_start_button()}
           </Button>
         )}
+      </div>
+      <div className="border-t border-border pt-2">
         <Button
           type="button"
           variant="ghost"

@@ -18,10 +18,13 @@ export function WorkTypeSelect({
   options: ReadonlyArray<WorkTypeOption>
   disabled?: boolean
 }) {
+  const selectedLabel =
+    options.find((option) => option.key === value)?.label ?? null
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         placeholder={m.time_work_type_label()}
+        selectedLabel={selectedLabel}
         aria-label={m.time_work_type_label()}
       />
       <SelectContent>
