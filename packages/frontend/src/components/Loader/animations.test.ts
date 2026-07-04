@@ -38,6 +38,21 @@ describe("animations", () => {
     expect(max).toBeGreaterThan(base)
   })
 
+  it("infinity sweeps the full fold range and returns to start after its period", () => {
+    const infinity = animations.find((a) => a.name === "infinity")!.fn
+    let min = Infinity
+    let max = -Infinity
+    for (let t = 0; t <= 5000; t += 25) {
+      const { p } = infinity(t, 0.5)
+      min = Math.min(min, p)
+      max = Math.max(max, p)
+    }
+    expect(min).toBeLessThan(0.05)
+    expect(max).toBeGreaterThan(0.95)
+    expect(infinity(5000, 0.5).p).toBeCloseTo(infinity(0, 0.5).p, 5)
+    expect(infinity(5000, 0.5).persp).toBeCloseTo(infinity(0, 0.5).persp, 5)
+  })
+
   it("still exposes breathingP for the raw svg preview", () => {
     expect(breathingP(0, 4000)).toBeCloseTo(0, 5)
     expect(breathingP(2000, 4000)).toBeCloseTo(1, 5)
