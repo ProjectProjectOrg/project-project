@@ -9,7 +9,8 @@
   "scripts": {
     "dev:backend": "bun --filter @projectproject/backend dev",
     "dev:frontend": "bun --filter @projectproject/frontend dev",
-    "dev": "bun run --filter '*' dev",
+    "dev:db": "docker compose up -d postgres",
+    "dev": "bun run dev:db && bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck",
