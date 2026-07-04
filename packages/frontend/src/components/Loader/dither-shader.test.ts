@@ -27,11 +27,10 @@ describe("dither-shader", () => {
     expect(FRAGMENT_SRC).toContain("floor(brightness * colorSteps + 0.5) / colorSteps")
   })
 
-  it("defaults use the paper palette via the color path", () => {
+  it("defaults mirror the paper file (originalColors on, transparent back)", () => {
     expect(DEFAULT_UNIFORMS.colorSteps).toBe(2)
-    expect(DEFAULT_UNIFORMS.originalColors).toBe(false)
-    expect(DEFAULT_UNIFORMS.colorFront).toEqual([148 / 255, 1, 175 / 255, 1])
-    expect(DEFAULT_UNIFORMS.colorHighlight).toEqual([234 / 255, 1, 148 / 255, 1])
+    expect(DEFAULT_UNIFORMS.originalColors).toBe(true)
+    expect(DEFAULT_UNIFORMS.inverted).toBe(false)
     expect(DEFAULT_UNIFORMS.colorBack[3]).toBe(0)
   })
 })

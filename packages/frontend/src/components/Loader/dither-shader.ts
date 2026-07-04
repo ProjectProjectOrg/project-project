@@ -87,7 +87,7 @@ export type DitherUniforms = {
 
 export const DEFAULT_UNIFORMS: DitherUniforms = {
   colorSteps: 2,
-  originalColors: false,
+  originalColors: true,
   inverted: false,
   colorFront: [148 / 255, 1, 175 / 255, 1],
   colorHighlight: [234 / 255, 1, 148 / 255, 1],

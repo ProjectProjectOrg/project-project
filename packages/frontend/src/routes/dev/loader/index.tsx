@@ -29,7 +29,7 @@ function LoaderDebugPage() {
   const [speed, setSpeed] = useState(1)
   const [cells, setCells] = useState(30)
   const [paused, setPaused] = useState(false)
-  const [orig, setOrig] = useState(false)
+  const [orig, setOrig] = useState(true)
   const uniforms = { originalColors: orig }
   const sizes = [24, 48, 96, 240]
 
