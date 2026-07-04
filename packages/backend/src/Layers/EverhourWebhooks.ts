@@ -34,6 +34,10 @@ export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
     if (isRecord(payload.data)) candidates.push(payload.data)
     if (isRecord(payload.time)) candidates.push(payload.time)
     if (isRecord(payload.timeRecord)) candidates.push(payload.timeRecord)
+    if (isRecord(payload.payload)) {
+      candidates.push(payload.payload)
+      if (isRecord(payload.payload.data)) candidates.push(payload.payload.data)
+    }
   }
   for (const candidate of candidates) {
     if (!isRecord(candidate)) continue
