@@ -38,19 +38,19 @@ describe("animations", () => {
     expect(max).toBeGreaterThan(base)
   })
 
-  it("infinity sweeps the full fold range and returns to start after its period", () => {
-    const infinity = animations.find((a) => a.name === "infinity")!.fn
+  it("shimmer loops seamlessly and keeps both panels visible (no full collapse)", () => {
+    const shimmer = animations.find((a) => a.name === "shimmer")!.fn
     let min = Infinity
     let max = -Infinity
-    for (let t = 0; t <= 5000; t += 25) {
-      const { p } = infinity(t, 0.5)
+    for (let t = 0; t <= 6000; t += 25) {
+      const { p } = shimmer(t, 0.5)
       min = Math.min(min, p)
       max = Math.max(max, p)
     }
-    expect(min).toBeLessThan(0.05)
-    expect(max).toBeGreaterThan(0.95)
-    expect(infinity(5000, 0.5).p).toBeCloseTo(infinity(0, 0.5).p, 5)
-    expect(infinity(5000, 0.5).persp).toBeCloseTo(infinity(0, 0.5).persp, 5)
+    expect(min).toBeGreaterThan(0.1)
+    expect(max).toBeLessThan(0.9)
+    expect(shimmer(6000, 0.5).p).toBeCloseTo(shimmer(0, 0.5).p, 5)
+    expect(shimmer(6000, 0.5).persp).toBeCloseTo(shimmer(0, 0.5).persp, 5)
   })
 
   it("still exposes breathingP for the raw svg preview", () => {

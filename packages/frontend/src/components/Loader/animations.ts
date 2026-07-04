@@ -25,11 +25,11 @@ const gaze: Animation = (t, persp) => {
   return { p, persp: persp + 0.22 * (p - 0.5) * 2 }
 }
 
-const infinity: Animation = (t, persp) => {
-  const a = (TAU * t) / 5000
+const shimmer: Animation = (t, persp) => {
+  const a = (TAU * t) / 6000
   return {
-    p: 0.5 + 0.5 * Math.sin(a),
-    persp: persp + 0.34 * Math.sin(a) * Math.cos(a)
+    p: 0.5 + 0.34 * Math.cos(a),
+    persp: persp + 0.16 * Math.sin(a)
   }
 }
 
@@ -38,5 +38,5 @@ export const animations: { name: string; fn: Animation }[] = [
   { name: "tilt", fn: tilt },
   { name: "sway", fn: sway },
   { name: "gaze", fn: gaze },
-  { name: "infinity", fn: infinity }
+  { name: "shimmer", fn: shimmer }
 ]
