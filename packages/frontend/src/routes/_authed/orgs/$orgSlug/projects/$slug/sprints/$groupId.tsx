@@ -11,7 +11,7 @@ import {
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
 type SprintRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
-  view?: "list" | "board"
+  view?: "list" | "board" | "description"
 }
 
 export const Route = createFileRoute(
@@ -22,7 +22,12 @@ export const Route = createFileRoute(
     const { groupId: _groupId, ...sanitized } = ticketListQueryToSearch(
       ticketListQueryFromSearch(search)
     )
-    const view = search.view === "list" ? "list" : "board"
+    const view =
+      search.view === "list"
+        ? "list"
+        : search.view === "description"
+          ? "description"
+          : "board"
     return { ...sanitized, view }
   },
   loader: ({ params }) => ({

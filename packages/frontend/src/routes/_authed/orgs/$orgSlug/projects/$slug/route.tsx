@@ -10,22 +10,19 @@ import {
 import * as DateTime from "effect/DateTime"
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type KeyboardEvent,
   type ReactNode
 } from "react"
 import {
   CalendarRange,
   Columns3,
+  FileText,
   GitBranch,
   Info,
   ListChecks,
-  MoreHorizontal,
   Rows3,
-  SlidersHorizontal,
   UserPlus,
   Workflow,
   X,
@@ -42,8 +39,7 @@ import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
   projectAtom,
   projectKey,
-  updateProjectSetupAtom,
-  updateProjectAtom
+  updateProjectSetupAtom
 } from "@/atoms/projects"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
 import {
@@ -57,11 +53,9 @@ import {
   pickEarliestPlannedSprint,
   sprintState
 } from "@projectproject/shared"
-import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
-import { GithubChip } from "@/components/GithubChip"
-import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
+import { ProjectHeader } from "@/components/ProjectHeader"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
 import { springs } from "@/lib/springs"
@@ -70,12 +64,6 @@ import {
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/SegmentedTabs"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
@@ -187,115 +175,6 @@ function ProjectGitStatePolling({
 }) {
   useProjectGitStatePolling(orgSlug, slug, enabled)
   return null
-}
-
-function ProjectHeader({
-  orgSlug,
-  slug,
-  name,
-  project
-}: {
-  orgSlug: string
-  slug: string
-  name: string
-  project: ProjectDetailType
-}) {
-  const { role: myRole } = useProjectRole()
-  const canEdit = myRole === "owner" || myRole === "admin"
-
-  return (
-    <header className="flex items-start gap-3">
-      <ProjectIdentityEditor
-        orgSlug={orgSlug}
-        slug={slug}
-        icon={project.icon}
-        color={project.color}
-        canEdit={canEdit}
-        size="header"
-      />
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-        <NameField orgSlug={orgSlug} slug={slug} name={name} />
-        <ActiveSprintLine orgSlug={orgSlug} slug={slug} />
-      </div>
-      <div className="flex items-center gap-3">
-        <GithubChip
-          orgSlug={orgSlug}
-          slug={slug}
-          github={project.github}
-          callerRole={myRole}
-        />
-        <ProjectMenu orgSlug={orgSlug} slug={slug} />
-      </div>
-    </header>
-  )
-}
-
-function NameField({
-  orgSlug,
-  slug,
-  name
-}: {
-  orgSlug: string
-  slug: string
-  name: string
-}) {
-  const pKey = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(pKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateProjectAtom(pKey))
-  const saving = updateState.waiting
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(name)
-
-  useEffect(() => {
-    if (!editing) setDraft(name)
-  }, [editing, name])
-
-  async function commit() {
-    const trimmed = draft.trim()
-    if (!trimmed || trimmed === name) {
-      setEditing(false)
-      setDraft(name)
-      return
-    }
-    await update({ name: trimmed })
-    setEditing(false)
-  }
-
-  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      void commit()
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      setDraft(name)
-      setEditing(false)
-    }
-  }
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight hover:bg-accent/40"
-      >
-        {name}
-      </button>
-    )
-  }
-  return (
-    <input
-      autoFocus
-      value={draft}
-      disabled={saving}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => void commit()}
-      onKeyDown={handleKey}
-      className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={120}
-      aria-label={m.project_detail_name_aria_label()}
-    />
-  )
 }
 
 function ProjectSetupSlot({
@@ -421,37 +300,6 @@ function ProjectSetupRail({
         })}
       </nav>
     </div>
-  )
-}
-
-function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            aria-label={m.project_detail_actions_aria_label()}
-            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
-          >
-            <MoreHorizontal className="size-4" strokeWidth={1.75} />
-          </button>
-        }
-      />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
-        <DropdownMenuItem
-          render={
-            <Link
-              to="/orgs/$orgSlug/projects/$slug/settings"
-              params={{ orgSlug, slug }}
-            />
-          }
-        >
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-          {m.project_detail_tab_settings()}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
@@ -702,10 +550,12 @@ function SprintViewSwitcher({
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
   if (!sprintMatch) return null
-  const search = sprintMatch.search as { view?: "list" | "board" }
-  const view: "list" | "board" = search.view ?? "board"
+  const search = sprintMatch.search as {
+    view?: "list" | "board" | "description"
+  }
+  const view: "list" | "board" | "description" = search.view ?? "board"
   const { groupId } = sprintMatch.params as { groupId: string }
-  const setView = (next: "list" | "board") => {
+  const setView = (next: "list" | "board" | "description") => {
     if (next === view) return
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
@@ -713,9 +563,10 @@ function SprintViewSwitcher({
       search: (prev) => ({ ...prev, view: next })
     })
   }
-  const items: ReadonlyArray<SegmentedItem<"list" | "board">> = [
+  const items: ReadonlyArray<SegmentedItem<"list" | "board" | "description">> = [
     { key: "list", label: m.sprints_view_list(), icon: Rows3 },
-    { key: "board", label: m.sprints_view_board(), icon: Columns3 }
+    { key: "board", label: m.sprints_view_board(), icon: Columns3 },
+    { key: "description", label: m.sprints_view_description(), icon: FileText }
   ]
   return (
     <div
