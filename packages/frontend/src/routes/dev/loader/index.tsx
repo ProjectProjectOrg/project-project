@@ -27,8 +27,10 @@ function RawSvgPreview({ speed }: { speed: number }) {
 
 function LoaderDebugPage() {
   const [speed, setSpeed] = useState(1)
-  const [cells, setCells] = useState(40)
+  const [cells, setCells] = useState(30)
   const [paused, setPaused] = useState(false)
+  const [orig, setOrig] = useState(false)
+  const uniforms = { originalColors: orig }
   const sizes = [24, 48, 96, 240]
 
   return (
@@ -65,6 +67,14 @@ function LoaderDebugPage() {
           />
           <span className="tabular-nums">{cells}</span>
         </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={orig}
+            onChange={(e) => setOrig(e.target.checked)}
+          />
+          originalColors
+        </label>
         <button
           type="button"
           className="rounded-md border px-3 py-1 transition-colors transition-transform duration-100 active:scale-[0.97]"
@@ -79,19 +89,49 @@ function LoaderDebugPage() {
         <div className="flex flex-wrap items-end gap-8">
           {sizes.map((s) => (
             <div key={s} className="flex flex-col items-center gap-2">
-              <Loader size={s} speed={speed} paused={paused} ditherCells={cells} />
+              <Loader
+                size={s}
+                speed={speed}
+                paused={paused}
+                ditherCells={cells}
+                uniforms={uniforms}
+              />
               <span className="text-muted-foreground text-xs">{s}px</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-4">
+      <section className="grid grid-cols-3 gap-4">
         <div className="flex items-center justify-center rounded-lg bg-white p-10">
-          <Loader size={160} speed={speed} paused={paused} ditherCells={cells} />
+          <Loader
+            size={160}
+            speed={speed}
+            paused={paused}
+            ditherCells={cells}
+            uniforms={uniforms}
+          />
         </div>
         <div className="flex items-center justify-center rounded-lg bg-neutral-950 p-10">
-          <Loader size={160} speed={speed} paused={paused} ditherCells={cells} />
+          <Loader
+            size={160}
+            speed={speed}
+            paused={paused}
+            ditherCells={cells}
+            uniforms={uniforms}
+          />
+        </div>
+        <div
+          className="flex items-center justify-center rounded-lg p-10"
+          style={{ backgroundColor: "#000C38" }}
+        >
+          <Loader
+            size={160}
+            speed={speed}
+            paused={paused}
+            ditherCells={cells}
+            uniforms={uniforms}
+          />
         </div>
       </section>
 
@@ -103,7 +143,13 @@ function LoaderDebugPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Full bleed</h2>
         <div className="flex h-64 items-center justify-center rounded-lg border">
-          <Loader size="60%" speed={speed} paused={paused} ditherCells={cells} />
+          <Loader
+            size="60%"
+            speed={speed}
+            paused={paused}
+            ditherCells={cells}
+            uniforms={uniforms}
+          />
         </div>
       </section>
     </div>

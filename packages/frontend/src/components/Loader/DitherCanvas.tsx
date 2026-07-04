@@ -32,7 +32,7 @@ export function DitherCanvas({
   getP,
   paused = false,
   uniforms,
-  ditherCells = 40,
+  ditherCells = 30,
   className,
   style
 }: DitherCanvasProps) {
@@ -51,7 +51,7 @@ export function DitherCanvas({
     if (!canvas) return
     const gl = canvas.getContext("webgl", {
       alpha: true,
-      premultipliedAlpha: false,
+      premultipliedAlpha: true,
       antialias: true
     })
     if (!gl) return
@@ -83,7 +83,7 @@ export function DitherCanvas({
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
     const u = (name: string) => gl.getUniformLocation(prog, name)
     const uImage = u("u_image")
@@ -91,6 +91,7 @@ export function DitherCanvas({
     const uPx = u("u_pxSize")
     const uSteps = u("u_colorSteps")
     const uOrig = u("u_originalColors")
+    const uInv = u("u_inverted")
     const uFront = u("u_colorFront")
     const uHigh = u("u_colorHighlight")
     const uBack = u("u_colorBack")
@@ -133,8 +134,9 @@ export function DitherCanvas({
       gl.uniform1f(uPx, Math.max(1, w / cellsRef.current))
       gl.uniform1f(uSteps, un.colorSteps)
       gl.uniform1i(uOrig, un.originalColors ? 1 : 0)
-      gl.uniform3fv(uFront, un.colorFront)
-      gl.uniform3fv(uHigh, un.colorHighlight)
+      gl.uniform1i(uInv, un.inverted ? 1 : 0)
+      gl.uniform4fv(uFront, un.colorFront)
+      gl.uniform4fv(uHigh, un.colorHighlight)
       gl.uniform4fv(uBack, un.colorBack)
 
       gl.clearColor(0, 0, 0, 0)
