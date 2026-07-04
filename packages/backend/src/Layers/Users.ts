@@ -81,6 +81,7 @@ export const UsersLive = Layer.effect(
                 personalGithub: {
                   connected: false
                 },
+                editorPreference: "github",
                 personalEverhour: {
                   connected: false,
                   everhourUserId: null,

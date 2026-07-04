@@ -291,6 +291,27 @@ const makeFakeTicketIndex = (
           { project: ticketIndexProject, indexed: documents.size, skipped: 0 }
         ]
       }),
+    reconcileProject: (project) =>
+      Effect.succeed({
+        project,
+        drift: { missing: [], orphaned: [], stale: [] },
+        rebuilt: false,
+        indexed: documents.size,
+        skipped: 0
+      }),
+    reconcileAllProjects: () =>
+      Effect.succeed({
+        projects: [
+          {
+            project: ticketIndexProject,
+            drift: { missing: [], orphaned: [], stale: [] },
+            rebuilt: false,
+            indexed: documents.size,
+            skipped: 0
+          }
+        ],
+        reconciled: 0
+      }),
     ...overrides
   } satisfies TicketIndexShape)
 

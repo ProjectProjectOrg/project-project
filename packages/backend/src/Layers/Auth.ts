@@ -43,11 +43,27 @@
 // in the `Layer.provide` chain.
 
 import { HttpServerRequest } from "@effect/platform"
-import { Authentication, Unauthorized } from "@projectproject/shared"
+import {
+  Authentication,
+  type EditorPreference,
+  Unauthorized
+} from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { toWebHeaders } from "../http/toWebHeaders"
 import { BetterAuth } from "../Services/BetterAuth"
+
+function normalizeEditorPreference(value: unknown): EditorPreference {
+  switch (value) {
+    case "github_dev":
+    case "vscode":
+    case "cursor":
+      return value
+    case "github":
+    default:
+      return "github"
+  }
+}
 
 export const AuthenticationLive = Layer.effect(
   Authentication,
@@ -79,6 +95,10 @@ export const AuthenticationLive = Layer.effect(
           // seam — the schema is what guards the wire.
           const username =
             (session.user as { username?: string | null }).username ?? null
+          const editorPreference = normalizeEditorPreference(
+            (session.user as { editorPreference?: string | null })
+              .editorPreference
+          )
           // `activeOrganizationId` lives on the session row (organization
           // plugin). Resolve to a slug here so the wire shape is the
           // human-readable identifier the frontend builds URLs from.
@@ -103,6 +123,7 @@ export const AuthenticationLive = Layer.effect(
             createdAt,
             activeOrgSlug,
             personalGithub,
+            editorPreference,
             personalEverhour
           }
         })

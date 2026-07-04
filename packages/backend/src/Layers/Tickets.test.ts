@@ -113,7 +113,16 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   deleteTicket: () => Effect.void,
   rebuildProject: () =>
     Effect.succeed({ project: ticketIndexProject, indexed: 0, skipped: 0 }),
-  rebuildAllProjects: () => Effect.succeed({ projects: [] })
+  rebuildAllProjects: () => Effect.succeed({ projects: [] }),
+  reconcileProject: () =>
+    Effect.succeed({
+      project: ticketIndexProject,
+      drift: { missing: [], orphaned: [], stale: [] },
+      rebuilt: false,
+      indexed: 0,
+      skipped: 0
+    }),
+  reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
 } satisfies TicketIndexShape)
 
 const FakeDb = Layer.succeed(

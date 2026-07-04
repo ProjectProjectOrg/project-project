@@ -1,6 +1,6 @@
 {
-  "id": "bf703209-4dfa-4d78-89d2-ea8cafc43cbd",
-  "prevId": "3953b263-1360-44b7-acea-12cf0a6cb797",
+  "id": "f5f393fe-83b0-47f7-8688-9caf32e1f52f",
+  "prevId": "bf703209-4dfa-4d78-89d2-ea8cafc43cbd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1945,6 +1945,24 @@
         },
         "branch_deleted_at": {
           "name": "branch_deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks": {
+          "name": "checks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks_head_sha": {
+          "name": "checks_head_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checks_updated_at": {
+          "name": "checks_updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
