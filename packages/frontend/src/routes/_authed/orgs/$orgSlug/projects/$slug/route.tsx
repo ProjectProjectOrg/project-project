@@ -107,20 +107,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   })
 })
 
-function useIsSprintBoardView() {
-  const matches = useMatches()
-  const sprintMatch = matches.find(
-    (m) =>
-      m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
-  )
-  if (!sprintMatch) return false
-  const search = sprintMatch.search as { view?: "list" | "board" }
-  return (search.view ?? "board") === "board"
-}
-
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const wide = useIsSprintBoardView()
   const location = useLocation()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const onTicketDetail = location.pathname.startsWith(
@@ -132,7 +120,7 @@ function ProjectLayout() {
 
   return Result.matchWithError(project, {
     onInitial: () => (
-      <PageContainer wide={wide}>
+      <PageContainer>
         <Skeleton />
       </PageContainer>
     ),
@@ -170,7 +158,7 @@ function ProjectLayout() {
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
           <div className="flex flex-1 flex-col gap-6">
             {!onTicketDetail && !onSettings && (
-              <PageContainer wide={wide}>
+              <PageContainer>
                 <ProjectHeader
                   orgSlug={orgSlug}
                   slug={value.slug}
@@ -779,8 +767,7 @@ function MarqueeIfOverflow({
       const overflow = iw > cw
       const duration = Math.max(8, iw / speedPxPerSec)
       setState((prev) =>
-        prev.overflow === overflow &&
-        Math.abs(prev.duration - duration) < 0.5
+        prev.overflow === overflow && Math.abs(prev.duration - duration) < 0.5
           ? prev
           : { overflow, duration }
       )
@@ -812,10 +799,7 @@ function MarqueeIfOverflow({
           >
             {children}
           </div>
-          <div
-            aria-hidden
-            className="flex shrink-0 items-center gap-2 pr-2"
-          >
+          <div aria-hidden className="flex shrink-0 items-center gap-2 pr-2">
             {children}
           </div>
         </div>
@@ -912,4 +896,3 @@ function Skeleton() {
     </div>
   )
 }
-

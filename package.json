@@ -10,7 +10,7 @@
     "dev:backend": "bun --filter @projectproject/backend dev",
     "dev:frontend": "bun --filter @projectproject/frontend dev",
     "dev:db": "docker compose up -d postgres",
-    "dev": "bun run dev:db && bun run --filter '*' dev",
+    "dev": "bun --env-file=.env scripts/dev.ts",
     "build": "bun run --filter '*' build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck",

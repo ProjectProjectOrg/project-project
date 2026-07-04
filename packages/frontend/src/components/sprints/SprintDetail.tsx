@@ -99,11 +99,11 @@ export function SprintDetail({
     setReorderMode(false)
   }, [dragOrder, statusesResult, reorderStatus])
 
-  const wide = view === "board"
+  const isBoard = view === "board"
 
   return Result.matchWithError(sprint, {
     onInitial: () => (
-      <PageContainer wide={wide}>
+      <PageContainer>
         <SprintDetailSkeleton />
       </PageContainer>
     ),
@@ -185,8 +185,8 @@ export function SprintDetail({
         </AnimatePresence>
       )
 
-      const body = wide ? (
-        <PageContainer wide>
+      const body = isBoard ? (
+        <PageContainer>
           <SprintBoard
             orgSlug={orgSlug}
             slug={slug}
@@ -215,7 +215,7 @@ export function SprintDetail({
 
       return (
         <div className="flex flex-col gap-4">
-          <PageContainer wide={wide}>
+          <PageContainer>
             <div className="flex flex-col gap-4">
               <SprintDetailHeader
                 orgSlug={orgSlug}
@@ -230,7 +230,7 @@ export function SprintDetail({
                 slug={slug}
                 groupId={display.id}
               />
-              {wide && boardSlot}
+              {isBoard && boardSlot}
               {showCompleteForm && state === "active" && (
                 <CompleteSprintForm
                   orgSlug={orgSlug}
