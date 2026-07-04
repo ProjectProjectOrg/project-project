@@ -122,6 +122,7 @@ export function SprintBoardColumn({
   return (
     <Reorder.Item
       value={status}
+      layout="position"
       dragListener={false}
       dragControls={dragControls}
       dragElastic={0.05}
