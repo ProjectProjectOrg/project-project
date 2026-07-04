@@ -29,11 +29,11 @@ function RawSvgPreview({
     let start = 0
     const tick = (t: number) => {
       if (!start) start = t
-      const { p, persp } = animationRef.current(
+      const { p, persp, falloff = 1 } = animationRef.current(
         (t - start) * (speedRef.current || 1),
         perspRef.current
       )
-      if (ref.current) ref.current.innerHTML = logoSvgString(p, persp)
+      if (ref.current) ref.current.innerHTML = logoSvgString(p, persp, falloff)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

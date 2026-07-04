@@ -7,7 +7,11 @@ import {
 import { drawLogo } from "./logo-canvas"
 
 type DitherCanvasProps = {
-  getFrame: (elapsedMs: number) => { p: number; persp: number }
+  getFrame: (elapsedMs: number) => {
+    p: number
+    persp: number
+    falloff?: number
+  }
   paused?: boolean
   uniforms: DitherUniforms
   ditherCells?: number
@@ -122,9 +126,9 @@ export function DitherCanvas({
     const frame = (t: number) => {
       if (!start) start = t
       const elapsed = pausedRef.current ? 0 : t - start
-      const { p, persp } = getFrameRef.current(elapsed)
+      const { p, persp, falloff = 1 } = getFrameRef.current(elapsed)
 
-      drawLogo(octx, p, persp, w, h)
+      drawLogo(octx, p, persp, falloff, w, h)
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off)
 

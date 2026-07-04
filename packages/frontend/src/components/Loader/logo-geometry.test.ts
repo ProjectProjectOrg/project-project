@@ -10,9 +10,9 @@ describe("panelGeometry", () => {
     expect(panelGeometry(1).foldX).toBe(w)
   })
 
-  it("clamps p into [0,1]", () => {
-    expect(panelGeometry(-1).foldX).toBe(0)
-    expect(panelGeometry(2).foldX).toBe(w)
+  it("maps foldX linearly beyond [0,1] for off-canvas sweeps", () => {
+    expect(panelGeometry(2).foldX).toBe(w * 2)
+    expect(panelGeometry(-1).foldX).toBe(-w)
   })
 
   it("anchors each panel's gradient white at the fold, black at the outer edge", () => {

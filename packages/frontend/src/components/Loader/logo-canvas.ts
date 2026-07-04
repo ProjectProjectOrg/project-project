@@ -7,12 +7,13 @@ function fillPanel(
   pts: Trapezoid,
   gx1: number,
   gx2: number,
+  falloff: number,
   sx: number,
   sy: number
 ) {
   const grad = ctx.createLinearGradient(gx1 * sx, 0, gx2 * sx, 0)
   grad.addColorStop(0, "#ffffff")
-  grad.addColorStop(1, "#000000")
+  grad.addColorStop(falloff, "#000000")
   ctx.fillStyle = grad
   ctx.beginPath()
   pts.forEach(([x, y], i) => {
@@ -29,6 +30,7 @@ export function drawLogo(
   ctx: CanvasRenderingContext2D,
   p: number,
   persp: number,
+  falloff: number,
   w: number,
   h: number
 ): void {
@@ -53,6 +55,6 @@ export function drawLogo(
     [foldX, fcy + hShort]
   ]
 
-  fillPanel(ctx, left, leftGradient.x1, leftGradient.x2, sx, sy)
-  fillPanel(ctx, right, rightGradient.x1, rightGradient.x2, sx, sy)
+  fillPanel(ctx, left, leftGradient.x1, leftGradient.x2, falloff, sx, sy)
+  fillPanel(ctx, right, rightGradient.x1, rightGradient.x2, falloff, sx, sy)
 }

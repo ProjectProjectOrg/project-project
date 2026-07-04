@@ -1,7 +1,8 @@
-export type Frame = { p: number; persp: number }
+export type Frame = { p: number; persp: number; falloff?: number }
 export type Animation = (elapsedMs: number, persp: number) => Frame
 
 const TAU = Math.PI * 2
+const frac = (x: number) => x - Math.floor(x)
 
 export const breathingP = (elapsedMs: number, periodMs: number) =>
   0.5 - 0.5 * Math.cos((TAU * elapsedMs) / periodMs)
@@ -25,18 +26,20 @@ const gaze: Animation = (t, persp) => {
   return { p, persp: persp + 0.22 * (p - 0.5) * 2 }
 }
 
-const shimmer: Animation = (t, persp) => {
-  const a = (TAU * t) / 6000
-  return {
-    p: 0.5 + 0.34 * Math.cos(a),
-    persp: persp + 0.16 * Math.sin(a)
-  }
-}
+const SWEEP_START = -1.2
+const SWEEP_SPAN = 3.4
+const SWEEP_FALLOFF = 0.5
+
+const sweep: Animation = (t, persp) => ({
+  p: SWEEP_START + frac(t / 6000) * SWEEP_SPAN,
+  persp,
+  falloff: SWEEP_FALLOFF
+})
 
 export const animations: { name: string; fn: Animation }[] = [
   { name: "breathing", fn: breathing },
   { name: "tilt", fn: tilt },
   { name: "sway", fn: sway },
   { name: "gaze", fn: gaze },
-  { name: "shimmer", fn: shimmer }
+  { name: "sweep", fn: sweep }
 ]

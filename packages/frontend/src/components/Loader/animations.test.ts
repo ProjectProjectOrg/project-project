@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest"
 import { animations, breathingP } from "./animations"
 
 describe("animations", () => {
-  it("keeps the fold p within [0,1] across a long span", () => {
+  it("keeps the fold p within [0,1] for the on-canvas animations", () => {
     for (const { name, fn } of animations) {
+      if (name === "sweep") continue
       for (let t = 0; t <= 12000; t += 37) {
         const { p } = fn(t, 0.5)
         expect(p, `${name} p at ${t}`).toBeGreaterThanOrEqual(0)
@@ -38,19 +39,17 @@ describe("animations", () => {
     expect(max).toBeGreaterThan(base)
   })
 
-  it("shimmer loops seamlessly and keeps both panels visible (no full collapse)", () => {
-    const shimmer = animations.find((a) => a.name === "shimmer")!.fn
-    let min = Infinity
-    let max = -Infinity
-    for (let t = 0; t <= 6000; t += 25) {
-      const { p } = shimmer(t, 0.5)
-      min = Math.min(min, p)
-      max = Math.max(max, p)
-    }
-    expect(min).toBeGreaterThan(0.1)
-    expect(max).toBeLessThan(0.9)
-    expect(shimmer(6000, 0.5).p).toBeCloseTo(shimmer(0, 0.5).p, 5)
-    expect(shimmer(6000, 0.5).persp).toBeCloseTo(shimmer(0, 0.5).persp, 5)
+  it("sweep travels one direction off both sides and wraps with a tight falloff", () => {
+    const sweep = animations.find((a) => a.name === "sweep")!.fn
+    const start = sweep(0, 0.5).p
+    const justBeforeWrap = sweep(5999, 0.5).p
+    expect(justBeforeWrap).toBeGreaterThan(start)
+    expect(start).toBeLessThan(0)
+    expect(justBeforeWrap).toBeGreaterThan(1)
+    expect(sweep(0, 0.5).falloff).toBe(0.5)
+    const mid = sweep(3000, 0.5).p
+    expect(mid).toBeGreaterThan(start)
+    expect(mid).toBeLessThan(justBeforeWrap)
   })
 
   it("still exposes breathingP for the raw svg preview", () => {
