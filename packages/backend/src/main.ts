@@ -368,7 +368,7 @@ export const everhourWebhookRoute = Effect.gen(function* () {
 )
 
 const everhourIntegrationRoutes = HttpRouter.empty.pipe(
-  HttpRouter.post("/webhook/:secret", everhourWebhookRoute)
+  HttpRouter.post("/:secret", everhourWebhookRoute)
 )
 
 const ServerLive = HttpApiBuilder.serve((apiApp) =>
@@ -376,7 +376,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
     HttpRouter.mountApp("/api/auth", betterAuthApp),
     HttpRouter.mountApp("/api/integrations/github", githubIntegrationRoutes),
     HttpRouter.mountApp(
-      "/api/integrations/everhour",
+      "/api/integrations/everhour/webhook",
       everhourIntegrationRoutes
     ),
     HttpRouter.all("/mcp", mcpRoute),
