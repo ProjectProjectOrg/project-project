@@ -62,8 +62,8 @@ describe("panelGeometry", () => {
   it("is mirror-symmetric about the center", () => {
     const a = panelGeometry(0.3)
     const b = panelGeometry(0.7)
-    expect(a.leftGradient.x1).toBe(b.rightGradient.x1 - (w - 2 * a.foldX) - 0) // sanity: folds mirror
     expect(a.foldX).toBe(w - b.foldX)
+    expect(a.leftGradient.x1).toBe(b.rightGradient.x2 - b.rightGradient.x1)
   })
 
   it("keeps the fold-edge height constant across p (short height at the fold)", () => {
@@ -455,6 +455,7 @@ type DitherCanvasProps = {
   uniforms: DitherUniforms
   ditherCells?: number
   className?: string
+  style?: React.CSSProperties
 }
 ```
 
@@ -497,7 +498,8 @@ export function DitherCanvas({
   paused = false,
   uniforms,
   ditherCells = 40,
-  className
+  className,
+  style
 }: DitherCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const getPRef = useRef(getP)
@@ -619,7 +621,7 @@ export function DitherCanvas({
     }
   }, [])
 
-  return <canvas ref={canvasRef} className={className} />
+  return <canvas ref={canvasRef} className={className} style={style} />
 }
 ```
 
@@ -754,18 +756,17 @@ export function Loader({
   return (
     <DitherCanvas
       className={className}
+      style={{ width: dim, height: dim }}
       getP={getP}
       paused={paused || reduced}
       uniforms={merged}
       ditherCells={ditherCells}
-      // sizing via style below through className is possible; inline for clarity
-      {...({ style: { width: dim, height: dim } } as object)}
     />
   )
 }
 ```
 
-Note: `DitherCanvas` must forward `style`. Update its props to accept `style?: React.CSSProperties` and spread it onto the `<canvas>`. Edit `DitherCanvas.tsx`: add `style` to `DitherCanvasProps` and render `<canvas ref={canvasRef} className={className} style={style} />`.
+Note: `DitherCanvas` must accept and forward `style`. Edit `DitherCanvas.tsx`: add `style?: React.CSSProperties` to `DitherCanvasProps`, destructure it, and render `<canvas ref={canvasRef} className={className} style={style} />`.
 
 `src/components/Loader/index.ts`:
 
@@ -786,7 +787,7 @@ Expected: no errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/components/Loader/Loader.tsx src/components/Loader/index.ts src/components/Loader/breathing.test.ts src/components/Loader/DitherCanvas.tsx
+git add src/components/Loader/Loader.tsx src/components/Loader/index.ts src/components/Loader/breathing.test.ts
 git commit -m "feat(loader): breathing clock, reduced-motion, public Loader component"
 ```
 
