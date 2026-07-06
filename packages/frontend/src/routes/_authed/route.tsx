@@ -14,7 +14,12 @@ import {
   Settings,
   UserRound
 } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import {
+  AnimatePresence,
+  LayoutGroup,
+  motion,
+  useReducedMotion
+} from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
@@ -105,7 +110,9 @@ function Shell({ user }: { user: User }) {
 function Sidebar({ user }: { user: User }) {
   return (
     <aside className="row-span-2 hidden lg:flex">
-      <SidebarContent user={user} />
+      <LayoutGroup id="sidebar-desktop">
+        <SidebarContent user={user} />
+      </LayoutGroup>
     </aside>
   )
 }
@@ -400,7 +407,6 @@ function MobileNav({ user }: { user: User }) {
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
-    if (mq.matches) setOpen(false)
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setOpen(false)
     }
@@ -423,7 +429,9 @@ function MobileNav({ user }: { user: User }) {
       />
       <SheetContent side="left" showCloseButton={false}>
         <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
-        <SidebarContent user={user} />
+        <LayoutGroup id="sidebar-drawer">
+          <SidebarContent user={user} />
+        </LayoutGroup>
       </SheetContent>
     </Sheet>
   )
