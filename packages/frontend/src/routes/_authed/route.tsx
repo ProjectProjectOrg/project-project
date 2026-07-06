@@ -378,9 +378,7 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
 function Topbar({ user }: { user: User }) {
   return (
     <header className="flex h-14 items-center gap-2 px-4">
-      <div className="lg:hidden">
-        <MobileNav user={user} />
-      </div>
+      <MobileNav user={user} />
       <div className="min-w-0 flex-1">
         <Breadcrumbs />
       </div>
@@ -400,6 +398,16 @@ function MobileNav({ user }: { user: User }) {
     setOpen(false)
   }, [pathname])
 
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    if (mq.matches) setOpen(false)
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false)
+    }
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
@@ -407,7 +415,7 @@ function MobileNav({ user }: { user: User }) {
           <button
             type="button"
             aria-label={m.chrome_nav_open()}
-            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
+            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] lg:hidden"
           >
             <Menu className="size-5" strokeWidth={1.75} />
           </button>
