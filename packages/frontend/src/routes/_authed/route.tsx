@@ -18,6 +18,7 @@ import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
+import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
 import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
@@ -50,7 +51,7 @@ function AuthedLayout() {
   const { pathname } = useLocation()
 
   return Result.matchWithError(me, {
-    onInitial: () => <FullPageStatus>{m.chrome_loading()}</FullPageStatus>,
+    onInitial: () => <LoaderOverlay active />,
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => {
@@ -230,6 +231,10 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
   )
 }
 
+function projectSettingsLayoutId(orgSlug: string, slug: string) {
+  return `project-settings-row:${orgSlug}/${slug}`
+}
+
 function ProjectsGroupRow({
   orgSlug,
   slug,
@@ -243,13 +248,22 @@ function ProjectsGroupRow({
   icon: string
   active: boolean
 }) {
+  const reduceMotion = useReducedMotion()
+  const settingsLabel = m.project_sidebar_settings_aria_label({ name })
+
   return (
-    <li>
+    <motion.li
+      layoutId={
+        reduceMotion ? undefined : projectSettingsLayoutId(orgSlug, slug)
+      }
+      transition={transitions.layout}
+      className="group/project-row flex items-center rounded-lg transition-colors hover:bg-accent/60"
+    >
       <Link
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
         className={cn(
-          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-3 pr-1 text-[13px] transition-colors",
           active
             ? "font-medium text-foreground"
             : "text-muted-foreground hover:text-foreground"
@@ -266,7 +280,19 @@ function ProjectsGroupRow({
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
-    </li>
+      <Link
+        to="/orgs/$orgSlug/projects/$slug/settings"
+        params={{ orgSlug, slug }}
+        aria-label={settingsLabel}
+        title={settingsLabel}
+        className={cn(
+          "mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
+          "opacity-0 group-hover/project-row:opacity-100 group-focus-within/project-row:opacity-100"
+        )}
+      >
+        <Settings className="size-3.5" strokeWidth={1.75} />
+      </Link>
+    </motion.li>
   )
 }
 
@@ -410,10 +436,3 @@ function UserMenu({ user }: { user: User }) {
   )
 }
 
-function FullPageStatus({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid h-full place-items-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  )
-}

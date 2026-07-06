@@ -694,3 +694,73 @@ html.dark .prose-md .token.coord {
     isolation: isolate;
   }
 }
+
+@property --pp-sweep {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: -100;
+}
+
+.pp-loader {
+  --pp-angle: 81deg;
+  --pp-band: 69;
+  --pp-base: 0.32;
+  --pp-speed: 1.8s;
+  -webkit-mask-image: linear-gradient(
+    var(--pp-angle),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) - var(--pp-band)) * 1%),
+    #000 calc(var(--pp-sweep) * 1%),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) + var(--pp-band)) * 1%)
+  );
+  mask-image: linear-gradient(
+    var(--pp-angle),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) - var(--pp-band)) * 1%),
+    #000 calc(var(--pp-sweep) * 1%),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) + var(--pp-band)) * 1%)
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: pp-sweep var(--pp-speed) linear infinite;
+}
+
+.pp-loader > svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes pp-sweep {
+  from {
+    --pp-sweep: -100;
+  }
+  to {
+    --pp-sweep: 200;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-loader {
+    animation: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.pp-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--background);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.pp-loader-overlay[data-active="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.25s;
+}
