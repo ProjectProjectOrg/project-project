@@ -42,11 +42,11 @@ describe("animations", () => {
   it("sweep travels one direction off both sides and wraps with a tight falloff", () => {
     const sweep = animations.find((a) => a.name === "sweep")!.fn
     const start = sweep(0, 0.5).p
-    const justBeforeWrap = sweep(6999, 0.5).p
+    const justBeforeWrap = sweep(3199, 0.5).p
     expect(justBeforeWrap).toBeGreaterThan(start)
     expect(start).toBeLessThan(0)
     expect(justBeforeWrap).toBeGreaterThan(1)
-    const mid = sweep(3500, 0.5).p
+    const mid = sweep(1600, 0.5).p
     expect(mid).toBeGreaterThan(start)
     expect(mid).toBeLessThan(justBeforeWrap)
   })

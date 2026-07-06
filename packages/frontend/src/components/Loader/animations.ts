@@ -26,11 +26,12 @@ const gaze: Animation = (t, persp) => {
   return { p, persp: persp + 0.22 * (p - 0.5) * 2 }
 }
 
-const SWEEP_START = -2.8
-const SWEEP_SPAN = 6.6
+const SWEEP_START = -2.2
+const SWEEP_SPAN = 6.5
+const SWEEP_PERIOD = 3200
 
 const sweep: Animation = (t, persp) => ({
-  p: SWEEP_START + frac(t / 7000) * SWEEP_SPAN,
+  p: SWEEP_START + frac(t / SWEEP_PERIOD) * SWEEP_SPAN,
   persp
 })
 
@@ -41,3 +42,5 @@ export const animations: { name: string; fn: Animation }[] = [
   { name: "gaze", fn: gaze },
   { name: "sweep", fn: sweep }
 ]
+
+export const defaultAnimation = sweep

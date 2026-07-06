@@ -71,19 +71,19 @@ function LoaderDebugPage() {
       options: [...presetNames, "sweep (custom)"],
       default: "sweep (custom)"
     },
-    speed: [1, 0.1, 4, 0.05],
+    speed: [1.25, 0.1, 4, 0.05],
     paused: false,
-    perspective: [0.5, 0.2, 0.8, 0.01],
+    perspective: [0.45, 0.2, 0.8, 0.01],
     sweep: {
       _collapsed: false,
-      start: [-2.8, -8, 0, 0.1],
-      span: [6.6, 1, 14, 0.1],
-      period: [7000, 800, 16000, 100]
+      start: [-2.2, -8, 0, 0.1],
+      span: [6.5, 1, 14, 0.1],
+      period: [3200, 800, 16000, 100]
     },
     gradient: {
       _collapsed: false,
-      falloff: [0.72, 0.05, 1, 0.01],
-      curve: [1, 0.2, 4, 0.05]
+      falloff: [0.57, 0.05, 1, 0.01],
+      curve: [0.8, 0.2, 4, 0.05]
     },
     dither: {
       _collapsed: false,
@@ -92,7 +92,7 @@ function LoaderDebugPage() {
         options: ["random", "2x2", "4x4", "8x8"],
         default: "2x2"
       },
-      cells: [30, 4, 140, 1],
+      cells: [20, 4, 140, 1],
       colorSteps: [2, 1, 6, 1],
       originalColors: true,
       inverted: false

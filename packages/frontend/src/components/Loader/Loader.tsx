@@ -1,5 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react"
-import { type Animation, animations } from "./animations"
+import { type Animation, defaultAnimation } from "./animations"
 import {
   DEFAULT_UNIFORMS,
   type DitherUniforms
@@ -7,8 +7,6 @@ import {
 import { DitherCanvas } from "./DitherCanvas"
 
 export { breathingP } from "./animations"
-
-const defaultAnimation = animations[0].fn
 
 function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(
@@ -38,14 +36,14 @@ type LoaderProps = {
 export function Loader({
   size = 96,
   className,
-  speed = 1,
+  speed = 1.25,
   paused = false,
   uniforms,
-  ditherCells,
+  ditherCells = 20,
   animation = defaultAnimation,
-  perspective = 0.5,
-  falloff,
-  gradientCurve
+  perspective = 0.45,
+  falloff = 0.57,
+  gradientCurve = 0.8
 }: LoaderProps) {
   const reduced = usePrefersReducedMotion()
   const merged = useMemo(

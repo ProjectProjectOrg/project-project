@@ -112,5 +112,5 @@ export const DEFAULT_UNIFORMS: DitherUniforms = {
   inverted: false,
   colorFront: [148 / 255, 1, 175 / 255, 1],
   colorHighlight: [234 / 255, 1, 148 / 255, 1],
-  colorBack: [0, 0, 0, 0]
+  colorBack: [0, 12 / 255, 56 / 255, 0]
 }
