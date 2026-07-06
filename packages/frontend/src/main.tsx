@@ -12,6 +12,7 @@ import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { STATE_COLORS } from "@projectproject/shared"
+import { RouteLoader } from "./components/Loader/RouteLoader"
 import { registry } from "./runtime"
 import { routeTree } from "./routeTree.gen"
 import "./styles.css"
@@ -29,6 +30,7 @@ document.head.appendChild(stateColorStyle)
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
+  defaultPendingComponent: RouteLoader,
   context: { registry }
 })
 

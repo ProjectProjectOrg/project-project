@@ -1,12 +1,21 @@
-import { useMemo, useSyncExternalStore } from "react"
-import { type Animation, defaultAnimation } from "./animations"
-import {
-  DEFAULT_UNIFORMS,
-  type DitherUniforms
-} from "./dither-shader"
-import { DitherCanvas } from "./DitherCanvas"
+import { useEffect, useRef, useSyncExternalStore } from "react"
+import logoRaw from "@/public/logo/logo.svg?raw"
 
-export { breathingP } from "./animations"
+const themedLogo = logoRaw
+  .replace(/fill="#FEFEFE"/g, 'fill="var(--foreground)"')
+  .replace(/fill="#807F7F"/g, 'fill="var(--muted-foreground)"')
+  .replace(/<svg([^>]*?)\swidth="[^"]*"/, "<svg$1")
+  .replace(/<svg([^>]*?)\sheight="[^"]*"/, "<svg$1")
+
+function bandGradient(
+  angle: number,
+  baseOpacity: number,
+  bandWidth: number,
+  center: number
+): string {
+  const dim = `rgba(0,0,0,${baseOpacity})`
+  return `linear-gradient(${angle}deg, ${dim} ${center - bandWidth}%, #000 ${center}%, ${dim} ${center + bandWidth}%)`
+}
 
 function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(
@@ -24,51 +33,75 @@ type LoaderProps = {
   size?: number | string
   className?: string
   speed?: number
+  angle?: number
+  baseOpacity?: number
+  bandWidth?: number
+  travel?: number
   paused?: boolean
-  uniforms?: Partial<DitherUniforms>
-  ditherCells?: number
-  animation?: Animation
-  perspective?: number
-  falloff?: number
-  gradientCurve?: number
 }
 
 export function Loader({
   size = 96,
   className,
-  speed = 1.25,
-  paused = false,
-  uniforms,
-  ditherCells = 20,
-  animation = defaultAnimation,
-  perspective = 0.45,
-  falloff = 0.57,
-  gradientCurve = 0.8
+  speed = 1.8,
+  angle = 81,
+  baseOpacity = 0.32,
+  bandWidth = 69,
+  travel = 1,
+  paused = false
 }: LoaderProps) {
+  const ref = useRef<HTMLDivElement>(null)
   const reduced = usePrefersReducedMotion()
-  const merged = useMemo(
-    () => ({ ...DEFAULT_UNIFORMS, ...uniforms }),
-    [uniforms]
-  )
-  const getFrame = useMemo(
-    () =>
-      reduced
-        ? () => ({ p: 0.5, persp: perspective })
-        : (elapsed: number) => animation(elapsed * (speed || 1), perspective),
-    [reduced, animation, speed, perspective]
-  )
+  const paramsRef = useRef({ speed, angle, baseOpacity, bandWidth, travel })
+  paramsRef.current = { speed, angle, baseOpacity, bandWidth, travel }
+  const still = paused || reduced
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (still) {
+      el.style.webkitMaskImage = "none"
+      el.style.maskImage = "none"
+      return
+    }
+    let raf = 0
+    let start = 0
+    const tick = (t: number) => {
+      if (!start) start = t
+      const { speed, angle, baseOpacity, bandWidth, travel } = paramsRef.current
+      const phase = ((t - start) / (speed * 1000)) % 1
+      const center = (-travel + phase * (1 + 2 * travel)) * 100
+      const g = bandGradient(angle, baseOpacity, bandWidth, center)
+      el.style.webkitMaskImage = g
+      el.style.maskImage = g
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [still])
+
   const dim = typeof size === "number" ? `${size}px` : size
+  const initial = bandGradient(angle, baseOpacity, bandWidth, -travel * 100)
 
   return (
-    <DitherCanvas
+    <div
+      ref={ref}
       className={className}
-      style={{ width: dim, height: dim }}
-      getFrame={getFrame}
-      paused={paused || reduced}
-      uniforms={merged}
-      ditherCells={ditherCells}
-      falloff={falloff}
-      gradientCurve={gradientCurve}
-    />
+      style={{
+        width: dim,
+        height: dim,
+        WebkitMaskImage: still ? "none" : initial,
+        maskImage: still ? "none" : initial,
+        WebkitMaskSize: "100% 100%",
+        maskSize: "100% 100%",
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat"
+      }}
+    >
+      <span
+        className="block size-full [&>svg]:size-full"
+        dangerouslySetInnerHTML={{ __html: themedLogo }}
+      />
+    </div>
   )
 }
