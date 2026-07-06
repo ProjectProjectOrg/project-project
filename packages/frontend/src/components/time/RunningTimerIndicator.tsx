@@ -4,7 +4,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { Timer } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   DEFAULT_WORK_TYPES,
   GroupId,
@@ -249,7 +249,10 @@ function ProjectTimerIndicator({
     statusResult.value.status !== "not_connected" &&
     Result.isSuccess(profileResult) &&
     profileResult.value.connected
-  const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
+  const sprints = useMemo(
+    () => (Result.isSuccess(sprintsResult) ? sprintsResult.value : []),
+    [sprintsResult]
+  )
   const selectedSprint = selectedGroupId
     ? sprints.find((s) => s.id === selectedGroupId)
     : null
@@ -279,12 +282,15 @@ function ProjectTimerIndicator({
   const startTicketState = useAtomValue(startTicketTimerAtom(ticketTimerKey))
   const ticketOptionsLoading =
     ticketId !== null && Result.isInitial(ticketWorkTypesResult)
-  const availableOptions =
-    ticketId !== null
-      ? Result.isSuccess(ticketWorkTypesResult)
-        ? ticketWorkTypesResult.value
-        : []
-      : options
+  const availableOptions = useMemo(
+    () =>
+      ticketId !== null
+        ? Result.isSuccess(ticketWorkTypesResult)
+          ? ticketWorkTypesResult.value
+          : []
+        : options,
+    [ticketId, ticketWorkTypesResult]
+  )
   const busy =
     timerWaiting ||
     startState.waiting ||

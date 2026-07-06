@@ -96,7 +96,7 @@ function spawn(name: string, command: string[], cwd = root) {
     stderr: "inherit"
   })
   children.push({ name, process })
-  process.exited.then((code) => {
+  void process.exited.then((code) => {
     if (!stopping) {
       console.error(`${name} exited with ${code}`)
       void shutdown(code === 0 ? 0 : code || 1)
