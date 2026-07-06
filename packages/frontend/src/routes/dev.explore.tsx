@@ -17,6 +17,7 @@ const PATHS: LogoPath[] = Array.from(parsed.querySelectorAll("path")).map(
     fill: p.getAttribute("fill") ?? "#FEFEFE"
   })
 )
+const LOGO_DATA_URI = `data:image/svg+xml;base64,${btoa(logoRaw)}`
 
 const STYLES = `
 .exp svg { width: 100%; height: 100%; overflow: visible; }
@@ -69,7 +70,7 @@ const STYLES = `
 .exp-shimmer {
   position: relative;
 }
-.exp-shimmer path { fill: #2f5d43; }
+.exp-shimmer path { fill: #4a4a4a; }
 .exp-shimmer .exp-shimmer-band {
   position: absolute;
   inset: 0;
@@ -84,7 +85,7 @@ const STYLES = `
   background: linear-gradient(
     100deg,
     transparent 30%,
-    #baffce 50%,
+    #ffffff 50%,
     transparent 70%
   );
   animation: exp-shimmer-move 1.8s linear infinite;
@@ -150,7 +151,8 @@ function LogoDissolve() {
            vec4 c=texture2D(u_img,uv);
            float n=hash(floor(uv*40.0));
            float edge=smoothstep(n-0.15,n+0.15,u_p);
-           gl_FragColor=vec4(c.rgb,c.a*edge);
+           float alpha=c.a*edge;
+           gl_FragColor=vec4(c.rgb*alpha,alpha);
          }`
       )
     )
@@ -205,7 +207,7 @@ function LogoDissolve() {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
       ready = true
     }
-    img.src = `data:image/svg+xml;utf8,${encodeURIComponent(logoRaw)}`
+    img.src = LOGO_DATA_URI
 
     const tri = (x: number) => {
       const f = x - Math.floor(x)
@@ -232,7 +234,7 @@ function LogoDissolve() {
   return <canvas ref={canvasRef} style={{ width: 160, height: 160 }} />
 }
 
-const logoMask = `url("data:image/svg+xml;utf8,${encodeURIComponent(logoRaw)}")`
+const logoMask = `url("${LOGO_DATA_URI}")`
 
 function Cell({
   label,
@@ -298,9 +300,9 @@ function ExplorePage() {
                     x2="1"
                     y2="0"
                   >
-                    <stop offset="0" stopColor="#3f7a58" />
-                    <stop offset="0.5" stopColor="#d6ffe6" />
-                    <stop offset="1" stopColor="#3f7a58" />
+                    <stop offset="0" stopColor="#6b6b6b" />
+                    <stop offset="0.5" stopColor="#ffffff" />
+                    <stop offset="1" stopColor="#6b6b6b" />
                     <animateTransform
                       attributeName="gradientTransform"
                       type="translate"
