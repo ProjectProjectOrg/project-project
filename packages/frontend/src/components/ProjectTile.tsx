@@ -83,6 +83,7 @@ export function ProjectTile({
         stops={variant.stops}
         matrix="4x4"
         pixelSize={size === "xs" ? 1 : 2}
+        shape="square"
       />
       <span aria-hidden className="relative" style={{ filter: EMOJI_SHADOW }}>
         {icon}

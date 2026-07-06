@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue, Result } from "@effect-atom/atom-react"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import { MoreHorizontal, RotateCcw, Trash2, Trophy } from "lucide-react"
+import { MoreHorizontal, RotateCcw, SlidersHorizontal, Trash2, Trophy } from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import { Calendar } from "@/components/ui/calendar"
@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
@@ -338,17 +339,33 @@ function SprintDatesField({
 export function SprintDeleteMenu({
   orgSlug,
   slug,
-  sprint
+  sprint,
+  sprints
 }: {
   orgSlug: string
   slug: string
   sprint: Group
+  sprints: ReadonlyArray<Group>
 }) {
   const navigate = useNavigate()
   const key = projectKey(orgSlug, slug)
+  const complete = useAtomSet(completeSprintAtom(key))
+  const completeState = useAtomValue(completeSprintAtom(key))
   const remove = useAtomSet(deleteSprintAtom(key), { mode: "promiseExit" })
   const removeState = useAtomValue(deleteSprintAtom(key))
+  const ticketsResult = useAtomValue(
+    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, sprint.id))
+  )
   const deleting = removeState.waiting
+  const completing = completeState.waiting
+  const isCompleted = sprint.completedAt !== null
+  const planned = pickEarliestPlannedSprint(sprints)
+  const ticketStatuses = new Map<TicketId, string>()
+  if (Result.isSuccess(ticketsResult)) {
+    for (const t of ticketsResult.value) ticketStatuses.set(t.id, t.status)
+  }
+  const completeTo = (destination: CompleteSprintDestination) =>
+    complete({ groupId: sprint.id, destination, ticketStatuses })
   const [confirming, setConfirming] = useState(false)
 
   async function onDelete(groupId: GroupId) {
@@ -376,14 +393,69 @@ export function SprintDeleteMenu({
       />
       <DropdownMenuContent align="end" sideOffset={6} className="w-56">
         {!confirming ? (
-          <DropdownMenuItem
-            closeOnClick={false}
-            onClick={() => setConfirming(true)}
-            className="cursor-pointer text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.sprints_delete_button()}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              render={
+                <Link
+                  to="/orgs/$orgSlug/projects/$slug/settings"
+                  params={{ orgSlug, slug }}
+                />
+              }
+            >
+              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+              {m.project_detail_tab_settings()}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {!isCompleted &&
+              (planned ? (
+                <>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      completeTo({ kind: "sprint", groupId: planned.id })
+                    }
+                    disabled={completing || deleting}
+                    className="cursor-pointer"
+                  >
+                    <Trophy
+                      className="size-4 text-state-success"
+                      strokeWidth={1.75}
+                    />
+                    {m.sprints_complete_to_planned({ name: planned.name })}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => completeTo({ kind: "backlog" })}
+                    disabled={completing || deleting}
+                    className="cursor-pointer"
+                  >
+                    <Trophy
+                      className="size-4 text-state-success"
+                      strokeWidth={1.75}
+                    />
+                    {m.sprints_complete_to_backlog()}
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => completeTo({ kind: "backlog" })}
+                  disabled={completing || deleting}
+                  className="cursor-pointer"
+                >
+                  <Trophy
+                    className="size-4 text-state-success"
+                    strokeWidth={1.75}
+                  />
+                  {m.sprints_complete_button()}
+                </DropdownMenuItem>
+              ))}
+            <DropdownMenuItem
+              closeOnClick={false}
+              onClick={() => setConfirming(true)}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <Trash2 className="size-4" strokeWidth={1.75} />
+              {m.sprints_delete_button()}
+            </DropdownMenuItem>
+          </>
         ) : (
           <div className="flex flex-col gap-2 p-1">
             <p className="px-2 pt-1 text-xs text-muted-foreground">
@@ -413,3 +485,5 @@ export function SprintDeleteMenu({
     </DropdownMenu>
   )
 }
+
+

@@ -185,7 +185,7 @@ export function ProjectHeader({
         <MorphSlot slotKey={mode} reduce={reduce}>
           {sprintGroupId ? (
             sprint ? (
-              <SprintDeleteMenu orgSlug={orgSlug} slug={slug} sprint={sprint} />
+              <SprintDeleteMenu orgSlug={orgSlug} slug={slug} sprint={sprint} sprints={sprints} />
             ) : (
               <div className="size-8" />
             )
@@ -304,3 +304,4 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     </DropdownMenu>
   )
 }
+
