@@ -74,7 +74,6 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "dialkit": "^1.3.0",
     "jsdom": "^29.1.1",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.34.5",

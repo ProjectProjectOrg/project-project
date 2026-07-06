@@ -13,7 +13,6 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedRouteRouteImport } from './routes/_authed/route'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
-import { Route as DevExploreRouteImport } from './routes/dev.explore'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as publicLoginRouteImport } from './routes/(public)/login'
 import { Route as publicOauthConsentRouteImport } from './routes/(public)/oauth.consent'
@@ -56,11 +55,6 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevExploreRoute = DevExploreRouteImport.update({
-  id: '/dev/explore',
-  path: '/dev/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedProfileRoute = AuthedProfileRouteImport.update({
@@ -208,7 +202,6 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
-  '/dev/explore': typeof DevExploreRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
   '/oauth/consent': typeof publicOauthConsentRoute
@@ -237,7 +230,6 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/login': typeof publicLoginRoute
   '/profile': typeof AuthedProfileRoute
-  '/dev/explore': typeof DevExploreRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
@@ -264,7 +256,6 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/(public)/login': typeof publicLoginRoute
   '/_authed/profile': typeof AuthedProfileRoute
-  '/dev/explore': typeof DevExploreRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/orgs/$orgSlug': typeof AuthedOrgsOrgSlugRouteRouteWithChildren
@@ -297,7 +288,6 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/login'
     | '/profile'
-    | '/dev/explore'
     | '/invite/$invitationId'
     | '/orgs/$orgSlug'
     | '/oauth/consent'
@@ -326,7 +316,6 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/login'
     | '/profile'
-    | '/dev/explore'
     | '/invite/$invitationId'
     | '/'
     | '/oauth/consent'
@@ -352,7 +341,6 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/(public)/login'
     | '/_authed/profile'
-    | '/dev/explore'
     | '/invite/$invitationId'
     | '/_authed/'
     | '/_authed/orgs/$orgSlug'
@@ -383,7 +371,6 @@ export interface RootRouteChildren {
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
   WelcomeRoute: typeof WelcomeRoute
   publicLoginRoute: typeof publicLoginRoute
-  DevExploreRoute: typeof DevExploreRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   publicOauthConsentRoute: typeof publicOauthConsentRoute
 }
@@ -416,13 +403,6 @@ declare module '@tanstack/react-router' {
       path: '/invite/$invitationId'
       fullPath: '/invite/$invitationId'
       preLoaderRoute: typeof InviteInvitationIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dev/explore': {
-      id: '/dev/explore'
-      path: '/dev/explore'
-      fullPath: '/dev/explore'
-      preLoaderRoute: typeof DevExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/profile': {
@@ -732,7 +712,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
   WelcomeRoute: WelcomeRoute,
   publicLoginRoute: publicLoginRoute,
-  DevExploreRoute: DevExploreRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   publicOauthConsentRoute: publicOauthConsentRoute,
 }
