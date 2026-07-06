@@ -1,0 +1,6 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="_fp3uvs0" x1="209.524" y1="250" x2="420" y2="250" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset="1"/></linearGradient></defs>
+  <rect width="500" height="500" fill="#000000" />
+  <path d="M80 128.571L193.333 144.762V355.238L80 371.429V128.571Z" fill="#FFFFFF" />
+  <path d="M209.524 144.762L420 80V420L209.524 355.238V144.762Z" fill="url(#_fp3uvs0)" />
+</svg>
