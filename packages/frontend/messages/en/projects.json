@@ -135,6 +135,7 @@
   "project_settings_everhour_help_subtitle": "You only need the personal API token once. ProjectProject stores it on your profile, then project settings can connect Everhour projects.",
   "project_settings_everhour_help_title": "Find your Everhour API key",
   "project_settings_everhour_help_trigger_label": "Show Everhour API key instructions",
+  "project_settings_everhour_help_trigger_text": "?",
   "project_settings_everhour_last_synced": "Last synced {date}.",
   "project_settings_everhour_loading": "Loading Everhour status…",
   "project_settings_everhour_not_connected": "Connect Everhour to create a board project with sprint sections and ticket tasks.",

@@ -16,7 +16,6 @@ import {
 export function EverhourApiKeyWalkthrough() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ align: "start" })
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [scrollSnaps, setScrollSnaps] = useState<number[]>([])
   const [canScrollPrev, setCanScrollPrev] = useState(false)
   const [canScrollNext, setCanScrollNext] = useState(false)
   const slides = [
@@ -43,7 +42,6 @@ export function EverhourApiKeyWalkthrough() {
   const updateCarouselState = useCallback(() => {
     if (!emblaApi) return
     setSelectedIndex(emblaApi.selectedScrollSnap())
-    setScrollSnaps(emblaApi.scrollSnapList())
     setCanScrollPrev(emblaApi.canScrollPrev())
     setCanScrollNext(emblaApi.canScrollNext())
   }, [emblaApi])
@@ -65,12 +63,11 @@ export function EverhourApiKeyWalkthrough() {
         render={
           <Button
             type="button"
-            variant="ghost"
+            variant="inline-help"
             size="icon-xs"
-            className="ml-1 align-middle text-[11px] font-medium"
             aria-label={m.project_settings_everhour_help_trigger_label()}
           >
-            ?
+            {m.project_settings_everhour_help_trigger_text()}
           </Button>
         }
       />
@@ -116,9 +113,9 @@ export function EverhourApiKeyWalkthrough() {
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
-              {scrollSnaps.map((snap, index) => (
+              {slides.map((slide, index) => (
                 <button
-                  key={snap}
+                  key={slide.title}
                   type="button"
                   aria-label={m.project_settings_everhour_help_dot_label({
                     index: index + 1,
