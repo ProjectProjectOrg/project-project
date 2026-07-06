@@ -4,6 +4,7 @@ import "dialkit/styles.css"
 import { useEffect, useRef } from "react"
 import { Loader } from "@/components/Loader"
 import { type Animation, animations } from "@/components/Loader/animations"
+import { DITHER_TYPES } from "@/components/Loader/dither-shader"
 import { logoSvgString } from "@/components/Loader/logo-geometry"
 
 export const Route = createFileRoute("/dev/loader/")({
@@ -79,6 +80,11 @@ function LoaderDebugPage() {
     },
     dither: {
       _collapsed: false,
+      type: {
+        type: "select",
+        options: ["random", "2x2", "4x4", "8x8"],
+        default: "2x2"
+      },
       cells: [30, 4, 140, 1],
       colorSteps: [2, 1, 6, 1],
       originalColors: true,
@@ -102,6 +108,7 @@ function LoaderDebugPage() {
   const anim: Animation = preset ? preset.fn : custom
 
   const uniforms = {
+    type: DITHER_TYPES[c.dither.type as keyof typeof DITHER_TYPES] ?? 2,
     colorSteps: c.dither.colorSteps,
     originalColors: c.dither.originalColors,
     inverted: c.dither.inverted,

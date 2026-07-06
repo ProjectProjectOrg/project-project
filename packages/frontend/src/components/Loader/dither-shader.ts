@@ -15,6 +15,7 @@ precision mediump float;
 uniform sampler2D u_image;
 uniform vec2 u_resolution;
 uniform float u_pxSize;
+uniform float u_type;
 uniform float u_colorSteps;
 uniform bool u_originalColors;
 uniform bool u_inverted;
@@ -23,13 +24,24 @@ uniform vec4 u_colorHighlight;
 uniform vec4 u_colorBack;
 varying vec2 v_uv;
 
-float bayer2x2(vec2 p) {
-  vec2 c = fract(p / 2.0) * 2.0;
-  int idx = int(c.y) * 2 + int(c.x);
-  if (idx == 0) return 0.0 / 4.0;
-  if (idx == 1) return 2.0 / 4.0;
-  if (idx == 2) return 3.0 / 4.0;
-  return 1.0 / 4.0;
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float bayer2(vec2 a) {
+  a = floor(a);
+  return fract(a.x / 2.0 + a.y * a.y * 0.75);
+}
+float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+float bayer8(vec2 a) { return bayer4(0.5 * a) * 0.25 + bayer2(a); }
+
+float ditherValue(vec2 p, float type) {
+  int t = int(type + 0.5);
+  if (t == 1) return hash21(p);
+  if (t == 3) return bayer4(p);
+  if (t == 4) return bayer8(p);
+  return bayer2(p);
 }
 
 void main() {
@@ -41,7 +53,7 @@ void main() {
   float lum = dot(vec3(0.2126, 0.7152, 0.0722), image.rgb);
   lum = u_inverted ? (1.0 - lum) : lum;
 
-  float dithering = bayer2x2(pxSizeUV) - 0.5;
+  float dithering = ditherValue(pxSizeUV, u_type) - 0.5;
   float colorSteps = max(floor(u_colorSteps), 1.0);
   float brightness = clamp(lum + dithering / colorSteps, 0.0, 1.0);
   brightness = mix(0.0, brightness, image.a);
@@ -76,7 +88,15 @@ void main() {
 }
 `
 
+export const DITHER_TYPES = {
+  random: 1,
+  "2x2": 2,
+  "4x4": 3,
+  "8x8": 4
+} as const
+
 export type DitherUniforms = {
+  type: number
   colorSteps: number
   originalColors: boolean
   inverted: boolean
@@ -86,6 +106,7 @@ export type DitherUniforms = {
 }
 
 export const DEFAULT_UNIFORMS: DitherUniforms = {
+  type: DITHER_TYPES["2x2"],
   colorSteps: 2,
   originalColors: true,
   inverted: false,
