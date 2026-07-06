@@ -30,29 +30,32 @@ const presetNames = animations.map((a) => a.name)
 function RawSvgPreview({
   animation,
   speed,
-  persp
+  persp,
+  falloff,
+  curve
 }: {
   animation: Animation
   speed: number
   persp: number
+  falloff: number
+  curve: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const animationRef = useRef(animation)
-  const speedRef = useRef(speed)
-  const perspRef = useRef(persp)
-  animationRef.current = animation
-  speedRef.current = speed
-  perspRef.current = persp
+  const stateRef = useRef({ animation, speed, persp, falloff, curve })
+  stateRef.current = { animation, speed, persp, falloff, curve }
   useEffect(() => {
     let raf = 0
     let start = 0
     const tick = (t: number) => {
       if (!start) start = t
-      const { p, persp: pv, falloff = 1 } = animationRef.current(
-        (t - start) * (speedRef.current || 1),
-        perspRef.current
+      const s = stateRef.current
+      const { p, persp: pv } = s.animation(
+        (t - start) * (s.speed || 1),
+        s.persp
       )
-      if (ref.current) ref.current.innerHTML = logoSvgString(p, pv, falloff)
+      if (ref.current) {
+        ref.current.innerHTML = logoSvgString(p, pv, s.falloff, s.curve)
+      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -75,8 +78,12 @@ function LoaderDebugPage() {
       _collapsed: false,
       start: [-2.8, -8, 0, 0.1],
       span: [6.6, 1, 14, 0.1],
-      period: [7000, 800, 16000, 100],
-      falloff: [0.72, 0.05, 1, 0.01]
+      period: [7000, 800, 16000, 100]
+    },
+    gradient: {
+      _collapsed: false,
+      falloff: [0.72, 0.05, 1, 0.01],
+      curve: [1, 0.2, 4, 0.05]
     },
     dither: {
       _collapsed: false,
@@ -101,8 +108,7 @@ function LoaderDebugPage() {
 
   const custom: Animation = (t, persp) => ({
     p: c.sweep.start + frac(t / c.sweep.period) * c.sweep.span,
-    persp,
-    falloff: c.sweep.falloff
+    persp
   })
   const preset = animations.find((a) => a.name === c.animation)
   const anim: Animation = preset ? preset.fn : custom
@@ -122,6 +128,8 @@ function LoaderDebugPage() {
     paused: c.paused,
     perspective: c.perspective,
     ditherCells: c.dither.cells,
+    falloff: c.gradient.falloff,
+    gradientCurve: c.gradient.curve,
     uniforms,
     animation: anim
   }
@@ -165,7 +173,13 @@ function LoaderDebugPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Raw SVG (undithered source)</h2>
-        <RawSvgPreview animation={anim} speed={c.speed} persp={c.perspective} />
+        <RawSvgPreview
+          animation={anim}
+          speed={c.speed}
+          persp={c.perspective}
+          falloff={c.gradient.falloff}
+          curve={c.gradient.curve}
+        />
       </section>
 
       <section className="space-y-3">

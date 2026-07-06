@@ -46,7 +46,6 @@ describe("animations", () => {
     expect(justBeforeWrap).toBeGreaterThan(start)
     expect(start).toBeLessThan(0)
     expect(justBeforeWrap).toBeGreaterThan(1)
-    expect(sweep(0, 0.5).falloff).toBe(0.72)
     const mid = sweep(3500, 0.5).p
     expect(mid).toBeGreaterThan(start)
     expect(mid).toBeLessThan(justBeforeWrap)

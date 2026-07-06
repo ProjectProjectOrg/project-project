@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { LOGO_GEOMETRY, logoSvgString, panelGeometry } from "./logo-geometry"
+import {
+  gradientStops,
+  LOGO_GEOMETRY,
+  logoSvgString,
+  panelGeometry
+} from "./logo-geometry"
 
 const { w, cy, hShort } = LOGO_GEOMETRY
 
@@ -34,6 +39,22 @@ describe("panelGeometry", () => {
       expect(g.leftPath).toContain(`${cy - hShort}`)
       expect(g.rightPath).toContain(`${cy - hShort}`)
     }
+  })
+
+  it("builds gradient stops from opaque fold to transparent falloff", () => {
+    const stops = gradientStops(1, 1)
+    expect(stops[0]).toEqual([0, 1])
+    expect(stops[stops.length - 1]).toEqual([1, 0])
+  })
+
+  it("respects falloff (last stop offset) and curve (concentrates the core)", () => {
+    const narrow = gradientStops(0.5, 1)
+    expect(narrow[narrow.length - 1][0]).toBe(0.5)
+    const linear = gradientStops(1, 1)
+    const curved = gradientStops(1, 2)
+    const mid = (s: [number, number][]) => s[4][1]
+    expect(curved[4][0]).toBe(linear[4][0])
+    expect(mid(curved)).toBeLessThan(mid(linear))
   })
 
   it("emits a standalone svg with both gradients", () => {

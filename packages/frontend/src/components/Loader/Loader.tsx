@@ -31,6 +31,8 @@ type LoaderProps = {
   ditherCells?: number
   animation?: Animation
   perspective?: number
+  falloff?: number
+  gradientCurve?: number
 }
 
 export function Loader({
@@ -41,7 +43,9 @@ export function Loader({
   uniforms,
   ditherCells,
   animation = defaultAnimation,
-  perspective = 0.5
+  perspective = 0.5,
+  falloff,
+  gradientCurve
 }: LoaderProps) {
   const reduced = usePrefersReducedMotion()
   const merged = useMemo(
@@ -65,6 +69,8 @@ export function Loader({
       paused={paused || reduced}
       uniforms={merged}
       ditherCells={ditherCells}
+      falloff={falloff}
+      gradientCurve={gradientCurve}
     />
   )
 }

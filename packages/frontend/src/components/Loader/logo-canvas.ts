@@ -1,4 +1,9 @@
-import { foldCenterY, LOGO_GEOMETRY, panelGeometry } from "./logo-geometry"
+import {
+  foldCenterY,
+  gradientStops,
+  LOGO_GEOMETRY,
+  panelGeometry
+} from "./logo-geometry"
 
 type Trapezoid = [number, number][]
 
@@ -8,12 +13,14 @@ function fillPanel(
   gx1: number,
   gx2: number,
   falloff: number,
+  curve: number,
   sx: number,
   sy: number
 ) {
   const grad = ctx.createLinearGradient(gx1 * sx, 0, gx2 * sx, 0)
-  grad.addColorStop(0, "rgba(255,255,255,1)")
-  grad.addColorStop(falloff, "rgba(255,255,255,0)")
+  for (const [offset, alpha] of gradientStops(falloff, curve)) {
+    grad.addColorStop(offset, `rgba(255,255,255,${alpha})`)
+  }
   ctx.fillStyle = grad
   ctx.beginPath()
   pts.forEach(([x, y], i) => {
@@ -31,6 +38,7 @@ export function drawLogo(
   p: number,
   persp: number,
   falloff: number,
+  curve: number,
   w: number,
   h: number
 ): void {
@@ -55,6 +63,15 @@ export function drawLogo(
     [foldX, fcy + hShort]
   ]
 
-  fillPanel(ctx, left, leftGradient.x1, leftGradient.x2, falloff, sx, sy)
-  fillPanel(ctx, right, rightGradient.x1, rightGradient.x2, falloff, sx, sy)
+  fillPanel(ctx, left, leftGradient.x1, leftGradient.x2, falloff, curve, sx, sy)
+  fillPanel(
+    ctx,
+    right,
+    rightGradient.x1,
+    rightGradient.x2,
+    falloff,
+    curve,
+    sx,
+    sy
+  )
 }

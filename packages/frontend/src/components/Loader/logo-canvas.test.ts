@@ -17,9 +17,17 @@ function fakeCtx() {
 }
 
 describe("drawLogo", () => {
-  it("clears then fills two gradient panels", () => {
+  it("clears then fills two gradient panels, opaque at the fold and transparent at the falloff", () => {
     const ctx = fakeCtx()
-    drawLogo(ctx as unknown as CanvasRenderingContext2D, 0.5, 0.5, 1, 200, 200)
+    drawLogo(
+      ctx as unknown as CanvasRenderingContext2D,
+      0.5,
+      0.5,
+      1,
+      1,
+      200,
+      200
+    )
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 200, 200)
     expect(ctx.createLinearGradient).toHaveBeenCalledTimes(2)
     expect(ctx.createLinearGradient).toHaveBeenNthCalledWith(1, 100, 0, 0, 0)
@@ -29,9 +37,17 @@ describe("drawLogo", () => {
     expect(ctx.grad.addColorStop).toHaveBeenCalledWith(1, "rgba(255,255,255,0)")
   })
 
-  it("fades to transparent at the falloff offset (tight highlight band)", () => {
+  it("reaches transparent at the falloff offset (tight band)", () => {
     const ctx = fakeCtx()
-    drawLogo(ctx as unknown as CanvasRenderingContext2D, 0.5, 0.5, 0.5, 200, 200)
+    drawLogo(
+      ctx as unknown as CanvasRenderingContext2D,
+      0.5,
+      0.5,
+      0.5,
+      1,
+      200,
+      200
+    )
     expect(ctx.grad.addColorStop).toHaveBeenCalledWith(0.5, "rgba(255,255,255,0)")
   })
 })

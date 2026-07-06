@@ -7,14 +7,12 @@ import {
 import { drawLogo } from "./logo-canvas"
 
 type DitherCanvasProps = {
-  getFrame: (elapsedMs: number) => {
-    p: number
-    persp: number
-    falloff?: number
-  }
+  getFrame: (elapsedMs: number) => { p: number; persp: number }
   paused?: boolean
   uniforms: DitherUniforms
   ditherCells?: number
+  falloff?: number
+  gradientCurve?: number
   className?: string
   style?: React.CSSProperties
 }
@@ -37,6 +35,8 @@ export function DitherCanvas({
   paused = false,
   uniforms,
   ditherCells = 30,
+  falloff = 1,
+  gradientCurve = 1,
   className,
   style
 }: DitherCanvasProps) {
@@ -45,10 +45,14 @@ export function DitherCanvas({
   const uniformsRef = useRef(uniforms)
   const pausedRef = useRef(paused)
   const cellsRef = useRef(ditherCells)
+  const falloffRef = useRef(falloff)
+  const curveRef = useRef(gradientCurve)
   getFrameRef.current = getFrame
   uniformsRef.current = uniforms
   pausedRef.current = paused
   cellsRef.current = ditherCells
+  falloffRef.current = falloff
+  curveRef.current = gradientCurve
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -127,9 +131,9 @@ export function DitherCanvas({
     const frame = (t: number) => {
       if (!start) start = t
       const elapsed = pausedRef.current ? 0 : t - start
-      const { p, persp, falloff = 1 } = getFrameRef.current(elapsed)
+      const { p, persp } = getFrameRef.current(elapsed)
 
-      drawLogo(octx, p, persp, falloff, w, h)
+      drawLogo(octx, p, persp, falloffRef.current, curveRef.current, w, h)
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off)
 

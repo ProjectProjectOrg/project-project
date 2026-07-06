@@ -1,4 +1,4 @@
-export type Frame = { p: number; persp: number; falloff?: number }
+export type Frame = { p: number; persp: number }
 export type Animation = (elapsedMs: number, persp: number) => Frame
 
 const TAU = Math.PI * 2
@@ -28,12 +28,10 @@ const gaze: Animation = (t, persp) => {
 
 const SWEEP_START = -2.8
 const SWEEP_SPAN = 6.6
-const SWEEP_FALLOFF = 0.72
 
 const sweep: Animation = (t, persp) => ({
   p: SWEEP_START + frac(t / 7000) * SWEEP_SPAN,
-  persp,
-  falloff: SWEEP_FALLOFF
+  persp
 })
 
 export const animations: { name: string; fn: Animation }[] = [

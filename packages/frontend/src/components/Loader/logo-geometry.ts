@@ -20,6 +20,21 @@ export function foldCenterY(persp: number): number {
   return clampPersp(persp) * LOGO_GEOMETRY.h
 }
 
+const GRADIENT_STEPS = 8
+
+export function gradientStops(
+  falloff: number,
+  curve: number
+): [number, number][] {
+  const stops: [number, number][] = []
+  for (let i = 0; i <= GRADIENT_STEPS; i++) {
+    const f = i / GRADIENT_STEPS
+    const alpha = Math.pow(1 - f, curve)
+    stops.push([f * falloff, Number(alpha.toFixed(4))])
+  }
+  return stops
+}
+
 export function panelGeometry(p: number, persp = 0.5): PanelGeometry {
   const { w, cy, hTall, hShort } = LOGO_GEOMETRY
   const foldX = p * w
@@ -41,10 +56,20 @@ export function panelGeometry(p: number, persp = 0.5): PanelGeometry {
   }
 }
 
-export function logoSvgString(p: number, persp = 0.5, falloff = 1): string {
+export function logoSvgString(
+  p: number,
+  persp = 0.5,
+  falloff = 1,
+  curve = 1
+): string {
   const { w, h } = LOGO_GEOMETRY
   const g = panelGeometry(p, persp)
-  const stops = `<stop stop-color="#ffffff"/><stop offset="${falloff}" stop-color="#ffffff" stop-opacity="0"/>`
+  const stops = gradientStops(falloff, curve)
+    .map(
+      ([offset, alpha]) =>
+        `<stop offset="${offset}" stop-color="#ffffff" stop-opacity="${alpha}"/>`
+    )
+    .join("")
   return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <linearGradient id="lg" gradientUnits="userSpaceOnUse" x1="${g.leftGradient.x1}" y1="0" x2="${g.leftGradient.x2}" y2="0">${stops}</linearGradient>
