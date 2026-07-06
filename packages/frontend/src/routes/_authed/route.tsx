@@ -29,6 +29,7 @@ import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
+  SidebarDrawerAutoCloseProvider,
   SidebarSlotProvider,
   useSidebarSectionContent,
   useSidebarSlotContent
@@ -48,7 +49,7 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { usePrefetch } from "@/hooks/usePrefetch"
 import { authedRouteRedirect } from "@/lib/authRedirect"
 import { projectPrefetchAtoms } from "@/lib/prefetch"
@@ -88,8 +89,8 @@ function AuthedLayout() {
 
 function Shell({ user }: { user: User }) {
   return (
-    <div className="h-full p-3">
-      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60 lg:grid-cols-[14rem_1fr]">
+    <div className="h-full transition-[padding] duration-300 ease-out motion-reduce:transition-none lg:p-3">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_1fr] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
@@ -400,8 +401,16 @@ function Topbar({ user }: { user: User }) {
 function MobileNav({ user }: { user: User }) {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
+  const skipNextAutoClose = useRef(false)
+  const suppressAutoClose = useCallback(() => {
+    skipNextAutoClose.current = true
+  }, [])
 
   useEffect(() => {
+    if (skipNextAutoClose.current) {
+      skipNextAutoClose.current = false
+      return
+    }
     setOpen(false)
   }, [pathname])
 
@@ -429,9 +438,11 @@ function MobileNav({ user }: { user: User }) {
       />
       <SheetContent side="left" showCloseButton={false}>
         <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
-        <LayoutGroup id="sidebar-drawer">
-          <SidebarContent user={user} />
-        </LayoutGroup>
+        <SidebarDrawerAutoCloseProvider value={suppressAutoClose}>
+          <LayoutGroup id="sidebar-drawer">
+            <SidebarContent user={user} />
+          </LayoutGroup>
+        </SidebarDrawerAutoCloseProvider>
       </SheetContent>
     </Sheet>
   )
