@@ -146,6 +146,7 @@
   "project_settings_workflow_statuses_description": "Drag to reorder. Built-in statuses keep their label and color, but can be reordered anywhere in the flow.",
   "project_settings_workflow_statuses_label": "Statuses",
   "project_settings_workflow_tab": "Workflow",
+  "project_sidebar_settings_aria_label": "Project settings for {name}",
   "project_setup_connect_github": "Connect GitHub",
   "project_setup_dismiss_aria_label": "Dismiss {item}",
   "project_setup_github_dismissed_note": "The GitHub setup prompt is dismissed.",

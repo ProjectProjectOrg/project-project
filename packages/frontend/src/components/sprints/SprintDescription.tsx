@@ -1,11 +1,5 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { useState } from "react"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { MentionScopeProvider } from "@/mentions/scope"
@@ -33,27 +27,24 @@ export function SprintDescription({
   if (disabled && sprint.body.trim().length === 0) return null
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-baseline justify-between gap-4">
-        <CardTitle>{m.sprints_description_label()}</CardTitle>
-        <MarkdownSaveIndicator status={status} className="tabular-nums" />
-      </CardHeader>
-      <CardContent>
-        <MentionScopeProvider
-          scope={{ orgSlug, slug, members: project.members }}
-        >
-          <LexicalEditor
-            key={`sprint:${sprint.id}`}
-            markdown={sprint.body}
-            onChange={(next) => {
-              if (disabled) return
-              update({ groupId: sprint.id, patch: { body: next } })
-            }}
-            onStatusChange={setStatus}
-            placeholder={m.sprints_description_placeholder()}
-          />
-        </MentionScopeProvider>
-      </CardContent>
-    </Card>
+    <div className="grid gap-2">
+      <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
+        <LexicalEditor
+          key={`sprint:${sprint.id}`}
+          markdown={sprint.body}
+          onChange={(next) => {
+            if (disabled) return
+            update({ groupId: sprint.id, patch: { body: next } })
+          }}
+          onStatusChange={setStatus}
+          placeholder={m.sprints_description_placeholder()}
+          className="rounded-lg border border-border bg-background px-3 py-2"
+        />
+      </MentionScopeProvider>
+      <MarkdownSaveIndicator
+        status={status}
+        className="justify-self-end tabular-nums"
+      />
+    </div>
   )
 }

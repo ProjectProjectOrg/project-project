@@ -1,10 +1,14 @@
+import { Result, useAtomValue } from "@effect-atom/atom-react"
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
+import { motion, useReducedMotion } from "motion/react"
 import { GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
+import { projectAtom, projectKey } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -84,16 +88,45 @@ function SettingsLayout() {
   )
 }
 
+function projectSettingsLayoutId(orgSlug: string, slug: string) {
+  return `project-settings-row:${orgSlug}/${slug}`
+}
+
 function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const location = useLocation()
+  const reduceMotion = useReducedMotion()
+  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const projectName = Result.isSuccess(project) ? project.value.name : slug
+  const projectIcon = Result.isSuccess(project) ? project.value.icon : null
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <RailBackLink
-        to="/orgs/$orgSlug/projects/$slug"
-        params={{ orgSlug, slug }}
-        label={m.project_detail_tab_settings()}
-      />
+      <div className="flex flex-col gap-1">
+        <RailBackLink
+          to="/orgs/$orgSlug/projects/$slug"
+          params={{ orgSlug, slug }}
+          label={m.project_detail_tab_settings()}
+        />
+        <motion.div
+          layoutId={
+            reduceMotion ? undefined : projectSettingsLayoutId(orgSlug, slug)
+          }
+          transition={transitions.layout}
+          className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
+        >
+          {projectIcon ? (
+            <span
+              aria-hidden
+              className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none"
+            >
+              {projectIcon}
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {projectName}
+          </span>
+        </motion.div>
+      </div>
       <nav className="flex flex-col gap-1">
         {SECTIONS.map((section) => {
           const Icon = section.icon
