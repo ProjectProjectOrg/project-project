@@ -105,22 +105,26 @@ function GeneralSettings() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold tracking-tight">
-            {m.project_settings_description_heading()}
-          </h2>
-          <MarkdownSaveIndicator status={status} />
-        </div>
+      <section className="grid gap-2">
+        <span className="text-sm font-medium">
+          {m.project_settings_description_heading()}
+        </span>
         {canEdit ? (
-          <LexicalEditor
-            key={project.slug}
-            markdown={project.body}
-            onChange={async (next) => {
-              await update({ body: next })
-            }}
-            onStatusChange={setStatus}
-          />
+          <>
+            <LexicalEditor
+              key={project.slug}
+              markdown={project.body}
+              onChange={async (next) => {
+                await update({ body: next })
+              }}
+              onStatusChange={setStatus}
+              className="rounded-lg border border-border bg-background px-3 py-2"
+            />
+            <MarkdownSaveIndicator
+              status={status}
+              className="justify-self-end"
+            />
+          </>
         ) : (
           <Markdown>{project.body}</Markdown>
         )}

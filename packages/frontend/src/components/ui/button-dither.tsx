@@ -17,6 +17,7 @@ export interface DitherBackdropProps {
   hover?: boolean
   matrix?: DitherMatrix
   pixelSize?: number
+  shape?: "inherit" | "square"
 }
 
 const DIRECTION_TO_CSS_ANGLE: Record<DitherDirection, string> = {
@@ -197,7 +198,8 @@ export function DitherBackdrop({
   hoverDuration = 250,
   hover = false,
   matrix = DEFAULT_MATRIX,
-  pixelSize = DEFAULT_PIXEL_SIZE
+  pixelSize = DEFAULT_PIXEL_SIZE,
+  shape = "inherit"
 }: DitherBackdropProps) {
   const wrapRef = useRef<HTMLSpanElement | null>(null)
   const themeRevision = useThemeRevision()
@@ -325,7 +327,11 @@ export function DitherBackdrop({
     <span
       ref={wrapRef}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
+      className={
+        shape === "inherit"
+          ? "pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
+          : "pointer-events-none absolute inset-0 overflow-hidden"
+      }
       style={{ backgroundImage: fallbackCss }}
     >
       <canvas

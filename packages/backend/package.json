@@ -20,7 +20,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@effect/platform": "latest",
+    "@effect/platform": "0.96.1",
     "@effect/platform-bun": "latest",
     "@effect/sql": "^0.51.1",
     "@effect/sql-drizzle": "^0.50.0",
@@ -31,7 +31,7 @@
     "@projectproject/shared": "workspace:*",
     "better-auth": "^1.6.10",
     "drizzle-orm": "^0.45.2",
-    "effect": "latest",
+    "effect": "3.21.2",
     "fractional-indexing": "^3.2.0",
     "gray-matter": "^4.0.3",
     "octokit": "^5.0.5",

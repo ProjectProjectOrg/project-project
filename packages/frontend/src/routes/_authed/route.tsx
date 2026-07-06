@@ -10,18 +10,26 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Menu,
   Settings,
   UserRound
 } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import {
+  AnimatePresence,
+  LayoutGroup,
+  motion,
+  useReducedMotion
+} from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
 import { projectsListAtom } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
+import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
 import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
+  SidebarDrawerAutoCloseProvider,
   SidebarSlotProvider,
   useSidebarSectionContent,
   useSidebarSlotContent
@@ -35,7 +43,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger
+} from "@/components/ui/sheet"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { usePrefetch } from "@/hooks/usePrefetch"
 import { authedRouteRedirect } from "@/lib/authRedirect"
+import { projectPrefetchAtoms } from "@/lib/prefetch"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -50,7 +67,7 @@ function AuthedLayout() {
   const { pathname } = useLocation()
 
   return Result.matchWithError(me, {
-    onInitial: () => <FullPageStatus>{m.chrome_loading()}</FullPageStatus>,
+    onInitial: () => <LoaderOverlay active />,
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => <ErrorPage error={defect} />,
     onSuccess: ({ value }) => {
@@ -72,8 +89,8 @@ function AuthedLayout() {
 
 function Shell({ user }: { user: User }) {
   return (
-    <div className="h-full p-3">
-      <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
+    <div className="h-full transition-[padding] duration-300 ease-out motion-reduce:transition-none lg:p-3">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_1fr] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
@@ -92,6 +109,16 @@ function Shell({ user }: { user: User }) {
 }
 
 function Sidebar({ user }: { user: User }) {
+  return (
+    <aside className="row-span-2 hidden lg:flex">
+      <LayoutGroup id="sidebar-desktop">
+        <SidebarContent user={user} />
+      </LayoutGroup>
+    </aside>
+  )
+}
+
+function SidebarContent({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
   const slot = useSidebarSlotContent()
   const section = useSidebarSectionContent()
@@ -100,7 +127,7 @@ function Sidebar({ user }: { user: User }) {
   const navScale = reduceMotion ? 1 : 0.98
 
   return (
-    <aside className="row-span-2 flex flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
@@ -149,7 +176,7 @@ function Sidebar({ user }: { user: User }) {
       <div className="p-3">
         <ThemeSwitcher />
       </div>
-    </aside>
+    </div>
   )
 }
 
@@ -230,6 +257,10 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
   )
 }
 
+function projectSettingsLayoutId(orgSlug: string, slug: string) {
+  return `project-settings-row:${orgSlug}/${slug}`
+}
+
 function ProjectsGroupRow({
   orgSlug,
   slug,
@@ -243,13 +274,26 @@ function ProjectsGroupRow({
   icon: string
   active: boolean
 }) {
+  const reduceMotion = useReducedMotion()
+  const settingsLabel = m.project_sidebar_settings_aria_label({ name })
+  const prefetch = usePrefetch(
+    useCallback(() => projectPrefetchAtoms(orgSlug, slug), [orgSlug, slug])
+  )
+
   return (
-    <li>
+    <motion.li
+      layoutId={
+        reduceMotion ? undefined : projectSettingsLayoutId(orgSlug, slug)
+      }
+      transition={transitions.layout}
+      className="group/project-row flex items-center rounded-lg transition-colors hover:bg-accent/60"
+    >
       <Link
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
+        {...prefetch}
         className={cn(
-          "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-3 pr-1 text-[13px] transition-colors",
           active
             ? "font-medium text-foreground"
             : "text-muted-foreground hover:text-foreground"
@@ -266,7 +310,19 @@ function ProjectsGroupRow({
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
-    </li>
+      <Link
+        to="/orgs/$orgSlug/projects/$slug/settings"
+        params={{ orgSlug, slug }}
+        aria-label={settingsLabel}
+        title={settingsLabel}
+        className={cn(
+          "mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
+          "opacity-0 group-hover/project-row:opacity-100 group-focus-within/project-row:opacity-100"
+        )}
+      >
+        <Settings className="size-3.5" strokeWidth={1.75} />
+      </Link>
+    </motion.li>
   )
 }
 
@@ -330,6 +386,7 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
 function Topbar({ user }: { user: User }) {
   return (
     <header className="flex h-14 items-center gap-2 px-4">
+      <MobileNav user={user} />
       <div className="min-w-0 flex-1">
         <Breadcrumbs />
       </div>
@@ -338,6 +395,56 @@ function Topbar({ user }: { user: User }) {
       ) : null}
       <UserMenu user={user} />
     </header>
+  )
+}
+
+function MobileNav({ user }: { user: User }) {
+  const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
+  const skipNextAutoClose = useRef(false)
+  const suppressAutoClose = useCallback(() => {
+    skipNextAutoClose.current = true
+  }, [])
+
+  useEffect(() => {
+    if (skipNextAutoClose.current) {
+      skipNextAutoClose.current = false
+      return
+    }
+    setOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false)
+    }
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.chrome_nav_open()}
+            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] lg:hidden"
+          >
+            <Menu className="size-5" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <SheetContent side="left" showCloseButton={false}>
+        <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
+        <SidebarDrawerAutoCloseProvider value={suppressAutoClose}>
+          <LayoutGroup id="sidebar-drawer">
+            <SidebarContent user={user} />
+          </LayoutGroup>
+        </SidebarDrawerAutoCloseProvider>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -410,10 +517,3 @@ function UserMenu({ user }: { user: User }) {
   )
 }
 
-function FullPageStatus({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid h-full place-items-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  )
-}

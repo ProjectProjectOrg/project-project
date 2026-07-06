@@ -2,6 +2,7 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_back_button": "Back",
   "common_cancel_button": "Cancel",
+  "common_close": "Close",
   "common_delete_confirm_button": "Delete",
   "common_not_found_body": "The page you tried to open does not exist, or you do not have access.",
   "common_not_found_code": "404",

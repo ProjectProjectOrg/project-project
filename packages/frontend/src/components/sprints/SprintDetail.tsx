@@ -21,16 +21,13 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import {
-  sprintState,
   type GroupId,
   type TicketId,
   type TicketListQuery
 } from "@projectproject/shared"
-import { CompleteSprintForm } from "./CompleteSprintForm"
 import { ReorderBoardBanner } from "./ReorderBoardBanner"
 import { SprintBoard } from "./SprintBoard"
-import { SprintDetailHeader } from "./SprintDetailHeader"
-import { SprintTimePanel } from "@/components/time/SprintTimePanel"
+import { SprintDescription } from "./SprintDescription"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 
@@ -44,13 +41,12 @@ export function SprintDetail({
   orgSlug: string
   slug: string
   groupId: GroupId
-  view: "list" | "board"
+  view: "list" | "board" | "description"
   listQuery: TicketListQuery
 }) {
   const project = useProject()
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
-  const [showCompleteForm, setShowCompleteForm] = useState(false)
   const [reorderMode, setReorderMode] = useState(false)
   const [dragOrder, setDragOrder] = useState<ReadonlyArray<string> | null>(null)
 
@@ -99,11 +95,12 @@ export function SprintDetail({
     setReorderMode(false)
   }, [dragOrder, statusesResult, reorderStatus])
 
-  const wide = view === "board"
+  const isBoard = view === "board"
+  const isDescription = view === "description"
 
   return Result.matchWithError(sprint, {
     onInitial: () => (
-      <PageContainer wide={wide}>
+      <PageContainer>
         <SprintDetailSkeleton />
       </PageContainer>
     ),
@@ -146,7 +143,6 @@ export function SprintDetail({
           }
         : value
       const isCompleted = display.completedAt !== null
-      const state = sprintState(display)
       const ticketIds = display.tickets as ReadonlyArray<TicketId>
       const filterIds = new Set(ticketIds)
 
@@ -185,8 +181,17 @@ export function SprintDetail({
         </AnimatePresence>
       )
 
-      const body = wide ? (
-        <PageContainer wide>
+      const body = isDescription ? (
+        <PageContainer>
+          <SprintDescription
+            orgSlug={orgSlug}
+            slug={slug}
+            sprint={display}
+            disabled={isCompleted}
+          />
+        </PageContainer>
+      ) : isBoard ? (
+        <PageContainer>
           <SprintBoard
             orgSlug={orgSlug}
             slug={slug}
@@ -215,33 +220,7 @@ export function SprintDetail({
 
       return (
         <div className="flex flex-col gap-4">
-          <PageContainer wide={wide}>
-            <div className="flex flex-col gap-4">
-              <SprintDetailHeader
-                orgSlug={orgSlug}
-                slug={slug}
-                sprint={display}
-                onRequestComplete={
-                  isCompleted ? undefined : () => setShowCompleteForm(true)
-                }
-              />
-              <SprintTimePanel
-                orgSlug={orgSlug}
-                slug={slug}
-                groupId={display.id}
-              />
-              {wide && boardSlot}
-              {showCompleteForm && state === "active" && (
-                <CompleteSprintForm
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  sprint={display}
-                  sprints={allSprints}
-                  onDone={() => setShowCompleteForm(false)}
-                />
-              )}
-            </div>
-          </PageContainer>
+          {isBoard && <PageContainer>{boardSlot}</PageContainer>}
           {body}
         </div>
       )

@@ -1,24 +1,12 @@
 import { cn } from "@/lib/utils"
 import type { HTMLAttributes } from "react"
 
-// Layout-only slot components. We keep these intentionally empty of content
-// concerns (no title/description props) — pages render their own markdown,
-// headings, action buttons inside.
-
 export function PageContainer({
   className,
-  wide = false,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { wide?: boolean }) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full flex-col gap-6",
-        wide ? "max-w-384" : "max-w-6xl",
-        className
-      )}
-      {...props}
-    />
+    <div className={cn("flex w-full flex-col gap-6", className)} {...props} />
   )
 }
 

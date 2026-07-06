@@ -2,6 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
+import { motion, useReducedMotion } from "motion/react"
 import { CircleCheck, Plus } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 import type { DateRange } from "react-day-picker"
@@ -15,9 +16,11 @@ import {
 } from "@/components/ui/popover"
 import { RailBackLink } from "@/components/RailBackLink"
 import { cn } from "@/lib/utils"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { createSprintAtom, projectKey, sprintsListAtom } from "@/atoms/sprints"
+import { createSprintAtom, projectKey as sprintProjectKey, sprintsListAtom } from "@/atoms/sprints"
+import { projectAtom, projectKey as projectRouteKey } from "@/atoms/projects"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
@@ -38,6 +41,10 @@ function formatRange(s: Group): string {
   const fmt = railDateFormatter()
   return `${fmt.format(s.startsAt)} – ${fmt.format(s.endsAt)}`
 }
+function sprintProjectLayoutId(orgSlug: string, slug: string) {
+  return `project-settings-row:${orgSlug}/${slug}`
+}
+
 
 function defaultSprintRange(): DateRange {
   const now = DateTime.unsafeNow()
@@ -57,7 +64,11 @@ export function SprintRail({
   orgSlug: string
   slug: string
 }) {
-  const key = projectKey(orgSlug, slug)
+  const key = sprintProjectKey(orgSlug, slug)
+  const project = useAtomValue(projectAtom(projectRouteKey(orgSlug, slug)))
+  const projectName = Result.isSuccess(project) ? project.value.name : slug
+  const projectIcon = Result.isSuccess(project) ? project.value.icon : null
+  const reduceMotion = useReducedMotion()
   const list = useAtomValue(sprintsListAtom(key))
   const sprints = Result.isSuccess(list) ? list.value : []
   const params = useParams({ strict: false }) as { groupId?: string }
@@ -87,6 +98,23 @@ export function SprintRail({
         params={{ orgSlug, slug }}
         label={m.sprints_rail_section_label()}
       />
+      <motion.div
+        layoutId={reduceMotion ? undefined : sprintProjectLayoutId(orgSlug, slug)}
+        transition={transitions.layout}
+        className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
+      >
+        {projectIcon ? (
+          <span
+            aria-hidden
+            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none"
+          >
+            {projectIcon}
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {projectName}
+        </span>
+      </motion.div>
       <NewSprintForm orgSlug={orgSlug} slug={slug} />
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
@@ -240,7 +268,7 @@ function CreateSprintFields({
   orgSlug: string
   slug: string
 }) {
-  const key = projectKey(orgSlug, slug)
+  const key = sprintProjectKey(orgSlug, slug)
   const create = useAtomSet(createSprintAtom(key), { mode: "promiseExit" })
   const state = useAtomValue(createSprintAtom(key))
   const error = Result.isFailure(state)
