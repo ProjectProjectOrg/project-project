@@ -1,6 +1,7 @@
 import { useAtomSet } from "@effect-atom/atom-react"
 import { useState } from "react"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import { Markdown } from "@/components/Markdown"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -24,7 +25,14 @@ export function SprintDescription({
   const update = useAtomSet(updateSprintAtom(key))
   const [status, setStatus] = useState<SaveStatus>("idle")
 
-  if (disabled && sprint.body.trim().length === 0) return null
+  if (disabled) {
+    if (sprint.body.trim().length === 0) return null
+    return (
+      <Markdown className="rounded-lg border border-border bg-background px-3 py-2">
+        {sprint.body}
+      </Markdown>
+    )
+  }
 
   return (
     <div className="grid gap-2">
@@ -33,7 +41,6 @@ export function SprintDescription({
           key={`sprint:${sprint.id}`}
           markdown={sprint.body}
           onChange={(next) => {
-            if (disabled) return
             update({ groupId: sprint.id, patch: { body: next } })
           }}
           onStatusChange={setStatus}

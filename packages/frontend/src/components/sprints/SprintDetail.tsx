@@ -220,9 +220,7 @@ export function SprintDetail({
 
       return (
         <div className="flex flex-col gap-4">
-          <PageContainer>
-            <div className="flex flex-col gap-4">{isBoard && boardSlot}</div>
-          </PageContainer>
+          {isBoard && <PageContainer>{boardSlot}</PageContainer>}
           {body}
         </div>
       )

@@ -1,5 +1,6 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Link, useMatches } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
 import {
   AnimatePresence,
   LayoutGroup,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useProjectRole } from "@/lib/projectRole"
 import { springs, transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type { ProjectDetail as ProjectDetailType } from "@projectproject/shared"
 
@@ -102,10 +104,12 @@ export function ProjectHeader({
   const sprintsResult = useAtomValue(
     sprintsListAtom(sprintsProjectKey(orgSlug, slug))
   )
-  const sprints = Result.isSuccess(sprintsResult) ? sprintsResult.value : []
+  const sprintsLoaded = Result.isSuccess(sprintsResult)
+  const sprints = sprintsLoaded ? sprintsResult.value : []
   const sprint = sprintGroupId
     ? sprints.find((s) => s.id === sprintGroupId)
     : undefined
+  const sprintMissing = sprintGroupId != null && sprintsLoaded && !sprint
 
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
   const isCompleted = sprint?.completedAt != null
@@ -122,6 +126,8 @@ export function ProjectHeader({
                 sprint={sprint}
                 sprints={sprints}
               />
+            ) : sprintMissing ? (
+              <div className="-mt-1 size-10 shrink-0 rounded-lg bg-muted/40" />
             ) : (
               <div className="-mt-1 size-10 shrink-0 animate-pulse rounded-lg bg-muted" />
             )
@@ -152,11 +158,20 @@ export function ProjectHeader({
                   sprint={sprint}
                   disabled={isCompleted}
                 />
+              ) : sprintMissing ? (
+                <span className="truncate text-2xl font-semibold tracking-tight text-muted-foreground">
+                  {m.sprints_not_found_title()}
+                </span>
               ) : (
                 <div className="h-6 w-40 animate-pulse rounded bg-muted/60" />
               )
             ) : (
-              <NameField orgSlug={orgSlug} slug={slug} name={name} />
+              <NameField
+                orgSlug={orgSlug}
+                slug={slug}
+                name={name}
+                canEdit={canEdit}
+              />
             )}
           </MorphSlot>
           <MorphSlot
@@ -173,7 +188,7 @@ export function ProjectHeader({
                   sprint={sprint}
                   disabled={isCompleted}
                 />
-              ) : (
+              ) : sprintMissing ? null : (
                 <div className="h-3.5 w-28 animate-pulse rounded bg-muted/60" />
               )
             ) : (
@@ -186,7 +201,7 @@ export function ProjectHeader({
           {sprintGroupId ? (
             sprint ? (
               <SprintDeleteMenu orgSlug={orgSlug} slug={slug} sprint={sprint} sprints={sprints} />
-            ) : (
+            ) : sprintMissing ? null : (
               <div className="size-8" />
             )
           ) : (
@@ -209,16 +224,19 @@ export function ProjectHeader({
 function NameField({
   orgSlug,
   slug,
-  name
+  name,
+  canEdit
 }: {
   orgSlug: string
   slug: string
   name: string
+  canEdit: boolean
 }) {
   const pKey = projectKey(orgSlug, slug)
   const update = useAtomSet(updateProjectAtom(pKey), { mode: "promiseExit" })
   const updateState = useAtomValue(updateProjectAtom(pKey))
   const saving = updateState.waiting
+  const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
 
@@ -233,8 +251,8 @@ function NameField({
       setDraft(name)
       return
     }
-    await update({ name: trimmed })
-    setEditing(false)
+    const exit = await update({ name: trimmed })
+    if (Exit.isSuccess(exit)) setEditing(false)
   }
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -248,29 +266,43 @@ function NameField({
     }
   }
 
-  if (!editing) {
+  if (!canEdit || !editing) {
     return (
       <button
         type="button"
-        onClick={() => setEditing(true)}
-        className="-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight hover:bg-accent/40"
+        onClick={() => canEdit && setEditing(true)}
+        disabled={!canEdit}
+        className={cn(
+          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
+          canEdit && "hover:bg-accent/40"
+        )}
       >
         {name}
       </button>
     )
   }
   return (
-    <input
-      autoFocus
-      value={draft}
-      disabled={saving}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => void commit()}
-      onKeyDown={handleKey}
-      className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={120}
-      aria-label={m.project_detail_name_aria_label()}
-    />
+    <div className="relative w-full">
+      <input
+        autoFocus
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={handleKey}
+        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
+        maxLength={120}
+        aria-label={m.project_detail_name_aria_label()}
+      />
+      {failed && (
+        <p
+          role="alert"
+          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+        >
+          {m.project_detail_name_error()}
+        </p>
+      )}
+    </div>
   )
 }
 

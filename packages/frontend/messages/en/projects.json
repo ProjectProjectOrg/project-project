@@ -97,6 +97,7 @@
   "project_detail_load_error_body": "We hit a snag loading this project. Try again, or head back.",
   "project_detail_load_error_title": "Couldn't load project",
   "project_detail_name_aria_label": "Project name",
+  "project_detail_name_error": "Couldn't save — try again.",
   "project_detail_not_found_body": "No project at /{slug}. It may have been removed, or you may not have access.",
   "project_detail_not_found_title": "Project not found",
   "project_detail_tab_about": "About",

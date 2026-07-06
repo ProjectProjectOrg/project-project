@@ -46,6 +46,22 @@ const shortDateFormatter = () =>
     day: "numeric"
   })
 
+function useTicketStatusesInSprint(
+  orgSlug: string,
+  slug: string,
+  groupId: GroupId
+) {
+  const ticketsResult = useAtomValue(
+    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
+  )
+  const loaded = Result.isSuccess(ticketsResult)
+  const ticketStatuses = new Map<TicketId, string>()
+  if (loaded) {
+    for (const t of ticketsResult.value) ticketStatuses.set(t.id, t.status)
+  }
+  return { ticketStatuses, loaded }
+}
+
 export function SprintStatusSelect({
   orgSlug,
   slug,
@@ -59,17 +75,20 @@ export function SprintStatusSelect({
 }) {
   const key = projectKey(orgSlug, slug)
   const complete = useAtomSet(completeSprintAtom(key))
+  const completeState = useAtomValue(completeSprintAtom(key))
   const reopen = useAtomSet(updateSprintAtom(key))
+  const reopenState = useAtomValue(updateSprintAtom(key))
   const isCompleted = sprint.completedAt !== null
   const planned = pickEarliestPlannedSprint(sprints)
 
-  const ticketsResult = useAtomValue(
-    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, sprint.id))
+  const { ticketStatuses, loaded: ticketsLoaded } = useTicketStatusesInSprint(
+    orgSlug,
+    slug,
+    sprint.id
   )
-  const ticketStatuses = new Map<TicketId, string>()
-  if (Result.isSuccess(ticketsResult)) {
-    for (const t of ticketsResult.value) ticketStatuses.set(t.id, t.status)
-  }
+  const completing = completeState.waiting
+  const reopening = reopenState.waiting
+  const failed = Result.isFailure(completeState) || Result.isFailure(reopenState)
 
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ groupId: sprint.id, destination, ticketStatuses })
@@ -95,6 +114,7 @@ export function SprintStatusSelect({
             onClick={() =>
               reopen({ groupId: sprint.id, patch: { completedAt: null } })
             }
+            disabled={reopening}
             className="cursor-pointer"
           >
             <RotateCcw className="size-4" strokeWidth={1.75} />
@@ -106,6 +126,7 @@ export function SprintStatusSelect({
               onClick={() =>
                 completeTo({ kind: "sprint", groupId: planned.id })
               }
+              disabled={completing || !ticketsLoaded}
               className="cursor-pointer"
             >
               <Trophy
@@ -116,6 +137,7 @@ export function SprintStatusSelect({
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => completeTo({ kind: "backlog" })}
+              disabled={completing || !ticketsLoaded}
               className="cursor-pointer"
             >
               <Trophy
@@ -128,11 +150,17 @@ export function SprintStatusSelect({
         ) : (
           <DropdownMenuItem
             onClick={() => completeTo({ kind: "backlog" })}
+            disabled={completing || !ticketsLoaded}
             className="cursor-pointer"
           >
             <Trophy className="size-4 text-state-success" strokeWidth={1.75} />
             {m.sprints_complete_button()}
           </DropdownMenuItem>
+        )}
+        {failed && (
+          <div role="alert" className="px-2 py-1.5 text-xs text-destructive">
+            {m.sprints_status_error_fallback()}
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -154,6 +182,7 @@ export function SprintNameField({
   const update = useAtomSet(updateSprintAtom(key), { mode: "promiseExit" })
   const updateState = useAtomValue(updateSprintAtom(key))
   const saving = updateState.waiting
+  const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sprint.name)
 
@@ -168,8 +197,8 @@ export function SprintNameField({
       setDraft(sprint.name)
       return
     }
-    await update({ groupId: sprint.id, patch: { name: trimmed } })
-    setEditing(false)
+    const exit = await update({ groupId: sprint.id, patch: { name: trimmed } })
+    if (Exit.isSuccess(exit)) setEditing(false)
   }
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -190,7 +219,7 @@ export function SprintNameField({
         onClick={() => !disabled && setEditing(true)}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors",
+          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
           !disabled && "hover:bg-accent/40"
         )}
       >
@@ -199,16 +228,26 @@ export function SprintNameField({
     )
   }
   return (
-    <input
-      autoFocus
-      value={draft}
-      disabled={saving}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => void commit()}
-      onKeyDown={handleKey}
-      className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
-      maxLength={120}
-    />
+    <div className="relative w-full">
+      <input
+        autoFocus
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={handleKey}
+        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight outline-none ring-2 ring-ring/50"
+        maxLength={120}
+      />
+      {failed && (
+        <p
+          role="alert"
+          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+        >
+          {m.sprints_name_error()}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -353,17 +392,16 @@ export function SprintDeleteMenu({
   const completeState = useAtomValue(completeSprintAtom(key))
   const remove = useAtomSet(deleteSprintAtom(key), { mode: "promiseExit" })
   const removeState = useAtomValue(deleteSprintAtom(key))
-  const ticketsResult = useAtomValue(
-    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, sprint.id))
+  const { ticketStatuses, loaded: ticketsLoaded } = useTicketStatusesInSprint(
+    orgSlug,
+    slug,
+    sprint.id
   )
   const deleting = removeState.waiting
   const completing = completeState.waiting
+  const deleteFailed = Result.isFailure(removeState)
   const isCompleted = sprint.completedAt !== null
   const planned = pickEarliestPlannedSprint(sprints)
-  const ticketStatuses = new Map<TicketId, string>()
-  if (Result.isSuccess(ticketsResult)) {
-    for (const t of ticketsResult.value) ticketStatuses.set(t.id, t.status)
-  }
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ groupId: sprint.id, destination, ticketStatuses })
   const [confirming, setConfirming] = useState(false)
@@ -413,7 +451,7 @@ export function SprintDeleteMenu({
                     onClick={() =>
                       completeTo({ kind: "sprint", groupId: planned.id })
                     }
-                    disabled={completing || deleting}
+                    disabled={completing || deleting || !ticketsLoaded}
                     className="cursor-pointer"
                   >
                     <Trophy
@@ -424,7 +462,7 @@ export function SprintDeleteMenu({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => completeTo({ kind: "backlog" })}
-                    disabled={completing || deleting}
+                    disabled={completing || deleting || !ticketsLoaded}
                     className="cursor-pointer"
                   >
                     <Trophy
@@ -437,7 +475,7 @@ export function SprintDeleteMenu({
               ) : (
                 <DropdownMenuItem
                   onClick={() => completeTo({ kind: "backlog" })}
-                  disabled={completing || deleting}
+                  disabled={completing || deleting || !ticketsLoaded}
                   className="cursor-pointer"
                 >
                   <Trophy
@@ -461,12 +499,17 @@ export function SprintDeleteMenu({
             <p className="px-2 pt-1 text-xs text-muted-foreground">
               {m.sprints_delete_confirm_prompt()}
             </p>
+            {deleteFailed && (
+              <p role="alert" className="px-2 text-xs text-destructive">
+                {m.sprints_delete_error_fallback()}
+              </p>
+            )}
             <div className="flex gap-1 px-1 pb-1">
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => void onDelete(sprint.id)}
-                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+                className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors transition-transform duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
               >
                 {m.common_delete_confirm_button()}
               </button>
@@ -474,7 +517,7 @@ export function SprintDeleteMenu({
                 type="button"
                 disabled={deleting}
                 onClick={() => setConfirming(false)}
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97] disabled:opacity-50"
               >
                 {m.common_cancel_button()}
               </button>
