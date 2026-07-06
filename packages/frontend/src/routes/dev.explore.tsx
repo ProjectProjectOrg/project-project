@@ -63,32 +63,30 @@ const STYLES = `
 
 .exp-sheen path { fill: url(#exp-sheen-grad); }
 
-@keyframes exp-shimmer-move {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
+@keyframes exp-reveal {
+  from {
+    -webkit-mask-position: 130% 0;
+    mask-position: 130% 0;
+  }
+  to {
+    -webkit-mask-position: -130% 0;
+    mask-position: -130% 0;
+  }
 }
-.exp-shimmer {
-  position: relative;
-}
-.exp-shimmer path { fill: #4a4a4a; }
-.exp-shimmer .exp-shimmer-band {
-  position: absolute;
-  inset: 0;
-  -webkit-mask: var(--logo-mask) center / contain no-repeat;
-  mask: var(--logo-mask) center / contain no-repeat;
-  overflow: hidden;
-}
-.exp-shimmer .exp-shimmer-band::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
+.exp-reveal {
+  --band: linear-gradient(
     100deg,
-    transparent 30%,
-    #ffffff 50%,
-    transparent 70%
+    rgba(0, 0, 0, 0.12) 38%,
+    #000 50%,
+    rgba(0, 0, 0, 0.12) 62%
   );
-  animation: exp-shimmer-move 1.8s linear infinite;
+  -webkit-mask-image: var(--band);
+  mask-image: var(--band);
+  -webkit-mask-size: 300% 100%;
+  mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: exp-reveal 1.8s linear infinite;
 }
 `
 
@@ -234,8 +232,6 @@ function LogoDissolve() {
   return <canvas ref={canvasRef} style={{ width: 160, height: 160 }} />
 }
 
-const logoMask = `url("${LOGO_DATA_URI}")`
-
 function Cell({
   label,
   tech,
@@ -318,15 +314,9 @@ function ExplorePage() {
           </div>
         </Cell>
 
-        <Cell label="Shimmer" tech="CSS mask sweep">
-          <div
-            className="exp-shimmer size-28"
-            style={{ "--logo-mask": logoMask } as React.CSSProperties}
-          >
-            <div className="exp size-full">
-              <LogoSvg />
-            </div>
-            <div className="exp-shimmer-band" />
+        <Cell label="Shimmer" tech="CSS gradient-mask reveal">
+          <div className="exp exp-reveal size-28">
+            <LogoSvg />
           </div>
         </Cell>
 
