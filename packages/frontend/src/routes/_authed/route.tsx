@@ -10,6 +10,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Menu,
   Settings,
   UserRound
 } from "lucide-react"
@@ -36,7 +37,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { useCallback } from "react"
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger
+} from "@/components/ui/sheet"
+import { useCallback, useEffect, useState } from "react"
 import { usePrefetch } from "@/hooks/usePrefetch"
 import { authedRouteRedirect } from "@/lib/authRedirect"
 import { projectPrefetchAtoms } from "@/lib/prefetch"
@@ -77,7 +84,7 @@ function AuthedLayout() {
 function Shell({ user }: { user: User }) {
   return (
     <div className="h-full p-3">
-      <div className="grid h-full grid-cols-[14rem_1fr] grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden rounded-2xl bg-background shadow-sm ring-1 ring-border/60 lg:grid-cols-[14rem_1fr]">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
@@ -96,6 +103,14 @@ function Shell({ user }: { user: User }) {
 }
 
 function Sidebar({ user }: { user: User }) {
+  return (
+    <aside className="row-span-2 hidden lg:flex">
+      <SidebarContent user={user} />
+    </aside>
+  )
+}
+
+function SidebarContent({ user }: { user: User }) {
   const orgSlug = user.activeOrgSlug
   const slot = useSidebarSlotContent()
   const section = useSidebarSectionContent()
@@ -104,7 +119,7 @@ function Sidebar({ user }: { user: User }) {
   const navScale = reduceMotion ? 1 : 0.98
 
   return (
-    <aside className="row-span-2 flex flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="flex h-14 items-center gap-3 px-4 text-foreground">
         <Logo className="size-8" />
         <Wordmark className="h-5 w-auto" />
@@ -153,7 +168,7 @@ function Sidebar({ user }: { user: User }) {
       <div className="p-3">
         <ThemeSwitcher />
       </div>
-    </aside>
+    </div>
   )
 }
 
@@ -363,6 +378,9 @@ function NavItem({ to, params, icon: Icon, label, exact }: NavItemProps) {
 function Topbar({ user }: { user: User }) {
   return (
     <header className="flex h-14 items-center gap-2 px-4">
+      <div className="lg:hidden">
+        <MobileNav user={user} />
+      </div>
       <div className="min-w-0 flex-1">
         <Breadcrumbs />
       </div>
@@ -371,6 +389,35 @@ function Topbar({ user }: { user: User }) {
       ) : null}
       <UserMenu user={user} />
     </header>
+  )
+}
+
+function MobileNav({ user }: { user: User }) {
+  const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.chrome_nav_open()}
+            className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground outline-none transition-colors transition-transform duration-100 hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
+          >
+            <Menu className="size-5" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <SheetContent side="left" showCloseButton={false}>
+        <SheetTitle className="sr-only">{m.chrome_nav_menu_title()}</SheetTitle>
+        <SidebarContent user={user} />
+      </SheetContent>
+    </Sheet>
   )
 }
 

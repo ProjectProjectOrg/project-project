@@ -3,6 +3,8 @@
   "chrome_defect": "Something went wrong: {defect}",
   "chrome_defect_generic": "Something went wrong.",
   "chrome_loading": "Loading…",
+  "chrome_nav_menu_title": "Navigation",
+  "chrome_nav_open": "Open navigation",
   "chrome_sidebar_dashboard": "Dashboard",
   "chrome_sidebar_projects": "Projects",
   "chrome_user_menu_open": "Open user menu",
