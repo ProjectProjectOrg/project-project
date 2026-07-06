@@ -183,7 +183,7 @@ export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
     ? activeTimerResult.value
     : null
   const context = routeContext(pathname, orgSlug)
-  const slug = context?.slug ?? timer?.slug ?? null
+  const slug = timer?.slug ?? context?.slug ?? null
 
   if (Result.isInitial(activeTimerResult)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
