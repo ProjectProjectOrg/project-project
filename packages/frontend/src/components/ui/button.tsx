@@ -39,6 +39,8 @@ const buttonVariants = cva(
           "border border-border text-foreground bg-transparent hover:bg-muted active:bg-muted/60",
         ghost:
           "text-muted-foreground bg-transparent hover:bg-muted hover:text-foreground active:bg-muted/60",
+        "inline-help":
+          "ml-1 bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
         chip: "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80",
         dither: "bg-transparent overflow-hidden"
       },

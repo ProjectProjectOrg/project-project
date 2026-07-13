@@ -10,6 +10,7 @@ import { meAtom } from "@/atoms/auth"
 import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { GithubChip } from "@/components/GithubChip"
+import { EverhourApiKeyWalkthrough } from "@/components/time/EverhourApiKeyWalkthrough"
 import { Button } from "@/components/ui/button"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { useProjectRole } from "@/lib/projectRole"
@@ -181,9 +182,12 @@ function EverhourSettingsContent({
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className={busy ? "min-w-0 animate-pulse" : "min-w-0"}>
-          <p className="text-sm font-medium">
-            {m.project_settings_everhour_heading()}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium">
+              {m.project_settings_everhour_heading()}
+            </p>
+            <EverhourApiKeyWalkthrough />
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {status.status === "active"
               ? m.project_settings_everhour_connected()
