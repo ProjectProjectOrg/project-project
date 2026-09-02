@@ -1,11 +1,13 @@
 import { useState } from "react"
-import { Download, FileText, Image as ImageIcon } from "lucide-react"
+import { motion } from "motion/react"
+import { MORPH } from "@/components/Lexical/attachmentMorph"
+import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
+import { FileText, Image as ImageIcon } from "lucide-react"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { m } from "@/paraglide/messages"
 
 const CHIP =
   "inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-middle text-xs transition-colors duration-100 hover:bg-accent/40"
@@ -14,36 +16,36 @@ const HOVER_DELAY_MS = 450
 
 function ChipBody({
   filename,
-  kind
+  kind,
+  morphId
 }: {
   filename: string
   kind: "image" | "file"
+  morphId: string
 }) {
   const Icon = kind === "image" ? ImageIcon : FileText
   return (
     <>
-      <Icon
-        strokeWidth={1.75}
-        className="size-3 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <span className="truncate">{filename}</span>
+      <motion.span
+        layout="position"
+        transition={MORPH}
+        className="flex shrink-0 items-center"
+      >
+        <Icon
+          strokeWidth={1.75}
+          className="size-3 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </motion.span>
+      <motion.span
+        layoutId={`${morphId}-filename`}
+        layout="position"
+        transition={MORPH}
+        className="truncate"
+      >
+        {filename}
+      </motion.span>
     </>
-  )
-}
-
-function DownloadIcon({ url, filename }: { url: string; filename: string }) {
-  return (
-    <a
-      href={url}
-      download={filename}
-      aria-label={m.editor_attachment_download()}
-      title={m.editor_attachment_download()}
-      onMouseDown={(event) => event.stopPropagation()}
-      className="shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground"
-    >
-      <Download strokeWidth={1.75} className="size-3" aria-hidden="true" />
-    </a>
   )
 }
 
@@ -51,20 +53,22 @@ export function AttachmentChip({
   url,
   alt,
   filename,
-  kind
+  kind,
+  morphId
 }: {
   url: string
   alt: string
   filename: string
   kind: "image" | "file"
+  morphId: string
 }) {
   const [broken, setBroken] = useState(false)
 
   if (kind !== "image" || broken) {
     return (
       <span className={CHIP}>
-        <ChipBody filename={filename} kind={kind} />
-        <DownloadIcon url={url} filename={filename} />
+        <ChipBody filename={filename} kind={kind} morphId={morphId} />
+        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
       </span>
     )
   }
@@ -77,8 +81,8 @@ export function AttachmentChip({
         render={<span className={CHIP} />}
         contentEditable={false}
       >
-        <ChipBody filename={filename} kind={kind} />
-        <DownloadIcon url={url} filename={filename} />
+        <ChipBody filename={filename} kind={kind} morphId={morphId} />
+        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
       </PopoverTrigger>
       <PopoverContent className="w-auto max-w-sm p-1.5" align="start">
         <img

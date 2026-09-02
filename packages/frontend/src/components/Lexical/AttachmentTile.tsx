@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactElement } from "react"
+import { motion } from "motion/react"
+import { MORPH } from "@/components/Lexical/attachmentMorph"
+import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
 import {
   attachmentFileFormat,
   type AttachmentFileFormat
 } from "@projectproject/shared"
 import { m } from "@/paraglide/messages"
-
-const PRESS = "active:scale-[0.97] transition-transform duration-100"
 
 const PREVIEW_BOX =
   "flex h-[176px] w-full min-w-[148px] items-center justify-center"
@@ -178,11 +179,13 @@ function PdfSpread({ url, alt }: { url: string; alt: string }) {
 export function AttachmentTile({
   url,
   alt,
-  filename
+  filename,
+  morphId
 }: {
   url: string
   alt: string
   filename: string
+  morphId: string
 }) {
   const format = attachmentFileFormat(filename)
   return (
@@ -192,17 +195,17 @@ export function AttachmentTile({
       ) : (
         <FormatPreview format={format} />
       )}
-      <span className="flex items-center gap-3 border-t border-border px-3 py-2 text-xs">
-        <span className="max-w-[9rem] truncate" title={filename}>
-          {filename}
-        </span>
-        <a
-          href={url}
-          download={filename}
-          className={`ml-auto rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground ${PRESS}`}
+      <span className="flex w-full items-center gap-3 border-t border-border px-3 py-2 text-xs">
+        <motion.span
+          layoutId={`${morphId}-filename`}
+          layout="position"
+          transition={MORPH}
+          className="min-w-0 flex-1 truncate"
+          title={filename}
         >
-          {m.editor_attachment_download()}
-        </a>
+          {filename}
+        </motion.span>
+        <AttachmentDownload url={url} filename={filename} morphId={morphId} />
       </span>
     </span>
   )
