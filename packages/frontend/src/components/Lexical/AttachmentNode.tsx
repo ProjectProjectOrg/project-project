@@ -17,7 +17,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 import { mergeRegister } from "@lexical/utils"
-import { Trash2 } from "lucide-react"
+import { Maximize2, Minimize2, Trash2 } from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -30,9 +30,12 @@ import {
 import { motion } from "motion/react"
 import {
   ATTACHMENT_MIN_WIDTH,
-  clampAttachmentWidth
+  clampAttachmentWidth,
+  type AttachmentDensity
 } from "@projectproject/shared"
 import { Button } from "@/components/ui/button"
+import { AttachmentChip } from "@/components/Lexical/AttachmentChip"
+import { AttachmentTile } from "@/components/Lexical/AttachmentTile"
 import { m } from "@/paraglide/messages"
 
 export type AttachmentKind = "image" | "file"
@@ -46,6 +49,7 @@ export interface AttachmentPayload {
   readonly progress?: number
   readonly width?: number | null
   readonly failed?: boolean
+  readonly density?: AttachmentDensity
 }
 
 export type SerializedAttachmentNode = Spread<
@@ -55,11 +59,22 @@ export type SerializedAttachmentNode = Spread<
     filename: string
     kind: AttachmentKind
     width: number | null
+    density: AttachmentDensity
   },
   SerializedLexicalNode
 >
 
 const PRESS = "active:scale-[0.97] transition-transform duration-100"
+
+const contentWidth = (element: HTMLElement | null): number | null => {
+  if (element === null) return null
+  const style = getComputedStyle(element)
+  const inner =
+    element.clientWidth -
+    Number.parseFloat(style.paddingLeft) -
+    Number.parseFloat(style.paddingRight)
+  return Number.isFinite(inner) && inner > 0 ? inner : null
+}
 
 function AttachmentImage({
   url,
@@ -102,10 +117,9 @@ function AttachmentImage({
     const img = imgRef.current
     if (!img) return
     const width = img.getBoundingClientRect().width
-    const host = img.closest("[data-attachment-kind]")
     dragStart.current = {
       width,
-      container: host?.getBoundingClientRect().width ?? width
+      container: contentWidth(editor.getRootElement()) ?? width
     }
   }
 
@@ -142,7 +156,7 @@ function AttachmentImage({
         style={
           effectiveWidth === null ? undefined : { width: `${effectiveWidth}px` }
         }
-        className="h-auto max-h-96 w-auto max-w-full rounded-lg border border-transparent object-contain transition-colors group-hover:border-border"
+        className="h-auto max-h-96 w-auto max-w-full rounded-lg border border-transparent object-contain transition-all group-hover/hitbox:border-border"
         onError={() => setBroken(true)}
       />
       <motion.span
@@ -152,7 +166,7 @@ function AttachmentImage({
         onPanStart={onPanStart}
         onPan={onPan}
         onPanEnd={onPanEnd}
-        className="absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-colors group-hover:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
+        className="absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-hover/hitbox:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
       />
     </span>
   )
@@ -167,6 +181,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   __progress: number
   __width: number | null
   __failed: boolean
+  __density: AttachmentDensity
 
   static getType(): string {
     return "attachment"
@@ -182,7 +197,8 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
         uploadId: node.__uploadId,
         progress: node.__progress,
         width: node.__width,
-        failed: node.__failed
+        failed: node.__failed,
+        density: node.__density
       },
       node.__key
     )
@@ -198,12 +214,15 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     this.__progress = payload.progress ?? 0
     this.__width = payload.width ?? null
     this.__failed = payload.failed ?? false
+    this.__density = payload.density ?? "rich"
   }
 
   createDOM(): HTMLElement {
     const span = document.createElement("span")
     span.setAttribute("data-attachment-kind", this.__kind)
-    span.style.display = "block"
+    span.style.display = "inline-block"
+    span.style.verticalAlign = "middle"
+    span.style.maxWidth = "100%"
     return span
   }
 
@@ -212,7 +231,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   }
 
   isInline(): boolean {
-    return false
+    return true
   }
 
   getTextContent(): string {
@@ -256,6 +275,15 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     writable.__width = width
   }
 
+  getDensity(): AttachmentDensity {
+    return this.getLatest().__density
+  }
+
+  setDensity(density: AttachmentDensity): void {
+    const writable = this.getWritable()
+    writable.__density = density
+  }
+
   setProgress(fraction: number): void {
     const writable = this.getWritable()
     writable.__progress = fraction
@@ -283,7 +311,8 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       alt: this.__alt,
       filename: this.__filename,
       kind: this.__kind,
-      width: this.__width
+      width: this.__width,
+      density: this.__density
     }
   }
 
@@ -293,13 +322,19 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       alt: serialized.alt,
       filename: serialized.filename,
       kind: serialized.kind,
-      width: serialized.width ?? null
+      width: serialized.width ?? null,
+      density: serialized.density ?? "rich"
     })
   }
 
   decorate(): ReactElement {
+    const settled = this.__uploadId === undefined && !this.__failed
     return (
-      <AttachmentSelectable nodeKey={this.getKey()} deletable={!this.__failed}>
+      <AttachmentSelectable
+        nodeKey={this.getKey()}
+        deletable={!this.__failed}
+        density={settled ? this.__density : null}
+      >
         {this.renderContent()}
       </AttachmentSelectable>
     )
@@ -350,6 +385,17 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       )
     }
 
+    if (this.__density === "compact") {
+      return (
+        <AttachmentChip
+          url={this.__url}
+          alt={this.__alt}
+          filename={this.__filename}
+          kind={this.__kind}
+        />
+      )
+    }
+
     if (this.__kind === "image") {
       return (
         <AttachmentImage
@@ -362,16 +408,11 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     }
 
     return (
-      <span className="flex w-fit max-w-full items-center gap-2 rounded-lg border px-3 py-2 text-xs">
-        <span className="truncate">{this.__filename}</span>
-        <a
-          href={this.__url}
-          download={this.__filename}
-          className={`rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/40 hover:text-foreground ${PRESS}`}
-        >
-          {m.editor_attachment_download()}
-        </a>
-      </span>
+      <AttachmentTile
+        url={this.__url}
+        alt={this.__alt}
+        filename={this.__filename}
+      />
     )
   }
 }
@@ -379,10 +420,12 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 function AttachmentSelectable({
   nodeKey,
   deletable,
+  density,
   children
 }: {
   nodeKey: string
   deletable: boolean
+  density: AttachmentDensity | null
   children: ReactNode
 }) {
   const [editor] = useLexicalComposerContext()
@@ -392,6 +435,14 @@ function AttachmentSelectable({
   const remove = useCallback(() => {
     editor.update(() => {
       $getNodeByKey(nodeKey)?.remove()
+    })
+  }, [editor, nodeKey])
+
+  const toggleDensity = useCallback(() => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if (!$isAttachmentNode(node)) return
+      node.setDensity(node.getDensity() === "compact" ? "rich" : "compact")
     })
   }, [editor, nodeKey])
 
@@ -466,13 +517,23 @@ function AttachmentSelectable({
     setSelected(true)
   }
 
+  const compact = density === "compact"
+  const overlay = `absolute rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100 ${
+    compact
+      ? "top-1/2 -translate-y-1/2 before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
+      : "-top-2"
+  }`
+
   return (
-    <span className="block w-full" onMouseDown={selectOnPointer}>
+    <span
+      className="inline-block max-w-full align-middle"
+      onMouseDown={selectOnPointer}
+    >
       <span
         data-attachment-selected={isSelected ? "true" : undefined}
-        className={`group relative my-2 block w-fit max-w-full rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
-          isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"
-        }`}
+        className={`group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 ${
+          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl"
+        } ${isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"}`}
       >
         {children}
         {deletable ? (
@@ -483,9 +544,34 @@ function AttachmentSelectable({
             title={m.editor_attachment_remove()}
             onMouseDown={(event) => event.preventDefault()}
             onClick={remove}
-            className="absolute -top-2 -left-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
+            className={`${overlay} ${compact ? "-left-9" : "-left-2"} hover:bg-destructive-light hover:text-destructive`}
           >
             <Trash2 strokeWidth={1.75} />
+          </Button>
+        ) : null}
+        {density !== null ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={
+              compact
+                ? m.editor_attachment_view_rich()
+                : m.editor_attachment_view_compact()
+            }
+            title={
+              compact
+                ? m.editor_attachment_view_rich()
+                : m.editor_attachment_view_compact()
+            }
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={toggleDensity}
+            className={`${overlay} ${compact ? "-right-9" : "-right-2"} hover:bg-accent hover:text-foreground`}
+          >
+            {compact ? (
+              <Maximize2 strokeWidth={1.75} />
+            ) : (
+              <Minimize2 strokeWidth={1.75} />
+            )}
           </Button>
         ) : null}
       </span>

@@ -8,7 +8,7 @@ import { LinkNode } from "@lexical/link"
 import { ListItemNode, ListNode } from "@lexical/list"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { describe, expect, it } from "vitest"
-import { $getRoot, createEditor } from "lexical"
+import { $getRoot, $isElementNode, createEditor } from "lexical"
 import * as Schema from "effect/Schema"
 import { TicketId } from "@projectproject/shared"
 import { MentionNode } from "./Lexical/MentionNode"
@@ -110,6 +110,39 @@ function inAttachmentEditor<A>(
   return result
 }
 
+function roundTripAttachmentMarkdown(markdown: string) {
+  const transformers = transformersForAttachments(descriptionAttachments(true))
+  const editor = createEditor({
+    namespace: "lexical-editor-test",
+    nodes: [
+      AttachmentNode,
+      CodeNode,
+      HeadingNode,
+      HorizontalRuleNode,
+      LinkNode,
+      ListNode,
+      ListItemNode,
+      MentionNode,
+      QuoteNode
+    ],
+    onError: (error) => {
+      throw error
+    }
+  })
+
+  let exported = ""
+
+  editor.update(
+    () => {
+      $convertFromMarkdownString(markdown, transformers)
+      exported = $convertToMarkdownString(transformers)
+    },
+    { discrete: true }
+  )
+
+  return exported
+}
+
 describe("nextMarkdownChange", () => {
   it("records the first content edit after initialization", () => {
     expect(nextMarkdownChange("", "pasted text")).toBe("pasted text")
@@ -166,17 +199,45 @@ describe("MARKDOWN_TRANSFORMERS", () => {
 })
 
 describe("description editor attachment transformers", () => {
-  it("parses attachment markdown into an attachment node on the first render, before storage status is known", () => {
-    const types = inAttachmentEditor(
+  it("parses attachment markdown into an inline attachment node inside a paragraph, before storage status is known", () => {
+    const shape = inAttachmentEditor(
       transformersForAttachments(descriptionAttachments(false)),
       () =>
         $getRoot()
           .getChildren()
-          .map((child) => child.getType())
+          .map((child) => ({
+            type: child.getType(),
+            children: $isElementNode(child)
+              ? child.getChildren().map((grandchild) => grandchild.getType())
+              : []
+          }))
     )
 
+    const types = shape.flatMap((entry) => [entry.type, ...entry.children])
+    expect(shape.map((entry) => entry.type)).toContain("paragraph")
     expect(types).toContain("attachment")
     expect(types).not.toContain("link")
+  })
+
+  it("keeps two attachments on one line so they render side by side", () => {
+    const second = `/api/attachments/acme/01JBX7Q2K9ZWCVE8MTQ4RXPGHM`
+    const line = `${ATTACHMENT_MARKDOWN} ![other](${second})`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
+  })
+
+  it("keeps an attachment inline in a sentence", () => {
+    const line = `see ${ATTACHMENT_MARKDOWN} for the crash`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
+  })
+
+  it("round-trips the compact density param", () => {
+    const line = `![shot](${ATTACHMENT_URL}?d=compact)`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
+  })
+
+  it("round-trips width and density together", () => {
+    const line = `![shot](${ATTACHMENT_URL}?w=240&d=compact)`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
   })
 
   it("serializes a committed attachment back to markdown when uploads are disabled", () => {

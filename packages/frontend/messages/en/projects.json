@@ -226,6 +226,11 @@
   "editor_attachment_add": "Attach a file",
   "editor_attachment_connect_prompt": "Connect object storage to attach files to tickets.",
   "editor_attachment_download": "Download",
+  "editor_attachment_format_generic": "File",
+  "editor_attachment_format_gzip": "Gzip",
+  "editor_attachment_format_pdf": "PDF",
+  "editor_attachment_format_tar": "Tar",
+  "editor_attachment_format_zip": "Zip",
   "editor_attachment_remove": "Remove",
   "editor_attachment_retry": "Retry",
   "editor_attachment_too_large": "That file is larger than the 25 MB limit.",
@@ -233,5 +238,7 @@
   "editor_attachment_unavailable": "This attachment couldn't be loaded.",
   "editor_attachment_upload_failed": "Upload failed",
   "editor_attachment_uploading": "Uploading…",
+  "editor_attachment_view_compact": "Show as a compact chip",
+  "editor_attachment_view_rich": "Show a preview",
   "editor_placeholder": "Write a description in markdown…"
 }
