@@ -34,16 +34,18 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   BunContext.layer
 )
 
-const BackendServicesLiveBeforeAttachments = TagsLive.pipe(
+export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectStatusesLive),
   Layer.provideMerge(TicketsLive),
+  Layer.provideMerge(AttachmentsLive),
   Layer.provideMerge(CommentsLive),
   Layer.provideMerge(GroupsLive),
   Layer.provideMerge(ProjectsLive),
   Layer.provideMerge(CurrentOrgLive),
   Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
   Layer.provideMerge(GitHubLive),
-  Layer.provideMerge(EverhourLive),
+  Layer.provideMerge(EverhourLive)
+).pipe(
   Layer.provideMerge(
     GitHubIntegrationsLive.pipe(
       Layer.provideMerge(CurrentOrgLive),
@@ -73,10 +75,6 @@ const BackendServicesLiveBeforeAttachments = TagsLive.pipe(
       Layer.provideMerge(CurrentOrgLive)
     )
   )
-)
-
-export const BackendServicesLive = AttachmentsLive.pipe(
-  Layer.provideMerge(BackendServicesLiveBeforeAttachments)
 )
 
 export const BackendHttpServicesLive = BackendServicesLive.pipe(
