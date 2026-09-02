@@ -185,13 +185,35 @@ const FakeGroups = Layer.succeed(Groups, {
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
-const FakeAttachments = Layer.succeed(Attachments, {
-  prepare: () => unexpected("Attachments.prepare"),
-  commit: () => unexpected("Attachments.commit"),
-  resolveForServing: () => unexpected("Attachments.resolveForServing"),
-  reconcileTicket: () => Effect.void,
-  reapOnce: () => unexpected("Attachments.reapOnce")
-} satisfies AttachmentsShape)
+const makeFakeAttachments = (
+  overrides: Partial<AttachmentsShape> = {}
+): Layer.Layer<Attachments> =>
+  Layer.succeed(Attachments, {
+    prepare: () => unexpected("Attachments.prepare"),
+    commit: () => unexpected("Attachments.commit"),
+    resolveForServing: () => unexpected("Attachments.resolveForServing"),
+    reconcileTicket: () => Effect.void,
+    reapOnce: () => unexpected("Attachments.reapOnce"),
+    ...overrides
+  } satisfies AttachmentsShape)
+
+const makeRecordingAttachments = () => {
+  const calls: Array<{
+    readonly orgSlug: string
+    readonly slug: string
+    readonly ticketId: string
+    readonly body: string
+  }> = []
+  return {
+    calls,
+    layer: makeFakeAttachments({
+      reconcileTicket: (orgSlug, slug, ticketId, body) =>
+        Effect.sync(() => {
+          calls.push({ orgSlug, slug, ticketId, body })
+        })
+    })
+  }
+}
 
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
@@ -359,6 +381,7 @@ function makeTicketsLayer(
     readonly projects?: Layer.Layer<Projects>
     readonly github?: Layer.Layer<GitHub>
     readonly ticketIndex?: Layer.Layer<TicketIndex>
+    readonly attachments?: Layer.Layer<Attachments>
   } = {}
 ) {
   return TicketsLive.pipe(
@@ -366,7 +389,7 @@ function makeTicketsLayer(
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
-    Layer.provide(FakeAttachments),
+    Layer.provide(options.attachments ?? makeFakeAttachments()),
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(FakeDb)
@@ -399,7 +422,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
-    Layer.provide(FakeAttachments),
+    Layer.provide(makeFakeAttachments()),
     Layer.provide(
       makeFakeGitHub({
         fetchInstallationProjectStates: (
@@ -487,6 +510,27 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
     ])
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "remove reconciles with an empty body so the deleted ticket's attachments are orphaned",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const attachments = makeRecordingAttachments()
+    const layer = makeTicketsLayer("T", docs.layer, {
+      attachments: attachments.layer,
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      yield* tickets.remove("org", "user-1", "p", "T-1")
+
+      expect(attachments.calls).toEqual([
+        { orgSlug: "org", slug: "p", ticketId: "T-1", body: "" }
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("create propagates ticket index write failures", () => {
   const docs = makeFakeTicketDocs([])
