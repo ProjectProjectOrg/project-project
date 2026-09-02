@@ -47,7 +47,7 @@ describe("parseAttachmentUrl", () => {
   })
 })
 
-describe("extractAttachmentRefs", () => {
+describe("extractAttachmentRefs (permissive: false negatives are data loss)", () => {
   it("finds an image reference", () => {
     const md = `# Title\n\n![shot](/api/attachments/acme/${ID})\n`
     expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
@@ -58,14 +58,54 @@ describe("extractAttachmentRefs", () => {
     expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
   })
 
-  it("deduplicates a reference used twice", () => {
-    const md = `![a](/api/attachments/acme/${ID}) and ![b](/api/attachments/acme/${ID})`
+  it("finds nested brackets in alt text", () => {
+    const md = `![Diagram [v2]](/api/attachments/acme/${ID})`
     expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("finds nested brackets in link text", () => {
+    const md = `[report [final].pdf](/api/attachments/acme/${ID})`
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("finds a url with query string", () => {
+    const md = `![x](/api/attachments/acme/${ID}?v=2)`
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("finds a url with fragment", () => {
+    const md = `[x](/api/attachments/acme/${ID}#page=3)`
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("finds a bare url with no markdown syntax", () => {
+    const md = `see /api/attachments/acme/${ID} for details`
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("finds a url inside a code fence", () => {
+    const md = "```\n/api/attachments/acme/" + ID + "\n```"
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("ignores a non-attachment path", () => {
+    const md = `![y](/api/other/acme/${ID})`
+    expect(extractAttachmentRefs(md)).toEqual([])
   })
 
   it("ignores mention links and external images", () => {
     const md =
       "[T-1](mention:ticket/T-1) ![x](https://example.test/a.png) ![y](/api/other/acme/x)"
+    expect(extractAttachmentRefs(md)).toEqual([])
+  })
+
+  it("deduplicates a reference used twice", () => {
+    const md = `![a](/api/attachments/acme/${ID}) and ![b](/api/attachments/acme/${ID})`
+    expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
+  })
+
+  it("ignores a malformed id", () => {
+    const md = `![x](/api/attachments/acme/not-26-chars) ![y](/api/attachments/acme/01JBX7Q2K9ZWCVE8MTQ4RXPGHI)`
     expect(extractAttachmentRefs(md)).toEqual([])
   })
 
