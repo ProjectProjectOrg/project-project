@@ -59,6 +59,7 @@ export type AppError =
   | AttachmentTypeRejected
   | AttachmentNotUploaded
 
+// @effect-diagnostics-next-line unnecessaryPipeChain:off
 export const errorMessage = (error: AppError): string =>
   Match.value(error)
     .pipe(

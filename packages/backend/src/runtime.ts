@@ -34,6 +34,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   BunContext.layer
 )
 
+// @effect-diagnostics-next-line unnecessaryPipeChain:off
 export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(ProjectStatusesLive),
   Layer.provideMerge(TicketsLive),
