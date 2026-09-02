@@ -18,6 +18,10 @@ import {
 
 export const PENDING_TTL_MS = 60 * 60 * 1000
 
+export const isServableStatus = (
+  status: "pending" | "live" | "orphaned"
+): boolean => status === "live" || status === "orphaned"
+
 export type AttachmentValidationError =
   | { readonly kind: "type"; readonly contentType: string }
   | { readonly kind: "size"; readonly maxBytes: number }
