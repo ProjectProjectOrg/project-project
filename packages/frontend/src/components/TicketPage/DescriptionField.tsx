@@ -101,7 +101,10 @@ export function DescriptionField({
       <div
         ref={wrapperRef}
         id={DESCRIPTION_REGION_ID}
-        className="relative overflow-hidden rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background"
+        className={cn(
+          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 focus-within:border-border focus-within:bg-background",
+          collapsed ? "overflow-hidden" : "overflow-visible"
+        )}
         style={{
           maxHeight:
             collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
