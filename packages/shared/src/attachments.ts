@@ -68,7 +68,7 @@ export const withAttachmentParams = (
   const query: Array<string> = []
   const width = params.width ?? null
   if (width !== null && Number.isFinite(width) && width > 0) {
-    query.push(`${WIDTH_PARAM}=${Math.round(width)}`)
+    query.push(`${WIDTH_PARAM}=${Math.max(1, Math.round(width))}`)
   }
   if (params.density === "compact") {
     query.push(`${DENSITY_PARAM}=compact`)
@@ -76,8 +76,10 @@ export const withAttachmentParams = (
   return query.length === 0 ? base : `${base}?${query.join("&")}`
 }
 
+const unanchored = (pattern: RegExp) => pattern.source.replace(/^\^|\$$/g, "")
+
 const ATTACHMENT_URL_CANDIDATE_RE = new RegExp(
-  `${ATTACHMENT_URL_PREFIX}/[^\\s)\\]]+`,
+  `${ATTACHMENT_URL_PREFIX}/(?:${unanchored(SLUG_PATTERN)})/(?:${unanchored(ULID_PATTERN)})`,
   "g"
 )
 
