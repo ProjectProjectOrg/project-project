@@ -3,13 +3,16 @@ import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
-import { parseMentionHref } from "@projectproject/shared"
+import { parseAttachmentUrl, parseMentionHref } from "@projectproject/shared"
 import { MentionChip } from "@/components/Lexical/MentionChip"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
 
-const allowMentionUrls = (url: string) =>
-  url.startsWith("mention:") ? url : defaultUrlTransform(url)
+const allowMentionUrls = (url: string) => {
+  if (url.startsWith("mention:")) return url
+  if (parseAttachmentUrl(url)) return url
+  return defaultUrlTransform(url)
+}
 
 export function Markdown({
   children,
@@ -39,7 +42,17 @@ export function Markdown({
             return (
               <MentionChip type={ref.type} id={ref.id} label={label} />
             )
-          }
+          },
+          img: ({ src, alt, ...rest }) => (
+            <img
+              src={typeof src === "string" ? src : undefined}
+              alt={alt ?? ""}
+              loading="lazy"
+              decoding="async"
+              className="my-2 max-w-full rounded-lg border"
+              {...rest}
+            />
+          )
         }}
       >
         {children}
