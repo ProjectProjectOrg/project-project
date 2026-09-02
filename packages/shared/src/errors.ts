@@ -204,3 +204,45 @@ export class EverhourError extends Schema.TaggedError<EverhourError>()(
   { message: Schema.String },
   HttpApiSchema.annotations({ status: 502 })
 ) {}
+
+export class StorageNotConnected extends Schema.TaggedError<StorageNotConnected>()(
+  "StorageNotConnected",
+  {},
+  HttpApiSchema.annotations({ status: 409 })
+) {}
+
+export class StorageAuthInvalid extends Schema.TaggedError<StorageAuthInvalid>()(
+  "StorageAuthInvalid",
+  {},
+  HttpApiSchema.annotations({ status: 401 })
+) {}
+
+export class StorageConfigMissing extends Schema.TaggedError<StorageConfigMissing>()(
+  "StorageConfigMissing",
+  {},
+  HttpApiSchema.annotations({ status: 503 })
+) {}
+
+export class StorageError extends Schema.TaggedError<StorageError>()(
+  "StorageError",
+  { reason: Schema.String },
+  HttpApiSchema.annotations({ status: 502 })
+) {}
+
+export class AttachmentTooLarge extends Schema.TaggedError<AttachmentTooLarge>()(
+  "AttachmentTooLarge",
+  { maxBytes: Schema.Number },
+  HttpApiSchema.annotations({ status: 413 })
+) {}
+
+export class AttachmentTypeRejected extends Schema.TaggedError<AttachmentTypeRejected>()(
+  "AttachmentTypeRejected",
+  { contentType: Schema.String },
+  HttpApiSchema.annotations({ status: 415 })
+) {}
+
+export class AttachmentNotUploaded extends Schema.TaggedError<AttachmentNotUploaded>()(
+  "AttachmentNotUploaded",
+  {},
+  HttpApiSchema.annotations({ status: 409 })
+) {}
