@@ -75,11 +75,7 @@ export const AttachmentsLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        const { organizationId } = yield* requireProject(
-          orgSlug,
-          userId,
-          slug
-        )
+        const { organizationId } = yield* requireProject(orgSlug, userId, slug)
 
         const invalid = validateUploadRequest(input)
         if (invalid) {
@@ -129,7 +125,9 @@ export const AttachmentsLive = Layer.effect(
           .pipe(Effect.orDie)
 
         const now = yield* DateTime.now
-        const expiresAt = DateTime.toDate(DateTime.addDuration(now, "900 seconds"))
+        const expiresAt = DateTime.toDate(
+          DateTime.addDuration(now, "900 seconds")
+        )
 
         return {
           id,
@@ -333,9 +331,7 @@ export const AttachmentsLive = Layer.effect(
         const rows = yield* db
           .select()
           .from(attachmentIndex)
-          .where(
-            inArray(attachmentIndex.status, ["pending", "orphaned"])
-          )
+          .where(inArray(attachmentIndex.status, ["pending", "orphaned"]))
           .pipe(Effect.orDie)
 
         const now = yield* Clock.currentTimeMillis
@@ -386,11 +382,14 @@ export const AttachmentsLive = Layer.effect(
               .pipe(Effect.either)
 
             if (outcome._tag === "Left") {
-              yield* Effect.logError("attachment reap failed to delete object", {
-                attachmentId: row.id,
-                orgSlug,
-                error: outcome.left
-              })
+              yield* Effect.logError(
+                "attachment reap failed to delete object",
+                {
+                  attachmentId: row.id,
+                  orgSlug,
+                  error: outcome.left
+                }
+              )
               continue
             }
 

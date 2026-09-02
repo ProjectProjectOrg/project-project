@@ -39,9 +39,7 @@ export function Markdown({
             }
             const label =
               typeof linkChildren === "string" ? linkChildren : ref.id
-            return (
-              <MentionChip type={ref.type} id={ref.id} label={label} />
-            )
+            return <MentionChip type={ref.type} id={ref.id} label={label} />
           },
           img: ({ src, alt, ...rest }) => (
             <img

@@ -31,7 +31,10 @@ describe("attachmentObjectKey", () => {
 
   it("keeps the attachment id as the uniqueness guarantee", () => {
     const a = attachmentObjectKey(base)
-    const b = attachmentObjectKey({ ...base, attachmentId: "01JBX000000000000000000000" })
+    const b = attachmentObjectKey({
+      ...base,
+      attachmentId: "01JBX000000000000000000000"
+    })
     expect(a).not.toBe(b)
   })
 })
@@ -58,8 +61,8 @@ describe("sanitizeFilename", () => {
   })
 
   it("truncates an absurdly long name", () => {
-    expect(sanitizeFilename(`${"a".repeat(300)}.png`).length).toBeLessThanOrEqual(
-      120
-    )
+    expect(
+      sanitizeFilename(`${"a".repeat(300)}.png`).length
+    ).toBeLessThanOrEqual(120)
   })
 })

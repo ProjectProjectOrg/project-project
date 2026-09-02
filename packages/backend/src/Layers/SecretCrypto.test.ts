@@ -4,15 +4,17 @@ import { randomBytes } from "node:crypto"
 import { SecretCrypto } from "../Services/SecretCrypto"
 import { SecretCryptoLive } from "./SecretCrypto"
 
-const withKey = <A>(run: () => Promise<A>) => async () => {
-  const previous = process.env.USER_SECRET_ENCRYPTION_KEY
-  process.env.USER_SECRET_ENCRYPTION_KEY = randomBytes(32).toString("base64")
-  try {
-    return await run()
-  } finally {
-    process.env.USER_SECRET_ENCRYPTION_KEY = previous
+const withKey =
+  <A>(run: () => Promise<A>) =>
+  async () => {
+    const previous = process.env.USER_SECRET_ENCRYPTION_KEY
+    process.env.USER_SECRET_ENCRYPTION_KEY = randomBytes(32).toString("base64")
+    try {
+      return await run()
+    } finally {
+      process.env.USER_SECRET_ENCRYPTION_KEY = previous
+    }
   }
-}
 
 const run = <A, E>(effect: Effect.Effect<A, E, SecretCrypto>) =>
   Effect.runPromise(
@@ -85,9 +87,8 @@ describe("SecretCrypto", () => {
 
   it("fails when the key is the wrong length", async () => {
     const previous = process.env.USER_SECRET_ENCRYPTION_KEY
-    process.env.USER_SECRET_ENCRYPTION_KEY = Buffer.from("short").toString(
-      "base64"
-    )
+    process.env.USER_SECRET_ENCRYPTION_KEY =
+      Buffer.from("short").toString("base64")
     try {
       const result = await run(
         Effect.gen(function* () {

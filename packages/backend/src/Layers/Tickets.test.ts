@@ -134,24 +134,21 @@ const FakeAttachments = Layer.succeed(Attachments, {
   reapOnce: () => unexpected("Attachments.reapOnce")
 } satisfies AttachmentsShape)
 
-const FakeDb = Layer.succeed(
-  Db,
-  {
-    query: {
-      projectIndex: {
-        findFirst: () => Effect.succeed({ id: "project-1" })
-      },
-      projectStatus: {
-        findMany: () =>
-          Effect.succeed([
-            { slug: "todo" },
-            { slug: "in_progress" },
-            { slug: "done" }
-          ])
-      }
+const FakeDb = Layer.succeed(Db, {
+  query: {
+    projectIndex: {
+      findFirst: () => Effect.succeed({ id: "project-1" })
+    },
+    projectStatus: {
+      findMany: () =>
+        Effect.succeed([
+          { slug: "todo" },
+          { slug: "in_progress" },
+          { slug: "done" }
+        ])
     }
-  } as never
-)
+  }
+} as never)
 
 const TestLayer = Layer.unwrapScoped(
   Effect.gen(function* () {
@@ -266,7 +263,12 @@ it.scoped("archiving sets archivedAt and records the reason as a comment", () =>
     expect(archived.archivedAt).not.toBeNull()
     expect(recordedCommentBodies).toEqual(["no longer relevant"])
 
-    const unarchived = yield* tickets.unarchive("org", "user-1", "p", created.id)
+    const unarchived = yield* tickets.unarchive(
+      "org",
+      "user-1",
+      "p",
+      created.id
+    )
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
 )

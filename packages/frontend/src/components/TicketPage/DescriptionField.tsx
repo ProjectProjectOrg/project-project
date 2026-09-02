@@ -154,7 +154,9 @@ export function DescriptionField({
             aria-controls={DESCRIPTION_REGION_ID}
             className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
           >
-            {collapsed ? m.tickets_page_read_more() : m.tickets_page_show_less()}
+            {collapsed
+              ? m.tickets_page_read_more()
+              : m.tickets_page_show_less()}
           </button>
         </div>
       )}

@@ -1,7 +1,12 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
-import { HardDrive, SlidersHorizontal, TriangleAlert, Users } from "lucide-react"
+import {
+  HardDrive,
+  SlidersHorizontal,
+  TriangleAlert,
+  Users
+} from "lucide-react"
 import { PageContainer, PageHeader } from "@/components/page"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"

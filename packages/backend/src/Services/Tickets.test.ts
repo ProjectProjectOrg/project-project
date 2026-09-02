@@ -802,12 +802,30 @@ it.effect("count returns zeros for every status on empty project", () => {
 
 it.effect("count aggregates byStatus across a mixed-status project", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
-  documents.set("T-1", makeTicketDocument("T-1", { status: ticketStatus("todo") }))
-  documents.set("T-2", makeTicketDocument("T-2", { status: ticketStatus("todo") }))
-  documents.set("T-3", makeTicketDocument("T-3", { status: ticketStatus("todo") }))
-  documents.set("T-4", makeTicketDocument("T-4", { status: ticketStatus("in_progress") }))
-  documents.set("T-5", makeTicketDocument("T-5", { status: ticketStatus("in_progress") }))
-  documents.set("T-6", makeTicketDocument("T-6", { status: ticketStatus("done") }))
+  documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { status: ticketStatus("todo") })
+  )
+  documents.set(
+    "T-2",
+    makeTicketDocument("T-2", { status: ticketStatus("todo") })
+  )
+  documents.set(
+    "T-3",
+    makeTicketDocument("T-3", { status: ticketStatus("todo") })
+  )
+  documents.set(
+    "T-4",
+    makeTicketDocument("T-4", { status: ticketStatus("in_progress") })
+  )
+  documents.set(
+    "T-5",
+    makeTicketDocument("T-5", { status: ticketStatus("in_progress") })
+  )
+  documents.set(
+    "T-6",
+    makeTicketDocument("T-6", { status: ticketStatus("done") })
+  )
 
   return Effect.gen(function* () {
     const tickets = yield* Tickets
@@ -823,12 +841,30 @@ it.effect(
   "count strips status from filter so chip counts stay meaningful",
   () => {
     const { documents, layer } = makeTicketsFixture("T", [])
-    documents.set("T-1", makeTicketDocument("T-1", { status: ticketStatus("todo") }))
-    documents.set("T-2", makeTicketDocument("T-2", { status: ticketStatus("todo") }))
-    documents.set("T-3", makeTicketDocument("T-3", { status: ticketStatus("todo") }))
-    documents.set("T-4", makeTicketDocument("T-4", { status: ticketStatus("in_progress") }))
-    documents.set("T-5", makeTicketDocument("T-5", { status: ticketStatus("in_progress") }))
-    documents.set("T-6", makeTicketDocument("T-6", { status: ticketStatus("done") }))
+    documents.set(
+      "T-1",
+      makeTicketDocument("T-1", { status: ticketStatus("todo") })
+    )
+    documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { status: ticketStatus("todo") })
+    )
+    documents.set(
+      "T-3",
+      makeTicketDocument("T-3", { status: ticketStatus("todo") })
+    )
+    documents.set(
+      "T-4",
+      makeTicketDocument("T-4", { status: ticketStatus("in_progress") })
+    )
+    documents.set(
+      "T-5",
+      makeTicketDocument("T-5", { status: ticketStatus("in_progress") })
+    )
+    documents.set(
+      "T-6",
+      makeTicketDocument("T-6", { status: ticketStatus("done") })
+    )
 
     return Effect.gen(function* () {
       const tickets = yield* Tickets
@@ -851,7 +887,10 @@ it.effect("count still applies non-status filters", () => {
   )
   documents.set(
     "T-2",
-    makeTicketDocument("T-2", { status: ticketStatus("in_progress"), type: "feat" })
+    makeTicketDocument("T-2", {
+      status: ticketStatus("in_progress"),
+      type: "feat"
+    })
   )
   documents.set(
     "T-3",
@@ -863,7 +902,10 @@ it.effect("count still applies non-status filters", () => {
   )
   documents.set(
     "T-5",
-    makeTicketDocument("T-5", { status: ticketStatus("in_progress"), type: "bug" })
+    makeTicketDocument("T-5", {
+      status: ticketStatus("in_progress"),
+      type: "bug"
+    })
   )
 
   return Effect.gen(function* () {
@@ -882,15 +924,24 @@ it.effect("count substitutes mine to viewerId like list", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(
     "T-1",
-    makeTicketDocument("T-1", { status: ticketStatus("todo"), assignees: ["user-1"] })
+    makeTicketDocument("T-1", {
+      status: ticketStatus("todo"),
+      assignees: ["user-1"]
+    })
   )
   documents.set(
     "T-2",
-    makeTicketDocument("T-2", { status: ticketStatus("in_progress"), assignees: ["user-1"] })
+    makeTicketDocument("T-2", {
+      status: ticketStatus("in_progress"),
+      assignees: ["user-1"]
+    })
   )
   documents.set(
     "T-3",
-    makeTicketDocument("T-3", { status: ticketStatus("done"), assignees: ["user-2"] })
+    makeTicketDocument("T-3", {
+      status: ticketStatus("done"),
+      assignees: ["user-2"]
+    })
   )
 
   return Effect.gen(function* () {

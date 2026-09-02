@@ -45,37 +45,39 @@ export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(OrgLive.pipe(Layer.provideMerge(CurrentOrgLive))),
   Layer.provideMerge(GitHubLive),
   Layer.provideMerge(EverhourLive)
-).pipe(
-  Layer.provideMerge(
-    GitHubIntegrationsLive.pipe(
-      Layer.provideMerge(CurrentOrgLive),
-      Layer.provideMerge(GitHubLive)
-    )
-  ),
-  Layer.provideMerge(
-    EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
-  ),
-  Layer.provideMerge(
-    EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
-  ),
-  Layer.provideMerge(UsersLive),
-  Layer.provideMerge(TicketIndexLive),
-  Layer.provideMerge(ProjectDocsLive),
-  Layer.provideMerge(TicketDocsLive),
-  Layer.provideMerge(GroupDocsLive),
-  Layer.provideMerge(MarkdownLive),
-  Layer.provideMerge(OAuthApplicationsLive),
-  Layer.provideMerge(SecretCryptoLive)
-).pipe(
-  Layer.provideMerge(S3StorageLive),
-  Layer.provideMerge(
-    OrgStorageLive.pipe(
-      Layer.provideMerge(S3StorageLive),
-      Layer.provideMerge(SecretCryptoLive),
-      Layer.provideMerge(CurrentOrgLive)
+)
+  .pipe(
+    Layer.provideMerge(
+      GitHubIntegrationsLive.pipe(
+        Layer.provideMerge(CurrentOrgLive),
+        Layer.provideMerge(GitHubLive)
+      )
+    ),
+    Layer.provideMerge(
+      EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
+    ),
+    Layer.provideMerge(
+      EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
+    ),
+    Layer.provideMerge(UsersLive),
+    Layer.provideMerge(TicketIndexLive),
+    Layer.provideMerge(ProjectDocsLive),
+    Layer.provideMerge(TicketDocsLive),
+    Layer.provideMerge(GroupDocsLive),
+    Layer.provideMerge(MarkdownLive),
+    Layer.provideMerge(OAuthApplicationsLive),
+    Layer.provideMerge(SecretCryptoLive)
+  )
+  .pipe(
+    Layer.provideMerge(S3StorageLive),
+    Layer.provideMerge(
+      OrgStorageLive.pipe(
+        Layer.provideMerge(S3StorageLive),
+        Layer.provideMerge(SecretCryptoLive),
+        Layer.provideMerge(CurrentOrgLive)
+      )
     )
   )
-)
 
 export const BackendHttpServicesLive = BackendServicesLive.pipe(
   Layer.provideMerge(AuthenticationLive)
