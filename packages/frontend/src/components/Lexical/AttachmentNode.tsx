@@ -21,11 +21,14 @@ import { Trash2 } from "lucide-react"
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactElement,
   type ReactNode
 } from "react"
+import { clampAttachmentWidth } from "@projectproject/shared"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
@@ -38,6 +41,7 @@ export interface AttachmentPayload {
   readonly kind: AttachmentKind
   readonly uploadId?: string
   readonly progress?: number
+  readonly width?: number | null
   readonly failed?: boolean
 }
 
@@ -47,14 +51,78 @@ export type SerializedAttachmentNode = Spread<
     alt: string
     filename: string
     kind: AttachmentKind
+    width: number | null
   },
   SerializedLexicalNode
 >
 
 const PRESS = "active:scale-[0.97] transition-transform duration-100"
 
-function AttachmentImage({ url, alt }: { url: string; alt: string }) {
+function AttachmentImage({
+  url,
+  alt,
+  width,
+  nodeKey
+}: {
+  url: string
+  alt: string
+  width: number | null
+  nodeKey: NodeKey
+}) {
+  const [editor] = useLexicalComposerContext()
   const [broken, setBroken] = useState(false)
+  const [dragWidth, setDragWidth] = useState<number | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  const onResize = (next: number | null) => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if ($isAttachmentNode(node)) node.setWidth(next)
+    })
+  }
+
+  const startResize = (event: ReactPointerEvent<HTMLElement>) => {
+    const img = imgRef.current
+    if (!img) return
+    event.preventDefault()
+    event.stopPropagation()
+    const handle = event.currentTarget
+    try {
+      handle.setPointerCapture(event.pointerId)
+    } catch {
+      // an already-released pointer cannot be captured; the window listeners still track it
+    }
+
+    const startX = event.clientX
+    const startWidth = img.getBoundingClientRect().width
+    const containerWidth =
+      img.parentElement?.parentElement?.getBoundingClientRect().width ??
+      startWidth
+
+    const measure = (clientX: number) =>
+      clampAttachmentWidth({
+        width: startWidth + (clientX - startX),
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        containerWidth
+      })
+
+    const onMove = (moveEvent: PointerEvent) => {
+      setDragWidth(measure(moveEvent.clientX))
+    }
+
+    const onUp = (upEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+      setDragWidth(null)
+      onResize(measure(upEvent.clientX))
+    }
+
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+  }
 
   if (broken) {
     return (
@@ -64,14 +132,33 @@ function AttachmentImage({ url, alt }: { url: string; alt: string }) {
     )
   }
 
+  const effectiveWidth = dragWidth ?? width
+
   return (
-    <img
-      src={url}
-      alt={alt}
-      decoding="async"
-      className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
-      onError={() => setBroken(true)}
-    />
+    <span className="relative block w-fit max-w-full">
+      <img
+        ref={imgRef}
+        src={url}
+        alt={alt}
+        decoding="async"
+        style={
+          effectiveWidth === null ? undefined : { width: `${effectiveWidth}px` }
+        }
+        className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
+        onError={() => setBroken(true)}
+      />
+      {(["top", "bottom"] as const).map((corner) => (
+        <span
+          key={corner}
+          role="presentation"
+          aria-hidden="true"
+          onPointerDown={startResize}
+          className={`absolute -right-1.5 hidden h-3 w-3 cursor-ew-resize rounded-full border-2 border-background bg-foreground/70 opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:bg-foreground sm:block ${
+            corner === "top" ? "-top-1.5" : "-bottom-1.5"
+          }`}
+        />
+      ))}
+    </span>
   )
 }
 
@@ -82,6 +169,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   __kind: AttachmentKind
   __uploadId: string | undefined
   __progress: number
+  __width: number | null
   __failed: boolean
 
   static getType(): string {
@@ -97,6 +185,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
         kind: node.__kind,
         uploadId: node.__uploadId,
         progress: node.__progress,
+        width: node.__width,
         failed: node.__failed
       },
       node.__key
@@ -111,6 +200,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     this.__kind = payload.kind
     this.__uploadId = payload.uploadId
     this.__progress = payload.progress ?? 0
+    this.__width = payload.width ?? null
     this.__failed = payload.failed ?? false
   }
 
@@ -161,6 +251,15 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     return this.getLatest().__failed
   }
 
+  getWidth(): number | null {
+    return this.getLatest().__width
+  }
+
+  setWidth(width: number | null): void {
+    const writable = this.getWritable()
+    writable.__width = width
+  }
+
   setProgress(fraction: number): void {
     const writable = this.getWritable()
     writable.__progress = fraction
@@ -187,7 +286,8 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       url: this.__url,
       alt: this.__alt,
       filename: this.__filename,
-      kind: this.__kind
+      kind: this.__kind,
+      width: this.__width
     }
   }
 
@@ -196,7 +296,8 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       url: serialized.url,
       alt: serialized.alt,
       filename: serialized.filename,
-      kind: serialized.kind
+      kind: serialized.kind,
+      width: serialized.width ?? null
     })
   }
 
@@ -254,7 +355,14 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     }
 
     if (this.__kind === "image") {
-      return <AttachmentImage url={this.__url} alt={this.__alt} />
+      return (
+        <AttachmentImage
+          url={this.__url}
+          alt={this.__alt}
+          width={this.__width}
+          nodeKey={this.getKey()}
+        />
+      )
     }
 
     return (
@@ -375,7 +483,7 @@ function AttachmentSelectable({
             title={m.editor_attachment_remove()}
             onMouseDown={(event) => event.preventDefault()}
             onClick={remove}
-            className="absolute -top-2 -right-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
+            className="absolute -top-2 -left-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
           >
             <Trash2 strokeWidth={1.75} />
           </Button>

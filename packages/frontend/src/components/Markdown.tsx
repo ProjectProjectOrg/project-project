@@ -3,7 +3,11 @@ import remarkGfm from "remark-gfm"
 import rehypePrismPlus from "rehype-prism-plus"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
-import { parseAttachmentUrl, parseMentionHref } from "@projectproject/shared"
+import {
+  attachmentWidthFromUrl,
+  parseAttachmentUrl,
+  parseMentionHref
+} from "@projectproject/shared"
 import { MentionChip } from "@/components/Lexical/MentionChip"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
@@ -41,16 +45,21 @@ export function Markdown({
               typeof linkChildren === "string" ? linkChildren : ref.id
             return <MentionChip type={ref.type} id={ref.id} label={label} />
           },
-          img: ({ src, alt, ...rest }) => (
-            <img
-              src={typeof src === "string" ? src : undefined}
-              alt={alt ?? ""}
-              loading="lazy"
-              decoding="async"
-              className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
-              {...rest}
-            />
-          )
+          img: ({ src, alt, ...rest }) => {
+            const url = typeof src === "string" ? src : undefined
+            const width = url ? attachmentWidthFromUrl(url) : null
+            return (
+              <img
+                src={url}
+                alt={alt ?? ""}
+                loading="lazy"
+                decoding="async"
+                style={width === null ? undefined : { width: `${width}px` }}
+                className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
+                {...rest}
+              />
+            )
+          }
         }}
       >
         {children}

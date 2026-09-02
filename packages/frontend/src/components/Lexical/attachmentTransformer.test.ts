@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  attachmentWidthFromUrl,
+  parseAttachmentUrl
+} from "@projectproject/shared"
+import {
   ATTACHMENT_MARKDOWN_RE,
   formatAttachmentMarkdown,
   unescapeAttachmentAlt
@@ -78,5 +82,53 @@ describe("formatAttachmentMarkdown", () => {
     const match = md.match(ATTACHMENT_MARKDOWN_RE)
     expect(match).not.toBeNull()
     expect(unescapeAttachmentAlt(match![2])).toBe(alt)
+  })
+})
+
+describe("formatAttachmentMarkdown width round-trip", () => {
+  it("writes a width as a query param", () => {
+    expect(
+      formatAttachmentMarkdown({
+        kind: "image",
+        alt: "shot",
+        url: URL,
+        width: 420
+      })
+    ).toBe(`![shot](${URL}?w=420)`)
+  })
+
+  it("omits the query when there is no width", () => {
+    expect(
+      formatAttachmentMarkdown({
+        kind: "image",
+        alt: "shot",
+        url: URL,
+        width: null
+      })
+    ).toBe(`![shot](${URL})`)
+  })
+
+  it("keeps a sized url matchable by the transformer regex", () => {
+    const md = formatAttachmentMarkdown({
+      kind: "image",
+      alt: "shot",
+      url: URL,
+      width: 420
+    })
+    const match = md.match(ATTACHMENT_MARKDOWN_RE)
+    expect(match).not.toBeNull()
+    expect(match![3]).toBe(`${URL}?w=420`)
+  })
+
+  it("keeps a sized url parseable and reference-scannable", () => {
+    const md = formatAttachmentMarkdown({
+      kind: "image",
+      alt: "shot",
+      url: URL,
+      width: 420
+    })
+    const url = md.match(ATTACHMENT_MARKDOWN_RE)![3]!
+    expect(parseAttachmentUrl(url)).not.toBeNull()
+    expect(attachmentWidthFromUrl(url)).toBe(420)
   })
 })
