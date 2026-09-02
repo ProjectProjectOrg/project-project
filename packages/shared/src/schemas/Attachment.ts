@@ -2,6 +2,35 @@ import * as Schema from "effect/Schema"
 
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 
+export const ATTACHMENT_MIN_WIDTH = 96
+
+export const ATTACHMENT_MAX_HEIGHT = 384
+
+export const clampAttachmentWidth = (input: {
+  readonly width: number
+  readonly naturalWidth: number
+  readonly naturalHeight: number
+  readonly containerWidth: number
+}): number => {
+  const ceilingFromContainer = Math.max(
+    input.containerWidth,
+    ATTACHMENT_MIN_WIDTH
+  )
+  const aspect =
+    input.naturalWidth > 0 && input.naturalHeight > 0
+      ? input.naturalWidth / input.naturalHeight
+      : null
+  const ceilingFromHeight =
+    aspect === null ? ceilingFromContainer : ATTACHMENT_MAX_HEIGHT * aspect
+  const ceiling = Math.min(ceilingFromContainer, ceilingFromHeight)
+  return Math.round(
+    Math.min(
+      Math.max(input.width, ATTACHMENT_MIN_WIDTH),
+      Math.max(ceiling, ATTACHMENT_MIN_WIDTH)
+    )
+  )
+}
+
 export const RASTER_IMAGE_CONTENT_TYPES = [
   "image/png",
   "image/jpeg",

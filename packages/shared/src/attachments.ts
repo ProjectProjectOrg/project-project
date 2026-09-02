@@ -12,9 +12,14 @@ export interface AttachmentRef {
   readonly id: string
 }
 
+const stripQuery = (url: string): string => {
+  const cut = url.search(/[?#]/)
+  return cut === -1 ? url : url.slice(0, cut)
+}
+
 export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   if (!url.startsWith(`${ATTACHMENT_URL_PREFIX}/`)) return null
-  const rest = url.slice(ATTACHMENT_URL_PREFIX.length + 1)
+  const rest = stripQuery(url).slice(ATTACHMENT_URL_PREFIX.length + 1)
   const parts = rest.split("/")
   if (parts.length !== 2) return null
   const [orgSlug, id] = parts
@@ -22,6 +27,29 @@ export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   if (!SLUG_PATTERN.test(orgSlug)) return null
   if (!ULID_PATTERN.test(id)) return null
   return { orgSlug, id }
+}
+
+export const ATTACHMENT_WIDTH_PARAM = "w"
+
+export const attachmentWidthFromUrl = (url: string): number | null => {
+  const cut = url.indexOf("?")
+  if (cut === -1) return null
+  const raw = new URLSearchParams(url.slice(cut + 1)).get(
+    ATTACHMENT_WIDTH_PARAM
+  )
+  if (raw === null) return null
+  const width = Number(raw)
+  if (!Number.isInteger(width) || width <= 0) return null
+  return width
+}
+
+export const withAttachmentWidth = (
+  url: string,
+  width: number | null
+): string => {
+  const base = stripQuery(url)
+  if (width === null || !Number.isFinite(width) || width <= 0) return base
+  return `${base}?${ATTACHMENT_WIDTH_PARAM}=${Math.round(width)}`
 }
 
 const ATTACHMENT_URL_RE =
