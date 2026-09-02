@@ -69,7 +69,9 @@ export function SegmentedList({
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
+    statusesResult
+  )
     ? statusesResult.value
     : EMPTY_STATUSES
 
@@ -202,7 +204,6 @@ export function SegmentedList({
             query={renderQuery}
             count={byStatus[status] ?? 0}
             collapsed={!forceExpanded && collapsedSet.has(status)}
-            forceExpanded={forceExpanded}
             onToggleCollapsed={() => toggleCollapsed(status)}
             members={members}
             sprintMembership={sprintMembership}
