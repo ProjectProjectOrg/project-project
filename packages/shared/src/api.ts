@@ -98,6 +98,7 @@ import {
 } from "./schemas/Group"
 import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import { TicketCountParams, TicketListParams } from "./filters/url"
+import { ConnectStorageInput, OrgStorageStatus } from "./schemas/Attachment"
 import {
   BranchExists,
   BranchNotFound,
@@ -118,6 +119,9 @@ import {
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
+  StorageAuthInvalid,
+  StorageConfigMissing,
+  StorageError,
   Unauthorized,
   Validation
 } from "./errors"
@@ -581,6 +585,36 @@ const EverhourGroup = HttpApiGroup.make("everhour")
       .addSuccess(TicketTimeSummary)
       .addError(Unauthorized)
       .addError(NotFound)
+  )
+  .middleware(Authentication)
+
+const StorageGroup = HttpApiGroup.make("storage")
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage")
+      .setPath(OrgPath)
+      .addSuccess(OrgStorageStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+  )
+  .add(
+    HttpApiEndpoint.put("connect", "/orgs/:orgSlug/storage")
+      .setPath(OrgPath)
+      .setPayload(ConnectStorageInput)
+      .addSuccess(OrgStorageStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(StorageAuthInvalid)
+      .addError(StorageConfigMissing)
+      .addError(StorageError)
+  )
+  .add(
+    HttpApiEndpoint.del("disconnect", "/orgs/:orgSlug/storage")
+      .setPath(OrgPath)
+      .addSuccess(OrgStorageStatus)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
   )
   .middleware(Authentication)
 
@@ -1049,6 +1083,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(OrgGroup)
   .add(ProjectsGroup)
   .add(EverhourGroup)
+  .add(StorageGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TagsGroup)
