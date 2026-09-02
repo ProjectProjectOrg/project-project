@@ -98,8 +98,17 @@ import {
 } from "./schemas/Group"
 import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import { TicketCountParams, TicketListParams } from "./filters/url"
-import { ConnectStorageInput, OrgStorageStatus } from "./schemas/Attachment"
 import {
+  Attachment,
+  ConnectStorageInput,
+  OrgStorageStatus,
+  PrepareAttachmentInput,
+  PrepareAttachmentResult
+} from "./schemas/Attachment"
+import {
+  AttachmentNotUploaded,
+  AttachmentTooLarge,
+  AttachmentTypeRejected,
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -122,6 +131,7 @@ import {
   StorageAuthInvalid,
   StorageConfigMissing,
   StorageError,
+  StorageNotConnected,
   Unauthorized,
   Validation
 } from "./errors"
@@ -194,6 +204,12 @@ const PendingProjectMemberPath = Schema.Struct({
   invitationId: Schema.String
 })
 const TicketPath = Schema.Struct({ orgSlug: Slug, slug: Slug, id: TicketId })
+const AttachmentPath = Schema.Struct({
+  orgSlug: Slug,
+  slug: Slug,
+  id: TicketId,
+  attachmentId: Schema.String
+})
 const ProjectTagPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
@@ -615,6 +631,43 @@ const StorageGroup = HttpApiGroup.make("storage")
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
+  )
+  .middleware(Authentication)
+
+const AttachmentsGroup = HttpApiGroup.make("attachments")
+  .add(
+    HttpApiEndpoint.post(
+      "prepare",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/attachments/prepare"
+    )
+      .setPath(TicketPath)
+      .setPayload(PrepareAttachmentInput)
+      .addSuccess(PrepareAttachmentResult)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(AttachmentTooLarge)
+      .addError(AttachmentTypeRejected)
+      .addError(StorageNotConnected)
+      .addError(StorageConfigMissing)
+      .addError(StorageError)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "commit",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/attachments/:attachmentId/commit"
+    )
+      .setPath(AttachmentPath)
+      .addSuccess(Attachment)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+      .addError(AttachmentNotUploaded)
+      .addError(AttachmentTooLarge)
+      .addError(AttachmentTypeRejected)
+      .addError(StorageNotConnected)
+      .addError(StorageConfigMissing)
+      .addError(StorageError)
   )
   .middleware(Authentication)
 
@@ -1084,6 +1137,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(StorageGroup)
+  .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TagsGroup)
