@@ -1,7 +1,14 @@
 import {
   $applyNodeReplacement,
   $getNodeByKey,
+  $getSelection,
+  $isNodeSelection,
+  CLICK_COMMAND,
+  COMMAND_PRIORITY_LOW,
   DecoratorNode,
+  KEY_BACKSPACE_COMMAND,
+  KEY_DELETE_COMMAND,
+  KEY_ESCAPE_COMMAND,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
@@ -9,8 +16,16 @@ import {
 } from "lexical"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
+import { mergeRegister } from "@lexical/utils"
 import { Trash2 } from "lucide-react"
-import { useState, type ReactElement, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
+  type ReactNode
+} from "react"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
@@ -53,7 +68,7 @@ function AttachmentImage({ url, alt }: { url: string; alt: string }) {
     <img
       src={url}
       alt={alt}
-      loading="lazy"
+      decoding="async"
       className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
       onError={() => setBroken(true)}
     />
@@ -267,33 +282,101 @@ function AttachmentSelectable({
   children: ReactNode
 }) {
   const [editor] = useLexicalComposerContext()
-  const [isSelected] = useLexicalNodeSelection(nodeKey)
+  const [isSelected, setSelected, clearSelection] =
+    useLexicalNodeSelection(nodeKey)
+
+  const remove = useCallback(() => {
+    editor.update(() => {
+      $getNodeByKey(nodeKey)?.remove()
+    })
+  }, [editor, nodeKey])
+
+  useEffect(() => {
+    const onDelete = (event: KeyboardEvent) => {
+      if (!isSelected || !$isNodeSelection($getSelection())) return false
+      event.preventDefault()
+      remove()
+      return true
+    }
+
+    return mergeRegister(
+      editor.registerCommand(
+        CLICK_COMMAND,
+        (event: MouseEvent) => {
+          const element = editor.getElementByKey(nodeKey)
+          const target = event.target
+          if (!element || !(target instanceof Node)) return false
+          if (!element.contains(target)) return false
+          if (
+            target instanceof Element &&
+            target.closest("a, button, [data-attachment-action]")
+          ) {
+            return false
+          }
+          event.preventDefault()
+          clearSelection()
+          setSelected(true)
+          return true
+        },
+        COMMAND_PRIORITY_LOW
+      ),
+      editor.registerCommand(
+        KEY_DELETE_COMMAND,
+        onDelete,
+        COMMAND_PRIORITY_LOW
+      ),
+      editor.registerCommand(
+        KEY_BACKSPACE_COMMAND,
+        onDelete,
+        COMMAND_PRIORITY_LOW
+      ),
+      editor.registerCommand(
+        KEY_ESCAPE_COMMAND,
+        () => {
+          if (!isSelected) return false
+          clearSelection()
+          return true
+        },
+        COMMAND_PRIORITY_LOW
+      )
+    )
+  }, [editor, nodeKey, isSelected, setSelected, clearSelection, remove])
+
+  const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
+    if (
+      event.target instanceof Element &&
+      event.target.closest("a, button, [data-attachment-action]")
+    ) {
+      return
+    }
+    event.preventDefault()
+    clearSelection()
+    setSelected(true)
+  }
 
   return (
-    <span
-      data-attachment-selected={isSelected ? "true" : undefined}
-      className={`group relative my-2 block w-fit max-w-full rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
-        isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"
-      }`}
-    >
-      {children}
-      {deletable ? (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={m.editor_attachment_remove()}
-          title={m.editor_attachment_remove()}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            editor.update(() => {
-              $getNodeByKey(nodeKey)?.remove()
-            })
-          }}
-          className="absolute -top-2 -right-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
-        >
-          <Trash2 strokeWidth={1.75} />
-        </Button>
-      ) : null}
+    <span className="block w-full" onMouseDown={selectOnPointer}>
+      <span
+        data-attachment-selected={isSelected ? "true" : undefined}
+        className={`group relative my-2 block w-fit max-w-full rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
+          isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"
+        }`}
+      >
+        {children}
+        {deletable ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.editor_attachment_remove()}
+            title={m.editor_attachment_remove()}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={remove}
+            className="absolute -top-2 -right-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
+          >
+            <Trash2 strokeWidth={1.75} />
+          </Button>
+        ) : null}
+      </span>
     </span>
   )
 }
