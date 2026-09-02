@@ -78,6 +78,7 @@ import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { EverhourHandlerLive } from "./handlers/everhour"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
+import { StorageHandlerLive } from "./handlers/storage"
 import { OrgHandlerLive } from "./handlers/org"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
@@ -144,6 +145,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
+  Layer.provide(StorageHandlerLive),
   Layer.provide(BackendHttpServicesLive)
 )
 
