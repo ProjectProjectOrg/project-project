@@ -64,10 +64,29 @@ export const MARKDOWN_TRANSFORMERS = [
   ...TRANSFORMERS
 ]
 
-const transformersFor = (withAttachments: boolean) =>
-  withAttachments
-    ? [ATTACHMENT_TRANSFORMER, ...MARKDOWN_TRANSFORMERS]
-    : MARKDOWN_TRANSFORMERS
+const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
+  ATTACHMENT_TRANSFORMER,
+  ...MARKDOWN_TRANSFORMERS
+]
+
+export const transformersForAttachments = (
+  attachments: AttachmentsTarget | undefined
+) =>
+  attachments === undefined
+    ? MARKDOWN_TRANSFORMERS
+    : ATTACHMENT_MARKDOWN_TRANSFORMERS
+
+export const attachmentsForDescription = (input: {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly ticketId: TicketId
+  readonly storageActive: boolean
+}): AttachmentsTarget => ({
+  orgSlug: input.orgSlug,
+  slug: input.slug,
+  ticketId: input.ticketId,
+  uploadsEnabled: input.storageActive
+})
 
 const URL_MATCHER = createLinkMatcherWithRegExp(
   /(?:https?:\/\/|www\.)[^\s<>()]+[^\s<>().,;:!?]/i,
@@ -165,6 +184,13 @@ const $canIndentInsideLists = (node: ElementNode) => $isListItemNode(node)
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
 
+export interface AttachmentsTarget {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly ticketId: TicketId
+  readonly uploadsEnabled: boolean
+}
+
 export interface LexicalEditorProps {
   markdown: string
   onChange: (markdown: string) => Promise<void> | void
@@ -175,11 +201,7 @@ export interface LexicalEditorProps {
   placeholder?: string
   autoFocus?: boolean
   compact?: boolean
-  attachments?: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly ticketId: TicketId
-  }
+  attachments?: AttachmentsTarget
 }
 
 export function nextMarkdownChange(
@@ -228,11 +250,11 @@ export function LexicalEditor({
   compact = false,
   attachments
 }: LexicalEditorProps) {
-  const withAttachments = attachments !== undefined
+  const [transformers] = useState(() => transformersForAttachments(attachments))
+  const [attachmentNodesEnabled] = useState(() => attachments !== undefined)
   const [extension] = useState(() => {
     const initialMarkdown = markdown
     const initialAutoFocus = autoFocus
-    const initialWithAttachments = attachments !== undefined
     return defineExtension({
       name: "@projectproject/body-editor",
       namespace: "ProjectBody",
@@ -241,10 +263,7 @@ export function LexicalEditor({
         Effect.runFork(Effect.logError("[Lexical]", error))
       },
       $initialEditorState: () => {
-        $convertFromMarkdownString(
-          initialMarkdown,
-          transformersFor(initialWithAttachments)
-        )
+        $convertFromMarkdownString(initialMarkdown, transformers)
         const root = $getRoot()
         const last = root.getLastChild()
         if (!last || last.getType() !== "paragraph") {
@@ -271,7 +290,7 @@ export function LexicalEditor({
         HorizontalRuleExtension,
         HorizontalRuleEnterExtension,
         MentionExtension,
-        ...(initialWithAttachments ? [AttachmentExtension] : []),
+        ...(attachmentNodesEnabled ? [AttachmentExtension] : []),
         configExtension(TabIndentationExtension, {
           $canIndent: $canIndentInsideLists,
           maxIndent: 4
@@ -379,17 +398,19 @@ export function LexicalEditor({
         contentEditable={contentEditable}
       >
         <MentionsPlugin />
-        {attachments ? <AttachmentsPlugin {...attachments} /> : null}
+        {attachments !== undefined && attachments.uploadsEnabled ? (
+          <AttachmentsPlugin
+            orgSlug={attachments.orgSlug}
+            slug={attachments.slug}
+            ticketId={attachments.ticketId}
+          />
+        ) : null}
         <LinkBlurActivationPlugin />
-        <MarkdownShortcutPlugin
-          transformers={transformersFor(withAttachments)}
-        />
+        <MarkdownShortcutPlugin transformers={transformers} />
         <OnChangePlugin
           onChange={(editorState) => {
             editorState.read(() => {
-              const next = $convertToMarkdownString(
-                transformersFor(withAttachments)
-              )
+              const next = $convertToMarkdownString(transformers)
               const changed = nextMarkdownChange(liveRef.current, next)
               if (changed === null) return
               liveRef.current = changed
