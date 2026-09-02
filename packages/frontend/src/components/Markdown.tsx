@@ -47,7 +47,7 @@ export function Markdown({
               alt={alt ?? ""}
               loading="lazy"
               decoding="async"
-              className="my-2 max-w-full rounded-lg border"
+              className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
               {...rest}
             />
           )

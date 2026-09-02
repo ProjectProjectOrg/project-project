@@ -15,7 +15,6 @@ import {
   PASTE_COMMAND
 } from "lexical"
 import {
-  ATTACHMENT_CONTENT_TYPES,
   ATTACHMENT_MAX_BYTES,
   isAllowedAttachmentContentType,
   isRasterImageContentType,
@@ -37,14 +36,13 @@ export function AttachmentsPlugin({
   orgSlug,
   slug,
   ticketId
-}: AttachmentsPluginProps): JSX.Element {
+}: AttachmentsPluginProps): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
   const upload = useAtomSet(
     uploadAttachmentAtom(ticketKey(orgSlug, slug, ticketId)),
     { mode: "promiseExit" }
   )
   const [rejection, setRejection] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const pendingFiles = useRef(new Map<string, File>())
   const mounted = useMountedRef()
 
@@ -210,30 +208,9 @@ export function AttachmentsPlugin({
     [editor, startUpload, withNode]
   )
 
+  if (rejection === null) return null
+
   return (
-    <div className="mt-1 flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-all duration-100 hover:bg-accent/40 hover:text-foreground active:scale-[0.97]"
-      >
-        {m.editor_attachment_add()}
-      </button>
-      {rejection === null ? null : (
-        <span className="text-xs text-destructive">{rejection}</span>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={ATTACHMENT_CONTENT_TYPES.join(",")}
-        className="hidden"
-        onChange={(event) => {
-          const files = event.target.files
-          if (files) handleFiles(files)
-          event.target.value = ""
-        }}
-      />
-    </div>
+    <span className="mt-1 block text-xs text-destructive">{rejection}</span>
   )
 }
