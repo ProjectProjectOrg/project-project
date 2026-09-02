@@ -23,6 +23,7 @@ import {
 } from "@projectproject/shared"
 import { uploadAttachmentAtom } from "@/atoms/attachments"
 import { ticketKey } from "@/atoms/tickets"
+import { useMountedRef } from "@/lib/useMountedRef"
 import { m } from "@/paraglide/messages"
 import { AttachmentNode, $createAttachmentNode } from "./AttachmentNode"
 
@@ -45,18 +46,11 @@ export function AttachmentsPlugin({
   const [rejection, setRejection] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const pendingFiles = useRef(new Map<string, File>())
-  const unmounted = useRef(false)
-
-  useEffect(
-    () => () => {
-      unmounted.current = true
-    },
-    []
-  )
+  const mounted = useMountedRef()
 
   const withNode = useCallback(
     (uploadId: string, apply: (node: AttachmentNode) => void) => {
-      if (unmounted.current) return
+      if (!mounted.current) return
       editor.update(() => {
         for (const node of $nodesOfType(AttachmentNode)) {
           if (node.getUploadId() === uploadId) {
@@ -66,7 +60,7 @@ export function AttachmentsPlugin({
         }
       })
     },
-    [editor]
+    [editor, mounted]
   )
 
   const startUpload = useCallback(
@@ -77,7 +71,7 @@ export function AttachmentsPlugin({
           withNode(uploadId, (node) => node.setProgress(fraction))
         }
       }).then((exit) => {
-        if (unmounted.current) return
+        if (!mounted.current) return
         if (Exit.isFailure(exit)) {
           Effect.runFork(
             Effect.logError(
@@ -93,7 +87,7 @@ export function AttachmentsPlugin({
         pendingFiles.current.delete(uploadId)
       })
     },
-    [upload, withNode]
+    [upload, withNode, mounted]
   )
 
   const handleFiles = useCallback(
