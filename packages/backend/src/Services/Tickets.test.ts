@@ -14,6 +14,7 @@ import {
   type TicketListQuery
 } from "@projectproject/shared"
 import { TicketsLive } from "../Layers/Tickets"
+import { Attachments, type AttachmentsShape } from "./Attachments"
 import { Comments, type CommentsShape } from "./Comments"
 import { Db } from "./Db"
 import { GitHub, type GitHubShape } from "./GitHub"
@@ -183,6 +184,14 @@ const FakeGroups = Layer.succeed(Groups, {
   remove: () => unexpected("Groups.remove"),
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
+
+const FakeAttachments = Layer.succeed(Attachments, {
+  prepare: () => unexpected("Attachments.prepare"),
+  commit: () => unexpected("Attachments.commit"),
+  resolveForServing: () => unexpected("Attachments.resolveForServing"),
+  reconcileTicket: () => Effect.void,
+  reapOnce: () => unexpected("Attachments.reapOnce")
+} satisfies AttachmentsShape)
 
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
@@ -357,6 +366,7 @@ function makeTicketsLayer(
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
+    Layer.provide(FakeAttachments),
     Layer.provide(options.github ?? makeFakeGitHub()),
     Layer.provide(options.ticketIndex ?? makeFakeTicketIndex(new Map())),
     Layer.provide(FakeDb)
@@ -389,6 +399,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
+    Layer.provide(FakeAttachments),
     Layer.provide(
       makeFakeGitHub({
         fetchInstallationProjectStates: (

@@ -43,6 +43,7 @@ import {
   type TicketStatus
 } from "@projectproject/shared"
 import { matchesTicketQuery } from "@projectproject/shared"
+import { Attachments } from "../Services/Attachments"
 import { validateBodyMentions } from "../Services/BodyMentions"
 import { Comments, type InvalidCommentBody } from "../Services/Comments"
 import { GitHub } from "../Services/GitHub"
@@ -208,6 +209,7 @@ export const TicketsLive = Layer.effect(
     const groups = yield* Groups
     const comments = yield* Comments
     const db = yield* Db
+    const attachments = yield* Attachments
 
     const ensureAccess = (
       orgSlug: string,
@@ -625,6 +627,12 @@ export const TicketsLive = Layer.effect(
             body: `# ${input.title}\n`
           })
         )
+        yield* attachments.reconcileTicket(
+          orgSlug,
+          slug,
+          document.id,
+          document.body
+        )
         yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
@@ -680,6 +688,12 @@ export const TicketsLive = Layer.effect(
             updatedAt: now,
             body: input.body ?? `# ${input.title}\n`
           })
+        )
+        yield* attachments.reconcileTicket(
+          orgSlug,
+          slug,
+          document.id,
+          document.body
         )
         yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
@@ -746,6 +760,7 @@ export const TicketsLive = Layer.effect(
         }
 
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* attachments.reconcileTicket(orgSlug, slug, id, next.body)
         yield* ticketIndex.upsertTicket(indexProject, next)
 
         const projectGithub = yield* projects.getGithubIntegration(

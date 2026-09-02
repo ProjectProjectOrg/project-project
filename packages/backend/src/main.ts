@@ -98,6 +98,7 @@ import { EverhourWebhooks } from "./Services/EverhourWebhooks"
 import { EverhourWebhooksLive } from "./Layers/EverhourWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
+import { AttachmentReaperLive } from "./Layers/AttachmentReaper"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -408,7 +409,12 @@ const ReconcilerLive = TicketIndexReconcilerLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.merge(ServerLive, ReconcilerLive)
+const ReaperLive = AttachmentReaperLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
+const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

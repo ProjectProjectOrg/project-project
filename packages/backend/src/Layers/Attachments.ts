@@ -1,7 +1,8 @@
+import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -9,6 +10,7 @@ import {
   AttachmentNotUploaded,
   AttachmentTooLarge,
   AttachmentTypeRejected,
+  extractAttachmentRefs,
   Forbidden,
   isRasterImageContentType,
   NotFound,
@@ -22,6 +24,8 @@ import { Projects } from "../Services/Projects"
 import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
 import {
   Attachments,
+  planReap,
+  planReconciliation,
   validateUploadRequest,
   type AttachmentsShape
 } from "../Services/Attachments"
@@ -274,10 +278,147 @@ export const AttachmentsLive = Layer.effect(
         return { url }
       })
 
+    const reconcileTicket: AttachmentsShape["reconcileTicket"] = (
+      orgSlug,
+      slug,
+      ticketId,
+      body
+    ) =>
+      Effect.gen(function* () {
+        const referenced = new Set(
+          extractAttachmentRefs(body)
+            .filter((ref) => ref.orgSlug === orgSlug)
+            .map((ref) => ref.id)
+        )
+
+        const rows = yield* db
+          .select({ id: attachmentIndex.id, status: attachmentIndex.status })
+          .from(attachmentIndex)
+          .where(
+            and(
+              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.projectSlug, slug),
+              eq(attachmentIndex.ticketId, ticketId)
+            )
+          )
+          .pipe(Effect.orDie)
+
+        const plan = planReconciliation({ referenced, rows })
+
+        const now = yield* DateTime.nowAsDate
+
+        if (plan.toOrphan.length > 0) {
+          yield* db
+            .update(attachmentIndex)
+            .set({ status: "orphaned", orphanedAt: now })
+            .where(inArray(attachmentIndex.id, plan.toOrphan))
+            .pipe(Effect.orDie)
+        }
+
+        if (plan.toRestore.length > 0) {
+          yield* db
+            .update(attachmentIndex)
+            .set({ status: "live", orphanedAt: null })
+            .where(inArray(attachmentIndex.id, plan.toRestore))
+            .pipe(Effect.orDie)
+        }
+      }).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.logError("attachment reconciliation failed", cause)
+        )
+      )
+
+    const reapOnce: AttachmentsShape["reapOnce"] = () =>
+      Effect.gen(function* () {
+        const rows = yield* db
+          .select()
+          .from(attachmentIndex)
+          .where(
+            inArray(attachmentIndex.status, ["pending", "orphaned"])
+          )
+          .pipe(Effect.orDie)
+
+        const now = yield* Clock.currentTimeMillis
+        const ids = new Set(
+          planReap({
+            now,
+            rows: rows.map((row) => ({
+              id: row.id,
+              status: row.status,
+              createdAt: row.createdAt,
+              orphanedAt: row.orphanedAt
+            }))
+          })
+        )
+
+        const candidates = rows.filter((row) => ids.has(row.id))
+
+        const byOrg = new Map<string, Array<(typeof candidates)[number]>>()
+        for (const row of candidates) {
+          const existing = byOrg.get(row.orgSlug)
+          if (existing) {
+            existing.push(row)
+          } else {
+            byOrg.set(row.orgSlug, [row])
+          }
+        }
+
+        let deleted = 0
+
+        for (const [orgSlug, orgRows] of byOrg) {
+          const connectionResult = yield* orgStorage
+            .requireConnection(orgSlug)
+            .pipe(Effect.either)
+
+          if (connectionResult._tag === "Left") {
+            yield* Effect.logError(
+              "attachment reap failed to resolve org storage",
+              { orgSlug, error: connectionResult.left }
+            )
+            continue
+          }
+
+          const connection = connectionResult.right
+
+          for (const row of orgRows) {
+            const outcome = yield* s3
+              .deleteObject(connection, row.objectKey)
+              .pipe(Effect.either)
+
+            if (outcome._tag === "Left") {
+              yield* Effect.logError("attachment reap failed to delete object", {
+                attachmentId: row.id,
+                orgSlug,
+                error: outcome.left
+              })
+              continue
+            }
+
+            yield* db
+              .delete(attachmentIndex)
+              .where(eq(attachmentIndex.id, row.id))
+              .pipe(Effect.orDie)
+
+            deleted += 1
+          }
+        }
+
+        return { deleted }
+      }).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.zipRight(
+            Effect.logError("attachment reap failed", cause),
+            Effect.succeed({ deleted: 0 })
+          )
+        )
+      )
+
     return {
       prepare,
       commit,
-      resolveForServing
+      resolveForServing,
+      reconcileTicket,
+      reapOnce
     } satisfies AttachmentsShape
   })
 )

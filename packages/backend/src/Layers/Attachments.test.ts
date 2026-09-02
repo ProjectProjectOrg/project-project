@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { ATTACHMENT_MAX_BYTES } from "@projectproject/shared"
 import { validateUploadRequest } from "../Services/Attachments"
+import {
+  ORPHAN_GRACE_MS,
+  planReap,
+  planReconciliation
+} from "../Services/Attachments"
 
 describe("validateUploadRequest", () => {
   it("accepts an allowed type within the cap", () => {
@@ -64,5 +69,166 @@ describe("validateUploadRequest", () => {
         byteSize: 10
       })
     ).toBeNull()
+  })
+})
+
+describe("planReconciliation", () => {
+  it("orphans a live row the body no longer references", () => {
+    const plan = planReconciliation({
+      referenced: new Set(["a"]),
+      rows: [
+        { id: "a", status: "live" },
+        { id: "b", status: "live" }
+      ]
+    })
+    expect(plan.toOrphan).toEqual(["b"])
+    expect(plan.toRestore).toEqual([])
+  })
+
+  it("restores an orphaned row the body references again", () => {
+    const plan = planReconciliation({
+      referenced: new Set(["a"]),
+      rows: [{ id: "a", status: "orphaned" }]
+    })
+    expect(plan.toRestore).toEqual(["a"])
+    expect(plan.toOrphan).toEqual([])
+  })
+
+  it("leaves pending rows alone", () => {
+    const plan = planReconciliation({
+      referenced: new Set(),
+      rows: [{ id: "a", status: "pending" }]
+    })
+    expect(plan.toOrphan).toEqual([])
+    expect(plan.toRestore).toEqual([])
+  })
+
+  it("is a no-op when everything is referenced", () => {
+    const plan = planReconciliation({
+      referenced: new Set(["a", "b"]),
+      rows: [
+        { id: "a", status: "live" },
+        { id: "b", status: "live" }
+      ]
+    })
+    expect(plan.toOrphan).toEqual([])
+    expect(plan.toRestore).toEqual([])
+  })
+
+  it("ignores a referenced id with no row", () => {
+    const plan = planReconciliation({
+      referenced: new Set(["ghost"]),
+      rows: [{ id: "a", status: "live" }]
+    })
+    expect(plan.toOrphan).toEqual(["a"])
+    expect(plan.toRestore).toEqual([])
+  })
+})
+
+describe("planReap", () => {
+  const now = Date.UTC(2026, 8, 2)
+
+  it("reaps a pending row past its ttl", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "pending",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - 2 * 60 * 60 * 1000),
+            orphanedAt: null
+          }
+        ]
+      })
+    ).toEqual(["a"])
+  })
+
+  it("spares a pending row inside its ttl", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "pending",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - 60 * 1000),
+            orphanedAt: null
+          }
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("reaps an orphaned row past the grace period", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "orphaned",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - ORPHAN_GRACE_MS * 2),
+            // @effect-diagnostics-next-line globalDate:off
+            orphanedAt: new Date(now - ORPHAN_GRACE_MS - 1000)
+          }
+        ]
+      })
+    ).toEqual(["a"])
+  })
+
+  it("spares an orphaned row inside the grace period", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "orphaned",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - ORPHAN_GRACE_MS * 2),
+            // @effect-diagnostics-next-line globalDate:off
+            orphanedAt: new Date(now - 1000)
+          }
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("never reaps a live row", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "live",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - ORPHAN_GRACE_MS * 10),
+            orphanedAt: null
+          }
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("spares an orphaned row with a null orphanedAt", () => {
+    expect(
+      planReap({
+        now,
+        rows: [
+          {
+            id: "a",
+            status: "orphaned",
+            // @effect-diagnostics-next-line globalDate:off
+            createdAt: new Date(now - ORPHAN_GRACE_MS * 10),
+            orphanedAt: null
+          }
+        ]
+      })
+    ).toEqual([])
   })
 })

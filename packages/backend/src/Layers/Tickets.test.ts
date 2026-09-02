@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { ProjectKey, type TicketStatus } from "@projectproject/shared"
+import { Attachments, type AttachmentsShape } from "../Services/Attachments"
 import { Db } from "../Services/Db"
 import { Comments, type CommentsShape } from "../Services/Comments"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
@@ -125,6 +126,14 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
 } satisfies TicketIndexShape)
 
+const FakeAttachments = Layer.succeed(Attachments, {
+  prepare: () => unexpected("Attachments.prepare"),
+  commit: () => unexpected("Attachments.commit"),
+  resolveForServing: () => unexpected("Attachments.resolveForServing"),
+  reconcileTicket: () => Effect.void,
+  reapOnce: () => unexpected("Attachments.reapOnce")
+} satisfies AttachmentsShape)
+
 const FakeDb = Layer.succeed(
   Db,
   {
@@ -152,6 +161,7 @@ const TestLayer = Layer.unwrapScoped(
     })
     return TicketsLive.pipe(
       Layer.provide(TicketDocsLive),
+      Layer.provide(FakeAttachments),
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
       Layer.provide(FakeComments),
