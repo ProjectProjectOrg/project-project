@@ -10,7 +10,11 @@ import {
   ticketKey,
   updateTicketAtom
 } from "@/atoms/tickets"
-import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
+import {
+  attachmentsForDescription,
+  LexicalEditor,
+  type SaveStatus
+} from "@/components/LexicalEditor"
 import { cn } from "@/lib/utils"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -119,11 +123,12 @@ export function DescriptionField({
               }}
               onStatusChange={onStatusChange}
               autoFocus={autoFocus}
-              attachments={
+              attachments={attachmentsForDescription({
+                orgSlug,
+                slug,
+                ticketId: ticket.id,
                 storageActive
-                  ? { orgSlug, slug, ticketId: ticket.id }
-                  : undefined
-              }
+              })}
             />
           </MentionScopeProvider>
         </div>
