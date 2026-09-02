@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "motion/react"
-import { MORPH } from "@/components/Lexical/attachmentMorph"
+import { transitions } from "@/lib/springs"
 import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
 import { FileText, Image as ImageIcon } from "lucide-react"
 import {
@@ -28,7 +28,7 @@ function ChipBody({
     <>
       <motion.span
         layout="position"
-        transition={MORPH}
+        transition={transitions.morph}
         className="flex shrink-0 items-center"
       >
         <Icon
@@ -40,7 +40,7 @@ function ChipBody({
       <motion.span
         layoutId={`${morphId}-filename`}
         layout="position"
-        transition={MORPH}
+        transition={transitions.morph}
         className="truncate"
       >
         {filename}

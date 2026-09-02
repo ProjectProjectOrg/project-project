@@ -28,7 +28,12 @@ import {
   type ReactElement,
   type ReactNode
 } from "react"
-import { AnimatePresence, LayoutGroup, motion } from "motion/react"
+import {
+  AnimatePresence,
+  LayoutGroup,
+  motion,
+  useReducedMotion
+} from "motion/react"
 import {
   ATTACHMENT_MIN_WIDTH,
   clampAttachmentWidth,
@@ -37,11 +42,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { AttachmentChip } from "@/components/Lexical/AttachmentChip"
 import { AttachmentTile } from "@/components/Lexical/AttachmentTile"
+import { standardEaseCss, transitions } from "@/lib/springs"
 import {
-  MORPH,
-  MORPH_EASING,
-  MORPH_MS
-} from "@/components/Lexical/attachmentMorph"
+  ATTACHMENT_IMAGE_CLASS,
+  attachmentWidthStyle
+} from "@/components/Lexical/attachmentImageStyle"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type AttachmentKind = "image" | "file"
@@ -70,9 +76,19 @@ export type SerializedAttachmentNode = Spread<
   SerializedLexicalNode
 >
 
-const PRESS = "active:scale-[0.97] transition-transform duration-100"
+const INTERACTIVE_SELECTOR =
+  "a, button, [data-attachment-action], [data-attachment-resize]"
 
-const morphSizes = new Map<string, { width: number; height: number }>()
+const isInteractiveTarget = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
+
+const OVERLAY_REVEAL =
+  "opacity-0 transition-opacity group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
+
+const OVERLAY_BUTTON =
+  "rounded-full bg-background text-muted-foreground shadow-sm"
+
+const morphSizes = new WeakMap<HTMLElement, { width: number; height: number }>()
 
 const contentWidth = (element: HTMLElement | null): number | null => {
   if (element === null) return null
@@ -99,13 +115,6 @@ function AttachmentImage({
   const [broken, setBroken] = useState(false)
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
-
-  const onResize = (next: number | null) => {
-    editor.update(() => {
-      const node = $getNodeByKey(nodeKey)
-      if ($isAttachmentNode(node)) node.setWidth(next)
-    })
-  }
 
   const dragStart = useRef<{ width: number; container: number } | null>(null)
 
@@ -141,7 +150,10 @@ function AttachmentImage({
     const next = measure(info.offset.x)
     dragStart.current = null
     setDragWidth(null)
-    onResize(next)
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if ($isAttachmentNode(node)) node.setWidth(next)
+    })
   }
 
   if (broken) {
@@ -161,10 +173,11 @@ function AttachmentImage({
         src={url}
         alt={alt}
         decoding="async"
-        style={
-          effectiveWidth === null ? undefined : { width: `${effectiveWidth}px` }
-        }
-        className="h-auto max-h-96 w-auto max-w-full rounded-lg border border-transparent object-contain transition-all group-hover/hitbox:border-border"
+        style={attachmentWidthStyle(effectiveWidth)}
+        className={cn(
+          ATTACHMENT_IMAGE_CLASS,
+          "border border-transparent transition-colors group-hover/hitbox:border-border"
+        )}
         onError={() => setBroken(true)}
       />
       <motion.span
@@ -176,6 +189,49 @@ function AttachmentImage({
         onPanEnd={onPanEnd}
         className="absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-hover/hitbox:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
       />
+    </span>
+  )
+}
+
+function AttachmentFailed({ uploadId }: { uploadId: string | undefined }) {
+  return (
+    <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
+      <span className="flex-1 truncate text-destructive">
+        {m.editor_attachment_upload_failed()}
+      </span>
+      {(
+        [
+          ["retry", m.editor_attachment_retry],
+          ["remove", m.editor_attachment_remove]
+        ] as const
+      ).map(([action, label]) => (
+        <Button
+          key={action}
+          variant="ghost"
+          size="sm"
+          data-attachment-action={action}
+          data-attachment-upload-id={uploadId}
+        >
+          {label()}
+        </Button>
+      ))}
+    </span>
+  )
+}
+
+function AttachmentUploading({ progress }: { progress: number }) {
+  const percent = Math.round(Math.min(Math.max(progress, 0), 1) * 100)
+  return (
+    <span className="flex min-h-[8rem] w-[20rem] max-w-full flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
+      <span className="truncate text-xs text-muted-foreground">
+        {m.editor_attachment_uploading()}
+      </span>
+      <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full bg-primary transition-all duration-150"
+          style={{ width: `${percent}%` }}
+        />
+      </span>
     </span>
   )
 }
@@ -350,47 +406,11 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
   renderContent(): ReactElement {
     if (this.__failed) {
-      return (
-        <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
-          <span className="flex-1 truncate text-destructive">
-            {m.editor_attachment_upload_failed()}
-          </span>
-          <button
-            type="button"
-            data-attachment-action="retry"
-            data-attachment-upload-id={this.__uploadId}
-            className={`rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/40 hover:text-foreground ${PRESS}`}
-          >
-            {m.editor_attachment_retry()}
-          </button>
-          <button
-            type="button"
-            data-attachment-action="remove"
-            data-attachment-upload-id={this.__uploadId}
-            className={`rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/40 hover:text-foreground ${PRESS}`}
-          >
-            {m.editor_attachment_remove()}
-          </button>
-        </span>
-      )
+      return <AttachmentFailed uploadId={this.__uploadId} />
     }
 
     if (this.__uploadId !== undefined) {
-      return (
-        <span className="flex min-h-[8rem] w-[20rem] max-w-full flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
-          <span className="truncate text-xs text-muted-foreground">
-            {m.editor_attachment_uploading()}
-          </span>
-          <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
-            <span
-              className="block h-full rounded-full bg-primary transition-all duration-150"
-              style={{
-                width: `${Math.round(Math.min(Math.max(this.__progress, 0), 1) * 100)}%`
-              }}
-            />
-          </span>
-        </span>
-      )
+      return <AttachmentUploading progress={this.__progress} />
     }
 
     if (this.__density === "compact") {
@@ -449,15 +469,16 @@ function AttachmentSelectable({
   }, [editor, nodeKey])
 
   const wrapperRef = useRef<HTMLSpanElement>(null)
+  const reduceMotion = useReducedMotion() ?? false
 
   useLayoutEffect(() => {
     const element = wrapperRef.current
     if (element === null) return undefined
     const rect = element.getBoundingClientRect()
     const next = { width: rect.width, height: rect.height }
-    const previous = morphSizes.get(nodeKey) ?? null
-    morphSizes.set(nodeKey, next)
-    if (previous === null) return undefined
+    const previous = morphSizes.get(element)
+    morphSizes.set(element, next)
+    if (previous === undefined || reduceMotion) return undefined
     if (
       Math.abs(previous.width - next.width) < 0.5 &&
       Math.abs(previous.height - next.height) < 0.5
@@ -469,10 +490,10 @@ function AttachmentSelectable({
         { width: `${previous.width}px`, height: `${previous.height}px` },
         { width: `${next.width}px`, height: `${next.height}px` }
       ],
-      { duration: MORPH_MS, easing: MORPH_EASING }
+      { duration: transitions.morph.duration * 1000, easing: standardEaseCss }
     )
     return () => animation.cancel()
-  }, [density, nodeKey])
+  }, [density, reduceMotion])
 
   const toggleDensity = useCallback(() => {
     editor.update(() => {
@@ -498,14 +519,7 @@ function AttachmentSelectable({
           const target = event.target
           if (!element || !(target instanceof Node)) return false
           if (!element.contains(target)) return false
-          if (
-            target instanceof Element &&
-            target.closest(
-              "a, button, [data-attachment-action], [data-attachment-resize]"
-            )
-          ) {
-            return false
-          }
+          if (isInteractiveTarget(target)) return false
           event.preventDefault()
           clearSelection()
           setSelected(true)
@@ -536,14 +550,7 @@ function AttachmentSelectable({
   }, [editor, nodeKey, isSelected, setSelected, clearSelection, remove])
 
   const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
-    if (
-      event.target instanceof Element &&
-      event.target.closest(
-        "a, button, [data-attachment-action], [data-attachment-resize]"
-      )
-    ) {
-      return
-    }
+    if (isInteractiveTarget(event.target)) return
     event.preventDefault()
     const root = editor.getRootElement()
     if (root && document.activeElement !== root) {
@@ -554,15 +561,13 @@ function AttachmentSelectable({
   }
 
   const compact = density === "compact"
-  const overlaySlot = `absolute flex h-8 items-center ${
+  const overlaySlot = cn(
+    "absolute flex h-8 items-center",
     compact
       ? "-top-1 before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"
       : "-top-2"
-  }`
-  const overlayReveal =
-    "flex opacity-0 transition-opacity group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
-  const overlayButton =
-    "rounded-full bg-background text-muted-foreground shadow-sm"
+  )
+  const morphId = `attachment-${nodeKey}`
 
   return (
     <span
@@ -572,93 +577,93 @@ function AttachmentSelectable({
       <span
         ref={wrapperRef}
         data-attachment-selected={isSelected ? "true" : undefined}
-        className={`group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 hover:z-20 focus-within:z-20 ${
-          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl"
-        } ${
+        className={cn(
+          "group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 hover:z-20 focus-within:z-20",
+          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
           isSelected ? "z-20 ring-2 ring-ring" : "z-0 ring-0 ring-transparent"
-        }`}
+        )}
       >
-        <LayoutGroup id={`attachment-${nodeKey}`}>
+        <LayoutGroup id={morphId}>
           <AnimatePresence initial={false} mode="popLayout">
-            {compact ? (
-              <motion.span
-                key="compact"
-                layoutId={`attachment-${nodeKey}`}
-                transition={MORPH}
-                className="block"
-              >
-                {children}
-              </motion.span>
-            ) : (
-              <motion.span
-                key="expanded"
-                layoutId={`attachment-${nodeKey}`}
-                transition={MORPH}
-                className="block"
-              >
-                {children}
-              </motion.span>
-            )}
+            <motion.span
+              key={compact ? "compact" : "expanded"}
+              layoutId={morphId}
+              transition={transitions.morph}
+              className="block"
+            >
+              {children}
+            </motion.span>
           </AnimatePresence>
           {deletable ? (
-            <motion.span
-              layoutId={`attachment-${nodeKey}-remove`}
-              layout="position"
-              transition={MORPH}
-              className={`${overlaySlot} ${compact ? "-left-9" : "-left-2"}`}
+            <OverlayAction
+              morphId={`${morphId}-remove`}
+              slot={cn(overlaySlot, compact ? "right-full mr-1" : "-left-2")}
+              label={m.editor_attachment_remove()}
+              hover="hover:bg-destructive-light hover:text-destructive"
+              onClick={remove}
             >
-              <span className={overlayReveal}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={m.editor_attachment_remove()}
-                  title={m.editor_attachment_remove()}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={remove}
-                  className={`${overlayButton} hover:bg-destructive-light hover:text-destructive`}
-                >
-                  <Trash2 strokeWidth={1.75} />
-                </Button>
-              </span>
-            </motion.span>
+              <Trash2 strokeWidth={1.75} />
+            </OverlayAction>
           ) : null}
           {density !== null ? (
-            <motion.span
-              layoutId={`attachment-${nodeKey}-density`}
-              layout="position"
-              transition={MORPH}
-              className={`${overlaySlot} ${compact ? "-right-9" : "-right-2"}`}
+            <OverlayAction
+              morphId={`${morphId}-density`}
+              slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}
+              label={
+                compact
+                  ? m.editor_attachment_view_rich()
+                  : m.editor_attachment_view_compact()
+              }
+              hover="hover:bg-accent hover:text-foreground"
+              onClick={toggleDensity}
             >
-              <span className={overlayReveal}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={
-                    compact
-                      ? m.editor_attachment_view_rich()
-                      : m.editor_attachment_view_compact()
-                  }
-                  title={
-                    compact
-                      ? m.editor_attachment_view_rich()
-                      : m.editor_attachment_view_compact()
-                  }
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={toggleDensity}
-                  className={`${overlayButton} hover:bg-accent hover:text-foreground`}
-                >
-                  {compact ? (
-                    <Maximize2 strokeWidth={1.75} />
-                  ) : (
-                    <Minimize2 strokeWidth={1.75} />
-                  )}
-                </Button>
-              </span>
-            </motion.span>
+              {compact ? (
+                <Maximize2 strokeWidth={1.75} />
+              ) : (
+                <Minimize2 strokeWidth={1.75} />
+              )}
+            </OverlayAction>
           ) : null}
         </LayoutGroup>
       </span>
     </span>
+  )
+}
+
+function OverlayAction({
+  morphId,
+  slot,
+  label,
+  hover,
+  onClick,
+  children
+}: {
+  morphId: string
+  slot: string
+  label: string
+  hover: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <motion.span
+      layoutId={morphId}
+      layout="position"
+      transition={transitions.morph}
+      className={slot}
+    >
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={label}
+        title={label}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onClick}
+        className={cn(OVERLAY_BUTTON, OVERLAY_REVEAL, hover)}
+      >
+        {children}
+      </Button>
+    </motion.span>
   )
 }
 

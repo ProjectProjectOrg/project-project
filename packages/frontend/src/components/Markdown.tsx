@@ -4,11 +4,15 @@ import rehypePrismPlus from "rehype-prism-plus"
 import "@/lib/prism-langs"
 import { cn } from "@/lib/utils"
 import {
-  attachmentWidthFromUrl,
+  attachmentViewParams,
   parseAttachmentUrl,
   parseMentionHref
 } from "@projectproject/shared"
 import { MentionChip } from "@/components/Lexical/MentionChip"
+import {
+  ATTACHMENT_IMAGE_CLASS,
+  attachmentWidthStyle
+} from "@/components/Lexical/attachmentImageStyle"
 
 const prismPlugin = [rehypePrismPlus, { ignoreMissing: true }] as const
 
@@ -47,15 +51,15 @@ export function Markdown({
           },
           img: ({ src, alt, ...rest }) => {
             const url = typeof src === "string" ? src : undefined
-            const width = url ? attachmentWidthFromUrl(url) : null
+            const width = url ? attachmentViewParams(url).width : null
             return (
               <img
                 src={url}
                 alt={alt ?? ""}
                 loading="lazy"
                 decoding="async"
-                style={width === null ? undefined : { width: `${width}px` }}
-                className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg object-contain"
+                style={attachmentWidthStyle(width)}
+                className={cn("my-2", ATTACHMENT_IMAGE_CLASS)}
                 {...rest}
               />
             )

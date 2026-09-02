@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
-  attachmentDensityFromUrl,
-  attachmentWidthFromUrl,
+  attachmentViewParams,
   parseAttachmentUrl
 } from "@projectproject/shared"
 import {
@@ -130,7 +129,7 @@ describe("formatAttachmentMarkdown width round-trip", () => {
     })
     const url = md.match(ATTACHMENT_MARKDOWN_RE)![3]!
     expect(parseAttachmentUrl(url)).not.toBeNull()
-    expect(attachmentWidthFromUrl(url)).toBe(420)
+    expect(attachmentViewParams(url).width).toBe(420)
   })
 })
 
@@ -167,7 +166,7 @@ describe("formatAttachmentMarkdown density round-trip", () => {
     })
     const url = md.match(ATTACHMENT_MARKDOWN_RE)![3]
     expect(parseAttachmentUrl(url)).not.toBeNull()
-    expect(attachmentWidthFromUrl(url)).toBe(240)
-    expect(attachmentDensityFromUrl(url)).toBe("compact")
+    expect(attachmentViewParams(url).width).toBe(240)
+    expect(attachmentViewParams(url).density).toBe("compact")
   })
 })

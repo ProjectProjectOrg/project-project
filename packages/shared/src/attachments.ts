@@ -1,8 +1,7 @@
 import { ULID_PATTERN } from "./schemas/Attachment"
+import { SLUG_PATTERN } from "./schemas/Project"
 
 export const ATTACHMENT_URL_PREFIX = "/api/attachments"
-
-const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 export const attachmentUrl = (orgSlug: string, id: string): string =>
   `${ATTACHMENT_URL_PREFIX}/${orgSlug}/${id}`
@@ -29,32 +28,34 @@ export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   return { orgSlug, id }
 }
 
-export const ATTACHMENT_WIDTH_PARAM = "w"
+const WIDTH_PARAM = "w"
 
-export const attachmentWidthFromUrl = (url: string): number | null => {
-  const cut = url.indexOf("?")
-  if (cut === -1) return null
-  const raw = new URLSearchParams(url.slice(cut + 1)).get(
-    ATTACHMENT_WIDTH_PARAM
-  )
-  if (raw === null) return null
-  const width = Number(raw)
-  if (!Number.isInteger(width) || width <= 0) return null
-  return width
-}
-
-export const ATTACHMENT_DENSITY_PARAM = "d"
+const DENSITY_PARAM = "d"
 
 export type AttachmentDensity = "rich" | "compact"
 
-export const attachmentDensityFromUrl = (url: string): AttachmentDensity => {
-  const cut = url.indexOf("?")
-  if (cut === -1) return "rich"
-  const raw = new URLSearchParams(url.slice(cut + 1)).get(
-    ATTACHMENT_DENSITY_PARAM
-  )
-  return raw === "compact" ? "compact" : "rich"
+export interface AttachmentViewParams {
+  readonly width: number | null
+  readonly density: AttachmentDensity
 }
+
+const searchParams = (url: string): URLSearchParams => {
+  const cut = url.search(/[?#]/)
+  if (cut === -1 || url[cut] === "#") return new URLSearchParams()
+  return new URLSearchParams(stripQuery(url.slice(cut + 1)))
+}
+
+export const attachmentViewParams = (url: string): AttachmentViewParams => {
+  const params = searchParams(url)
+  const raw = params.get(WIDTH_PARAM)
+  const parsed = raw === null ? Number.NaN : Number(raw)
+  return {
+    width: Number.isInteger(parsed) && parsed > 0 ? parsed : null,
+    density: params.get(DENSITY_PARAM) === "compact" ? "compact" : "rich"
+  }
+}
+
+export const attachmentSrc = (url: string): string => stripQuery(url)
 
 export const withAttachmentParams = (
   url: string,
@@ -67,29 +68,31 @@ export const withAttachmentParams = (
   const query: Array<string> = []
   const width = params.width ?? null
   if (width !== null && Number.isFinite(width) && width > 0) {
-    query.push(`${ATTACHMENT_WIDTH_PARAM}=${Math.round(width)}`)
+    query.push(`${WIDTH_PARAM}=${Math.round(width)}`)
   }
   if (params.density === "compact") {
-    query.push(`${ATTACHMENT_DENSITY_PARAM}=compact`)
+    query.push(`${DENSITY_PARAM}=compact`)
   }
   return query.length === 0 ? base : `${base}?${query.join("&")}`
 }
 
-const ATTACHMENT_URL_RE =
-  /\/api\/attachments\/([a-z0-9]+(?:-[a-z0-9]+)*)\/([0-9A-HJKMNP-TV-Z]{26})/g
+const ATTACHMENT_URL_CANDIDATE_RE = new RegExp(
+  `${ATTACHMENT_URL_PREFIX}/[^\\s)\\]]+`,
+  "g"
+)
 
 export const extractAttachmentRefs = (
   markdown: string
 ): ReadonlyArray<AttachmentRef> => {
   const seen = new Set<string>()
   const out: AttachmentRef[] = []
-  for (const match of markdown.matchAll(ATTACHMENT_URL_RE)) {
-    const orgSlug = match[1]!
-    const id = match[2]!
-    const key = `${orgSlug}/${id}`
+  for (const match of markdown.matchAll(ATTACHMENT_URL_CANDIDATE_RE)) {
+    const ref = parseAttachmentUrl(match[0])
+    if (ref === null) continue
+    const key = `${ref.orgSlug}/${ref.id}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ orgSlug, id })
+    out.push(ref)
   }
   return out
 }

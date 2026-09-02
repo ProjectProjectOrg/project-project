@@ -9,8 +9,10 @@
 
 import * as Schema from "effect/Schema"
 
+export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
 export const Slug = Schema.String.pipe(
-  Schema.pattern(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  Schema.pattern(SLUG_PATTERN),
   Schema.minLength(1),
   Schema.maxLength(64)
 )
