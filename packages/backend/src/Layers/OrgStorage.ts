@@ -190,11 +190,13 @@ export const OrgStorageLive = Layer.effect(
 
         yield* roundTripCheck(connection)
 
-        const sealed = yield* secrets.seal(input.secretAccessKey).pipe(
-          Effect.catchTag("SecretCryptoUnavailable", () =>
-            Effect.fail(new StorageConfigMissing())
+        const sealed = yield* secrets
+          .seal(input.secretAccessKey)
+          .pipe(
+            Effect.catchTag("SecretCryptoUnavailable", () =>
+              Effect.fail(new StorageConfigMissing())
+            )
           )
-        )
 
         const now = yield* DateTime.nowAsDate
 

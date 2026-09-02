@@ -26,8 +26,9 @@ describe("attachmentUrl", () => {
 
 describe("parseAttachmentUrl", () => {
   it("rejects an absolute url", () => {
-    expect(parseAttachmentUrl(`https://evil.test/api/attachments/acme/${ID}`))
-      .toBeNull()
+    expect(
+      parseAttachmentUrl(`https://evil.test/api/attachments/acme/${ID}`)
+    ).toBeNull()
   })
 
   it("rejects a missing segment", () => {

@@ -58,10 +58,7 @@ export interface AttachmentsShape {
     ticketId: string,
     userId: string,
     attachmentId: string
-  ) => Effect.Effect<
-    Attachment,
-    AttachmentUploadError | AttachmentNotUploaded
-  >
+  ) => Effect.Effect<Attachment, AttachmentUploadError | AttachmentNotUploaded>
   readonly resolveForServing: (
     orgSlug: string,
     attachmentId: string,

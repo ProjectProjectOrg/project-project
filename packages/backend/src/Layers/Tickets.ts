@@ -462,8 +462,8 @@ export const TicketsLive = Layer.effect(
           .projectFor(orgSlug, slug)
           .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
         const branchDeletedAt = indexProject
-          ? (yield* ticketIndex.list(indexProject, [id]))[0]?.branchDeletedAt ??
-            null
+          ? ((yield* ticketIndex.list(indexProject, [id]))[0]
+              ?.branchDeletedAt ?? null)
           : null
         return documentToDetail(ticket, projectGithub, branchDeletedAt)
       })
@@ -546,14 +546,12 @@ export const TicketsLive = Layer.effect(
         const checks = yield* Effect.forEach(
           assignees,
           (assigneeId) =>
-            projects
-              .requireMember(orgSlug, assigneeId, slug)
-              .pipe(
-                Effect.as({ id: assigneeId, ok: true as const }),
-                Effect.catchTag("NotFound", () =>
-                  Effect.succeed({ id: assigneeId, ok: false as const })
-                )
-              ),
+            projects.requireMember(orgSlug, assigneeId, slug).pipe(
+              Effect.as({ id: assigneeId, ok: true as const }),
+              Effect.catchTag("NotFound", () =>
+                Effect.succeed({ id: assigneeId, ok: false as const })
+              )
+            ),
           { concurrency: 8 }
         )
         const invalid = checks.filter((c) => !c.ok).map((c) => c.id)

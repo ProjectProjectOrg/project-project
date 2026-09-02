@@ -231,9 +231,7 @@ function StorageConnectForm({ orgSlug }: { orgSlug: string }) {
           disabled={!canSubmit || submitting}
           className="active:scale-[0.97] transition-transform duration-100"
         >
-          {submitting
-            ? m.storage_connecting()
-            : m.storage_connect_button()}
+          {submitting ? m.storage_connecting() : m.storage_connect_button()}
         </Button>
       </div>
 
@@ -257,9 +255,7 @@ function StorageConnectedPanel({
   return (
     <div className="flex w-full flex-col gap-4">
       <StorageStatusRows status={status} />
-      <p className="text-xs text-muted-foreground">
-        {m.storage_cors_notice()}
-      </p>
+      <p className="text-xs text-muted-foreground">{m.storage_cors_notice()}</p>
       <p className="text-xs text-muted-foreground">
         {m.storage_disconnect_hint()}
       </p>
@@ -361,13 +357,7 @@ function StorageStatusRows({ status }: { status: OrgStorageStatus }) {
   )
 }
 
-function StatusRow({
-  label,
-  value
-}: {
-  label: string
-  value: string | null
-}) {
+function StatusRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-muted-foreground">{label}</span>
