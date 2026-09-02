@@ -350,6 +350,10 @@ function AttachmentSelectable({
       return
     }
     event.preventDefault()
+    const root = editor.getRootElement()
+    if (root && document.activeElement !== root) {
+      root.focus({ preventScroll: true })
+    }
     clearSelection()
     setSelected(true)
   }
