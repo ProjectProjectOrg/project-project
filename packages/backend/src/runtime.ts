@@ -15,9 +15,11 @@ import { GroupsLive } from "./Layers/Groups"
 import { MarkdownLive } from "./Layers/Markdown"
 import { OAuthApplicationsLive } from "./Layers/OAuthApplications"
 import { OrgLive } from "./Layers/Org"
+import { OrgStorageLive } from "./Layers/OrgStorage"
 import { ProjectDocsLive } from "./Layers/ProjectDocs"
 import { ProjectsLive } from "./Layers/Projects"
 import { ProjectStatusesLive } from "./Layers/ProjectStatuses"
+import { S3StorageLive } from "./Layers/S3Storage"
 import { SecretCryptoLive } from "./Layers/SecretCrypto"
 import { TagsLive } from "./Layers/Tags"
 import { TicketIndexLive } from "./Layers/TicketIndex"
@@ -61,6 +63,15 @@ export const BackendServicesLive = TagsLive.pipe(
   Layer.provideMerge(MarkdownLive),
   Layer.provideMerge(OAuthApplicationsLive),
   Layer.provideMerge(SecretCryptoLive)
+).pipe(
+  Layer.provideMerge(S3StorageLive),
+  Layer.provideMerge(
+    OrgStorageLive.pipe(
+      Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(SecretCryptoLive),
+      Layer.provideMerge(CurrentOrgLive)
+    )
+  )
 )
 
 export const BackendHttpServicesLive = BackendServicesLive.pipe(
