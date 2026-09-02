@@ -42,7 +42,6 @@ export function SectionList({
   query,
   count,
   collapsed,
-  forceExpanded,
   onToggleCollapsed,
   members,
   sprintMembership,
@@ -57,7 +56,6 @@ export function SectionList({
   query: TicketListQuery
   count: number
   collapsed: boolean
-  forceExpanded: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
   sprintMembership?: ReadonlyMap<TicketId, Group>
@@ -113,7 +111,7 @@ export function SectionList({
 
   return (
     <div
-      className="flex flex-col gap-1 transition-opacity duration-200 ease-out"
+      className="flex flex-col transition-opacity duration-200 ease-out"
       data-creating={creating || undefined}
     >
       <SectionHeader
@@ -139,19 +137,18 @@ export function SectionList({
         }
       />
 
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{
-              height: 0,
-              opacity: 0,
-              transition: forceExpanded ? { duration: 0 } : transitions.fade
-            }}
-            transition={transitions.fade}
-            className="flex flex-col gap-1 overflow-hidden"
-          >
+      <div
+        aria-hidden={collapsed || undefined}
+        inert={collapsed ? true : undefined}
+        className={cn(
+          "grid duration-150 transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.65,0,0.35,1)] motion-reduce:transition-none",
+          collapsed
+            ? "grid-rows-[0fr] opacity-0"
+            : "grid-rows-[1fr] opacity-100"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex flex-col gap-1 pt-1">
             {listFailure !== null ? (
               Result.matchWithError(listFailure, {
                 onInitial: () => null,
@@ -219,9 +216,9 @@ export function SectionList({
                 </Button>
               </div>
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
