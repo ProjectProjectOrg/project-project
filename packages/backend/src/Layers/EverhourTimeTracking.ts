@@ -5,6 +5,7 @@ import { and, desc, eq, inArray } from "drizzle-orm"
 import {
   DEFAULT_WORK_TYPES,
   EverhourApiKeyMissing,
+  EverhourConfigMissing,
   NotFound,
   type ActiveTimer,
   type OrgEverhourConfig,
@@ -30,9 +31,9 @@ import {
   type EverhourTimeTrackingShape
 } from "../Services/EverhourTimeTracking"
 import { GroupDocs } from "../Services/GroupDocs"
+import { SecretCrypto } from "../Services/SecretCrypto"
 import { TicketDocs } from "../Services/TicketDocs"
 import { TicketIndex } from "../Services/TicketIndex"
-import { decryptSecret } from "./EverhourIntegrations"
 
 export const timerComment = (
   ticketId: string | null,
@@ -92,6 +93,7 @@ export const EverhourTimeTrackingLive = Layer.effect(
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
+    const secrets = yield* SecretCrypto
 
     const projectRow = (orgSlug: string, slug: string) =>
       ticketIndex.projectFor(orgSlug, slug)
@@ -211,7 +213,13 @@ export const EverhourTimeTrackingLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* decryptSecret(row)
+        const apiKey = yield* secrets
+          .open({
+            ciphertext: row.encryptedApiKey,
+            nonce: row.apiKeyNonce,
+            tag: row.apiKeyTag
+          })
+          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
         return { apiKey, everhourUserId: row.everhourUserId }
       })
 
