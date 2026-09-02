@@ -143,7 +143,7 @@ function PdfSpread({ url, alt }: { url: string; alt: string }) {
         return (
           <span
             key={slot}
-            className="absolute top-1/2 left-1/2 w-[104px] overflow-hidden rounded-[3px] border border-black/12 bg-white"
+            className="absolute top-1/2 left-1/2 max-h-[152px] w-[104px] overflow-hidden rounded-[3px] border border-black/12 bg-white"
             style={{
               transform: `translate(-50%, -50%) translateX(${offset}px) rotate(${rotate}deg)`,
               zIndex: state.length - index

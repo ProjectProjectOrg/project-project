@@ -404,26 +404,35 @@ export const AttachmentsLive = Layer.effect(
           const connection = connectionResult.right
 
           for (const row of orgRows) {
+            const claimed = yield* db
+              .delete(attachmentIndex)
+              .where(
+                and(
+                  eq(attachmentIndex.id, row.id),
+                  eq(attachmentIndex.status, row.status)
+                )
+              )
+              .returning({ id: attachmentIndex.id })
+              .pipe(Effect.orDie)
+
+            if (claimed.length === 0) continue
+
             const outcome = yield* s3
               .deleteObject(connection, row.objectKey)
               .pipe(Effect.either)
 
             if (outcome._tag === "Left") {
               yield* Effect.logError(
-                "attachment reap failed to delete object",
+                "attachment reap left an orphaned object in the bucket",
                 {
                   attachmentId: row.id,
+                  objectKey: row.objectKey,
                   orgSlug,
                   error: outcome.left
                 }
               )
               continue
             }
-
-            yield* db
-              .delete(attachmentIndex)
-              .where(eq(attachmentIndex.id, row.id))
-              .pipe(Effect.orDie)
 
             deleted += 1
           }

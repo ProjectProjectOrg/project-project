@@ -92,6 +92,20 @@ describe("extractAttachmentRefs (permissive: false negatives are data loss)", ()
     expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
   })
 
+  it("finds a bare url followed by prose punctuation", () => {
+    for (const suffix of [".", ",", ";", ":", "!", "?", ")", "'", '"']) {
+      expect(
+        extractAttachmentRefs(`see /api/attachments/acme/${ID}${suffix}`)
+      ).toEqual([{ orgSlug: "acme", id: ID }])
+    }
+  })
+
+  it("finds a url at the very end of the body with no trailing newline", () => {
+    expect(extractAttachmentRefs(`/api/attachments/acme/${ID}`)).toEqual([
+      { orgSlug: "acme", id: ID }
+    ])
+  })
+
   it("finds a url inside a code fence", () => {
     const md = "```\n/api/attachments/acme/" + ID + "\n```"
     expect(extractAttachmentRefs(md)).toEqual([{ orgSlug: "acme", id: ID }])
@@ -207,6 +221,14 @@ describe("withAttachmentParams", () => {
     expect(
       withAttachmentParams(`/api/attachments/acme/${ID}`, { width: 420.6 })
     ).toBe(`/api/attachments/acme/${ID}?w=421`)
+  })
+
+  it("never serializes a width that rounds to zero", () => {
+    const url = withAttachmentParams(`/api/attachments/acme/${ID}`, {
+      width: 0.4
+    })
+    expect(url).toBe(`/api/attachments/acme/${ID}?w=1`)
+    expect(widthOf(url)).toBe(1)
   })
 
   it("omits the density param when rich", () => {

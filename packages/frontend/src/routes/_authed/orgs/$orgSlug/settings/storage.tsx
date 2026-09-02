@@ -325,7 +325,11 @@ function StorageStatusRows({ status }: { status: OrgStorageStatus }) {
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-background px-4 py-3">
-      <p className="text-sm font-medium">{m.storage_connected()}</p>
+      <p className="text-sm font-medium">
+        {status.status === "broken"
+          ? m.storage_broken()
+          : m.storage_connected()}
+      </p>
       <StatusRow label={m.storage_endpoint_label()} value={status.endpoint} />
       <StatusRow label={m.storage_bucket_label()} value={status.bucket} />
       <StatusRow label={m.storage_region_label()} value={status.region} />

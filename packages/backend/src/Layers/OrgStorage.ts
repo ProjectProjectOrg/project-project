@@ -225,7 +225,10 @@ export const OrgStorageLive = Layer.effect(
                       org.organizationId
                     ),
                     eq(organizationIntegration.provider, "s3"),
-                    eq(organizationIntegration.status, "active")
+                    inArray(organizationIntegration.status, [
+                      "active",
+                      "broken"
+                    ])
                   )
                 )
                 .pipe(Effect.orDie)
@@ -280,7 +283,7 @@ export const OrgStorageLive = Layer.effect(
             and(
               eq(organizationIntegration.organizationId, org.organizationId),
               eq(organizationIntegration.provider, "s3"),
-              eq(organizationIntegration.status, "active")
+              inArray(organizationIntegration.status, ["active", "broken"])
             )
           )
           .pipe(Effect.orDie)

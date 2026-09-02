@@ -1,10 +1,8 @@
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
-
-const PDF_SPREAD_PAGES = 3
-
-const PDF_SPREAD_PAGE_WIDTH = 116
-
-const RENDER_SCALE = 2
+import {
+  PDF_SPREAD_PAGES,
+  pdfSpreadScale
+} from "@/components/Lexical/pdfSpreadLayout"
 
 export const renderPdfSpread = async (
   url: string
@@ -19,8 +17,7 @@ export const renderPdfSpread = async (
     for (let number = 1; number <= count; number += 1) {
       const page = await doc.getPage(number)
       const unscaled = page.getViewport({ scale: 1 })
-      const scale = (PDF_SPREAD_PAGE_WIDTH * RENDER_SCALE) / unscaled.width
-      const viewport = page.getViewport({ scale })
+      const viewport = page.getViewport({ scale: pdfSpreadScale(unscaled) })
       const canvas = document.createElement("canvas")
       canvas.width = Math.ceil(viewport.width)
       canvas.height = Math.ceil(viewport.height)
