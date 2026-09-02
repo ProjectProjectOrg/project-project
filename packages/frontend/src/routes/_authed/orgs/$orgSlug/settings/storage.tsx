@@ -226,11 +226,7 @@ function StorageConnectForm({ orgSlug }: { orgSlug: string }) {
       </label>
 
       <div>
-        <Button
-          type="submit"
-          disabled={!canSubmit || submitting}
-          className="active:scale-[0.97] transition-transform duration-100"
-        >
+        <Button type="submit" disabled={!canSubmit || submitting}>
           {submitting ? m.storage_connecting() : m.storage_connect_button()}
         </Button>
       </div>
@@ -260,11 +256,7 @@ function StorageConnectedPanel({
         {m.storage_disconnect_hint()}
       </p>
       <ConfirmButton.Root className="justify-start">
-        <ConfirmButton.Trigger
-          type="button"
-          variant="secondary"
-          className="active:scale-[0.97] transition-transform duration-100"
-        >
+        <ConfirmButton.Trigger type="button" variant="secondary">
           {m.storage_disconnect_button()}
         </ConfirmButton.Trigger>
         <ConfirmButton.Confirm className="flex-wrap justify-start">
@@ -306,13 +298,10 @@ function StorageDisconnectConfirm({
         variant="destructive"
         onClick={() => void run()}
         disabled={busy}
-        className="active:scale-[0.97] transition-transform duration-100"
       >
         {m.storage_disconnect_button()}
       </Button>
-      <ConfirmButton.Cancel className="active:scale-[0.97] transition-transform duration-100">
-        {m.common_cancel_button()}
-      </ConfirmButton.Cancel>
+      <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
       {error !== null ? (
         <span role="alert" className="text-xs text-destructive">
           {error}

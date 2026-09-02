@@ -1,11 +1,12 @@
-import { useEffect, useState, type ReactElement } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { motion } from "motion/react"
-import { MORPH } from "@/components/Lexical/attachmentMorph"
-import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
 import {
   attachmentFileFormat,
   type AttachmentFileFormat
 } from "@projectproject/shared"
+import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
+import { transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const PREVIEW_BOX =
@@ -22,82 +23,73 @@ const GLYPH = {
   strokeLinejoin: "round"
 } as const
 
-const FORMAT_LABEL: Record<AttachmentFileFormat, () => string> = {
-  pdf: m.editor_attachment_format_pdf,
-  zip: m.editor_attachment_format_zip,
-  tar: m.editor_attachment_format_tar,
-  gzip: m.editor_attachment_format_gzip,
-  generic: m.editor_attachment_format_generic
-}
+const documentArt = (
+  <>
+    <path d="M6 1h22l14 14v40H6z" />
+    <path d="M28 1v14h14" strokeOpacity="0.45" />
+    <path
+      d="M13 26h22M13 34h22M13 42h14"
+      strokeOpacity="0.45"
+      strokeWidth="1"
+    />
+  </>
+)
 
-function ZipGlyph() {
-  return (
-    <svg {...GLYPH} aria-hidden="true">
-      <rect x="1" y="1" width="46" height="54" rx="4" />
-      <line x1="24" y1="1" x2="24" y2="55" />
-      <path
-        d="M19 9h10M19 15h10M19 21h10M19 27h10"
-        strokeOpacity="0.45"
-        strokeWidth="1"
-      />
-      <rect x="20.5" y="33" width="7" height="11" rx="2.5" />
-    </svg>
-  )
-}
-
-function TarGlyph() {
-  return (
-    <svg {...GLYPH} aria-hidden="true">
-      <rect x="1" y="1" width="46" height="54" rx="4" />
-      <path
-        d="M1 15h46M1 24h46M1 33h46M1 42h46"
-        strokeOpacity="0.45"
-        strokeWidth="1"
-      />
-    </svg>
-  )
-}
-
-function GzipGlyph() {
-  return (
-    <svg {...GLYPH} aria-hidden="true">
-      <rect x="1" y="1" width="46" height="54" rx="4" />
-      <path d="M1 14h46M1 42h46" strokeOpacity="0.45" strokeWidth="1" />
-      <path d="M14 22l10 8 10-8" />
-      <path d="M14 29l10 8 10-8" strokeOpacity="0.45" />
-    </svg>
-  )
-}
-
-function DocumentGlyph() {
-  return (
-    <svg {...GLYPH} aria-hidden="true">
-      <path d="M6 1h22l14 14v40H6z" />
-      <path d="M28 1v14h14" strokeOpacity="0.45" />
-      <path
-        d="M13 26h22M13 34h22M13 42h14"
-        strokeOpacity="0.45"
-        strokeWidth="1"
-      />
-    </svg>
-  )
-}
-
-const GLYPH_FOR: Record<AttachmentFileFormat, () => ReactElement> = {
-  pdf: DocumentGlyph,
-  zip: ZipGlyph,
-  tar: TarGlyph,
-  gzip: GzipGlyph,
-  generic: DocumentGlyph
+const FORMATS: Record<
+  AttachmentFileFormat,
+  { readonly label: () => string; readonly art: ReactNode }
+> = {
+  pdf: { label: m.editor_attachment_format_pdf, art: documentArt },
+  generic: { label: m.editor_attachment_format_generic, art: documentArt },
+  zip: {
+    label: m.editor_attachment_format_zip,
+    art: (
+      <>
+        <rect x="1" y="1" width="46" height="54" rx="4" />
+        <line x1="24" y1="1" x2="24" y2="55" />
+        <path
+          d="M19 9h10M19 15h10M19 21h10M19 27h10"
+          strokeOpacity="0.45"
+          strokeWidth="1"
+        />
+        <rect x="20.5" y="33" width="7" height="11" rx="2.5" />
+      </>
+    )
+  },
+  tar: {
+    label: m.editor_attachment_format_tar,
+    art: (
+      <>
+        <rect x="1" y="1" width="46" height="54" rx="4" />
+        <path
+          d="M1 15h46M1 24h46M1 33h46M1 42h46"
+          strokeOpacity="0.45"
+          strokeWidth="1"
+        />
+      </>
+    )
+  },
+  gzip: {
+    label: m.editor_attachment_format_gzip,
+    art: (
+      <>
+        <rect x="1" y="1" width="46" height="54" rx="4" />
+        <path d="M1 14h46M1 42h46" strokeOpacity="0.45" strokeWidth="1" />
+        <path d="M14 22l10 8 10-8" />
+        <path d="M14 29l10 8 10-8" strokeOpacity="0.45" />
+      </>
+    )
+  }
 }
 
 function FormatPreview({ format }: { format: AttachmentFileFormat }) {
-  const Glyph = GLYPH_FOR[format]
   return (
-    <span className={`${PREVIEW_BOX} flex-col gap-3 text-muted-foreground`}>
-      <Glyph />
+    <span className={cn(PREVIEW_BOX, "flex-col gap-3 text-muted-foreground")}>
+      <svg {...GLYPH} aria-hidden="true">
+        {FORMATS[format].art}
+      </svg>
       <span className="text-[10px] font-medium tracking-[0.14em] uppercase">
-        {FORMAT_LABEL[format]()}
+        {FORMATS[format].label()}
       </span>
     </span>
   )
@@ -109,38 +101,32 @@ const SPREAD_LAYOUT = [
   { slot: "front", offset: 0, rotate: 0 }
 ] as const
 
+type SpreadState = ReadonlyArray<string> | "loading" | "failed"
+
 function PdfSpread({ url, alt }: { url: string; alt: string }) {
-  const [pages, setPages] = useState<ReadonlyArray<string> | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [state, setState] = useState<SpreadState>("loading")
 
   useEffect(() => {
     let cancelled = false
-    setPages(null)
-    setFailed(false)
-    void import("./pdfSpread").then(
-      ({ renderPdfSpread }) =>
-        renderPdfSpread(url).then(
-          (rendered) => {
-            if (cancelled) return
-            if (rendered.length === 0) setFailed(true)
-            else setPages(rendered)
-          },
-          () => {
-            if (!cancelled) setFailed(true)
-          }
-        ),
-      () => {
-        if (!cancelled) setFailed(true)
-      }
-    )
+    setState("loading")
+    void import("./pdfSpread")
+      .then(({ renderPdfSpread }) => renderPdfSpread(url))
+      .then(
+        (pages) => {
+          if (!cancelled) setState(pages.length === 0 ? "failed" : pages)
+        },
+        () => {
+          if (!cancelled) setState("failed")
+        }
+      )
     return () => {
       cancelled = true
     }
   }, [url])
 
-  if (failed) return <FormatPreview format="pdf" />
+  if (state === "failed") return <FormatPreview format="pdf" />
 
-  if (pages === null) {
+  if (state === "loading") {
     return (
       <span className={PREVIEW_BOX}>
         <span className="h-[152px] w-[108px] animate-pulse rounded-[3px] border border-border bg-muted/50" />
@@ -148,11 +134,11 @@ function PdfSpread({ url, alt }: { url: string; alt: string }) {
     )
   }
 
-  const layout = SPREAD_LAYOUT.slice(SPREAD_LAYOUT.length - pages.length)
+  const layout = SPREAD_LAYOUT.slice(SPREAD_LAYOUT.length - state.length)
 
   return (
-    <span className={`${PREVIEW_BOX} relative`}>
-      {pages.map((page, index) => {
+    <span className={cn(PREVIEW_BOX, "relative")}>
+      {state.map((page, index) => {
         const { slot, offset, rotate } = layout[index]
         return (
           <span
@@ -160,7 +146,7 @@ function PdfSpread({ url, alt }: { url: string; alt: string }) {
             className="absolute top-1/2 left-1/2 w-[104px] overflow-hidden rounded-[3px] border border-black/12 bg-white"
             style={{
               transform: `translate(-50%, -50%) translateX(${offset}px) rotate(${rotate}deg)`,
-              zIndex: pages.length - index
+              zIndex: state.length - index
             }}
           >
             <img
@@ -199,7 +185,7 @@ export function AttachmentTile({
         <motion.span
           layoutId={`${morphId}-filename`}
           layout="position"
-          transition={MORPH}
+          transition={transitions.morph}
           className="min-w-0 flex-1 truncate"
           title={filename}
         >

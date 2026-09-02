@@ -1,8 +1,8 @@
 import type { TextMatchTransformer } from "@lexical/markdown"
 import { $createTextNode } from "lexical"
 import {
-  attachmentDensityFromUrl,
-  attachmentWidthFromUrl,
+  attachmentSrc,
+  attachmentViewParams,
   parseAttachmentUrl,
   withAttachmentParams,
   type AttachmentDensity
@@ -25,8 +25,8 @@ export const formatAttachmentMarkdown = (input: {
 }): string => {
   const alt = input.alt.replace(/([[\]\\])/g, "\\$1")
   const url = withAttachmentParams(input.url, {
-    width: input.width ?? null,
-    density: input.density ?? "rich"
+    width: input.width,
+    density: input.density
   })
   return `${input.kind === "image" ? "!" : ""}[${alt}](${url})`
 }
@@ -58,12 +58,11 @@ export const ATTACHMENT_TRANSFORMER: TextMatchTransformer = {
     const alt = unescapeAttachmentAlt(rawAlt ?? "")
     textNode.replace(
       $createAttachmentNode({
-        url: withAttachmentParams(url, {}),
+        url: attachmentSrc(url),
         alt,
         filename: alt,
         kind: bang === "!" ? "image" : "file",
-        width: attachmentWidthFromUrl(url),
-        density: attachmentDensityFromUrl(url)
+        ...attachmentViewParams(url)
       })
     )
   },

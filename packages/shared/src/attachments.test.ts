@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
-  attachmentDensityFromUrl,
   attachmentFileFormat,
   attachmentUrl,
-  attachmentWidthFromUrl,
+  attachmentViewParams,
   extractAttachmentRefs,
   parseAttachmentUrl,
   withAttachmentParams
@@ -16,6 +15,9 @@ import {
 } from "./schemas/Attachment"
 
 const ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
+
+const widthOf = (url: string) => attachmentViewParams(url).width
+const densityOf = (url: string) => attachmentViewParams(url).density
 
 describe("attachmentUrl", () => {
   it("builds an app-relative url", () => {
@@ -157,32 +159,26 @@ describe("isRasterImageContentType", () => {
   })
 })
 
-describe("attachmentWidthFromUrl", () => {
+describe("attachmentViewParams width", () => {
   it("reads an explicit width", () => {
-    expect(attachmentWidthFromUrl(`/api/attachments/acme/${ID}?w=420`)).toBe(
-      420
-    )
+    expect(widthOf(`/api/attachments/acme/${ID}?w=420`)).toBe(420)
   })
 
   it("returns null with no query", () => {
-    expect(attachmentWidthFromUrl(`/api/attachments/acme/${ID}`)).toBeNull()
+    expect(widthOf(`/api/attachments/acme/${ID}`)).toBeNull()
   })
 
   it("returns null for a non-numeric width", () => {
-    expect(
-      attachmentWidthFromUrl(`/api/attachments/acme/${ID}?w=wide`)
-    ).toBeNull()
+    expect(widthOf(`/api/attachments/acme/${ID}?w=wide`)).toBeNull()
   })
 
   it("returns null for a zero or negative width", () => {
-    expect(attachmentWidthFromUrl(`/api/attachments/acme/${ID}?w=0`)).toBeNull()
-    expect(
-      attachmentWidthFromUrl(`/api/attachments/acme/${ID}?w=-10`)
-    ).toBeNull()
+    expect(widthOf(`/api/attachments/acme/${ID}?w=0`)).toBeNull()
+    expect(widthOf(`/api/attachments/acme/${ID}?w=-10`)).toBeNull()
   })
 
   it("ignores unrelated params", () => {
-    expect(attachmentWidthFromUrl(`/api/attachments/acme/${ID}?v=2`)).toBeNull()
+    expect(widthOf(`/api/attachments/acme/${ID}?v=2`)).toBeNull()
   })
 })
 
@@ -233,8 +229,8 @@ describe("withAttachmentParams", () => {
       width: 333,
       density: "compact"
     })
-    expect(attachmentWidthFromUrl(url)).toBe(333)
-    expect(attachmentDensityFromUrl(url)).toBe("compact")
+    expect(widthOf(url)).toBe(333)
+    expect(densityOf(url)).toBe("compact")
   })
 
   it("leaves a parameterised url servable and reapable", () => {
@@ -249,24 +245,18 @@ describe("withAttachmentParams", () => {
   })
 })
 
-describe("attachmentDensityFromUrl", () => {
+describe("attachmentViewParams density", () => {
   it("defaults to rich with no query", () => {
-    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}`)).toBe("rich")
+    expect(densityOf(`/api/attachments/acme/${ID}`)).toBe("rich")
   })
 
   it("reads compact", () => {
-    expect(
-      attachmentDensityFromUrl(`/api/attachments/acme/${ID}?d=compact`)
-    ).toBe("compact")
+    expect(densityOf(`/api/attachments/acme/${ID}?d=compact`)).toBe("compact")
   })
 
   it("treats an unknown value as rich", () => {
-    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}?d=tiny`)).toBe(
-      "rich"
-    )
-    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}?w=200`)).toBe(
-      "rich"
-    )
+    expect(densityOf(`/api/attachments/acme/${ID}?d=tiny`)).toBe("rich")
+    expect(densityOf(`/api/attachments/acme/${ID}?w=200`)).toBe("rich")
   })
 })
 

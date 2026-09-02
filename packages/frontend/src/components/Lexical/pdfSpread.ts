@@ -1,8 +1,8 @@
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 
-export const PDF_SPREAD_PAGES = 3
+const PDF_SPREAD_PAGES = 3
 
-export const PDF_SPREAD_PAGE_WIDTH = 116
+const PDF_SPREAD_PAGE_WIDTH = 116
 
 const RENDER_SCALE = 2
 
