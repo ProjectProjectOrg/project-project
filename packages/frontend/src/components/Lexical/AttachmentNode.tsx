@@ -11,6 +11,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 import { Trash2 } from "lucide-react"
 import { useState, type ReactElement, type ReactNode } from "react"
+import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 export type AttachmentKind = "image" | "file"
@@ -277,8 +278,9 @@ function AttachmentSelectable({
     >
       {children}
       {deletable ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label={m.editor_attachment_remove()}
           title={m.editor_attachment_remove()}
           onMouseDown={(event) => event.preventDefault()}
@@ -287,10 +289,10 @@ function AttachmentSelectable({
               $getNodeByKey(nodeKey)?.remove()
             })
           }}
-          className={`absolute -top-2 -right-2 rounded-full border bg-background p-1.5 text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-destructive/40 hover:text-destructive ${PRESS}`}
+          className="absolute -top-2 -right-2 rounded-full bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-destructive-light hover:text-destructive"
         >
-          <Trash2 className="size-3.5" strokeWidth={1.75} />
-        </button>
+          <Trash2 strokeWidth={1.75} />
+        </Button>
       ) : null}
     </span>
   )
