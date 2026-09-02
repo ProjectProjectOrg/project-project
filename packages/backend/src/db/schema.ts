@@ -42,6 +42,7 @@
 
 import { relations, sql } from "drizzle-orm"
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -59,6 +60,8 @@ import type { OrgEverhourConfig } from "@projectproject/shared"
 
 export * from "./auth-schema"
 import { invitation, organization, user } from "./auth-schema"
+
+export type OrgIntegrationConfig = OrgEverhourConfig | Record<string, never>
 
 export const projectIndex = pgTable(
   "project_index",
@@ -196,11 +199,13 @@ export const organizationIntegration = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    provider: text("provider", { enum: ["github", "everhour"] }).notNull(),
+    provider: text("provider", {
+      enum: ["github", "everhour", "s3"]
+    }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
     }).notNull(),
-    config: jsonb("config").$type<OrgEverhourConfig>(),
+    config: jsonb("config").$type<OrgIntegrationConfig>(),
     connectedAt: timestamp("connected_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -242,6 +247,24 @@ export const organizationGithubIntegration = pgTable(
       t.installationId
     )
   ]
+)
+
+export const organizationS3Integration = pgTable(
+  "organization_s3_integration",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .primaryKey()
+      .references(() => organizationIntegration.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    bucket: text("bucket").notNull(),
+    region: text("region").notNull(),
+    keyPrefix: text("key_prefix"),
+    forcePathStyle: boolean("force_path_style").notNull().default(true),
+    accessKeyId: text("access_key_id").notNull(),
+    encryptedSecretKey: text("encrypted_secret_key").notNull(),
+    secretKeyNonce: text("secret_key_nonce").notNull(),
+    secretKeyTag: text("secret_key_tag").notNull()
+  }
 )
 
 export const githubAppInstallSession = pgTable(
@@ -749,3 +772,38 @@ export const commentIndexRelations = relations(commentIndex, ({ one }) => ({
     references: [user.id]
   })
 }))
+
+export const attachmentIndex = pgTable(
+  "attachment_index",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    orgSlug: text("org_slug").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    status: text("status", { enum: ["pending", "live", "orphaned"] })
+      .notNull()
+      .default("pending"),
+    uploadedBy: text("uploaded_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    committedAt: timestamp("committed_at", { withTimezone: true }),
+    orphanedAt: timestamp("orphaned_at", { withTimezone: true })
+  },
+  (t) => [
+    index("attachment_index_ticket_idx").on(
+      t.orgSlug,
+      t.projectSlug,
+      t.ticketId
+    ),
+    index("attachment_index_status_idx").on(t.status),
+    index("attachment_index_org_idx").on(t.organizationId)
+  ]
+)
