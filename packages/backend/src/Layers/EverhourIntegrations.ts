@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "@effect/sql/SqlClient"
 import { and, desc, eq, inArray } from "drizzle-orm"
+import { randomBytes } from "node:crypto"
 import {
   DEFAULT_WORK_TYPES,
   EverhourApiKeyMissing,
@@ -15,7 +16,6 @@ import {
   type OrgEverhourConfig,
   type PersonalEverhour
 } from "@projectproject/shared"
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 import {
   everhourSectionLink,
   everhourWorkTypeTaskLink,
@@ -38,6 +38,7 @@ import {
   type EverhourIntegrationsShape
 } from "../Services/EverhourIntegrations"
 import { GroupDocs } from "../Services/GroupDocs"
+import { SecretCrypto } from "../Services/SecretCrypto"
 import { TicketIndex } from "../Services/TicketIndex"
 
 type MutableSummary = {
@@ -81,64 +82,6 @@ const emptySummary = (): MutableSummary => ({
 const publicBaseUrl = Effect.sync(
   () => process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
 )
-
-const encryptionKey = Effect.gen(function* () {
-  const raw = process.env.USER_SECRET_ENCRYPTION_KEY
-  if (!raw) {
-    yield* Effect.logWarning(
-      "Everhour encryption is not configured: USER_SECRET_ENCRYPTION_KEY is missing"
-    )
-    return yield* new EverhourConfigMissing()
-  }
-  const key = Buffer.from(raw, "base64")
-  if (key.byteLength !== 32) {
-    yield* Effect.logWarning(
-      "Everhour encryption is not configured: USER_SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key"
-    )
-    return yield* new EverhourConfigMissing()
-  }
-  return key
-})
-
-const encryptSecret = (value: string) =>
-  Effect.gen(function* () {
-    const key = yield* encryptionKey
-    const nonce = randomBytes(12)
-    const cipher = createCipheriv("aes-256-gcm", key, nonce)
-    const encrypted = Buffer.concat([
-      cipher.update(value, "utf8"),
-      cipher.final()
-    ])
-    return {
-      encryptedApiKey: encrypted.toString("base64"),
-      apiKeyNonce: nonce.toString("base64"),
-      apiKeyTag: cipher.getAuthTag().toString("base64")
-    }
-  })
-
-export const decryptSecret = (row: {
-  readonly encryptedApiKey: string
-  readonly apiKeyNonce: string
-  readonly apiKeyTag: string
-}) =>
-  Effect.gen(function* () {
-    const key = yield* encryptionKey
-    return yield* Effect.try({
-      try: () => {
-        const decipher = createDecipheriv(
-          "aes-256-gcm",
-          key,
-          Buffer.from(row.apiKeyNonce, "base64")
-        )
-        decipher.setAuthTag(Buffer.from(row.apiKeyTag, "base64"))
-        return Buffer.concat([
-          decipher.update(Buffer.from(row.encryptedApiKey, "base64")),
-          decipher.final()
-        ]).toString("utf8")
-      },
-      catch: () => new EverhourConfigMissing()
-    })
-  })
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
@@ -237,6 +180,7 @@ export const EverhourIntegrationsLive = Layer.effect(
     const everhour = yield* Everhour
     const ticketIndex = yield* TicketIndex
     const groupDocs = yield* GroupDocs
+    const secrets = yield* SecretCrypto
 
     const getProfile = (userId: string): Effect.Effect<PersonalEverhour> =>
       db.query.userEverhourIntegration
@@ -276,14 +220,27 @@ export const EverhourIntegrationsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (!row) return yield* new EverhourApiKeyMissing()
-        const apiKey = yield* decryptSecret(row)
+        const apiKey = yield* secrets
+          .open({
+            ciphertext: row.encryptedApiKey,
+            nonce: row.apiKeyNonce,
+            tag: row.apiKeyTag
+          })
+          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
         return { apiKey, everhourUserId: row.everhourUserId }
       })
 
     const connectProfile = (userId: string, apiKey: string) =>
       Effect.gen(function* () {
         const verified = yield* everhour.getCurrentUser(apiKey)
-        const encrypted = yield* encryptSecret(apiKey)
+        const sealed = yield* secrets
+          .seal(apiKey)
+          .pipe(Effect.mapError(() => new EverhourConfigMissing()))
+        const encrypted = {
+          encryptedApiKey: sealed.ciphertext,
+          apiKeyNonce: sealed.nonce,
+          apiKeyTag: sealed.tag
+        }
         const now = yield* DateTime.nowAsDate
         yield* db
           .insert(userEverhourIntegration)
