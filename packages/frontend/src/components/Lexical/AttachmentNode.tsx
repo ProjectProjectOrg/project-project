@@ -1,12 +1,15 @@
 import {
   $applyNodeReplacement,
+  $getNodeByKey,
   DecoratorNode,
   type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
+import { Trash2 } from "lucide-react"
 import { useState, type ReactElement, type ReactNode } from "react"
 import { m } from "@/paraglide/messages"
 
@@ -39,7 +42,7 @@ function AttachmentImage({ url, alt }: { url: string; alt: string }) {
 
   if (broken) {
     return (
-      <span className="my-2 block rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+      <span className="block rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
         {m.editor_attachment_unavailable()}
       </span>
     )
@@ -50,7 +53,7 @@ function AttachmentImage({ url, alt }: { url: string; alt: string }) {
       src={url}
       alt={alt}
       loading="lazy"
-      className="my-2 max-w-full rounded-lg border"
+      className="max-w-full rounded-lg border"
       onError={() => setBroken(true)}
     />
   )
@@ -183,7 +186,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
   decorate(): ReactElement {
     return (
-      <AttachmentSelectable nodeKey={this.getKey()}>
+      <AttachmentSelectable nodeKey={this.getKey()} deletable={!this.__failed}>
         {this.renderContent()}
       </AttachmentSelectable>
     )
@@ -192,7 +195,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   renderContent(): ReactElement {
     if (this.__failed) {
       return (
-        <span className="my-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
+        <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
           <span className="flex-1 truncate text-destructive">
             {m.editor_attachment_upload_failed()}
           </span>
@@ -218,7 +221,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
     if (this.__uploadId !== undefined) {
       return (
-        <span className="my-2 flex min-h-[8rem] w-full max-w-sm flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
+        <span className="flex min-h-[8rem] w-[20rem] max-w-full flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
           <span className="truncate text-xs text-muted-foreground">
             {m.editor_attachment_uploading()}
           </span>
@@ -239,7 +242,7 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
     }
 
     return (
-      <span className="my-2 flex w-fit max-w-full items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+      <span className="flex w-fit max-w-full items-center gap-2 rounded-lg border px-3 py-2 text-xs">
         <span className="truncate">{this.__filename}</span>
         <a
           href={this.__url}
@@ -255,21 +258,40 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
 function AttachmentSelectable({
   nodeKey,
+  deletable,
   children
 }: {
   nodeKey: string
+  deletable: boolean
   children: ReactNode
 }) {
+  const [editor] = useLexicalComposerContext()
   const [isSelected] = useLexicalNodeSelection(nodeKey)
 
   return (
     <span
       data-attachment-selected={isSelected ? "true" : undefined}
-      className={`block rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
+      className={`group relative my-2 block w-fit max-w-full rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
         isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"
       }`}
     >
       {children}
+      {deletable ? (
+        <button
+          type="button"
+          aria-label={m.editor_attachment_remove()}
+          title={m.editor_attachment_remove()}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            editor.update(() => {
+              $getNodeByKey(nodeKey)?.remove()
+            })
+          }}
+          className={`absolute -top-2 -right-2 rounded-full border bg-background p-1.5 text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 group-focus-within:opacity-100 hover:border-destructive/40 hover:text-destructive ${PRESS}`}
+        >
+          <Trash2 className="size-3.5" strokeWidth={1.75} />
+        </button>
+      ) : null}
     </span>
   )
 }
