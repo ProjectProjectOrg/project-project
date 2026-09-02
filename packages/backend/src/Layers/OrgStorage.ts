@@ -138,7 +138,7 @@ export const OrgStorageLive = Layer.effect(
           "text/plain",
           60
         )
-        yield* Effect.tryPromise({
+        const uploadResponse = yield* Effect.tryPromise({
           try: () =>
             fetch(uploadUrl, {
               method: "PUT",
@@ -149,6 +149,14 @@ export const OrgStorageLive = Layer.effect(
           catch: () =>
             new StorageError({ reason: "connection_check_upload_failed" })
         })
+        if (!uploadResponse.ok) {
+          const status = uploadResponse.status
+          return yield* status === 401 || status === 403
+            ? new StorageAuthInvalid()
+            : new StorageError({
+                reason: `connection_check_upload_status_${status}`
+              })
+        }
         const head = yield* s3.headObject(connection, key)
         yield* s3.deleteObject(connection, key)
         if (!head) {
