@@ -531,9 +531,11 @@ function AttachmentSelectable({
     >
       <span
         data-attachment-selected={isSelected ? "true" : undefined}
-        className={`group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 ${
+        className={`group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 hover:z-20 focus-within:z-20 ${
           compact ? "my-0.5 rounded-md" : "my-2 rounded-xl"
-        } ${isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"}`}
+        } ${
+          isSelected ? "z-20 ring-2 ring-ring" : "z-0 ring-0 ring-transparent"
+        }`}
       >
         {children}
         {deletable ? (
