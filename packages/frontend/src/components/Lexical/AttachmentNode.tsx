@@ -54,7 +54,7 @@ function AttachmentImage({ url, alt }: { url: string; alt: string }) {
       src={url}
       alt={alt}
       loading="lazy"
-      className="max-w-full rounded-lg border"
+      className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
       onError={() => setBroken(true)}
     />
   )
