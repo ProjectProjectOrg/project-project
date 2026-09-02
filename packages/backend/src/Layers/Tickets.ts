@@ -779,6 +779,7 @@ export const TicketsLive = Layer.effect(
         yield* ensureAccess(orgSlug, ownerId, slug)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
+        yield* attachments.reconcileTicket(orgSlug, slug, id, "")
         yield* ticketDocs.remove(orgSlug, slug, id)
         yield* ticketIndex.deleteTicket(indexProject, id)
       })
