@@ -73,6 +73,8 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { projectIndex } from "./db/schema"
+import { AttachmentsHandlerLive } from "./handlers/attachments"
+import { attachmentRoutes } from "./http/attachmentRoutes"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
@@ -146,6 +148,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
   Layer.provide(StorageHandlerLive),
+  Layer.provide(AttachmentsHandlerLive),
   Layer.provide(BackendHttpServicesLive)
 )
 
@@ -381,6 +384,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
       "/api/integrations/everhour/webhook",
       everhourIntegrationRoutes
     ),
+    HttpRouter.mountApp("/api/attachments", attachmentRoutes),
     HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
