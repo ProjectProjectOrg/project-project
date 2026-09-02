@@ -85,6 +85,8 @@ const isInteractiveTarget = (target: EventTarget | null): boolean =>
 const OVERLAY_REVEAL =
   "opacity-0 transition-opacity group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
 
+const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
+
 const OVERLAY_BUTTON =
   "rounded-full bg-background text-muted-foreground shadow-sm"
 
@@ -469,30 +471,75 @@ function AttachmentSelectable({
   }, [editor, nodeKey])
 
   const wrapperRef = useRef<HTMLSpanElement>(null)
+  const contentRef = useRef<HTMLSpanElement>(null)
   const reduceMotion = useReducedMotion() ?? false
 
   useLayoutEffect(() => {
     const element = wrapperRef.current
     if (element === null) return undefined
-    const rect = element.getBoundingClientRect()
-    const next = { width: rect.width, height: rect.height }
     const previous = morphSizes.get(element)
-    morphSizes.set(element, next)
-    if (previous === undefined || reduceMotion) return undefined
-    if (
-      Math.abs(previous.width - next.width) < 0.5 &&
-      Math.abs(previous.height - next.height) < 0.5
-    ) {
-      return undefined
+    let animation: Animation | undefined
+    let cancelled = false
+
+    const unpin = () => {
+      element.style.removeProperty("width")
+      element.style.removeProperty("height")
+      element.style.removeProperty("overflow")
+      const content = contentRef.current
+      content?.style.removeProperty("width")
+      content?.style.removeProperty("height")
     }
-    const animation = element.animate(
-      [
-        { width: `${previous.width}px`, height: `${previous.height}px` },
-        { width: `${next.width}px`, height: `${next.height}px` }
-      ],
-      { duration: transitions.morph.duration * 1000, easing: standardEaseCss }
-    )
-    return () => animation.cancel()
+
+    const settle = () => {
+      if (cancelled) return
+      unpin()
+      const rect = element.getBoundingClientRect()
+      const next = { width: rect.width, height: rect.height }
+      morphSizes.set(element, next)
+      if (previous === undefined || reduceMotion) return
+      if (
+        Math.abs(previous.width - next.width) < 0.5 &&
+        Math.abs(previous.height - next.height) < 0.5
+      ) {
+        return
+      }
+      const content = contentRef.current
+      if (content !== null) {
+        content.style.width = `${next.width}px`
+        content.style.height = `${next.height}px`
+      }
+      animation = element.animate(
+        [
+          { width: `${previous.width}px`, height: `${previous.height}px` },
+          { width: `${next.width}px`, height: `${next.height}px` }
+        ],
+        { duration: transitions.morph.duration * 1000, easing: standardEaseCss }
+      )
+      animation.addEventListener("finish", unpin, { once: true })
+    }
+
+    const image = element.querySelector("img")
+    if (previous !== undefined && image !== null && !image.complete) {
+      element.style.width = `${previous.width}px`
+      element.style.height = `${previous.height}px`
+      element.style.overflow = "hidden"
+      image.addEventListener("load", settle, { once: true })
+      image.addEventListener("error", settle, { once: true })
+      return () => {
+        cancelled = true
+        image.removeEventListener("load", settle)
+        image.removeEventListener("error", settle)
+        animation?.cancel()
+        unpin()
+      }
+    }
+
+    settle()
+    return () => {
+      cancelled = true
+      animation?.cancel()
+      unpin()
+    }
   }, [density, reduceMotion])
 
   const toggleDensity = useCallback(() => {
@@ -586,9 +633,11 @@ function AttachmentSelectable({
         <LayoutGroup id={morphId}>
           <AnimatePresence initial={false} mode="popLayout">
             <motion.span
+              ref={contentRef}
+              data-attachment-content="true"
               key={compact ? "compact" : "expanded"}
               layoutId={morphId}
-              transition={transitions.morph}
+              transition={CONTENT_MORPH}
               className="block"
             >
               {children}
