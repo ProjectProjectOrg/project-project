@@ -210,7 +210,8 @@
   }
   to {
     clip-path: circle(
-      150vmax at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%)
+      var(--theme-clip-radius, 150vmax) at var(--theme-clip-x, 50%)
+        var(--theme-clip-y, 50%)
     );
   }
 }

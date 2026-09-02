@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
+import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { TabsSubtle, TabsSubtleItem } from "@/components/ui/tabs-subtle"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
@@ -18,13 +19,19 @@ export function ThemeSwitcher() {
   const { preference, setPreference } = useTheme()
   const selectedIndex = options.findIndex((o) => o.value === preference)
 
-  // Stash the click point on <html> so the view-transition keyframe in
-  // styles.css can center its expanding circle there. Capture-phase so we set
-  // it before the click triggers the state change.
   const handleClickCapture = (e: MouseEvent<HTMLDivElement>) => {
     const root = document.documentElement
     root.style.setProperty("--theme-clip-x", `${e.clientX}px`)
     root.style.setProperty("--theme-clip-y", `${e.clientY}px`)
+    root.style.setProperty(
+      "--theme-clip-radius",
+      `${getThemeRevealRadius(
+        e.clientX,
+        e.clientY,
+        window.innerWidth,
+        window.innerHeight
+      )}px`
+    )
   }
 
   const handleSelect = (i: number) => {
