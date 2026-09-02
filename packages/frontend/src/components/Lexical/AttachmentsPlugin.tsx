@@ -5,8 +5,6 @@ import * as Exit from "effect/Exit"
 import { useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
-  $createParagraphNode,
-  $getRoot,
   $insertNodes,
   $nodesOfType,
   COMMAND_PRIORITY_LOW,
@@ -116,11 +114,6 @@ export function AttachmentsPlugin({
               progress: 0
             })
           ])
-          const root = $getRoot()
-          const last = root.getLastChild()
-          if (!last || last.getType() !== "paragraph") {
-            root.append($createParagraphNode())
-          }
         })
         startUpload(uploadId, file)
       }

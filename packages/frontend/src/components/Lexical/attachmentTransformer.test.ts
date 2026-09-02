@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  attachmentDensityFromUrl,
   attachmentWidthFromUrl,
   parseAttachmentUrl
 } from "@projectproject/shared"
@@ -130,5 +131,43 @@ describe("formatAttachmentMarkdown width round-trip", () => {
     const url = md.match(ATTACHMENT_MARKDOWN_RE)![3]!
     expect(parseAttachmentUrl(url)).not.toBeNull()
     expect(attachmentWidthFromUrl(url)).toBe(420)
+  })
+})
+
+describe("formatAttachmentMarkdown density round-trip", () => {
+  it("writes the compact density as a query param", () => {
+    expect(
+      formatAttachmentMarkdown({
+        kind: "file",
+        alt: "bundle.zip",
+        url: URL,
+        density: "compact"
+      })
+    ).toBe(`[bundle.zip](${URL}?d=compact)`)
+  })
+
+  it("omits the query for the rich default", () => {
+    expect(
+      formatAttachmentMarkdown({
+        kind: "file",
+        alt: "bundle.zip",
+        url: URL,
+        density: "rich"
+      })
+    ).toBe(`[bundle.zip](${URL})`)
+  })
+
+  it("keeps a compact url matchable and readable", () => {
+    const md = formatAttachmentMarkdown({
+      kind: "image",
+      alt: "shot",
+      url: URL,
+      width: 240,
+      density: "compact"
+    })
+    const url = md.match(ATTACHMENT_MARKDOWN_RE)![3]
+    expect(parseAttachmentUrl(url)).not.toBeNull()
+    expect(attachmentWidthFromUrl(url)).toBe(240)
+    expect(attachmentDensityFromUrl(url)).toBe("compact")
   })
 })

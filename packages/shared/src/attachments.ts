@@ -43,13 +43,36 @@ export const attachmentWidthFromUrl = (url: string): number | null => {
   return width
 }
 
-export const withAttachmentWidth = (
+export const ATTACHMENT_DENSITY_PARAM = "d"
+
+export type AttachmentDensity = "rich" | "compact"
+
+export const attachmentDensityFromUrl = (url: string): AttachmentDensity => {
+  const cut = url.indexOf("?")
+  if (cut === -1) return "rich"
+  const raw = new URLSearchParams(url.slice(cut + 1)).get(
+    ATTACHMENT_DENSITY_PARAM
+  )
+  return raw === "compact" ? "compact" : "rich"
+}
+
+export const withAttachmentParams = (
   url: string,
-  width: number | null
+  params: {
+    readonly width?: number | null
+    readonly density?: AttachmentDensity
+  }
 ): string => {
   const base = stripQuery(url)
-  if (width === null || !Number.isFinite(width) || width <= 0) return base
-  return `${base}?${ATTACHMENT_WIDTH_PARAM}=${Math.round(width)}`
+  const query: Array<string> = []
+  const width = params.width ?? null
+  if (width !== null && Number.isFinite(width) && width > 0) {
+    query.push(`${ATTACHMENT_WIDTH_PARAM}=${Math.round(width)}`)
+  }
+  if (params.density === "compact") {
+    query.push(`${ATTACHMENT_DENSITY_PARAM}=compact`)
+  }
+  return query.length === 0 ? base : `${base}?${query.join("&")}`
 }
 
 const ATTACHMENT_URL_RE =
@@ -69,4 +92,28 @@ export const extractAttachmentRefs = (
     out.push({ orgSlug, id })
   }
   return out
+}
+
+export type AttachmentFileFormat = "pdf" | "zip" | "tar" | "gzip" | "generic"
+
+const FORMAT_SUFFIXES: ReadonlyArray<
+  readonly [suffix: string, format: AttachmentFileFormat]
+> = [
+  [".pdf", "pdf"],
+  [".zip", "zip"],
+  [".tar.gz", "gzip"],
+  [".tgz", "gzip"],
+  [".gz", "gzip"],
+  [".gzip", "gzip"],
+  [".tar", "tar"]
+]
+
+export const attachmentFileFormat = (
+  filename: string
+): AttachmentFileFormat => {
+  const name = filename.trim().toLowerCase()
+  for (const [suffix, format] of FORMAT_SUFFIXES) {
+    if (name.length > suffix.length && name.endsWith(suffix)) return format
+  }
+  return "generic"
 }

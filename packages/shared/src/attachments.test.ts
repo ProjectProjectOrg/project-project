@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+  attachmentDensityFromUrl,
+  attachmentFileFormat,
   attachmentUrl,
   attachmentWidthFromUrl,
   extractAttachmentRefs,
   parseAttachmentUrl,
-  withAttachmentWidth
+  withAttachmentParams
 } from "./attachments"
 import {
   ATTACHMENT_MIN_WIDTH,
@@ -184,42 +186,87 @@ describe("attachmentWidthFromUrl", () => {
   })
 })
 
-describe("withAttachmentWidth", () => {
+describe("withAttachmentParams", () => {
   it("appends a width", () => {
-    expect(withAttachmentWidth(`/api/attachments/acme/${ID}`, 420)).toBe(
-      `/api/attachments/acme/${ID}?w=420`
-    )
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}`, { width: 420 })
+    ).toBe(`/api/attachments/acme/${ID}?w=420`)
   })
 
-  it("replaces an existing width rather than appending twice", () => {
-    expect(withAttachmentWidth(`/api/attachments/acme/${ID}?w=100`, 420)).toBe(
-      `/api/attachments/acme/${ID}?w=420`
-    )
+  it("replaces existing params rather than appending twice", () => {
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}?w=100&d=compact`, {
+        width: 420
+      })
+    ).toBe(`/api/attachments/acme/${ID}?w=420`)
   })
 
   it("strips the width when given null", () => {
-    expect(withAttachmentWidth(`/api/attachments/acme/${ID}?w=420`, null)).toBe(
-      `/api/attachments/acme/${ID}`
-    )
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}?w=420`, { width: null })
+    ).toBe(`/api/attachments/acme/${ID}`)
   })
 
   it("rounds a fractional width", () => {
-    expect(withAttachmentWidth(`/api/attachments/acme/${ID}`, 420.6)).toBe(
-      `/api/attachments/acme/${ID}?w=421`
-    )
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}`, { width: 420.6 })
+    ).toBe(`/api/attachments/acme/${ID}?w=421`)
   })
 
-  it("round-trips through attachmentWidthFromUrl", () => {
-    const url = withAttachmentWidth(`/api/attachments/acme/${ID}`, 333)
+  it("omits the density param when rich", () => {
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}`, { density: "rich" })
+    ).toBe(`/api/attachments/acme/${ID}`)
+  })
+
+  it("writes width and density together in a stable order", () => {
+    expect(
+      withAttachmentParams(`/api/attachments/acme/${ID}`, {
+        width: 200,
+        density: "compact"
+      })
+    ).toBe(`/api/attachments/acme/${ID}?w=200&d=compact`)
+  })
+
+  it("round-trips through the readers", () => {
+    const url = withAttachmentParams(`/api/attachments/acme/${ID}`, {
+      width: 333,
+      density: "compact"
+    })
     expect(attachmentWidthFromUrl(url)).toBe(333)
+    expect(attachmentDensityFromUrl(url)).toBe("compact")
   })
 
-  it("leaves a sized url servable and reapable", () => {
-    const url = withAttachmentWidth(`/api/attachments/acme/${ID}`, 333)
+  it("leaves a parameterised url servable and reapable", () => {
+    const url = withAttachmentParams(`/api/attachments/acme/${ID}`, {
+      width: 333,
+      density: "compact"
+    })
     expect(parseAttachmentUrl(url)).toEqual({ orgSlug: "acme", id: ID })
     expect(extractAttachmentRefs(`![a](${url})`)).toEqual([
       { orgSlug: "acme", id: ID }
     ])
+  })
+})
+
+describe("attachmentDensityFromUrl", () => {
+  it("defaults to rich with no query", () => {
+    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}`)).toBe("rich")
+  })
+
+  it("reads compact", () => {
+    expect(
+      attachmentDensityFromUrl(`/api/attachments/acme/${ID}?d=compact`)
+    ).toBe("compact")
+  })
+
+  it("treats an unknown value as rich", () => {
+    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}?d=tiny`)).toBe(
+      "rich"
+    )
+    expect(attachmentDensityFromUrl(`/api/attachments/acme/${ID}?w=200`)).toBe(
+      "rich"
+    )
   })
 })
 
@@ -281,5 +328,36 @@ describe("clampAttachmentWidth", () => {
         naturalHeight: 0
       })
     ).toBe(640)
+  })
+})
+
+describe("attachmentFileFormat", () => {
+  it("recognises each allowed archive and document format", () => {
+    expect(attachmentFileFormat("report.pdf")).toBe("pdf")
+    expect(attachmentFileFormat("bundle.zip")).toBe("zip")
+    expect(attachmentFileFormat("logs.tar")).toBe("tar")
+    expect(attachmentFileFormat("dump.gz")).toBe("gzip")
+    expect(attachmentFileFormat("dump.gzip")).toBe("gzip")
+  })
+
+  it("prefers gzip over tar for double extensions", () => {
+    expect(attachmentFileFormat("logs.tar.gz")).toBe("gzip")
+    expect(attachmentFileFormat("logs.tgz")).toBe("gzip")
+  })
+
+  it("ignores case and surrounding whitespace", () => {
+    expect(attachmentFileFormat("  Report.PDF ")).toBe("pdf")
+  })
+
+  it("matches on the last extension only", () => {
+    expect(attachmentFileFormat("pdf.zip")).toBe("zip")
+    expect(attachmentFileFormat("notes.pdf.txt")).toBe("generic")
+  })
+
+  it("falls back to generic for unknown, missing or bare extensions", () => {
+    expect(attachmentFileFormat("notes.txt")).toBe("generic")
+    expect(attachmentFileFormat("README")).toBe("generic")
+    expect(attachmentFileFormat("")).toBe("generic")
+    expect(attachmentFileFormat(".pdf")).toBe("generic")
   })
 })

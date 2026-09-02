@@ -1,8 +1,11 @@
-import type { ElementTransformer } from "@lexical/markdown"
+import type { TextMatchTransformer } from "@lexical/markdown"
+import { $createTextNode } from "lexical"
 import {
+  attachmentDensityFromUrl,
   attachmentWidthFromUrl,
   parseAttachmentUrl,
-  withAttachmentWidth
+  withAttachmentParams,
+  type AttachmentDensity
 } from "@projectproject/shared"
 import {
   $createAttachmentNode,
@@ -11,23 +14,27 @@ import {
 } from "./AttachmentNode"
 
 export const ATTACHMENT_MARKDOWN_RE =
-  /^(!?)\[((?:\\.|[^\]\\])*)\]\((\/api\/attachments\/[^)\s]+)\)\s*$/
+  /(!?)\[((?:\\.|[^\]\\])*)\]\((\/api\/attachments\/[^)\s]+)\)/
 
 export const formatAttachmentMarkdown = (input: {
   readonly kind: "image" | "file"
   readonly alt: string
   readonly url: string
   readonly width?: number | null
+  readonly density?: AttachmentDensity
 }): string => {
   const alt = input.alt.replace(/([[\]\\])/g, "\\$1")
-  const url = withAttachmentWidth(input.url, input.width ?? null)
+  const url = withAttachmentParams(input.url, {
+    width: input.width ?? null,
+    density: input.density ?? "rich"
+  })
   return `${input.kind === "image" ? "!" : ""}[${alt}](${url})`
 }
 
 export const unescapeAttachmentAlt = (alt: string): string =>
   alt.replace(/\\(.)/g, "$1")
 
-export const ATTACHMENT_TRANSFORMER: ElementTransformer = {
+export const ATTACHMENT_TRANSFORMER: TextMatchTransformer = {
   dependencies: [AttachmentNode],
   export: (node) => {
     if (!$isAttachmentNode(node)) return null
@@ -36,23 +43,30 @@ export const ATTACHMENT_TRANSFORMER: ElementTransformer = {
       kind: node.getKind(),
       alt: node.getAlt(),
       url: node.getUrl(),
-      width: node.getWidth()
+      width: node.getWidth(),
+      density: node.getDensity()
     })
   },
-  regExp: ATTACHMENT_MARKDOWN_RE,
-  replace: (parentNode, _children, match) => {
+  importRegExp: ATTACHMENT_MARKDOWN_RE,
+  regExp: new RegExp(`${ATTACHMENT_MARKDOWN_RE.source}$`),
+  replace: (textNode, match) => {
     const [, bang, rawAlt, url] = match
-    if (!url || !parseAttachmentUrl(url)) return false
+    if (!url || !parseAttachmentUrl(url)) {
+      textNode.replace($createTextNode(match[0]))
+      return
+    }
     const alt = unescapeAttachmentAlt(rawAlt ?? "")
-    const node = $createAttachmentNode({
-      url: withAttachmentWidth(url, null),
-      alt,
-      filename: alt,
-      kind: bang === "!" ? "image" : "file",
-      width: attachmentWidthFromUrl(url)
-    })
-    parentNode.replace(node)
-    return true
+    textNode.replace(
+      $createAttachmentNode({
+        url: withAttachmentParams(url, {}),
+        alt,
+        filename: alt,
+        kind: bang === "!" ? "image" : "file",
+        width: attachmentWidthFromUrl(url),
+        density: attachmentDensityFromUrl(url)
+      })
+    )
   },
-  type: "element"
+  trigger: ")",
+  type: "text-match"
 }
