@@ -24,11 +24,14 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactElement,
   type ReactNode
 } from "react"
-import { clampAttachmentWidth } from "@projectproject/shared"
+import { motion } from "motion/react"
+import {
+  ATTACHMENT_MIN_WIDTH,
+  clampAttachmentWidth
+} from "@projectproject/shared"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
@@ -81,47 +84,42 @@ function AttachmentImage({
     })
   }
 
-  const startResize = (event: ReactPointerEvent<HTMLElement>) => {
+  const dragStart = useRef<{ width: number; container: number } | null>(null)
+
+  const measure = (offsetX: number): number => {
+    const img = imgRef.current
+    const start = dragStart.current
+    if (!img || !start) return ATTACHMENT_MIN_WIDTH
+    return clampAttachmentWidth({
+      width: start.width + offsetX,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      containerWidth: start.container
+    })
+  }
+
+  const onPanStart = () => {
     const img = imgRef.current
     if (!img) return
-    event.preventDefault()
-    event.stopPropagation()
-    const handle = event.currentTarget
-    try {
-      handle.setPointerCapture(event.pointerId)
-    } catch {
-      // an already-released pointer cannot be captured; the window listeners still track it
+    const width = img.getBoundingClientRect().width
+    dragStart.current = {
+      width,
+      container:
+        img.parentElement?.parentElement?.getBoundingClientRect().width ?? width
     }
+  }
 
-    const startX = event.clientX
-    const startWidth = img.getBoundingClientRect().width
-    const containerWidth =
-      img.parentElement?.parentElement?.getBoundingClientRect().width ??
-      startWidth
+  const onPan = (_event: unknown, info: { offset: { x: number } }) => {
+    if (!dragStart.current) return
+    setDragWidth(measure(info.offset.x))
+  }
 
-    const measure = (clientX: number) =>
-      clampAttachmentWidth({
-        width: startWidth + (clientX - startX),
-        naturalWidth: img.naturalWidth,
-        naturalHeight: img.naturalHeight,
-        containerWidth
-      })
-
-    const onMove = (moveEvent: PointerEvent) => {
-      setDragWidth(measure(moveEvent.clientX))
-    }
-
-    const onUp = (upEvent: PointerEvent) => {
-      window.removeEventListener("pointermove", onMove)
-      window.removeEventListener("pointerup", onUp)
-      window.removeEventListener("pointercancel", onUp)
-      setDragWidth(null)
-      onResize(measure(upEvent.clientX))
-    }
-
-    window.addEventListener("pointermove", onMove)
-    window.addEventListener("pointerup", onUp)
-    window.addEventListener("pointercancel", onUp)
+  const onPanEnd = (_event: unknown, info: { offset: { x: number } }) => {
+    if (!dragStart.current) return
+    const next = measure(info.offset.x)
+    dragStart.current = null
+    setDragWidth(null)
+    onResize(next)
   }
 
   if (broken) {
@@ -148,12 +146,15 @@ function AttachmentImage({
         onError={() => setBroken(true)}
       />
       {(["top", "bottom"] as const).map((corner) => (
-        <span
+        <motion.span
           key={corner}
           role="presentation"
           aria-hidden="true"
-          onPointerDown={startResize}
-          className={`absolute -right-1.5 hidden h-3 w-3 cursor-ew-resize rounded-full border-2 border-background bg-foreground/70 opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:bg-foreground sm:block ${
+          data-attachment-resize="true"
+          onPanStart={onPanStart}
+          onPan={onPan}
+          onPanEnd={onPanEnd}
+          className={`absolute -right-1.5 hidden h-3 w-3 cursor-ew-resize touch-none rounded-full border-2 border-background bg-foreground/70 opacity-0 group-hover:opacity-100 hover:bg-foreground sm:block ${
             corner === "top" ? "-top-1.5" : "-bottom-1.5"
           }`}
         />
@@ -417,7 +418,9 @@ function AttachmentSelectable({
           if (!element.contains(target)) return false
           if (
             target instanceof Element &&
-            target.closest("a, button, [data-attachment-action]")
+            target.closest(
+              "a, button, [data-attachment-action], [data-attachment-resize]"
+            )
           ) {
             return false
           }
@@ -453,7 +456,9 @@ function AttachmentSelectable({
   const selectOnPointer = (event: ReactMouseEvent<HTMLElement>) => {
     if (
       event.target instanceof Element &&
-      event.target.closest("a, button, [data-attachment-action]")
+      event.target.closest(
+        "a, button, [data-attachment-action], [data-attachment-resize]"
+      )
     ) {
       return
     }
