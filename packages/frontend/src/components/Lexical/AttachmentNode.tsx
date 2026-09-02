@@ -102,10 +102,10 @@ function AttachmentImage({
     const img = imgRef.current
     if (!img) return
     const width = img.getBoundingClientRect().width
+    const host = img.closest("[data-attachment-kind]")
     dragStart.current = {
       width,
-      container:
-        img.parentElement?.parentElement?.getBoundingClientRect().width ?? width
+      container: host?.getBoundingClientRect().width ?? width
     }
   }
 
@@ -145,20 +145,15 @@ function AttachmentImage({
         className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
         onError={() => setBroken(true)}
       />
-      {(["top", "bottom"] as const).map((corner) => (
-        <motion.span
-          key={corner}
-          role="presentation"
-          aria-hidden="true"
-          data-attachment-resize="true"
-          onPanStart={onPanStart}
-          onPan={onPan}
-          onPanEnd={onPanEnd}
-          className={`absolute -right-1.5 hidden h-3 w-3 cursor-ew-resize touch-none rounded-full border-2 border-background bg-foreground/70 opacity-0 group-hover:opacity-100 hover:bg-foreground sm:block ${
-            corner === "top" ? "-top-1.5" : "-bottom-1.5"
-          }`}
-        />
-      ))}
+      <motion.span
+        role="presentation"
+        aria-hidden="true"
+        data-attachment-resize="true"
+        onPanStart={onPanStart}
+        onPan={onPan}
+        onPanEnd={onPanEnd}
+        className="absolute -right-1 top-0 hidden h-full w-2 cursor-ew-resize touch-none rounded-full bg-foreground/50 opacity-0 group-hover:opacity-100 hover:bg-foreground sm:block"
+      />
     </span>
   )
 }
