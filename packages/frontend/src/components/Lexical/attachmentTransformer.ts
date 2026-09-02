@@ -7,16 +7,19 @@ import {
 } from "./AttachmentNode"
 
 export const ATTACHMENT_MARKDOWN_RE =
-  /^(!?)\[([^\]]*)\]\((\/api\/attachments\/[^)\s]+)\)\s*$/
+  /^(!?)\[((?:\\.|[^\]\\])*)\]\((\/api\/attachments\/[^)\s]+)\)\s*$/
 
 export const formatAttachmentMarkdown = (input: {
   readonly kind: "image" | "file"
   readonly alt: string
   readonly url: string
 }): string => {
-  const alt = input.alt.replace(/([[\]])/g, "\\$1")
+  const alt = input.alt.replace(/([[\]\\])/g, "\\$1")
   return `${input.kind === "image" ? "!" : ""}[${alt}](${input.url})`
 }
+
+export const unescapeAttachmentAlt = (alt: string): string =>
+  alt.replace(/\\(.)/g, "$1")
 
 export const ATTACHMENT_TRANSFORMER: ElementTransformer = {
   dependencies: [AttachmentNode],
@@ -31,12 +34,13 @@ export const ATTACHMENT_TRANSFORMER: ElementTransformer = {
   },
   regExp: ATTACHMENT_MARKDOWN_RE,
   replace: (parentNode, _children, match) => {
-    const [, bang, alt, url] = match
+    const [, bang, rawAlt, url] = match
     if (!url || !parseAttachmentUrl(url)) return false
+    const alt = unescapeAttachmentAlt(rawAlt ?? "")
     const node = $createAttachmentNode({
       url,
-      alt: alt ?? "",
-      filename: alt ?? "",
+      alt,
+      filename: alt,
       kind: bang === "!" ? "image" : "file"
     })
     parentNode.replace(node)
