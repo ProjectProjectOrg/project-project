@@ -98,7 +98,7 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `packages/frontend/messages/en/common.json`   | `common_`, `error_`, `validation_`                     |
 | `packages/frontend/messages/en/shell.json`    | `chrome_`, `nav_`, `theme_`                            |
 | `packages/frontend/messages/en/account.json`  | `auth_`, `profile_`                                    |
-| `packages/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_` |
+| `packages/frontend/messages/en/projects.json` | `org_`, `projects_`, `project_`, `members_`, `editor_`, `storage_` |
 | `packages/frontend/messages/en/comments.json` | `comments_`                                            |
 | `packages/frontend/messages/en/tickets.json`  | `tickets_`                                             |
 | `packages/frontend/messages/en/tags.json`     | `tags_`, `color_`                                      |

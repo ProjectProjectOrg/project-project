@@ -1,5 +1,8 @@
 import * as Match from "effect/Match"
 import type {
+  AttachmentNotUploaded,
+  AttachmentTooLarge,
+  AttachmentTypeRejected,
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -18,6 +21,10 @@ import type {
   RateLimited,
   RepoGone,
   SprintCompletedImmutable,
+  StorageAuthInvalid,
+  StorageConfigMissing,
+  StorageError,
+  StorageNotConnected,
   Unauthorized
 } from "@projectproject/shared"
 import type { InviteAcceptError } from "@/lib/invitations"
@@ -44,6 +51,13 @@ export type AppError =
   | MentionInvalid
   | SprintCompletedImmutable
   | InviteAcceptError
+  | StorageAuthInvalid
+  | StorageConfigMissing
+  | StorageError
+  | StorageNotConnected
+  | AttachmentTooLarge
+  | AttachmentTypeRejected
+  | AttachmentNotUploaded
 
 export const errorMessage = (error: AppError): string =>
   Match.value(error).pipe(
@@ -78,7 +92,19 @@ export const errorMessage = (error: AppError): string =>
     Match.tag("EverhourError", (error) =>
       m.error_everhour_upstream({ message: error.message })
     ),
-    Match.tag("Unauthorized", () => m.error_unknown()),
+    Match.tag("Unauthorized", () => m.error_unknown())
+  ).pipe(
+    Match.tag("StorageAuthInvalid", () => m.storage_error_auth()),
+    Match.tag("StorageConfigMissing", () => m.storage_error_config()),
+    Match.tag("StorageError", () => m.storage_error_unreachable()),
+    Match.tag("StorageNotConnected", () => m.storage_error_unreachable()),
+    Match.tag("AttachmentTooLarge", () => m.editor_attachment_too_large()),
+    Match.tag("AttachmentTypeRejected", () =>
+      m.editor_attachment_type_rejected()
+    ),
+    Match.tag("AttachmentNotUploaded", () =>
+      m.editor_attachment_upload_failed()
+    ),
     Match.orElse(() => m.error_unknown())
   )
 
