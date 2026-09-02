@@ -24,6 +24,7 @@ import { Projects } from "../Services/Projects"
 import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
 import {
   Attachments,
+  isServableStatus,
   planReap,
   planReconciliation,
   validateUploadRequest,
@@ -249,7 +250,7 @@ export const AttachmentsLive = Layer.effect(
           .pipe(Effect.orDie)
 
         const row = rows[0]
-        if (!row || row.status !== "live") {
+        if (!row || !isServableStatus(row.status)) {
           return yield* new NotFound()
         }
 

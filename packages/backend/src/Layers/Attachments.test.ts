@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { ATTACHMENT_MAX_BYTES } from "@projectproject/shared"
-import { validateUploadRequest } from "../Services/Attachments"
 import {
+  isServableStatus,
   ORPHAN_GRACE_MS,
   planReap,
-  planReconciliation
+  planReconciliation,
+  validateUploadRequest
 } from "../Services/Attachments"
 
 describe("validateUploadRequest", () => {
@@ -280,5 +281,19 @@ describe("planReap", () => {
         ]
       })
     ).toEqual([])
+  })
+})
+
+describe("isServableStatus", () => {
+  it("serves a live attachment", () => {
+    expect(isServableStatus("live")).toBe(true)
+  })
+
+  it("serves an orphaned attachment, so undoing a removal shows the image again rather than a load error", () => {
+    expect(isServableStatus("orphaned")).toBe(true)
+  })
+
+  it("refuses a pending attachment, whose object may not exist yet", () => {
+    expect(isServableStatus("pending")).toBe(false)
   })
 })
