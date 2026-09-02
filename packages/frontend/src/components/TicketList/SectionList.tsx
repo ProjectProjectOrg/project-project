@@ -141,10 +141,10 @@ export function SectionList({
         aria-hidden={collapsed || undefined}
         inert={collapsed ? true : undefined}
         className={cn(
-          "grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.65,0,0.35,1)] motion-reduce:transition-none",
+          "grid duration-150 transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.65,0,0.35,1)] motion-reduce:transition-none",
           collapsed
-            ? "grid-rows-[0fr] opacity-0 duration-150"
-            : "grid-rows-[1fr] opacity-100 duration-200"
+            ? "grid-rows-[0fr] opacity-0"
+            : "grid-rows-[1fr] opacity-100"
         )}
       >
         <div className="min-h-0 overflow-hidden">
