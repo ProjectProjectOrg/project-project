@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   ATTACHMENT_MARKDOWN_RE,
-  formatAttachmentMarkdown
+  formatAttachmentMarkdown,
+  unescapeAttachmentAlt
 } from "./attachmentTransformer"
 
 const ID = "01JBX7Q2K9ZWCVE8MTQ4RXPGHN"
@@ -60,5 +61,22 @@ describe("formatAttachmentMarkdown", () => {
       url: URL
     })
     expect(md.match(ATTACHMENT_MARKDOWN_RE)![3]).toBe(URL)
+  })
+
+  it("round-trips an alt text containing brackets back to the original filename", () => {
+    const alt = "shot [1].png"
+    const md = formatAttachmentMarkdown({ kind: "image", alt, url: URL })
+    const match = md.match(ATTACHMENT_MARKDOWN_RE)
+    expect(match).not.toBeNull()
+    expect(unescapeAttachmentAlt(match![2])).toBe(alt)
+    expect(match![3]).toBe(URL)
+  })
+
+  it("round-trips an alt text containing a backslash", () => {
+    const alt = "a\\b.png"
+    const md = formatAttachmentMarkdown({ kind: "image", alt, url: URL })
+    const match = md.match(ATTACHMENT_MARKDOWN_RE)
+    expect(match).not.toBeNull()
+    expect(unescapeAttachmentAlt(match![2])).toBe(alt)
   })
 })
