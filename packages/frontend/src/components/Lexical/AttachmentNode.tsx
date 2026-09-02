@@ -66,6 +66,8 @@ export type SerializedAttachmentNode = Spread<
 
 const PRESS = "active:scale-[0.97] transition-transform duration-100"
 
+const MORPH = "duration-200 ease-out"
+
 const contentWidth = (element: HTMLElement | null): number | null => {
   if (element === null) return null
   const style = getComputedStyle(element)
@@ -537,7 +539,12 @@ function AttachmentSelectable({
           isSelected ? "z-20 ring-2 ring-ring" : "z-0 ring-0 ring-transparent"
         }`}
       >
-        {children}
+        <span
+          key={density ?? "pending"}
+          className={`block origin-top-left animate-in fade-in-0 zoom-in-95 ${MORPH}`}
+        >
+          {children}
+        </span>
         {deletable ? (
           <Button
             variant="ghost"

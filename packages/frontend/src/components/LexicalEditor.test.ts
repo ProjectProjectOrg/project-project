@@ -230,6 +230,30 @@ describe("description editor attachment transformers", () => {
     expect(roundTripAttachmentMarkdown(line)).toBe(line)
   })
 
+  it("keeps leading text and several attachments on the same line", () => {
+    const second = `/api/attachments/acme/01JBX7Q2K9ZWCVE8MTQ4RXPGHM`
+    const line = `Four in a row: ${ATTACHMENT_MARKDOWN} ![b](${second})`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
+  })
+
+  it("keeps leading text and four attachments on the same line", () => {
+    const ids = [
+      "01JBX7Q2K9ZWCVE8MTQ4RXPGHM",
+      "01JBX7Q2K9ZWCVE8MTQ4RXPGHP",
+      "01JBX7Q2K9ZWCVE8MTQ4RXPGHQ"
+    ]
+    const rest = ids
+      .map((id, index) => `[f${index}](/api/attachments/acme/${id})`)
+      .join(" ")
+    const line = `Four in a row: ${ATTACHMENT_MARKDOWN} ${rest}`
+    expect(roundTripAttachmentMarkdown(line)).toBe(line)
+  })
+
+  it("keeps a document whose blocks surround an attachment line intact", () => {
+    const doc = `# Attachment smoke test\n\nFour in a row: ${ATTACHMENT_MARKDOWN}\n\nCompact inline: see [b](${ATTACHMENT_URL}?d=compact) for details.`
+    expect(roundTripAttachmentMarkdown(doc)).toBe(doc)
+  })
+
   it("round-trips the compact density param", () => {
     const line = `![shot](${ATTACHMENT_URL}?d=compact)`
     expect(roundTripAttachmentMarkdown(line)).toBe(line)
