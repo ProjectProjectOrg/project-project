@@ -867,7 +867,7 @@ export const EverhourIntegrationsLive = Layer.effect(
             )
           })
           .pipe(Effect.orDie)
-        const config = orgIntegration?.config ?? {
+        const config = (orgIntegration?.config as OrgEverhourConfig | null) ?? {
           workTypes: DEFAULT_WORK_TYPES
         }
         yield* syncWorkTypeTasks(apiKey, link, summary, config)

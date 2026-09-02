@@ -170,7 +170,9 @@ export const EverhourTimeTrackingLive = Layer.effect(
           Effect.orDie,
           Effect.map(
             (row): OrgEverhourConfig =>
-              row?.config ?? { workTypes: DEFAULT_WORK_TYPES }
+              (row?.config as OrgEverhourConfig | null) ?? {
+                workTypes: DEFAULT_WORK_TYPES
+              }
           )
         )
 
