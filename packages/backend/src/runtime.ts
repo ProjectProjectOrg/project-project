@@ -1,5 +1,6 @@
 import { BunContext } from "@effect/platform-bun"
 import * as Layer from "effect/Layer"
+import { AttachmentsLive } from "./Layers/Attachments"
 import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"
@@ -33,7 +34,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   BunContext.layer
 )
 
-export const BackendServicesLive = TagsLive.pipe(
+const BackendServicesLiveBeforeAttachments = TagsLive.pipe(
   Layer.provideMerge(ProjectStatusesLive),
   Layer.provideMerge(TicketsLive),
   Layer.provideMerge(CommentsLive),
@@ -72,6 +73,10 @@ export const BackendServicesLive = TagsLive.pipe(
       Layer.provideMerge(CurrentOrgLive)
     )
   )
+)
+
+export const BackendServicesLive = AttachmentsLive.pipe(
+  Layer.provideMerge(BackendServicesLiveBeforeAttachments)
 )
 
 export const BackendHttpServicesLive = BackendServicesLive.pipe(
