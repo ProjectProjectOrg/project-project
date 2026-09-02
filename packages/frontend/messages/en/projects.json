@@ -224,6 +224,7 @@
   "members_role_select_aria_label": "Role: {role}. Click to change.",
   "members_self_indicator": "you",
   "editor_attachment_add": "Attach a file",
+  "editor_attachment_connect_prompt": "Connect object storage to attach files to tickets.",
   "editor_attachment_download": "Download",
   "editor_attachment_remove": "Remove",
   "editor_attachment_retry": "Retry",

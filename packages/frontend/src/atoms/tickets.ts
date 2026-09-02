@@ -83,7 +83,7 @@ const decodeListQuery = (queryJson: string) =>
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
-const splitTicketKey = (
+export const splitTicketKey = (
   key: string
 ): { orgSlug: string; slug: string; id: TicketId } => {
   const parts = key.split("/")

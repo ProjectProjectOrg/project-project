@@ -20,6 +20,7 @@ import {
   CHECK_LIST,
   TRANSFORMERS
 } from "@lexical/markdown"
+import type { TicketId } from "@projectproject/shared"
 import { RichTextExtension } from "@lexical/rich-text"
 import { HistoryExtension } from "@lexical/history"
 import {
@@ -43,6 +44,9 @@ import {
 import { MentionExtension } from "./Lexical/MentionExtension"
 import { MentionsPlugin } from "./Lexical/MentionsPlugin"
 import { MENTION_TRANSFORMER } from "./Lexical/mentionTransformer"
+import { AttachmentExtension } from "./Lexical/AttachmentExtension"
+import { AttachmentsPlugin } from "./Lexical/AttachmentsPlugin"
+import { ATTACHMENT_TRANSFORMER } from "./Lexical/attachmentTransformer"
 import {
   HORIZONTAL_RULE,
   HorizontalRuleEnterExtension
@@ -59,6 +63,11 @@ export const MARKDOWN_TRANSFORMERS = [
   HORIZONTAL_RULE,
   ...TRANSFORMERS
 ]
+
+const transformersFor = (withAttachments: boolean) =>
+  withAttachments
+    ? [ATTACHMENT_TRANSFORMER, ...MARKDOWN_TRANSFORMERS]
+    : MARKDOWN_TRANSFORMERS
 
 const URL_MATCHER = createLinkMatcherWithRegExp(
   /(?:https?:\/\/|www\.)[^\s<>()]+[^\s<>().,;:!?]/i,
@@ -166,6 +175,11 @@ export interface LexicalEditorProps {
   placeholder?: string
   autoFocus?: boolean
   compact?: boolean
+  attachments?: {
+    readonly orgSlug: string
+    readonly slug: string
+    readonly ticketId: TicketId
+  }
 }
 
 export function nextMarkdownChange(
@@ -211,11 +225,14 @@ export function LexicalEditor({
   className,
   placeholder = m.editor_placeholder(),
   autoFocus = false,
-  compact = false
+  compact = false,
+  attachments
 }: LexicalEditorProps) {
+  const withAttachments = attachments !== undefined
   const [extension] = useState(() => {
     const initialMarkdown = markdown
     const initialAutoFocus = autoFocus
+    const initialWithAttachments = attachments !== undefined
     return defineExtension({
       name: "@projectproject/body-editor",
       namespace: "ProjectBody",
@@ -224,7 +241,10 @@ export function LexicalEditor({
         Effect.runFork(Effect.logError("[Lexical]", error))
       },
       $initialEditorState: () => {
-        $convertFromMarkdownString(initialMarkdown, MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(
+          initialMarkdown,
+          transformersFor(initialWithAttachments)
+        )
         const root = $getRoot()
         const last = root.getLastChild()
         if (!last || last.getType() !== "paragraph") {
@@ -251,6 +271,7 @@ export function LexicalEditor({
         HorizontalRuleExtension,
         HorizontalRuleEnterExtension,
         MentionExtension,
+        ...(initialWithAttachments ? [AttachmentExtension] : []),
         configExtension(TabIndentationExtension, {
           $canIndent: $canIndentInsideLists,
           maxIndent: 4
@@ -358,12 +379,17 @@ export function LexicalEditor({
         contentEditable={contentEditable}
       >
         <MentionsPlugin />
+        {attachments ? <AttachmentsPlugin {...attachments} /> : null}
         <LinkBlurActivationPlugin />
-        <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
+        <MarkdownShortcutPlugin
+          transformers={transformersFor(withAttachments)}
+        />
         <OnChangePlugin
           onChange={(editorState) => {
             editorState.read(() => {
-              const next = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
+              const next = $convertToMarkdownString(
+                transformersFor(withAttachments)
+              )
               const changed = nextMarkdownChange(liveRef.current, next)
               if (changed === null) return
               liveRef.current = changed

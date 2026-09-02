@@ -1,7 +1,10 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import { Link } from "@tanstack/react-router"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { orgDetailAtom } from "@/atoms/orgs"
+import { orgStorageAtom } from "@/atoms/storage"
 import {
   ticketBodyDraftAtom,
   ticketKey,
@@ -35,6 +38,13 @@ export function DescriptionField({
   const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
   const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
   const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
+  const storageResult = useAtomValue(orgStorageAtom(orgSlug))
+  const orgResult = useAtomValue(orgDetailAtom(orgSlug))
+  const storageActive =
+    Result.isSuccess(storageResult) && storageResult.value.status === "active"
+  const canConnectStorage =
+    Result.isSuccess(orgResult) &&
+    (orgResult.value.role === "owner" || orgResult.value.role === "admin")
 
   useEffect(() => {
     if (bodyDraft !== null && ticket.body === bodyDraft) setBodyDraft(null)
@@ -109,6 +119,11 @@ export function DescriptionField({
               }}
               onStatusChange={onStatusChange}
               autoFocus={autoFocus}
+              attachments={
+                storageActive
+                  ? { orgSlug, slug, ticketId: ticket.id }
+                  : undefined
+              }
             />
           </MentionScopeProvider>
         </div>
@@ -119,6 +134,17 @@ export function DescriptionField({
           )}
         />
       </div>
+      {!storageActive && canConnectStorage && (
+        <div className="mt-2 px-3">
+          <Link
+            to="/orgs/$orgSlug/settings/storage"
+            params={{ orgSlug }}
+            className="text-xs text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
+          >
+            {m.editor_attachment_connect_prompt()}
+          </Link>
+        </div>
+      )}
       {overflows && (
         <div className="mt-2 flex justify-center">
           <button
