@@ -289,8 +289,12 @@ export const AttachmentsLive = Layer.effect(
             .map((ref) => ref.id)
         )
 
-        const rows = yield* db
-          .select({ id: attachmentIndex.id, status: attachmentIndex.status })
+        const ownRows = yield* db
+          .select({
+            id: attachmentIndex.id,
+            ticketId: attachmentIndex.ticketId,
+            status: attachmentIndex.status
+          })
           .from(attachmentIndex)
           .where(
             and(
@@ -301,7 +305,29 @@ export const AttachmentsLive = Layer.effect(
           )
           .pipe(Effect.orDie)
 
-        const plan = planReconciliation({ referenced, rows })
+        const referencedRows =
+          referenced.size === 0
+            ? []
+            : yield* db
+                .select({
+                  id: attachmentIndex.id,
+                  ticketId: attachmentIndex.ticketId,
+                  status: attachmentIndex.status
+                })
+                .from(attachmentIndex)
+                .where(
+                  and(
+                    eq(attachmentIndex.orgSlug, orgSlug),
+                    inArray(attachmentIndex.id, [...referenced])
+                  )
+                )
+                .pipe(Effect.orDie)
+
+        const plan = planReconciliation({
+          ticketId,
+          referenced,
+          rows: [...ownRows, ...referencedRows]
+        })
 
         const now = yield* DateTime.nowAsDate
 

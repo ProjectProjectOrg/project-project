@@ -73,12 +73,16 @@ describe("validateUploadRequest", () => {
 })
 
 describe("planReconciliation", () => {
+  const TICKET = "T-1"
+  const OTHER_TICKET = "T-2"
+
   it("orphans a live row the body no longer references", () => {
     const plan = planReconciliation({
+      ticketId: TICKET,
       referenced: new Set(["a"]),
       rows: [
-        { id: "a", status: "live" },
-        { id: "b", status: "live" }
+        { id: "a", ticketId: TICKET, status: "live" },
+        { id: "b", ticketId: TICKET, status: "live" }
       ]
     })
     expect(plan.toOrphan).toEqual(["b"])
@@ -87,8 +91,9 @@ describe("planReconciliation", () => {
 
   it("restores an orphaned row the body references again", () => {
     const plan = planReconciliation({
+      ticketId: TICKET,
       referenced: new Set(["a"]),
-      rows: [{ id: "a", status: "orphaned" }]
+      rows: [{ id: "a", ticketId: TICKET, status: "orphaned" }]
     })
     expect(plan.toRestore).toEqual(["a"])
     expect(plan.toOrphan).toEqual([])
@@ -96,8 +101,9 @@ describe("planReconciliation", () => {
 
   it("leaves pending rows alone", () => {
     const plan = planReconciliation({
+      ticketId: TICKET,
       referenced: new Set(),
-      rows: [{ id: "a", status: "pending" }]
+      rows: [{ id: "a", ticketId: TICKET, status: "pending" }]
     })
     expect(plan.toOrphan).toEqual([])
     expect(plan.toRestore).toEqual([])
@@ -105,10 +111,11 @@ describe("planReconciliation", () => {
 
   it("is a no-op when everything is referenced", () => {
     const plan = planReconciliation({
+      ticketId: TICKET,
       referenced: new Set(["a", "b"]),
       rows: [
-        { id: "a", status: "live" },
-        { id: "b", status: "live" }
+        { id: "a", ticketId: TICKET, status: "live" },
+        { id: "b", ticketId: TICKET, status: "live" }
       ]
     })
     expect(plan.toOrphan).toEqual([])
@@ -117,11 +124,54 @@ describe("planReconciliation", () => {
 
   it("ignores a referenced id with no row", () => {
     const plan = planReconciliation({
+      ticketId: TICKET,
       referenced: new Set(["ghost"]),
-      rows: [{ id: "a", status: "live" }]
+      rows: [{ id: "a", ticketId: TICKET, status: "live" }]
     })
     expect(plan.toOrphan).toEqual(["a"])
     expect(plan.toRestore).toEqual([])
+  })
+
+  it("restores an orphaned row owned by another ticket that this body references", () => {
+    const plan = planReconciliation({
+      ticketId: TICKET,
+      referenced: new Set(["a"]),
+      rows: [{ id: "a", ticketId: OTHER_TICKET, status: "orphaned" }]
+    })
+    expect(plan.toRestore).toEqual(["a"])
+    expect(plan.toOrphan).toEqual([])
+  })
+
+  it("does not orphan another ticket's live row that this body does not reference", () => {
+    const plan = planReconciliation({
+      ticketId: TICKET,
+      referenced: new Set(),
+      rows: [{ id: "a", ticketId: OTHER_TICKET, status: "live" }]
+    })
+    expect(plan.toOrphan).toEqual([])
+    expect(plan.toRestore).toEqual([])
+  })
+
+  it("restores a referenced pending row so the reaper cannot delete a referenced object", () => {
+    const plan = planReconciliation({
+      ticketId: TICKET,
+      referenced: new Set(["a"]),
+      rows: [{ id: "a", ticketId: TICKET, status: "pending" }]
+    })
+    expect(plan.toRestore).toEqual(["a"])
+    expect(plan.toOrphan).toEqual([])
+  })
+
+  it("plans each row once when a referenced row appears in both scopes", () => {
+    const plan = planReconciliation({
+      ticketId: TICKET,
+      referenced: new Set(["a"]),
+      rows: [
+        { id: "a", ticketId: TICKET, status: "orphaned" },
+        { id: "a", ticketId: TICKET, status: "orphaned" }
+      ]
+    })
+    expect(plan.toRestore).toEqual(["a"])
   })
 })
 

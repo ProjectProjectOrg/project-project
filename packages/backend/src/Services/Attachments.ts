@@ -89,10 +89,12 @@ export const REAPER_INTERVAL_MS = 60 * 60 * 1000
 
 export interface ReconciliationRow {
   readonly id: string
+  readonly ticketId: string
   readonly status: "pending" | "live" | "orphaned"
 }
 
 export const planReconciliation = (input: {
+  readonly ticketId: string
   readonly referenced: ReadonlySet<string>
   readonly rows: ReadonlyArray<ReconciliationRow>
 }): {
@@ -101,11 +103,17 @@ export const planReconciliation = (input: {
 } => {
   const toOrphan: string[] = []
   const toRestore: string[] = []
+  const seen = new Set<string>()
   for (const row of input.rows) {
-    if (row.status === "pending") continue
-    const referenced = input.referenced.has(row.id)
-    if (row.status === "live" && !referenced) toOrphan.push(row.id)
-    if (row.status === "orphaned" && referenced) toRestore.push(row.id)
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
+    if (input.referenced.has(row.id)) {
+      if (row.status !== "live") toRestore.push(row.id)
+      continue
+    }
+    if (row.status === "live" && row.ticketId === input.ticketId) {
+      toOrphan.push(row.id)
+    }
   }
   return { toOrphan, toRestore }
 }
