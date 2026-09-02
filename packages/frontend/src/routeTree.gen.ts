@@ -21,6 +21,7 @@ import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/org
 import { Route as AuthedOrgsOrgSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/route'
 import { Route as AuthedOrgsOrgSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
+import { Route as AuthedOrgsOrgSlugSettingsStorageRouteImport } from './routes/_authed/orgs/$orgSlug/settings/storage'
 import { Route as AuthedOrgsOrgSlugSettingsMembersRouteImport } from './routes/_authed/orgs/$orgSlug/settings/members'
 import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/settings/general'
 import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
@@ -99,6 +100,12 @@ const AuthedOrgsOrgSlugProjectsIndexRoute =
     id: '/projects/',
     path: '/projects/',
     getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugSettingsStorageRoute =
+  AuthedOrgsOrgSlugSettingsStorageRouteImport.update({
+    id: '/storage',
+    path: '/storage',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugSettingsMembersRoute =
   AuthedOrgsOrgSlugSettingsMembersRouteImport.update({
@@ -211,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
@@ -266,6 +275,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/_authed/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  '/_authed/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/_authed/orgs/$orgSlug/projects/': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
+    | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects/'
     | '/orgs/$orgSlug/settings/'
     | '/orgs/$orgSlug/projects/$slug/settings'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
+    | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/projects/$slug/about'
@@ -351,6 +363,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/danger'
     | '/_authed/orgs/$orgSlug/settings/general'
     | '/_authed/orgs/$orgSlug/settings/members'
+    | '/_authed/orgs/$orgSlug/settings/storage'
     | '/_authed/orgs/$orgSlug/projects/'
     | '/_authed/orgs/$orgSlug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings'
@@ -460,6 +473,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/projects/'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/settings/storage': {
+      id: '/_authed/orgs/$orgSlug/settings/storage'
+      path: '/storage'
+      fullPath: '/orgs/$orgSlug/settings/storage'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsStorageRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/settings/members': {
       id: '/_authed/orgs/$orgSlug/settings/members'
@@ -580,6 +600,7 @@ interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
   AuthedOrgsOrgSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
+  AuthedOrgsOrgSlugSettingsStorageRoute: typeof AuthedOrgsOrgSlugSettingsStorageRoute
   AuthedOrgsOrgSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugSettingsIndexRoute
 }
 
@@ -590,6 +611,8 @@ const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRout
       AuthedOrgsOrgSlugSettingsGeneralRoute,
     AuthedOrgsOrgSlugSettingsMembersRoute:
       AuthedOrgsOrgSlugSettingsMembersRoute,
+    AuthedOrgsOrgSlugSettingsStorageRoute:
+      AuthedOrgsOrgSlugSettingsStorageRoute,
     AuthedOrgsOrgSlugSettingsIndexRoute: AuthedOrgsOrgSlugSettingsIndexRoute,
   }
 
