@@ -6,7 +6,8 @@ import {
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { useState, type ReactElement } from "react"
+import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
+import { useState, type ReactElement, type ReactNode } from "react"
 import { m } from "@/paraglide/messages"
 
 export type AttachmentKind = "image" | "file"
@@ -181,6 +182,14 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   }
 
   decorate(): ReactElement {
+    return (
+      <AttachmentSelectable nodeKey={this.getKey()}>
+        {this.renderContent()}
+      </AttachmentSelectable>
+    )
+  }
+
+  renderContent(): ReactElement {
     if (this.__failed) {
       return (
         <span className="my-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
@@ -242,6 +251,27 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       </span>
     )
   }
+}
+
+function AttachmentSelectable({
+  nodeKey,
+  children
+}: {
+  nodeKey: string
+  children: ReactNode
+}) {
+  const [isSelected] = useLexicalNodeSelection(nodeKey)
+
+  return (
+    <span
+      data-attachment-selected={isSelected ? "true" : undefined}
+      className={`block rounded-xl ring-offset-2 ring-offset-background transition-shadow duration-150 ${
+        isSelected ? "ring-2 ring-ring" : "ring-0 ring-transparent"
+      }`}
+    >
+      {children}
+    </span>
+  )
 }
 
 export function $createAttachmentNode(
