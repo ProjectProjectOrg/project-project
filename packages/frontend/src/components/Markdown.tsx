@@ -55,7 +55,7 @@ export function Markdown({
                 loading="lazy"
                 decoding="async"
                 style={width === null ? undefined : { width: `${width}px` }}
-                className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
+                className="my-2 h-auto max-h-96 w-auto max-w-full rounded-lg object-contain"
                 {...rest}
               />
             )

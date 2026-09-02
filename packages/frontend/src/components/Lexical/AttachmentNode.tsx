@@ -142,7 +142,7 @@ function AttachmentImage({
         style={
           effectiveWidth === null ? undefined : { width: `${effectiveWidth}px` }
         }
-        className="h-auto max-h-96 w-auto max-w-full rounded-lg border object-contain"
+        className="h-auto max-h-96 w-auto max-w-full rounded-lg border border-transparent object-contain transition-colors group-hover:border-border"
         onError={() => setBroken(true)}
       />
       <motion.span
@@ -152,7 +152,7 @@ function AttachmentImage({
         onPanStart={onPanStart}
         onPan={onPan}
         onPanEnd={onPanEnd}
-        className="absolute -right-1 top-0 hidden h-full w-2 cursor-ew-resize touch-none rounded-full bg-foreground/50 opacity-0 group-hover:opacity-100 hover:bg-foreground sm:block"
+        className="absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-colors group-hover:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
       />
     </span>
   )
