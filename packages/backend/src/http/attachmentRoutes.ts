@@ -30,7 +30,8 @@ const serveAttachment = Effect.gen(function* () {
   const { url: signed } = yield* attachments.resolveForServing(
     ref.orgSlug,
     ref.id,
-    session.user.id
+    session.user.id,
+    { download: url.searchParams.get("download") === "1" }
   )
   return HttpServerResponse.redirect(signed, {
     status: 302,

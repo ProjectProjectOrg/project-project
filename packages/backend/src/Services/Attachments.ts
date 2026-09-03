@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import {
   ATTACHMENT_MAX_BYTES,
   isAllowedAttachmentContentType,
+  isRasterImageContentType,
   type Attachment,
   type AttachmentListParams,
   type AttachmentListPage,
@@ -43,6 +44,12 @@ export const attachmentSortPlan = (
       return { column: "createdAt", direction: "desc" }
   }
 }
+
+export const attachmentServesInline = (input: {
+  readonly contentType: string
+  readonly download: boolean
+}): boolean =>
+  !input.download && isRasterImageContentType(input.contentType)
 
 export const DEFAULT_ATTACHMENT_LIMIT = 50
 
@@ -106,7 +113,8 @@ export interface AttachmentsShape {
   readonly resolveForServing: (
     orgSlug: string,
     attachmentId: string,
-    userId: string
+    userId: string,
+    options?: { readonly download?: boolean }
   ) => Effect.Effect<
     { readonly url: string },
     | NotFound
@@ -156,35 +164,41 @@ export class Attachments extends Context.Tag(
 export const ORPHAN_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 export const REAPER_INTERVAL_MS = 60 * 60 * 1000
 
-export interface ReconciliationRow {
-  readonly id: string
-  readonly ticketId: string
-  readonly status: "pending" | "live" | "orphaned"
+export const planReferences = (input: {
+  readonly referenced: ReadonlySet<string>
+  readonly existing: ReadonlyArray<string>
+}): {
+  readonly toAdd: ReadonlyArray<string>
+  readonly toRemove: ReadonlyArray<string>
+} => {
+  const existing = new Set(input.existing)
+  return {
+    toAdd: [...input.referenced].filter((id) => !existing.has(id)),
+    toRemove: [...existing].filter((id) => !input.referenced.has(id))
+  }
 }
 
-export const planReconciliation = (input: {
-  readonly ticketId: string
-  readonly referenced: ReadonlySet<string>
-  readonly rows: ReadonlyArray<ReconciliationRow>
+export const planStatuses = (input: {
+  readonly rows: ReadonlyArray<{
+    readonly id: string
+    readonly status: "pending" | "live" | "orphaned"
+  }>
+  readonly referenceCounts: ReadonlyMap<string, number>
 }): {
+  readonly toLive: ReadonlyArray<string>
   readonly toOrphan: ReadonlyArray<string>
-  readonly toRestore: ReadonlyArray<string>
 } => {
-  const toOrphan: string[] = []
-  const toRestore: string[] = []
-  const seen = new Set<string>()
+  const toLive: Array<string> = []
+  const toOrphan: Array<string> = []
   for (const row of input.rows) {
-    if (seen.has(row.id)) continue
-    seen.add(row.id)
-    if (input.referenced.has(row.id)) {
-      if (row.status !== "live") toRestore.push(row.id)
-      continue
-    }
-    if (row.status === "live" && row.ticketId === input.ticketId) {
+    const count = input.referenceCounts.get(row.id) ?? 0
+    if (count > 0) {
+      if (row.status !== "live") toLive.push(row.id)
+    } else if (row.status === "live") {
       toOrphan.push(row.id)
     }
   }
-  return { toOrphan, toRestore }
+  return { toLive, toOrphan }
 }
 
 export interface ReapRow {

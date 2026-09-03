@@ -12,13 +12,17 @@ import {
   AttachmentTypeRejected,
   extractAttachmentRefs,
   Forbidden,
-  isRasterImageContentType,
   NotFound,
   StorageError,
   type Attachment,
-  type AttachmentRow
+  type AttachmentRow,
+  type AttachmentTicketRef
 } from "@projectproject/shared"
-import { attachmentIndex, projectIndex } from "../db/schema"
+import {
+  attachmentIndex,
+  attachmentReference,
+  projectIndex
+} from "../db/schema"
 import { CurrentOrg, isOrgAdminRole } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
@@ -27,12 +31,14 @@ import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
 import {
   Attachments,
   attachmentPageOffset,
+  attachmentServesInline,
   attachmentSortPlan,
   DEFAULT_ATTACHMENT_LIMIT,
   isServableStatus,
   isAttachmentDeletable,
   planReap,
-  planReconciliation,
+  planReferences,
+  planStatuses,
   validateUploadRequest,
   type AttachmentsShape
 } from "../Services/Attachments"
@@ -87,11 +93,13 @@ export const AttachmentsLive = Layer.effect(
     })
 
     const toAttachmentRow = (
-      row: typeof attachmentIndex.$inferSelect
+      row: typeof attachmentIndex.$inferSelect,
+      tickets: ReadonlyArray<AttachmentTicketRef>
     ): AttachmentRow => ({
       ...toAttachment(row),
       projectSlug: row.projectSlug,
-      ticketId: row.ticketId
+      ticketId: row.ticketId,
+      tickets
     })
 
     const prepare: AttachmentsShape["prepare"] = (
@@ -260,7 +268,8 @@ export const AttachmentsLive = Layer.effect(
     const resolveForServing: AttachmentsShape["resolveForServing"] = (
       orgSlug,
       attachmentId,
-      userId
+      userId,
+      options
     ) =>
       Effect.gen(function* () {
         const rows = yield* db
@@ -293,7 +302,10 @@ export const AttachmentsLive = Layer.effect(
             connection,
             row.objectKey,
             row.filename,
-            isRasterImageContentType(row.contentType),
+            attachmentServesInline({
+              contentType: row.contentType,
+              download: options?.download ?? false
+            }),
             60
           )
           .pipe(
@@ -339,6 +351,35 @@ export const AttachmentsLive = Layer.effect(
           .offset(attachmentPageOffset(params.page, limit))
           .pipe(Effect.orDie)
 
+        const references =
+          items.length === 0
+            ? []
+            : yield* db
+                .select({
+                  attachmentId: attachmentReference.attachmentId,
+                  projectSlug: attachmentReference.projectSlug,
+                  ticketId: attachmentReference.ticketId
+                })
+                .from(attachmentReference)
+                .where(
+                  inArray(
+                    attachmentReference.attachmentId,
+                    items.map((row) => row.id)
+                  )
+                )
+                .pipe(Effect.orDie)
+
+        const byAttachment = new Map<string, Array<AttachmentTicketRef>>()
+        for (const reference of references) {
+          const target = byAttachment.get(reference.attachmentId)
+          const entry = {
+            projectSlug: reference.projectSlug,
+            ticketId: reference.ticketId
+          }
+          if (target) target.push(entry)
+          else byAttachment.set(reference.attachmentId, [entry])
+        }
+
         const counted = yield* db
           .select({ total: sql<number>`count(*)::int` })
           .from(attachmentIndex)
@@ -346,7 +387,9 @@ export const AttachmentsLive = Layer.effect(
           .pipe(Effect.orDie)
 
         return {
-          items: items.map(toAttachmentRow),
+          items: items.map((row) =>
+            toAttachmentRow(row, byAttachment.get(row.id) ?? [])
+          ),
           total: Number(counted[0]?.total ?? 0)
         }
       })
@@ -445,31 +488,23 @@ export const AttachmentsLive = Layer.effect(
             .map((ref) => ref.id)
         )
 
-        const ownRows = yield* db
-          .select({
-            id: attachmentIndex.id,
-            ticketId: attachmentIndex.ticketId,
-            status: attachmentIndex.status
-          })
-          .from(attachmentIndex)
+        const existing = yield* db
+          .select({ attachmentId: attachmentReference.attachmentId })
+          .from(attachmentReference)
           .where(
             and(
-              eq(attachmentIndex.orgSlug, orgSlug),
-              eq(attachmentIndex.projectSlug, slug),
-              eq(attachmentIndex.ticketId, ticketId)
+              eq(attachmentReference.orgSlug, orgSlug),
+              eq(attachmentReference.projectSlug, slug),
+              eq(attachmentReference.ticketId, ticketId)
             )
           )
           .pipe(Effect.orDie)
 
-        const referencedRows =
+        const known =
           referenced.size === 0
             ? []
             : yield* db
-                .select({
-                  id: attachmentIndex.id,
-                  ticketId: attachmentIndex.ticketId,
-                  status: attachmentIndex.status
-                })
+                .select({ id: attachmentIndex.id })
                 .from(attachmentIndex)
                 .where(
                   and(
@@ -479,27 +514,81 @@ export const AttachmentsLive = Layer.effect(
                 )
                 .pipe(Effect.orDie)
 
-        const plan = planReconciliation({
-          ticketId,
-          referenced,
-          rows: [...ownRows, ...referencedRows]
+        const plan = planReferences({
+          referenced: new Set(known.map((row) => row.id)),
+          existing: existing.map((row) => row.attachmentId)
+        })
+
+        if (plan.toRemove.length > 0) {
+          yield* db
+            .delete(attachmentReference)
+            .where(
+              and(
+                eq(attachmentReference.orgSlug, orgSlug),
+                eq(attachmentReference.projectSlug, slug),
+                eq(attachmentReference.ticketId, ticketId),
+                inArray(attachmentReference.attachmentId, plan.toRemove)
+              )
+            )
+            .pipe(Effect.orDie)
+        }
+
+        if (plan.toAdd.length > 0) {
+          yield* db
+            .insert(attachmentReference)
+            .values(
+              plan.toAdd.map((attachmentId) => ({
+                attachmentId,
+                orgSlug,
+                projectSlug: slug,
+                ticketId
+              }))
+            )
+            .onConflictDoNothing()
+            .pipe(Effect.orDie)
+        }
+
+        const touched = [...new Set([...plan.toAdd, ...plan.toRemove])]
+        if (touched.length === 0) return
+
+        const counts = yield* db
+          .select({
+            attachmentId: attachmentReference.attachmentId,
+            references: sql<number>`count(*)::int`
+          })
+          .from(attachmentReference)
+          .where(inArray(attachmentReference.attachmentId, touched))
+          .groupBy(attachmentReference.attachmentId)
+          .pipe(Effect.orDie)
+
+        const rows = yield* db
+          .select({ id: attachmentIndex.id, status: attachmentIndex.status })
+          .from(attachmentIndex)
+          .where(inArray(attachmentIndex.id, touched))
+          .pipe(Effect.orDie)
+
+        const statuses = planStatuses({
+          rows,
+          referenceCounts: new Map(
+            counts.map((row) => [row.attachmentId, Number(row.references)])
+          )
         })
 
         const now = yield* DateTime.nowAsDate
 
-        if (plan.toOrphan.length > 0) {
+        if (statuses.toOrphan.length > 0) {
           yield* db
             .update(attachmentIndex)
             .set({ status: "orphaned", orphanedAt: now })
-            .where(inArray(attachmentIndex.id, plan.toOrphan))
+            .where(inArray(attachmentIndex.id, statuses.toOrphan))
             .pipe(Effect.orDie)
         }
 
-        if (plan.toRestore.length > 0) {
+        if (statuses.toLive.length > 0) {
           yield* db
             .update(attachmentIndex)
             .set({ status: "live", orphanedAt: null })
-            .where(inArray(attachmentIndex.id, plan.toRestore))
+            .where(inArray(attachmentIndex.id, statuses.toLive))
             .pipe(Effect.orDie)
         }
       }).pipe(

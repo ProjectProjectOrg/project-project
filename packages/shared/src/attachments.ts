@@ -6,6 +6,9 @@ export const ATTACHMENT_URL_PREFIX = "/api/attachments"
 export const attachmentUrl = (orgSlug: string, id: string): string =>
   `${ATTACHMENT_URL_PREFIX}/${orgSlug}/${id}`
 
+export const attachmentDownloadUrl = (orgSlug: string, id: string): string =>
+  `${attachmentUrl(orgSlug, id)}?download=1`
+
 export interface AttachmentRef {
   readonly orgSlug: string
   readonly id: string

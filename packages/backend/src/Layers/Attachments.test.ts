@@ -20,13 +20,15 @@ import { AttachmentsLive } from "./Attachments"
 const at = (iso: string) => DateTime.toDate(DateTime.unsafeMake(iso))
 import {
   attachmentPageCount,
+  attachmentServesInline,
   attachmentPageOffset,
   attachmentSortPlan,
   isServableStatus,
   ORPHAN_GRACE_MS,
   isAttachmentDeletable,
   planReap,
-  planReconciliation,
+  planReferences,
+  planStatuses,
   validateUploadRequest
 } from "../Services/Attachments"
 
@@ -95,106 +97,100 @@ describe("validateUploadRequest", () => {
   })
 })
 
-describe("planReconciliation", () => {
-  const TICKET = "T-1"
-  const OTHER_TICKET = "T-2"
-
-  it("orphans a live row the body no longer references", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a"]),
-      rows: [
-        { id: "a", ticketId: TICKET, status: "live" },
-        { id: "b", ticketId: TICKET, status: "live" }
-      ]
-    })
-    expect(plan.toOrphan).toEqual(["b"])
-    expect(plan.toRestore).toEqual([])
+describe("planReferences", () => {
+  it("adds a reference for an attachment the body newly mentions", () => {
+    expect(
+      planReferences({ referenced: new Set(["a"]), existing: [] })
+    ).toEqual({ toAdd: ["a"], toRemove: [] })
   })
 
-  it("restores an orphaned row the body references again", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a"]),
-      rows: [{ id: "a", ticketId: TICKET, status: "orphaned" }]
-    })
-    expect(plan.toRestore).toEqual(["a"])
-    expect(plan.toOrphan).toEqual([])
+  it("drops a reference the body no longer mentions", () => {
+    expect(
+      planReferences({ referenced: new Set(), existing: ["a"] })
+    ).toEqual({ toAdd: [], toRemove: ["a"] })
   })
 
-  it("leaves pending rows alone", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(),
-      rows: [{ id: "a", ticketId: TICKET, status: "pending" }]
-    })
-    expect(plan.toOrphan).toEqual([])
-    expect(plan.toRestore).toEqual([])
+  it("leaves an unchanged reference alone", () => {
+    expect(
+      planReferences({ referenced: new Set(["a"]), existing: ["a"] })
+    ).toEqual({ toAdd: [], toRemove: [] })
   })
 
-  it("is a no-op when everything is referenced", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a", "b"]),
-      rows: [
-        { id: "a", ticketId: TICKET, status: "live" },
-        { id: "b", ticketId: TICKET, status: "live" }
-      ]
-    })
-    expect(plan.toOrphan).toEqual([])
-    expect(plan.toRestore).toEqual([])
+  it("adds and drops in the same edit", () => {
+    expect(
+      planReferences({ referenced: new Set(["a", "b"]), existing: ["b", "c"] })
+    ).toEqual({ toAdd: ["a"], toRemove: ["c"] })
   })
 
-  it("ignores a referenced id with no row", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["ghost"]),
-      rows: [{ id: "a", ticketId: TICKET, status: "live" }]
-    })
-    expect(plan.toOrphan).toEqual(["a"])
-    expect(plan.toRestore).toEqual([])
+  it("counts a duplicated mention once", () => {
+    expect(
+      planReferences({ referenced: new Set(["a"]), existing: [] })
+    ).toEqual({ toAdd: ["a"], toRemove: [] })
+  })
+})
+
+describe("planStatuses", () => {
+  it("keeps an attachment live while any ticket still references it", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "live" }],
+        referenceCounts: new Map([["a", 2]])
+      })
+    ).toEqual({ toLive: [], toOrphan: [] })
   })
 
-  it("restores an orphaned row owned by another ticket that this body references", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a"]),
-      rows: [{ id: "a", ticketId: OTHER_TICKET, status: "orphaned" }]
-    })
-    expect(plan.toRestore).toEqual(["a"])
-    expect(plan.toOrphan).toEqual([])
+  it("orphans an attachment only when its last reference goes", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "live" }],
+        referenceCounts: new Map([["a", 0]])
+      })
+    ).toEqual({ toLive: [], toOrphan: ["a"] })
   })
 
-  it("does not orphan another ticket's live row that this body does not reference", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(),
-      rows: [{ id: "a", ticketId: OTHER_TICKET, status: "live" }]
-    })
-    expect(plan.toOrphan).toEqual([])
-    expect(plan.toRestore).toEqual([])
+  it("does not orphan an attachment that another ticket still references", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "live" }],
+        referenceCounts: new Map([["a", 1]])
+      })
+    ).toEqual({ toLive: [], toOrphan: [] })
   })
 
-  it("restores a referenced pending row so the reaper cannot delete a referenced object", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a"]),
-      rows: [{ id: "a", ticketId: TICKET, status: "pending" }]
-    })
-    expect(plan.toRestore).toEqual(["a"])
-    expect(plan.toOrphan).toEqual([])
+  it("restores an orphaned attachment that a ticket references again", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "orphaned" }],
+        referenceCounts: new Map([["a", 1]])
+      })
+    ).toEqual({ toLive: ["a"], toOrphan: [] })
   })
 
-  it("plans each row once when a referenced row appears in both scopes", () => {
-    const plan = planReconciliation({
-      ticketId: TICKET,
-      referenced: new Set(["a"]),
-      rows: [
-        { id: "a", ticketId: TICKET, status: "orphaned" },
-        { id: "a", ticketId: TICKET, status: "orphaned" }
-      ]
-    })
-    expect(plan.toRestore).toEqual(["a"])
+  it("promotes a referenced pending row so the reaper cannot take its object", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "pending" }],
+        referenceCounts: new Map([["a", 1]])
+      })
+    ).toEqual({ toLive: ["a"], toOrphan: [] })
+  })
+
+  it("leaves an unreferenced pending row pending, since its upload may still land", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "pending" }],
+        referenceCounts: new Map([["a", 0]])
+      })
+    ).toEqual({ toLive: [], toOrphan: [] })
+  })
+
+  it("treats a missing count as no references", () => {
+    expect(
+      planStatuses({
+        rows: [{ id: "a", status: "live" }],
+        referenceCounts: new Map()
+      })
+    ).toEqual({ toLive: [], toOrphan: ["a"] })
   })
 })
 
@@ -601,6 +597,11 @@ const listHarness = (input: {
   readonly role: Role
   readonly rows?: ReadonlyArray<unknown>
   readonly total?: number
+  readonly references?: ReadonlyArray<{
+    readonly attachmentId: string
+    readonly projectSlug: string
+    readonly ticketId: string
+  }>
 }) => {
   const capture: {
     where?: unknown
@@ -612,14 +613,18 @@ const listHarness = (input: {
   const layer = AttachmentsLive.pipe(
     Layer.provide(
       Layer.succeed(Db, {
-        select: () => ({
+        select: (shape?: Record<string, unknown>) => ({
           from: () => ({
             where: (cond: unknown) => {
               capture.where = cond
-              const counted = Effect.succeed([
-                { total: input.total ?? 0 }
-              ]) as unknown as Record<string, unknown>
-              counted["orderBy"] = () => ({
+              const isReferenceQuery =
+                shape !== undefined && "attachmentId" in shape
+              const settled = Effect.succeed(
+                isReferenceQuery
+                  ? (input.references ?? [])
+                  : [{ total: input.total ?? 0 }]
+              ) as unknown as Record<string, unknown>
+              settled["orderBy"] = () => ({
                 limit: (n: number) => {
                   capture.limit = n
                   return {
@@ -630,11 +635,11 @@ const listHarness = (input: {
                   }
                 }
               })
-              counted["groupBy"] = (grouped: unknown) => {
+              settled["groupBy"] = (grouped: unknown) => {
                 capture.groupBy = grouped
                 return Effect.succeed(rows)
               }
-              return counted
+              return settled
             }
           })
         })
@@ -717,6 +722,46 @@ describe("listForOrg", () => {
     })
   )
 
+  it.effect("lists every ticket that references an attachment", () =>
+    Effect.gen(function* () {
+      const { layer } = listHarness({
+        role: "owner",
+        rows: [servingRow],
+        total: 1,
+        references: [
+          { attachmentId: servingRow.id, projectSlug: "apollo", ticketId: "T-1" },
+          { attachmentId: servingRow.id, projectSlug: "apollo", ticketId: "T-9" }
+        ]
+      })
+      const page = yield* Attachments.pipe(
+        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.provide(layer)
+      )
+      expect(page.items[0]?.tickets).toEqual([
+        { projectSlug: "apollo", ticketId: "T-1" },
+        { projectSlug: "apollo", ticketId: "T-9" }
+      ])
+    })
+  )
+
+  it.effect(
+    "leaves the ticket list empty for an attachment nothing references",
+    () =>
+      Effect.gen(function* () {
+        const { layer } = listHarness({
+          role: "owner",
+          rows: [servingRow],
+          total: 1,
+          references: []
+        })
+        const page = yield* Attachments.pipe(
+          Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+          Effect.provide(layer)
+        )
+        expect(page.items[0]?.tickets).toEqual([])
+      })
+  )
+
   it.effect("returns rows shaped for the browser table", () =>
     Effect.gen(function* () {
       const { layer } = listHarness({
@@ -730,6 +775,7 @@ describe("listForOrg", () => {
       )
       expect(page.total).toBe(1)
       expect(page.items[0]).toMatchObject({
+        tickets: [],
         id: "att-1",
         projectSlug: "apollo",
         ticketId: "T-1",
@@ -840,5 +886,28 @@ describe("attachmentPageCount", () => {
 
   it("shows a single empty page when there is nothing", () => {
     expect(attachmentPageCount(0, 50)).toBe(1)
+  })
+})
+
+describe("attachmentServesInline", () => {
+  it("renders a raster image in the page", () => {
+    expect(
+      attachmentServesInline({ contentType: "image/png", download: false })
+    ).toBe(true)
+  })
+
+  it("downloads a pdf rather than opening it in the page", () => {
+    expect(
+      attachmentServesInline({
+        contentType: "application/pdf",
+        download: false
+      })
+    ).toBe(false)
+  })
+
+  it("downloads an image when the caller asked for a download", () => {
+    expect(
+      attachmentServesInline({ contentType: "image/png", download: true })
+    ).toBe(false)
   })
 })

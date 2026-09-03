@@ -282,5 +282,11 @@
   "attachments_page_next": "Next page",
   "attachments_page_of": "Page {page}",
   "attachments_page_prev": "Previous page",
-  "attachments_page_range": "{from}–{to} of {total} objects"
+  "attachments_page_range": "{from}–{to} of {total} objects",
+  "attachments_copied": "Copied",
+  "attachments_copy_markdown": "Copy as markdown",
+  "attachments_download": "Download",
+  "attachments_ticket_count": "{count} tickets",
+  "attachments_ticket_pick": "Open a referencing ticket",
+  "attachments_ticket_unreferenced": "Uploaded here, no longer referenced"
 }
