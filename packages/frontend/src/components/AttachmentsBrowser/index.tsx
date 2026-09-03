@@ -314,10 +314,15 @@ function DeleteCell({
 
   return (
     <ConfirmButton.Root className="justify-end">
-      <ConfirmButton.Trigger type="button" variant="ghost" size="sm">
+      <ConfirmButton.Trigger
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100"
+      >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="flex-wrap justify-end">
+      <ConfirmButton.Confirm className="absolute top-1/2 -right-2 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover px-2 py-1 whitespace-nowrap shadow-sm">
         <DeleteConfirm
           prompt={
             row.tickets.length === 0
