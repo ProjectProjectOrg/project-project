@@ -289,6 +289,8 @@
   "attachments_ticket_count": "{count} tickets",
   "attachments_ticket_pick": "Open a referencing ticket",
   "attachments_ticket_unreferenced": "Uploaded here, no longer referenced",
-  "attachments_delete_confirm_referenced": "Delete from the bucket? It stays linked in {count} tickets and will show as missing there.",
-  "attachments_delete_selected_confirm_referenced": "Delete {count} objects from the bucket? {referenced} are still linked in tickets and will show as missing there."
+  "attachments_delete_confirm_referenced_one": "Delete from the bucket? It stays linked in a ticket and will show as missing there.",
+  "attachments_delete_confirm_referenced_many": "Delete from the bucket? It stays linked in {count} tickets and will show as missing there.",
+  "attachments_delete_selected_confirm_referenced_one": "Delete {count} objects from the bucket? One is still linked in a ticket and will show as missing there.",
+  "attachments_delete_selected_confirm_referenced_many": "Delete {count} objects from the bucket? {referenced} are still linked in tickets and will show as missing there."
 }

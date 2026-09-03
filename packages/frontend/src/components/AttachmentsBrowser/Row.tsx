@@ -115,7 +115,10 @@ export function Row({
         {row.createdAt.toLocaleDateString(locale)}
       </td>
 
-      <td className="px-2 py-2 text-right whitespace-nowrap">
+      <td
+        className="px-2 py-2 text-right whitespace-nowrap"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100">
           <Tooltip>
             <TooltipTrigger render={<span className="inline-flex" />}>
@@ -140,7 +143,6 @@ export function Row({
                 <a
                   href={attachmentDownloadUrl(orgSlug, row.id)}
                   download={row.filename}
-                  onClick={(event) => event.stopPropagation()}
                   aria-label={m.attachments_download()}
                   className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-muted hover:text-foreground active:scale-[0.97]"
                 />
