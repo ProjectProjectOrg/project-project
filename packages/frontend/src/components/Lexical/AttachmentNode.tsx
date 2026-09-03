@@ -49,6 +49,7 @@ import {
 } from "@/components/Lexical/attachmentImageStyle"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { AttachmentUnavailable } from "./AttachmentUnavailable"
 
 export type AttachmentKind = "image" | "file"
 
@@ -103,15 +104,16 @@ function AttachmentImage({
   url,
   alt,
   width,
-  nodeKey
+  nodeKey,
+  onBroken
 }: {
   url: string
   alt: string
   width: number | null
   nodeKey: NodeKey
+  onBroken: () => void
 }) {
   const [editor] = useLexicalComposerContext()
-  const [broken, setBroken] = useState(false)
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -155,14 +157,6 @@ function AttachmentImage({
     })
   }
 
-  if (broken) {
-    return (
-      <span className="block rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-        {m.editor_attachment_unavailable()}
-      </span>
-    )
-  }
-
   const effectiveWidth = dragWidth ?? width
 
   return (
@@ -177,7 +171,7 @@ function AttachmentImage({
           ATTACHMENT_IMAGE_CLASS,
           "border border-transparent transition-colors group-hover/hitbox:border-border"
         )}
-        onError={() => setBroken(true)}
+        onError={onBroken}
       />
       <motion.span
         role="presentation"
@@ -392,6 +386,19 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
   decorate(): ReactElement {
     const settled = this.__uploadId === undefined && !this.__failed
+
+    if (settled && this.__kind === "image" && this.__density === "rich") {
+      return (
+        <AttachmentImageBlock
+          nodeKey={this.getKey()}
+          url={this.__url}
+          alt={this.__alt}
+          width={this.__width}
+          density={this.__density}
+        />
+      )
+    }
+
     return (
       <AttachmentSelectable
         nodeKey={this.getKey()}
@@ -424,17 +431,6 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       )
     }
 
-    if (this.__kind === "image") {
-      return (
-        <AttachmentImage
-          url={this.__url}
-          alt={this.__alt}
-          width={this.__width}
-          nodeKey={this.getKey()}
-        />
-      )
-    }
-
     return (
       <AttachmentTile
         url={this.__url}
@@ -444,6 +440,41 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       />
     )
   }
+}
+
+function AttachmentImageBlock({
+  nodeKey,
+  url,
+  alt,
+  width,
+  density
+}: {
+  nodeKey: NodeKey
+  url: string
+  alt: string
+  width: number | null
+  density: AttachmentDensity
+}) {
+  const [broken, setBroken] = useState(false)
+  return (
+    <AttachmentSelectable
+      nodeKey={nodeKey}
+      deletable
+      density={broken ? null : density}
+    >
+      {broken ? (
+        <AttachmentUnavailable />
+      ) : (
+        <AttachmentImage
+          url={url}
+          alt={alt}
+          width={width}
+          nodeKey={nodeKey}
+          onBroken={() => setBroken(true)}
+        />
+      )}
+    </AttachmentSelectable>
+  )
 }
 
 function AttachmentSelectable({
