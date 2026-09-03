@@ -547,7 +547,9 @@ export const auth = betterAuth({
     mcp({
       loginPage: "/login",
       resource:
-        (process.env.MCP_RESOURCE_URL ?? "http://localhost:3000") + "/mcp",
+        (process.env.MCP_RESOURCE_URL ??
+          process.env.BETTER_AUTH_URL ??
+          "http://localhost:3000") + "/mcp",
       oidcConfig: {
         loginPage: "/login",
         consentPage: "/oauth/consent"
