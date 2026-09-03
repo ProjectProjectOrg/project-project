@@ -120,18 +120,93 @@ VM lifecycle and the reverse proxy stay manual. Alchemy's VM story is Hetzner
 (API-provisioned cloud servers running Effect programs as systemd units), which is
 a different hosting decision, not a drop-in for a homelab box.
 
-### It may make third-party self-hosting worse
+## Alchemy as the self-host installer
 
-This is the part to be careful about. Alchemy is deployer-side tooling. If
-ProjectProject is meant to be self-hostable by other people, "install Bun, point a
-Docker context at your box, run `alchemy deploy`" is a heavier ask than
-`docker compose up`. Alchemy would improve **our** cadence a lot; it would not
-obviously improve a stranger's install.
+Third-party self-hosting is the goal, so the question is not "does Alchemy
+improve our cadence" but "is an Alchemy stack a better thing to hand a stranger
+than a compose file". Worth taking seriously — it might be.
 
-The resolution is probably that the two audiences get different paths: Alchemy
-internally, compose as the supported public route. But that means maintaining both,
-and the compose file stops being the thing we ourselves run — which is exactly how
-published install instructions rot.
+### What a self-hoster does today
+
+Seven steps in `docs/deploy.md`: provision a VM, install Docker, copy the compose
+file and `.env` and fill ~18 variables (two of which are "run `openssl rand -hex 32`
+and paste the result"), `docker compose up`, `docker compose run --rm app bun run
+ticket-index:rebuild`, `docker compose run --rm app bun run bootstrap:org`,
+configure nginx-proxy-manager, and register a GitHub OAuth app plus a GitHub App
+with three URLs and three event subscriptions.
+
+### What it could become
+
+```
+git clone && bun install
+cp .env.example .env      # hostname, admin email, and little else
+bun alchemy deploy
+open https://host/setup   # click "Create GitHub App"
+```
+
+The mechanics that get us there:
+
+- **`Docker.Context` makes local and remote the same stack.** One env var decides
+  whether the target is the machine they are sitting at or a VPS they own over
+  SSH. No forked instructions, no second document. Note that the SSH concern that
+  applies to *our* homelab does not apply here at all — it is their box and their
+  key, initiated from their shell.
+- **`Alchemy.makeRandom` deletes the paste-a-secret steps.** `BETTER_AUTH_SECRET`
+  and `POSTGRES_PASSWORD` get generated and held stable in state. Two variables
+  they can no longer get wrong.
+- **`RemoteImage` means they never build.** They pull our published GHCR images;
+  no build context, no registry credentials, no 10-minute first boot.
+- **The three post-install commands collapse into the deploy graph.** Migrations,
+  `ticket-index:rebuild` and `bootstrap:org` become ordered nodes that run in one
+  `alchemy deploy` instead of three copy-pasted `docker compose run` invocations.
+  This is the single biggest reduction in the runbook.
+- **Object storage becomes a choice in one file.** R2, S3, or a MinIO container
+  for people who want nothing cloud-side — all three expressible in the same
+  program. Compose can only express the third.
+- **Upgrades get a diff.** `git pull && bun alchemy plan` shows that the upgrade
+  replaces two containers and runs three migrations *before* it happens.
+  Watchtower gives an operator none of that.
+- **`alchemy destroy` is a clean uninstall**, including the cloud-side bucket.
+
+### What it costs them
+
+- **A toolchain where there wasn't one.** Bun plus a repo clone, versus
+  `curl compose.yaml && docker compose up`. The NAS/Unraid/Portainer crowd is a
+  large slice of self-hosters and they expect a compose file they can paste into a
+  UI. We would be filtering them out.
+- **`.alchemy/` becomes state the operator must not lose.** Lose it and the next
+  deploy sees the running containers as `Unowned` and fails. Compose has no
+  equivalent failure mode, and this one lands hardest on the least-expert users.
+  The Postgres state store is chicken-and-egg here since Postgres is itself in the
+  stack, so it would be local state plus a documented `--adopt` recovery.
+- **Debuggability collapses.** Every self-hoster already knows `docker compose logs`.
+  When an Alchemy deploy fails they are debugging a TypeScript program and a state
+  file, and the pool of people who can help them is currently tiny.
+- **Beta software in a stranger's install path.** Breaking changes between
+  `beta.76` and 2.0 land on them, not on us.
+
+### The honest framing
+
+Look at where the seven steps actually hurt. Steps 4-6 (compose up, rebuild index,
+bootstrap org) are mechanical and Alchemy genuinely collapses them. Steps 7 and the
+GitHub App registration are where people actually bounce — and **Alchemy does
+nothing for either**. The App has to be registered in a browser, and the reverse
+proxy is not a resource in any provider we would use.
+
+So the largest available reduction in self-host friction is the setup wizard
+(manifest flow for the App, generated secrets, a Caddy container doing its own ACME
+so nginx-proxy-manager stops being a prerequisite) — and none of that requires
+Alchemy. Alchemy is a real improvement to the middle of the runbook, not to the
+parts that lose people.
+
+### If we do adopt it for self-hosting
+
+Keep a compose file as the floor, and **generate it from the Alchemy stack** so the
+two cannot drift — the stack is the source of truth, `docker-compose.prod.yml`
+becomes a build artifact checked in for the paste-it-into-Portainer path. Alchemy
+ships no compose emitter, so that is bespoke work on our side; it is the only way I
+can see to serve both audiences without maintaining two hand-written descriptions
+of the same topology.
 
 ## Maturity risk
 
@@ -151,24 +226,59 @@ Two specific hazards in the Docker provider:
 
 ## Recommendation
 
-Adopt in the shallow end, keep compose running the show for now.
+Adopt in the shallow end, and treat the self-hosting question as a design
+question that Alchemy only partly answers.
 
-- **Do**: put the future S3/R2 bucket and its credentials in an Alchemy stack, and
-  move the GitHub Actions secrets/variables into `GitHub.Secret`/`GitHub.Variable`.
-  Both are additive, neither can take production down, and they give us a real read
-  on whether the beta is pleasant to live with.
-- **Not yet**: replacing compose + Watchtower on the Proxmox VM. The win is genuine
-  (deploys become events, `plan` before apply, health-gated rollout) but it is
-  gated on an SSH path to the homelab we chose not to have, and on trusting a beta
-  Docker provider with the Postgres volume.
-- **Decide separately**: the GitHub App manifest wizard. It is the biggest actual
-  reduction in setup friction and Alchemy is irrelevant to it.
+- **Do now**: the attachments bucket (R2 or S3, per the decision already made) and
+  the GitHub Actions secrets/variables as `GitHub.Secret`/`GitHub.Variable`. Both
+  are additive, neither can take production down, and they tell us whether the beta
+  is pleasant to live with before anything depends on it.
+- **Prototype next**: a self-host stack that collapses migrations, index rebuild
+  and org bootstrap into one `alchemy deploy` against a `Docker.Context`. That is
+  the part with real payoff for third parties. Prove it locally before it goes near
+  the homelab.
+- **Not yet**: replacing compose + Watchtower on our Proxmox VM. Gated on the SSH
+  question below and on trusting a beta Docker provider with `postgres_data`.
+- **Independent of Alchemy, and probably higher leverage**: the setup wizard —
+  GitHub App manifest flow, generated secrets, and a Caddy container that does its
+  own ACME. That deletes the steps where self-hosters actually give up.
+
+## Appendix: the SSH question, in full
+
+Today CI builds images and pushes them to GHCR, and the VM *pulls*. Nothing outside
+the LAN can initiate a connection to the homelab — `deploy.md` states this as a
+deliberate property ("No SSH from CI to the homelab").
+
+Alchemy's Docker provider works by shelling out to the `docker` CLI against a
+context. For GitHub Actions to converge containers on the VM, the runner has to
+*reach* the VM. That is a push model, and it is what the current design avoids.
+Hence the question. The options, and what each actually costs:
+
+1. **Keep it pull-based.** Network posture unchanged. But Alchemy then cannot manage
+   the VM's containers from CI at all — Watchtower stays, and we keep zero
+   plan/diff/health-gating on the rollout itself. Alchemy would be limited to
+   build/push plus cloud-side resources.
+2. **Tailscale in the workflow.** `tailscale/github-action` joins the runner to the
+   tailnet as an ephemeral node; the VM is reachable at its tailnet address, and the
+   Docker context becomes `ssh://deploy@<tailnet-name>`. No ports opened to the
+   internet and no NPM change. Cost: an auth key in Actions secrets, and a
+   GitHub-hosted runner is transiently on your network. This is the conventional
+   answer and the one I would pick.
+3. **Self-hosted runner on the LAN.** The runner polls GitHub outbound, so there is
+   still no inbound path — strongest posture of the three. Cost: a runner to patch,
+   and a box on your LAN that executes workflow code from the repo.
+4. **Deploy from a workstation.** `alchemy deploy` over LAN SSH by hand. Zero
+   infrastructure, and you still get `plan` and health gates. Cost: merging no
+   longer deploys, so cadence depends on someone being at the desk.
+
+Worth repeating: **this constraint is ours alone.** A self-hoster running
+`alchemy deploy` from their own shell against their own machine never encounters it.
 
 ## Open questions
 
-1. Is a self-hosted runner or Tailscale in CI acceptable, or does "no inbound path
-   to the homelab" stay a hard rule?
-2. Is third-party self-hosting a real goal, or is `deploy.md` documentation for us?
-   The answer changes whether compose has to survive.
-3. Attachments: S3, R2, or the filesystem next to the markdown tree? Alchemy only
-   pays off here if it is object storage.
+1. Which of the four options in the appendix do we want for the homelab? Tailscale
+   is my recommendation; it is the smallest change that unlocks push deploys.
+2. Do we accept generating `docker-compose.prod.yml` from the stack, or does compose
+   stay hand-written and authoritative for self-hosters?
+3. R2 or S3 for attachments? R2 has no egress fees and a self-hoster can point the
+   same S3-compatible client at MinIO; S3 is the more familiar default.
