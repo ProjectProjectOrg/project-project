@@ -25,6 +25,7 @@ import { Route as AuthedOrgsOrgSlugSettingsStorageRouteImport } from './routes/_
 import { Route as AuthedOrgsOrgSlugSettingsMembersRouteImport } from './routes/_authed/orgs/$orgSlug/settings/members'
 import { Route as AuthedOrgsOrgSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/settings/general'
 import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/settings/danger'
+import { Route as AuthedOrgsOrgSlugSettingsAttachmentsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/attachments'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
@@ -125,6 +126,12 @@ const AuthedOrgsOrgSlugSettingsDangerRoute =
     path: '/danger',
     getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugSettingsAttachmentsRoute =
+  AuthedOrgsOrgSlugSettingsAttachmentsRouteImport.update({
+    id: '/attachments',
+    path: '/attachments',
+    getParentRoute: () => AuthedOrgsOrgSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugRouteRouteImport.update({
     id: '/projects/$slug',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
+  '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
@@ -242,6 +250,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/oauth/consent': typeof publicOauthConsentRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
+  '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
@@ -272,6 +281,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   '/_authed/orgs/$orgSlug/settings/danger': typeof AuthedOrgsOrgSlugSettingsDangerRoute
   '/_authed/orgs/$orgSlug/settings/general': typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/settings/members': typeof AuthedOrgsOrgSlugSettingsMembersRoute
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
+    | '/orgs/$orgSlug/settings/attachments'
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/'
     | '/oauth/consent'
     | '/orgs/$orgSlug'
+    | '/orgs/$orgSlug/settings/attachments'
     | '/orgs/$orgSlug/settings/danger'
     | '/orgs/$orgSlug/settings/general'
     | '/orgs/$orgSlug/settings/members'
@@ -360,6 +372,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
+    | '/_authed/orgs/$orgSlug/settings/attachments'
     | '/_authed/orgs/$orgSlug/settings/danger'
     | '/_authed/orgs/$orgSlug/settings/general'
     | '/_authed/orgs/$orgSlug/settings/members'
@@ -502,6 +515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsDangerRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/settings/attachments': {
+      id: '/_authed/orgs/$orgSlug/settings/attachments'
+      path: '/attachments'
+      fullPath: '/orgs/$orgSlug/settings/attachments'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugSettingsAttachmentsRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug': {
       id: '/_authed/orgs/$orgSlug/projects/$slug'
       path: '/projects/$slug'
@@ -597,6 +617,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
+  AuthedOrgsOrgSlugSettingsAttachmentsRoute: typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
   AuthedOrgsOrgSlugSettingsDangerRoute: typeof AuthedOrgsOrgSlugSettingsDangerRoute
   AuthedOrgsOrgSlugSettingsGeneralRoute: typeof AuthedOrgsOrgSlugSettingsGeneralRoute
   AuthedOrgsOrgSlugSettingsMembersRoute: typeof AuthedOrgsOrgSlugSettingsMembersRoute
@@ -606,6 +627,8 @@ interface AuthedOrgsOrgSlugSettingsRouteRouteChildren {
 
 const AuthedOrgsOrgSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlugSettingsRouteRouteChildren =
   {
+    AuthedOrgsOrgSlugSettingsAttachmentsRoute:
+      AuthedOrgsOrgSlugSettingsAttachmentsRoute,
     AuthedOrgsOrgSlugSettingsDangerRoute: AuthedOrgsOrgSlugSettingsDangerRoute,
     AuthedOrgsOrgSlugSettingsGeneralRoute:
       AuthedOrgsOrgSlugSettingsGeneralRoute,
