@@ -255,14 +255,18 @@ function AttachmentsTable({
             <ConfirmButton.Confirm className="flex-wrap justify-end">
               <DeleteConfirm
                 prompt={
-                  referencedCount > 0
-                    ? m.attachments_delete_selected_confirm_referenced({
-                        count: selectedIds.length,
-                        referenced: referencedCount
-                      })
-                    : m.attachments_delete_selected_confirm({
+                  referencedCount === 0
+                    ? m.attachments_delete_selected_confirm({
                         count: selectedIds.length
                       })
+                    : referencedCount === 1
+                      ? m.attachments_delete_selected_confirm_referenced_one({
+                          count: selectedIds.length
+                        })
+                      : m.attachments_delete_selected_confirm_referenced_many({
+                          count: selectedIds.length,
+                          referenced: referencedCount
+                        })
                 }
                 ids={selectedIds}
                 onDelete={onDelete}
@@ -316,11 +320,13 @@ function DeleteCell({
       <ConfirmButton.Confirm className="flex-wrap justify-end">
         <DeleteConfirm
           prompt={
-            row.tickets.length > 0
-              ? m.attachments_delete_confirm_referenced({
-                  count: row.tickets.length
-                })
-              : m.attachments_delete_confirm()
+            row.tickets.length === 0
+              ? m.attachments_delete_confirm()
+              : row.tickets.length === 1
+                ? m.attachments_delete_confirm_referenced_one()
+                : m.attachments_delete_confirm_referenced_many({
+                    count: row.tickets.length
+                  })
           }
           ids={[row.id]}
           onDelete={onDelete}
