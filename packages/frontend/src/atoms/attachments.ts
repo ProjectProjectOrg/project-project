@@ -104,7 +104,7 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
   )
 })
 
-const ORG_ATTACHMENTS_PAGE_SIZE = 50
+export const ORG_ATTACHMENTS_PAGE_SIZE = 50
 
 const orgAttachmentsPullAtom = Atom.family((key: string) => {
   const query = splitOrgAttachmentsKey(key)
