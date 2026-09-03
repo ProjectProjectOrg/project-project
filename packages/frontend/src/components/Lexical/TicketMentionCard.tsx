@@ -43,9 +43,7 @@ export function TicketMentionCard({ ticketId }: { ticketId: TicketId }) {
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
   )
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
-    statusesResult
-  )
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : EMPTY_STATUSES
 

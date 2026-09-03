@@ -1,9 +1,4 @@
-import {
-  memo,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode
-} from "react"
+import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { useNavigate } from "@tanstack/react-router"
 import { TicketGitChip } from "@/components/TicketGit"

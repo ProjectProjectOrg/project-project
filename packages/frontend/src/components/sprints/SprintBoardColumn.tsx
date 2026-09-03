@@ -20,7 +20,11 @@ import type {
 } from "@projectproject/shared"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { useLongPress } from "./BoardReorderMode"
-import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
+import type {
+  CardDropData,
+  ColumnDropData,
+  DragData
+} from "./board-utils"
 
 const LONG_PRESS_MS = 1500
 const LONG_PRESS_S = LONG_PRESS_MS / 1000
@@ -146,7 +150,9 @@ export function SprintBoardColumn({
         onPointerMove={
           headerHoldable ? longPressHandlers.onPointerMove : undefined
         }
-        onPointerUp={headerHoldable ? longPressHandlers.onPointerUp : undefined}
+        onPointerUp={
+          headerHoldable ? longPressHandlers.onPointerUp : undefined
+        }
         onPointerCancel={
           headerHoldable ? longPressHandlers.onPointerCancel : undefined
         }
@@ -161,7 +167,11 @@ export function SprintBoardColumn({
       >
         <motion.span
           className="inline-flex items-center gap-2 text-sm font-medium"
-          animate={reorderMode ? { rotate: [-0.8, 0.8, -0.8] } : { rotate: 0 }}
+          animate={
+            reorderMode
+              ? { rotate: [-0.8, 0.8, -0.8] }
+              : { rotate: 0 }
+          }
           transition={
             reorderMode
               ? {

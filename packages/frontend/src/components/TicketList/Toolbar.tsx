@@ -302,9 +302,7 @@ export function Toolbar({
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
-    statusesResult
-  )
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : EMPTY_STATUSES
   const counts = useMemo<Record<string, number>>(() => {
@@ -349,7 +347,8 @@ export function Toolbar({
           placeholder={m.tickets_search_placeholder()}
           aria-label={m.tickets_search_aria_label()}
         />
-        {queryInput.length > 0 && queryInput.length < MIN_SEARCH_CHARS ? (
+        {queryInput.length > 0 &&
+        queryInput.length < MIN_SEARCH_CHARS ? (
           <span className="shrink-0 text-xs text-muted-foreground">
             {m.tickets_search_min_hint()}
           </span>
@@ -472,9 +471,7 @@ function StatusSelect({
           >
             <CurrentIcon
               className={cn("size-4", currentMeta?.className)}
-              style={
-                currentMeta?.color ? { color: currentMeta.color } : undefined
-              }
+              style={currentMeta?.color ? { color: currentMeta.color } : undefined}
               strokeWidth={1.75}
             />
             <CollapsingLabel show={!compact}>{currentLabel}</CollapsingLabel>

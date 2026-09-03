@@ -69,9 +69,7 @@ export function SegmentedList({
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
-    statusesResult
-  )
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : EMPTY_STATUSES
 

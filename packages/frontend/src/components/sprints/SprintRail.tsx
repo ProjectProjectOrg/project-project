@@ -19,11 +19,7 @@ import { cn } from "@/lib/utils"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  createSprintAtom,
-  projectKey as sprintProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { createSprintAtom, projectKey as sprintProjectKey, sprintsListAtom } from "@/atoms/sprints"
 import { projectAtom, projectKey as projectRouteKey } from "@/atoms/projects"
 import {
   pickActiveSprint,
@@ -48,6 +44,7 @@ function formatRange(s: Group): string {
 function sprintProjectLayoutId(orgSlug: string, slug: string) {
   return `project-settings-row:${orgSlug}/${slug}`
 }
+
 
 function defaultSprintRange(): DateRange {
   const now = DateTime.unsafeNow()
@@ -102,9 +99,7 @@ export function SprintRail({
         label={m.sprints_rail_section_label()}
       />
       <motion.div
-        layoutId={
-          reduceMotion ? undefined : sprintProjectLayoutId(orgSlug, slug)
-        }
+        layoutId={reduceMotion ? undefined : sprintProjectLayoutId(orgSlug, slug)}
         transition={transitions.layout}
         className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
       >

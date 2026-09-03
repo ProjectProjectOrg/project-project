@@ -2,10 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Info } from "lucide-react"
 import { useState } from "react"
 import type { TicketDetail } from "@projectproject/shared"
-import {
-  everhourProfileAtom,
-  everhourProjectStatusAtom
-} from "@/atoms/everhour"
+import { everhourProfileAtom, everhourProjectStatusAtom } from "@/atoms/everhour"
 import { projectKey } from "@/atoms/projects"
 import {
   activeTimerAtom,

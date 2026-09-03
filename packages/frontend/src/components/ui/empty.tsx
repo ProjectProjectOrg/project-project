@@ -40,7 +40,10 @@ function Empty({
     )
   }
   return (
-    <EmptyDithered className={className} {...props}>
+    <EmptyDithered
+      className={className}
+      {...props}
+    >
       {children}
     </EmptyDithered>
   )
