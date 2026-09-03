@@ -6,7 +6,6 @@ import {
   SelectItem,
   SelectTrigger
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type StatusFilter = AttachmentStatus | "all"
@@ -65,10 +64,7 @@ export function Toolbar({
             type="button"
             onClick={() => onStatusChange(item.key)}
             aria-pressed={active}
-            className={cn(
-              SEGMENTED_ITEM_CLASS(active),
-              "transition-transform duration-100 active:scale-[0.97]"
-            )}
+            className={SEGMENTED_ITEM_CLASS(active)}
           >
             {content}
           </button>

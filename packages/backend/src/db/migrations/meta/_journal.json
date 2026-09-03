@@ -176,6 +176,13 @@
       "when": 1788426112252,
       "tag": "0024_low_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788427445737,
+      "tag": "0025_fluffy_prodigy",
+      "breakpoints": true
     }
   ]
 }

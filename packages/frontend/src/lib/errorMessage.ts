@@ -25,7 +25,8 @@ import type {
   StorageConfigMissing,
   StorageError,
   StorageNotConnected,
-  Unauthorized
+  Unauthorized,
+  Validation
 } from "@projectproject/shared"
 import type { InviteAcceptError } from "@/lib/invitations"
 import { m } from "@/paraglide/messages"
@@ -58,6 +59,7 @@ export type AppError =
   | AttachmentTooLarge
   | AttachmentTypeRejected
   | AttachmentNotUploaded
+  | Validation
 
 // @effect-diagnostics-next-line unnecessaryPipeChain:off
 export const errorMessage = (error: AppError): string =>
@@ -103,6 +105,7 @@ export const errorMessage = (error: AppError): string =>
     .pipe(
       Match.tag("StorageAuthInvalid", () => m.storage_error_auth()),
       Match.tag("StorageConfigMissing", () => m.storage_error_config()),
+      Match.tag("Validation", () => m.attachments_error_stale_page()),
       Match.tag("StorageError", () => m.storage_error_unreachable()),
       Match.tag("StorageNotConnected", () => m.storage_error_unreachable()),
       Match.tag("AttachmentTooLarge", () => m.editor_attachment_too_large()),

@@ -27,7 +27,7 @@ import {
   isServableStatus,
   planAttachmentPage,
   ORPHAN_GRACE_MS,
-  planDeletion,
+  isAttachmentDeletable,
   planReap,
   planReconciliation,
   validateUploadRequest
@@ -323,17 +323,17 @@ describe("isServableStatus", () => {
   })
 })
 
-describe("planDeletion", () => {
+describe("isAttachmentDeletable", () => {
   it("allows deleting an orphaned attachment", () => {
-    expect(planDeletion({ status: "orphaned" })).toBeNull()
+    expect(isAttachmentDeletable({ status: "orphaned" })).toBe(true)
   })
 
   it("refuses a live attachment, whose ticket description still renders it", () => {
-    expect(planDeletion({ status: "live" })).toEqual({ kind: "live" })
+    expect(isAttachmentDeletable({ status: "live" })).toBe(false)
   })
 
   it("refuses a pending attachment, whose upload may still be in flight", () => {
-    expect(planDeletion({ status: "pending" })).toEqual({ kind: "pending" })
+    expect(isAttachmentDeletable({ status: "pending" })).toBe(false)
   })
 })
 
@@ -500,9 +500,11 @@ describe("resolveForServing beyond project membership", () => {
 const deletionHarness = (input: {
   readonly status: "pending" | "live" | "orphaned"
   readonly role: Role
+  readonly rowVanished?: boolean
 }) => {
   const deletedKeys: Array<string> = []
   const deletedRows: Array<unknown> = []
+  const order: Array<string> = []
   const layer = AttachmentsLive.pipe(
     Layer.provide(
       Layer.succeed(Db, {
@@ -515,10 +517,15 @@ const deletionHarness = (input: {
           })
         }),
         delete: () => ({
-          where: (cond: unknown) => {
-            deletedRows.push(cond)
-            return Effect.succeed(undefined)
-          }
+          where: (cond: unknown) => ({
+            returning: () => {
+              order.push("row")
+              deletedRows.push(cond)
+              return Effect.succeed(
+                input.rowVanished === true ? [] : [{ id: servingRow.id }]
+              )
+            }
+          })
         })
       } as never)
     ),
@@ -526,6 +533,7 @@ const deletionHarness = (input: {
     Layer.provide(
       Layer.succeed(S3Storage, {
         deleteObject: (_: unknown, key: string) => {
+          order.push("s3")
           deletedKeys.push(key)
           return Effect.void
         }
@@ -540,7 +548,7 @@ const deletionHarness = (input: {
     ),
     Effect.provide(layer)
   )
-  return { run, deletedKeys, deletedRows }
+  return { run, deletedKeys, deletedRows, order }
 }
 
 describe("deleteForOrg", () => {
@@ -572,6 +580,42 @@ describe("deleteForOrg", () => {
       expect(result._tag).toBe("Left")
       expect(harness.deletedKeys).toEqual([])
     })
+  )
+
+  it.effect(
+    "narrows the delete to an orphaned row, so a row restored to live since the read is spared",
+    () =>
+      Effect.gen(function* () {
+        const harness = deletionHarness({ status: "orphaned", role: "owner" })
+        yield* harness.run
+        expect(sqlOf(harness.deletedRows[0])).toContain("status")
+      })
+  )
+
+  it.effect(
+    "deletes the row before the object, so a row that changed state never loses its object",
+    () =>
+      Effect.gen(function* () {
+        const harness = deletionHarness({ status: "orphaned", role: "owner" })
+        yield* harness.run
+        expect(harness.order).toEqual(["row", "s3"])
+      })
+  )
+
+  it.effect(
+    "leaves the object alone when the guarded delete matches nothing",
+    () =>
+      Effect.gen(function* () {
+        const harness = deletionHarness({
+          status: "orphaned",
+          role: "owner",
+          rowVanished: true
+        })
+        const result = yield* harness.run
+        expect(result._tag).toBe("Left")
+        if (result._tag === "Left") expect(result.left._tag).toBe("Forbidden")
+        expect(harness.deletedKeys).toEqual([])
+      })
   )
 
   it.effect("refuses a plain member, even for an orphaned attachment", () =>
@@ -743,6 +787,88 @@ describe("listForOrg", () => {
     })
   )
 
+  it.effect("pages a newest-first sort with a strictly-earlier bound", () =>
+    Effect.gen(function* () {
+      const { layer, capture } = listHarness({ role: "owner" })
+      yield* Attachments.pipe(
+        Effect.flatMap((a) =>
+          a.listForOrg("acme", "user-1", {
+            cursor: encodeCursor({
+              id: "att-1",
+              sort: "2026-09-02T10:00:00.000Z"
+            })
+          })
+        ),
+        Effect.provide(layer)
+      )
+      const where = sqlOf(capture.where)
+      expect(where).toContain("created_at" + '" <')
+      expect(where).not.toContain("created_at" + '" >')
+      expect(where).toContain("or")
+    })
+  )
+
+  it.effect("pages an oldest-first sort with a strictly-later bound", () =>
+    Effect.gen(function* () {
+      const { layer, capture } = listHarness({ role: "owner" })
+      yield* Attachments.pipe(
+        Effect.flatMap((a) =>
+          a.listForOrg("acme", "user-1", {
+            sort: "created_asc",
+            cursor: encodeCursor({
+              id: "att-1",
+              sort: "2026-09-02T10:00:00.000Z"
+            })
+          })
+        ),
+        Effect.provide(layer)
+      )
+      const where = sqlOf(capture.where)
+      expect(where).toContain("created_at" + '" >')
+      expect(where).not.toContain("created_at" + '" <')
+    })
+  )
+
+  it.effect("pages a size sort against the byte size column", () =>
+    Effect.gen(function* () {
+      const { layer, capture } = listHarness({ role: "owner" })
+      yield* Attachments.pipe(
+        Effect.flatMap((a) =>
+          a.listForOrg("acme", "user-1", {
+            sort: "size_desc",
+            cursor: encodeCursor({ id: "att-1", sort: "4096" })
+          })
+        ),
+        Effect.provide(layer)
+      )
+      const where = sqlOf(capture.where)
+      expect(where).toContain("byte_size" + '" <')
+      expect(where).not.toContain("created_at")
+    })
+  )
+
+  it.effect(
+    "breaks a tie on the id, so rows sharing a sort value are not skipped",
+    () =>
+      Effect.gen(function* () {
+        const { layer, capture } = listHarness({ role: "owner" })
+        yield* Attachments.pipe(
+          Effect.flatMap((a) =>
+            a.listForOrg("acme", "user-1", {
+              cursor: encodeCursor({
+                id: "att-1",
+                sort: "2026-09-02T10:00:00.000Z"
+              })
+            })
+          ),
+          Effect.provide(layer)
+        )
+        const where = sqlOf(capture.where)
+        expect(where).toContain("created_at" + '" =')
+        expect(where).toContain("id" + '" <')
+      })
+  )
+
   it.effect("fetches one row past the limit to detect a next page", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
@@ -804,6 +930,31 @@ describe("summarizeForOrg", () => {
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("Forbidden")
     })
+  )
+
+  it.effect(
+    "leaves pending bytes out of the headline totals, since the object may never have landed",
+    () =>
+      Effect.gen(function* () {
+        const { layer } = listHarness({
+          role: "owner",
+          rows: [
+            { status: "live", count: 3, bytes: 300 },
+            { status: "pending", count: 1, bytes: 900 }
+          ]
+        })
+        const summary = yield* Attachments.pipe(
+          Effect.flatMap((a) => a.summarizeForOrg("acme", "user-1")),
+          Effect.provide(layer)
+        )
+        expect(summary.count).toBe(3)
+        expect(summary.bytes).toBe(300)
+        expect(summary.byStatus).toContainEqual({
+          status: "pending",
+          count: 1,
+          bytes: 900
+        })
+      })
   )
 
   it.effect("totals count and bytes across the statuses", () =>

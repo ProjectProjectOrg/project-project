@@ -15,6 +15,7 @@ import {
   isRasterImageContentType,
   NotFound,
   StorageError,
+  tryDecodeCursor,
   Validation,
   type Attachment,
   type AttachmentRow
@@ -31,9 +32,8 @@ import {
   attachmentSortPlan,
   DEFAULT_ATTACHMENT_LIMIT,
   isServableStatus,
-  parseAttachmentCursor,
   planAttachmentPage,
-  planDeletion,
+  isAttachmentDeletable,
   planReap,
   planReconciliation,
   validateUploadRequest,
@@ -76,16 +76,6 @@ export const AttachmentsLive = Layer.effect(
           )
         )
 
-    const toAttachmentRow = (
-      row: typeof attachmentIndex.$inferSelect
-    ): AttachmentRow => ({
-      ...toAttachment(row),
-      projectSlug: row.projectSlug,
-      ticketId: row.ticketId,
-      committedAt: row.committedAt,
-      orphanedAt: row.orphanedAt
-    })
-
     const toAttachment = (
       row: typeof attachmentIndex.$inferSelect
     ): Attachment => ({
@@ -97,6 +87,14 @@ export const AttachmentsLive = Layer.effect(
       status: row.status,
       uploadedBy: row.uploadedBy,
       createdAt: row.createdAt
+    })
+
+    const toAttachmentRow = (
+      row: typeof attachmentIndex.$inferSelect
+    ): AttachmentRow => ({
+      ...toAttachment(row),
+      projectSlug: row.projectSlug,
+      ticketId: row.ticketId
     })
 
     const prepare: AttachmentsShape["prepare"] = (
@@ -335,8 +333,8 @@ export const AttachmentsLive = Layer.effect(
           conditions.push(eq(attachmentIndex.projectSlug, params.projectSlug))
         }
         if (params.cursor) {
-          const cursor = parseAttachmentCursor(params.cursor)
-          if (!cursor) {
+          const cursor = tryDecodeCursor(params.cursor)
+          if (cursor === undefined) {
             return yield* new Validation({ reason: "cursor" })
           }
           const value = attachmentCursorBound(cursor, params.sort)
@@ -390,10 +388,12 @@ export const AttachmentsLive = Layer.effect(
           bytes: Number(row.bytes)
         }))
 
+        const stored = byStatus.filter((row) => row.status !== "pending")
+
         return {
           byStatus,
-          count: byStatus.reduce((total, row) => total + row.count, 0),
-          bytes: byStatus.reduce((total, row) => total + row.bytes, 0)
+          count: stored.reduce((total, row) => total + row.count, 0),
+          bytes: stored.reduce((total, row) => total + row.bytes, 0)
         }
       })
 
@@ -419,9 +419,22 @@ export const AttachmentsLive = Layer.effect(
 
         const row = rows[0]
         if (!row) return yield* new NotFound()
-        if (planDeletion(row)) return yield* new Forbidden()
+        if (!isAttachmentDeletable(row)) return yield* new Forbidden()
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
+
+        const claimed = yield* db
+          .delete(attachmentIndex)
+          .where(
+            and(
+              eq(attachmentIndex.id, row.id),
+              eq(attachmentIndex.status, "orphaned")
+            )
+          )
+          .returning({ id: attachmentIndex.id })
+          .pipe(Effect.orDie)
+
+        if (claimed.length === 0) return yield* new Forbidden()
 
         yield* s3
           .deleteObject(connection, row.objectKey)
@@ -430,11 +443,6 @@ export const AttachmentsLive = Layer.effect(
               Effect.fail(mapS3Unavailable(error))
             )
           )
-
-        yield* db
-          .delete(attachmentIndex)
-          .where(eq(attachmentIndex.id, row.id))
-          .pipe(Effect.orDie)
       })
 
     const reconcileTicket: AttachmentsShape["reconcileTicket"] = (
