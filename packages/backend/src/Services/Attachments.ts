@@ -233,7 +233,7 @@ export interface AttachmentsShape {
     | StorageConfigMissing
     | StorageError
   >
-  readonly resolvableIds: (
+  readonly missingIds: (
     orgSlug: string,
     ids: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyArray<string>>
@@ -282,7 +282,7 @@ export const planStatuses = (input: {
   for (const row of input.rows) {
     const count = input.referenceCounts.get(row.id) ?? 0
     if (count > 0) {
-      if (row.status !== "live") toLive.push(row.id)
+      if (row.status === "orphaned") toLive.push(row.id)
     } else if (row.status === "live") {
       toOrphan.push(row.id)
     }

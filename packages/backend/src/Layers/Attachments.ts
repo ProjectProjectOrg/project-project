@@ -10,6 +10,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  or,
   sql
 } from "drizzle-orm"
 import { ulid } from "ulid"
@@ -271,7 +272,19 @@ export const AttachmentsLive = Layer.effect(
                 .limit(1)
                 .pipe(Effect.orDie))[0]
 
-        const canonicalKey = twin?.objectKey ?? row.objectKey
+        const canonicalPresent =
+          twin === undefined
+            ? false
+            : yield* s3
+                .headObject(connection, twin.objectKey)
+                .pipe(
+                  Effect.map((head) => head !== null),
+                  Effect.orElseSucceed(() => false)
+                )
+
+        const canonicalKey = canonicalPresent
+          ? (twin?.objectKey ?? row.objectKey)
+          : row.objectKey
 
         const now = yield* DateTime.nowAsDate
         const [updated] = yield* db
@@ -758,7 +771,7 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
-    const resolvableIds: AttachmentsShape["resolvableIds"] = (orgSlug, ids) =>
+    const missingIds: AttachmentsShape["missingIds"] = (orgSlug, ids) =>
       ids.length === 0
         ? Effect.succeed([])
         : db
@@ -772,7 +785,10 @@ export const AttachmentsLive = Layer.effect(
               )
             )
             .pipe(
-              Effect.map((rows) => rows.map((row) => row.id)),
+              Effect.map((rows) => {
+                const resolvable = new Set(rows.map((row) => row.id))
+                return ids.filter((id) => !resolvable.has(id))
+              }),
               Effect.orDie
             )
 
@@ -812,13 +828,51 @@ export const AttachmentsLive = Layer.effect(
           hashed += 1
         }
 
-        const rows = yield* db
-          .select()
+        const duplicated = yield* db
+          .select({
+            orgSlug: attachmentIndex.orgSlug,
+            contentHash: attachmentIndex.contentHash,
+            byteSize: attachmentIndex.byteSize
+          })
           .from(attachmentIndex)
           .where(
             and(
               isNotNull(attachmentIndex.contentHash),
               inArray(attachmentIndex.status, ["live", "orphaned"])
+            )
+          )
+          .groupBy(
+            attachmentIndex.orgSlug,
+            attachmentIndex.contentHash,
+            attachmentIndex.byteSize
+          )
+          .having(sql`count(distinct ${attachmentIndex.objectKey}) > 1`)
+          .pipe(Effect.orDie)
+
+        if (duplicated.length === 0) return { hashed, deduped: 0 }
+
+        const rows = yield* db
+          .select({
+            id: attachmentIndex.id,
+            orgSlug: attachmentIndex.orgSlug,
+            objectKey: attachmentIndex.objectKey,
+            contentHash: attachmentIndex.contentHash,
+            byteSize: attachmentIndex.byteSize,
+            createdAt: attachmentIndex.createdAt
+          })
+          .from(attachmentIndex)
+          .where(
+            and(
+              inArray(attachmentIndex.status, ["live", "orphaned"]),
+              or(
+                ...duplicated.map((group) =>
+                  and(
+                    eq(attachmentIndex.orgSlug, group.orgSlug),
+                    eq(attachmentIndex.contentHash, group.contentHash!),
+                    eq(attachmentIndex.byteSize, group.byteSize)
+                  )
+                )
+              )!
             )
           )
           .pipe(Effect.orDie)
@@ -888,7 +942,7 @@ export const AttachmentsLive = Layer.effect(
       listForOrg,
       summarizeForOrg,
       deleteForOrg,
-      resolvableIds,
+      missingIds,
       reapOnce,
       dedupeOnce
     } satisfies AttachmentsShape

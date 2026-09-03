@@ -466,24 +466,24 @@ export const TicketsLive = Layer.effect(
           ? ((yield* ticketIndex.list(indexProject, [id]))[0]
               ?.branchDeletedAt ?? null)
           : null
-        return yield* withResolvableAttachments(
+        return yield* withMissingAttachments(
           orgSlug,
           documentToDetail(ticket, projectGithub, branchDeletedAt)
         )
       })
 
-    const withResolvableAttachments = (orgSlug: string, detail: TicketDetail) =>
+    const withMissingAttachments = (orgSlug: string, detail: TicketDetail) =>
       attachments
-        .resolvableIds(
+        .missingIds(
           orgSlug,
           extractAttachmentRefs(detail.body)
             .filter((ref) => ref.orgSlug === orgSlug)
             .map((ref) => ref.id)
         )
         .pipe(
-          Effect.map((resolvableAttachments) => ({
+          Effect.map((missingAttachments) => ({
             ...detail,
-            resolvableAttachments
+            missingAttachments
           }))
         )
 
@@ -785,7 +785,7 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return yield* withResolvableAttachments(
+        return yield* withMissingAttachments(
           orgSlug,
           documentToDetail(next, projectGithub)
         )

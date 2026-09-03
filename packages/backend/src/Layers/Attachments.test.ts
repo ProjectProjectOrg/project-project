@@ -168,13 +168,13 @@ describe("planStatuses", () => {
     ).toEqual({ toLive: ["a"], toOrphan: [] })
   })
 
-  it("promotes a referenced pending row so the reaper cannot take its object", () => {
+  it("leaves a referenced pending row pending, so commit still gets to validate the object", () => {
     expect(
       planStatuses({
         rows: [{ id: "a", status: "pending" }],
         referenceCounts: new Map([["a", 1]])
       })
-    ).toEqual({ toLive: ["a"], toOrphan: [] })
+    ).toEqual({ toLive: [], toOrphan: [] })
   })
 
   it("leaves an unreferenced pending row pending, since its upload may still land", () => {
@@ -1118,7 +1118,7 @@ describe("summarizeAttachments", () => {
   })
 })
 
-describe("resolvableIds", () => {
+describe("missingIds", () => {
   const resolvableHarness = (rows: ReadonlyArray<{ id: string }>) => {
     const capture: { where?: unknown } = {}
     return {
@@ -1144,14 +1144,25 @@ describe("resolvableIds", () => {
     }
   }
 
-  it.effect("returns the ids that still resolve", () =>
+  it.effect("names only the referenced ids that no longer resolve", () =>
     Effect.gen(function* () {
       const { layer } = resolvableHarness([{ id: "a" }, { id: "c" }])
       const ids = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.resolvableIds("acme", ["a", "b", "c"])),
+        Effect.flatMap((a) => a.missingIds("acme", ["a", "b", "c"])),
         Effect.provide(layer)
       )
-      expect(ids).toEqual(["a", "c"])
+      expect(ids).toEqual(["b"])
+    })
+  )
+
+  it.effect("names nothing when every referenced id resolves", () =>
+    Effect.gen(function* () {
+      const { layer } = resolvableHarness([{ id: "a" }])
+      const ids = yield* Attachments.pipe(
+        Effect.flatMap((a) => a.missingIds("acme", ["a"])),
+        Effect.provide(layer)
+      )
+      expect(ids).toEqual([])
     })
   )
 
@@ -1159,7 +1170,7 @@ describe("resolvableIds", () => {
     Effect.gen(function* () {
       const { layer, capture } = resolvableHarness([])
       const ids = yield* Attachments.pipe(
-        Effect.flatMap((a) => a.resolvableIds("acme", [])),
+        Effect.flatMap((a) => a.missingIds("acme", [])),
         Effect.provide(layer)
       )
       expect(ids).toEqual([])
@@ -1171,7 +1182,7 @@ describe("resolvableIds", () => {
     Effect.gen(function* () {
       const { layer, capture } = resolvableHarness([{ id: "a" }])
       yield* Attachments.pipe(
-        Effect.flatMap((a) => a.resolvableIds("acme", ["a"])),
+        Effect.flatMap((a) => a.missingIds("acme", ["a"])),
         Effect.provide(layer)
       )
       const where = sqlOf(capture.where)

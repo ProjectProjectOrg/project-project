@@ -1,36 +1,34 @@
 import { createContext, use, useMemo, type ReactNode } from "react"
 import { parseAttachmentUrl } from "@projectproject/shared"
 
-const AttachmentAvailabilityContext = createContext<ReadonlySet<string> | null>(
-  null
-)
+const AttachmentMissingContext = createContext<ReadonlySet<string> | null>(null)
 
 export const attachmentResolves = (
-  known: ReadonlySet<string> | null,
+  missing: ReadonlySet<string> | null,
   url: string
 ): boolean => {
-  if (known === null) return true
+  if (missing === null) return true
   const ref = parseAttachmentUrl(url)
-  return ref === null ? true : known.has(ref.id)
+  return ref === null ? true : !missing.has(ref.id)
 }
 
 export function AttachmentAvailabilityProvider({
-  resolvable,
+  missing,
   children
 }: {
-  resolvable: ReadonlyArray<string> | undefined
+  missing: ReadonlyArray<string> | undefined
   children: ReactNode
 }) {
   const known = useMemo(
-    () => (resolvable === undefined ? null : new Set(resolvable)),
-    [resolvable]
+    () => (missing === undefined ? null : new Set(missing)),
+    [missing]
   )
   return (
-    <AttachmentAvailabilityContext value={known}>
+    <AttachmentMissingContext value={known}>
       {children}
-    </AttachmentAvailabilityContext>
+    </AttachmentMissingContext>
   )
 }
 
 export const useAttachmentResolves = (url: string): boolean =>
-  attachmentResolves(use(AttachmentAvailabilityContext), url)
+  attachmentResolves(use(AttachmentMissingContext), url)

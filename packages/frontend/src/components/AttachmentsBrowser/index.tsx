@@ -217,7 +217,19 @@ function AttachmentsTable({
     (row) => selected.has(row.id) && row.tickets.length > 0
   ).length
 
-  if (rows.length === 0) return <EmptyRows filtered={filtered} />
+  if (rows.length === 0) {
+    return (
+      <div className={waiting ? "animate-pulse" : undefined}>
+        <EmptyRows filtered={filtered} />
+        <Pagination
+          page={page}
+          pageSize={ORG_ATTACHMENTS_PAGE_SIZE}
+          total={total}
+          onPageChange={onPageChange}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className={waiting ? "animate-pulse" : undefined}>

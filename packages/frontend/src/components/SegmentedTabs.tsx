@@ -215,7 +215,7 @@ export const SEGMENTED_ITEM_CLASS = (
   variant: SegmentedVariant = "default"
 ) =>
   cn(
-    "group/seg-item relative inline-flex items-center transition-colors transition-transform duration-100 active:scale-[0.97]",
+    "group/seg-item relative inline-flex items-center transition-all duration-100 active:scale-[0.97]",
     VARIANTS[variant].itemBase,
     VARIANTS[variant].innerGap,
     active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
