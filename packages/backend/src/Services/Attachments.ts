@@ -4,7 +4,6 @@ import type * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import {
   ATTACHMENT_MAX_BYTES,
-  decodeCursor,
   encodeCursor,
   isAllowedAttachmentContentType,
   type Attachment,
@@ -74,14 +73,6 @@ export const attachmentCursorBound = (
 
 export const DEFAULT_ATTACHMENT_LIMIT = 50
 
-export const parseAttachmentCursor = (cursor: string): CursorPayload | null => {
-  try {
-    return decodeCursor(cursor)
-  } catch {
-    return null
-  }
-}
-
 export interface PageableAttachmentRow {
   readonly id: string
   readonly createdAt: Date
@@ -110,14 +101,9 @@ export const planAttachmentPage = <A extends PageableAttachmentRow>(input: {
   }
 }
 
-export type DeletionRefusal =
-  | { readonly kind: "live" }
-  | { readonly kind: "pending" }
-
-export const planDeletion = (row: {
+export const isAttachmentDeletable = (row: {
   readonly status: "pending" | "live" | "orphaned"
-}): DeletionRefusal | null =>
-  row.status === "orphaned" ? null : { kind: row.status }
+}): boolean => row.status === "orphaned"
 
 export const isServableStatus = (
   status: "pending" | "live" | "orphaned"

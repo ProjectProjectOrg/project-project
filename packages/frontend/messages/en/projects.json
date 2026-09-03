@@ -268,7 +268,6 @@
   "attachments_load_more": "Load more",
   "attachments_select_all": "Select every orphan on this page",
   "attachments_select_row": "Select {filename}",
-  "attachments_selected_count": "{count} selected",
   "attachments_sort_created_asc": "Oldest first",
   "attachments_sort_created_desc": "Newest first",
   "attachments_sort_label": "Sort",
@@ -280,5 +279,6 @@
   "attachments_tab": "Files",
   "attachments_thumbnail_alt": "Preview of {filename}",
   "attachments_total_bytes": "{bytes} across {count} objects",
-  "attachments_totals_all": "All"
+  "attachments_totals_all": "All",
+  "attachments_error_stale_page": "That page of results is out of date. Reload to continue."
 }

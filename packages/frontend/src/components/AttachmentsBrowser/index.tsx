@@ -1,7 +1,7 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import type {
   AttachmentRow as AttachmentRowData,
   AttachmentSort,
@@ -174,7 +174,7 @@ function AttachmentsTable({
   onLoadMore: () => void
   onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
 }) {
-  const selectedIds = useMemo(() => [...selected], [selected])
+  const selectedIds = [...selected]
 
   if (rows.length === 0) {
     return (
@@ -195,37 +195,41 @@ function AttachmentsTable({
 
   return (
     <div className={waiting ? "animate-pulse" : undefined}>
-      <div className="grid grid-cols-[24px_minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-border px-2 pb-2 text-xs text-muted-foreground">
-        <span className="flex items-center justify-center">
-          <input
-            type="checkbox"
-            className="size-4 rounded border border-border"
-            checked={allDeletableSelected(selected, rows)}
-            onChange={onToggleAll}
-            disabled={deletableIds(rows).length === 0}
-            aria-label={m.attachments_select_all()}
-          />
-        </span>
-        <span>{m.attachments_column_file()}</span>
-        <span>{m.attachments_column_project()}</span>
-        <span>{m.attachments_column_ticket()}</span>
-        <span>{m.attachments_column_size()}</span>
-        <span>{m.attachments_column_status()}</span>
-        <span>{m.attachments_column_uploaded()}</span>
-        <span />
-      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[720px]">
+          <div className="grid grid-cols-[24px_minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-border px-2 pb-2 text-xs text-muted-foreground">
+            <span className="flex items-center justify-center">
+              <input
+                type="checkbox"
+                className="size-4 rounded border border-border"
+                checked={allDeletableSelected(selected, rows)}
+                onChange={onToggleAll}
+                disabled={deletableIds(rows).length === 0}
+                aria-label={m.attachments_select_all()}
+              />
+            </span>
+            <span>{m.attachments_column_file()}</span>
+            <span>{m.attachments_column_project()}</span>
+            <span>{m.attachments_column_ticket()}</span>
+            <span>{m.attachments_column_size()}</span>
+            <span>{m.attachments_column_status()}</span>
+            <span>{m.attachments_column_uploaded()}</span>
+            <span />
+          </div>
 
-      {rows.map((row) => (
-        <Row
-          key={row.id}
-          orgSlug={orgSlug}
-          row={row}
-          selected={selected.has(row.id)}
-          onToggle={onToggle}
-        >
-          <DeleteCell row={row} onDelete={onDelete} />
-        </Row>
-      ))}
+          {rows.map((row) => (
+            <Row
+              key={row.id}
+              orgSlug={orgSlug}
+              row={row}
+              selected={selected.has(row.id)}
+              onToggle={onToggle}
+            >
+              <DeleteCell row={row} onDelete={onDelete} />
+            </Row>
+          ))}
+        </div>
+      </div>
 
       <div className="flex items-center justify-between gap-3 pt-3">
         {nextCursor !== null ? (

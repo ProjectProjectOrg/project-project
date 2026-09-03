@@ -128,9 +128,7 @@ export type ConnectStorageInput = typeof ConnectStorageInput.Type
 export const AttachmentRow = Schema.Struct({
   ...Attachment.fields,
   projectSlug: Schema.String,
-  ticketId: Schema.String,
-  committedAt: Schema.NullOr(Schema.Date),
-  orphanedAt: Schema.NullOr(Schema.Date)
+  ticketId: Schema.String
 })
 export type AttachmentRow = typeof AttachmentRow.Type
 

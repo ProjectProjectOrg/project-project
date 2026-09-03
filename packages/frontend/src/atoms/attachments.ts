@@ -175,13 +175,21 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
     fn: runtime.fn(
       Effect.fn(function* (ids: ReadonlyArray<string>, get) {
         const client = yield* ApiClient
-        yield* Effect.forEach(ids, (attachmentId) =>
-          client.attachments.remove({
-            path: { orgSlug: query.orgSlug, attachmentId }
-          })
+        yield* Effect.forEach(
+          ids,
+          (attachmentId) =>
+            client.attachments.remove({
+              path: { orgSlug: query.orgSlug, attachmentId }
+            }),
+          { concurrency: 4 }
+        ).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              get.refresh(orgAttachmentsBaseAtom(key))
+              get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
+            })
+          )
         )
-        get.refresh(orgAttachmentsBaseAtom(key))
-        get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
       })
     )
   })

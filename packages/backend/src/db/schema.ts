@@ -791,11 +791,14 @@ export const attachmentIndex = pgTable(
       .notNull()
       .default("pending"),
     uploadedBy: text("uploaded_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
       .notNull()
       .defaultNow(),
-    committedAt: timestamp("committed_at", { withTimezone: true }),
-    orphanedAt: timestamp("orphaned_at", { withTimezone: true })
+    committedAt: timestamp("committed_at", {
+      withTimezone: true,
+      precision: 3
+    }),
+    orphanedAt: timestamp("orphaned_at", { withTimezone: true, precision: 3 })
   },
   (t) => [
     index("attachment_index_ticket_idx").on(
