@@ -13,6 +13,9 @@ import {
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
 import {
+  pendingTicketStatusChangesAtom,
+  ticketKey,
+  ticketsCountKey,
   ticketsListKeyForStatus,
   updateTicketStatusAtom
 } from "@/atoms/tickets"
@@ -25,7 +28,7 @@ import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { cn } from "@/lib/utils"
 import type {
   ProjectStatus,
-  TicketId,
+  Ticket,
   TicketListQuery,
   TicketStatus
 } from "@projectproject/shared"
@@ -96,18 +99,25 @@ export function StatusBadgeTrigger({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; status: TicketStatus }
+  ticket: Ticket
   query: TicketListQuery
   className?: string
 }) {
-  const update = useAtomSet(updateTicketStatusAtom(projectKey(orgSlug, slug)))
+  const key = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketStatusAtom(key))
+  const updateState = useAtomValue(updateTicketStatusAtom(key))
+  const pending = useAtomValue(
+    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
+  )
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const meta = statusMetaFor(ticket.status, statuses)
+  const currentStatus = pending.get(ticket.id)?.status ?? ticket.status
+  const currentTicket = { ...ticket, status: currentStatus }
+  const meta = statusMetaFor(currentStatus, statuses)
   const Icon = meta.icon
-  const statusLabel = statusLabelFor(ticket.status, statuses)
+  const statusLabel = statusLabelFor(currentStatus, statuses)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -118,6 +128,7 @@ export function StatusBadgeTrigger({
             onClick={(e) => e.stopPropagation()}
             aria-label={m.tickets_status_aria_label({ label: statusLabel })}
             className={className}
+            disabled={updateState.waiting}
           >
             <Icon
               className={cn("size-3.5", meta.className)}
@@ -138,24 +149,28 @@ export function StatusBadgeTrigger({
         <StatusMenuItems
           orgSlug={orgSlug}
           slug={slug}
-          current={ticket.status}
+          current={currentStatus}
           statuses={statuses}
           onSelect={(status) =>
             update({
-              id: ticket.id,
+              ticket: currentTicket,
               status,
               sourceSectionKey: ticketsListKeyForStatus(
                 orgSlug,
                 slug,
                 query,
-                ticket.status
+                currentStatus
               ),
               destSectionKey: ticketsListKeyForStatus(
                 orgSlug,
                 slug,
                 query,
                 status
-              )
+              ),
+              countKey: ticketsCountKey(orgSlug, slug, {
+                filter: query.filter,
+                q: query.q
+              })
             })
           }
         />
@@ -174,19 +189,26 @@ export function StatusButton({
 }: {
   orgSlug: string
   slug: string
-  ticket: { id: TicketId; status: TicketStatus }
+  ticket: Ticket
   query: TicketListQuery
   stopPropagation?: boolean
   size?: "sm" | "lg"
 }) {
-  const update = useAtomSet(updateTicketStatusAtom(projectKey(orgSlug, slug)))
+  const key = ticketKey(orgSlug, slug, ticket.id)
+  const update = useAtomSet(updateTicketStatusAtom(key))
+  const updateState = useAtomValue(updateTicketStatusAtom(key))
+  const pending = useAtomValue(
+    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
+  )
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const meta = statusMetaFor(ticket.status, statuses)
+  const currentStatus = pending.get(ticket.id)?.status ?? ticket.status
+  const currentTicket = { ...ticket, status: currentStatus }
+  const meta = statusMetaFor(currentStatus, statuses)
   const Icon = meta.icon
-  const statusLabel = statusLabelFor(ticket.status, statuses)
+  const statusLabel = statusLabelFor(currentStatus, statuses)
   const wrapperClass =
     size === "lg"
       ? "-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
@@ -194,8 +216,7 @@ export function StatusButton({
           "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
           meta.className
         )
-  const iconClass =
-    size === "lg" ? cn("size-5", meta.className) : "size-4"
+  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -206,6 +227,7 @@ export function StatusButton({
             onClick={(e) => stopPropagation && e.stopPropagation()}
             aria-label={m.tickets_status_aria_label({ label: statusLabel })}
             title={statusLabel}
+            disabled={updateState.waiting}
           >
             <span className={wrapperClass}>
               <Icon
@@ -226,24 +248,28 @@ export function StatusButton({
         <StatusMenuItems
           orgSlug={orgSlug}
           slug={slug}
-          current={ticket.status}
+          current={currentStatus}
           statuses={statuses}
           onSelect={(status) =>
             update({
-              id: ticket.id,
+              ticket: currentTicket,
               status,
               sourceSectionKey: ticketsListKeyForStatus(
                 orgSlug,
                 slug,
                 query,
-                ticket.status
+                currentStatus
               ),
               destSectionKey: ticketsListKeyForStatus(
                 orgSlug,
                 slug,
                 query,
                 status
-              )
+              ),
+              countKey: ticketsCountKey(orgSlug, slug, {
+                filter: query.filter,
+                q: query.q
+              })
             })
           }
         />
