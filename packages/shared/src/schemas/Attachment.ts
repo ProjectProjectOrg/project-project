@@ -144,12 +144,20 @@ export const AttachmentListParams = Schema.Struct({
   status: Schema.optional(AttachmentStatus),
   projectSlug: Schema.optional(Schema.String),
   sort: Schema.optional(AttachmentSort),
-  cursor: Schema.optional(Schema.String),
+  page: Schema.optional(
+    Schema.NumberFromString.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1))
+  ),
   limit: Schema.optional(
     Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 200))
   )
 })
 export type AttachmentListParams = typeof AttachmentListParams.Type
+
+export const AttachmentListPage = Schema.Struct({
+  items: Schema.Array(AttachmentRow),
+  total: Schema.Number
+})
+export type AttachmentListPage = typeof AttachmentListPage.Type
 
 export const AttachmentStatusTotals = Schema.Struct({
   status: AttachmentStatus,

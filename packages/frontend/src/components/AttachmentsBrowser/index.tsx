@@ -9,7 +9,6 @@ import type {
 } from "@projectproject/shared"
 import {
   deleteOrgAttachmentsAtom,
-  loadMoreOrgAttachmentsAtom,
   ORG_ATTACHMENTS_PAGE_SIZE,
   orgAttachmentsAtom,
   orgAttachmentsSummaryAtom
@@ -22,11 +21,11 @@ import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
+import { Pagination } from "./Pagination"
 import { Row } from "./Row"
 import {
   allDeletableSelected,
   deletableIds,
-  hasMorePages,
   prunedSelection,
   toggleSelection
 } from "./selection"
@@ -43,13 +42,15 @@ export function AttachmentsBrowser({
   const [status, setStatus] = useState<StatusFilter>("all")
   const [projectSlug, setProjectSlug] = useState<string | null>(null)
   const [sort, setSort] = useState<AttachmentSort>("created_desc")
+  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
 
   const key = orgAttachmentsKey({
     orgSlug,
     ...(status === "all" ? {} : { status }),
     ...(projectSlug === null ? {} : { projectSlug }),
-    sort
+    sort,
+    page
   })
 
   const listResult = useAtomValue(orgAttachmentsAtom(key))
@@ -58,7 +59,6 @@ export function AttachmentsBrowser({
   const remove = useAtomSet(deleteOrgAttachmentsAtom(key), {
     mode: "promiseExit"
   })
-  const loadMore = useAtomSet(loadMoreOrgAttachmentsAtom(key))
 
   const projects = Result.isSuccess(projectsResult)
     ? projectsResult.value.map((project) => ({
@@ -67,7 +67,10 @@ export function AttachmentsBrowser({
       }))
     : []
 
-  const resetSelection = () => setSelected(new Set())
+  const resetPaging = () => {
+    setPage(1)
+    setSelected(new Set())
+  }
 
   if (storage.status === "not_connected") {
     return (
@@ -97,35 +100,35 @@ export function AttachmentsBrowser({
         status={status}
         onStatusChange={(next) => {
           setStatus(next)
-          resetSelection()
+          resetPaging()
         }}
         projectSlug={projectSlug}
         projects={projects}
         onProjectChange={(next) => {
           setProjectSlug(next)
-          resetSelection()
+          resetPaging()
         }}
         sort={sort}
         onSortChange={(next) => {
           setSort(next)
-          resetSelection()
+          resetPaging()
         }}
       />
 
       {Result.matchWithError(listResult, {
         onInitial: () => <TableSkeleton />,
-        onError: (error) =>
-          error._tag === "NoSuchElementException" ? (
-            <EmptyRows filtered={status !== "all" || projectSlug !== null} />
-          ) : (
-            <ErrorPage error={error} contained />
-          ),
+        onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
         onSuccess: ({ value, waiting }) => (
           <AttachmentsTable
             orgSlug={orgSlug}
             rows={value.items}
-            done={value.done}
+            page={page}
+            total={value.total}
+            onPageChange={(next) => {
+              setPage(next)
+              setSelected(new Set())
+            }}
             waiting={waiting}
             filtered={status !== "all" || projectSlug !== null}
             selected={prunedSelection(selected, value.items)}
@@ -139,7 +142,6 @@ export function AttachmentsBrowser({
                   : new Set(deletableIds(value.items))
               )
             }
-            onLoadMore={() => loadMore()}
             onDelete={async (ids) => {
               const exit = await remove(ids)
               if (Exit.isSuccess(exit)) {
@@ -158,24 +160,26 @@ export function AttachmentsBrowser({
 function AttachmentsTable({
   orgSlug,
   rows,
-  done,
+  page,
+  total,
+  onPageChange,
   waiting,
   filtered,
   selected,
   onToggle,
   onToggleAll,
-  onLoadMore,
   onDelete
 }: {
   orgSlug: string
   rows: ReadonlyArray<AttachmentRowData>
-  done: boolean
+  page: number
+  total: number
+  onPageChange: (page: number) => void
   waiting: boolean
   filtered: boolean
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onToggleAll: () => void
-  onLoadMore: () => void
   onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
 }) {
   const selectedIds = [...selected]
@@ -184,11 +188,11 @@ function AttachmentsTable({
 
   return (
     <div className={waiting ? "animate-pulse" : undefined}>
-      <div className="overflow-x-auto">
+      <div className="max-h-[calc(100vh-24rem)] min-h-64 overflow-auto rounded-lg border border-border">
         <table className="w-full min-w-[720px] table-auto border-collapse text-left">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-background">
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th scope="col" className="w-6 px-2 pb-2 font-normal">
+              <th scope="col" className="w-6 px-2 py-2 font-normal">
                 <input
                   type="checkbox"
                   className="size-4 rounded border border-border align-middle"
@@ -198,25 +202,25 @@ function AttachmentsTable({
                   aria-label={m.attachments_select_all()}
                 />
               </th>
-              <th scope="col" className="w-full px-2 pb-2 font-normal">
+              <th scope="col" className="w-full px-2 py-2 font-normal">
                 {m.attachments_column_file()}
               </th>
-              <th scope="col" className="px-2 pb-2 font-normal">
+              <th scope="col" className="px-2 py-2 font-normal">
                 {m.attachments_column_project()}
               </th>
-              <th scope="col" className="px-2 pb-2 font-normal">
+              <th scope="col" className="px-2 py-2 font-normal">
                 {m.attachments_column_ticket()}
               </th>
-              <th scope="col" className="px-2 pb-2 text-right font-normal">
+              <th scope="col" className="px-2 py-2 text-right font-normal">
                 {m.attachments_column_size()}
               </th>
-              <th scope="col" className="px-2 pb-2 font-normal">
+              <th scope="col" className="px-2 py-2 font-normal">
                 {m.attachments_column_status()}
               </th>
-              <th scope="col" className="px-2 pb-2 font-normal">
+              <th scope="col" className="px-2 py-2 font-normal">
                 {m.attachments_column_uploaded()}
               </th>
-              <th scope="col" className="w-0 px-2 pb-2" />
+              <th scope="col" className="w-0 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -235,25 +239,8 @@ function AttachmentsTable({
         </table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 pt-3">
-        {hasMorePages({
-          loaded: rows.length,
-          pageSize: ORG_ATTACHMENTS_PAGE_SIZE,
-          done
-        }) ? (
-          <Button
-            type="button"
-            variant="tertiary"
-            size="sm"
-            onClick={onLoadMore}
-          >
-            {m.attachments_load_more()}
-          </Button>
-        ) : (
-          <span />
-        )}
-
-        {selectedIds.length > 0 ? (
+      {selectedIds.length > 0 ? (
+        <div className="flex items-center justify-end gap-3 pt-3">
           <ConfirmButton.Root>
             <ConfirmButton.Trigger type="button" variant="secondary" size="sm">
               {m.attachments_delete_selected({ count: selectedIds.length })}
@@ -268,8 +255,15 @@ function AttachmentsTable({
               />
             </ConfirmButton.Confirm>
           </ConfirmButton.Root>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
+
+      <Pagination
+        page={page}
+        pageSize={ORG_ATTACHMENTS_PAGE_SIZE}
+        total={total}
+        onPageChange={onPageChange}
+      />
     </div>
   )
 }

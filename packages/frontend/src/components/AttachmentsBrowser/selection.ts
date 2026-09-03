@@ -17,13 +17,6 @@ export const hasThumbnail = (row: {
 }): boolean =>
   row.status !== "pending" && isRasterImageContentType(row.contentType)
 
-export const hasMorePages = (input: {
-  readonly loaded: number
-  readonly pageSize: number
-  readonly done: boolean
-}): boolean =>
-  !input.done && input.loaded > 0 && input.loaded % input.pageSize === 0
-
 export const deletableIds = (
   rows: ReadonlyArray<SelectableRow>
 ): ReadonlyArray<string> => rows.filter(isDeletable).map((row) => row.id)
