@@ -27,6 +27,7 @@ import { Row } from "./Row"
 import {
   allDeletableSelected,
   deletableIds,
+  isDeletable,
   prunedSelection,
   toggleSelection
 } from "./selection"
@@ -186,6 +187,9 @@ function AttachmentsTable({
   onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
 }) {
   const selectedIds = [...selected]
+  const referencedCount = rows.filter(
+    (row) => selected.has(row.id) && row.tickets.length > 0
+  ).length
 
   if (rows.length === 0) return <EmptyRows filtered={filtered} />
 
@@ -250,9 +254,16 @@ function AttachmentsTable({
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm className="flex-wrap justify-end">
               <DeleteConfirm
-                prompt={m.attachments_delete_selected_confirm({
-                  count: selectedIds.length
-                })}
+                prompt={
+                  referencedCount > 0
+                    ? m.attachments_delete_selected_confirm_referenced({
+                        count: selectedIds.length,
+                        referenced: referencedCount
+                      })
+                    : m.attachments_delete_selected_confirm({
+                        count: selectedIds.length
+                      })
+                }
                 ids={selectedIds}
                 onDelete={onDelete}
               />
@@ -295,20 +306,22 @@ function DeleteCell({
   row: AttachmentRowData
   onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
 }) {
-  if (row.status !== "orphaned") return <span />
+  if (!isDeletable(row)) return <span />
 
   return (
     <ConfirmButton.Root className="justify-end">
-      <ConfirmButton.Trigger
-        type="button"
-        variant="ghost"
-        size="sm"
-      >
+      <ConfirmButton.Trigger type="button" variant="ghost" size="sm">
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="flex-wrap justify-end">
         <DeleteConfirm
-          prompt={m.attachments_delete_confirm()}
+          prompt={
+            row.tickets.length > 0
+              ? m.attachments_delete_confirm_referenced({
+                  count: row.tickets.length
+                })
+              : m.attachments_delete_confirm()
+          }
           ids={[row.id]}
           onDelete={onDelete}
         />

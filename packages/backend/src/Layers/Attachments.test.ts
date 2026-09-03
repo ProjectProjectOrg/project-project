@@ -325,8 +325,8 @@ describe("isAttachmentDeletable", () => {
     expect(isAttachmentDeletable({ status: "orphaned" })).toBe(true)
   })
 
-  it("refuses a live attachment, whose ticket description still renders it", () => {
-    expect(isAttachmentDeletable({ status: "live" })).toBe(false)
+  it("allows deleting a live attachment, leaving the reference broken in its ticket", () => {
+    expect(isAttachmentDeletable({ status: "live" })).toBe(true)
   })
 
   it("refuses a pending attachment, whose upload may still be in flight", () => {
@@ -538,14 +538,13 @@ describe("deleteForOrg", () => {
     })
   )
 
-  it.effect("refuses a live attachment and leaves the object in place", () =>
+  it.effect("deletes a live attachment, breaking the reference in its ticket", () =>
     Effect.gen(function* () {
       const harness = deletionHarness({ status: "live", role: "owner" })
       const result = yield* harness.run
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") expect(result.left._tag).toBe("Forbidden")
-      expect(harness.deletedKeys).toEqual([])
-      expect(harness.deletedRows).toEqual([])
+      expect(result._tag).toBe("Right")
+      expect(harness.deletedKeys).toEqual([servingRow.objectKey])
+      expect(harness.deletedRows).toHaveLength(1)
     })
   )
 
@@ -559,7 +558,7 @@ describe("deleteForOrg", () => {
   )
 
   it.effect(
-    "narrows the delete to an orphaned row, so a row restored to live since the read is spared",
+    "narrows the delete on status, so a row that became pending since the read is spared",
     () =>
       Effect.gen(function* () {
         const harness = deletionHarness({ status: "orphaned", role: "owner" })

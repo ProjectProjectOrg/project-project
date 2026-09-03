@@ -9,7 +9,7 @@ interface SelectableRow {
 }
 
 export const isDeletable = (row: SelectableRow): boolean =>
-  row.status === "orphaned"
+  row.status !== "pending"
 
 export const hasThumbnail = (row: {
   readonly status: AttachmentStatus

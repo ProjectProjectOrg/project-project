@@ -169,7 +169,7 @@ export const summarizeAttachments = (input: {
 
 export const isAttachmentDeletable = (row: {
   readonly status: "pending" | "live" | "orphaned"
-}): boolean => row.status === "orphaned"
+}): boolean => row.status !== "pending"
 
 export const isServableStatus = (
   status: "pending" | "live" | "orphaned"

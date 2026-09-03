@@ -519,7 +519,7 @@ export const AttachmentsLive = Layer.effect(
           .where(
             and(
               eq(attachmentIndex.id, row.id),
-              eq(attachmentIndex.status, "orphaned")
+              inArray(attachmentIndex.status, ["live", "orphaned"])
             )
           )
           .returning({ id: attachmentIndex.id })
