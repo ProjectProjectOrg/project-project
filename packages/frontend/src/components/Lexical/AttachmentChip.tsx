@@ -54,13 +54,15 @@ export function AttachmentChip({
   alt,
   filename,
   kind,
-  morphId
+  morphId,
+  onBroken
 }: {
   url: string
   alt: string
   filename: string
   kind: "image" | "file"
   morphId: string
+  onBroken?: () => void
 }) {
   const [broken, setBroken] = useState(false)
 
@@ -91,7 +93,10 @@ export function AttachmentChip({
           loading="lazy"
           decoding="async"
           className="block max-h-72 max-w-full rounded-md object-contain"
-          onError={() => setBroken(true)}
+          onError={() => {
+            setBroken(true)
+            onBroken?.()
+          }}
         />
       </PopoverContent>
     </Popover>

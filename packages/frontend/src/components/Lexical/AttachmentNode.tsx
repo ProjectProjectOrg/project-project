@@ -462,6 +462,7 @@ function AttachmentSettled({
           filename={filename}
           kind={kind}
           morphId={morphId}
+          onBroken={() => setBroken(true)}
         />
       ) : kind === "image" ? (
         <AttachmentImage

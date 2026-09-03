@@ -10,16 +10,16 @@ describe("attachmentResolves", () => {
     expect(attachmentResolves(null, url(ID))).toBe(true)
   })
 
-  it("resolves an id the ticket listed", () => {
-    expect(attachmentResolves(new Set([ID]), url(ID))).toBe(true)
+  it("refuses an id the ticket named as missing", () => {
+    expect(attachmentResolves(new Set([ID]), url(ID))).toBe(false)
   })
 
-  it("refuses an id the ticket did not list, even collapsed", () => {
-    expect(attachmentResolves(new Set([OTHER]), url(ID))).toBe(false)
+  it("resolves an id the ticket did not name", () => {
+    expect(attachmentResolves(new Set([OTHER]), url(ID))).toBe(true)
   })
 
-  it("refuses every id when the ticket listed none", () => {
-    expect(attachmentResolves(new Set(), url(ID))).toBe(false)
+  it("resolves an id uploaded since the ticket loaded, rather than calling it broken", () => {
+    expect(attachmentResolves(new Set(), url(ID))).toBe(true)
   })
 
   it("leaves a url that is not an attachment alone", () => {

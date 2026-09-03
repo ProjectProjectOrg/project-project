@@ -117,9 +117,7 @@ export function DescriptionField({
       >
         <div ref={contentRef}>
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
-            <AttachmentAvailabilityProvider
-              resolvable={ticket.resolvableAttachments}
-            >
+            <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
                 key={`${slug}/${ticket.id}`}
                 markdown={bodyDraft ?? ticket.body}
