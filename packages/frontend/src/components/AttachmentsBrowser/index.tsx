@@ -322,7 +322,7 @@ function DeleteCell({
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="absolute top-1/2 -right-2 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover px-2 py-1 whitespace-nowrap shadow-sm">
+      <ConfirmButton.Confirm className="absolute top-1/2 -right-1 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover py-1 pr-2 pl-3.5 whitespace-nowrap shadow-sm">
         <DeleteConfirm
           prompt={
             row.tickets.length === 0
