@@ -135,7 +135,8 @@ const FakeAttachments = Layer.succeed(Attachments, {
   listForOrg: () => unexpected("Attachments.listForOrg"),
   summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
   deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
-  reapOnce: () => unexpected("Attachments.reapOnce")
+  reapOnce: () => unexpected("Attachments.reapOnce"),
+  dedupeOnce: () => unexpected("Attachments.dedupeOnce")
 } satisfies AttachmentsShape)
 
 const FakeDb = Layer.succeed(Db, {

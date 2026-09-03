@@ -48,8 +48,7 @@ export const attachmentSortPlan = (
 export const attachmentServesInline = (input: {
   readonly contentType: string
   readonly download: boolean
-}): boolean =>
-  !input.download && isRasterImageContentType(input.contentType)
+}): boolean => !input.download && isRasterImageContentType(input.contentType)
 
 export const DEFAULT_ATTACHMENT_LIMIT = 50
 
@@ -60,6 +59,113 @@ export const attachmentPageOffset = (
 
 export const attachmentPageCount = (total: number, limit: number): number =>
   total <= 0 ? 1 : Math.ceil(total / limit)
+
+export interface DedupeRow {
+  readonly id: string
+  readonly objectKey: string
+  readonly contentHash: string | null
+  readonly byteSize: number
+  readonly createdAt: Date
+}
+
+export interface DedupeRepoint {
+  readonly id: string
+  readonly fromKey: string
+  readonly toKey: string
+}
+
+export const planDedupe = (input: {
+  readonly rows: ReadonlyArray<DedupeRow>
+}): ReadonlyArray<DedupeRepoint> => {
+  const groups = new Map<string, Array<DedupeRow>>()
+  for (const row of input.rows) {
+    if (row.contentHash === null) continue
+    const key = `${row.contentHash}:${row.byteSize}`
+    const group = groups.get(key)
+    if (group) group.push(row)
+    else groups.set(key, [row])
+  }
+
+  const repoints: Array<DedupeRepoint> = []
+  for (const group of groups.values()) {
+    if (group.length < 2) continue
+    const ordered = [...group].sort((left, right) => {
+      const byDate = left.createdAt.getTime() - right.createdAt.getTime()
+      return byDate === 0 ? left.id.localeCompare(right.id) : byDate
+    })
+    const canonical = ordered[0]!
+    for (const row of ordered.slice(1)) {
+      if (row.objectKey === canonical.objectKey) continue
+      repoints.push({
+        id: row.id,
+        fromKey: row.objectKey,
+        toKey: canonical.objectKey
+      })
+    }
+  }
+  return repoints
+}
+
+export const planObjectDeletions = (input: {
+  readonly removing: ReadonlyArray<{
+    readonly id: string
+    readonly objectKey: string
+  }>
+  readonly remaining: ReadonlyArray<{
+    readonly id: string
+    readonly objectKey: string
+  }>
+}): ReadonlyArray<string> => {
+  const kept = new Set(input.remaining.map((row) => row.objectKey))
+  const keys: Array<string> = []
+  const seen = new Set<string>()
+  for (const row of input.removing) {
+    if (kept.has(row.objectKey) || seen.has(row.objectKey)) continue
+    seen.add(row.objectKey)
+    keys.push(row.objectKey)
+  }
+  return keys
+}
+
+const STATUS_ORDER = ["live", "orphaned", "pending"] as const
+
+export const summarizeAttachments = (input: {
+  readonly rows: ReadonlyArray<{
+    readonly objectKey: string
+    readonly byteSize: number
+    readonly status: "pending" | "live" | "orphaned"
+  }>
+}): AttachmentSummary => {
+  const counts = new Map<string, { count: number; bytes: number }>()
+  const charged = new Set<string>()
+
+  const ordered = [...input.rows].sort(
+    (left, right) =>
+      STATUS_ORDER.indexOf(left.status) - STATUS_ORDER.indexOf(right.status)
+  )
+
+  for (const row of ordered) {
+    const entry = counts.get(row.status) ?? { count: 0, bytes: 0 }
+    entry.count += 1
+    if (!charged.has(row.objectKey)) {
+      charged.add(row.objectKey)
+      entry.bytes += row.byteSize
+    }
+    counts.set(row.status, entry)
+  }
+
+  const byStatus = STATUS_ORDER.filter((status) => counts.has(status)).map(
+    (status) => ({ status, ...counts.get(status)! })
+  )
+
+  const stored = byStatus.filter((row) => row.status !== "pending")
+
+  return {
+    byStatus,
+    count: stored.reduce((total, row) => total + row.count, 0),
+    bytes: stored.reduce((total, row) => total + row.bytes, 0)
+  }
+}
 
 export const isAttachmentDeletable = (row: {
   readonly status: "pending" | "live" | "orphaned"
@@ -155,11 +261,17 @@ export interface AttachmentsShape {
     | StorageError
   >
   readonly reapOnce: () => Effect.Effect<{ readonly deleted: number }>
+  readonly dedupeOnce: () => Effect.Effect<{
+    readonly hashed: number
+    readonly deduped: number
+  }>
 }
 
 export class Attachments extends Context.Tag(
   "@projectproject/backend/Services/Attachments"
 )<Attachments, AttachmentsShape>() {}
+
+export const DEDUPE_HASH_BATCH = 200
 
 export const ORPHAN_GRACE_MS = 7 * 24 * 60 * 60 * 1000
 export const REAPER_INTERVAL_MS = 60 * 60 * 1000

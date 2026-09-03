@@ -27,7 +27,10 @@ import {
   ORPHAN_GRACE_MS,
   isAttachmentDeletable,
   planReap,
+  planDedupe,
+  planObjectDeletions,
   planReferences,
+  summarizeAttachments,
   planStatuses,
   validateUploadRequest
 } from "../Services/Attachments"
@@ -105,9 +108,10 @@ describe("planReferences", () => {
   })
 
   it("drops a reference the body no longer mentions", () => {
-    expect(
-      planReferences({ referenced: new Set(), existing: ["a"] })
-    ).toEqual({ toAdd: [], toRemove: ["a"] })
+    expect(planReferences({ referenced: new Set(), existing: ["a"] })).toEqual({
+      toAdd: [],
+      toRemove: ["a"]
+    })
   })
 
   it("leaves an unchanged reference alone", () => {
@@ -462,6 +466,10 @@ const deletionHarness = (input: {
   readonly status: "pending" | "live" | "orphaned"
   readonly role: Role
   readonly rowVanished?: boolean
+  readonly sharers?: ReadonlyArray<{
+    readonly id: string
+    readonly objectKey: string
+  }>
 }) => {
   const deletedKeys: Array<string> = []
   const deletedRows: Array<unknown> = []
@@ -469,12 +477,19 @@ const deletionHarness = (input: {
   const layer = AttachmentsLive.pipe(
     Layer.provide(
       Layer.succeed(Db, {
-        select: () => ({
+        select: (shape?: Record<string, unknown>) => ({
           from: () => ({
-            where: () => ({
-              limit: () =>
+            where: (cond: unknown) => {
+              const isSharerQuery =
+                shape !== undefined && "objectKey" in shape && "id" in shape
+              const settled = Effect.succeed(
+                isSharerQuery ? (input.sharers ?? []) : []
+              ) as unknown as Record<string, unknown>
+              settled["limit"] = () =>
                 Effect.succeed([{ ...servingRow, status: input.status }])
-            })
+              void cond
+              return settled
+            }
           })
         }),
         delete: () => ({
@@ -579,6 +594,22 @@ describe("deleteForOrg", () => {
       })
   )
 
+  it.effect(
+    "spares the object when a deduplicated row still points at it",
+    () =>
+      Effect.gen(function* () {
+        const harness = deletionHarness({
+          status: "orphaned",
+          role: "owner",
+          sharers: [{ id: "att-2", objectKey: servingRow.objectKey }]
+        })
+        const result = yield* harness.run
+        expect(result._tag).toBe("Right")
+        expect(harness.deletedRows).toHaveLength(1)
+        expect(harness.deletedKeys).toEqual([])
+      })
+  )
+
   it.effect("refuses a plain member, even for an orphaned attachment", () =>
     Effect.gen(function* () {
       const harness = deletionHarness({ status: "orphaned", role: "member" })
@@ -619,10 +650,13 @@ const listHarness = (input: {
               capture.where = cond
               const isReferenceQuery =
                 shape !== undefined && "attachmentId" in shape
+              const isSummaryQuery = shape !== undefined && "objectKey" in shape
               const settled = Effect.succeed(
                 isReferenceQuery
                   ? (input.references ?? [])
-                  : [{ total: input.total ?? 0 }]
+                  : isSummaryQuery
+                    ? rows
+                    : [{ total: input.total ?? 0 }]
               ) as unknown as Record<string, unknown>
               settled["orderBy"] = () => ({
                 limit: (n: number) => {
@@ -713,7 +747,11 @@ describe("listForOrg", () => {
 
   it.effect("reports the total matching the filters, not just this page", () =>
     Effect.gen(function* () {
-      const { layer } = listHarness({ role: "owner", rows: [servingRow], total: 217 })
+      const { layer } = listHarness({
+        role: "owner",
+        rows: [servingRow],
+        total: 217
+      })
       const page = yield* Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
         Effect.provide(layer)
@@ -729,8 +767,16 @@ describe("listForOrg", () => {
         rows: [servingRow],
         total: 1,
         references: [
-          { attachmentId: servingRow.id, projectSlug: "apollo", ticketId: "T-1" },
-          { attachmentId: servingRow.id, projectSlug: "apollo", ticketId: "T-9" }
+          {
+            attachmentId: servingRow.id,
+            projectSlug: "apollo",
+            ticketId: "T-1"
+          },
+          {
+            attachmentId: servingRow.id,
+            projectSlug: "apollo",
+            ticketId: "T-9"
+          }
         ]
       })
       const page = yield* Attachments.pipe(
@@ -808,15 +854,15 @@ describe("summarizeForOrg", () => {
         const { layer } = listHarness({
           role: "owner",
           rows: [
-            { status: "live", count: 3, bytes: 300 },
-            { status: "pending", count: 1, bytes: 900 }
+            { objectKey: "k-a", byteSize: 300, status: "live" },
+            { objectKey: "k-b", byteSize: 900, status: "pending" }
           ]
         })
         const summary = yield* Attachments.pipe(
           Effect.flatMap((a) => a.summarizeForOrg("acme", "user-1")),
           Effect.provide(layer)
         )
-        expect(summary.count).toBe(3)
+        expect(summary.count).toBe(1)
         expect(summary.bytes).toBe(300)
         expect(summary.byStatus).toContainEqual({
           status: "pending",
@@ -831,8 +877,11 @@ describe("summarizeForOrg", () => {
       const { layer } = listHarness({
         role: "owner",
         rows: [
-          { status: "live", count: 3, bytes: 300 },
-          { status: "orphaned", count: 2, bytes: 200 }
+          { objectKey: "k-a", byteSize: 100, status: "live" },
+          { objectKey: "k-b", byteSize: 100, status: "live" },
+          { objectKey: "k-c", byteSize: 100, status: "live" },
+          { objectKey: "k-d", byteSize: 100, status: "orphaned" },
+          { objectKey: "k-e", byteSize: 100, status: "orphaned" }
         ]
       })
       const summary = yield* Attachments.pipe(
@@ -909,5 +958,214 @@ describe("attachmentServesInline", () => {
     expect(
       attachmentServesInline({ contentType: "image/png", download: true })
     ).toBe(false)
+  })
+})
+
+describe("planDedupe", () => {
+  const row = (input: {
+    id: string
+    key: string
+    hash: string | null
+    size?: number
+    at?: string
+  }) => ({
+    id: input.id,
+    objectKey: input.key,
+    contentHash: input.hash,
+    byteSize: input.size ?? 100,
+    createdAt: at(input.at ?? "2026-09-02T10:00:00.000Z")
+  })
+
+  it("repoints a later duplicate at the earliest copy's object", () => {
+    expect(
+      planDedupe({
+        rows: [
+          row({
+            id: "a",
+            key: "k-a",
+            hash: "h",
+            at: "2026-09-01T00:00:00.000Z"
+          }),
+          row({
+            id: "b",
+            key: "k-b",
+            hash: "h",
+            at: "2026-09-02T00:00:00.000Z"
+          })
+        ]
+      })
+    ).toEqual([{ id: "b", fromKey: "k-b", toKey: "k-a" }])
+  })
+
+  it("leaves a lone copy alone", () => {
+    expect(
+      planDedupe({ rows: [row({ id: "a", key: "k-a", hash: "h" })] })
+    ).toEqual([])
+  })
+
+  it("never merges rows whose hashes differ", () => {
+    expect(
+      planDedupe({
+        rows: [
+          row({ id: "a", key: "k-a", hash: "h1" }),
+          row({ id: "b", key: "k-b", hash: "h2" })
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("never merges a matching hash at a different size", () => {
+    expect(
+      planDedupe({
+        rows: [
+          row({ id: "a", key: "k-a", hash: "h", size: 100 }),
+          row({ id: "b", key: "k-b", hash: "h", size: 200 })
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("skips rows whose hash is not known yet", () => {
+    expect(
+      planDedupe({
+        rows: [
+          row({ id: "a", key: "k-a", hash: null }),
+          row({ id: "b", key: "k-b", hash: null })
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("leaves a duplicate that already shares the canonical object", () => {
+    expect(
+      planDedupe({
+        rows: [
+          row({
+            id: "a",
+            key: "k-a",
+            hash: "h",
+            at: "2026-09-01T00:00:00.000Z"
+          }),
+          row({
+            id: "b",
+            key: "k-a",
+            hash: "h",
+            at: "2026-09-02T00:00:00.000Z"
+          })
+        ]
+      })
+    ).toEqual([])
+  })
+
+  it("collapses a whole group onto one object", () => {
+    const plan = planDedupe({
+      rows: [
+        row({ id: "a", key: "k-a", hash: "h", at: "2026-09-01T00:00:00.000Z" }),
+        row({ id: "b", key: "k-b", hash: "h", at: "2026-09-02T00:00:00.000Z" }),
+        row({ id: "c", key: "k-c", hash: "h", at: "2026-09-03T00:00:00.000Z" })
+      ]
+    })
+    expect(plan.map((entry) => entry.id)).toEqual(["b", "c"])
+    expect(plan.every((entry) => entry.toKey === "k-a")).toBe(true)
+  })
+})
+
+describe("planObjectDeletions", () => {
+  it("deletes an object no surviving row points at", () => {
+    expect(
+      planObjectDeletions({
+        removing: [{ id: "a", objectKey: "k-a" }],
+        remaining: []
+      })
+    ).toEqual(["k-a"])
+  })
+
+  it("spares an object a deduplicated row still shares", () => {
+    expect(
+      planObjectDeletions({
+        removing: [{ id: "a", objectKey: "k" }],
+        remaining: [{ id: "b", objectKey: "k" }]
+      })
+    ).toEqual([])
+  })
+
+  it("deletes each shared key once when several rows go together", () => {
+    expect(
+      planObjectDeletions({
+        removing: [
+          { id: "a", objectKey: "k" },
+          { id: "b", objectKey: "k" }
+        ],
+        remaining: []
+      })
+    ).toEqual(["k"])
+  })
+})
+
+describe("summarizeAttachments", () => {
+  it("counts every row and its bytes when nothing is shared", () => {
+    expect(
+      summarizeAttachments({
+        rows: [
+          { objectKey: "k-a", byteSize: 100, status: "live" },
+          { objectKey: "k-b", byteSize: 200, status: "orphaned" }
+        ]
+      })
+    ).toEqual({
+      byStatus: [
+        { status: "live", count: 1, bytes: 100 },
+        { status: "orphaned", count: 1, bytes: 200 }
+      ],
+      count: 2,
+      bytes: 300
+    })
+  })
+
+  it("charges a deduplicated object's bytes once, not once per row", () => {
+    const summary = summarizeAttachments({
+      rows: [
+        { objectKey: "k", byteSize: 100, status: "live" },
+        { objectKey: "k", byteSize: 100, status: "live" }
+      ]
+    })
+    expect(summary.count).toBe(2)
+    expect(summary.bytes).toBe(100)
+  })
+
+  it("charges a shared object to its live row rather than the orphaned one", () => {
+    const summary = summarizeAttachments({
+      rows: [
+        { objectKey: "k", byteSize: 100, status: "orphaned" },
+        { objectKey: "k", byteSize: 100, status: "live" }
+      ]
+    })
+    expect(summary.byStatus).toEqual([
+      { status: "live", count: 1, bytes: 100 },
+      { status: "orphaned", count: 1, bytes: 0 }
+    ])
+  })
+
+  it("leaves pending bytes out of the headline, since the object may not exist", () => {
+    const summary = summarizeAttachments({
+      rows: [
+        { objectKey: "k-a", byteSize: 100, status: "live" },
+        { objectKey: "k-b", byteSize: 900, status: "pending" }
+      ]
+    })
+    expect(summary.count).toBe(1)
+    expect(summary.bytes).toBe(100)
+    expect(summary.byStatus).toContainEqual({
+      status: "pending",
+      count: 1,
+      bytes: 900
+    })
+  })
+
+  it("reports zeroes for an empty bucket", () => {
+    expect(summarizeAttachments({ rows: [] })).toEqual({
+      byStatus: [],
+      count: 0,
+      bytes: 0
+    })
   })
 })

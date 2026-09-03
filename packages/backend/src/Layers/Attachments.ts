@@ -2,7 +2,16 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  sql
+} from "drizzle-orm"
 import { ulid } from "ulid"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -27,7 +36,11 @@ import { CurrentOrg, isOrgAdminRole } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { Projects } from "../Services/Projects"
-import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
+import {
+  attachmentObjectKey,
+  S3Storage,
+  type S3Connection
+} from "../Services/S3Storage"
 import {
   Attachments,
   attachmentPageOffset,
@@ -37,7 +50,11 @@ import {
   isServableStatus,
   isAttachmentDeletable,
   planReap,
+  DEDUPE_HASH_BATCH,
+  planDedupe,
+  planObjectDeletions,
   planReferences,
+  summarizeAttachments,
   planStatuses,
   validateUploadRequest,
   type AttachmentsShape
@@ -249,6 +266,25 @@ export const AttachmentsLive = Layer.effect(
           })
         }
 
+        const twin =
+          head.contentHash === null
+            ? undefined
+            : (yield* db
+                .select({ objectKey: attachmentIndex.objectKey })
+                .from(attachmentIndex)
+                .where(
+                  and(
+                    eq(attachmentIndex.orgSlug, orgSlug),
+                    eq(attachmentIndex.contentHash, head.contentHash),
+                    eq(attachmentIndex.byteSize, head.byteSize),
+                    inArray(attachmentIndex.status, ["live", "orphaned"])
+                  )
+                )
+                .limit(1)
+                .pipe(Effect.orDie))[0]
+
+        const canonicalKey = twin?.objectKey ?? row.objectKey
+
         const now = yield* DateTime.nowAsDate
         const [updated] = yield* db
           .update(attachmentIndex)
@@ -256,11 +292,26 @@ export const AttachmentsLive = Layer.effect(
             status: "live",
             committedAt: now,
             contentType: observedContentType,
-            byteSize: head.byteSize
+            byteSize: head.byteSize,
+            contentHash: head.contentHash,
+            objectKey: canonicalKey
           })
           .where(eq(attachmentIndex.id, row.id))
           .returning()
           .pipe(Effect.orDie)
+
+        if (canonicalKey !== row.objectKey) {
+          yield* s3
+            .deleteObject(connection, row.objectKey)
+            .pipe(
+              Effect.catchAll((error) =>
+                Effect.logError(
+                  "attachment dedupe left a duplicate object in the bucket",
+                  { attachmentId: row.id, objectKey: row.objectKey, error }
+                )
+              )
+            )
+        }
 
         return toAttachment(updated)
       })
@@ -315,6 +366,29 @@ export const AttachmentsLive = Layer.effect(
           )
 
         return { url }
+      })
+
+    const deleteObjectIfUnshared = (
+      connection: S3Connection,
+      row: { readonly id: string; readonly objectKey: string }
+    ) =>
+      Effect.gen(function* () {
+        const sharers = yield* db
+          .select({
+            id: attachmentIndex.id,
+            objectKey: attachmentIndex.objectKey
+          })
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.objectKey, row.objectKey))
+          .pipe(Effect.orDie)
+
+        const keys = planObjectDeletions({
+          removing: [row],
+          remaining: sharers
+        })
+
+        if (keys.length === 0) return
+        yield* s3.deleteObject(connection, row.objectKey)
       })
 
     const listForOrg: AttachmentsShape["listForOrg"] = (
@@ -403,28 +477,15 @@ export const AttachmentsLive = Layer.effect(
 
         const rows = yield* db
           .select({
-            status: attachmentIndex.status,
-            count: sql<number>`count(*)::int`,
-            bytes: sql<number>`coalesce(sum(${attachmentIndex.byteSize}), 0)::bigint`
+            objectKey: attachmentIndex.objectKey,
+            byteSize: attachmentIndex.byteSize,
+            status: attachmentIndex.status
           })
           .from(attachmentIndex)
           .where(eq(attachmentIndex.orgSlug, orgSlug))
-          .groupBy(attachmentIndex.status)
           .pipe(Effect.orDie)
 
-        const byStatus = rows.map((row) => ({
-          status: row.status,
-          count: Number(row.count),
-          bytes: Number(row.bytes)
-        }))
-
-        const stored = byStatus.filter((row) => row.status !== "pending")
-
-        return {
-          byStatus,
-          count: stored.reduce((total, row) => total + row.count, 0),
-          bytes: stored.reduce((total, row) => total + row.bytes, 0)
-        }
+        return summarizeAttachments({ rows })
       })
 
     const deleteForOrg: AttachmentsShape["deleteForOrg"] = (
@@ -466,13 +527,11 @@ export const AttachmentsLive = Layer.effect(
 
         if (claimed.length === 0) return yield* new Forbidden()
 
-        yield* s3
-          .deleteObject(connection, row.objectKey)
-          .pipe(
-            Effect.catchTag("S3Unavailable", (error) =>
-              Effect.fail(mapS3Unavailable(error))
-            )
+        yield* deleteObjectIfUnshared(connection, row).pipe(
+          Effect.catchTag("S3Unavailable", (error) =>
+            Effect.fail(mapS3Unavailable(error))
           )
+        )
       })
 
     const reconcileTicket: AttachmentsShape["reconcileTicket"] = (
@@ -687,9 +746,9 @@ export const AttachmentsLive = Layer.effect(
 
             if (claimed.length === 0) continue
 
-            const outcome = yield* s3
-              .deleteObject(connection, row.objectKey)
-              .pipe(Effect.either)
+            const outcome = yield* deleteObjectIfUnshared(connection, row).pipe(
+              Effect.either
+            )
 
             if (outcome._tag === "Left") {
               yield* Effect.logError(
@@ -718,6 +777,109 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
+    const dedupeOnce: AttachmentsShape["dedupeOnce"] = () =>
+      Effect.gen(function* () {
+        const unhashed = yield* db
+          .select()
+          .from(attachmentIndex)
+          .where(
+            and(
+              isNull(attachmentIndex.contentHash),
+              inArray(attachmentIndex.status, ["live", "orphaned"])
+            )
+          )
+          .limit(DEDUPE_HASH_BATCH)
+          .pipe(Effect.orDie)
+
+        let hashed = 0
+
+        for (const row of unhashed) {
+          const connection = yield* orgStorage
+            .requireConnection(row.orgSlug)
+            .pipe(Effect.either)
+          if (connection._tag === "Left") continue
+
+          const head = yield* s3
+            .headObject(connection.right, row.objectKey)
+            .pipe(Effect.either)
+          if (head._tag === "Left" || head.right === null) continue
+          if (head.right.contentHash === null) continue
+
+          yield* db
+            .update(attachmentIndex)
+            .set({ contentHash: head.right.contentHash })
+            .where(eq(attachmentIndex.id, row.id))
+            .pipe(Effect.orDie)
+          hashed += 1
+        }
+
+        const rows = yield* db
+          .select()
+          .from(attachmentIndex)
+          .where(
+            and(
+              isNotNull(attachmentIndex.contentHash),
+              inArray(attachmentIndex.status, ["live", "orphaned"])
+            )
+          )
+          .pipe(Effect.orDie)
+
+        const byOrg = new Map<string, Array<(typeof rows)[number]>>()
+        for (const row of rows) {
+          const existing = byOrg.get(row.orgSlug)
+          if (existing) existing.push(row)
+          else byOrg.set(row.orgSlug, [row])
+        }
+
+        let deduped = 0
+
+        for (const [orgSlug, orgRows] of byOrg) {
+          const repoints = planDedupe({ rows: orgRows })
+          if (repoints.length === 0) continue
+
+          const connection = yield* orgStorage
+            .requireConnection(orgSlug)
+            .pipe(Effect.either)
+          if (connection._tag === "Left") continue
+
+          for (const repoint of repoints) {
+            yield* db
+              .update(attachmentIndex)
+              .set({ objectKey: repoint.toKey })
+              .where(eq(attachmentIndex.id, repoint.id))
+              .pipe(Effect.orDie)
+
+            const freed = yield* deleteObjectIfUnshared(connection.right, {
+              id: repoint.id,
+              objectKey: repoint.fromKey
+            }).pipe(Effect.either)
+
+            if (freed._tag === "Left") {
+              yield* Effect.logError(
+                "attachment dedupe left a duplicate object in the bucket",
+                {
+                  attachmentId: repoint.id,
+                  objectKey: repoint.fromKey,
+                  orgSlug,
+                  error: freed.left
+                }
+              )
+              continue
+            }
+            deduped += 1
+          }
+        }
+
+        return { hashed, deduped }
+      }).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.zipRight(
+            Effect.logError("attachment dedupe failed", cause),
+            Effect.succeed({ hashed: 0, deduped: 0 })
+          )
+        )
+      )
+
     return {
       prepare,
       commit,
@@ -727,7 +889,8 @@ export const AttachmentsLive = Layer.effect(
       listForOrg,
       summarizeForOrg,
       deleteForOrg,
-      reapOnce
+      reapOnce,
+      dedupeOnce
     } satisfies AttachmentsShape
   })
 )
