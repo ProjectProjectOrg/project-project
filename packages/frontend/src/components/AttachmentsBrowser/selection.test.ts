@@ -3,6 +3,7 @@ import type { AttachmentStatus } from "@projectproject/shared"
 import {
   allDeletableSelected,
   deletableIds,
+  hasMorePages,
   hasThumbnail,
   isDeletable,
   prunedSelection,
@@ -111,5 +112,27 @@ describe("allDeletableSelected", () => {
 
   it("is false when there is nothing to select", () => {
     expect(allDeletableSelected(new Set(), [rows[0]])).toBe(false)
+  })
+})
+
+describe("hasMorePages", () => {
+  it("offers nothing more once the stream reported it is done", () => {
+    expect(hasMorePages({ loaded: 100, pageSize: 50, done: true })).toBe(false)
+  })
+
+  it("treats a short page as the end, so a complete list stops offering more", () => {
+    expect(hasMorePages({ loaded: 27, pageSize: 50, done: false })).toBe(false)
+  })
+
+  it("offers more after a full page", () => {
+    expect(hasMorePages({ loaded: 50, pageSize: 50, done: false })).toBe(true)
+  })
+
+  it("offers more after several full pages", () => {
+    expect(hasMorePages({ loaded: 100, pageSize: 50, done: false })).toBe(true)
+  })
+
+  it("offers nothing more for an empty list", () => {
+    expect(hasMorePages({ loaded: 0, pageSize: 50, done: false })).toBe(false)
   })
 })

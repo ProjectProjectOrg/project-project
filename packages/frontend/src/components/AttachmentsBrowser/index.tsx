@@ -10,6 +10,7 @@ import type {
 import {
   deleteOrgAttachmentsAtom,
   loadMoreOrgAttachmentsAtom,
+  ORG_ATTACHMENTS_PAGE_SIZE,
   orgAttachmentsAtom,
   orgAttachmentsSummaryAtom
 } from "@/atoms/attachments"
@@ -25,6 +26,7 @@ import { Row } from "./Row"
 import {
   allDeletableSelected,
   deletableIds,
+  hasMorePages,
   prunedSelection,
   toggleSelection
 } from "./selection"
@@ -183,43 +185,62 @@ function AttachmentsTable({
   return (
     <div className={waiting ? "animate-pulse" : undefined}>
       <div className="overflow-x-auto">
-        <div className="min-w-[720px]">
-          <div className="grid grid-cols-[24px_minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto_auto_auto] items-center gap-3 border-b border-border px-2 pb-2 text-xs text-muted-foreground">
-            <span className="flex items-center justify-center">
-              <input
-                type="checkbox"
-                className="size-4 rounded border border-border"
-                checked={allDeletableSelected(selected, rows)}
-                onChange={onToggleAll}
-                disabled={deletableIds(rows).length === 0}
-                aria-label={m.attachments_select_all()}
-              />
-            </span>
-            <span>{m.attachments_column_file()}</span>
-            <span>{m.attachments_column_project()}</span>
-            <span>{m.attachments_column_ticket()}</span>
-            <span>{m.attachments_column_size()}</span>
-            <span>{m.attachments_column_status()}</span>
-            <span>{m.attachments_column_uploaded()}</span>
-            <span />
-          </div>
-
-          {rows.map((row) => (
-            <Row
-              key={row.id}
-              orgSlug={orgSlug}
-              row={row}
-              selected={selected.has(row.id)}
-              onToggle={onToggle}
-            >
-              <DeleteCell row={row} onDelete={onDelete} />
-            </Row>
-          ))}
-        </div>
+        <table className="w-full min-w-[720px] table-auto border-collapse text-left">
+          <thead>
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              <th scope="col" className="w-6 px-2 pb-2 font-normal">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border border-border align-middle"
+                  checked={allDeletableSelected(selected, rows)}
+                  onChange={onToggleAll}
+                  disabled={deletableIds(rows).length === 0}
+                  aria-label={m.attachments_select_all()}
+                />
+              </th>
+              <th scope="col" className="w-full px-2 pb-2 font-normal">
+                {m.attachments_column_file()}
+              </th>
+              <th scope="col" className="px-2 pb-2 font-normal">
+                {m.attachments_column_project()}
+              </th>
+              <th scope="col" className="px-2 pb-2 font-normal">
+                {m.attachments_column_ticket()}
+              </th>
+              <th scope="col" className="px-2 pb-2 text-right font-normal">
+                {m.attachments_column_size()}
+              </th>
+              <th scope="col" className="px-2 pb-2 font-normal">
+                {m.attachments_column_status()}
+              </th>
+              <th scope="col" className="px-2 pb-2 font-normal">
+                {m.attachments_column_uploaded()}
+              </th>
+              <th scope="col" className="w-0 px-2 pb-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <Row
+                key={row.id}
+                orgSlug={orgSlug}
+                row={row}
+                selected={selected.has(row.id)}
+                onToggle={onToggle}
+              >
+                <DeleteCell row={row} onDelete={onDelete} />
+              </Row>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-3">
-        {!done ? (
+        {hasMorePages({
+          loaded: rows.length,
+          pageSize: ORG_ATTACHMENTS_PAGE_SIZE,
+          done
+        }) ? (
           <Button
             type="button"
             variant="tertiary"
