@@ -1168,3 +1168,66 @@ describe("summarizeAttachments", () => {
     })
   })
 })
+
+describe("resolvableIds", () => {
+  const resolvableHarness = (rows: ReadonlyArray<{ id: string }>) => {
+    const capture: { where?: unknown } = {}
+    return {
+      capture,
+      layer: AttachmentsLive.pipe(
+        Layer.provide(
+          Layer.succeed(Db, {
+            select: () => ({
+              from: () => ({
+                where: (cond: unknown) => {
+                  capture.where = cond
+                  return Effect.succeed(rows)
+                }
+              })
+            })
+          } as never)
+        ),
+        Layer.provide(stubOrgStorage),
+        Layer.provide(stubS3),
+        Layer.provide(nonMemberProjects),
+        Layer.provide(stubCurrentOrg("owner"))
+      )
+    }
+  }
+
+  it.effect("returns the ids that still resolve", () =>
+    Effect.gen(function* () {
+      const { layer } = resolvableHarness([{ id: "a" }, { id: "c" }])
+      const ids = yield* Attachments.pipe(
+        Effect.flatMap((a) => a.resolvableIds("acme", ["a", "b", "c"])),
+        Effect.provide(layer)
+      )
+      expect(ids).toEqual(["a", "c"])
+    })
+  )
+
+  it.effect("asks for nothing when the body references nothing", () =>
+    Effect.gen(function* () {
+      const { layer, capture } = resolvableHarness([])
+      const ids = yield* Attachments.pipe(
+        Effect.flatMap((a) => a.resolvableIds("acme", [])),
+        Effect.provide(layer)
+      )
+      expect(ids).toEqual([])
+      expect(capture.where).toBeUndefined()
+    })
+  )
+
+  it.effect("only counts a servable status, so a pending upload reads as missing", () =>
+    Effect.gen(function* () {
+      const { layer, capture } = resolvableHarness([{ id: "a" }])
+      yield* Attachments.pipe(
+        Effect.flatMap((a) => a.resolvableIds("acme", ["a"])),
+        Effect.provide(layer)
+      )
+      const where = sqlOf(capture.where)
+      expect(where).toContain("status")
+      expect(where).toContain("org_slug")
+    })
+  )
+})

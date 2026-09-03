@@ -197,6 +197,7 @@ const makeFakeAttachments = (
     listForOrg: () => unexpected("Attachments.listForOrg"),
     summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
     deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
+    resolvableIds: () => Effect.succeed([]),
     reapOnce: () => unexpected("Attachments.reapOnce"),
     dedupeOnce: () => unexpected("Attachments.dedupeOnce"),
     ...overrides

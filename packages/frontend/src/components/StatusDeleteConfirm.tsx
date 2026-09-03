@@ -24,7 +24,12 @@ type Props = {
   slug: string
 }
 
-export function StatusDeleteConfirm({ status, statuses, orgSlug, slug }: Props) {
+export function StatusDeleteConfirm({
+  status,
+  statuses,
+  orgSlug,
+  slug
+}: Props) {
   return (
     <ConfirmButton.Root>
       <ConfirmButton.Trigger
@@ -139,7 +144,9 @@ function TargetPicker({
           <Button type="button" variant="tertiary" size="sm">
             <SelectedIcon
               className={cn("size-3.5", selectedMeta.className)}
-              style={selectedMeta.color ? { color: selectedMeta.color } : undefined}
+              style={
+                selectedMeta.color ? { color: selectedMeta.color } : undefined
+              }
               strokeWidth={1.75}
             />
             <span>{statusLabelFor(value, statuses)}</span>

@@ -50,6 +50,7 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { AttachmentUnavailable } from "./AttachmentUnavailable"
+import { useAttachmentResolves } from "./attachmentAvailability"
 
 export type AttachmentKind = "image" | "file"
 
@@ -387,12 +388,14 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
   decorate(): ReactElement {
     const settled = this.__uploadId === undefined && !this.__failed
 
-    if (settled && this.__kind === "image" && this.__density === "rich") {
+    if (settled) {
       return (
-        <AttachmentImageBlock
+        <AttachmentSettled
           nodeKey={this.getKey()}
           url={this.__url}
           alt={this.__alt}
+          filename={this.__filename}
+          kind={this.__kind}
           width={this.__width}
           density={this.__density}
         />
@@ -415,62 +418,64 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       return <AttachmentFailed uploadId={this.__uploadId} />
     }
 
-    if (this.__uploadId !== undefined) {
-      return <AttachmentUploading progress={this.__progress} />
-    }
-
-    if (this.__density === "compact") {
-      return (
-        <AttachmentChip
-          url={this.__url}
-          alt={this.__alt}
-          filename={this.__filename}
-          kind={this.__kind}
-          morphId={`attachment-${this.getKey()}`}
-        />
-      )
-    }
-
-    return (
-      <AttachmentTile
-        url={this.__url}
-        alt={this.__alt}
-        filename={this.__filename}
-        morphId={`attachment-${this.getKey()}`}
-      />
-    )
+    return <AttachmentUploading progress={this.__progress} />
   }
 }
 
-function AttachmentImageBlock({
+function AttachmentSettled({
   nodeKey,
   url,
   alt,
+  filename,
+  kind,
   width,
   density
 }: {
   nodeKey: NodeKey
   url: string
   alt: string
+  filename: string
+  kind: "image" | "file"
   width: number | null
   density: AttachmentDensity
 }) {
   const [broken, setBroken] = useState(false)
+  const resolves = useAttachmentResolves(url)
+  const missing = broken || !resolves
+  const morphId = `attachment-${nodeKey}`
+
   return (
     <AttachmentSelectable
       nodeKey={nodeKey}
       deletable
-      density={broken ? null : density}
+      density={missing ? null : density}
     >
-      {broken ? (
-        <AttachmentUnavailable />
-      ) : (
+      {missing ? (
+        <AttachmentUnavailable
+          variant={density === "compact" ? "inline" : "block"}
+        />
+      ) : density === "compact" ? (
+        <AttachmentChip
+          url={url}
+          alt={alt}
+          filename={filename}
+          kind={kind}
+          morphId={morphId}
+        />
+      ) : kind === "image" ? (
         <AttachmentImage
           url={url}
           alt={alt}
           width={width}
           nodeKey={nodeKey}
           onBroken={() => setBroken(true)}
+        />
+      ) : (
+        <AttachmentTile
+          url={url}
+          alt={alt}
+          filename={filename}
+          morphId={morphId}
         />
       )}
     </AttachmentSelectable>

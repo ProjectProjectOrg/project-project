@@ -260,6 +260,10 @@ export interface AttachmentsShape {
     | StorageConfigMissing
     | StorageError
   >
+  readonly resolvableIds: (
+    orgSlug: string,
+    ids: ReadonlyArray<string>
+  ) => Effect.Effect<ReadonlyArray<string>>
   readonly reapOnce: () => Effect.Effect<{ readonly deleted: number }>
   readonly dedupeOnce: () => Effect.Effect<{
     readonly hashed: number

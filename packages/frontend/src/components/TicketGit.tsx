@@ -511,9 +511,7 @@ function usePreferredBranchLink(
   name: string
 ): { href: string; target?: "_blank"; rel?: "noreferrer" } {
   const me = useAtomValue(meAtom)
-  const preference = Result.isSuccess(me)
-    ? me.value.editorPreference
-    : "github"
+  const preference = Result.isSuccess(me) ? me.value.editorPreference : "github"
   const href = branchUrl(preference, slug, name)
   return branchOpensInNewTab(preference)
     ? { href, target: "_blank", rel: "noreferrer" }

@@ -66,7 +66,8 @@ export type Ticket = typeof Ticket.Type
 
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
-  body: Schema.String
+  body: Schema.String,
+  resolvableAttachments: Schema.optional(Schema.Array(Schema.String))
 })
 export type TicketDetail = typeof TicketDetail.Type
 

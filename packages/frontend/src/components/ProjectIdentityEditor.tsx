@@ -54,12 +54,7 @@ export function ProjectIdentityEditor({
 
   if (!canEdit) {
     return (
-      <div
-        className={cn(
-          "w-fit shrink-0",
-          size === "header" && "-mt-1"
-        )}
-      >
+      <div className={cn("w-fit shrink-0", size === "header" && "-mt-1")}>
         {tile}
       </div>
     )

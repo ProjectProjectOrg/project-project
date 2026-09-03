@@ -1,12 +1,6 @@
 import { Result, useAtomValue, useAtomSet } from "@effect-atom/atom-react"
 import { motion, Reorder } from "motion/react"
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -137,7 +131,9 @@ export function SprintBoard({
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
   const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(statusesResult)
+  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
+    statusesResult
+  )
     ? statusesResult.value
     : EMPTY_STATUSES
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])

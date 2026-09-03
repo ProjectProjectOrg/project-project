@@ -15,6 +15,7 @@ import {
   LexicalEditor,
   type SaveStatus
 } from "@/components/LexicalEditor"
+import { AttachmentAvailabilityProvider } from "@/components/Lexical/attachmentAvailability"
 import { cn } from "@/lib/utils"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
@@ -116,23 +117,27 @@ export function DescriptionField({
       >
         <div ref={contentRef}>
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
-            <LexicalEditor
-              key={`${slug}/${ticket.id}`}
-              markdown={bodyDraft ?? ticket.body}
-              onDraftChange={setBodyDraft}
-              onChange={async (next) => {
-                const exit = await update({ body: next })
-                if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-              }}
-              onStatusChange={onStatusChange}
-              autoFocus={autoFocus}
-              attachments={attachmentsForDescription({
-                orgSlug,
-                slug,
-                ticketId: ticket.id,
-                storageActive
-              })}
-            />
+            <AttachmentAvailabilityProvider
+              resolvable={ticket.resolvableAttachments}
+            >
+              <LexicalEditor
+                key={`${slug}/${ticket.id}`}
+                markdown={bodyDraft ?? ticket.body}
+                onDraftChange={setBodyDraft}
+                onChange={async (next) => {
+                  const exit = await update({ body: next })
+                  if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+                }}
+                onStatusChange={onStatusChange}
+                autoFocus={autoFocus}
+                attachments={attachmentsForDescription({
+                  orgSlug,
+                  slug,
+                  ticketId: ticket.id,
+                  storageActive
+                })}
+              />
+            </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
         </div>
         <div

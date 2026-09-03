@@ -777,6 +777,24 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
+    const resolvableIds: AttachmentsShape["resolvableIds"] = (orgSlug, ids) =>
+      ids.length === 0
+        ? Effect.succeed([])
+        : db
+            .select({ id: attachmentIndex.id })
+            .from(attachmentIndex)
+            .where(
+              and(
+                eq(attachmentIndex.orgSlug, orgSlug),
+                inArray(attachmentIndex.id, [...ids]),
+                inArray(attachmentIndex.status, ["live", "orphaned"])
+              )
+            )
+            .pipe(
+              Effect.map((rows) => rows.map((row) => row.id)),
+              Effect.orDie
+            )
+
     const dedupeOnce: AttachmentsShape["dedupeOnce"] = () =>
       Effect.gen(function* () {
         const unhashed = yield* db
@@ -889,6 +907,7 @@ export const AttachmentsLive = Layer.effect(
       listForOrg,
       summarizeForOrg,
       deleteForOrg,
+      resolvableIds,
       reapOnce,
       dedupeOnce
     } satisfies AttachmentsShape
