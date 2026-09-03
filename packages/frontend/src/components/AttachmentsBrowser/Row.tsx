@@ -119,39 +119,41 @@ export function Row({
         className="px-2 py-2 text-right whitespace-nowrap"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100">
-          <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
-              <CopyButton
-                value={formatAttachmentMarkdown({
-                  kind: isRasterImageContentType(row.contentType)
-                    ? "image"
-                    : "file",
-                  alt: row.filename,
-                  url: row.url
-                })}
-                copyLabel={m.attachments_copy_markdown()}
-                copiedLabel={m.attachments_copied()}
-              />
-            </TooltipTrigger>
-            <TooltipContent>{m.attachments_copy_markdown()}</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <a
-                  href={attachmentDownloadUrl(orgSlug, row.id)}
-                  download={row.filename}
-                  aria-label={m.attachments_download()}
-                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-muted hover:text-foreground active:scale-[0.97]"
+        <div className="flex items-center justify-end gap-0.5">
+          <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100">
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <CopyButton
+                  value={formatAttachmentMarkdown({
+                    kind: isRasterImageContentType(row.contentType)
+                      ? "image"
+                      : "file",
+                    alt: row.filename,
+                    url: row.url
+                  })}
+                  copyLabel={m.attachments_copy_markdown()}
+                  copiedLabel={m.attachments_copied()}
                 />
-              }
-            >
-              <Download className="size-3.5" strokeWidth={1.75} />
-            </TooltipTrigger>
-            <TooltipContent>{m.attachments_download()}</TooltipContent>
-          </Tooltip>
+              </TooltipTrigger>
+              <TooltipContent>{m.attachments_copy_markdown()}</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <a
+                    href={attachmentDownloadUrl(orgSlug, row.id)}
+                    download={row.filename}
+                    aria-label={m.attachments_download()}
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-muted hover:text-foreground active:scale-[0.97]"
+                  />
+                }
+              >
+                <Download className="size-3.5" strokeWidth={1.75} />
+              </TooltipTrigger>
+              <TooltipContent>{m.attachments_download()}</TooltipContent>
+            </Tooltip>
+          </span>
           {children}
         </div>
       </td>
