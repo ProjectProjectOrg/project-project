@@ -58,9 +58,8 @@ function OrderedStatuses({ orgSlug, slug, statuses, waiting }: OrderedProps) {
     [statuses]
   )
 
-  const [dragOrder, setDragOrder] = useState<
-    ReadonlyArray<ProjectStatus> | null
-  >(null)
+  const [dragOrder, setDragOrder] =
+    useState<ReadonlyArray<ProjectStatus> | null>(null)
   const order = dragOrder ?? sorted
   const orderRef = useRef(order)
   orderRef.current = order

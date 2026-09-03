@@ -1,16 +1,8 @@
-import type {
-  AttachmentStatus,
-  AttachmentSummary
-} from "@projectproject/shared"
+import type { AttachmentSummary } from "@projectproject/shared"
 import { formatBytes } from "@/lib/formatBytes"
 import { m } from "@/paraglide/messages"
+import { STATUS_LABEL } from "./selection"
 import { getLocale } from "@/paraglide/runtime"
-
-const STATUS_LABEL: Record<AttachmentStatus, () => string> = {
-  live: m.attachments_status_live,
-  orphaned: m.attachments_status_orphaned,
-  pending: m.attachments_status_pending
-}
 
 const ORDER = ["live", "orphaned", "pending"] as const
 

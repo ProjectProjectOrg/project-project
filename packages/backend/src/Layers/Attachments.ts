@@ -21,6 +21,7 @@ import {
   AttachmentTypeRejected,
   extractAttachmentRefs,
   Forbidden,
+  isAttachmentDeletable,
   NotFound,
   StorageError,
   type Attachment,
@@ -32,7 +33,7 @@ import {
   attachmentReference,
   projectIndex
 } from "../db/schema"
-import { CurrentOrg, isOrgAdminRole } from "../Services/CurrentOrg"
+import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { Projects } from "../Services/Projects"
@@ -48,11 +49,9 @@ import {
   attachmentSortPlan,
   DEFAULT_ATTACHMENT_LIMIT,
   isServableStatus,
-  isAttachmentDeletable,
   planReap,
   DEDUPE_HASH_BATCH,
   planDedupe,
-  planObjectDeletions,
   planReferences,
   summarizeAttachments,
   planStatuses,
@@ -84,17 +83,6 @@ export const AttachmentsLive = Layer.effect(
         if (!row) return yield* new NotFound()
         return { organizationId: row.organizationId }
       })
-
-    const requireOrgAdmin = (orgSlug: string, userId: string) =>
-      currentOrg
-        .resolve(orgSlug, userId)
-        .pipe(
-          Effect.flatMap((org) =>
-            isOrgAdminRole(org.role)
-              ? Effect.void
-              : Effect.fail(new Forbidden())
-          )
-        )
 
     const toAttachment = (
       row: typeof attachmentIndex.$inferSelect
@@ -343,7 +331,7 @@ export const AttachmentsLive = Layer.effect(
         yield* projects
           .requireMember(orgSlug, userId, row.projectSlug)
           .pipe(
-            Effect.catchTag("NotFound", () => requireOrgAdmin(orgSlug, userId))
+            Effect.catchTag("NotFound", () => requireOrgAdmin(currentOrg, orgSlug, userId))
           )
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
@@ -374,20 +362,13 @@ export const AttachmentsLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const sharers = yield* db
-          .select({
-            id: attachmentIndex.id,
-            objectKey: attachmentIndex.objectKey
-          })
+          .select({ id: attachmentIndex.id })
           .from(attachmentIndex)
           .where(eq(attachmentIndex.objectKey, row.objectKey))
+          .limit(1)
           .pipe(Effect.orDie)
 
-        const keys = planObjectDeletions({
-          removing: [row],
-          remaining: sharers
-        })
-
-        if (keys.length === 0) return
+        if (sharers.length > 0) return
         yield* s3.deleteObject(connection, row.objectKey)
       })
 
@@ -397,7 +378,7 @@ export const AttachmentsLive = Layer.effect(
       params
     ) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(orgSlug, userId)
+        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
 
         const limit = params.limit ?? DEFAULT_ATTACHMENT_LIMIT
         const plan = attachmentSortPlan(params.sort)
@@ -473,7 +454,7 @@ export const AttachmentsLive = Layer.effect(
       userId
     ) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(orgSlug, userId)
+        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
 
         const rows = yield* db
           .select({
@@ -494,7 +475,7 @@ export const AttachmentsLive = Layer.effect(
       userId
     ) =>
       Effect.gen(function* () {
-        yield* requireOrgAdmin(orgSlug, userId)
+        yield* requireOrgAdmin(currentOrg, orgSlug, userId)
 
         const rows = yield* db
           .select()

@@ -12,8 +12,9 @@ describe("Button", () => {
     ["icon-sm", "size-4"],
     ["icon", "size-5"],
     ["icon-lg", "size-6"]
-  ] satisfies Array<[NonNullable<ButtonProps["size"]>, string]>)
-    ("sizes the loading spinner for %s buttons", (size, className) => {
+  ] satisfies Array<[NonNullable<ButtonProps["size"]>, string]>)(
+    "sizes the loading spinner for %s buttons",
+    (size, className) => {
       const { container } = render(
         <Button size={size} loading>
           Save
@@ -26,5 +27,6 @@ describe("Button", () => {
       expect(spinner?.classList.contains(className)).toBe(true)
       expect(spinner?.classList.contains("h-8")).toBe(false)
       expect(spinner?.classList.contains("w-8")).toBe(false)
-    })
+    }
+  )
 })

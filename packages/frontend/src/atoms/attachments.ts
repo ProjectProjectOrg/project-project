@@ -2,6 +2,7 @@ import { Atom, Result } from "@effect-atom/atom-react"
 import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import { ATTACHMENT_PAGE_SIZE } from "@projectproject/shared"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { splitOrgAttachmentsKey } from "./orgAttachmentsKey"
@@ -100,7 +101,7 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
   )
 })
 
-export const ORG_ATTACHMENTS_PAGE_SIZE = 50
+export const ORG_ATTACHMENTS_PAGE_SIZE = ATTACHMENT_PAGE_SIZE
 
 const attachmentsReactivityKey = (orgSlug: string) => ["attachments", orgSlug]
 
@@ -132,7 +133,7 @@ export const orgAttachmentsAtom = Atom.family((key: string) =>
   Atom.optimistic(orgAttachmentsBaseAtom(key))
 )
 
-const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
+export const orgAttachmentsSummaryAtom = Atom.family((orgSlug: string) =>
   runtime
     .atom(
       Effect.gen(function* () {
@@ -144,10 +145,6 @@ const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
       Atom.withReactivity(attachmentsReactivityKey(orgSlug)),
       Atom.setIdleTTL("30 seconds")
     )
-)
-
-export const orgAttachmentsSummaryAtom = Atom.family((orgSlug: string) =>
-  Atom.optimistic(orgAttachmentsSummaryBaseAtom(orgSlug))
 )
 
 export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {

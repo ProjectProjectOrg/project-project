@@ -216,8 +216,7 @@ export function StatusButton({
           "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
           meta.className
         )
-  const iconClass =
-    size === "lg" ? cn("size-5", meta.className) : "size-4"
+  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

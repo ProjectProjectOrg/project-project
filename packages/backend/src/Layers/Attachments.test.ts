@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 import {
   ATTACHMENT_MAX_BYTES,
+  isAttachmentDeletable,
   NotFound,
   type Role
 } from "@projectproject/shared"
@@ -19,16 +20,13 @@ import { AttachmentsLive } from "./Attachments"
 
 const at = (iso: string) => DateTime.toDate(DateTime.unsafeMake(iso))
 import {
-  attachmentPageCount,
   attachmentServesInline,
   attachmentPageOffset,
   attachmentSortPlan,
   isServableStatus,
   ORPHAN_GRACE_MS,
-  isAttachmentDeletable,
   planReap,
   planDedupe,
-  planObjectDeletions,
   planReferences,
   summarizeAttachments,
   planStatuses,
@@ -480,15 +478,16 @@ const deletionHarness = (input: {
         select: (shape?: Record<string, unknown>) => ({
           from: () => ({
             where: (cond: unknown) => {
-              const isSharerQuery =
-                shape !== undefined && "objectKey" in shape && "id" in shape
-              const settled = Effect.succeed(
-                isSharerQuery ? (input.sharers ?? []) : []
-              ) as unknown as Record<string, unknown>
-              settled["limit"] = () =>
-                Effect.succeed([{ ...servingRow, status: input.status }])
               void cond
-              return settled
+              const isSharerQuery = shape !== undefined
+              return {
+                limit: () =>
+                  Effect.succeed(
+                    isSharerQuery
+                      ? (input.sharers ?? [])
+                      : [{ ...servingRow, status: input.status }]
+                  )
+              }
             }
           })
         }),
@@ -919,24 +918,6 @@ describe("attachmentPageOffset", () => {
   })
 })
 
-describe("attachmentPageCount", () => {
-  it("counts a partial page as a page", () => {
-    expect(attachmentPageCount(27, 50)).toBe(1)
-  })
-
-  it("counts an exact multiple without a trailing empty page", () => {
-    expect(attachmentPageCount(100, 50)).toBe(2)
-  })
-
-  it("counts the remainder as one more page", () => {
-    expect(attachmentPageCount(101, 50)).toBe(3)
-  })
-
-  it("shows a single empty page when there is nothing", () => {
-    expect(attachmentPageCount(0, 50)).toBe(1)
-  })
-})
-
 describe("attachmentServesInline", () => {
   it("renders a raster image in the page", () => {
     expect(
@@ -1066,38 +1047,6 @@ describe("planDedupe", () => {
     })
     expect(plan.map((entry) => entry.id)).toEqual(["b", "c"])
     expect(plan.every((entry) => entry.toKey === "k-a")).toBe(true)
-  })
-})
-
-describe("planObjectDeletions", () => {
-  it("deletes an object no surviving row points at", () => {
-    expect(
-      planObjectDeletions({
-        removing: [{ id: "a", objectKey: "k-a" }],
-        remaining: []
-      })
-    ).toEqual(["k-a"])
-  })
-
-  it("spares an object a deduplicated row still shares", () => {
-    expect(
-      planObjectDeletions({
-        removing: [{ id: "a", objectKey: "k" }],
-        remaining: [{ id: "b", objectKey: "k" }]
-      })
-    ).toEqual([])
-  })
-
-  it("deletes each shared key once when several rows go together", () => {
-    expect(
-      planObjectDeletions({
-        removing: [
-          { id: "a", objectKey: "k" },
-          { id: "b", objectKey: "k" }
-        ],
-        remaining: []
-      })
-    ).toEqual(["k"])
   })
 })
 

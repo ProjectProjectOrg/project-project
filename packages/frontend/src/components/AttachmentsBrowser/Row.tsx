@@ -4,11 +4,7 @@ import {
   attachmentDownloadUrl,
   isRasterImageContentType
 } from "@projectproject/shared"
-import type {
-  AttachmentRow,
-  AttachmentStatus,
-  AttachmentTicketRef
-} from "@projectproject/shared"
+import type { AttachmentRow, AttachmentTicketRef } from "@projectproject/shared"
 import { formatAttachmentMarkdown } from "@/components/Lexical/attachmentTransformer"
 import { CopyButton } from "@/components/ui/copy-button"
 import {
@@ -26,13 +22,7 @@ import { formatBytes } from "@/lib/formatBytes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { hasThumbnail, isDeletable } from "./selection"
-
-const STATUS_LABEL: Record<AttachmentStatus, () => string> = {
-  live: m.attachments_status_live,
-  orphaned: m.attachments_status_orphaned,
-  pending: m.attachments_status_pending
-}
+import { hasThumbnail, isDeletable, STATUS_LABEL } from "./selection"
 
 const refKey = (ref: AttachmentTicketRef) =>
   `${ref.projectSlug}/${ref.ticketId}`
@@ -124,6 +114,7 @@ export function Row({
             <Tooltip>
               <TooltipTrigger render={<span className="inline-flex" />}>
                 <CopyButton
+                  nativeTitle={false}
                   value={formatAttachmentMarkdown({
                     kind: isRasterImageContentType(row.contentType)
                       ? "image"

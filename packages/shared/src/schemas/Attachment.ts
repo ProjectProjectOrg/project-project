@@ -2,6 +2,12 @@ import * as Schema from "effect/Schema"
 
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 
+export const ATTACHMENT_PAGE_SIZE = 50
+
+export const isAttachmentDeletable = (row: {
+  readonly status: AttachmentStatus
+}): boolean => row.status !== "pending"
+
 export const ATTACHMENT_MIN_WIDTH = 96
 
 export const ATTACHMENT_MAX_HEIGHT = 384

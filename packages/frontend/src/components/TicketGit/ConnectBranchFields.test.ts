@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  type BranchItemsCache,
-  branchItemsView
-} from "./ConnectBranchFields"
+import { type BranchItemsCache, branchItemsView } from "./ConnectBranchFields"
 import type { BranchListItem } from "@projectproject/shared"
 
 const item = (name: string): BranchListItem => ({ name, isProtected: false })
