@@ -63,7 +63,7 @@ export function Row({
   return (
     <tr
       className={cn(
-        "group border-b border-border transition-colors hover:bg-accent/60",
+        "group/reveal border-b border-border transition-colors hover:bg-accent/60",
         only && "cursor-pointer"
       )}
       onClick={only ? () => void openTicket(only) : undefined}
@@ -116,7 +116,7 @@ export function Row({
       </td>
 
       <td className="px-2 py-2 text-right whitespace-nowrap">
-        <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-within:opacity-100">
           <Tooltip>
             <TooltipTrigger render={<span className="inline-flex" />}>
               <CopyButton

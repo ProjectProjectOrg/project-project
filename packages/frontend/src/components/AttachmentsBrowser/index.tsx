@@ -303,7 +303,6 @@ function DeleteCell({
         type="button"
         variant="ghost"
         size="sm"
-        className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
