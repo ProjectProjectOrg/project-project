@@ -1,4 +1,5 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Reactivity from "@effect/experimental/Reactivity"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
@@ -101,6 +102,8 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
 
 export const ORG_ATTACHMENTS_PAGE_SIZE = 50
 
+const attachmentsReactivityKey = (orgSlug: string) => ["attachments", orgSlug]
+
 const orgAttachmentsBaseAtom = Atom.family((key: string) => {
   const query = splitOrgAttachmentsKey(key)
   return runtime
@@ -119,7 +122,10 @@ const orgAttachmentsBaseAtom = Atom.family((key: string) => {
         })
       })
     )
-    .pipe(Atom.setIdleTTL("30 seconds"))
+    .pipe(
+      Atom.withReactivity(attachmentsReactivityKey(query.orgSlug)),
+      Atom.setIdleTTL("30 seconds")
+    )
 })
 
 export const orgAttachmentsAtom = Atom.family((key: string) =>
@@ -134,7 +140,10 @@ const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
         return yield* client.attachments.summary({ path: { orgSlug } })
       })
     )
-    .pipe(Atom.setIdleTTL("30 seconds"))
+    .pipe(
+      Atom.withReactivity(attachmentsReactivityKey(orgSlug)),
+      Atom.setIdleTTL("30 seconds")
+    )
 )
 
 export const orgAttachmentsSummaryAtom = Atom.family((orgSlug: string) =>
@@ -160,7 +169,7 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
       )
     },
     fn: runtime.fn(
-      Effect.fn(function* (ids: ReadonlyArray<string>, get) {
+      Effect.fn(function* (ids: ReadonlyArray<string>) {
         const client = yield* ApiClient
         yield* Effect.forEach(
           ids,
@@ -171,10 +180,7 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
           { concurrency: 4 }
         ).pipe(
           Effect.ensuring(
-            Effect.sync(() => {
-              get.refresh(orgAttachmentsBaseAtom(key))
-              get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
-            })
+            Reactivity.invalidate(attachmentsReactivityKey(query.orgSlug))
           )
         )
       })
