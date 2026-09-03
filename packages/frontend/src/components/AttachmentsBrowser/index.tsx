@@ -9,6 +9,7 @@ import type {
 } from "@projectproject/shared"
 import {
   deleteOrgAttachmentsAtom,
+  loadMoreOrgAttachmentsAtom,
   orgAttachmentsAtom,
   orgAttachmentsSummaryAtom
 } from "@/atoms/attachments"
@@ -40,15 +41,13 @@ export function AttachmentsBrowser({
   const [status, setStatus] = useState<StatusFilter>("all")
   const [projectSlug, setProjectSlug] = useState<string | null>(null)
   const [sort, setSort] = useState<AttachmentSort>("created_desc")
-  const [pages, setPages] = useState(1)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
 
   const key = orgAttachmentsKey({
     orgSlug,
     ...(status === "all" ? {} : { status }),
     ...(projectSlug === null ? {} : { projectSlug }),
-    sort,
-    pages
+    sort
   })
 
   const listResult = useAtomValue(orgAttachmentsAtom(key))
@@ -57,6 +56,7 @@ export function AttachmentsBrowser({
   const remove = useAtomSet(deleteOrgAttachmentsAtom(key), {
     mode: "promiseExit"
   })
+  const loadMore = useAtomSet(loadMoreOrgAttachmentsAtom(key))
 
   const projects = Result.isSuccess(projectsResult)
     ? projectsResult.value.map((project) => ({
@@ -65,10 +65,7 @@ export function AttachmentsBrowser({
       }))
     : []
 
-  const resetPaging = () => {
-    setPages(1)
-    setSelected(new Set())
-  }
+  const resetSelection = () => setSelected(new Set())
 
   if (storage.status === "not_connected") {
     return (
@@ -98,30 +95,35 @@ export function AttachmentsBrowser({
         status={status}
         onStatusChange={(next) => {
           setStatus(next)
-          resetPaging()
+          resetSelection()
         }}
         projectSlug={projectSlug}
         projects={projects}
         onProjectChange={(next) => {
           setProjectSlug(next)
-          resetPaging()
+          resetSelection()
         }}
         sort={sort}
         onSortChange={(next) => {
           setSort(next)
-          resetPaging()
+          resetSelection()
         }}
       />
 
       {Result.matchWithError(listResult, {
         onInitial: () => <TableSkeleton />,
-        onError: (error) => <ErrorPage error={error} contained />,
+        onError: (error) =>
+          error._tag === "NoSuchElementException" ? (
+            <EmptyRows filtered={status !== "all" || projectSlug !== null} />
+          ) : (
+            <ErrorPage error={error} contained />
+          ),
         onDefect: (defect) => <ErrorPage error={defect} contained />,
         onSuccess: ({ value, waiting }) => (
           <AttachmentsTable
             orgSlug={orgSlug}
             rows={value.items}
-            nextCursor={value.nextCursor}
+            done={value.done}
             waiting={waiting}
             filtered={status !== "all" || projectSlug !== null}
             selected={prunedSelection(selected, value.items)}
@@ -135,7 +137,7 @@ export function AttachmentsBrowser({
                   : new Set(deletableIds(value.items))
               )
             }
-            onLoadMore={() => setPages((current) => current + 1)}
+            onLoadMore={() => loadMore()}
             onDelete={async (ids) => {
               const exit = await remove(ids)
               if (Exit.isSuccess(exit)) {
@@ -154,7 +156,7 @@ export function AttachmentsBrowser({
 function AttachmentsTable({
   orgSlug,
   rows,
-  nextCursor,
+  done,
   waiting,
   filtered,
   selected,
@@ -165,7 +167,7 @@ function AttachmentsTable({
 }: {
   orgSlug: string
   rows: ReadonlyArray<AttachmentRowData>
-  nextCursor: string | null
+  done: boolean
   waiting: boolean
   filtered: boolean
   selected: ReadonlySet<string>
@@ -176,22 +178,7 @@ function AttachmentsTable({
 }) {
   const selectedIds = [...selected]
 
-  if (rows.length === 0) {
-    return (
-      <Empty variant="inline" className="border border-dashed border-border">
-        <EmptyTitle className="text-sm font-medium">
-          {filtered
-            ? m.attachments_empty_filtered_title()
-            : m.attachments_empty_none_title()}
-        </EmptyTitle>
-        <EmptyDescription className="max-w-sm text-xs">
-          {filtered
-            ? m.attachments_empty_filtered_body()
-            : m.attachments_empty_none_body()}
-        </EmptyDescription>
-      </Empty>
-    )
-  }
+  if (rows.length === 0) return <EmptyRows filtered={filtered} />
 
   return (
     <div className={waiting ? "animate-pulse" : undefined}>
@@ -232,7 +219,7 @@ function AttachmentsTable({
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-3">
-        {nextCursor !== null ? (
+        {!done ? (
           <Button
             type="button"
             variant="tertiary"
@@ -263,6 +250,23 @@ function AttachmentsTable({
         ) : null}
       </div>
     </div>
+  )
+}
+
+function EmptyRows({ filtered }: { filtered: boolean }) {
+  return (
+    <Empty variant="inline" className="border border-dashed border-border">
+      <EmptyTitle className="text-sm font-medium">
+        {filtered
+          ? m.attachments_empty_filtered_title()
+          : m.attachments_empty_none_title()}
+      </EmptyTitle>
+      <EmptyDescription className="max-w-sm text-xs">
+        {filtered
+          ? m.attachments_empty_filtered_body()
+          : m.attachments_empty_none_body()}
+      </EmptyDescription>
+    </Empty>
   )
 }
 

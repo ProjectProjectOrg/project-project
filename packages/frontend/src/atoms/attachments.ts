@@ -1,17 +1,15 @@
 import { Atom, Result } from "@effect-atom/atom-react"
+import * as Arr from "effect/Array"
+import * as Chunk from "effect/Chunk"
+import { NoSuchElementException } from "effect/Cause"
+import * as Option from "effect/Option"
+import * as Stream from "effect/Stream"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { splitOrgAttachmentsKey } from "./orgAttachmentsKey"
 import { splitTicketKey } from "./tickets"
-
-import type { AttachmentRow } from "@projectproject/shared"
-
-export interface OrgAttachmentsPage {
-  readonly items: ReadonlyArray<AttachmentRow>
-  readonly nextCursor: string | null
-}
 
 export class AttachmentUploadFailed extends Data.TaggedError(
   "AttachmentUploadFailed"
@@ -108,39 +106,42 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
 
 const ORG_ATTACHMENTS_PAGE_SIZE = 50
 
-const orgAttachmentsBaseAtom = Atom.family((key: string) => {
+const orgAttachmentsPullAtom = Atom.family((key: string) => {
   const query = splitOrgAttachmentsKey(key)
   return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        const items: Array<AttachmentRow> = []
-        let cursor: string | null = null
-        let nextCursor: string | null = null
-        for (let page = 0; page < query.pages; page++) {
-          const result: OrgAttachmentsPage = yield* client.attachments.list({
+    .pull(
+      Stream.paginateChunkEffect(Option.none<string>(), (cursor) =>
+        Effect.gen(function* () {
+          const client = yield* ApiClient
+          const page = yield* client.attachments.list({
             path: { orgSlug: query.orgSlug },
             urlParams: {
               limit: ORG_ATTACHMENTS_PAGE_SIZE,
               ...(query.status ? { status: query.status } : {}),
               ...(query.projectSlug ? { projectSlug: query.projectSlug } : {}),
               ...(query.sort ? { sort: query.sort } : {}),
-              ...(cursor ? { cursor } : {})
+              ...Option.match(cursor, {
+                onNone: () => ({}),
+                onSome: (value) => ({ cursor: value })
+              })
             }
           })
-          items.push(...result.items)
-          nextCursor = result.nextCursor
-          if (result.nextCursor === null) break
-          cursor = result.nextCursor
-        }
-        return { items, nextCursor } satisfies OrgAttachmentsPage
-      })
+          return [
+            Chunk.fromIterable(page.items),
+            page.nextCursor === null
+              ? Option.none<Option.Option<string>>()
+              : Option.some(Option.some(page.nextCursor))
+          ] as const
+        })
+      )
     )
     .pipe(Atom.setIdleTTL("30 seconds"))
 })
 
+export const loadMoreOrgAttachmentsAtom = orgAttachmentsPullAtom
+
 export const orgAttachmentsAtom = Atom.family((key: string) =>
-  Atom.optimistic(orgAttachmentsBaseAtom(key))
+  Atom.optimistic(orgAttachmentsPullAtom(key))
 )
 
 const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
@@ -164,13 +165,10 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
     reducer: (current, ids: ReadonlyArray<string>) => {
       if (!Result.isSuccess(current)) return current
       const removed = new Set(ids)
-      return Result.success(
-        {
-          items: current.value.items.filter((row) => !removed.has(row.id)),
-          nextCursor: current.value.nextCursor
-        },
-        { waiting: true }
-      )
+      const items = current.value.items.filter((row) => !removed.has(row.id))
+      return Arr.isNonEmptyArray(items)
+        ? Result.success({ done: current.value.done, items }, { waiting: true })
+        : Result.fail(new NoSuchElementException(), { waiting: true })
     },
     fn: runtime.fn(
       Effect.fn(function* (ids: ReadonlyArray<string>, get) {
@@ -185,7 +183,6 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
         ).pipe(
           Effect.ensuring(
             Effect.sync(() => {
-              get.refresh(orgAttachmentsBaseAtom(key))
               get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
             })
           )
