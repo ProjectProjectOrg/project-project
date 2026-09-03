@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils"
 
 export const BADGE_TONES = {
   muted: "bg-muted text-muted-foreground hover:text-foreground",
-  emerald: "bg-state-success/10 text-state-success hover:bg-state-success/15",
+  emerald:
+    "bg-state-success/10 text-state-success hover:bg-state-success/15",
   red: "bg-state-danger/10 text-state-danger hover:bg-state-danger/15",
   amber: "bg-state-warning/10 text-state-warning hover:bg-state-warning/15",
   blue: "bg-state-info/10 text-state-info hover:bg-state-info/15",

@@ -30,7 +30,10 @@ import {
   sprintsListAtom,
   useAddTicketsToSprint
 } from "@/atoms/sprints"
-import { quickCreateTicketAtom, ticketsListKeyForStatus } from "@/atoms/tickets"
+import {
+  quickCreateTicketAtom,
+  ticketsListKeyForStatus
+} from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"

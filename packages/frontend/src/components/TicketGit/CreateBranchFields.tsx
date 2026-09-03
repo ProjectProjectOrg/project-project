@@ -197,12 +197,7 @@ export function CreateBranchFields({
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 @max-sm/git-panel:flex-col @max-sm/git-panel:items-stretch">
-        <StatusPicker
-          value={status}
-          onChange={setStatus}
-          disabled={busy}
-          statuses={statuses}
-        />
+        <StatusPicker value={status} onChange={setStatus} disabled={busy} statuses={statuses} />
         <div className="flex gap-2 @max-sm/git-panel:justify-end">
           <InlineForm.Cancel size={buttonSize} />
           <Button

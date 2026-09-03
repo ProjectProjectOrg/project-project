@@ -24,7 +24,11 @@ import {
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
+import {
+  TagName,
+  type Tag,
+  type TicketDetail
+} from "@projectproject/shared"
 
 type Props = {
   orgSlug: string

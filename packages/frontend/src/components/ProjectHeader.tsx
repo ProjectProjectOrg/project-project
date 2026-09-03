@@ -117,11 +117,7 @@ export function ProjectHeader({
   return (
     <LayoutGroup id={`project-header-${slug}`}>
       <header className="flex items-start gap-3">
-        <MorphSlot
-          slotKey={mode}
-          layoutId="project-header-icon"
-          reduce={reduce}
-        >
+        <MorphSlot slotKey={mode} layoutId="project-header-icon" reduce={reduce}>
           {sprintGroupId ? (
             sprint ? (
               <SprintStatusSelect
@@ -204,12 +200,7 @@ export function ProjectHeader({
         <MorphSlot slotKey={mode} reduce={reduce}>
           {sprintGroupId ? (
             sprint ? (
-              <SprintDeleteMenu
-                orgSlug={orgSlug}
-                slug={slug}
-                sprint={sprint}
-                sprints={sprints}
-              />
+              <SprintDeleteMenu orgSlug={orgSlug} slug={slug} sprint={sprint} sprints={sprints} />
             ) : sprintMissing ? null : (
               <div className="size-8" />
             )
@@ -345,3 +336,4 @@ function ProjectMenu({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     </DropdownMenu>
   )
 }
+

@@ -5,7 +5,9 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+function Sheet({
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root {...props} />
 }
 
