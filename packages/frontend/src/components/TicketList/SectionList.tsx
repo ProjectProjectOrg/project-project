@@ -12,10 +12,12 @@ import { Button } from "@/components/ui/button"
 import { ErrorPage } from "@/components/ErrorPage"
 import {
   loadMoreTicketsAtom,
+  pendingTicketStatusChangesAtom,
   ticketsListAtom,
   ticketsListKeyForStatus,
   type TicketsListValue
 } from "@/atoms/tickets"
+import { projectKey } from "@/atoms/projects"
 import { cn } from "@/lib/utils"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -66,6 +68,9 @@ export function SectionList({
   const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
   const deferredKey = useDeferredValue(sectionKey)
   const list = useAtomValue(ticketsListAtom(deferredKey))
+  const pendingStatusChanges = useAtomValue(
+    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
+  )
   const isStaleKey = sectionKey !== deferredKey
 
   const previousRef = useRef<TicketsListValue | null>(null)
@@ -172,7 +177,10 @@ export function SectionList({
                         initial={{ opacity: 0, filter: "blur(8px)" }}
                         animate={{ opacity: 1, filter: "blur(0px)" }}
                         transition={transitions.presence}
-                        className="col-span-full grid grid-cols-subgrid"
+                        className={cn(
+                          "col-span-full grid grid-cols-subgrid",
+                          pendingStatusChanges.has(t.id) && "animate-pulse"
+                        )}
                       >
                         <Row
                           orgSlug={orgSlug}
