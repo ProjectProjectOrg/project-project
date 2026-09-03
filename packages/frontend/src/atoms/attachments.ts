@@ -1,9 +1,17 @@
-import { Atom } from "@effect-atom/atom-react"
+import { Atom, Result } from "@effect-atom/atom-react"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { splitOrgAttachmentsKey } from "./orgAttachmentsKey"
 import { splitTicketKey } from "./tickets"
+
+import type { AttachmentRow } from "@projectproject/shared"
+
+export interface OrgAttachmentsPage {
+  readonly items: ReadonlyArray<AttachmentRow>
+  readonly nextCursor: string | null
+}
 
 export class AttachmentUploadFailed extends Data.TaggedError(
   "AttachmentUploadFailed"
@@ -96,4 +104,85 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
       } satisfies UploadedAttachment
     })
   )
+})
+
+const ORG_ATTACHMENTS_PAGE_SIZE = 50
+
+const orgAttachmentsBaseAtom = Atom.family((key: string) => {
+  const query = splitOrgAttachmentsKey(key)
+  return runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        const items: Array<AttachmentRow> = []
+        let cursor: string | null = null
+        let nextCursor: string | null = null
+        for (let page = 0; page < query.pages; page++) {
+          const result: OrgAttachmentsPage = yield* client.attachments.list({
+            path: { orgSlug: query.orgSlug },
+            urlParams: {
+              limit: ORG_ATTACHMENTS_PAGE_SIZE,
+              ...(query.status ? { status: query.status } : {}),
+              ...(query.projectSlug ? { projectSlug: query.projectSlug } : {}),
+              ...(query.sort ? { sort: query.sort } : {}),
+              ...(cursor ? { cursor } : {})
+            }
+          })
+          items.push(...result.items)
+          nextCursor = result.nextCursor
+          if (result.nextCursor === null) break
+          cursor = result.nextCursor
+        }
+        return { items, nextCursor } satisfies OrgAttachmentsPage
+      })
+    )
+    .pipe(Atom.setIdleTTL("30 seconds"))
+})
+
+export const orgAttachmentsAtom = Atom.family((key: string) =>
+  Atom.optimistic(orgAttachmentsBaseAtom(key))
+)
+
+const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
+  runtime
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.attachments.summary({ path: { orgSlug } })
+      })
+    )
+    .pipe(Atom.setIdleTTL("30 seconds"))
+)
+
+export const orgAttachmentsSummaryAtom = Atom.family((orgSlug: string) =>
+  Atom.optimistic(orgAttachmentsSummaryBaseAtom(orgSlug))
+)
+
+export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
+  const query = splitOrgAttachmentsKey(key)
+  return Atom.optimisticFn(orgAttachmentsAtom(key), {
+    reducer: (current, ids: ReadonlyArray<string>) => {
+      if (!Result.isSuccess(current)) return current
+      const removed = new Set(ids)
+      return Result.success(
+        {
+          items: current.value.items.filter((row) => !removed.has(row.id)),
+          nextCursor: current.value.nextCursor
+        },
+        { waiting: true }
+      )
+    },
+    fn: runtime.fn(
+      Effect.fn(function* (ids: ReadonlyArray<string>, get) {
+        const client = yield* ApiClient
+        yield* Effect.forEach(ids, (attachmentId) =>
+          client.attachments.remove({
+            path: { orgSlug: query.orgSlug, attachmentId }
+          })
+        )
+        get.refresh(orgAttachmentsBaseAtom(key))
+        get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
+      })
+    )
+  })
 })
