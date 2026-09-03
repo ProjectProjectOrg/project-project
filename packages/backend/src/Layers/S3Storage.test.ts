@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { attachmentObjectKey, sanitizeFilename } from "../Services/S3Storage"
+import {
+  attachmentObjectKey,
+  normalizeEtag,
+  sanitizeFilename
+} from "../Services/S3Storage"
 
 const base = {
   keyPrefix: null,
@@ -64,5 +68,31 @@ describe("sanitizeFilename", () => {
     expect(
       sanitizeFilename(`${"a".repeat(300)}.png`).length
     ).toBeLessThanOrEqual(120)
+  })
+})
+
+describe("normalizeEtag", () => {
+  it("strips the quotes S3 wraps an etag in", () => {
+    expect(normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e"')).toBe(
+      "d41d8cd98f00b204e9800998ecf8427e"
+    )
+  })
+
+  it("lowercases so two spellings of one object dedupe together", () => {
+    expect(normalizeEtag('"D41D8CD98F00B204E9800998ECF8427E"')).toBe(
+      "d41d8cd98f00b204e9800998ecf8427e"
+    )
+  })
+
+  it("refuses a multipart etag, which is not a content hash", () => {
+    expect(normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e-3"')).toBeNull()
+  })
+
+  it("refuses a missing etag", () => {
+    expect(normalizeEtag(undefined)).toBeNull()
+  })
+
+  it("refuses anything that is not a hex digest", () => {
+    expect(normalizeEtag('"not-a-digest"')).toBeNull()
   })
 })

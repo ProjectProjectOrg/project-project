@@ -49,9 +49,16 @@ export const attachmentObjectKey = (input: AttachmentKeyInput): string => {
   return prefix === "" ? tail : `${prefix}/${tail}`
 }
 
+export const normalizeEtag = (etag: string | undefined): string | null => {
+  if (!etag) return null
+  const trimmed = etag.replace(/^"|"$/g, "").toLowerCase()
+  return /^[0-9a-f]{32}$/.test(trimmed) ? trimmed : null
+}
+
 export interface S3ObjectHead {
   readonly byteSize: number
   readonly contentType: string | null
+  readonly contentHash: string | null
 }
 
 export interface S3StorageShape {

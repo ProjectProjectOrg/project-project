@@ -197,6 +197,7 @@ const makeFakeAttachments = (
     summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
     deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
     reapOnce: () => unexpected("Attachments.reapOnce"),
+    dedupeOnce: () => unexpected("Attachments.dedupeOnce"),
     ...overrides
   } satisfies AttachmentsShape)
 

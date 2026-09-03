@@ -787,6 +787,7 @@ export const attachmentIndex = pgTable(
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
     byteSize: integer("byte_size").notNull(),
+    contentHash: text("content_hash"),
     status: text("status", { enum: ["pending", "live", "orphaned"] })
       .notNull()
       .default("pending"),
@@ -809,7 +810,12 @@ export const attachmentIndex = pgTable(
     index("attachment_index_status_idx").on(t.status),
     index("attachment_index_org_idx").on(t.organizationId),
     index("attachment_index_org_created_idx").on(t.orgSlug, t.createdAt),
-    index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize)
+    index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize),
+    index("attachment_index_dedupe_idx").on(
+      t.orgSlug,
+      t.contentHash,
+      t.byteSize
+    )
   ]
 )
 
