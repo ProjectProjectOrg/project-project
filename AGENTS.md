@@ -65,6 +65,8 @@ Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes should 
 
 Implementation lives as a single global rule in `packages/frontend/src/styles.css`: while the element is hovered or carries the highlight data attribute, `transition-duration` is forced to `0ms`; once the cursor leaves (or the highlight clears), the override is gone and the element's underlying transition-duration governs the exit.
 
+When a parent reveals a child on hover (a row's actions, say), the child is not itself hovered, so give the parent a named reveal group — `group/reveal` — and pair it with `group-hover/reveal:*` on the child; the global rule covers that name alongside `group/hitbox`.
+
 For this to work, hover-affected elements must have a transition class set up — typically `transition-colors` (Tailwind default 150ms). If a hover-driven color change has no `transition-*` class, both directions snap and the rule has nothing to override. Add `transition-colors` (or `transition-opacity` / `transition-all` as appropriate) when introducing a new hover state.
 
 When you write a new component with hover behavior, always pair the hover class with the matching transition utility — e.g. `transition-colors hover:bg-accent`, not bare `hover:bg-accent`.

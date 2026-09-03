@@ -183,7 +183,11 @@
 .group\/hitbox:hover .transition-colors,
 .group\/hitbox:hover .transition-opacity,
 .group\/hitbox:hover .transition-all,
-.group\/hitbox:hover .transition {
+.group\/hitbox:hover .transition,
+.group\/reveal:hover .transition-colors,
+.group\/reveal:hover .transition-opacity,
+.group\/reveal:hover .transition-all,
+.group\/reveal:hover .transition {
   transition-duration: 0ms;
 }
 
