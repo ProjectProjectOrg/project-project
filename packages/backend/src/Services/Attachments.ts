@@ -2,6 +2,7 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import {
   ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_PAGE_SIZE,
   isAllowedAttachmentContentType,
   isRasterImageContentType,
   type Attachment,
@@ -50,15 +51,12 @@ export const attachmentServesInline = (input: {
   readonly download: boolean
 }): boolean => !input.download && isRasterImageContentType(input.contentType)
 
-export const DEFAULT_ATTACHMENT_LIMIT = 50
+export const DEFAULT_ATTACHMENT_LIMIT = ATTACHMENT_PAGE_SIZE
 
 export const attachmentPageOffset = (
   page: number | undefined,
   limit: number
 ): number => Math.max(0, ((page ?? 1) - 1) * limit)
-
-export const attachmentPageCount = (total: number, limit: number): number =>
-  total <= 0 ? 1 : Math.ceil(total / limit)
 
 export interface DedupeRow {
   readonly id: string
@@ -106,27 +104,6 @@ export const planDedupe = (input: {
   return repoints
 }
 
-export const planObjectDeletions = (input: {
-  readonly removing: ReadonlyArray<{
-    readonly id: string
-    readonly objectKey: string
-  }>
-  readonly remaining: ReadonlyArray<{
-    readonly id: string
-    readonly objectKey: string
-  }>
-}): ReadonlyArray<string> => {
-  const kept = new Set(input.remaining.map((row) => row.objectKey))
-  const keys: Array<string> = []
-  const seen = new Set<string>()
-  for (const row of input.removing) {
-    if (kept.has(row.objectKey) || seen.has(row.objectKey)) continue
-    seen.add(row.objectKey)
-    keys.push(row.objectKey)
-  }
-  return keys
-}
-
 const STATUS_ORDER = ["live", "orphaned", "pending"] as const
 
 export const summarizeAttachments = (input: {
@@ -166,10 +143,6 @@ export const summarizeAttachments = (input: {
     bytes: stored.reduce((total, row) => total + row.bytes, 0)
   }
 }
-
-export const isAttachmentDeletable = (row: {
-  readonly status: "pending" | "live" | "orphaned"
-}): boolean => row.status !== "pending"
 
 export const isServableStatus = (
   status: "pending" | "live" | "orphaned"

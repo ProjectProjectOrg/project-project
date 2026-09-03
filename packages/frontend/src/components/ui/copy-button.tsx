@@ -14,13 +14,15 @@ export function CopyButton({
   copyLabel = "Copy",
   copiedLabel = "Copied",
   variant = "ghost",
-  size = "icon-xs"
+  size = "icon-xs",
+  nativeTitle = true
 }: {
   value: string
   className?: string
   iconClassName?: string
   copyLabel?: string
   copiedLabel?: string
+  nativeTitle?: boolean
 } & Pick<ButtonProps, "variant" | "size">) {
   const [copied, setCopied] = useState(false)
   const reduceMotion = useReducedMotion()
@@ -43,7 +45,7 @@ export function CopyButton({
       onClick={copy}
       data-copied={copied || undefined}
       aria-label={copied ? copiedLabel : copyLabel}
-      title={copied ? copiedLabel : copyLabel}
+      title={nativeTitle ? (copied ? copiedLabel : copyLabel) : undefined}
       className={className}
     >
       <AnimatePresence initial={false}>

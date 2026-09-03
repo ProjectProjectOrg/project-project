@@ -1,7 +1,10 @@
 import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { useState } from "react"
 import { DEFAULT_WORK_TYPES, type GroupId } from "@projectproject/shared"
-import { everhourProfileAtom, everhourProjectStatusAtom } from "@/atoms/everhour"
+import {
+  everhourProfileAtom,
+  everhourProjectStatusAtom
+} from "@/atoms/everhour"
 import { projectKey } from "@/atoms/projects"
 import {
   activeTimerAtom,

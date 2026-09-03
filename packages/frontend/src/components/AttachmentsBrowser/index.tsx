@@ -34,6 +34,32 @@ import {
 import { Toolbar, type StatusFilter } from "./Toolbar"
 import { Totals } from "./Totals"
 
+const deletePrompt = (input: {
+  readonly count: number
+  readonly referenced: number
+}): string => {
+  if (input.referenced === 0) {
+    return input.count === 1
+      ? m.attachments_delete_confirm()
+      : m.attachments_delete_selected_confirm({ count: input.count })
+  }
+  if (input.count === 1) {
+    return input.referenced === 1
+      ? m.attachments_delete_confirm_referenced_one()
+      : m.attachments_delete_confirm_referenced_many({
+          count: input.referenced
+        })
+  }
+  return input.referenced === 1
+    ? m.attachments_delete_selected_confirm_referenced_one({
+        count: input.count
+      })
+    : m.attachments_delete_selected_confirm_referenced_many({
+        count: input.count,
+        referenced: input.referenced
+      })
+}
+
 export function AttachmentsBrowser({
   orgSlug,
   storage
@@ -254,20 +280,10 @@ function AttachmentsTable({
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm className="flex-wrap justify-end">
               <DeleteConfirm
-                prompt={
-                  referencedCount === 0
-                    ? m.attachments_delete_selected_confirm({
-                        count: selectedIds.length
-                      })
-                    : referencedCount === 1
-                      ? m.attachments_delete_selected_confirm_referenced_one({
-                          count: selectedIds.length
-                        })
-                      : m.attachments_delete_selected_confirm_referenced_many({
-                          count: selectedIds.length,
-                          referenced: referencedCount
-                        })
-                }
+                prompt={deletePrompt({
+                  count: selectedIds.length,
+                  referenced: referencedCount
+                })}
                 ids={selectedIds}
                 onDelete={onDelete}
               />
@@ -324,15 +340,10 @@ function DeleteCell({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="absolute top-1/2 -right-1 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover py-1 pr-2 pl-3.5 whitespace-nowrap shadow-sm">
         <DeleteConfirm
-          prompt={
-            row.tickets.length === 0
-              ? m.attachments_delete_confirm()
-              : row.tickets.length === 1
-                ? m.attachments_delete_confirm_referenced_one()
-                : m.attachments_delete_confirm_referenced_many({
-                    count: row.tickets.length
-                  })
-          }
+          prompt={deletePrompt({
+            count: 1,
+            referenced: row.tickets.length
+          })}
           ids={[row.id]}
           onDelete={onDelete}
         />

@@ -811,6 +811,7 @@ export const attachmentIndex = pgTable(
     index("attachment_index_org_idx").on(t.organizationId),
     index("attachment_index_org_created_idx").on(t.orgSlug, t.createdAt),
     index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize),
+    index("attachment_index_object_key_idx").on(t.objectKey),
     index("attachment_index_dedupe_idx").on(
       t.orgSlug,
       t.contentHash,

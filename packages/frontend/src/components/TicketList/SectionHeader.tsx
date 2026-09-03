@@ -38,11 +38,7 @@ export const SectionHeader = forwardRef<
   return <BareSectionHeader {...props} />
 })
 
-function BareSectionHeader({
-  status,
-  statuses,
-  count
-}: BareProps): ReactNode {
+function BareSectionHeader({ status, statuses, count }: BareProps): ReactNode {
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
   const label = statusLabelFor(status, statuses)

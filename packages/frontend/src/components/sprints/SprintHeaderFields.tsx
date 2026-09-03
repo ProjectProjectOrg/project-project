@@ -2,7 +2,13 @@ import { useAtomSet, useAtomValue, Result } from "@effect-atom/atom-react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
-import { MoreHorizontal, RotateCcw, SlidersHorizontal, Trash2, Trophy } from "lucide-react"
+import {
+  MoreHorizontal,
+  RotateCcw,
+  SlidersHorizontal,
+  Trash2,
+  Trophy
+} from "lucide-react"
 import { useEffect, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import { Calendar } from "@/components/ui/calendar"
@@ -88,7 +94,8 @@ export function SprintStatusSelect({
   )
   const completing = completeState.waiting
   const reopening = reopenState.waiting
-  const failed = Result.isFailure(completeState) || Result.isFailure(reopenState)
+  const failed =
+    Result.isFailure(completeState) || Result.isFailure(reopenState)
 
   const completeTo = (destination: CompleteSprintDestination) =>
     complete({ groupId: sprint.id, destination, ticketStatuses })
@@ -528,5 +535,3 @@ export function SprintDeleteMenu({
     </DropdownMenu>
   )
 }
-
-

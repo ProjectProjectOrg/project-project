@@ -409,19 +409,16 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
       <AttachmentSelectable
         nodeKey={this.getKey()}
         deletable={!this.__failed}
-        density={settled ? this.__density : null}
+        density={this.__density}
+        toggleable={false}
       >
-        {this.renderContent()}
+        {this.__failed ? (
+          <AttachmentFailed uploadId={this.__uploadId} />
+        ) : (
+          <AttachmentUploading progress={this.__progress} />
+        )}
       </AttachmentSelectable>
     )
-  }
-
-  renderContent(): ReactElement {
-    if (this.__failed) {
-      return <AttachmentFailed uploadId={this.__uploadId} />
-    }
-
-    return <AttachmentUploading progress={this.__progress} />
   }
 }
 
@@ -451,7 +448,8 @@ function AttachmentSettled({
     <AttachmentSelectable
       nodeKey={nodeKey}
       deletable
-      density={missing ? null : density}
+      density={density}
+      toggleable={!missing}
     >
       {missing ? (
         <AttachmentUnavailable
@@ -489,11 +487,13 @@ function AttachmentSelectable({
   nodeKey,
   deletable,
   density,
+  toggleable,
   children
 }: {
   nodeKey: string
   deletable: boolean
-  density: AttachmentDensity | null
+  density: AttachmentDensity
+  toggleable: boolean
   children: ReactNode
 }) {
   const [editor] = useLexicalComposerContext()
@@ -690,7 +690,7 @@ function AttachmentSelectable({
               <Trash2 strokeWidth={1.75} />
             </OverlayAction>
           ) : null}
-          {density !== null ? (
+          {toggleable ? (
             <OverlayAction
               morphId={`${morphId}-density`}
               slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}

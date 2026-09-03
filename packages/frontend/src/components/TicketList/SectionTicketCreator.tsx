@@ -30,10 +30,7 @@ import {
   sprintsListAtom,
   useAddTicketsToSprint
 } from "@/atoms/sprints"
-import {
-  quickCreateTicketAtom,
-  ticketsListKeyForStatus
-} from "@/atoms/tickets"
+import { quickCreateTicketAtom, ticketsListKeyForStatus } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -260,10 +257,7 @@ export function SectionTicketCreator({
   ) : null
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex w-full items-center gap-2"
-    >
+    <form onSubmit={onSubmit} className="flex w-full items-center gap-2">
       <DropdownMenu
         open={typeMenuOpen}
         onOpenChange={(open) => {

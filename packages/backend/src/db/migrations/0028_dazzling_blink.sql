@@ -1,0 +1,1 @@
+CREATE INDEX "attachment_index_object_key_idx" ON "attachment_index" USING btree ("object_key");

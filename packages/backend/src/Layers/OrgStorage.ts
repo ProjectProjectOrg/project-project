@@ -5,7 +5,6 @@ import * as SqlClient from "@effect/sql/SqlClient"
 import { and, eq, inArray } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
-  Forbidden,
   NotFound,
   StorageAuthInvalid,
   StorageConfigMissing,
@@ -18,7 +17,7 @@ import {
   organizationIntegration,
   organizationS3Integration
 } from "../db/schema"
-import { CurrentOrg } from "../Services/CurrentOrg"
+import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import {
   maskAccessKeyId,
@@ -49,15 +48,6 @@ export const OrgStorageLive = Layer.effect(
     const currentOrg = yield* CurrentOrg
     const s3 = yield* S3Storage
     const secrets = yield* SecretCrypto
-
-    const requireOrgAdmin = (orgSlug: string, userId: string) =>
-      Effect.gen(function* () {
-        const org = yield* currentOrg.resolve(orgSlug, userId)
-        if (org.role !== "owner" && org.role !== "admin") {
-          return yield* new Forbidden()
-        }
-        return org
-      })
 
     const activeOrBrokenS3Row = (organizationId: string) =>
       db
@@ -184,7 +174,7 @@ export const OrgStorageLive = Layer.effect(
       }
     ) =>
       Effect.gen(function* () {
-        const org = yield* requireOrgAdmin(orgSlug, userId)
+        const org = yield* requireOrgAdmin(currentOrg, orgSlug, userId)
 
         const connection: S3Connection = {
           endpoint: input.endpoint,
@@ -270,7 +260,7 @@ export const OrgStorageLive = Layer.effect(
 
     const disconnect = (orgSlug: string, userId: string) =>
       Effect.gen(function* () {
-        const org = yield* requireOrgAdmin(orgSlug, userId)
+        const org = yield* requireOrgAdmin(currentOrg, orgSlug, userId)
         const now = yield* DateTime.nowAsDate
         yield* db
           .update(organizationIntegration)

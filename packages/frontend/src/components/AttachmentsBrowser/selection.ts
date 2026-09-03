@@ -1,15 +1,22 @@
 import {
+  isAttachmentDeletable,
   isRasterImageContentType,
   type AttachmentStatus
 } from "@projectproject/shared"
+import { m } from "@/paraglide/messages"
 
 interface SelectableRow {
   readonly id: string
   readonly status: AttachmentStatus
 }
 
-export const isDeletable = (row: SelectableRow): boolean =>
-  row.status !== "pending"
+export const STATUS_LABEL: Record<AttachmentStatus, () => string> = {
+  live: m.attachments_status_live,
+  orphaned: m.attachments_status_orphaned,
+  pending: m.attachments_status_pending
+}
+
+export const isDeletable = isAttachmentDeletable
 
 export const hasThumbnail = (row: {
   readonly status: AttachmentStatus
