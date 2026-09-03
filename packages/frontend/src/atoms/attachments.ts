@@ -1,9 +1,4 @@
 import { Atom, Result } from "@effect-atom/atom-react"
-import * as Arr from "effect/Array"
-import * as Chunk from "effect/Chunk"
-import { NoSuchElementException } from "effect/Cause"
-import * as Option from "effect/Option"
-import * as Stream from "effect/Stream"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import { runtime } from "@/runtime"
@@ -106,42 +101,29 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
 
 export const ORG_ATTACHMENTS_PAGE_SIZE = 50
 
-const orgAttachmentsPullAtom = Atom.family((key: string) => {
+const orgAttachmentsBaseAtom = Atom.family((key: string) => {
   const query = splitOrgAttachmentsKey(key)
   return runtime
-    .pull(
-      Stream.paginateChunkEffect(Option.none<string>(), (cursor) =>
-        Effect.gen(function* () {
-          const client = yield* ApiClient
-          const page = yield* client.attachments.list({
-            path: { orgSlug: query.orgSlug },
-            urlParams: {
-              limit: ORG_ATTACHMENTS_PAGE_SIZE,
-              ...(query.status ? { status: query.status } : {}),
-              ...(query.projectSlug ? { projectSlug: query.projectSlug } : {}),
-              ...(query.sort ? { sort: query.sort } : {}),
-              ...Option.match(cursor, {
-                onNone: () => ({}),
-                onSome: (value) => ({ cursor: value })
-              })
-            }
-          })
-          return [
-            Chunk.fromIterable(page.items),
-            page.nextCursor === null
-              ? Option.none<Option.Option<string>>()
-              : Option.some(Option.some(page.nextCursor))
-          ] as const
+    .atom(
+      Effect.gen(function* () {
+        const client = yield* ApiClient
+        return yield* client.attachments.list({
+          path: { orgSlug: query.orgSlug },
+          urlParams: {
+            limit: ORG_ATTACHMENTS_PAGE_SIZE,
+            page: query.page,
+            ...(query.status ? { status: query.status } : {}),
+            ...(query.projectSlug ? { projectSlug: query.projectSlug } : {}),
+            ...(query.sort ? { sort: query.sort } : {})
+          }
         })
-      )
+      })
     )
     .pipe(Atom.setIdleTTL("30 seconds"))
 })
 
-export const loadMoreOrgAttachmentsAtom = orgAttachmentsPullAtom
-
 export const orgAttachmentsAtom = Atom.family((key: string) =>
-  Atom.optimistic(orgAttachmentsPullAtom(key))
+  Atom.optimistic(orgAttachmentsBaseAtom(key))
 )
 
 const orgAttachmentsSummaryBaseAtom = Atom.family((orgSlug: string) =>
@@ -166,9 +148,16 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
       if (!Result.isSuccess(current)) return current
       const removed = new Set(ids)
       const items = current.value.items.filter((row) => !removed.has(row.id))
-      return Arr.isNonEmptyArray(items)
-        ? Result.success({ done: current.value.done, items }, { waiting: true })
-        : Result.fail(new NoSuchElementException(), { waiting: true })
+      return Result.success(
+        {
+          items,
+          total: Math.max(
+            0,
+            current.value.total - (current.value.items.length - items.length)
+          )
+        },
+        { waiting: true }
+      )
     },
     fn: runtime.fn(
       Effect.fn(function* (ids: ReadonlyArray<string>, get) {
@@ -183,6 +172,7 @@ export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
         ).pipe(
           Effect.ensuring(
             Effect.sync(() => {
+              get.refresh(orgAttachmentsBaseAtom(key))
               get.refresh(orgAttachmentsSummaryBaseAtom(query.orgSlug))
             })
           )

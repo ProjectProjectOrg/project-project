@@ -2,7 +2,7 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -15,8 +15,6 @@ import {
   isRasterImageContentType,
   NotFound,
   StorageError,
-  tryDecodeCursor,
-  Validation,
   type Attachment,
   type AttachmentRow
 } from "@projectproject/shared"
@@ -28,11 +26,10 @@ import { Projects } from "../Services/Projects"
 import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
 import {
   Attachments,
-  attachmentCursorBound,
+  attachmentPageOffset,
   attachmentSortPlan,
   DEFAULT_ATTACHMENT_LIMIT,
   isServableStatus,
-  planAttachmentPage,
   isAttachmentDeletable,
   planReap,
   planReconciliation,
@@ -323,7 +320,6 @@ export const AttachmentsLive = Layer.effect(
             ? attachmentIndex.byteSize
             : attachmentIndex.createdAt
         const order = plan.direction === "desc" ? desc : asc
-        const beyond = plan.direction === "desc" ? lt : gt
 
         const conditions = [eq(attachmentIndex.orgSlug, orgSlug)]
         if (params.status) {
@@ -332,35 +328,26 @@ export const AttachmentsLive = Layer.effect(
         if (params.projectSlug) {
           conditions.push(eq(attachmentIndex.projectSlug, params.projectSlug))
         }
-        if (params.cursor) {
-          const cursor = tryDecodeCursor(params.cursor)
-          if (cursor === undefined) {
-            return yield* new Validation({ reason: "cursor" })
-          }
-          const value = attachmentCursorBound(cursor, params.sort)
-          if (value === null) {
-            return yield* new Validation({ reason: "cursor" })
-          }
-          conditions.push(
-            or(
-              beyond(column, value),
-              and(eq(column, value), beyond(attachmentIndex.id, cursor.id))
-            )!
-          )
-        }
+        const where = and(...conditions)
 
-        const rows = yield* db
+        const items = yield* db
           .select()
           .from(attachmentIndex)
-          .where(and(...conditions))
+          .where(where)
           .orderBy(order(column), order(attachmentIndex.id))
-          .limit(limit + 1)
+          .limit(limit)
+          .offset(attachmentPageOffset(params.page, limit))
           .pipe(Effect.orDie)
 
-        const page = planAttachmentPage({ rows, limit, sort: params.sort })
+        const counted = yield* db
+          .select({ total: sql<number>`count(*)::int` })
+          .from(attachmentIndex)
+          .where(where)
+          .pipe(Effect.orDie)
+
         return {
-          items: page.rows.map(toAttachmentRow),
-          nextCursor: page.nextCursor
+          items: items.map(toAttachmentRow),
+          total: Number(counted[0]?.total ?? 0)
         }
       })
 

@@ -6,8 +6,6 @@ import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 import {
   ATTACHMENT_MAX_BYTES,
-  decodeCursor,
-  encodeCursor,
   NotFound,
   type Role
 } from "@projectproject/shared"
@@ -21,11 +19,10 @@ import { AttachmentsLive } from "./Attachments"
 
 const at = (iso: string) => DateTime.toDate(DateTime.unsafeMake(iso))
 import {
-  attachmentCursorBound,
-  attachmentCursorValue,
+  attachmentPageCount,
+  attachmentPageOffset,
   attachmentSortPlan,
   isServableStatus,
-  planAttachmentPage,
   ORPHAN_GRACE_MS,
   isAttachmentDeletable,
   planReap,
@@ -367,38 +364,6 @@ describe("attachmentSortPlan", () => {
   })
 })
 
-describe("attachmentCursorValue", () => {
-  const row = {
-    createdAt: at("2026-09-02T10:00:00.000Z"),
-    byteSize: 4096
-  }
-
-  it("carries the created date when paging a date sort", () => {
-    expect(attachmentCursorValue(row, "created_desc")).toBe(
-      "2026-09-02T10:00:00.000Z"
-    )
-  })
-
-  it("carries the byte size when paging a size sort", () => {
-    expect(attachmentCursorValue(row, "size_asc")).toBe("4096")
-  })
-
-  it("reads the column the sort plan actually orders by", () => {
-    for (const sort of [
-      "created_desc",
-      "created_asc",
-      "size_desc",
-      "size_asc"
-    ] as const) {
-      const expected =
-        attachmentSortPlan(sort).column === "byteSize"
-          ? String(row.byteSize)
-          : row.createdAt.toISOString()
-      expect(attachmentCursorValue(row, sort)).toBe(expected)
-    }
-  })
-})
-
 const servingRow = {
   id: "att-1",
   organizationId: "org-1",
@@ -629,88 +594,21 @@ describe("deleteForOrg", () => {
   )
 })
 
-describe("attachmentCursorBound", () => {
-  const row = {
-    id: "a",
-    byteSize: 4096,
-    createdAt: at("2026-09-02T10:00:00.000Z")
-  }
-
-  it("round-trips a date sort back to the value the column holds", () => {
-    const cursor = decodeCursor(
-      encodeCursor({
-        id: row.id,
-        sort: attachmentCursorValue(row, "created_desc")
-      })
-    )
-    expect(attachmentCursorBound(cursor, "created_desc")).toEqual(row.createdAt)
-  })
-
-  it("refuses a cursor whose date the sort cannot read", () => {
-    expect(
-      attachmentCursorBound({ id: "a", sort: "nonsense" }, "created_desc")
-    ).toBeNull()
-  })
-
-  it("round-trips a size sort back to a number", () => {
-    const cursor = decodeCursor(
-      encodeCursor({ id: row.id, sort: attachmentCursorValue(row, "size_asc") })
-    )
-    expect(attachmentCursorBound(cursor, "size_asc")).toBe(row.byteSize)
-  })
-})
-
-describe("planAttachmentPage", () => {
-  const rows = [
-    { id: "a", byteSize: 100, createdAt: at("2026-09-03T00:00:00.000Z") },
-    { id: "b", byteSize: 200, createdAt: at("2026-09-02T00:00:00.000Z") },
-    { id: "c", byteSize: 300, createdAt: at("2026-09-01T00:00:00.000Z") }
-  ]
-
-  it("returns every row and no cursor when the page is not full", () => {
-    const page = planAttachmentPage({
-      rows,
-      limit: 10,
-      sort: "created_desc"
-    })
-    expect(page.rows).toEqual(rows)
-    expect(page.nextCursor).toBeNull()
-  })
-
-  it("trims the probe row when more rows exist than the limit", () => {
-    const page = planAttachmentPage({ rows, limit: 2, sort: "created_desc" })
-    expect(page.rows.map((r) => r.id)).toEqual(["a", "b"])
-  })
-
-  it("points the cursor at the last returned row, not the probe row", () => {
-    const page = planAttachmentPage({ rows, limit: 2, sort: "created_desc" })
-    expect(page.nextCursor).not.toBeNull()
-    expect(decodeCursor(page.nextCursor!)).toEqual({
-      id: "b",
-      sort: "2026-09-02T00:00:00.000Z"
-    })
-  })
-
-  it("carries the byte size in the cursor when paging a size sort", () => {
-    const page = planAttachmentPage({ rows, limit: 2, sort: "size_asc" })
-    expect(decodeCursor(page.nextCursor!)).toEqual({ id: "b", sort: "200" })
-  })
-
-  it("returns no cursor for an empty page", () => {
-    const page = planAttachmentPage({ rows: [], limit: 10, sort: undefined })
-    expect(page.rows).toEqual([])
-    expect(page.nextCursor).toBeNull()
-  })
-})
-
 const dialect = new PgDialect()
 const sqlOf = (cond: unknown) => dialect.sqlToQuery(cond as never).sql
 
 const listHarness = (input: {
   readonly role: Role
   readonly rows?: ReadonlyArray<unknown>
+  readonly total?: number
 }) => {
-  const capture: { where?: unknown; limit?: number; groupBy?: unknown } = {}
+  const capture: {
+    where?: unknown
+    limit?: number
+    offset?: number
+    groupBy?: unknown
+  } = {}
+  const rows = input.rows ?? []
   const layer = AttachmentsLive.pipe(
     Layer.provide(
       Layer.succeed(Db, {
@@ -718,18 +616,25 @@ const listHarness = (input: {
           from: () => ({
             where: (cond: unknown) => {
               capture.where = cond
-              return {
-                orderBy: () => ({
-                  limit: (n: number) => {
-                    capture.limit = n
-                    return Effect.succeed(input.rows ?? [])
+              const counted = Effect.succeed([
+                { total: input.total ?? 0 }
+              ]) as unknown as Record<string, unknown>
+              counted["orderBy"] = () => ({
+                limit: (n: number) => {
+                  capture.limit = n
+                  return {
+                    offset: (o: number) => {
+                      capture.offset = o
+                      return Effect.succeed(rows)
+                    }
                   }
-                }),
-                groupBy: (cond2: unknown) => {
-                  capture.groupBy = cond2
-                  return Effect.succeed(input.rows ?? [])
                 }
+              })
+              counted["groupBy"] = (grouped: unknown) => {
+                capture.groupBy = grouped
+                return Effect.succeed(rows)
               }
+              return counted
             }
           })
         })
@@ -787,125 +692,43 @@ describe("listForOrg", () => {
     })
   )
 
-  it.effect("pages a newest-first sort with a strictly-earlier bound", () =>
+  it.effect("offsets to the requested page", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
       yield* Attachments.pipe(
         Effect.flatMap((a) =>
-          a.listForOrg("acme", "user-1", {
-            cursor: encodeCursor({
-              id: "att-1",
-              sort: "2026-09-02T10:00:00.000Z"
-            })
-          })
+          a.listForOrg("acme", "user-1", { page: 3, limit: 25 })
         ),
         Effect.provide(layer)
       )
-      const where = sqlOf(capture.where)
-      expect(where).toContain("created_at" + '" <')
-      expect(where).not.toContain("created_at" + '" >')
-      expect(where).toContain("or")
+      expect(capture.limit).toBe(25)
+      expect(capture.offset).toBe(50)
     })
   )
 
-  it.effect("pages an oldest-first sort with a strictly-later bound", () =>
+  it.effect("reports the total matching the filters, not just this page", () =>
     Effect.gen(function* () {
-      const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
-        Effect.flatMap((a) =>
-          a.listForOrg("acme", "user-1", {
-            sort: "created_asc",
-            cursor: encodeCursor({
-              id: "att-1",
-              sort: "2026-09-02T10:00:00.000Z"
-            })
-          })
-        ),
-        Effect.provide(layer)
-      )
-      const where = sqlOf(capture.where)
-      expect(where).toContain("created_at" + '" >')
-      expect(where).not.toContain("created_at" + '" <')
-    })
-  )
-
-  it.effect("pages a size sort against the byte size column", () =>
-    Effect.gen(function* () {
-      const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
-        Effect.flatMap((a) =>
-          a.listForOrg("acme", "user-1", {
-            sort: "size_desc",
-            cursor: encodeCursor({ id: "att-1", sort: "4096" })
-          })
-        ),
-        Effect.provide(layer)
-      )
-      const where = sqlOf(capture.where)
-      expect(where).toContain("byte_size" + '" <')
-      expect(where).not.toContain("created_at")
-    })
-  )
-
-  it.effect(
-    "breaks a tie on the id, so rows sharing a sort value are not skipped",
-    () =>
-      Effect.gen(function* () {
-        const { layer, capture } = listHarness({ role: "owner" })
-        yield* Attachments.pipe(
-          Effect.flatMap((a) =>
-            a.listForOrg("acme", "user-1", {
-              cursor: encodeCursor({
-                id: "att-1",
-                sort: "2026-09-02T10:00:00.000Z"
-              })
-            })
-          ),
-          Effect.provide(layer)
-        )
-        const where = sqlOf(capture.where)
-        expect(where).toContain("created_at" + '" =')
-        expect(where).toContain("id" + '" <')
-      })
-  )
-
-  it.effect("fetches one row past the limit to detect a next page", () =>
-    Effect.gen(function* () {
-      const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
-        Effect.flatMap((a) => a.listForOrg("acme", "user-1", { limit: 20 })),
-        Effect.provide(layer)
-      )
-      expect(capture.limit).toBe(21)
-    })
-  )
-
-  it.effect(
-    "rejects a malformed cursor rather than silently paging again",
-    () =>
-      Effect.gen(function* () {
-        const { layer } = listHarness({ role: "owner" })
-        const result = yield* Attachments.pipe(
-          Effect.flatMap((a) =>
-            Effect.either(
-              a.listForOrg("acme", "user-1", { cursor: "not-a-cursor" })
-            )
-          ),
-          Effect.provide(layer)
-        )
-        expect(result._tag).toBe("Left")
-        if (result._tag === "Left") expect(result.left._tag).toBe("Validation")
-      })
-  )
-
-  it.effect("returns rows shaped for the browser table", () =>
-    Effect.gen(function* () {
-      const { layer } = listHarness({ role: "owner", rows: [servingRow] })
+      const { layer } = listHarness({ role: "owner", rows: [servingRow], total: 217 })
       const page = yield* Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
         Effect.provide(layer)
       )
-      expect(page.nextCursor).toBeNull()
+      expect(page.total).toBe(217)
+    })
+  )
+
+  it.effect("returns rows shaped for the browser table", () =>
+    Effect.gen(function* () {
+      const { layer } = listHarness({
+        role: "owner",
+        rows: [servingRow],
+        total: 1
+      })
+      const page = yield* Attachments.pipe(
+        Effect.flatMap((a) => a.listForOrg("acme", "user-1", {})),
+        Effect.provide(layer)
+      )
+      expect(page.total).toBe(1)
       expect(page.items[0]).toMatchObject({
         id: "att-1",
         projectSlug: "apollo",
@@ -978,4 +801,44 @@ describe("summarizeForOrg", () => {
       ])
     })
   )
+})
+
+describe("attachmentPageOffset", () => {
+  it("starts the first page at the top", () => {
+    expect(attachmentPageOffset(1, 50)).toBe(0)
+  })
+
+  it("treats a missing page as the first", () => {
+    expect(attachmentPageOffset(undefined, 50)).toBe(0)
+  })
+
+  it("skips a whole page for the second page", () => {
+    expect(attachmentPageOffset(2, 50)).toBe(50)
+  })
+
+  it("scales with the page size", () => {
+    expect(attachmentPageOffset(3, 25)).toBe(50)
+  })
+
+  it("never offsets backwards", () => {
+    expect(attachmentPageOffset(0, 50)).toBe(0)
+  })
+})
+
+describe("attachmentPageCount", () => {
+  it("counts a partial page as a page", () => {
+    expect(attachmentPageCount(27, 50)).toBe(1)
+  })
+
+  it("counts an exact multiple without a trailing empty page", () => {
+    expect(attachmentPageCount(100, 50)).toBe(2)
+  })
+
+  it("counts the remainder as one more page", () => {
+    expect(attachmentPageCount(101, 50)).toBe(3)
+  })
+
+  it("shows a single empty page when there is nothing", () => {
+    expect(attachmentPageCount(0, 50)).toBe(1)
+  })
 })

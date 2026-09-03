@@ -98,11 +98,10 @@ import {
 } from "./schemas/Group"
 import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import { TicketCountParams, TicketListParams } from "./filters/url"
-import { Page } from "./Pagination"
 import {
   Attachment,
+  AttachmentListPage,
   AttachmentListParams,
-  AttachmentRow,
   AttachmentSummary,
   ConnectStorageInput,
   OrgStorageStatus,
@@ -681,11 +680,10 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/attachments")
       .setPath(OrgPath)
       .setUrlParams(AttachmentListParams)
-      .addSuccess(Page(AttachmentRow))
+      .addSuccess(AttachmentListPage)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Forbidden)
-      .addError(Validation)
   )
   .add(
     HttpApiEndpoint.get("summary", "/orgs/:orgSlug/attachments/summary")

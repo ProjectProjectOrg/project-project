@@ -5,6 +5,7 @@ export interface OrgAttachmentsQuery {
   readonly status?: AttachmentStatus
   readonly projectSlug?: string
   readonly sort?: AttachmentSort
+  readonly page: number
 }
 
 export const orgAttachmentsKey = (query: OrgAttachmentsQuery): string =>
@@ -12,20 +13,23 @@ export const orgAttachmentsKey = (query: OrgAttachmentsQuery): string =>
     query.orgSlug,
     query.status ?? null,
     query.projectSlug ?? null,
-    query.sort ?? null
+    query.sort ?? null,
+    query.page
   ])
 
 export const splitOrgAttachmentsKey = (key: string): OrgAttachmentsQuery => {
-  const [orgSlug, status, projectSlug, sort] = JSON.parse(key) as [
+  const [orgSlug, status, projectSlug, sort, page] = JSON.parse(key) as [
     string,
     AttachmentStatus | null,
     string | null,
-    AttachmentSort | null
+    AttachmentSort | null,
+    number
   ]
   return {
     orgSlug,
     ...(status === null ? {} : { status }),
     ...(projectSlug === null ? {} : { projectSlug }),
-    ...(sort === null ? {} : { sort })
+    ...(sort === null ? {} : { sort }),
+    page
   }
 }

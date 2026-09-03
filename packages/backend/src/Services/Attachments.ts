@@ -1,18 +1,13 @@
 import * as Context from "effect/Context"
-import * as DateTime from "effect/DateTime"
 import type * as Effect from "effect/Effect"
-import * as Option from "effect/Option"
 import {
   ATTACHMENT_MAX_BYTES,
-  encodeCursor,
   isAllowedAttachmentContentType,
   type Attachment,
   type AttachmentListParams,
-  type AttachmentRow,
+  type AttachmentListPage,
   type AttachmentSort,
   type AttachmentSummary,
-  type CursorPayload,
-  type Validation,
   type AttachmentNotUploaded,
   type AttachmentTooLarge,
   type AttachmentTypeRejected,
@@ -49,57 +44,15 @@ export const attachmentSortPlan = (
   }
 }
 
-export const attachmentCursorValue = (
-  row: { readonly createdAt: Date; readonly byteSize: number },
-  sort: AttachmentSort | undefined
-): string =>
-  attachmentSortPlan(sort).column === "byteSize"
-    ? String(row.byteSize)
-    : row.createdAt.toISOString()
-
-export const attachmentCursorBound = (
-  cursor: CursorPayload,
-  sort: AttachmentSort | undefined
-): number | Date | null => {
-  if (attachmentSortPlan(sort).column === "byteSize") {
-    const byteSize = Number(cursor.sort)
-    return Number.isFinite(byteSize) ? byteSize : null
-  }
-  return Option.match(DateTime.make(cursor.sort), {
-    onNone: () => null,
-    onSome: DateTime.toDate
-  })
-}
-
 export const DEFAULT_ATTACHMENT_LIMIT = 50
 
-export interface PageableAttachmentRow {
-  readonly id: string
-  readonly createdAt: Date
-  readonly byteSize: number
-}
+export const attachmentPageOffset = (
+  page: number | undefined,
+  limit: number
+): number => Math.max(0, ((page ?? 1) - 1) * limit)
 
-export const planAttachmentPage = <A extends PageableAttachmentRow>(input: {
-  readonly rows: ReadonlyArray<A>
-  readonly limit: number
-  readonly sort: AttachmentSort | undefined
-}): {
-  readonly rows: ReadonlyArray<A>
-  readonly nextCursor: string | null
-} => {
-  if (input.rows.length <= input.limit) {
-    return { rows: input.rows, nextCursor: null }
-  }
-  const rows = input.rows.slice(0, input.limit)
-  const last = rows[rows.length - 1]!
-  return {
-    rows,
-    nextCursor: encodeCursor({
-      id: last.id,
-      sort: attachmentCursorValue(last, input.sort)
-    })
-  }
-}
+export const attachmentPageCount = (total: number, limit: number): number =>
+  total <= 0 ? 1 : Math.ceil(total / limit)
 
 export const isAttachmentDeletable = (row: {
   readonly status: "pending" | "live" | "orphaned"
@@ -176,13 +129,7 @@ export interface AttachmentsShape {
     orgSlug: string,
     userId: string,
     params: AttachmentListParams
-  ) => Effect.Effect<
-    {
-      readonly items: ReadonlyArray<AttachmentRow>
-      readonly nextCursor: string | null
-    },
-    NotFound | Forbidden | Validation
-  >
+  ) => Effect.Effect<AttachmentListPage, NotFound | Forbidden>
   readonly summarizeForOrg: (
     orgSlug: string,
     userId: string

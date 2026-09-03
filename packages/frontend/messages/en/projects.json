@@ -265,7 +265,6 @@
   "attachments_filter_project_label": "Project",
   "attachments_filter_status_all": "All",
   "attachments_heading": "Files",
-  "attachments_load_more": "Load more",
   "attachments_select_all": "Select every orphan on this page",
   "attachments_select_row": "Select {filename}",
   "attachments_sort_created_asc": "Oldest first",
@@ -280,5 +279,8 @@
   "attachments_thumbnail_alt": "Preview of {filename}",
   "attachments_total_bytes": "{bytes} across {count} objects",
   "attachments_totals_all": "All",
-  "attachments_error_stale_page": "That page of results is out of date. Reload to continue."
+  "attachments_page_next": "Next page",
+  "attachments_page_of": "Page {page}",
+  "attachments_page_prev": "Previous page",
+  "attachments_page_range": "{from}–{to} of {total} objects"
 }
