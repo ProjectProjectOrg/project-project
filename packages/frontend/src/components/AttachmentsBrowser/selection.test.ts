@@ -26,8 +26,8 @@ describe("isDeletable", () => {
     expect(isDeletable(rows[1])).toBe(true)
   })
 
-  it("refuses a live attachment, which a description still renders", () => {
-    expect(isDeletable(rows[0])).toBe(false)
+  it("admits a live attachment, whose reference is left broken on purpose", () => {
+    expect(isDeletable(rows[0])).toBe(true)
   })
 
   it("refuses a pending attachment, whose upload may still land", () => {
@@ -62,12 +62,12 @@ describe("hasThumbnail", () => {
 })
 
 describe("deletableIds", () => {
-  it("picks out only the orphans, so select-all never arms a live row", () => {
-    expect(deletableIds(rows)).toEqual(["orphan-1", "orphan-2"])
+  it("arms everything except the pending upload", () => {
+    expect(deletableIds(rows)).toEqual(["live-1", "orphan-1", "orphan-2"])
   })
 
-  it("is empty when nothing is orphaned", () => {
-    expect(deletableIds([rows[0], rows[2]])).toEqual([])
+  it("is empty when only a pending upload is listed", () => {
+    expect(deletableIds([rows[2]])).toEqual([])
   })
 })
 
@@ -92,24 +92,24 @@ describe("prunedSelection", () => {
     expect([...next]).toEqual(["orphan-1"])
   })
 
-  it("drops an id whose row is no longer orphaned", () => {
-    const next = prunedSelection(new Set(["live-1"]), rows)
+  it("drops an id whose row went back to pending", () => {
+    const next = prunedSelection(new Set(["pending-1"]), rows)
     expect([...next]).toEqual([])
   })
 })
 
 describe("allDeletableSelected", () => {
-  it("is true once every orphan is selected", () => {
-    expect(allDeletableSelected(new Set(["orphan-1", "orphan-2"]), rows)).toBe(
-      true
-    )
+  it("is true once every deletable row is selected", () => {
+    expect(
+      allDeletableSelected(new Set(["live-1", "orphan-1", "orphan-2"]), rows)
+    ).toBe(true)
   })
 
-  it("is false while an orphan is unselected", () => {
+  it("is false while a deletable row is unselected", () => {
     expect(allDeletableSelected(new Set(["orphan-1"]), rows)).toBe(false)
   })
 
   it("is false when there is nothing to select", () => {
-    expect(allDeletableSelected(new Set(), [rows[0]])).toBe(false)
+    expect(allDeletableSelected(new Set(), [rows[2]])).toBe(false)
   })
 })
