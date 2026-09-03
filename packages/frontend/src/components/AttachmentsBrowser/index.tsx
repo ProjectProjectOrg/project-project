@@ -22,6 +22,7 @@ import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import { Pagination } from "./Pagination"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { Row } from "./Row"
 import {
   allDeletableSelected,
@@ -86,74 +87,76 @@ export function AttachmentsBrowser({
   }
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      {Result.matchWithError(summaryResult, {
-        onInitial: () => (
-          <div className="h-16 animate-pulse rounded-lg bg-muted" />
-        ),
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value }) => <Totals summary={value} />
-      })}
+    <TooltipProvider>
+      <div className="flex w-full flex-col gap-4">
+        {Result.matchWithError(summaryResult, {
+          onInitial: () => (
+            <div className="h-16 animate-pulse rounded-lg bg-muted" />
+          ),
+          onError: (error) => <ErrorPage error={error} contained />,
+          onDefect: (defect) => <ErrorPage error={defect} contained />,
+          onSuccess: ({ value }) => <Totals summary={value} />
+        })}
 
-      <Toolbar
-        status={status}
-        onStatusChange={(next) => {
-          setStatus(next)
-          resetPaging()
-        }}
-        projectSlug={projectSlug}
-        projects={projects}
-        onProjectChange={(next) => {
-          setProjectSlug(next)
-          resetPaging()
-        }}
-        sort={sort}
-        onSortChange={(next) => {
-          setSort(next)
-          resetPaging()
-        }}
-      />
+        <Toolbar
+          status={status}
+          onStatusChange={(next) => {
+            setStatus(next)
+            resetPaging()
+          }}
+          projectSlug={projectSlug}
+          projects={projects}
+          onProjectChange={(next) => {
+            setProjectSlug(next)
+            resetPaging()
+          }}
+          sort={sort}
+          onSortChange={(next) => {
+            setSort(next)
+            resetPaging()
+          }}
+        />
 
-      {Result.matchWithError(listResult, {
-        onInitial: () => <TableSkeleton />,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value, waiting }) => (
-          <AttachmentsTable
-            orgSlug={orgSlug}
-            rows={value.items}
-            page={page}
-            total={value.total}
-            onPageChange={(next) => {
-              setPage(next)
-              setSelected(new Set())
-            }}
-            waiting={waiting}
-            filtered={status !== "all" || projectSlug !== null}
-            selected={prunedSelection(selected, value.items)}
-            onToggle={(id) =>
-              setSelected((current) => toggleSelection(current, id))
-            }
-            onToggleAll={() =>
-              setSelected((current) =>
-                allDeletableSelected(current, value.items)
-                  ? new Set()
-                  : new Set(deletableIds(value.items))
-              )
-            }
-            onDelete={async (ids) => {
-              const exit = await remove(ids)
-              if (Exit.isSuccess(exit)) {
+        {Result.matchWithError(listResult, {
+          onInitial: () => <TableSkeleton />,
+          onError: (error) => <ErrorPage error={error} contained />,
+          onDefect: (defect) => <ErrorPage error={defect} contained />,
+          onSuccess: ({ value, waiting }) => (
+            <AttachmentsTable
+              orgSlug={orgSlug}
+              rows={value.items}
+              page={page}
+              total={value.total}
+              onPageChange={(next) => {
+                setPage(next)
                 setSelected(new Set())
-                return null
+              }}
+              waiting={waiting}
+              filtered={status !== "all" || projectSlug !== null}
+              selected={prunedSelection(selected, value.items)}
+              onToggle={(id) =>
+                setSelected((current) => toggleSelection(current, id))
               }
-              return errorMessage(Cause.squash(exit.cause) as AppError)
-            }}
-          />
-        )
-      })}
-    </div>
+              onToggleAll={() =>
+                setSelected((current) =>
+                  allDeletableSelected(current, value.items)
+                    ? new Set()
+                    : new Set(deletableIds(value.items))
+                )
+              }
+              onDelete={async (ids) => {
+                const exit = await remove(ids)
+                if (Exit.isSuccess(exit)) {
+                  setSelected(new Set())
+                  return null
+                }
+                return errorMessage(Cause.squash(exit.cause) as AppError)
+              }}
+            />
+          )
+        })}
+      </div>
+    </TooltipProvider>
   )
 }
 

@@ -812,3 +812,26 @@ export const attachmentIndex = pgTable(
     index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize)
   ]
 )
+
+export const attachmentReference = pgTable(
+  "attachment_reference",
+  {
+    attachmentId: text("attachment_id")
+      .notNull()
+      .references(() => attachmentIndex.id, { onDelete: "cascade" }),
+    orgSlug: text("org_slug").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.attachmentId, t.projectSlug, t.ticketId] }),
+    index("attachment_reference_ticket_idx").on(
+      t.orgSlug,
+      t.projectSlug,
+      t.ticketId
+    )
+  ]
+)
