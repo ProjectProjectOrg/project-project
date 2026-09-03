@@ -169,6 +169,13 @@
       "when": 1788342903105,
       "tag": "0023_hesitant_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788426112252,
+      "tag": "0024_low_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }
