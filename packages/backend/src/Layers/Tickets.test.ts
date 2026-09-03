@@ -132,6 +132,9 @@ const FakeAttachments = Layer.succeed(Attachments, {
   resolveForServing: () => unexpected("Attachments.resolveForServing"),
   reconcileTicket: () => Effect.void,
   orphanProject: () => unexpected("Attachments.orphanProject"),
+  listForOrg: () => unexpected("Attachments.listForOrg"),
+  summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
+  deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
   reapOnce: () => unexpected("Attachments.reapOnce")
 } satisfies AttachmentsShape)
 

@@ -12,6 +12,9 @@ export interface CurrentOrgShape {
   >
 }
 
+export const isOrgAdminRole = (role: Role): boolean =>
+  role === "owner" || role === "admin"
+
 export class CurrentOrg extends Context.Tag(
   "@projectproject/backend/Services/CurrentOrg"
 )<CurrentOrg, CurrentOrgShape>() {}

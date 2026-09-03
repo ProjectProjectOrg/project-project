@@ -2,7 +2,7 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, asc, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -15,16 +15,25 @@ import {
   isRasterImageContentType,
   NotFound,
   StorageError,
-  type Attachment
+  Validation,
+  type Attachment,
+  type AttachmentRow
 } from "@projectproject/shared"
 import { attachmentIndex, projectIndex } from "../db/schema"
+import { CurrentOrg, isOrgAdminRole } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { Projects } from "../Services/Projects"
 import { attachmentObjectKey, S3Storage } from "../Services/S3Storage"
 import {
   Attachments,
+  attachmentCursorBound,
+  attachmentSortPlan,
+  DEFAULT_ATTACHMENT_LIMIT,
   isServableStatus,
+  parseAttachmentCursor,
+  planAttachmentPage,
+  planDeletion,
   planReap,
   planReconciliation,
   validateUploadRequest,
@@ -38,6 +47,7 @@ export const AttachmentsLive = Layer.effect(
   Attachments,
   Effect.gen(function* () {
     const db = yield* Db
+    const currentOrg = yield* CurrentOrg
     const orgStorage = yield* OrgStorage
     const s3 = yield* S3Storage
     const projects = yield* Projects
@@ -54,6 +64,27 @@ export const AttachmentsLive = Layer.effect(
         if (!row) return yield* new NotFound()
         return { organizationId: row.organizationId }
       })
+
+    const requireOrgAdmin = (orgSlug: string, userId: string) =>
+      currentOrg
+        .resolve(orgSlug, userId)
+        .pipe(
+          Effect.flatMap((org) =>
+            isOrgAdminRole(org.role)
+              ? Effect.void
+              : Effect.fail(new Forbidden())
+          )
+        )
+
+    const toAttachmentRow = (
+      row: typeof attachmentIndex.$inferSelect
+    ): AttachmentRow => ({
+      ...toAttachment(row),
+      projectSlug: row.projectSlug,
+      ticketId: row.ticketId,
+      committedAt: row.committedAt,
+      orphanedAt: row.orphanedAt
+    })
 
     const toAttachment = (
       row: typeof attachmentIndex.$inferSelect
@@ -256,7 +287,9 @@ export const AttachmentsLive = Layer.effect(
 
         yield* projects
           .requireMember(orgSlug, userId, row.projectSlug)
-          .pipe(Effect.catchTag("NotFound", () => Effect.fail(new Forbidden())))
+          .pipe(
+            Effect.catchTag("NotFound", () => requireOrgAdmin(orgSlug, userId))
+          )
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
 
@@ -275,6 +308,133 @@ export const AttachmentsLive = Layer.effect(
           )
 
         return { url }
+      })
+
+    const listForOrg: AttachmentsShape["listForOrg"] = (
+      orgSlug,
+      userId,
+      params
+    ) =>
+      Effect.gen(function* () {
+        yield* requireOrgAdmin(orgSlug, userId)
+
+        const limit = params.limit ?? DEFAULT_ATTACHMENT_LIMIT
+        const plan = attachmentSortPlan(params.sort)
+        const column =
+          plan.column === "byteSize"
+            ? attachmentIndex.byteSize
+            : attachmentIndex.createdAt
+        const order = plan.direction === "desc" ? desc : asc
+        const beyond = plan.direction === "desc" ? lt : gt
+
+        const conditions = [eq(attachmentIndex.orgSlug, orgSlug)]
+        if (params.status) {
+          conditions.push(eq(attachmentIndex.status, params.status))
+        }
+        if (params.projectSlug) {
+          conditions.push(eq(attachmentIndex.projectSlug, params.projectSlug))
+        }
+        if (params.cursor) {
+          const cursor = parseAttachmentCursor(params.cursor)
+          if (!cursor) {
+            return yield* new Validation({ reason: "cursor" })
+          }
+          const value = attachmentCursorBound(cursor, params.sort)
+          if (value === null) {
+            return yield* new Validation({ reason: "cursor" })
+          }
+          conditions.push(
+            or(
+              beyond(column, value),
+              and(eq(column, value), beyond(attachmentIndex.id, cursor.id))
+            )!
+          )
+        }
+
+        const rows = yield* db
+          .select()
+          .from(attachmentIndex)
+          .where(and(...conditions))
+          .orderBy(order(column), order(attachmentIndex.id))
+          .limit(limit + 1)
+          .pipe(Effect.orDie)
+
+        const page = planAttachmentPage({ rows, limit, sort: params.sort })
+        return {
+          items: page.rows.map(toAttachmentRow),
+          nextCursor: page.nextCursor
+        }
+      })
+
+    const summarizeForOrg: AttachmentsShape["summarizeForOrg"] = (
+      orgSlug,
+      userId
+    ) =>
+      Effect.gen(function* () {
+        yield* requireOrgAdmin(orgSlug, userId)
+
+        const rows = yield* db
+          .select({
+            status: attachmentIndex.status,
+            count: sql<number>`count(*)::int`,
+            bytes: sql<number>`coalesce(sum(${attachmentIndex.byteSize}), 0)::bigint`
+          })
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.orgSlug, orgSlug))
+          .groupBy(attachmentIndex.status)
+          .pipe(Effect.orDie)
+
+        const byStatus = rows.map((row) => ({
+          status: row.status,
+          count: Number(row.count),
+          bytes: Number(row.bytes)
+        }))
+
+        return {
+          byStatus,
+          count: byStatus.reduce((total, row) => total + row.count, 0),
+          bytes: byStatus.reduce((total, row) => total + row.bytes, 0)
+        }
+      })
+
+    const deleteForOrg: AttachmentsShape["deleteForOrg"] = (
+      orgSlug,
+      attachmentId,
+      userId
+    ) =>
+      Effect.gen(function* () {
+        yield* requireOrgAdmin(orgSlug, userId)
+
+        const rows = yield* db
+          .select()
+          .from(attachmentIndex)
+          .where(
+            and(
+              eq(attachmentIndex.id, attachmentId),
+              eq(attachmentIndex.orgSlug, orgSlug)
+            )
+          )
+          .limit(1)
+          .pipe(Effect.orDie)
+
+        const row = rows[0]
+        if (!row) return yield* new NotFound()
+        if (planDeletion(row)) return yield* new Forbidden()
+
+        const connection = yield* orgStorage.requireConnection(orgSlug)
+
+        yield* s3
+          .deleteObject(connection, row.objectKey)
+          .pipe(
+            Effect.catchTag("S3Unavailable", (error) =>
+              Effect.fail(mapS3Unavailable(error))
+            )
+          )
+
+        yield* db
+          .delete(attachmentIndex)
+          .where(eq(attachmentIndex.id, row.id))
+          .pipe(Effect.orDie)
       })
 
     const reconcileTicket: AttachmentsShape["reconcileTicket"] = (
@@ -480,6 +640,9 @@ export const AttachmentsLive = Layer.effect(
       resolveForServing,
       reconcileTicket,
       orphanProject,
+      listForOrg,
+      summarizeForOrg,
+      deleteForOrg,
       reapOnce
     } satisfies AttachmentsShape
   })

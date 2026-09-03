@@ -804,6 +804,8 @@ export const attachmentIndex = pgTable(
       t.ticketId
     ),
     index("attachment_index_status_idx").on(t.status),
-    index("attachment_index_org_idx").on(t.organizationId)
+    index("attachment_index_org_idx").on(t.organizationId),
+    index("attachment_index_org_created_idx").on(t.orgSlug, t.createdAt),
+    index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize)
   ]
 )

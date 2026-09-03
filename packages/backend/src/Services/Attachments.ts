@@ -1,9 +1,19 @@
 import * as Context from "effect/Context"
+import * as DateTime from "effect/DateTime"
 import type * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import {
   ATTACHMENT_MAX_BYTES,
+  decodeCursor,
+  encodeCursor,
   isAllowedAttachmentContentType,
   type Attachment,
+  type AttachmentListParams,
+  type AttachmentRow,
+  type AttachmentSort,
+  type AttachmentSummary,
+  type CursorPayload,
+  type Validation,
   type AttachmentNotUploaded,
   type AttachmentTooLarge,
   type AttachmentTypeRejected,
@@ -17,6 +27,97 @@ import {
 } from "@projectproject/shared"
 
 export const PENDING_TTL_MS = 60 * 60 * 1000
+
+export const DEFAULT_ATTACHMENT_SORT: AttachmentSort = "created_desc"
+
+export interface AttachmentSortPlan {
+  readonly column: "createdAt" | "byteSize"
+  readonly direction: "asc" | "desc"
+}
+
+export const attachmentSortPlan = (
+  sort: AttachmentSort | undefined
+): AttachmentSortPlan => {
+  switch (sort ?? DEFAULT_ATTACHMENT_SORT) {
+    case "created_asc":
+      return { column: "createdAt", direction: "asc" }
+    case "size_desc":
+      return { column: "byteSize", direction: "desc" }
+    case "size_asc":
+      return { column: "byteSize", direction: "asc" }
+    default:
+      return { column: "createdAt", direction: "desc" }
+  }
+}
+
+export const attachmentCursorValue = (
+  row: { readonly createdAt: Date; readonly byteSize: number },
+  sort: AttachmentSort | undefined
+): string =>
+  attachmentSortPlan(sort).column === "byteSize"
+    ? String(row.byteSize)
+    : row.createdAt.toISOString()
+
+export const attachmentCursorBound = (
+  cursor: CursorPayload,
+  sort: AttachmentSort | undefined
+): number | Date | null => {
+  if (attachmentSortPlan(sort).column === "byteSize") {
+    const byteSize = Number(cursor.sort)
+    return Number.isFinite(byteSize) ? byteSize : null
+  }
+  return Option.match(DateTime.make(cursor.sort), {
+    onNone: () => null,
+    onSome: DateTime.toDate
+  })
+}
+
+export const DEFAULT_ATTACHMENT_LIMIT = 50
+
+export const parseAttachmentCursor = (cursor: string): CursorPayload | null => {
+  try {
+    return decodeCursor(cursor)
+  } catch {
+    return null
+  }
+}
+
+export interface PageableAttachmentRow {
+  readonly id: string
+  readonly createdAt: Date
+  readonly byteSize: number
+}
+
+export const planAttachmentPage = <A extends PageableAttachmentRow>(input: {
+  readonly rows: ReadonlyArray<A>
+  readonly limit: number
+  readonly sort: AttachmentSort | undefined
+}): {
+  readonly rows: ReadonlyArray<A>
+  readonly nextCursor: string | null
+} => {
+  if (input.rows.length <= input.limit) {
+    return { rows: input.rows, nextCursor: null }
+  }
+  const rows = input.rows.slice(0, input.limit)
+  const last = rows[rows.length - 1]!
+  return {
+    rows,
+    nextCursor: encodeCursor({
+      id: last.id,
+      sort: attachmentCursorValue(last, input.sort)
+    })
+  }
+}
+
+export type DeletionRefusal =
+  | { readonly kind: "live" }
+  | { readonly kind: "pending" }
+
+export const planDeletion = (row: {
+  readonly status: "pending" | "live" | "orphaned"
+}): DeletionRefusal | null =>
+  row.status === "orphaned" ? null : { kind: row.status }
 
 export const isServableStatus = (
   status: "pending" | "live" | "orphaned"
@@ -85,6 +186,33 @@ export interface AttachmentsShape {
     orgSlug: string,
     slug: string
   ) => Effect.Effect<{ readonly orphaned: number }>
+  readonly listForOrg: (
+    orgSlug: string,
+    userId: string,
+    params: AttachmentListParams
+  ) => Effect.Effect<
+    {
+      readonly items: ReadonlyArray<AttachmentRow>
+      readonly nextCursor: string | null
+    },
+    NotFound | Forbidden | Validation
+  >
+  readonly summarizeForOrg: (
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<AttachmentSummary, NotFound | Forbidden>
+  readonly deleteForOrg: (
+    orgSlug: string,
+    attachmentId: string,
+    userId: string
+  ) => Effect.Effect<
+    void,
+    | NotFound
+    | Forbidden
+    | StorageNotConnected
+    | StorageConfigMissing
+    | StorageError
+  >
   readonly reapOnce: () => Effect.Effect<{ readonly deleted: number }>
 }
 

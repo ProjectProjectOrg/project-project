@@ -124,3 +124,45 @@ export const ConnectStorageInput = Schema.Struct({
   forcePathStyle: Schema.Boolean
 })
 export type ConnectStorageInput = typeof ConnectStorageInput.Type
+
+export const AttachmentRow = Schema.Struct({
+  ...Attachment.fields,
+  projectSlug: Schema.String,
+  ticketId: Schema.String,
+  committedAt: Schema.NullOr(Schema.Date),
+  orphanedAt: Schema.NullOr(Schema.Date)
+})
+export type AttachmentRow = typeof AttachmentRow.Type
+
+export const AttachmentSort = Schema.Literal(
+  "created_desc",
+  "created_asc",
+  "size_desc",
+  "size_asc"
+)
+export type AttachmentSort = typeof AttachmentSort.Type
+
+export const AttachmentListParams = Schema.Struct({
+  status: Schema.optional(AttachmentStatus),
+  projectSlug: Schema.optional(Schema.String),
+  sort: Schema.optional(AttachmentSort),
+  cursor: Schema.optional(Schema.String),
+  limit: Schema.optional(
+    Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 200))
+  )
+})
+export type AttachmentListParams = typeof AttachmentListParams.Type
+
+export const AttachmentStatusTotals = Schema.Struct({
+  status: AttachmentStatus,
+  count: Schema.Number,
+  bytes: Schema.Number
+})
+export type AttachmentStatusTotals = typeof AttachmentStatusTotals.Type
+
+export const AttachmentSummary = Schema.Struct({
+  byStatus: Schema.Array(AttachmentStatusTotals),
+  count: Schema.Number,
+  bytes: Schema.Number
+})
+export type AttachmentSummary = typeof AttachmentSummary.Type

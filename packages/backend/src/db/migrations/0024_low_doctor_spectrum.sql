@@ -1,0 +1,2 @@
+CREATE INDEX "attachment_index_org_created_idx" ON "attachment_index" USING btree ("org_slug","created_at");--> statement-breakpoint
+CREATE INDEX "attachment_index_org_size_idx" ON "attachment_index" USING btree ("org_slug","byte_size");
