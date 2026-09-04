@@ -1,4 +1,5 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react"
+import type { ComponentProps } from "react"
 import { Link } from "@tanstack/react-router"
 import { ticketAtom, ticketKey } from "@/atoms/tickets"
 import {
@@ -43,10 +44,14 @@ const TicketHoverCardError = () => (
 
 export function TicketHoverCard({
   ticketId,
-  scope
+  scope,
+  onHoverChange,
+  anchor
 }: {
   ticketId: TicketId
   scope: TicketHoverCardScope
+  onHoverChange?: (hovered: boolean) => void
+  anchor?: ComponentProps<typeof PopoverContent>["anchor"]
 }) {
   const result = useAtomValue(
     ticketAtom(ticketKey(scope.orgSlug, scope.slug, ticketId))
@@ -61,7 +66,13 @@ export function TicketHoverCard({
     : EMPTY_STATUSES
 
   return (
-    <PopoverContent className="w-80" align="start">
+    <PopoverContent
+      className="w-80"
+      align="start"
+      anchor={anchor}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
+    >
       {Result.matchWithError(result, {
         onInitial: () => <CardSkeleton />,
         onError: () => <TicketHoverCardError />,
