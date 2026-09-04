@@ -88,7 +88,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
         onClick={creating ? undefined : onToggleCollapsed}
         className={cn(
           "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
-          !creating && "cursor-pointer hover:bg-foreground/5"
+          !creating && "cursor-pointer select-none hover:bg-foreground/5"
         )}
       >
         <button
