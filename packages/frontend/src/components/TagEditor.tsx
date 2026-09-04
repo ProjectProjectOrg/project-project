@@ -92,6 +92,10 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const lowered = draft.trim().toLowerCase()
   const exactRegistered = registry.find((t) => t.name === lowered)
   const isValidNewName = VALID.test(lowered)
+  const showEmpty =
+    Result.isSuccess(tagsResult) &&
+    registry.length === 0 &&
+    lowered.length === 0
   const showValidationError =
     canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
   const filtered = lowered
@@ -244,7 +248,17 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
               </p>
             ) : null}
             <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
-              {filtered.length === 0 && !canManageTags ? (
+              {showEmpty ? (
+                <div className="flex min-h-16 flex-col items-center justify-center px-3 py-2 text-center">
+                  <p className="text-xs font-medium">{m.tags_empty_title()}</p>
+                  {canManageTags ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {m.tags_empty_create_hint()}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {!showEmpty && filtered.length === 0 && !canManageTags ? (
                 <p className="px-2 py-1 text-[11px] text-muted-foreground">
                   {m.tags_no_matches()}
                 </p>
