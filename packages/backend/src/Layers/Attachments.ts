@@ -629,11 +629,19 @@ export const AttachmentsLive = Layer.effect(
 
         const now = yield* DateTime.nowAsDate
 
+        const hasReference = sql`exists (select 1 from ${attachmentReference} where ${attachmentReference.attachmentId} = ${attachmentIndex.id})`
+
         if (statuses.toOrphan.length > 0) {
           yield* db
             .update(attachmentIndex)
             .set({ status: "orphaned", orphanedAt: now })
-            .where(inArray(attachmentIndex.id, statuses.toOrphan))
+            .where(
+              and(
+                inArray(attachmentIndex.id, statuses.toOrphan),
+                eq(attachmentIndex.status, "live"),
+                sql`not ${hasReference}`
+              )
+            )
             .pipe(Effect.orDie)
         }
 
@@ -641,7 +649,13 @@ export const AttachmentsLive = Layer.effect(
           yield* db
             .update(attachmentIndex)
             .set({ status: "live", orphanedAt: null })
-            .where(inArray(attachmentIndex.id, statuses.toLive))
+            .where(
+              and(
+                inArray(attachmentIndex.id, statuses.toLive),
+                eq(attachmentIndex.status, "orphaned"),
+                hasReference
+              )
+            )
             .pipe(Effect.orDie)
         }
       }).pipe(
