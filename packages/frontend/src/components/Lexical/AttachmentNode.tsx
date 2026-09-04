@@ -659,9 +659,11 @@ function AttachmentSelectable({
         ref={wrapperRef}
         data-attachment-selected={isSelected ? "true" : undefined}
         className={cn(
-          "group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 hover:z-20 focus-within:z-20",
+          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 hover:z-20 focus-within:z-20",
           compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
-          isSelected ? "z-20 ring-2 ring-ring" : "z-0 ring-0 ring-transparent"
+          isSelected
+            ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
+            : "z-0 ring-0 ring-transparent"
         )}
       >
         <LayoutGroup id={morphId}>
