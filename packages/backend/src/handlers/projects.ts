@@ -11,6 +11,7 @@
 import { HttpApiBuilder } from "@effect/platform"
 import { AppApi, CurrentUser } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
+import { Attachments } from "../Services/Attachments"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { GitHub } from "../Services/GitHub"
 import { GitHubIntegrations } from "../Services/GitHubIntegrations"
@@ -93,7 +94,9 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(path.orgSlug, user.id)
           const projects = yield* Projects
+          const attachments = yield* Attachments
           yield* projects.remove(org.orgSlug, user.id, path.slug)
+          yield* attachments.orphanProject(org.orgSlug, path.slug)
         }).pipe(Effect.catchTag("MarkdownError", (cause) => Effect.die(cause)))
       )
       .handle("githubIntegration", ({ path }) =>

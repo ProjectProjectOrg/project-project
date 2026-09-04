@@ -81,6 +81,10 @@ export interface AttachmentsShape {
     ticketId: string,
     body: string
   ) => Effect.Effect<void>
+  readonly orphanProject: (
+    orgSlug: string,
+    slug: string
+  ) => Effect.Effect<{ readonly orphaned: number }>
   readonly reapOnce: () => Effect.Effect<{ readonly deleted: number }>
 }
 

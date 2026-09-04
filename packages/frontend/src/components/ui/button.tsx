@@ -42,6 +42,10 @@ const buttonVariants = cva(
         "inline-help":
           "ml-1 bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/60",
         chip: "text-foreground bg-transparent hover:bg-accent hover:text-foreground active:bg-accent/80",
+        overlay:
+          "bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground active:bg-accent/80",
+        "overlay-destructive":
+          "bg-background text-muted-foreground shadow-sm hover:bg-destructive-light hover:text-destructive active:bg-destructive-light/80",
         dither: "bg-transparent overflow-hidden"
       },
       size: {

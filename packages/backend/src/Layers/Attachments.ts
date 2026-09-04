@@ -353,6 +353,32 @@ export const AttachmentsLive = Layer.effect(
         )
       )
 
+    const orphanProject: AttachmentsShape["orphanProject"] = (orgSlug, slug) =>
+      Effect.gen(function* () {
+        const now = yield* DateTime.nowAsDate
+        const orphaned = yield* db
+          .update(attachmentIndex)
+          .set({ status: "orphaned", orphanedAt: now })
+          .where(
+            and(
+              eq(attachmentIndex.orgSlug, orgSlug),
+              eq(attachmentIndex.projectSlug, slug),
+              eq(attachmentIndex.status, "live")
+            )
+          )
+          .returning({ id: attachmentIndex.id })
+          .pipe(Effect.orDie)
+
+        return { orphaned: orphaned.length }
+      }).pipe(
+        Effect.catchAllCause((cause) =>
+          Effect.as(
+            Effect.logError("orphaning project attachments failed", cause),
+            { orphaned: 0 }
+          )
+        )
+      )
+
     const reapOnce: AttachmentsShape["reapOnce"] = () =>
       Effect.gen(function* () {
         const rows = yield* db
@@ -453,6 +479,7 @@ export const AttachmentsLive = Layer.effect(
       commit,
       resolveForServing,
       reconcileTicket,
+      orphanProject,
       reapOnce
     } satisfies AttachmentsShape
   })

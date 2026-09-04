@@ -87,9 +87,6 @@ const OVERLAY_REVEAL =
 
 const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
 
-const OVERLAY_BUTTON =
-  "rounded-full bg-background text-muted-foreground shadow-sm"
-
 const morphSizes = new WeakMap<HTMLElement, { width: number; height: number }>()
 
 const contentWidth = (element: HTMLElement | null): number | null => {
@@ -648,7 +645,7 @@ function AttachmentSelectable({
               morphId={`${morphId}-remove`}
               slot={cn(overlaySlot, compact ? "right-full mr-1" : "-left-2")}
               label={m.editor_attachment_remove()}
-              hover="hover:bg-destructive-light hover:text-destructive"
+              variant="overlay-destructive"
               onClick={remove}
             >
               <Trash2 strokeWidth={1.75} />
@@ -663,7 +660,7 @@ function AttachmentSelectable({
                   ? m.editor_attachment_view_rich()
                   : m.editor_attachment_view_compact()
               }
-              hover="hover:bg-accent hover:text-foreground"
+              variant="overlay"
               onClick={toggleDensity}
             >
               {compact ? (
@@ -683,14 +680,14 @@ function OverlayAction({
   morphId,
   slot,
   label,
-  hover,
+  variant,
   onClick,
   children
 }: {
   morphId: string
   slot: string
   label: string
-  hover: string
+  variant: "overlay" | "overlay-destructive"
   onClick: () => void
   children: ReactNode
 }) {
@@ -702,13 +699,13 @@ function OverlayAction({
       className={slot}
     >
       <Button
-        variant="ghost"
+        variant={variant}
         size="icon-sm"
         aria-label={label}
         title={label}
         onMouseDown={(event) => event.preventDefault()}
         onClick={onClick}
-        className={cn(OVERLAY_BUTTON, OVERLAY_REVEAL, hover)}
+        className={OVERLAY_REVEAL}
       >
         {children}
       </Button>

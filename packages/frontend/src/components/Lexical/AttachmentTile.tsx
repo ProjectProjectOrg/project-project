@@ -88,9 +88,7 @@ function FormatPreview({ format }: { format: AttachmentFileFormat }) {
       <svg {...GLYPH} aria-hidden="true">
         {FORMATS[format].art}
       </svg>
-      <span className="text-[10px] font-medium tracking-[0.14em] uppercase">
-        {FORMATS[format].label()}
-      </span>
+      <span className="text-[11px] font-medium">{FORMATS[format].label()}</span>
     </span>
   )
 }

@@ -14,6 +14,7 @@ export class AttachmentUploadFailed extends Data.TaggedError(
 
 export interface UploadAttachmentInput {
   readonly file: File
+  readonly signal?: AbortSignal
   readonly onProgress?: (fraction: number) => void
 }
 
@@ -28,6 +29,14 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
   const { orgSlug, slug, id } = splitTicketKey(key)
   return runtime.fn(
     Effect.fn(function* (input: UploadAttachmentInput) {
+      const aborted = Effect.suspend(() =>
+        input.signal?.aborted === true
+          ? Effect.fail(new AttachmentUploadFailed({ reason: "abort" }))
+          : Effect.void
+      )
+
+      yield* aborted
+
       const client = yield* ApiClient
       const prepared = yield* client.attachments.prepare({
         path: { orgSlug, slug, id },
@@ -38,8 +47,12 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
         }
       })
 
+      yield* aborted
+
       yield* Effect.async<void, AttachmentUploadFailed>((resume) => {
         const xhr = new XMLHttpRequest()
+        const abort = () => xhr.abort()
+        input.signal?.addEventListener("abort", abort)
         xhr.open("PUT", prepared.uploadUrl, true)
         xhr.setRequestHeader("content-type", input.file.type)
         xhr.upload.onprogress = (event) => {
@@ -63,8 +76,13 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
         xhr.onabort = () =>
           resume(Effect.fail(new AttachmentUploadFailed({ reason: "abort" })))
         xhr.send(input.file)
-        return Effect.sync(() => xhr.abort())
+        return Effect.sync(() => {
+          input.signal?.removeEventListener("abort", abort)
+          xhr.abort()
+        })
       })
+
+      yield* aborted
 
       const committed = yield* client.attachments.commit({
         path: { orgSlug, slug, id, attachmentId: prepared.id }

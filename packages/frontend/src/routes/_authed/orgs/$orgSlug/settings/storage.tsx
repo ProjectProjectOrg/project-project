@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -42,8 +43,13 @@ function StorageSettings() {
         onInitial: () => <StorageSkeleton />,
         onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value: status }) => (
-          <StorageForm orgSlug={orgSlug} role={org.role} status={status} />
+        onSuccess: ({ value: status, waiting }) => (
+          <StorageForm
+            orgSlug={orgSlug}
+            role={org.role}
+            status={status}
+            waiting={waiting}
+          />
         )
       })
   })
@@ -52,18 +58,20 @@ function StorageSettings() {
 function StorageForm({
   orgSlug,
   role,
-  status
+  status,
+  waiting
 }: {
   orgSlug: string
   role: OrgDetail["role"]
   status: OrgStorageStatus
+  waiting: boolean
 }) {
   const canEdit = role === "owner" || role === "admin"
 
   if (!canEdit) {
     return (
       <div className="flex w-full flex-col gap-4">
-        <StorageStatusRows status={status} />
+        <StorageStatusRows status={status} waiting={waiting} />
         <p className="text-sm text-destructive">
           {m.storage_error_forbidden()}
         </p>
@@ -72,13 +80,41 @@ function StorageForm({
   }
 
   if (status.status === "not_connected") {
-    return <StorageConnectForm orgSlug={orgSlug} />
+    return <StorageConnectForm orgSlug={orgSlug} waiting={waiting} />
   }
 
-  return <StorageConnectedPanel orgSlug={orgSlug} status={status} />
+  return (
+    <StorageConnectedPanel
+      orgSlug={orgSlug}
+      status={status}
+      waiting={waiting}
+    />
+  )
 }
 
-function StorageConnectForm({ orgSlug }: { orgSlug: string }) {
+function StorageNotConnectedPanel({ waiting }: { waiting: boolean }) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-background px-4 py-3",
+        waiting && "animate-pulse"
+      )}
+    >
+      <p className="text-sm font-medium">{m.storage_not_connected()}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {m.storage_not_connected_hint()}
+      </p>
+    </div>
+  )
+}
+
+function StorageConnectForm({
+  orgSlug,
+  waiting
+}: {
+  orgSlug: string
+  waiting: boolean
+}) {
   const key = orgKey(orgSlug)
   const connect = useAtomSet(connectStorageAtom(key), { mode: "promiseExit" })
   const connectState = useAtomValue(connectStorageAtom(key))
@@ -123,12 +159,7 @@ function StorageConnectForm({ orgSlug }: { orgSlug: string }) {
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
-      <div className="rounded-lg border border-border bg-background px-4 py-3">
-        <p className="text-sm font-medium">{m.storage_not_connected()}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {m.storage_not_connected_hint()}
-        </p>
-      </div>
+      <StorageNotConnectedPanel waiting={waiting} />
 
       <div className="grid gap-2">
         <label className="text-sm font-medium" htmlFor="storage-endpoint">
@@ -238,10 +269,12 @@ function StorageConnectForm({ orgSlug }: { orgSlug: string }) {
 
 function StorageConnectedPanel({
   orgSlug,
-  status
+  status,
+  waiting
 }: {
   orgSlug: string
   status: OrgStorageStatus
+  waiting: boolean
 }) {
   const key = orgKey(orgSlug)
   const disconnect = useAtomSet(disconnectStorageAtom(key), {
@@ -250,7 +283,7 @@ function StorageConnectedPanel({
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <StorageStatusRows status={status} />
+      <StorageStatusRows status={status} waiting={waiting} />
       <p className="text-xs text-muted-foreground">{m.storage_cors_notice()}</p>
       <p className="text-xs text-muted-foreground">
         {m.storage_disconnect_hint()}
@@ -311,20 +344,24 @@ function StorageDisconnectConfirm({
   )
 }
 
-function StorageStatusRows({ status }: { status: OrgStorageStatus }) {
+function StorageStatusRows({
+  status,
+  waiting
+}: {
+  status: OrgStorageStatus
+  waiting: boolean
+}) {
   if (status.status === "not_connected") {
-    return (
-      <div className="rounded-lg border border-border bg-background px-4 py-3">
-        <p className="text-sm font-medium">{m.storage_not_connected()}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {m.storage_not_connected_hint()}
-        </p>
-      </div>
-    )
+    return <StorageNotConnectedPanel waiting={waiting} />
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-background px-4 py-3">
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border border-border bg-background px-4 py-3",
+        waiting && "animate-pulse"
+      )}
+    >
       <p className="text-sm font-medium">
         {status.status === "broken"
           ? m.storage_broken()
@@ -354,7 +391,9 @@ function StatusRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono text-xs">{value ?? "—"}</span>
+      <span className="font-mono text-xs">
+        {value ?? m.storage_value_none()}
+      </span>
     </div>
   )
 }

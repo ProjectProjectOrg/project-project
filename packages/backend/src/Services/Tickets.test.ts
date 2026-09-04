@@ -193,6 +193,7 @@ const makeFakeAttachments = (
     commit: () => unexpected("Attachments.commit"),
     resolveForServing: () => unexpected("Attachments.resolveForServing"),
     reconcileTicket: () => Effect.void,
+    orphanProject: () => unexpected("Attachments.orphanProject"),
     reapOnce: () => unexpected("Attachments.reapOnce"),
     ...overrides
   } satisfies AttachmentsShape)

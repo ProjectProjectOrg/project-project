@@ -23,6 +23,7 @@ import { ticketKey } from "@/atoms/tickets"
 import { useMountedRef } from "@/lib/useMountedRef"
 import { m } from "@/paraglide/messages"
 import { AttachmentNode, $createAttachmentNode } from "./AttachmentNode"
+import { staleUploadIds } from "./staleUploads"
 
 export interface AttachmentsPluginProps {
   readonly orgSlug: string
@@ -42,6 +43,7 @@ export function AttachmentsPlugin({
   )
   const [rejection, setRejection] = useState<string | null>(null)
   const pendingFiles = useRef(new Map<string, File>())
+  const inFlight = useRef(new Map<string, AbortController>())
   const mounted = useMountedRef()
 
   const withNode = useCallback(
@@ -59,14 +61,25 @@ export function AttachmentsPlugin({
     [editor, mounted]
   )
 
+  const abortUpload = useCallback((uploadId: string) => {
+    inFlight.current.get(uploadId)?.abort()
+    inFlight.current.delete(uploadId)
+  }, [])
+
   const startUpload = useCallback(
     (uploadId: string, file: File) => {
+      abortUpload(uploadId)
+      const controller = new AbortController()
+      inFlight.current.set(uploadId, controller)
       void upload({
         file,
+        signal: controller.signal,
         onProgress: (fraction) => {
           withNode(uploadId, (node) => node.setProgress(fraction))
         }
       }).then((exit) => {
+        inFlight.current.delete(uploadId)
+        if (controller.signal.aborted) return
         if (!mounted.current) return
         if (Exit.isFailure(exit)) {
           Effect.runFork(
@@ -83,7 +96,7 @@ export function AttachmentsPlugin({
         pendingFiles.current.delete(uploadId)
       })
     },
-    [upload, withNode, mounted]
+    [upload, withNode, mounted, abortUpload]
   )
 
   const handleFiles = useCallback(
@@ -181,6 +194,7 @@ export function AttachmentsPlugin({
           event.preventDefault()
           event.stopPropagation()
           if (button.getAttribute("data-attachment-action") === "remove") {
+            abortUpload(uploadId)
             pendingFiles.current.delete(uploadId)
             withNode(uploadId, (node) => node.remove())
             return
@@ -198,8 +212,37 @@ export function AttachmentsPlugin({
           rootElement.removeEventListener("click", onClick, true)
         }
       }),
-    [editor, startUpload, withNode]
+    [editor, startUpload, withNode, abortUpload]
   )
+
+  useEffect(
+    () =>
+      editor.registerUpdateListener(() => {
+        if (inFlight.current.size === 0) return
+        const live = new Set<string>()
+        editor.getEditorState().read(() => {
+          for (const node of $nodesOfType(AttachmentNode)) {
+            const uploadId = node.getUploadId()
+            if (uploadId !== undefined) live.add(uploadId)
+          }
+        })
+        for (const uploadId of staleUploadIds(inFlight.current.keys(), live)) {
+          abortUpload(uploadId)
+          pendingFiles.current.delete(uploadId)
+        }
+      }),
+    [editor, abortUpload]
+  )
+
+  useEffect(() => {
+    const controllers = inFlight.current
+    const files = pendingFiles.current
+    return () => {
+      for (const controller of controllers.values()) controller.abort()
+      controllers.clear()
+      files.clear()
+    }
+  }, [])
 
   if (rejection === null) return null
 
