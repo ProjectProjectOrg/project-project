@@ -3,7 +3,11 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import type { EditorPreference } from "@projectproject/shared"
+import {
+  type EditorPreference,
+  FigmaAuthInvalid,
+  FigmaError
+} from "@projectproject/shared"
 import {
   connectPersonalGithubAtom,
   disconnectPersonalGithubAtom,
@@ -15,6 +19,7 @@ import {
   disconnectEverhourProfileAtom
 } from "@/atoms/everhour"
 import githubLogo from "@/assets/github.svg"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -30,11 +35,13 @@ import {
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
 import { ConnectedAgentsSection } from "@/components/ConnectedAgentsSection"
+import { FigmaProfileSettings } from "@/components/settings/FigmaProfileSettings"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { PageContainer, PageHeader } from "@/components/page"
 
 const ProfileSearch = Schema.Struct({
-  error: Schema.optional(Schema.NonEmptyString)
+  error: Schema.optional(Schema.NonEmptyString),
+  figmaError: Schema.optional(Schema.NonEmptyString)
 })
 const decodeProfileSearch = Schema.decodeUnknownOption(ProfileSearch)
 type ProfileSearch = Schema.Schema.Type<typeof ProfileSearch>
@@ -57,15 +64,18 @@ function Profile() {
   const navigate = useNavigate({ from: Route.fullPath })
   const me = useAtomValue(meAtom)
   const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
+  const figmaOAuthError = useRef(
+    figmaOAuthErrorMessage(search.figmaError)
+  ).current
 
   useEffect(() => {
-    if (!search.error) return
+    if (!search.error && !search.figmaError) return
     void navigate({
       to: ".",
       search: () => ({}),
       replace: true
     })
-  }, [navigate, search.error])
+  }, [navigate, search.error, search.figmaError])
 
   if (!Result.isSuccess(me)) return null
   const user = me.value
@@ -121,6 +131,7 @@ function Profile() {
       />
 
       <PersonalEverhourCard everhour={user.personalEverhour} />
+      <FigmaProfileSettings oauthError={figmaOAuthError} />
       <EditorPreferenceCard preference={user.editorPreference} />
 
       <Card>
@@ -335,6 +346,19 @@ function githubOAuthErrorMessage(error: string | undefined): string | null {
     case "invalid_callback_request":
     default:
       return m.profile_github_error_generic()
+  }
+}
+
+function figmaOAuthErrorMessage(error: string | undefined): string | null {
+  switch (error) {
+    case undefined:
+      return null
+    case "figma_oauth_callback_invalid":
+      return errorMessage(new FigmaAuthInvalid({}))
+    case "figma_oauth_start_failed":
+    case "figma_oauth_callback_failed":
+    default:
+      return errorMessage(new FigmaError({ reason: error }))
   }
 }
 
