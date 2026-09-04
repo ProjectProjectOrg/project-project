@@ -73,11 +73,14 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { projectIndex } from "./db/schema"
+import { AttachmentsHandlerLive } from "./handlers/attachments"
+import { attachmentRoutes } from "./http/attachmentRoutes"
 import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { EverhourHandlerLive } from "./handlers/everhour"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
+import { StorageHandlerLive } from "./handlers/storage"
 import { OrgHandlerLive } from "./handlers/org"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
@@ -95,6 +98,7 @@ import { EverhourWebhooks } from "./Services/EverhourWebhooks"
 import { EverhourWebhooksLive } from "./Layers/EverhourWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
+import { AttachmentReaperLive } from "./Layers/AttachmentReaper"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -144,6 +148,8 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
+  Layer.provide(StorageHandlerLive),
+  Layer.provide(AttachmentsHandlerLive),
   Layer.provide(BackendHttpServicesLive)
 )
 
@@ -379,6 +385,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
       "/api/integrations/everhour/webhook",
       everhourIntegrationRoutes
     ),
+    HttpRouter.mountApp("/api/attachments", attachmentRoutes),
     HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
@@ -402,7 +409,12 @@ const ReconcilerLive = TicketIndexReconcilerLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.merge(ServerLive, ReconcilerLive)
+const ReaperLive = AttachmentReaperLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
+const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

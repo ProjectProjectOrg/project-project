@@ -54,6 +54,7 @@
     "lexical": "^0.44.0",
     "lucide-react": "^1.16.0",
     "motion": "^12.38.0",
+    "pdfjs-dist": "^6.3.289",
     "prismjs": "^1.30.0",
     "react": "^19.0.0",
     "react-day-picker": "^10.0.0",

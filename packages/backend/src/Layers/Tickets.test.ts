@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 import { ProjectKey, type TicketStatus } from "@projectproject/shared"
+import { Attachments, type AttachmentsShape } from "../Services/Attachments"
 import { Db } from "../Services/Db"
 import { Comments, type CommentsShape } from "../Services/Comments"
 import { GitHub, type GitHubShape } from "../Services/GitHub"
@@ -125,24 +126,30 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
 } satisfies TicketIndexShape)
 
-const FakeDb = Layer.succeed(
-  Db,
-  {
-    query: {
-      projectIndex: {
-        findFirst: () => Effect.succeed({ id: "project-1" })
-      },
-      projectStatus: {
-        findMany: () =>
-          Effect.succeed([
-            { slug: "todo" },
-            { slug: "in_progress" },
-            { slug: "done" }
-          ])
-      }
+const FakeAttachments = Layer.succeed(Attachments, {
+  prepare: () => unexpected("Attachments.prepare"),
+  commit: () => unexpected("Attachments.commit"),
+  resolveForServing: () => unexpected("Attachments.resolveForServing"),
+  reconcileTicket: () => Effect.void,
+  orphanProject: () => unexpected("Attachments.orphanProject"),
+  reapOnce: () => unexpected("Attachments.reapOnce")
+} satisfies AttachmentsShape)
+
+const FakeDb = Layer.succeed(Db, {
+  query: {
+    projectIndex: {
+      findFirst: () => Effect.succeed({ id: "project-1" })
+    },
+    projectStatus: {
+      findMany: () =>
+        Effect.succeed([
+          { slug: "todo" },
+          { slug: "in_progress" },
+          { slug: "done" }
+        ])
     }
-  } as never
-)
+  }
+} as never)
 
 const TestLayer = Layer.unwrapScoped(
   Effect.gen(function* () {
@@ -152,6 +159,7 @@ const TestLayer = Layer.unwrapScoped(
     })
     return TicketsLive.pipe(
       Layer.provide(TicketDocsLive),
+      Layer.provide(FakeAttachments),
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
       Layer.provide(FakeComments),
@@ -256,7 +264,12 @@ it.scoped("archiving sets archivedAt and records the reason as a comment", () =>
     expect(archived.archivedAt).not.toBeNull()
     expect(recordedCommentBodies).toEqual(["no longer relevant"])
 
-    const unarchived = yield* tickets.unarchive("org", "user-1", "p", created.id)
+    const unarchived = yield* tickets.unarchive(
+      "org",
+      "user-1",
+      "p",
+      created.id
+    )
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
 )

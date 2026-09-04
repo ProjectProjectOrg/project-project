@@ -43,6 +43,7 @@ import {
   type TicketStatus
 } from "@projectproject/shared"
 import { matchesTicketQuery } from "@projectproject/shared"
+import { Attachments } from "../Services/Attachments"
 import { validateBodyMentions } from "../Services/BodyMentions"
 import { Comments, type InvalidCommentBody } from "../Services/Comments"
 import { GitHub } from "../Services/GitHub"
@@ -208,6 +209,7 @@ export const TicketsLive = Layer.effect(
     const groups = yield* Groups
     const comments = yield* Comments
     const db = yield* Db
+    const attachments = yield* Attachments
 
     const ensureAccess = (
       orgSlug: string,
@@ -460,8 +462,8 @@ export const TicketsLive = Layer.effect(
           .projectFor(orgSlug, slug)
           .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
         const branchDeletedAt = indexProject
-          ? (yield* ticketIndex.list(indexProject, [id]))[0]?.branchDeletedAt ??
-            null
+          ? ((yield* ticketIndex.list(indexProject, [id]))[0]
+              ?.branchDeletedAt ?? null)
           : null
         return documentToDetail(ticket, projectGithub, branchDeletedAt)
       })
@@ -544,14 +546,12 @@ export const TicketsLive = Layer.effect(
         const checks = yield* Effect.forEach(
           assignees,
           (assigneeId) =>
-            projects
-              .requireMember(orgSlug, assigneeId, slug)
-              .pipe(
-                Effect.as({ id: assigneeId, ok: true as const }),
-                Effect.catchTag("NotFound", () =>
-                  Effect.succeed({ id: assigneeId, ok: false as const })
-                )
-              ),
+            projects.requireMember(orgSlug, assigneeId, slug).pipe(
+              Effect.as({ id: assigneeId, ok: true as const }),
+              Effect.catchTag("NotFound", () =>
+                Effect.succeed({ id: assigneeId, ok: false as const })
+              )
+            ),
           { concurrency: 8 }
         )
         const invalid = checks.filter((c) => !c.ok).map((c) => c.id)
@@ -625,6 +625,12 @@ export const TicketsLive = Layer.effect(
             body: `# ${input.title}\n`
           })
         )
+        yield* attachments.reconcileTicket(
+          orgSlug,
+          slug,
+          document.id,
+          document.body
+        )
         yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
           orgSlug,
@@ -680,6 +686,12 @@ export const TicketsLive = Layer.effect(
             updatedAt: now,
             body: input.body ?? `# ${input.title}\n`
           })
+        )
+        yield* attachments.reconcileTicket(
+          orgSlug,
+          slug,
+          document.id,
+          document.body
         )
         yield* ticketIndex.upsertTicket(indexProject, document)
         const projectGithub = yield* projects.getGithubIntegration(
@@ -746,6 +758,7 @@ export const TicketsLive = Layer.effect(
         }
 
         yield* ticketDocs.write(orgSlug, slug, id, next)
+        yield* attachments.reconcileTicket(orgSlug, slug, id, next.body)
         yield* ticketIndex.upsertTicket(indexProject, next)
 
         const projectGithub = yield* projects.getGithubIntegration(
@@ -766,6 +779,7 @@ export const TicketsLive = Layer.effect(
         yield* ensureAccess(orgSlug, ownerId, slug)
         const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
         yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
+        yield* attachments.reconcileTicket(orgSlug, slug, id, "")
         yield* ticketDocs.remove(orgSlug, slug, id)
         yield* ticketIndex.deleteTicket(indexProject, id)
       })
