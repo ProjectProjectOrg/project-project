@@ -9,6 +9,8 @@ import { DbLive, PgLive } from "./Layers/Db"
 import { EverhourLive } from "./Layers/Everhour"
 import { EverhourIntegrationsLive } from "./Layers/EverhourIntegrations"
 import { EverhourTimeTrackingLive } from "./Layers/EverhourTimeTracking"
+import { FigmaLive } from "./Layers/Figma"
+import { FigmaIntegrationsLive } from "./Layers/FigmaIntegrations"
 import { GitHubLive } from "./Layers/GitHub"
 import { GitHubIntegrationsLive } from "./Layers/GitHubIntegrations"
 import { GroupDocsLive } from "./Layers/GroupDocs"
@@ -56,6 +58,9 @@ export const BackendServicesLive = TagsLive.pipe(
     ),
     Layer.provideMerge(
       EverhourIntegrationsLive.pipe(Layer.provideMerge(EverhourLive))
+    ),
+    Layer.provideMerge(
+      FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
     ),
     Layer.provideMerge(
       EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))

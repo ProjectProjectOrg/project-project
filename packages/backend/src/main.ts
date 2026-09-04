@@ -79,6 +79,8 @@ import { AuthHandlerLive } from "./handlers/auth"
 import { CommentsHandlerLive } from "./handlers/comments"
 import { GroupsHandlerLive } from "./handlers/groups"
 import { EverhourHandlerLive } from "./handlers/everhour"
+import { FigmaHandlerLive } from "./handlers/figma"
+import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { StorageHandlerLive } from "./handlers/storage"
 import { OrgHandlerLive } from "./handlers/org"
@@ -142,6 +144,7 @@ export const ApiLive = HttpApiBuilder.api(AppApi).pipe(
   Layer.provide(OrgHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
+  Layer.provide(FigmaHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
@@ -381,6 +384,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
   HttpRouter.empty.pipe(
     HttpRouter.mountApp("/api/auth", betterAuthApp),
     HttpRouter.mountApp("/api/integrations/github", githubIntegrationRoutes),
+    HttpRouter.mountApp("/api/integrations/figma/oauth", figmaOauthRoutes),
     HttpRouter.mountApp(
       "/api/integrations/everhour/webhook",
       everhourIntegrationRoutes
