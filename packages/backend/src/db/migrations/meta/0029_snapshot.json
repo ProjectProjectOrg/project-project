@@ -1,5 +1,5 @@
 {
-  "id": "12dec100-1bb9-41ac-bd21-052aaefd493f",
+  "id": "e2593bf3-d3e4-4e70-a820-da98cb45497b",
   "prevId": "228a67ee-623b-427d-b2e2-f07ddd00d3ca",
   "version": "7",
   "dialect": "postgresql",
@@ -904,33 +904,6 @@
         }
       },
       "indexes": {
-        "figma_link_index_node_uidx": {
-          "name": "figma_link_index_node_uidx",
-          "columns": [
-            {
-              "expression": "org_slug",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "file_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "node_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "figma_link_index_org_idx": {
           "name": "figma_link_index_org_idx",
           "columns": [
@@ -984,7 +957,17 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "figma_link_index_node_uidx": {
+          "name": "figma_link_index_node_uidx",
+          "nullsNotDistinct": true,
+          "columns": [
+            "org_slug",
+            "file_key",
+            "node_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
