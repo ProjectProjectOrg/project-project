@@ -1,8 +1,16 @@
+import {
+  ATTACHMENT_TILE_FOOTER_HEIGHT,
+  ATTACHMENT_TILE_MIN_WIDTH,
+  ATTACHMENT_TILE_PREVIEW_HEIGHT
+} from "./AttachmentTile"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-export const ATTACHMENT_UNAVAILABLE_WIDTH = 260
-export const ATTACHMENT_UNAVAILABLE_HEIGHT = 96
+// A missing attachment holds the same slot as the tile it replaced, filename
+// row included.
+export const ATTACHMENT_UNAVAILABLE_WIDTH = ATTACHMENT_TILE_MIN_WIDTH
+export const ATTACHMENT_UNAVAILABLE_HEIGHT =
+  ATTACHMENT_TILE_PREVIEW_HEIGHT + ATTACHMENT_TILE_FOOTER_HEIGHT
 export const ATTACHMENT_UNAVAILABLE_CHIP_WIDTH = 240
 export const ATTACHMENT_UNAVAILABLE_CHIP_HEIGHT = 22
 
@@ -15,10 +23,10 @@ export function AttachmentUnavailable({
   return (
     <span
       className={cn(
-        "items-center justify-center rounded-md border border-dashed border-border text-center text-xs text-muted-foreground",
+        "items-center justify-center border border-dashed border-border text-center text-xs text-muted-foreground",
         inline
-          ? "inline-flex gap-1.5 px-2 align-middle whitespace-nowrap"
-          : "flex rounded-lg px-4 text-balance"
+          ? "mx-0.5 inline-flex rounded-md px-2 align-baseline whitespace-nowrap"
+          : "flex rounded-xl px-3 text-balance"
       )}
       style={
         inline
