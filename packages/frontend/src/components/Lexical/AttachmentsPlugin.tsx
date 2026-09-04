@@ -5,6 +5,7 @@ import * as Exit from "effect/Exit"
 import { useCallback, useEffect, useRef, useState, type JSX } from "react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
+  $createTextNode,
   $insertNodes,
   $nodesOfType,
   COMMAND_PRIORITY_LOW,
@@ -14,6 +15,8 @@ import {
 } from "lexical"
 import {
   ATTACHMENT_MAX_BYTES,
+  attachmentSrc,
+  attachmentViewParams,
   isAllowedAttachmentContentType,
   isRasterImageContentType,
   type TicketId
@@ -23,6 +26,7 @@ import { ticketKey } from "@/atoms/tickets"
 import { useMountedRef } from "@/lib/useMountedRef"
 import { m } from "@/paraglide/messages"
 import { AttachmentNode, $createAttachmentNode } from "./AttachmentNode"
+import { splitPastedAttachments } from "./pastedAttachments"
 import { staleUploadIds } from "./staleUploads"
 
 export interface AttachmentsPluginProps {
@@ -139,10 +143,34 @@ export function AttachmentsPlugin({
       PASTE_COMMAND,
       (event) => {
         if (!(event instanceof ClipboardEvent)) return false
+
         const files = event.clipboardData?.files
-        if (!files || files.length === 0) return false
+        if (files && files.length > 0) {
+          event.preventDefault()
+          handleFiles(files)
+          return true
+        }
+
+        const text = event.clipboardData?.getData("text/plain")
+        const parts = text ? splitPastedAttachments(text) : null
+        if (!parts) return false
+
         event.preventDefault()
-        handleFiles(files)
+        editor.update(() => {
+          $insertNodes(
+            parts.map((part) =>
+              part.type === "text"
+                ? $createTextNode(part.value)
+                : $createAttachmentNode({
+                    url: attachmentSrc(part.url),
+                    alt: part.alt,
+                    filename: part.alt,
+                    kind: part.kind,
+                    ...attachmentViewParams(part.url)
+                  })
+            )
+          )
+        })
         return true
       },
       COMMAND_PRIORITY_LOW
