@@ -15,16 +15,16 @@ const CHIP_BASE =
 
 const CHIP_VARIANTS = {
   current:
-    "mx-0.5 gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 hover:bg-accent/40",
-  snug: "mx-0.5 gap-1 rounded-md border border-border bg-card px-1.5 py-0 leading-5 hover:bg-accent/40",
+    "mx-0.5 gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 group-focus-within/editing:hover:bg-accent/40",
+  snug: "mx-0.5 gap-1 rounded-md border border-border bg-card px-1.5 py-0 leading-5 group-focus-within/editing:hover:bg-accent/40",
   outline:
-    "mx-0.5 gap-1.5 rounded-md border border-border px-2 py-0.5 hover:bg-accent/40",
-  tint: "mx-0.5 gap-1.5 rounded-md bg-muted px-2 py-0.5 hover:bg-accent/60",
+    "mx-0.5 gap-1.5 rounded-md border border-border px-2 py-0.5 group-focus-within/editing:hover:bg-accent/40",
+  tint: "mx-0.5 gap-1.5 rounded-md bg-muted px-2 py-0.5 group-focus-within/editing:hover:bg-accent/60",
   shadow:
-    "mx-0.5 gap-1.5 rounded-md bg-card px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border),0_1px_2px_rgb(0_0_0/0.06)] hover:bg-accent/40",
-  flat: "gap-1 rounded-sm px-0.5 hover:bg-accent/40",
+    "mx-0.5 gap-1.5 rounded-md bg-card px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border),0_1px_2px_rgb(0_0_0/0.06)] group-focus-within/editing:hover:bg-accent/40",
+  flat: "gap-1 rounded-sm px-0.5 group-focus-within/editing:hover:bg-accent/40",
   underline:
-    "gap-1 border-b border-border px-0.5 hover:border-foreground/40 hover:bg-accent/30"
+    "gap-1 border-b border-border px-0.5 group-focus-within/editing:hover:border-foreground/40 group-focus-within/editing:hover:bg-accent/30"
 } as const
 
 type ChipVariant = keyof typeof CHIP_VARIANTS
