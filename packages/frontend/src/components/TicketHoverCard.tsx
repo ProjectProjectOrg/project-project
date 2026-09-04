@@ -29,10 +29,10 @@ import type {
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
-interface TicketHoverCardScope {
-  orgSlug: string
-  slug: string
-  members?: ReadonlyArray<Member>
+type TicketHoverCardScope = {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly members?: ReadonlyArray<Member>
 }
 
 const TicketHoverCardError = () => (
