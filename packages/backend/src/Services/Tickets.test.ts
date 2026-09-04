@@ -194,7 +194,12 @@ const makeFakeAttachments = (
     resolveForServing: () => unexpected("Attachments.resolveForServing"),
     reconcileTicket: () => Effect.void,
     orphanProject: () => unexpected("Attachments.orphanProject"),
+    listForOrg: () => unexpected("Attachments.listForOrg"),
+    summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
+    deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
+    missingIds: () => Effect.succeed([]),
     reapOnce: () => unexpected("Attachments.reapOnce"),
+    dedupeOnce: () => unexpected("Attachments.dedupeOnce"),
     ...overrides
   } satisfies AttachmentsShape)
 

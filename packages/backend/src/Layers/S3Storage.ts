@@ -10,6 +10,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import {
+  normalizeEtag,
   S3Storage,
   S3Unavailable,
   type S3Connection
@@ -105,7 +106,8 @@ export const S3StorageLive = Layer.succeed(
           )
           return {
             byteSize: head.ContentLength ?? 0,
-            contentType: head.ContentType ?? null
+            contentType: head.ContentType ?? null,
+            contentHash: normalizeEtag(head.ETag)
           }
         } catch (cause) {
           if (isNotFound(cause)) return null

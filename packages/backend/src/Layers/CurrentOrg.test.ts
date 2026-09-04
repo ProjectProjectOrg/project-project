@@ -2,9 +2,9 @@ import { it } from "@effect/vitest"
 import { PgDialect } from "drizzle-orm/pg-core"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import { expect } from "vitest"
+import { describe, expect } from "vitest"
 import { Db } from "../Services/Db"
-import { CurrentOrg } from "../Services/CurrentOrg"
+import { CurrentOrg, isOrgAdminRole } from "../Services/CurrentOrg"
 import { CurrentOrgLive } from "./CurrentOrg"
 
 const dialect = new PgDialect()
@@ -48,3 +48,17 @@ it.effect(
       expect(where).toContain("is null")
     })
 )
+
+describe("isOrgAdminRole", () => {
+  it("admits an owner", () => {
+    expect(isOrgAdminRole("owner")).toBe(true)
+  })
+
+  it("admits an admin", () => {
+    expect(isOrgAdminRole("admin")).toBe(true)
+  })
+
+  it("refuses a plain member", () => {
+    expect(isOrgAdminRole("member")).toBe(false)
+  })
+})

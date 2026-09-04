@@ -49,6 +49,8 @@ import {
 } from "@/components/Lexical/attachmentImageStyle"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { AttachmentUnavailable } from "./AttachmentUnavailable"
+import { useAttachmentResolves } from "./attachmentAvailability"
 
 export type AttachmentKind = "image" | "file"
 
@@ -103,15 +105,16 @@ function AttachmentImage({
   url,
   alt,
   width,
-  nodeKey
+  nodeKey,
+  onBroken
 }: {
   url: string
   alt: string
   width: number | null
   nodeKey: NodeKey
+  onBroken: () => void
 }) {
   const [editor] = useLexicalComposerContext()
-  const [broken, setBroken] = useState(false)
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -155,14 +158,6 @@ function AttachmentImage({
     })
   }
 
-  if (broken) {
-    return (
-      <span className="block rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-        {m.editor_attachment_unavailable()}
-      </span>
-    )
-  }
-
   const effectiveWidth = dragWidth ?? width
 
   return (
@@ -177,7 +172,7 @@ function AttachmentImage({
           ATTACHMENT_IMAGE_CLASS,
           "border border-transparent transition-colors group-hover/hitbox:border-border"
         )}
-        onError={() => setBroken(true)}
+        onError={onBroken}
       />
       <motion.span
         role="presentation"
@@ -392,69 +387,111 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
 
   decorate(): ReactElement {
     const settled = this.__uploadId === undefined && !this.__failed
-    return (
-      <AttachmentSelectable
-        nodeKey={this.getKey()}
-        deletable={!this.__failed}
-        density={settled ? this.__density : null}
-      >
-        {this.renderContent()}
-      </AttachmentSelectable>
-    )
-  }
 
-  renderContent(): ReactElement {
-    if (this.__failed) {
-      return <AttachmentFailed uploadId={this.__uploadId} />
-    }
-
-    if (this.__uploadId !== undefined) {
-      return <AttachmentUploading progress={this.__progress} />
-    }
-
-    if (this.__density === "compact") {
+    if (settled) {
       return (
-        <AttachmentChip
+        <AttachmentSettled
+          nodeKey={this.getKey()}
           url={this.__url}
           alt={this.__alt}
           filename={this.__filename}
           kind={this.__kind}
-          morphId={`attachment-${this.getKey()}`}
-        />
-      )
-    }
-
-    if (this.__kind === "image") {
-      return (
-        <AttachmentImage
-          url={this.__url}
-          alt={this.__alt}
           width={this.__width}
-          nodeKey={this.getKey()}
+          density={this.__density}
         />
       )
     }
 
     return (
-      <AttachmentTile
-        url={this.__url}
-        alt={this.__alt}
-        filename={this.__filename}
-        morphId={`attachment-${this.getKey()}`}
-      />
+      <AttachmentSelectable
+        nodeKey={this.getKey()}
+        deletable={!this.__failed}
+        density={this.__density}
+        toggleable={false}
+      >
+        {this.__failed ? (
+          <AttachmentFailed uploadId={this.__uploadId} />
+        ) : (
+          <AttachmentUploading progress={this.__progress} />
+        )}
+      </AttachmentSelectable>
     )
   }
+}
+
+function AttachmentSettled({
+  nodeKey,
+  url,
+  alt,
+  filename,
+  kind,
+  width,
+  density
+}: {
+  nodeKey: NodeKey
+  url: string
+  alt: string
+  filename: string
+  kind: "image" | "file"
+  width: number | null
+  density: AttachmentDensity
+}) {
+  const [broken, setBroken] = useState(false)
+  const resolves = useAttachmentResolves(url)
+  const missing = broken || !resolves
+  const morphId = `attachment-${nodeKey}`
+
+  return (
+    <AttachmentSelectable
+      nodeKey={nodeKey}
+      deletable
+      density={density}
+      toggleable
+    >
+      {missing ? (
+        <AttachmentUnavailable
+          variant={density === "compact" ? "inline" : "block"}
+        />
+      ) : density === "compact" ? (
+        <AttachmentChip
+          url={url}
+          alt={alt}
+          filename={filename}
+          kind={kind}
+          morphId={morphId}
+          onBroken={() => setBroken(true)}
+        />
+      ) : kind === "image" ? (
+        <AttachmentImage
+          url={url}
+          alt={alt}
+          width={width}
+          nodeKey={nodeKey}
+          onBroken={() => setBroken(true)}
+        />
+      ) : (
+        <AttachmentTile
+          url={url}
+          alt={alt}
+          filename={filename}
+          morphId={morphId}
+        />
+      )}
+    </AttachmentSelectable>
+  )
 }
 
 function AttachmentSelectable({
   nodeKey,
   deletable,
   density,
+  toggleable,
   children
 }: {
   nodeKey: string
   deletable: boolean
-  density: AttachmentDensity | null
+  density: AttachmentDensity
+  toggleable: boolean
   children: ReactNode
 }) {
   const [editor] = useLexicalComposerContext()
@@ -651,7 +688,7 @@ function AttachmentSelectable({
               <Trash2 strokeWidth={1.75} />
             </OverlayAction>
           ) : null}
-          {density !== null ? (
+          {toggleable ? (
             <OverlayAction
               morphId={`${morphId}-density`}
               slot={cn(overlaySlot, compact ? "left-full ml-1" : "-right-2")}

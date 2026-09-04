@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  attachmentDownloadUrl,
   attachmentFileFormat,
   attachmentUrl,
   attachmentViewParams,
@@ -371,5 +372,21 @@ describe("attachmentFileFormat", () => {
     expect(attachmentFileFormat("README")).toBe("generic")
     expect(attachmentFileFormat("")).toBe("generic")
     expect(attachmentFileFormat(".pdf")).toBe("generic")
+  })
+})
+
+describe("attachmentDownloadUrl", () => {
+  it("marks the serving url as a download", () => {
+    expect(attachmentDownloadUrl("acme", "01M1H0S8X5DJTNBSAZSA1BZD2B")).toBe(
+      "/api/attachments/acme/01M1H0S8X5DJTNBSAZSA1BZD2B?download=1"
+    )
+  })
+
+  it("still parses back to the same attachment, so the route can resolve it", () => {
+    expect(
+      parseAttachmentUrl(
+        attachmentDownloadUrl("acme", "01M1H0S8X5DJTNBSAZSA1BZD2B")
+      )
+    ).toEqual({ orgSlug: "acme", id: "01M1H0S8X5DJTNBSAZSA1BZD2B" })
   })
 })

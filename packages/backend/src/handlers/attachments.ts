@@ -21,6 +21,31 @@ export const AttachmentsHandlerLive = HttpApiBuilder.group(
           )
         })
       )
+      .handle("list", ({ path, urlParams }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const attachments = yield* Attachments
+          return yield* attachments.listForOrg(path.orgSlug, user.id, urlParams)
+        })
+      )
+      .handle("summary", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const attachments = yield* Attachments
+          return yield* attachments.summarizeForOrg(path.orgSlug, user.id)
+        })
+      )
+      .handle("remove", ({ path }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const attachments = yield* Attachments
+          return yield* attachments.deleteForOrg(
+            path.orgSlug,
+            path.attachmentId,
+            user.id
+          )
+        })
+      )
       .handle("commit", ({ path }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

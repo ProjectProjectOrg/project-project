@@ -132,7 +132,12 @@ const FakeAttachments = Layer.succeed(Attachments, {
   resolveForServing: () => unexpected("Attachments.resolveForServing"),
   reconcileTicket: () => Effect.void,
   orphanProject: () => unexpected("Attachments.orphanProject"),
-  reapOnce: () => unexpected("Attachments.reapOnce")
+  listForOrg: () => unexpected("Attachments.listForOrg"),
+  summarizeForOrg: () => unexpected("Attachments.summarizeForOrg"),
+  deleteForOrg: () => unexpected("Attachments.deleteForOrg"),
+  missingIds: () => Effect.succeed([]),
+  reapOnce: () => unexpected("Attachments.reapOnce"),
+  dedupeOnce: () => unexpected("Attachments.dedupeOnce")
 } satisfies AttachmentsShape)
 
 const FakeDb = Layer.succeed(Db, {

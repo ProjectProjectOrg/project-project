@@ -2,6 +2,12 @@ import * as Schema from "effect/Schema"
 
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 
+export const ATTACHMENT_PAGE_SIZE = 50
+
+export const isAttachmentDeletable = (row: {
+  readonly status: AttachmentStatus
+}): boolean => row.status !== "pending"
+
 export const ATTACHMENT_MIN_WIDTH = 96
 
 export const ATTACHMENT_MAX_HEIGHT = 384
@@ -124,3 +130,58 @@ export const ConnectStorageInput = Schema.Struct({
   forcePathStyle: Schema.Boolean
 })
 export type ConnectStorageInput = typeof ConnectStorageInput.Type
+
+export const AttachmentTicketRef = Schema.Struct({
+  projectSlug: Schema.String,
+  ticketId: Schema.String
+})
+export type AttachmentTicketRef = typeof AttachmentTicketRef.Type
+
+export const AttachmentRow = Schema.Struct({
+  ...Attachment.fields,
+  projectSlug: Schema.String,
+  ticketId: Schema.String,
+  tickets: Schema.Array(AttachmentTicketRef)
+})
+export type AttachmentRow = typeof AttachmentRow.Type
+
+export const AttachmentSort = Schema.Literal(
+  "created_desc",
+  "created_asc",
+  "size_desc",
+  "size_asc"
+)
+export type AttachmentSort = typeof AttachmentSort.Type
+
+export const AttachmentListParams = Schema.Struct({
+  status: Schema.optional(AttachmentStatus),
+  projectSlug: Schema.optional(Schema.String),
+  sort: Schema.optional(AttachmentSort),
+  page: Schema.optional(
+    Schema.NumberFromString.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1))
+  ),
+  limit: Schema.optional(
+    Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, 200))
+  )
+})
+export type AttachmentListParams = typeof AttachmentListParams.Type
+
+export const AttachmentListPage = Schema.Struct({
+  items: Schema.Array(AttachmentRow),
+  total: Schema.Number
+})
+export type AttachmentListPage = typeof AttachmentListPage.Type
+
+export const AttachmentStatusTotals = Schema.Struct({
+  status: AttachmentStatus,
+  count: Schema.Number,
+  bytes: Schema.Number
+})
+export type AttachmentStatusTotals = typeof AttachmentStatusTotals.Type
+
+export const AttachmentSummary = Schema.Struct({
+  byStatus: Schema.Array(AttachmentStatusTotals),
+  count: Schema.Number,
+  bytes: Schema.Number
+})
+export type AttachmentSummary = typeof AttachmentSummary.Type

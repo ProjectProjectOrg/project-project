@@ -643,8 +643,7 @@ export function Dither({
       const introDur = prefersReducedMotion ? 0 : cur.introDuration
       const introActive = introDur > 0 && introElapsed < introDur
       if (introActive) introElapsed = Math.min(introElapsed + dt, introDur)
-      const introU =
-        introDur > 0 ? Math.min(introElapsed / introDur, 1) : 1
+      const introU = introDur > 0 ? Math.min(introElapsed / introDur, 1) : 1
       const reveal = introU >= 1 ? 1 : 1 - Math.pow(1 - introU, 2)
       const speedProgress = introU >= 1 ? 1 : 1 - Math.pow(1 - introU, 3)
       const effectiveSpeed =
@@ -747,8 +746,10 @@ export function Dither({
         const dpr = Math.min(maxDpr, window.devicePixelRatio || 1)
         const canvasRect = canvas.getBoundingClientRect()
         const cardRect = cardEl.getBoundingClientRect()
-        const cardCssCenterX = cardRect.left + cardRect.width / 2 - canvasRect.left
-        const cardCssCenterY = cardRect.top + cardRect.height / 2 - canvasRect.top
+        const cardCssCenterX =
+          cardRect.left + cardRect.width / 2 - canvasRect.left
+        const cardCssCenterY =
+          cardRect.top + cardRect.height / 2 - canvasRect.top
         gl.uniform2f(
           uniforms.u_cardCenter,
           cardCssCenterX * dpr,

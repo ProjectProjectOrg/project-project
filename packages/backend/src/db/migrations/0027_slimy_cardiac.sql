@@ -1,0 +1,2 @@
+ALTER TABLE "attachment_index" ADD COLUMN "content_hash" text;--> statement-breakpoint
+CREATE INDEX "attachment_index_dedupe_idx" ON "attachment_index" USING btree ("org_slug","content_hash","byte_size");

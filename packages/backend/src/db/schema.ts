@@ -787,15 +787,19 @@ export const attachmentIndex = pgTable(
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
     byteSize: integer("byte_size").notNull(),
+    contentHash: text("content_hash"),
     status: text("status", { enum: ["pending", "live", "orphaned"] })
       .notNull()
       .default("pending"),
     uploadedBy: text("uploaded_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
       .notNull()
       .defaultNow(),
-    committedAt: timestamp("committed_at", { withTimezone: true }),
-    orphanedAt: timestamp("orphaned_at", { withTimezone: true })
+    committedAt: timestamp("committed_at", {
+      withTimezone: true,
+      precision: 3
+    }),
+    orphanedAt: timestamp("orphaned_at", { withTimezone: true, precision: 3 })
   },
   (t) => [
     index("attachment_index_ticket_idx").on(
@@ -804,6 +808,37 @@ export const attachmentIndex = pgTable(
       t.ticketId
     ),
     index("attachment_index_status_idx").on(t.status),
-    index("attachment_index_org_idx").on(t.organizationId)
+    index("attachment_index_org_idx").on(t.organizationId),
+    index("attachment_index_org_created_idx").on(t.orgSlug, t.createdAt),
+    index("attachment_index_org_size_idx").on(t.orgSlug, t.byteSize),
+    index("attachment_index_object_key_idx").on(t.objectKey),
+    index("attachment_index_dedupe_idx").on(
+      t.orgSlug,
+      t.contentHash,
+      t.byteSize
+    )
+  ]
+)
+
+export const attachmentReference = pgTable(
+  "attachment_reference",
+  {
+    attachmentId: text("attachment_id")
+      .notNull()
+      .references(() => attachmentIndex.id, { onDelete: "cascade" }),
+    orgSlug: text("org_slug").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.attachmentId, t.projectSlug, t.ticketId] }),
+    index("attachment_reference_ticket_idx").on(
+      t.orgSlug,
+      t.projectSlug,
+      t.ticketId
+    )
   ]
 )

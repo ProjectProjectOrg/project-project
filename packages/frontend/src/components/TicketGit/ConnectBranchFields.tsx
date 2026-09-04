@@ -96,8 +96,7 @@ export function ConnectBranchFields({
     activeState?.repoId === github.repoId ? activeState.index : 0
   const setActiveIdx = (next: number | ((current: number) => number)) =>
     setActiveState((current) => {
-      const currentIndex =
-        current?.repoId === github.repoId ? current.index : 0
+      const currentIndex = current?.repoId === github.repoId ? current.index : 0
       const index = typeof next === "function" ? next(currentIndex) : next
       return { repoId: github.repoId, index }
     })

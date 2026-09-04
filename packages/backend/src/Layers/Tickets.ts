@@ -28,6 +28,7 @@ import {
   Ticket,
   TICKET_LIST_LIMIT,
   TicketDetail,
+  extractAttachmentRefs,
   TicketId,
   tryDecodeCursor,
   UpdateTicketInput,
@@ -465,8 +466,26 @@ export const TicketsLive = Layer.effect(
           ? ((yield* ticketIndex.list(indexProject, [id]))[0]
               ?.branchDeletedAt ?? null)
           : null
-        return documentToDetail(ticket, projectGithub, branchDeletedAt)
+        return yield* withMissingAttachments(
+          orgSlug,
+          documentToDetail(ticket, projectGithub, branchDeletedAt)
+        )
       })
+
+    const withMissingAttachments = (orgSlug: string, detail: TicketDetail) =>
+      attachments
+        .missingIds(
+          orgSlug,
+          extractAttachmentRefs(detail.body)
+            .filter((ref) => ref.orgSlug === orgSlug)
+            .map((ref) => ref.id)
+        )
+        .pipe(
+          Effect.map((missingAttachments) => ({
+            ...detail,
+            missingAttachments
+          }))
+        )
 
     const validateTagsExist = (
       slug: string,
@@ -766,7 +785,10 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return documentToDetail(next, projectGithub)
+        return yield* withMissingAttachments(
+          orgSlug,
+          documentToDetail(next, projectGithub)
+        )
       })
 
     const remove = (

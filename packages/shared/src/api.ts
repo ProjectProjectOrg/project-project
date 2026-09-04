@@ -100,6 +100,9 @@ import { TicketCounts, TicketListPage } from "./filters/Ticket"
 import { TicketCountParams, TicketListParams } from "./filters/url"
 import {
   Attachment,
+  AttachmentListPage,
+  AttachmentListParams,
+  AttachmentSummary,
   ConnectStorageInput,
   OrgStorageStatus,
   PrepareAttachmentInput,
@@ -208,6 +211,10 @@ const AttachmentPath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
   id: TicketId,
+  attachmentId: Schema.String
+})
+const OrgAttachmentPath = Schema.Struct({
+  orgSlug: Slug,
   attachmentId: Schema.String
 })
 const ProjectTagPath = Schema.Struct({
@@ -665,6 +672,34 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
       .addError(AttachmentNotUploaded)
       .addError(AttachmentTooLarge)
       .addError(AttachmentTypeRejected)
+      .addError(StorageNotConnected)
+      .addError(StorageConfigMissing)
+      .addError(StorageError)
+  )
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/attachments")
+      .setPath(OrgPath)
+      .setUrlParams(AttachmentListParams)
+      .addSuccess(AttachmentListPage)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.get("summary", "/orgs/:orgSlug/attachments/summary")
+      .setPath(OrgPath)
+      .addSuccess(AttachmentSummary)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
+  )
+  .add(
+    HttpApiEndpoint.del("remove", "/orgs/:orgSlug/attachments/:attachmentId")
+      .setPath(OrgAttachmentPath)
+      .addSuccess(Schema.Void)
+      .addError(Unauthorized)
+      .addError(NotFound)
+      .addError(Forbidden)
       .addError(StorageNotConnected)
       .addError(StorageConfigMissing)
       .addError(StorageError)

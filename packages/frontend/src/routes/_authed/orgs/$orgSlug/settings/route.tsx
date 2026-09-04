@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
 import {
+  Files,
   HardDrive,
   SlidersHorizontal,
   TriangleAlert,
@@ -39,6 +40,14 @@ const SECTIONS = [
     description: m.storage_description()
   },
   {
+    key: "attachments",
+    to: "/orgs/$orgSlug/settings/attachments",
+    label: m.attachments_tab(),
+    icon: Files,
+    heading: m.attachments_heading(),
+    description: m.attachments_description()
+  },
+  {
     key: "danger",
     to: "/orgs/$orgSlug/settings/danger",
     label: m.org_settings_danger_tab(),
@@ -52,6 +61,7 @@ const SECTIONS = [
     | "/orgs/$orgSlug/settings/general"
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/storage"
+    | "/orgs/$orgSlug/settings/attachments"
     | "/orgs/$orgSlug/settings/danger"
   label: string
   icon: typeof SlidersHorizontal

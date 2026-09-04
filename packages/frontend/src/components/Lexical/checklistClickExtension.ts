@@ -11,7 +11,9 @@ import { $isListItemNode, CheckListExtension } from "@lexical/list"
 
 const CHECKBOX_ZONE_EM = 1.75
 
-function isCheckboxClick(event: MouseEvent | PointerEvent): HTMLLIElement | null {
+function isCheckboxClick(
+  event: MouseEvent | PointerEvent
+): HTMLLIElement | null {
   const target = event.target
   if (!(target instanceof HTMLLIElement)) return null
   if (
