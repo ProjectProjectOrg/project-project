@@ -6,13 +6,13 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-type CorsProvider = {
-  readonly id: string
-  readonly label: string
-  readonly description: string
-  readonly language: "json" | "markup" | "bash"
-  readonly buildSnippet: (origin: string) => string
-}
+type CorsProvider = Readonly<{
+  id: string
+  label: string
+  description: string
+  language: "json" | "markup" | "bash"
+  buildSnippet: (origin: string) => string
+}>
 
 const ALLOWED_HEADERS = ["content-type", "range"]
 
