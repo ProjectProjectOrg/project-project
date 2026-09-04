@@ -211,6 +211,13 @@
       "when": 1788525100987,
       "tag": "0029_white_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788528656227,
+      "tag": "0030_absurd_inhumans",
+      "breakpoints": true
     }
   ]
 }
