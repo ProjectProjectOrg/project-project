@@ -85,7 +85,7 @@ const isInteractiveTarget = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest(INTERACTIVE_SELECTOR) !== null
 
 const OVERLAY_REVEAL =
-  "opacity-0 transition-opacity group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
+  "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
 
 const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
 
@@ -170,7 +170,7 @@ function AttachmentImage({
         style={attachmentWidthStyle(effectiveWidth)}
         className={cn(
           ATTACHMENT_IMAGE_CLASS,
-          "border border-transparent transition-colors group-hover/hitbox:border-border"
+          "border border-transparent transition-colors group-focus-within/editing:group-hover/hitbox:border-border"
         )}
         onError={onBroken}
       />
@@ -181,7 +181,7 @@ function AttachmentImage({
         onPanStart={onPanStart}
         onPan={onPan}
         onPanEnd={onPanEnd}
-        className="absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-hover/hitbox:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
+        className="invisible absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 -translate-y-1/2 translate-x-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-focus-within/editing:visible group-hover/hitbox:opacity-100 hover:bg-foreground/80 before:absolute before:inset-y-0 before:-inset-x-2 before:content-[''] sm:block"
       />
     </span>
   )
@@ -659,9 +659,11 @@ function AttachmentSelectable({
         ref={wrapperRef}
         data-attachment-selected={isSelected ? "true" : undefined}
         className={cn(
-          "group/hitbox relative inline-block max-w-full align-middle ring-offset-2 ring-offset-background transition-shadow duration-150 hover:z-20 focus-within:z-20",
+          "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 hover:z-20 focus-within:z-20",
           compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
-          isSelected ? "z-20 ring-2 ring-ring" : "z-0 ring-0 ring-transparent"
+          isSelected
+            ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
+            : "z-0 ring-0 ring-transparent"
         )}
       >
         <LayoutGroup id={morphId}>

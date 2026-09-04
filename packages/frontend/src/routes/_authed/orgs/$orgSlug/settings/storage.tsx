@@ -10,6 +10,7 @@ import {
   orgStorageAtom
 } from "@/atoms/storage"
 import { ErrorPage } from "@/components/ErrorPage"
+import { StorageCorsPanel } from "@/components/StorageCorsPanel"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
@@ -263,6 +264,8 @@ function StorageConnectForm({
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      <StorageCorsPanel />
     </form>
   )
 }
@@ -284,7 +287,7 @@ function StorageConnectedPanel({
   return (
     <div className="flex w-full flex-col gap-4">
       <StorageStatusRows status={status} waiting={waiting} />
-      <p className="text-xs text-muted-foreground">{m.storage_cors_notice()}</p>
+      <StorageCorsPanel />
       <p className="text-xs text-muted-foreground">
         {m.storage_disconnect_hint()}
       </p>

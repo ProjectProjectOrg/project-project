@@ -392,7 +392,7 @@ export function LexicalEditor({
   ))
 
   return (
-    <div ref={wrapperRef} className={cn("prose-md", className)}>
+    <div ref={wrapperRef} className={cn("group/editing prose-md", className)}>
       <LexicalExtensionComposer
         extension={extension}
         contentEditable={contentEditable}
