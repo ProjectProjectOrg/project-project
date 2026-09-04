@@ -275,12 +275,10 @@ export const AttachmentsLive = Layer.effect(
         const canonicalPresent =
           twin === undefined
             ? false
-            : yield* s3
-                .headObject(connection, twin.objectKey)
-                .pipe(
-                  Effect.map((head) => head !== null),
-                  Effect.orElseSucceed(() => false)
-                )
+            : yield* s3.headObject(connection, twin.objectKey).pipe(
+                Effect.map((head) => head !== null),
+                Effect.orElseSucceed(() => false)
+              )
 
         const canonicalKey = canonicalPresent
           ? (twin?.objectKey ?? row.objectKey)
@@ -344,7 +342,9 @@ export const AttachmentsLive = Layer.effect(
         yield* projects
           .requireMember(orgSlug, userId, row.projectSlug)
           .pipe(
-            Effect.catchTag("NotFound", () => requireOrgAdmin(currentOrg, orgSlug, userId))
+            Effect.catchTag("NotFound", () =>
+              requireOrgAdmin(currentOrg, orgSlug, userId)
+            )
           )
 
         const connection = yield* orgStorage.requireConnection(orgSlug)
@@ -666,15 +666,41 @@ export const AttachmentsLive = Layer.effect(
 
     const orphanProject: AttachmentsShape["orphanProject"] = (orgSlug, slug) =>
       Effect.gen(function* () {
+        const ownReferences = and(
+          eq(attachmentReference.orgSlug, orgSlug),
+          eq(attachmentReference.projectSlug, slug)
+        )
+
+        const referenced = yield* db
+          .select({ attachmentId: attachmentReference.attachmentId })
+          .from(attachmentReference)
+          .where(ownReferences)
+          .pipe(Effect.orDie)
+
+        yield* db
+          .delete(attachmentReference)
+          .where(ownReferences)
+          .pipe(Effect.orDie)
+
+        const uploadedHere = eq(attachmentIndex.projectSlug, slug)
+        const ids = [...new Set(referenced.map((row) => row.attachmentId))]
+        const candidates =
+          ids.length > 0
+            ? or(uploadedHere, inArray(attachmentIndex.id, ids))
+            : uploadedHere
+
         const now = yield* DateTime.nowAsDate
+        const hasReference = sql`exists (select 1 from ${attachmentReference} where ${attachmentReference.attachmentId} = ${attachmentIndex.id})`
+
         const orphaned = yield* db
           .update(attachmentIndex)
           .set({ status: "orphaned", orphanedAt: now })
           .where(
             and(
               eq(attachmentIndex.orgSlug, orgSlug),
-              eq(attachmentIndex.projectSlug, slug),
-              eq(attachmentIndex.status, "live")
+              eq(attachmentIndex.status, "live"),
+              sql`not ${hasReference}`,
+              candidates
             )
           )
           .returning({ id: attachmentIndex.id })
