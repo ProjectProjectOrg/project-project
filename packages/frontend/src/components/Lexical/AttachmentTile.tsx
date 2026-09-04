@@ -9,6 +9,11 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+export const ATTACHMENT_TILE_MIN_WIDTH = 148
+export const ATTACHMENT_TILE_PREVIEW_HEIGHT = 176
+// The filename row: text-xs on a 16px line box, py-2, over a 1px top border.
+export const ATTACHMENT_TILE_FOOTER_HEIGHT = 33
+
 const PREVIEW_BOX =
   "flex h-[176px] w-full min-w-[148px] items-center justify-center"
 

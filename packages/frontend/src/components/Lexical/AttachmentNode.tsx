@@ -449,7 +449,7 @@ function AttachmentSettled({
       nodeKey={nodeKey}
       deletable
       density={density}
-      toggleable={!missing}
+      toggleable
     >
       {missing ? (
         <AttachmentUnavailable
