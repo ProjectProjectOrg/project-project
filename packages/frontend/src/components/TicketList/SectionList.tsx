@@ -49,7 +49,9 @@ export function SectionList({
   sprintMembership,
   extraRowActions,
   showSprintCol,
-  showExtraActionsCol
+  showExtraActionsCol,
+  activePreviewId,
+  onPreviewOpenChange
 }: {
   orgSlug: string
   slug: string
@@ -64,6 +66,8 @@ export function SectionList({
   extraRowActions?: (ticket: Ticket) => ReactNode
   showSprintCol: boolean
   showExtraActionsCol: boolean
+  activePreviewId: TicketId | null
+  onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
   const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
   const deferredKey = useDeferredValue(sectionKey)
@@ -193,6 +197,8 @@ export function SectionList({
                           sprintMembership={membership}
                           extraRowActions={extraRowActions}
                           pending={rowState.pending}
+                          activePreviewId={activePreviewId}
+                          onPreviewOpenChange={onPreviewOpenChange}
                         />
                       </motion.li>
                     )

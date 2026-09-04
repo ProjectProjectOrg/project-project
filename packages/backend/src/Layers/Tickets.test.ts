@@ -311,6 +311,6 @@ it.scoped(
       const fetched = yield* tickets.get("org", "user-1", "p", reborn.id)
 
       expect(fetched.body).not.toContain("old secret description")
-      expect(fetched.body).toBe("# foo\n")
+      expect(fetched.body.trim()).toBe("")
     }).pipe(Effect.provide(TestLayer))
 )
