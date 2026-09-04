@@ -2,7 +2,7 @@ import { Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import { useState, type FormEvent } from "react"
+import { useMemo, useState, type FormEvent } from "react"
 import { orgDetailAtom, orgKey } from "@/atoms/orgs"
 import {
   connectStorageAtom,
@@ -11,6 +11,7 @@ import {
 } from "@/atoms/storage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
+import { CodeSnippet } from "@/components/ui/code-snippet"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
 import { type AppError, errorMessage } from "@/lib/errorMessage"
@@ -104,6 +105,42 @@ function StorageNotConnectedPanel({ waiting }: { waiting: boolean }) {
       <p className="mt-1 text-xs text-muted-foreground">
         {m.storage_not_connected_hint()}
       </p>
+    </div>
+  )
+}
+
+function StorageCorsPanel() {
+  const policy = useMemo(() => {
+    const origin =
+      typeof window === "undefined"
+        ? "https://your-instance.example.com"
+        : window.location.origin
+    return JSON.stringify(
+      [
+        {
+          AllowedOrigins: [origin],
+          AllowedMethods: ["GET", "PUT", "HEAD"],
+          AllowedHeaders: ["content-type", "range"],
+          ExposeHeaders: [
+            "etag",
+            "content-length",
+            "content-range",
+            "accept-ranges"
+          ],
+          MaxAgeSeconds: 3600
+        }
+      ],
+      null,
+      2
+    )
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-background px-4 py-3">
+      <p className="text-sm font-medium">{m.storage_cors_heading()}</p>
+      <p className="text-xs text-muted-foreground">{m.storage_cors_notice()}</p>
+      <CodeSnippet code={policy} language="json" />
+      <p className="text-xs text-muted-foreground">{m.storage_cors_steps()}</p>
     </div>
   )
 }
@@ -263,6 +300,8 @@ function StorageConnectForm({
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      <StorageCorsPanel />
     </form>
   )
 }
@@ -284,7 +323,7 @@ function StorageConnectedPanel({
   return (
     <div className="flex w-full flex-col gap-4">
       <StorageStatusRows status={status} waiting={waiting} />
-      <p className="text-xs text-muted-foreground">{m.storage_cors_notice()}</p>
+      <StorageCorsPanel />
       <p className="text-xs text-muted-foreground">
         {m.storage_disconnect_hint()}
       </p>

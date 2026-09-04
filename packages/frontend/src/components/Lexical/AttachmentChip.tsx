@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 import { AttachmentDownload } from "@/components/Lexical/AttachmentDownload"
 import { FileText, Image as ImageIcon } from "lucide-react"
 import {
@@ -9,8 +10,45 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 
-const CHIP =
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs transition-colors duration-100 hover:bg-accent/40"
+const CHIP_BASE =
+  "inline-flex max-w-full items-center align-baseline text-xs transition-colors duration-100"
+
+const CHIP_VARIANTS = {
+  current:
+    "mx-0.5 gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 hover:bg-accent/40",
+  snug: "mx-0.5 gap-1 rounded-md border border-border bg-card px-1.5 py-0 leading-5 hover:bg-accent/40",
+  outline:
+    "mx-0.5 gap-1.5 rounded-md border border-border px-2 py-0.5 hover:bg-accent/40",
+  tint: "mx-0.5 gap-1.5 rounded-md bg-muted px-2 py-0.5 hover:bg-accent/60",
+  shadow:
+    "mx-0.5 gap-1.5 rounded-md bg-card px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border),0_1px_2px_rgb(0_0_0/0.06)] hover:bg-accent/40",
+  flat: "gap-1 rounded-sm px-0.5 hover:bg-accent/40",
+  underline:
+    "gap-1 border-b border-border px-0.5 hover:border-foreground/40 hover:bg-accent/30"
+} as const
+
+type ChipVariant = keyof typeof CHIP_VARIANTS
+
+const DEFAULT_CHIP_VARIANT: ChipVariant = "current"
+
+const isChipVariant = (value: string | null): value is ChipVariant =>
+  value !== null && Object.hasOwn(CHIP_VARIANTS, value)
+
+function useChipClassName(): string {
+  const [variant, setVariant] = useState<ChipVariant>(DEFAULT_CHIP_VARIANT)
+
+  useEffect(() => {
+    const read = () => {
+      const value = new URLSearchParams(window.location.search).get("chip")
+      setVariant(isChipVariant(value) ? value : DEFAULT_CHIP_VARIANT)
+    }
+    read()
+    window.addEventListener("popstate", read)
+    return () => window.removeEventListener("popstate", read)
+  }, [])
+
+  return cn(CHIP_BASE, CHIP_VARIANTS[variant])
+}
 
 const HOVER_DELAY_MS = 450
 
@@ -65,10 +103,11 @@ export function AttachmentChip({
   onBroken?: () => void
 }) {
   const [broken, setBroken] = useState(false)
+  const chip = useChipClassName()
 
   if (kind !== "image" || broken) {
     return (
-      <span className={CHIP}>
+      <span className={chip}>
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
         <AttachmentDownload url={url} filename={filename} morphId={morphId} />
       </span>
@@ -80,7 +119,7 @@ export function AttachmentChip({
       <PopoverTrigger
         openOnHover
         delay={HOVER_DELAY_MS}
-        render={<span className={CHIP} />}
+        render={<span className={chip} />}
         contentEditable={false}
       >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
