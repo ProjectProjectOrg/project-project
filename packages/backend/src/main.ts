@@ -81,6 +81,7 @@ import { GroupsHandlerLive } from "./handlers/groups"
 import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
+import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { StorageHandlerLive } from "./handlers/storage"
 import { OrgHandlerLive } from "./handlers/org"
@@ -390,6 +391,7 @@ const ServerLive = HttpApiBuilder.serve((apiApp) =>
       everhourIntegrationRoutes
     ),
     HttpRouter.mountApp("/api/attachments", attachmentRoutes),
+    HttpRouter.mountApp("/api/figma-thumbnails", figmaThumbnailRoutes),
     HttpRouter.all("/mcp", mcpRoute),
     HttpRouter.mountApp("/api", apiApp),
     Effect.catchTag("RouteNotFound", () =>
