@@ -5,7 +5,6 @@ import {
   createFileRoute,
   Link,
   Outlet,
-  retainSearchParams,
   useLocation,
   useMatches,
   useNavigate
@@ -13,8 +12,6 @@ import {
 import * as DateTime from "effect/DateTime"
 import {
   startTransition,
-  lazy,
-  Suspense,
   useOptimistic,
   type MouseEvent,
   useCallback,
@@ -63,6 +60,7 @@ import {
 } from "@projectproject/shared"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { motion } from "motion/react"
+import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectHeader } from "@/components/ProjectHeader"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
@@ -84,19 +82,7 @@ import type {
   ProjectStatus
 } from "@projectproject/shared"
 
-const BannerPrototype = import.meta.env.DEV
-  ? lazy(() => import("@/components/ProjectBannerPrototype"))
-  : null
-
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
-  validateSearch: (
-    search: Record<string, unknown>
-  ): { bannerPrototype?: "image" | "mask" } =>
-    import.meta.env.DEV &&
-    (search.bannerPrototype === "image" || search.bannerPrototype === "mask")
-      ? { bannerPrototype: search.bannerPrototype }
-      : {},
-  search: { middlewares: [retainSearchParams(["bannerPrototype"])] },
   component: ProjectLayout,
   loader: ({ params }) => ({
     crumb: [
@@ -117,7 +103,6 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const { bannerPrototype } = Route.useSearch()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const onTicketDetail = useLocation({
     select: (location) =>
@@ -157,7 +142,7 @@ function ProjectLayout() {
         body={m.project_detail_load_error_body()}
       />
     ),
-    onSuccess: ({ value }) => (
+    onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <ProjectGitStatePolling
@@ -166,20 +151,13 @@ function ProjectLayout() {
             enabled={value.github !== null}
           />
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div
-            className={cn(
-              "flex flex-1 flex-col gap-6",
-              BannerPrototype && bannerPrototype && "relative isolate"
-            )}
-          >
-            {BannerPrototype && bannerPrototype && (
-              <Suspense fallback={null}>
-                <BannerPrototype
-                  key={`${orgSlug}/${slug}`}
-                  mode={bannerPrototype}
-                />
-              </Suspense>
-            )}
+          <div className={cn("relative isolate flex flex-1 flex-col gap-6")}>
+            <ProjectBanner
+              orgSlug={orgSlug}
+              slug={slug}
+              banner={value.banner}
+              waiting={waiting}
+            />
             {!onTicketDetail && !onSettings && (
               <PageContainer>
                 <ProjectHeader
