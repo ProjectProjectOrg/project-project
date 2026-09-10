@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-import { compressImage } from "./imageCompression"
+import { BANNER_PLACEHOLDER_BUDGET } from "@projectproject/shared"
+import {
+  BANNER_PLACEHOLDER_EDGE,
+  compressBanner,
+  compressImage
+} from "./imageCompression"
 
 interface FakeBitmap {
   width: number
@@ -156,5 +161,63 @@ describe("compressImage", () => {
     await expect(
       compressImage(file, { maxEdge: 1024, hasAlpha: false })
     ).rejects.toThrow("corrupt image")
+  })
+})
+
+describe("compressBanner", () => {
+  it("draws the placeholder from the same bitmap, capped at 24px on the long edge", async () => {
+    const bitmap = stubBitmap(2000, 1000)
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(() => Promise.resolve(bitmap))
+    )
+    const drawImage = vi.fn()
+    stubCanvas(
+      drawImage,
+      new Blob([new Uint8Array(64)], { type: "image/webp" })
+    )
+
+    const file = new File([new Uint8Array(999999)], "banner.jpg", {
+      type: "image/jpeg"
+    })
+    const result = await compressBanner(file, {
+      maxEdge: 2560,
+      hasAlpha: false,
+      quality: 0.82
+    })
+
+    expect(createImageBitmap).toHaveBeenCalledTimes(1)
+    expect(drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 2000, 1000)
+    expect(drawImage).toHaveBeenCalledWith(
+      bitmap,
+      0,
+      0,
+      BANNER_PLACEHOLDER_EDGE,
+      12
+    )
+    expect(result.placeholder?.startsWith("data:image/webp;base64,")).toBe(true)
+    expect(result.placeholder!.length).toBeLessThanOrEqual(
+      BANNER_PLACEHOLDER_BUDGET
+    )
+  })
+
+  it("returns a null placeholder when the canvas cannot encode webp", async () => {
+    const bitmap = stubBitmap(200, 100)
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(() => Promise.resolve(bitmap))
+    )
+    stubCanvas(vi.fn(), new Blob([new Uint8Array(8)], { type: "image/png" }))
+
+    const file = new File([new Uint8Array(4096)], "banner.jpg", {
+      type: "image/jpeg"
+    })
+    const result = await compressBanner(file, {
+      maxEdge: 2560,
+      hasAlpha: false
+    })
+
+    expect(result.placeholder).toBeNull()
+    expect(result.file.name).toBe("banner.webp")
   })
 })

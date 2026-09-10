@@ -620,8 +620,6 @@ it.effect(
       expect(written).toEqual({
         slug: "project",
         frontmatter: {
-          banner: null,
-          iconImage: null,
           org: "org",
           slug: "project",
           key: "FOO",

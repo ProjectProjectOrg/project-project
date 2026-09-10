@@ -13,7 +13,7 @@ import {
 } from "@/atoms/projects"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
-import { compressImage } from "@/lib/imageCompression"
+import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ImagePlus, Trash2, Upload } from "lucide-react"
@@ -159,9 +159,9 @@ export default function ProjectBannerSettings({
     let next: ProjectBanner | null = null
     if (!draft.removed) {
       if (draft.file) {
-        let compressed: File
+        let compressed: CompressedBanner
         try {
-          compressed = await compressImage(draft.file, {
+          compressed = await compressBanner(draft.file, {
             maxEdge: 2560,
             hasAlpha: false,
             quality: 0.82
@@ -170,15 +170,16 @@ export default function ProjectBannerSettings({
           setApplyFailed(true)
           return
         }
-        const uploaded = await upload({ file: compressed })
+        const uploaded = await upload({ file: compressed.file })
         if (Exit.isFailure(uploaded)) return
         next = {
           type: "attachment",
           attachmentId: uploaded.value.id,
-          crop
+          crop,
+          placeholder: compressed.placeholder
         }
       } else if (preset) {
-        next = { type: "preset", preset: preset.id, crop }
+        next = { type: "preset", preset: preset.id, crop, placeholder: null }
       } else if (banner) next = { ...banner, crop }
     }
     const saved = await update({ banner: next })

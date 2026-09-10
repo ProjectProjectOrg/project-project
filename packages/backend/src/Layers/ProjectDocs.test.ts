@@ -15,136 +15,64 @@ const base = {
   members: []
 }
 
-for (const banner of [
-  null,
-  { type: "preset", preset: "sunset", crop: { x: 0.5, y: 0.65, zoom: 1.5 } },
-  {
-    type: "attachment",
-    attachmentId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-    crop: { x: 0, y: 1, zoom: 4 }
-  }
-] as const) {
-  it.effect(
-    `round-trips ${banner?.type ?? "empty"} banners through project markdown`,
-    () => {
-      let data: Record<string, unknown> = { ...base, banner }
-      const layer = ProjectDocsLive.pipe(
-        Layer.provide(
-          Layer.mock(Markdown, {
-            root: "/tmp",
-            projectDir: () => "/tmp/demo",
-            readProjectFile: () =>
-              Effect.succeed({ data, body: "# Demo", path: "project.md" }),
-            writeProjectFile: (_org, _slug, next) =>
-              Effect.sync(() => {
-                data = next
-              })
-          })
-        )
-      )
-      return Effect.gen(function* () {
-        const docs = yield* ProjectDocs
-        const original = yield* docs.read("demo", "demo")
-        yield* docs.write("demo", "demo", {
-          ...original,
-          org: "demo",
-          key: original.key!,
-          createdBy: "owner"
-        })
-        const restored = yield* docs.read("demo", "demo")
-        expect(restored.banner).toEqual(banner)
-        expect(restored.body).toBe("# Demo")
-      }).pipe(Effect.provide(layer))
-    }
-  )
-}
-
-for (const iconImage of [
-  null,
-  {
-    type: "sticker",
-    sourceAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M2",
-    renderedAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M3",
-    cutoutTolerance: 24,
-    crop: { x: 0.5, y: 0.5, zoom: 1 }
+const legacy = {
+  ...base,
+  banner: {
+    type: "preset",
+    preset: "sunset",
+    crop: { x: 0.5, y: 0.65, zoom: 1.5 }
   },
-  {
+  iconImage: {
     type: "full_bleed",
     sourceAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M4",
     crop: { x: 0.5, y: 0.5, zoom: 1 }
   }
-] as const) {
-  it.effect(
-    `round-trips ${iconImage?.type ?? "empty"} iconImage through project markdown`,
-    () => {
-      let data: Record<string, unknown> = { ...base, iconImage }
-      const layer = ProjectDocsLive.pipe(
-        Layer.provide(
-          Layer.mock(Markdown, {
-            root: "/tmp",
-            projectDir: () => "/tmp/demo",
-            readProjectFile: () =>
-              Effect.succeed({ data, body: "# Demo", path: "project.md" }),
-            writeProjectFile: (_org, _slug, next) =>
-              Effect.sync(() => {
-                data = next
-              })
-          })
-        )
-      )
-      return Effect.gen(function* () {
-        const docs = yield* ProjectDocs
-        const original = yield* docs.read("demo", "demo")
-        yield* docs.write("demo", "demo", {
-          ...original,
-          org: "demo",
-          key: original.key!,
-          createdBy: "owner"
-        })
-        const restored = yield* docs.read("demo", "demo")
-        expect(restored.iconImage).toEqual(iconImage)
-        expect(restored.body).toBe("# Demo")
-      }).pipe(Effect.provide(layer))
-    }
-  )
 }
 
-it.effect("loads existing projects without an iconImage", () =>
-  Effect.gen(function* () {
-    const docs = yield* ProjectDocs
-    expect((yield* docs.read("demo", "demo")).iconImage).toBeNull()
-  }).pipe(
-    Effect.provide(
-      ProjectDocsLive.pipe(
-        Layer.provide(
-          Layer.mock(Markdown, {
-            root: "/tmp",
-            projectDir: () => "/tmp/demo",
-            readProjectFile: () =>
-              Effect.succeed({ data: base, body: "", path: "project.md" })
+const docsWith = (initial: Record<string, unknown>) => {
+  let data = initial
+  const layer = ProjectDocsLive.pipe(
+    Layer.provide(
+      Layer.mock(Markdown, {
+        root: "/tmp",
+        projectDir: () => "/tmp/demo",
+        readProjectFile: () =>
+          Effect.succeed({ data, body: "# Demo", path: "project.md" }),
+        writeProjectFile: (_org, _slug, next) =>
+          Effect.sync(() => {
+            data = next
           })
-        )
-      )
+      })
     )
   )
+  return { layer, written: () => data }
+}
+
+it.effect(
+  "reads a project.md that still carries the legacy aesthetic keys",
+  () => {
+    const { layer } = docsWith(legacy)
+    return Effect.gen(function* () {
+      const docs = yield* ProjectDocs
+      const document = yield* docs.read("demo", "demo")
+      expect(document.name).toBe("Demo")
+      expect(document.body).toBe("# Demo")
+    }).pipe(Effect.provide(layer))
+  }
 )
 
-it.effect("loads existing projects without a banner", () =>
-  Effect.gen(function* () {
+it.effect("drops the legacy aesthetic keys on the next write", () => {
+  const { layer, written } = docsWith(legacy)
+  return Effect.gen(function* () {
     const docs = yield* ProjectDocs
-    expect((yield* docs.read("demo", "demo")).banner).toBeNull()
-  }).pipe(
-    Effect.provide(
-      ProjectDocsLive.pipe(
-        Layer.provide(
-          Layer.mock(Markdown, {
-            root: "/tmp",
-            projectDir: () => "/tmp/demo",
-            readProjectFile: () =>
-              Effect.succeed({ data: base, body: "", path: "project.md" })
-          })
-        )
-      )
-    )
-  )
-)
+    const original = yield* docs.read("demo", "demo")
+    yield* docs.write("demo", "demo", {
+      ...original,
+      org: "demo",
+      key: original.key!,
+      createdBy: "owner"
+    })
+    expect(written()).not.toHaveProperty("banner")
+    expect(written()).not.toHaveProperty("iconImage")
+  }).pipe(Effect.provide(layer))
+})
