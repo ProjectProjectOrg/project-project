@@ -26,6 +26,7 @@ import {
 import type { CursorPayload } from "@projectproject/shared"
 import type {
   ProjectBanner,
+  ProjectIconImage,
   AddMemberInput,
   AssignableRole,
   ConnectGithubInput,
@@ -50,7 +51,10 @@ import {
   projectMember,
   projectStatus
 } from "../db/schema"
-import { replaceProjectImageReference } from "../projectImageReferences"
+import {
+  iconImageSlots,
+  replaceProjectImageReference
+} from "../projectImageReferences"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
@@ -419,6 +423,7 @@ export const ProjectsLive = Layer.effect(
           const orgRole = yield* orgRoleForUser(organizationId, userId)
           const baseSelect = {
             banner: projectIndex.banner,
+            iconImage: projectIndex.iconImage,
             slug: projectIndex.slug,
             key: projectIndex.key,
             name: projectIndex.name,
@@ -450,7 +455,7 @@ export const ProjectsLive = Layer.effect(
                   .pipe(Effect.orDie)
           return rows.map((r) => ({
             banner: r.banner,
-            iconImage: null,
+            iconImage: r.iconImage,
             org: orgSlug,
             slug: r.slug,
             key: makeProjectKey(r.key),
@@ -626,7 +631,8 @@ export const ProjectsLive = Layer.effect(
       members: ReadonlyArray<Member>,
       connection: GithubConnection | null,
       setup: ProjectSetup,
-      banner: ProjectBanner | null = null
+      banner: ProjectBanner | null = null,
+      iconImage: ProjectIconImage | null = null
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -643,6 +649,7 @@ export const ProjectsLive = Layer.effect(
         })),
         github: connection,
         banner,
+        iconImage,
         setup,
         body
       })
@@ -817,7 +824,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             banner: file.banner ?? null,
-            iconImage: null,
+            iconImage: file.iconImage ?? null,
             setup: file.setup,
             body: file.body,
             members,
@@ -856,6 +863,26 @@ export const ProjectsLive = Layer.effect(
             })
           }
 
+          const nextIconImage =
+            input.iconImage === undefined
+              ? (file.iconImage ?? null)
+              : input.iconImage
+          if (input.iconImage !== undefined) {
+            const slots = iconImageSlots(nextIconImage)
+            yield* replaceProjectImageReference(db, {
+              orgSlug,
+              projectSlug: slug,
+              slot: "icon",
+              attachmentId: slots.icon
+            })
+            yield* replaceProjectImageReference(db, {
+              orgSlug,
+              projectSlug: slug,
+              slot: "icon_source",
+              attachmentId: slots.iconSource
+            })
+          }
+
           const nextName = input.name ?? indexRow.name
           const nextBody = input.body ?? file.body
           const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
@@ -863,6 +890,7 @@ export const ProjectsLive = Layer.effect(
 
           const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
           if (input.banner !== undefined) dbPatch.banner = nextBanner
+          if (input.iconImage !== undefined) dbPatch.iconImage = nextIconImage
           if (input.name !== undefined && input.name !== indexRow.name) {
             dbPatch.name = nextName
           }
@@ -895,7 +923,8 @@ export const ProjectsLive = Layer.effect(
             members,
             connection,
             file.setup,
-            nextBanner
+            nextBanner,
+            nextIconImage
           )
 
           return {
@@ -909,7 +938,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             banner: nextBanner,
-            iconImage: null,
+            iconImage: nextIconImage,
             setup: file.setup,
             body: nextBody,
             members,
@@ -949,7 +978,8 @@ export const ProjectsLive = Layer.effect(
             members,
             connection,
             setup,
-            file.banner ?? null
+            file.banner ?? null,
+            file.iconImage ?? null
           )
           return {
             org: orgSlug,
@@ -963,7 +993,7 @@ export const ProjectsLive = Layer.effect(
             github: connection,
             setup,
             banner: file.banner ?? null,
-            iconImage: null,
+            iconImage: file.iconImage ?? null,
             body: file.body,
             members,
             pendingMembers
@@ -1013,7 +1043,8 @@ export const ProjectsLive = Layer.effect(
           members,
           connection,
           file.setup,
-          file.banner ?? null
+          file.banner ?? null,
+          file.iconImage ?? null
         )
         return {
           org: orgSlug,
@@ -1026,7 +1057,7 @@ export const ProjectsLive = Layer.effect(
           createdAt: indexRow.createdAt,
           github: connection,
           banner: file.banner ?? null,
-          iconImage: null,
+          iconImage: file.iconImage ?? null,
           setup: file.setup,
           body: file.body,
           members,

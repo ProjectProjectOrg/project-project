@@ -6,6 +6,7 @@ import {
   deriveProjectIdentity,
   GithubConnection,
   ProjectBanner,
+  ProjectIconImage,
   NotFound,
   ProjectKey,
   Role,
@@ -71,6 +72,9 @@ const ProjectFrontmatter = Schema.Struct({
   banner: Schema.NullOr(ProjectBanner).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
+  iconImage: Schema.NullOr(ProjectIconImage).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
   org: Schema.optional(Slug),
   slug: Slug,
   key: Schema.optional(ProjectKey),
@@ -103,6 +107,7 @@ function toFrontmatter(
 ): Record<string, unknown> {
   const frontmatter: Record<string, unknown> = {
     banner: document.banner ?? null,
+    iconImage: document.iconImage ?? null,
     org: document.org,
     slug: document.slug,
     key: document.key,
