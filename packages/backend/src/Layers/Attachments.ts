@@ -385,7 +385,7 @@ export const AttachmentsLive = Layer.effect(
             )
           )
 
-        return { url }
+        return { url, contentType: row.contentType }
       })
 
     const deleteObjectIfUnshared = (

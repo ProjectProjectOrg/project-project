@@ -58,7 +58,14 @@ export const attachmentViewParams = (url: string): AttachmentViewParams => {
   }
 }
 
-export const attachmentSrc = (url: string): string => stripQuery(url)
+export const attachmentSrc = (url: string): string => {
+  const base = stripQuery(url)
+  const params = searchParams(url)
+  const width = params.get(WIDTH_PARAM)
+  return width === null
+    ? base
+    : `${base}?${WIDTH_PARAM}=${encodeURIComponent(width)}`
+}
 
 export const withAttachmentParams = (
   url: string,
