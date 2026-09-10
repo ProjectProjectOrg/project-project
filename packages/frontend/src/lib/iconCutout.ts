@@ -64,11 +64,22 @@ const cornerPatches = (image: RgbaImage) => {
   })
 }
 
+export const CUTOUT_MIN_EDGE = CORNER_PATCH * 2
+
 export const analyzeCutout = (
   image: RgbaImage,
   params: CutoutParams
 ): CutoutResult => {
   const { data, width, height } = image
+
+  if (width < CUTOUT_MIN_EDGE || height < CUTOUT_MIN_EDGE) {
+    return {
+      alpha: new Uint8ClampedArray(width * height).fill(255),
+      checks: [{ id: "minSize", passed: false }],
+      clean: false
+    }
+  }
+
   const patches = cornerPatches(image)
 
   let cornerSpread = 0
