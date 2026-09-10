@@ -8,13 +8,17 @@ import {
   useState
 } from "react"
 import { useAtomValue } from "@effect/atom-react"
-import { useReducedMotion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
 import { isImageLoaded } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
-import { bannerCropStyle, bannerFadeMask } from "./project-banner-frame"
+import {
+  bannerCropStyle,
+  bannerCrossfadeTransitions,
+  bannerFadeMask
+} from "./project-banner-frame"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 import { m } from "@/paraglide/messages"
 
@@ -119,6 +123,13 @@ export function ProjectBanner({
       )
     : undefined
   const fadeMask = bannerFadeMask(settings.fade)
+  const unblur = reduceMotion ? { duration: 0 } : transitions.morph
+  const dissolveDelay = reduceMotion
+    ? 0
+    : Math.max(transitions.morph.duration - transitions.fade.duration, 0)
+  const dissolve = reduceMotion
+    ? { duration: 0 }
+    : { ...transitions.fade, delay: dissolveDelay }
 
   return (
     <div
@@ -140,33 +151,30 @@ export function ProjectBanner({
           className="absolute inset-0 overflow-hidden"
           style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
         >
-          <img
+          <motion.img
             src={source}
             alt=""
             onError={() => setPlaceholderFailed(true)}
             className={cn(
               "absolute",
-              !cropStyle && "inset-0 size-full object-cover",
-              !reduceMotion && "transition-opacity duration-500 ease-out",
-              painted ? "opacity-0" : "opacity-100"
+              !cropStyle && "inset-0 size-full object-cover"
             )}
-            style={{
-              ...cropStyle,
+            style={{ ...cropStyle }}
+            initial={false}
+            animate={{
               filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
-              transition: reduceMotion ? undefined : "filter 500ms ease-out"
+              opacity: painted ? 0 : 1
             }}
+            transition={{ filter: unblur, opacity: dissolve }}
           />
         </div>
       )}
       {shaderImage && (
-        <div
-          className={cn(
-            "size-full",
-            !skipBlur &&
-              !reduceMotion &&
-              "transition-opacity duration-500 ease-out",
-            !skipBlur && !painted && "opacity-0"
-          )}
+        <motion.div
+          className="size-full"
+          initial={false}
+          animate={{ opacity: skipBlur || painted ? 1 : 0 }}
+          transition={skipBlur ? { duration: 0 } : dissolve}
         >
           <Suspense fallback={null}>
             {variant === "header" ? (
@@ -186,7 +194,7 @@ export function ProjectBanner({
               />
             )}
           </Suspense>
-        </div>
+        </motion.div>
       )}
     </div>
   )

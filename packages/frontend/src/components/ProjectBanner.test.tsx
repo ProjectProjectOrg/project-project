@@ -10,7 +10,10 @@ vi.mock("@/atoms/projects", () => ({
   projectBannerPreviewAtom: () => null,
   projectKey: (org: string, slug: string) => `${org}/${slug}`
 }))
-vi.mock("motion/react", () => ({ useReducedMotion: vi.fn(() => false) }))
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>()
+  return { ...actual, useReducedMotion: vi.fn(() => false) }
+})
 
 const cachedUrls = new Set<string>()
 vi.mock("@/lib/imagePreload", () => ({
