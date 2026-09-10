@@ -56,7 +56,11 @@ import {
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
-import type { OrgEverhourConfig, ProjectBanner } from "@projectproject/shared"
+import type {
+  OrgEverhourConfig,
+  ProjectBanner,
+  ProjectIconImage
+} from "@projectproject/shared"
 
 export * from "./auth-schema"
 import { invitation, organization, user } from "./auth-schema"
@@ -79,6 +83,7 @@ export const projectIndex = pgTable(
     icon: text("icon").notNull(),
     color: text("color").notNull(),
     banner: jsonb("banner").$type<ProjectBanner>(),
+    iconImage: jsonb("icon_image").$type<ProjectIconImage>(),
     nextTicketNumber: integer("next_ticket_number").notNull().default(1),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
