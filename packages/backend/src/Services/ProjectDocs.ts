@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type {
   GithubConnection,
   ProjectBanner,
+  ProjectIconImage,
   NotFound,
   ProjectKey,
   ProjectSetup,
@@ -29,6 +30,7 @@ export interface ProjectDocument {
   readonly github: GithubConnection | null
   readonly setup: ProjectSetup
   readonly banner?: ProjectBanner | null
+  readonly iconImage?: ProjectIconImage | null
   readonly body: string
 }
 
@@ -45,6 +47,7 @@ export interface ProjectDocumentWrite {
   readonly github: GithubConnection | null
   readonly setup: ProjectSetup
   readonly banner?: ProjectBanner | null
+  readonly iconImage?: ProjectIconImage | null
   readonly body: string
 }
 
