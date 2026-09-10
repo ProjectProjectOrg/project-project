@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
+import { transitions } from "@/lib/springs"
 import {
   bannerCropRect,
   bannerCropStyle,
+  bannerCrossfadeTransitions,
   bannerFadeMask
 } from "./project-banner-frame"
 
@@ -97,5 +99,30 @@ describe("bannerFadeMask", () => {
   it("keeps the flat opaque region before the fade starts, scaled by fade depth", () => {
     const mask = bannerFadeMask(0.8)
     expect(mask).toContain("rgba(0,0,0,1) 20.00%")
+  })
+})
+
+describe("bannerCrossfadeTransitions", () => {
+  it("holds the placeholder opaque while it unblurs, then dissolves over the tail", () => {
+    const { unblur, dissolve } = bannerCrossfadeTransitions(false)
+    expect(unblur).toEqual(transitions.morph)
+    expect(dissolve.duration).toBe(transitions.fade.duration)
+    expect(dissolve.delay).toBe(
+      transitions.morph.duration - transitions.fade.duration
+    )
+    expect((dissolve.delay ?? 0) + (dissolve.duration ?? 0)).toBeCloseTo(
+      transitions.morph.duration
+    )
+  })
+
+  it("never delays past the start of the unblur", () => {
+    const { dissolve } = bannerCrossfadeTransitions(false)
+    expect(dissolve.delay ?? 0).toBeGreaterThanOrEqual(0)
+  })
+
+  it("skips all animation when reduced motion is preferred", () => {
+    const { unblur, dissolve } = bannerCrossfadeTransitions(true)
+    expect(unblur).toEqual({ duration: 0 })
+    expect(dissolve).toEqual({ duration: 0, delay: 0 })
   })
 })
