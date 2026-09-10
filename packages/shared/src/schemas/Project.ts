@@ -154,8 +154,31 @@ export const ProjectBanner = Schema.Union([
 ])
 export type ProjectBanner = typeof ProjectBanner.Type
 
+export const ProjectIconCrop = ProjectBannerCrop
+
+export const ProjectIconTolerance = Schema.Int.pipe(
+  Schema.check(Schema.isBetween({ minimum: 0, maximum: 160 }))
+)
+
+export const ProjectIconImage = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("sticker"),
+    sourceAttachmentId: AttachmentId,
+    renderedAttachmentId: AttachmentId,
+    cutoutTolerance: Schema.NullOr(ProjectIconTolerance),
+    crop: ProjectIconCrop
+  }),
+  Schema.Struct({
+    type: Schema.Literal("full_bleed"),
+    sourceAttachmentId: AttachmentId,
+    crop: ProjectIconCrop
+  })
+])
+export type ProjectIconImage = typeof ProjectIconImage.Type
+
 export const Project = Schema.Struct({
   banner: Schema.NullOr(ProjectBanner),
+  iconImage: Schema.NullOr(ProjectIconImage),
   org: Slug,
   slug: Slug,
   key: ProjectKey,
@@ -216,6 +239,7 @@ export type TransferOwnershipInput = typeof TransferOwnershipInput.Type
 // changed. Empty object is allowed but a no-op on the server.
 export const UpdateProjectInput = Schema.Struct({
   banner: Schema.optional(Schema.NullOr(ProjectBanner)),
+  iconImage: Schema.optional(Schema.NullOr(ProjectIconImage)),
   name: Schema.optional(
     Schema.String.pipe(
       Schema.check(Schema.isMinLength(1)),

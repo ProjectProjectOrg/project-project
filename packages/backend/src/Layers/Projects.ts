@@ -450,6 +450,7 @@ export const ProjectsLive = Layer.effect(
                   .pipe(Effect.orDie)
           return rows.map((r) => ({
             banner: r.banner,
+            iconImage: null,
             org: orgSlug,
             slug: r.slug,
             key: makeProjectKey(r.key),
@@ -779,7 +780,8 @@ export const ProjectsLive = Layer.effect(
             color: makeProjectColor(row.color),
             createdBy: row.createdBy,
             createdAt: row.createdAt,
-            banner: null
+            banner: null,
+            iconImage: null
           }
         })
       )
@@ -815,6 +817,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             banner: file.banner ?? null,
+            iconImage: null,
             setup: file.setup,
             body: file.body,
             members,
@@ -906,6 +909,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             banner: nextBanner,
+            iconImage: null,
             setup: file.setup,
             body: nextBody,
             members,
@@ -959,6 +963,7 @@ export const ProjectsLive = Layer.effect(
             github: connection,
             setup,
             banner: file.banner ?? null,
+            iconImage: null,
             body: file.body,
             members,
             pendingMembers
@@ -1021,6 +1026,7 @@ export const ProjectsLive = Layer.effect(
           createdAt: indexRow.createdAt,
           github: connection,
           banner: file.banner ?? null,
+          iconImage: null,
           setup: file.setup,
           body: file.body,
           members,
