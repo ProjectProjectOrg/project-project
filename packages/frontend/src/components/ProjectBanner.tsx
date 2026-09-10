@@ -1,8 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useAtomValue } from "@effect/atom-react"
+import { useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
 import { isImageLoaded } from "@/lib/imagePreload"
+import { cn } from "@/lib/utils"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 import { m } from "@/paraglide/messages"
@@ -31,44 +33,42 @@ export function ProjectBanner({
   )
   const source = preview ? preview.source : bannerSource(orgSlug, banner)
   const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const reduceMotion = useReducedMotion() ?? false
+  const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
+  const [painted, setPainted] = useState(false)
+  const [placeholderFailed, setPlaceholderFailed] = useState(false)
+  const wasCached = useRef(false)
+
   useEffect(() => {
-    if (!source) return
+    setShaderImage(null)
+    setPainted(false)
+    setPlaceholderFailed(false)
+    if (!source) return undefined
+    wasCached.current = isImageLoaded(source)
     let cancelled = false
-    let frame = 0
-    let timer = 0
     const photo = new Image()
     photo.crossOrigin = "anonymous"
     photo.onload = () => {
       void photo
         .decode()
         .then(() => {
-          if (cancelled) return
-          if (isImageLoaded(source)) {
-            setImage(photo)
-            return
-          }
-          frame = requestAnimationFrame(() => {
-            timer = window.setTimeout(() => {
-              if (!cancelled) setImage(photo)
-            }, 0)
-          })
+          if (!cancelled) setShaderImage(photo)
         })
         .catch(() => undefined)
     }
     photo.src = source
     return () => {
       cancelled = true
-      cancelAnimationFrame(frame)
-      window.clearTimeout(timer)
     }
   }, [source])
-  if (
-    !source ||
-    !image ||
-    (image.src !== source && image.getAttribute("src") !== source)
-  )
-    return null
+
+  const onShaderRender = useCallback(() => setPainted(true), [])
+
+  if (!source) return null
+
+  const skipBlur = variant !== "header" || wasCached.current
+  const settings = { ...bannerDefaults, ...crop }
+
   return (
     <div
       aria-hidden="true"
@@ -83,22 +83,51 @@ export function ProjectBanner({
         opacity: bannerDefaults.overallOpacity
       }}
     >
-      <Suspense fallback={null}>
-        {variant === "header" ? (
-          <ProjectBannerPrototypeShader
-            image={image}
-            settings={{ ...bannerDefaults, ...crop }}
-            mode="mask"
-            label={m.project_banner_settings_live_preview()}
-          />
-        ) : (
-          <StaticBanner
-            key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
-            image={image}
-            settings={{ ...bannerDefaults, ...crop }}
-          />
-        )}
-      </Suspense>
+      {!skipBlur && !placeholderFailed && (
+        <img
+          src={source}
+          alt=""
+          onError={() => setPlaceholderFailed(true)}
+          className={cn(
+            "absolute inset-0 size-full object-cover",
+            !reduceMotion && "transition-opacity duration-500 ease-out",
+            painted ? "opacity-0" : "opacity-100"
+          )}
+          style={{
+            filter: painted ? "blur(0px)" : "blur(12px)",
+            transition: reduceMotion ? undefined : "filter 500ms ease-out"
+          }}
+        />
+      )}
+      {shaderImage && (
+        <div
+          className={cn(
+            "size-full",
+            !skipBlur &&
+              !reduceMotion &&
+              "transition-opacity duration-500 ease-out",
+            !skipBlur && !painted && "opacity-0"
+          )}
+        >
+          <Suspense fallback={null}>
+            {variant === "header" ? (
+              <ProjectBannerPrototypeShader
+                image={shaderImage}
+                settings={settings}
+                mode="mask"
+                label={m.project_banner_settings_live_preview()}
+                onRender={onShaderRender}
+              />
+            ) : (
+              <StaticBanner
+                key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
+                image={shaderImage}
+                settings={settings}
+              />
+            )}
+          </Suspense>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import {
   attachmentUrl,
   type ProjectBanner,
-  type ProjectBannerPreset
+  type ProjectBannerPreset,
+  withAttachmentParams
 } from "@projectproject/shared"
 import { m } from "@/paraglide/messages"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
@@ -101,6 +102,8 @@ export const bannerDefaults: BannerPrototypeSettings = {
   y: 0.65
 }
 
+export const BANNER_ATTACHMENT_WIDTH = 1024
+
 export const bannerSource = (
   orgSlug: string,
   banner: ProjectBanner | null
@@ -108,5 +111,7 @@ export const bannerSource = (
   if (banner === null) return null
   return banner.type === "preset"
     ? (bannerPresets.find((preset) => preset.id === banner.preset)?.src ?? null)
-    : attachmentUrl(orgSlug, banner.attachmentId)
+    : withAttachmentParams(attachmentUrl(orgSlug, banner.attachmentId), {
+        width: BANNER_ATTACHMENT_WIDTH
+      })
 }
