@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { preloadImage } from "@/lib/imagePreload"
+import { bannerSource } from "@/components/project-banner-presets"
 import {
   attachmentUrl,
   CreatableProjectKey,
@@ -15,8 +16,8 @@ import {
 } from "@projectproject/shared"
 
 const preloadProjectImages = (orgSlug: string, project: Project) => {
-  if (project.banner?.type === "attachment")
-    void preloadImage(attachmentUrl(orgSlug, project.banner.attachmentId))
+  const banner = bannerSource(orgSlug, project.banner)
+  if (project.banner?.type === "attachment" && banner) void preloadImage(banner)
   if (project.iconImage) {
     const id =
       project.iconImage.type === "sticker"
