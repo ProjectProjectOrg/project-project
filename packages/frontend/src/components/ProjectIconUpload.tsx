@@ -10,6 +10,7 @@ import {
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { orgStorageAtom } from "@/atoms/storage"
+import { compressImage } from "@/lib/imageCompression"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -290,7 +291,12 @@ export function ProjectIconUpload({
     if (!draft) return
 
     if (draft.treatment === "full_bleed") {
-      const uploadedSource = await upload({ file: draft.file })
+      const compressedSource = await compressImage(draft.file, {
+        maxEdge: 1024,
+        hasAlpha: draft.transparent,
+        quality: 0.85
+      })
+      const uploadedSource = await upload({ file: compressedSource })
       if (Exit.isFailure(uploadedSource)) return
       const saved = await update({
         iconImage: buildIconImage({
@@ -332,7 +338,12 @@ export function ProjectIconUpload({
       tolerance: draft.tolerance
     }
 
-    const uploadedSource = await upload({ file: draft.file })
+    const compressedSource = await compressImage(draft.file, {
+      maxEdge: 1024,
+      hasAlpha: transparent,
+      quality: 0.85
+    })
+    const uploadedSource = await upload({ file: compressedSource })
     if (Exit.isFailure(uploadedSource)) return
 
     const blob = transparent ? draft.file : await compositeToBlob(source, alpha)
