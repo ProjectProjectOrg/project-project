@@ -22,7 +22,7 @@ describe("ProjectIconDisplay", () => {
   })
 
   it("renders the rendered attachment for a sticker", () => {
-    render(
+    const { container } = render(
       <ProjectIconDisplay
         orgSlug="acme"
         icon="🌵"
@@ -30,13 +30,14 @@ describe("ProjectIconDisplay", () => {
         size={40}
       />
     )
-    expect(screen.getByRole("img").getAttribute("src")).toBe(
+    const img = container.querySelector("img")
+    expect(img?.getAttribute("src")).toBe(
       "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M3"
     )
   })
 
   it("renders the source attachment for full_bleed", () => {
-    render(
+    const { container } = render(
       <ProjectIconDisplay
         orgSlug="acme"
         icon="🌵"
@@ -50,13 +51,14 @@ describe("ProjectIconDisplay", () => {
         size={40}
       />
     )
-    expect(screen.getByRole("img").getAttribute("src")).toBe(
+    const img = container.querySelector("img")
+    expect(img?.getAttribute("src")).toBe(
       "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M2"
     )
   })
 
   it("falls back to the emoji when the image fails to load", () => {
-    render(
+    const { container } = render(
       <ProjectIconDisplay
         orgSlug="acme"
         icon="🌵"
@@ -64,8 +66,9 @@ describe("ProjectIconDisplay", () => {
         size={40}
       />
     )
-    fireEvent.error(screen.getByRole("img"))
+    const img = container.querySelector("img")
+    fireEvent.error(img!)
     expect(screen.queryByText("🌵")).not.toBeNull()
-    expect(screen.queryByRole("img")).toBeNull()
+    expect(container.querySelector("img")).toBeNull()
   })
 })
