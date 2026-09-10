@@ -123,13 +123,7 @@ export function ProjectBanner({
       )
     : undefined
   const fadeMask = bannerFadeMask(settings.fade)
-  const unblur = reduceMotion ? { duration: 0 } : transitions.morph
-  const dissolveDelay = reduceMotion
-    ? 0
-    : Math.max(transitions.morph.duration - transitions.fade.duration, 0)
-  const dissolve = reduceMotion
-    ? { duration: 0 }
-    : { ...transitions.fade, delay: dissolveDelay }
+  const { unblur, dissolve } = bannerCrossfadeTransitions(reduceMotion)
 
   return (
     <div

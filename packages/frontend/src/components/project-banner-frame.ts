@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react"
+import type { Transition } from "motion/react"
 import { transitions } from "@/lib/springs"
 
 export type BannerFrameCrop = {
@@ -86,12 +87,8 @@ export const bannerFadeMask = (fadeDepth: number): string => {
 }
 
 export type BannerCrossfadeTweens = {
-  readonly unblur: { readonly duration: number; readonly ease?: unknown }
-  readonly dissolve: {
-    readonly duration: number
-    readonly ease?: unknown
-    readonly delay: number
-  }
+  readonly unblur: Transition
+  readonly dissolve: Transition
 }
 
 export const bannerCrossfadeTransitions = (
