@@ -29,6 +29,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
 import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
+import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
   SidebarDrawerAutoCloseProvider,
@@ -57,7 +58,7 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import type { User } from "@projectproject/shared"
+import type { ProjectIconImage, User } from "@projectproject/shared"
 import type { LucideIcon } from "lucide-react"
 
 export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
@@ -250,6 +251,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
                   slug={p.slug}
                   name={p.name}
                   icon={p.icon}
+                  iconImage={p.iconImage}
                   active={p.slug === activeSlug}
                 />
               ))}
@@ -270,12 +272,14 @@ function ProjectsGroupRow({
   slug,
   name,
   icon,
+  iconImage,
   active
 }: {
   orgSlug: string
   slug: string
   name: string
   icon: string
+  iconImage: ProjectIconImage | null
   active: boolean
 }) {
   const reduceMotion = useReducedMotion()
@@ -306,7 +310,12 @@ function ProjectsGroupRow({
             !active && "opacity-60 grayscale"
           )}
         >
-          {icon}
+          <ProjectIconDisplay
+            orgSlug={orgSlug}
+            icon={icon}
+            iconImage={iconImage}
+            size={20}
+          />
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>

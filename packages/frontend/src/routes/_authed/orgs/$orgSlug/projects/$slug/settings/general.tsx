@@ -78,6 +78,7 @@ function GeneralSettings() {
                   orgSlug={orgSlug}
                   slug={project.slug}
                   icon={project.icon}
+                  iconImage={project.iconImage}
                   color={project.color}
                   canEdit={canEdit}
                   size="settings"
@@ -102,6 +103,7 @@ function GeneralSettings() {
               orgSlug={orgSlug}
               slug={project.slug}
               icon={project.icon}
+              iconImage={project.iconImage}
               color={project.color}
               canEdit={canEdit}
               size="settings"

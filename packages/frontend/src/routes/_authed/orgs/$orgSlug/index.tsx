@@ -138,7 +138,9 @@ function ProjectTile({
       />
       <div className="flex items-start justify-between gap-2">
         <ProjectIconTile
+          orgSlug={orgSlug}
           icon={project.icon}
+          iconImage={project.iconImage}
           color={project.color}
           size="sm"
           seed={project.slug}
