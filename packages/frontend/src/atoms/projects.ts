@@ -5,11 +5,26 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { preloadImage } from "@/lib/imagePreload"
 import {
+  attachmentUrl,
   CreatableProjectKey,
+  type Project,
   type ProjectSetup,
   type UpdateProjectInput as UpdateProjectInputShared
 } from "@projectproject/shared"
+
+const preloadProjectImages = (orgSlug: string, project: Project) => {
+  if (project.banner?.type === "attachment")
+    void preloadImage(attachmentUrl(orgSlug, project.banner.attachmentId))
+  if (project.iconImage) {
+    const id =
+      project.iconImage.type === "sticker"
+        ? project.iconImage.renderedAttachmentId
+        : project.iconImage.sourceAttachmentId
+    void preloadImage(attachmentUrl(orgSlug, id))
+  }
+}
 
 // Atom.family keys must compare by value, not reference. Slugs are DNS-safe
 // (no `/`), so a slash is an unambiguous separator between org and project.
@@ -28,7 +43,9 @@ const projectsListBaseAtom = Atom.family((orgSlug: string) =>
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.list({ params: { orgSlug } })
+        const projects = yield* client.projects.list({ params: { orgSlug } })
+        for (const project of projects) preloadProjectImages(orgSlug, project)
+        return projects
       })
     )
     .pipe(Atom.setIdleTTL("1 minute"))
@@ -42,7 +59,11 @@ export const projectBaseAtom = Atom.family((key: string) => {
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.get({ params: { orgSlug, slug } })
+        const project = yield* client.projects.get({
+          params: { orgSlug, slug }
+        })
+        preloadProjectImages(orgSlug, project)
+        return project
       })
     )
     .pipe(Atom.setIdleTTL("2 minutes"))

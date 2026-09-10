@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
+import { isImageLoaded } from "@/lib/imagePreload"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 import { m } from "@/paraglide/messages"
@@ -43,6 +44,10 @@ export function ProjectBanner({
         .decode()
         .then(() => {
           if (cancelled) return
+          if (isImageLoaded(source)) {
+            setImage(photo)
+            return
+          }
           frame = requestAnimationFrame(() => {
             timer = window.setTimeout(() => {
               if (!cancelled) setImage(photo)
