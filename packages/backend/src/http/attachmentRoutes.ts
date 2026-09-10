@@ -1,6 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { parseAttachmentUrl } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 import sharp from "sharp"
 import { toWebHeaders } from "./toWebHeaders"
 import {
@@ -32,6 +33,27 @@ const resizeTo = (bytes: Uint8Array, width: number) =>
     sharp(bytes).resize({ width, withoutEnlargement: true }).toBuffer()
   )
 
+const streamOriginal = (
+  body: ReadableStream<Uint8Array>,
+  contentType: string,
+  upstreamEtag: string | null
+) => {
+  const etag = deriveAttachmentEtag(upstreamEtag, null)
+  return HttpServerResponse.stream(
+    Stream.fromReadableStream({
+      evaluate: () => body,
+      onError: (cause) => cause
+    }),
+    {
+      contentType,
+      headers: {
+        "cache-control": IMMUTABLE_CACHE_CONTROL,
+        ...(etag !== null ? { etag } : {})
+      }
+    }
+  )
+}
+
 const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
   function* (signed: string, contentType: string, rawWidth: string | null) {
     const response = yield* fetchUpstream(signed)
@@ -39,12 +61,17 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
       return notFound
     }
 
+    const upstreamEtag = response.headers.get("etag")
+    const rung = resolveAttachmentWidthRung(rawWidth)
+
+    if (rung === null) {
+      return streamOriginal(response.body, contentType, upstreamEtag)
+    }
+
     const buffer = yield* readBytes(response)
     if (buffer === null) return notFound
 
     const original = new Uint8Array(buffer)
-    const upstreamEtag = response.headers.get("etag")
-    const rung = resolveAttachmentWidthRung(rawWidth)
 
     const serveOriginal = () => {
       const etag = deriveAttachmentEtag(upstreamEtag, null)
@@ -56,8 +83,6 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
         }
       })
     }
-
-    if (rung === null) return serveOriginal()
 
     const metadata = yield* readMetadata(original)
     if (metadata === null) return notFound
