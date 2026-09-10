@@ -4,6 +4,7 @@ import { useReducedMotion } from "motion/react"
 import { ProjectBanner } from "./ProjectBanner"
 import { bannerDefaults } from "./project-banner-presets"
 import { bannerFadeMask } from "./project-banner-frame"
+import { resetBannerRenderCacheHandle } from "@/lib/bannerRenderCache"
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }))
 vi.mock("@/atoms/projects", () => ({
@@ -36,9 +37,163 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  resetBannerRenderCacheHandle()
   vi.mocked(useReducedMotion).mockReturnValue(false)
+  restoreLayout()
   photos.length = 0
   cachedUrls.clear()
+})
+
+const attachmentBanner = (placeholder: string | null) =>
+  ({
+    type: "attachment",
+    attachmentId: "test-attachment-id",
+    crop: { x: 0.5, y: 0.5, zoom: 1 },
+    placeholder
+  }) as never
+
+const stubRenderCache = (hit: Blob | null) => {
+  const cache = {
+    match: () =>
+      Promise.resolve(hit ? { blob: () => Promise.resolve(hit) } : undefined),
+    put: vi.fn(() => Promise.resolve()),
+    keys: () => Promise.resolve([]),
+    delete: vi.fn(() => Promise.resolve(true))
+  }
+  vi.stubGlobal("caches", { open: () => Promise.resolve(cache) })
+  resetBannerRenderCacheHandle()
+  vi.stubGlobal("URL", {
+    ...URL,
+    createObjectURL: () => "blob:cached-render",
+    revokeObjectURL: () => undefined
+  })
+  return cache
+}
+
+const stubLayout = () => {
+  for (const [prop, value] of [
+    ["clientWidth", 900],
+    ["clientHeight", 160]
+  ] as const) {
+    Object.defineProperty(HTMLElement.prototype, prop, {
+      configurable: true,
+      get: () => value
+    })
+  }
+}
+
+const restoreLayout = () => {
+  for (const prop of ["clientWidth", "clientHeight"]) {
+    if (Object.hasOwn(HTMLElement.prototype, prop))
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>)[prop]
+  }
+}
+
+const trackImages = () => {
+  vi.stubGlobal(
+    "Image",
+    class {
+      constructor() {
+        photos.push(this as unknown as HTMLImageElement)
+      }
+      src = ""
+      crossOrigin = ""
+      naturalWidth = 1200
+      naturalHeight = 400
+      onload: (() => void) | null = null
+      decode = () => Promise.reject(new Error("skip shader"))
+    }
+  )
+}
+
+const sizedResizeObserver = () => {
+  const callbacks: ResizeObserverCallback[] = []
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+  )
+  return async () => {
+    for (const callback of callbacks) {
+      await act(async () => {
+        callback(
+          [{ contentRect: { width: 900, height: 160 } } as ResizeObserverEntry],
+          {} as ResizeObserver
+        )
+      })
+    }
+  }
+}
+
+const photoRequests = () =>
+  photos.filter((photo) => photo.src.startsWith("/api/"))
+
+it("paints the cached shader render and never fetches the photo", async () => {
+  stubLayout()
+  stubRenderCache(new Blob(["rendered"], { type: "image/webp" }))
+  trackImages()
+  const resize = sizedResizeObserver()
+
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      banner={attachmentBanner("data:image/webp;base64,UklGRhh")}
+    />
+  )
+  await resize()
+  await act(async () => {})
+
+  const img = container.querySelector("img")
+  expect(img?.getAttribute("src")).toBe("blob:cached-render")
+  expect(photoRequests()).toHaveLength(0)
+  expect(container.querySelector("canvas")).toBeNull()
+})
+
+it("falls through to the photo and shader when the render cache misses", async () => {
+  stubLayout()
+  stubRenderCache(null)
+  trackImages()
+  const resize = sizedResizeObserver()
+
+  render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      banner={attachmentBanner("data:image/webp;base64,UklGRhh")}
+    />
+  )
+  await resize()
+  await act(async () => {})
+
+  expect(photoRequests()).toHaveLength(1)
+})
+
+it("still renders when Cache Storage is unavailable", async () => {
+  stubLayout()
+  vi.stubGlobal("caches", undefined)
+  resetBannerRenderCacheHandle()
+  trackImages()
+  const resize = sizedResizeObserver()
+
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      banner={attachmentBanner("data:image/webp;base64,UklGRhh")}
+    />
+  )
+  await resize()
+  await act(async () => {})
+
+  expect(photoRequests()).toHaveLength(1)
+  expect(container.querySelector("img")).not.toBeNull()
 })
 
 it("keeps project content visible while the banner image is pending or fails", async () => {
