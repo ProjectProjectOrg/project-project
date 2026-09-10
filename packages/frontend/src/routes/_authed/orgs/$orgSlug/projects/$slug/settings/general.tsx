@@ -11,7 +11,7 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { Markdown } from "@/components/Markdown"
-import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
+import { ProjectAppearanceGroup } from "@/components/ProjectAppearanceControls"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProjectRole } from "@/lib/projectRole"
@@ -70,20 +70,14 @@ function GeneralSettings() {
               {m.project_settings_appearance_label()}
             </span>
             <div className="flex flex-col gap-x-6 gap-y-4 sm:flex-row sm:items-start">
-              <div className="flex flex-col gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {m.project_settings_identity_label()}
-                </span>
-                <ProjectIdentityEditor
-                  orgSlug={orgSlug}
-                  slug={project.slug}
-                  icon={project.icon}
-                  iconImage={project.iconImage}
-                  color={project.color}
-                  canEdit={canEdit}
-                  size="settings"
-                />
-              </div>
+              <ProjectAppearanceGroup
+                orgSlug={orgSlug}
+                slug={project.slug}
+                icon={project.icon}
+                iconImage={project.iconImage}
+                color={project.color}
+                canEdit={canEdit}
+              />
               <Suspense fallback={null}>
                 <BannerSettings
                   key={key}
@@ -95,20 +89,14 @@ function GeneralSettings() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">
-              {m.project_settings_identity_label()}
-            </span>
-            <ProjectIdentityEditor
-              orgSlug={orgSlug}
-              slug={project.slug}
-              icon={project.icon}
-              iconImage={project.iconImage}
-              color={project.color}
-              canEdit={canEdit}
-              size="settings"
-            />
-          </div>
+          <ProjectAppearanceGroup
+            orgSlug={orgSlug}
+            slug={project.slug}
+            icon={project.icon}
+            iconImage={project.iconImage}
+            color={project.color}
+            canEdit={canEdit}
+          />
         )}
         <form onSubmit={onNameSubmit} className="grid gap-2">
           <label className="text-sm font-medium" htmlFor="project-name">

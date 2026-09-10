@@ -23,7 +23,7 @@ import {
   SprintSubtitle
 } from "@/components/sprints/SprintHeaderFields"
 import { GithubChip } from "@/components/GithubChip"
-import { ProjectIdentityEditor } from "@/components/ProjectIdentityEditor"
+import { ProjectTile } from "@/components/ProjectTile"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,15 +137,16 @@ export function ProjectHeader({
               <div className="-mt-1 size-10 shrink-0 animate-pulse rounded-lg bg-muted" />
             )
           ) : (
-            <ProjectIdentityEditor
-              orgSlug={orgSlug}
-              slug={slug}
-              icon={project.icon}
-              iconImage={project.iconImage}
-              color={project.color}
-              canEdit={canEdit}
-              size="header"
-            />
+            <div className="-mt-1 w-fit shrink-0">
+              <ProjectTile
+                orgSlug={orgSlug}
+                icon={project.icon}
+                iconImage={project.iconImage}
+                color={project.color}
+                size="md"
+                seed={slug}
+              />
+            </div>
           )}
         </MorphSlot>
 
