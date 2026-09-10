@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest"
+import { useReducedMotion } from "motion/react"
 import { ProjectBanner } from "./ProjectBanner"
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }))
@@ -7,12 +8,20 @@ vi.mock("@/atoms/projects", () => ({
   projectBannerPreviewAtom: () => null,
   projectKey: (org: string, slug: string) => `${org}/${slug}`
 }))
+vi.mock("motion/react", () => ({ useReducedMotion: vi.fn(() => false) }))
+
+const cachedUrls = new Set<string>()
+vi.mock("@/lib/imagePreload", () => ({
+  isImageLoaded: (url: string) => cachedUrls.has(url)
+}))
 
 const photos: HTMLImageElement[] = []
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.mocked(useReducedMotion).mockReturnValue(false)
   photos.length = 0
+  cachedUrls.clear()
 })
 
 it("keeps project content visible while the banner image is pending or fails", async () => {
@@ -49,4 +58,80 @@ it("keeps project content visible while the banner image is pending or fails", a
   })
   expect(screen.getByText("Project content")).toBeTruthy()
   expect(container.querySelector("canvas")).toBeNull()
+})
+
+it("paints a blurred placeholder immediately on the card variant, sized for a small strip", () => {
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="card"
+      banner={{
+        type: "preset",
+        preset: "sunset",
+        crop: { x: 0.5, y: 0.5, zoom: 1 }
+      }}
+    />
+  )
+  const img = container.querySelector("img")
+  expect(img).not.toBeNull()
+  expect(img?.style.filter).toBe("blur(6px)")
+  expect(container.querySelector("canvas")).toBeNull()
+})
+
+it("paints a blurred placeholder immediately on the row variant, sized for a tiny strip", () => {
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="row"
+      banner={{
+        type: "preset",
+        preset: "sunset",
+        crop: { x: 0.5, y: 0.5, zoom: 1 }
+      }}
+    />
+  )
+  const img = container.querySelector("img")
+  expect(img).not.toBeNull()
+  expect(img?.style.filter).toBe("blur(3px)")
+})
+
+it("skips the blurred placeholder when the banner was already loaded this session", () => {
+  cachedUrls.add("/api/attachments/org/test-attachment-id?w=1024")
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="card"
+      banner={
+        {
+          type: "attachment",
+          attachmentId: "test-attachment-id",
+          crop: { x: 0.5, y: 0.5, zoom: 1 }
+        } as never
+      }
+    />
+  )
+  expect(container.querySelector("img")).toBeNull()
+})
+
+it("skips the animated crossfade when reduced motion is preferred", () => {
+  vi.mocked(useReducedMotion).mockReturnValue(true)
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="row"
+      banner={{
+        type: "preset",
+        preset: "sunset",
+        crop: { x: 0.5, y: 0.5, zoom: 1 }
+      }}
+    />
+  )
+  const img = container.querySelector("img")
+  expect(img).not.toBeNull()
+  expect(img?.className).not.toContain("transition-opacity")
+  expect(img?.style.transition).toBe("")
 })
