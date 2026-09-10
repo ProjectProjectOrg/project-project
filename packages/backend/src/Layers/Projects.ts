@@ -869,18 +869,22 @@ export const ProjectsLive = Layer.effect(
               : input.iconImage
           if (input.iconImage !== undefined) {
             const slots = iconImageSlots(nextIconImage)
-            yield* replaceProjectImageReference(db, {
-              orgSlug,
-              projectSlug: slug,
-              slot: "icon",
-              attachmentId: slots.icon
-            })
-            yield* replaceProjectImageReference(db, {
-              orgSlug,
-              projectSlug: slug,
-              slot: "icon_source",
-              attachmentId: slots.iconSource
-            })
+            yield* db.transaction(() =>
+              Effect.gen(function* () {
+                yield* replaceProjectImageReference(db, {
+                  orgSlug,
+                  projectSlug: slug,
+                  slot: "icon",
+                  attachmentId: slots.icon
+                })
+                yield* replaceProjectImageReference(db, {
+                  orgSlug,
+                  projectSlug: slug,
+                  slot: "icon_source",
+                  attachmentId: slots.iconSource
+                })
+              })
+            )
           }
 
           const nextName = input.name ?? indexRow.name
