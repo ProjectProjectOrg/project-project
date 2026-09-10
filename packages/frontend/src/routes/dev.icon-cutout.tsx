@@ -92,7 +92,7 @@ function IconCutoutProbe() {
   useEffect(() => {
     if (!selected) return
     let cancelled = false
-    loadImageData(selected).then((data) => {
+    void loadImageData(selected).then((data) => {
       if (!cancelled) setImage(data)
     })
     return () => {

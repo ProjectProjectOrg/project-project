@@ -167,6 +167,7 @@ function ValueDisplay({
       setInputValue(String(values[editingIndex]))
       requestAnimationFrame(() => inputRef.current?.select())
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingIndex])
 
   const commitEdit = useCallback(
@@ -500,6 +501,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       }
       initialSyncDone.current = true
       setReady(true)
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     // --- Track width measurement (resize only) ---
