@@ -98,12 +98,13 @@ export function ProjectTile({
         pixelSize={size === "xs" ? 1 : 2}
         shape="square"
       />
-      <span aria-hidden className="relative" style={{ filter: EMOJI_SHADOW }}>
+      <span aria-hidden className="relative">
         <ProjectIconDisplay
           orgSlug={orgSlug}
           icon={icon}
           iconImage={iconImage}
           size={SIZE_TO_PX[size]}
+          emojiStyle={{ filter: EMOJI_SHADOW }}
         />
       </span>
     </span>

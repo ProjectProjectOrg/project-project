@@ -13,6 +13,11 @@ const sticker = {
   crop: { x: 0.5, y: 0.5, zoom: 1 }
 } as ProjectIconImage
 
+const otherSticker = {
+  ...sticker,
+  renderedAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M9"
+} as ProjectIconImage
+
 describe("ProjectIconDisplay", () => {
   it("renders the emoji when there is no image", () => {
     render(
@@ -70,5 +75,32 @@ describe("ProjectIconDisplay", () => {
     fireEvent.error(img!)
     expect(screen.queryByText("🌵")).not.toBeNull()
     expect(container.querySelector("img")).toBeNull()
+  })
+
+  it("resets the failed state once the resolved attachment id changes", () => {
+    const { container, rerender } = render(
+      <ProjectIconDisplay
+        orgSlug="acme"
+        icon="🌵"
+        iconImage={sticker}
+        size={40}
+      />
+    )
+    const img = container.querySelector("img")
+    fireEvent.error(img!)
+    expect(screen.queryByText("🌵")).not.toBeNull()
+
+    rerender(
+      <ProjectIconDisplay
+        orgSlug="acme"
+        icon="🌵"
+        iconImage={otherSticker}
+        size={40}
+      />
+    )
+    const nextImg = container.querySelector("img")
+    expect(nextImg?.getAttribute("src")).toBe(
+      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M9"
+    )
   })
 })

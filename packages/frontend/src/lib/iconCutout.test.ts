@@ -102,12 +102,11 @@ describe("analyzeCutout", () => {
     expect(result.clean).toBe(false)
   })
 
-  it("does not produce NaN measurements for an image smaller than a corner patch", () => {
+  it("rejects images too small for corner sampling without producing NaN", () => {
     const tiny = solid(8, 8, () => [255, 255, 255, 255])
     const result = analyzeCutout(tiny, { tolerance: 24 })
-    expect(result.checks.find((c) => c.id === "cornerSpread")?.passed).toBe(
-      true
-    )
-    expect([...result.alpha].every((a) => Number.isFinite(a))).toBe(true)
+    expect(result.clean).toBe(false)
+    expect(result.checks.find((c) => c.id === "minSize")?.passed).toBe(false)
+    expect(result.alpha.every((value) => Number.isFinite(value))).toBe(true)
   })
 })
