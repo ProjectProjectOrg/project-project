@@ -14,6 +14,7 @@ import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
 import { isImageLoaded } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
+import { bannerCropStyle, bannerFadeMask } from "./project-banner-frame"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 import { m } from "@/paraglide/messages"
 
@@ -43,15 +44,39 @@ export function ProjectBanner({
   const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
   const reduceMotion = useReducedMotion() ?? false
   const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
+  const [naturalSize, setNaturalSize] = useState<{
+    width: number
+    height: number
+  } | null>(null)
   const [painted, setPainted] = useState(false)
   const [placeholderFailed, setPlaceholderFailed] = useState(false)
   const wasCached = useMemo(
     () => (source ? isImageLoaded(source) : false),
     [source]
   )
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    const node = containerRef.current
+    if (!node) return undefined
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      setContainerSize((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height }
+      )
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     setShaderImage(null)
+    setNaturalSize(null)
     setPainted(false)
     setPlaceholderFailed(false)
     if (!source) return undefined
@@ -59,6 +84,11 @@ export function ProjectBanner({
     const photo = new Image()
     photo.crossOrigin = "anonymous"
     photo.onload = () => {
+      if (!cancelled)
+        setNaturalSize({
+          width: photo.naturalWidth,
+          height: photo.naturalHeight
+        })
       void photo
         .decode()
         .then(() => {
@@ -79,9 +109,20 @@ export function ProjectBanner({
   const skipBlur = wasCached
   const settings = { ...bannerDefaults, ...crop }
   const blurRadius = variant === "header" ? 12 : variant === "card" ? 6 : 3
+  const cropStyle = naturalSize
+    ? bannerCropStyle(
+        naturalSize.width,
+        naturalSize.height,
+        containerSize.width,
+        containerSize.height,
+        crop
+      )
+    : undefined
+  const fadeMask = bannerFadeMask(settings.fade)
 
   return (
     <div
+      ref={containerRef}
       aria-hidden="true"
       className={`pointer-events-none absolute -z-10 overflow-hidden rounded-t-[inherit] ${variant === "header" ? "-inset-x-6 -top-6" : "inset-x-0 top-0"} ${waiting ? "animate-pulse" : ""}`}
       style={{
@@ -95,20 +136,27 @@ export function ProjectBanner({
       }}
     >
       {!skipBlur && !placeholderFailed && (
-        <img
-          src={source}
-          alt=""
-          onError={() => setPlaceholderFailed(true)}
-          className={cn(
-            "absolute inset-0 size-full object-cover",
-            !reduceMotion && "transition-opacity duration-500 ease-out",
-            painted ? "opacity-0" : "opacity-100"
-          )}
-          style={{
-            filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
-            transition: reduceMotion ? undefined : "filter 500ms ease-out"
-          }}
-        />
+        <div
+          className="absolute inset-0 overflow-hidden"
+          style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
+        >
+          <img
+            src={source}
+            alt=""
+            onError={() => setPlaceholderFailed(true)}
+            className={cn(
+              "absolute",
+              !cropStyle && "inset-0 size-full object-cover",
+              !reduceMotion && "transition-opacity duration-500 ease-out",
+              painted ? "opacity-0" : "opacity-100"
+            )}
+            style={{
+              ...cropStyle,
+              filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
+              transition: reduceMotion ? undefined : "filter 500ms ease-out"
+            }}
+          />
+        </div>
       )}
       {shaderImage && (
         <div
