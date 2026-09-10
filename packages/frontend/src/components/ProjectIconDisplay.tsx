@@ -34,7 +34,6 @@ export function ProjectIconDisplay({
     <img
       src={attachmentUrl(orgSlug, id)}
       alt=""
-      role="img"
       width={size}
       height={size}
       onError={() => setFailed(true)}
