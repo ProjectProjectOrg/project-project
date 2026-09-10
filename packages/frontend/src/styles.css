@@ -59,6 +59,7 @@
   --dither-front: var(--ring);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --focus-ring: oklch(0.693 0.161 265.2);
+  --icon-sticker-outline: oklch(0 0 0 / 0.55);
 }
 
 .dark {
@@ -85,6 +86,7 @@
   --ring: oklch(0.556 0 0);
   --dither-front: var(--ring);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
+  --icon-sticker-outline: oklch(1 0 0 / 0.9);
 }
 
 @theme inline {
