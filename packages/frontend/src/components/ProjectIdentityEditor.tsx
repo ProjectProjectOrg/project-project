@@ -8,6 +8,7 @@ import {
 } from "@projectproject/shared"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
+import { ProjectIconUpload } from "@/components/ProjectIconUpload"
 import { ProjectTile } from "@/components/ProjectTile"
 import {
   EmojiPicker,
@@ -111,6 +112,13 @@ export function ProjectIdentityEditor({
             />
             <EmojiPickerContent />
           </EmojiPicker>
+          <div className="mt-2">
+            <ProjectIconUpload
+              orgSlug={orgSlug}
+              slug={slug}
+              iconImage={iconImage}
+            />
+          </div>
           {error ? (
             <div role="alert" className="mt-2 text-xs text-destructive">
               {m.project_identity_error()}
