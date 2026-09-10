@@ -23,6 +23,7 @@ const project = {
   icon: "🔧",
   color: "#aaaaaa",
   banner: null,
+  iconImage: null,
   createdBy: "user-1",
   createdAt: org.createdAt
 }
