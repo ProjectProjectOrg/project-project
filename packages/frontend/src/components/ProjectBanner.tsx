@@ -1,8 +1,8 @@
 import {
-  lazy,
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -11,6 +11,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { motion, useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
+import { readBannerRender, type BannerRenderKey } from "@/lib/bannerRenderCache"
 import { isImageLoaded } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
@@ -19,14 +20,10 @@ import {
   bannerCrossfadeTransitions,
   bannerFadeMask
 } from "./project-banner-frame"
-import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
-import { m } from "@/paraglide/messages"
+import { CachedShaderBanner } from "./CachedShaderBanner"
 
-const ProjectBannerPrototypeShader = lazy(() =>
-  import("./ProjectBannerPrototypeShader").then((module) => ({
-    default: module.ProjectBannerPrototypeShader
-  }))
-)
+const devicePixelRatio = () =>
+  typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)
 
 export function ProjectBanner({
   orgSlug,
@@ -64,7 +61,44 @@ export function ProjectBanner({
     [source]
   )
   const containerRef = useRef<HTMLDivElement>(null)
+  const requestedSourceRef = useRef<string | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+  const [cachedRender, setCachedRender] = useState<string | null>(null)
+  const [lookupSettled, setLookupSettled] = useState(false)
+  const [measured, setMeasured] = useState(false)
+
+  const cacheKey = useMemo<BannerRenderKey | null>(
+    () =>
+      source === null || preview !== null || containerSize.width <= 0
+        ? null
+        : {
+            project: projectKey(orgSlug, slug),
+            source,
+            variant,
+            crop: { x: crop.x, y: crop.y, zoom: crop.zoom },
+            width: containerSize.width,
+            pixelRatio: devicePixelRatio()
+          },
+    [
+      source,
+      preview,
+      containerSize.width,
+      orgSlug,
+      slug,
+      variant,
+      crop.x,
+      crop.y,
+      crop.zoom
+    ]
+  )
+
+  useLayoutEffect(() => {
+    const node = containerRef.current
+    const width = Math.round(node?.clientWidth ?? 0)
+    const height = Math.round(node?.clientHeight ?? 0)
+    if (width > 0 && height > 0) setContainerSize({ width, height })
+    setMeasured(true)
+  }, [])
 
   useEffect(() => {
     const node = containerRef.current
@@ -84,11 +118,38 @@ export function ProjectBanner({
   }, [])
 
   useEffect(() => {
+    if (!measured) return undefined
+    setCachedRender(null)
+    setLookupSettled(cacheKey === null)
+    if (cacheKey === null) return undefined
+    let cancelled = false
+    let objectUrl: string | null = null
+    void readBannerRender(cacheKey).then((blob) => {
+      if (cancelled) return
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob)
+        setCachedRender(objectUrl)
+      }
+      setLookupSettled(true)
+    })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [cacheKey, measured])
+
+  useEffect(() => {
+    requestedSourceRef.current = null
     setShaderImage(null)
     setNaturalSize(null)
     setPainted(false)
     setPlaceholderFailed(false)
-    if (!source) return undefined
+  }, [source])
+
+  useEffect(() => {
+    if (!source || !lookupSettled || cachedRender !== null) return undefined
+    if (requestedSourceRef.current === source) return undefined
+    requestedSourceRef.current = source
     let cancelled = false
     const photo = new Image()
     photo.crossOrigin = "anonymous"
@@ -109,7 +170,7 @@ export function ProjectBanner({
     return () => {
       cancelled = true
     }
-  }, [source])
+  }, [source, lookupSettled, cachedRender])
 
   useEffect(() => {
     setPlaceholderSize(null)
@@ -164,122 +225,52 @@ export function ProjectBanner({
         opacity: bannerDefaults.overallOpacity
       }}
     >
-      {!skipBlur && !placeholderFailed && (
-        <div
-          className="absolute inset-0 overflow-hidden"
-          style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
-        >
-          <motion.img
-            src={placeholder ?? source}
-            alt=""
-            onError={() => setPlaceholderFailed(true)}
-            className={cn(
-              "absolute",
-              !cropStyle && "inset-0 size-full object-cover"
-            )}
-            style={{ ...cropStyle }}
-            initial={false}
-            animate={{
-              filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
-              opacity: painted ? 0 : 1
-            }}
-            transition={{ filter: unblur, opacity: dissolve }}
-          />
-        </div>
-      )}
-      {shaderImage && (
-        <motion.div
-          className="size-full"
-          initial={false}
-          animate={{ opacity: skipBlur || painted ? 1 : 0 }}
-          transition={skipBlur ? { duration: 0 } : dissolve}
-        >
-          <Suspense fallback={null}>
-            {variant === "header" ? (
-              <ProjectBannerPrototypeShader
-                image={shaderImage}
-                settings={settings}
-                mode="mask"
-                label={m.project_banner_settings_live_preview()}
-                onRender={onShaderRender}
-              />
-            ) : (
-              <StaticBanner
-                key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
-                image={shaderImage}
-                settings={settings}
-                onFirstRender={onShaderRender}
-              />
-            )}
-          </Suspense>
-        </motion.div>
-      )}
-    </div>
-  )
-}
-
-function StaticBanner({
-  image,
-  settings,
-  onFirstRender
-}: {
-  image: HTMLImageElement
-  settings: BannerPrototypeSettings
-  onFirstRender?: () => void
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const [bitmap, setBitmap] = useState<{
-    src: string
-    width: number
-    height: number
-  } | null>(null)
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return undefined
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      const width = Math.round(entry.contentRect.width)
-      const height = Math.round(entry.contentRect.height)
-      setSize((current) =>
-        current.width === width && current.height === height
-          ? current
-          : { width, height }
-      )
-    })
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-  const capture = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      onFirstRender?.()
-      if (
-        canvas.width > 0 &&
-        canvas.height > 0 &&
-        size.width > 0 &&
-        size.height > 0
-      )
-        setBitmap({ src: canvas.toDataURL("image/png"), ...size })
-    },
-    [size, onFirstRender]
-  )
-  return (
-    <div ref={ref} className="size-full">
-      {bitmap &&
-      bitmap.width === size.width &&
-      bitmap.height === size.height ? (
-        <img src={bitmap.src} alt="" className="block size-full" />
+      {cachedRender !== null ? (
+        <img src={cachedRender} alt="" className="block size-full" />
       ) : (
-        size.width > 0 &&
-        size.height > 0 && (
-          <ProjectBannerPrototypeShader
-            image={image}
-            settings={settings}
-            mode="mask"
-            label={m.project_banner_settings_live_preview()}
-            onRender={capture}
-          />
-        )
+        <>
+          {!skipBlur && !placeholderFailed && (
+            <div
+              className="absolute inset-0 overflow-hidden"
+              style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
+            >
+              <motion.img
+                src={placeholder ?? source}
+                alt=""
+                onError={() => setPlaceholderFailed(true)}
+                className={cn(
+                  "absolute",
+                  !cropStyle && "inset-0 size-full object-cover"
+                )}
+                style={{ ...cropStyle }}
+                initial={false}
+                animate={{
+                  filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
+                  opacity: painted ? 0 : 1
+                }}
+                transition={{ filter: unblur, opacity: dissolve }}
+              />
+            </div>
+          )}
+          {shaderImage && (
+            <motion.div
+              className="size-full"
+              initial={false}
+              animate={{ opacity: skipBlur || painted ? 1 : 0 }}
+              transition={skipBlur ? { duration: 0 } : dissolve}
+            >
+              <Suspense fallback={null}>
+                <CachedShaderBanner
+                  key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
+                  image={shaderImage}
+                  settings={settings}
+                  cacheKey={cacheKey}
+                  onFirstRender={onShaderRender}
+                />
+              </Suspense>
+            </motion.div>
+          )}
+        </>
       )}
     </div>
   )
