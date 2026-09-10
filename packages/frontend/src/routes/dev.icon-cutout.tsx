@@ -7,6 +7,7 @@ import {
   type CutoutResult,
   type MatchMode
 } from "@/dev/icon-cutout/cutout"
+import { Slider } from "@/components/ui/slider"
 
 export const Route = createFileRoute("/dev/icon-cutout")({
   component: IconCutoutProbe
@@ -20,7 +21,10 @@ const fixtureUrls = import.meta.glob("../dev/icon-cutout/fixtures/*.png", {
 
 const fixtures = Object.entries(fixtureUrls)
   .map(([path, url]) => ({
-    name: path.split("/").pop()!.replace(/\.png$/, ""),
+    name: path
+      .split("/")
+      .pop()!
+      .replace(/\.png$/, ""),
     url
   }))
   .sort((a, b) => a.name.localeCompare(b.name))
@@ -81,7 +85,9 @@ function IconCutoutProbe() {
   const [tolerance, setTolerance] = useState(24)
 
   const [mode, setMode] = useState<MatchMode>("global")
-  const [treatment, setTreatment] = useState<"sticker" | "full-bleed">("sticker")
+  const [treatment, setTreatment] = useState<"sticker" | "full-bleed">(
+    "sticker"
+  )
 
   useEffect(() => {
     if (!selected) return
@@ -148,20 +154,14 @@ function IconCutoutProbe() {
 
       <div className="mb-8 grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-5 rounded-lg border border-neutral-800 bg-neutral-900 p-5">
-          <div>
-            <div className="mb-1 flex justify-between text-xs text-neutral-400">
-              <span>Tolerance</span>
-              <span className="tabular-nums text-neutral-200">{tolerance}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={160}
-              value={tolerance}
-              onChange={(e) => setTolerance(Number(e.target.value))}
-              className="w-full"
-            />
-          </div>
+          <Slider
+            size="compact"
+            label="Tolerance"
+            min={0}
+            max={160}
+            value={tolerance}
+            onChange={(value) => setTolerance(value as number)}
+          />
           <div className="flex gap-2">
             {(["global", "grow"] as Array<MatchMode>).map((m) => (
               <button
