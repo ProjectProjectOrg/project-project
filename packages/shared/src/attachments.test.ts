@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   attachmentDownloadUrl,
   attachmentFileFormat,
+  attachmentSrc,
   attachmentUrl,
   attachmentViewParams,
   extractAttachmentRefs,
@@ -372,6 +373,38 @@ describe("attachmentFileFormat", () => {
     expect(attachmentFileFormat("README")).toBe("generic")
     expect(attachmentFileFormat("")).toBe("generic")
     expect(attachmentFileFormat(".pdf")).toBe("generic")
+  })
+})
+
+describe("attachmentSrc", () => {
+  it("preserves the width param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?w=256`)).toBe(
+      `/api/attachments/acme/${ID}?w=256`
+    )
+  })
+
+  it("drops the density param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?d=compact`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
+  })
+
+  it("drops the density param but keeps the width param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?w=256&d=compact`)).toBe(
+      `/api/attachments/acme/${ID}?w=256`
+    )
+  })
+
+  it("drops unrelated params such as download", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?download=1`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
+  })
+
+  it("returns the base url unchanged with no query", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
   })
 })
 
