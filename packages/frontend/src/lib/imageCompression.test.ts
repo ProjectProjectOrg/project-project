@@ -110,4 +110,51 @@ describe("compressImage", () => {
 
     expect(drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 2000, 1000)
   })
+
+  it("passes the lossy type and quality through to toBlob when there is no alpha", async () => {
+    const bitmap = stubBitmap(200, 200)
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(() => Promise.resolve(bitmap))
+    )
+    const originalCreateElement = document.createElement.bind(document)
+    const toBlob = vi.fn(
+      (
+        callback: (blob: Blob | null) => void,
+        _type?: string,
+        _quality?: number
+      ) => callback(new Blob([new Uint8Array(1)], { type: "image/webp" }))
+    )
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const element = originalCreateElement(tag) as HTMLCanvasElement
+      if (tag !== "canvas") return element
+      Object.defineProperty(element, "getContext", {
+        value: () => ({ drawImage: vi.fn() })
+      })
+      Object.defineProperty(element, "toBlob", { value: toBlob })
+      return element
+    })
+
+    const file = new File([new Uint8Array(1000)], "photo.jpg", {
+      type: "image/jpeg"
+    })
+    await compressImage(file, { maxEdge: 1024, hasAlpha: false, quality: 0.7 })
+
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/webp", 0.7)
+  })
+
+  it("propagates a decode failure as a rejection", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(() => Promise.reject(new Error("corrupt image")))
+    )
+
+    const file = new File([new Uint8Array(4)], "broken.png", {
+      type: "image/png"
+    })
+
+    await expect(
+      compressImage(file, { maxEdge: 1024, hasAlpha: false })
+    ).rejects.toThrow("corrupt image")
+  })
 })

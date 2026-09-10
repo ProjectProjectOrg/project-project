@@ -10,7 +10,10 @@ import {
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { orgStorageAtom } from "@/atoms/storage"
-import { compressImage } from "@/lib/imageCompression"
+import {
+  compressImage,
+  type CompressImageOptions
+} from "@/lib/imageCompression"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import {
@@ -287,15 +290,28 @@ export function ProjectIconUpload({
     })
   }
 
+  const compressForUpload = async (
+    file: File,
+    options: CompressImageOptions
+  ): Promise<File | null> => {
+    try {
+      return await compressImage(file, options)
+    } catch {
+      setError(true)
+      return null
+    }
+  }
+
   const apply = async () => {
     if (!draft) return
 
     if (draft.treatment === "full_bleed") {
-      const compressedSource = await compressImage(draft.file, {
+      const compressedSource = await compressForUpload(draft.file, {
         maxEdge: 1024,
         hasAlpha: draft.transparent,
         quality: 0.85
       })
+      if (!compressedSource) return
       const uploadedSource = await upload({ file: compressedSource })
       if (Exit.isFailure(uploadedSource)) return
       const saved = await update({
@@ -338,18 +354,22 @@ export function ProjectIconUpload({
       tolerance: draft.tolerance
     }
 
-    const compressedSource = await compressImage(draft.file, {
+    const compressedSource = await compressForUpload(draft.file, {
       maxEdge: 1024,
       hasAlpha: transparent,
       quality: 0.85
     })
+    if (!compressedSource) return
     const uploadedSource = await upload({ file: compressedSource })
     if (Exit.isFailure(uploadedSource)) return
 
-    const blob = transparent ? draft.file : await compositeToBlob(source, alpha)
-    const uploadedRendered = await upload({
-      file: new File([blob], "icon.png", { type: "image/png" })
-    })
+    const uploadedRendered = transparent
+      ? await upload({ file: draft.file })
+      : await upload({
+          file: new File([await compositeToBlob(source, alpha)], "icon.png", {
+            type: "image/png"
+          })
+        })
     if (Exit.isFailure(uploadedRendered)) return
 
     const saved = await update({
