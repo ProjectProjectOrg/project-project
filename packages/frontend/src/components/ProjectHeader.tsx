@@ -141,6 +141,7 @@ export function ProjectHeader({
               orgSlug={orgSlug}
               slug={slug}
               icon={project.icon}
+              iconImage={project.iconImage}
               color={project.color}
               canEdit={canEdit}
               size="header"
