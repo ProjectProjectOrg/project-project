@@ -59,6 +59,76 @@ for (const banner of [
   )
 }
 
+for (const iconImage of [
+  null,
+  {
+    type: "sticker",
+    sourceAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M2",
+    renderedAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M3",
+    cutoutTolerance: 24,
+    crop: { x: 0.5, y: 0.5, zoom: 1 }
+  },
+  {
+    type: "full_bleed",
+    sourceAttachmentId: "01JBQ8Z3X4Y5W6V7T8S9R0Q1M4",
+    crop: { x: 0.5, y: 0.5, zoom: 1 }
+  }
+] as const) {
+  it.effect(
+    `round-trips ${iconImage?.type ?? "empty"} iconImage through project markdown`,
+    () => {
+      let data: Record<string, unknown> = { ...base, iconImage }
+      const layer = ProjectDocsLive.pipe(
+        Layer.provide(
+          Layer.mock(Markdown, {
+            root: "/tmp",
+            projectDir: () => "/tmp/demo",
+            readProjectFile: () =>
+              Effect.succeed({ data, body: "# Demo", path: "project.md" }),
+            writeProjectFile: (_org, _slug, next) =>
+              Effect.sync(() => {
+                data = next
+              })
+          })
+        )
+      )
+      return Effect.gen(function* () {
+        const docs = yield* ProjectDocs
+        const original = yield* docs.read("demo", "demo")
+        yield* docs.write("demo", "demo", {
+          ...original,
+          org: "demo",
+          key: original.key!,
+          createdBy: "owner"
+        })
+        const restored = yield* docs.read("demo", "demo")
+        expect(restored.iconImage).toEqual(iconImage)
+        expect(restored.body).toBe("# Demo")
+      }).pipe(Effect.provide(layer))
+    }
+  )
+}
+
+it.effect("loads existing projects without an iconImage", () =>
+  Effect.gen(function* () {
+    const docs = yield* ProjectDocs
+    expect((yield* docs.read("demo", "demo")).iconImage).toBeNull()
+  }).pipe(
+    Effect.provide(
+      ProjectDocsLive.pipe(
+        Layer.provide(
+          Layer.mock(Markdown, {
+            root: "/tmp",
+            projectDir: () => "/tmp/demo",
+            readProjectFile: () =>
+              Effect.succeed({ data: base, body: "", path: "project.md" })
+          })
+        )
+      )
+    )
+  )
+)
+
 it.effect("loads existing projects without a banner", () =>
   Effect.gen(function* () {
     const docs = yield* ProjectDocs

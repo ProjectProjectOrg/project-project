@@ -2,12 +2,20 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import { and, eq, sql } from "drizzle-orm"
 import { isRasterImageContentType, NotFound } from "@projectproject/shared"
+import type { ProjectIconImage } from "@projectproject/shared"
 import {
   attachmentIndex,
   attachmentReference,
   projectImageReference
 } from "./db/schema"
 import type { Db } from "./Services/Db"
+
+export const iconImageSlots = (
+  iconImage: ProjectIconImage | null
+): { icon: string | null; iconSource: string | null } => ({
+  icon: iconImage?.type === "sticker" ? iconImage.renderedAttachmentId : null,
+  iconSource: iconImage?.sourceAttachmentId ?? null
+})
 
 export const replaceProjectImageReference = Effect.fn(
   "replaceProjectImageReference"
