@@ -54,9 +54,8 @@ export function ProjectIconDisplay({
         onError={() => setFailed(true)}
         className={cn(
           "size-full object-cover",
-          iconImage.type === "sticker"
-            ? "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
-            : "rounded-[25%]"
+          iconImage.type === "sticker" &&
+            "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
         )}
         style={
           iconImage.type === "full_bleed"

@@ -306,7 +306,7 @@ function ProjectsGroupRow({
         <span
           aria-hidden
           className={cn(
-            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none transition-[filter,opacity] duration-150",
+            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] corner-squircle text-[13px] leading-none transition-[filter,opacity] duration-150",
             !active && "opacity-60 grayscale"
           )}
         >
