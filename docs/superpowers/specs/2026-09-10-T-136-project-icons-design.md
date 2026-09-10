@@ -122,9 +122,17 @@ dragging stutters. Measured on `photo-busy.png`:
 | @256 | 2.8 |
 | @192 | 1.7 |
 
-- Analyse the live preview at **256px**; run full resolution once on apply.
+- Analyse the live preview at **256px**; on apply, analyse and composite at
+  **512px** (a project icon never renders above 48px, so 512px is already
+  generous headroom, not a shortcut) rather than at the source resolution.
   Tolerance is a colour distance, so the verdict is resolution-independent
-  except at the margins.
+  except at the margins. When the requested treatment is already
+  `full_bleed`, apply skips the analysis pass entirely — its result would be
+  discarded.
+- If the 512px apply-time analysis disagrees with the 256px preview (the
+  preview accepted a cutout the full pass rejects), surface the rejection
+  explicitly and fall back to `full_bleed` rather than silently saving a
+  different treatment than the one the user approved.
 - **rAF-throttle** the tolerance slider rather than debouncing it, so the
   preview tracks the thumb instead of lagging it.
 - **Animate the fill on first drop only.** The BFS queue makes progressive
@@ -181,8 +189,21 @@ tolerance ≥ 90, for free: above that threshold the fill crosses from the
 transparent corners into the squircle and lifts out the glyph. Which of the two
 results is wanted is the user's call, which is the argument for the slider.
 
+## Crop UI
+
+This branch ships no crop UI. Every `crop` written by the upload flow is a
+fixed, centred `{ x: 0.5, y: 0.5, zoom: 1 }`; the field is still persisted on
+both `sticker` and `full_bleed` variants so a later crop UI can be added
+without a migration once it lands as a follow-up.
+
+`ProjectIconDisplay` already honours `crop.zoom` at render time by scaling the
+image inside its `overflow-hidden` sizing wrapper (the inner `<img>` scales,
+not the wrapper), so a future crop UI can rely on it rendering correctly for
+any zoom value, not only `1`.
+
 ## Out of scope
 
 - Organisation avatars, though the slot model would extend to them.
 - Animated or SVG icons.
 - Reusing an existing attachment as an icon; upload only.
+- A crop UI (see "Crop UI" above); `crop` is persisted but fixed and centred.
