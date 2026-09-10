@@ -438,7 +438,7 @@ Start from the spike module at `packages/frontend/src/dev/icon-cutout/cutout.ts`
 Create `packages/frontend/src/lib/iconCutout.test.ts`:
 
 ```ts
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { analyzeCutout, hasAlpha, type RgbaImage } from "./iconCutout"
 
 const solid = (
@@ -590,7 +590,7 @@ Create `packages/frontend/src/components/ProjectIconDisplay.test.tsx`:
 
 ```tsx
 import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { ProjectIconDisplay } from "./ProjectIconDisplay"
 
 const sticker = {
@@ -604,15 +604,14 @@ const sticker = {
 describe("ProjectIconDisplay", () => {
   it("renders the emoji when there is no image", () => {
     render(<ProjectIconDisplay orgSlug="acme" icon="🌵" iconImage={null} size={40} />)
-    expect(screen.getByText("🌵")).toBeInTheDocument()
+    expect(screen.queryByText("🌵")).not.toBeNull()
   })
 
   it("renders the rendered attachment for a sticker", () => {
     render(
       <ProjectIconDisplay orgSlug="acme" icon="🌵" iconImage={sticker} size={40} />
     )
-    expect(screen.getByRole("img")).toHaveAttribute(
-      "src",
+    expect(screen.getByRole("img").getAttribute("src")).toBe(
       "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M3"
     )
   })
@@ -630,8 +629,7 @@ describe("ProjectIconDisplay", () => {
         size={40}
       />
     )
-    expect(screen.getByRole("img")).toHaveAttribute(
-      "src",
+    expect(screen.getByRole("img").getAttribute("src")).toBe(
       "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M2"
     )
   })
@@ -641,8 +639,8 @@ describe("ProjectIconDisplay", () => {
       <ProjectIconDisplay orgSlug="acme" icon="🌵" iconImage={sticker} size={40} />
     )
     fireEvent.error(screen.getByRole("img"))
-    expect(screen.getByText("🌵")).toBeInTheDocument()
-    expect(screen.queryByRole("img")).not.toBeInTheDocument()
+    expect(screen.queryByText("🌵")).not.toBeNull()
+    expect(screen.queryByRole("img")).toBeNull()
   })
 })
 ```
@@ -772,7 +770,7 @@ git commit -m "feat(icons): render project icons through one component (T-136)"
 - Modify: `packages/frontend/messages/en/projects.json`
 
 **Interfaces:**
-- Consumes: `analyzeCutout`, `hasAlpha`, `CUTOUT_DEFAULT_TOLERANCE`, `CUTOUT_MAX_TOLERANCE`, `CUTOUT_PREVIEW_EDGE` from Task 3; `ProjectIcon` from Task 4; `uploadProjectImageAtom` from `@/atoms/attachments`; `updateProjectAtom`, `projectKey` from `@/atoms/projects`; `orgStorageAtom` from `@/atoms/storage`; `Slider` from `@/components/ui/slider`.
+- Consumes: `analyzeCutout`, `hasAlpha`, `CUTOUT_DEFAULT_TOLERANCE`, `CUTOUT_MAX_TOLERANCE`, `CUTOUT_PREVIEW_EDGE` from Task 3; `ProjectIconDisplay` from Task 4; `uploadProjectImageAtom` from `@/atoms/attachments`; `updateProjectAtom`, `projectKey` from `@/atoms/projects`; `orgStorageAtom` from `@/atoms/storage`; `Slider` from `@/components/ui/slider`.
 - Produces: `<ProjectIconUpload orgSlug slug iconImage />`, mounted inside `ProjectIdentityEditor`.
 
 - [ ] **Step 1: Add the message keys**
@@ -796,7 +794,7 @@ In `packages/frontend/messages/en/projects.json`, add to the `project_` prefix g
 Create `packages/frontend/src/components/ProjectIconUpload.tsx`. It holds a `draft` of `{ file, bitmap, treatment, tolerance, crop }` and renders:
 
 - an upload button, disabled when `storageAvailable` is false, with `m.project_icon_storage_required()` as its title in that state, matching how `ProjectBannerSettings` gates on `storageAvailable`;
-- a live preview via `<ProjectIcon>` fed from a canvas-derived object URL;
+- a live preview via `<ProjectIconDisplay>` fed from a canvas-derived object URL;
 - a `<Slider size="compact" label={m.project_icon_tolerance()} min={0} max={CUTOUT_MAX_TOLERANCE} />`, shown only when the treatment is `sticker` and the source is not already transparent;
 - apply and cancel buttons.
 
