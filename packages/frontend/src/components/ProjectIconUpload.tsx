@@ -185,16 +185,19 @@ export function ProjectIconUpload({
     []
   )
 
-  useEffect(
-    () => () => {
-      if (toleranceFrame.current !== null)
-        cancelAnimationFrame(toleranceFrame.current)
-    },
-    []
-  )
+  const cancelPendingTolerance = () => {
+    if (toleranceFrame.current !== null) {
+      cancelAnimationFrame(toleranceFrame.current)
+      toleranceFrame.current = null
+    }
+    pendingTolerance.current = null
+  }
+
+  useEffect(() => cancelPendingTolerance, [])
 
   const closeDraft = () => {
     restyleToken.current++
+    cancelPendingTolerance()
     if (draft) {
       URL.revokeObjectURL(draft.previewUrl)
       draft.bitmap.close()
@@ -215,6 +218,7 @@ export function ProjectIconUpload({
     }
     setError(false)
     restyleToken.current++
+    cancelPendingTolerance()
     try {
       const bitmap = await createImageBitmap(file)
       const preview = await buildDraftPreview(
