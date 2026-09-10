@@ -325,7 +325,9 @@ function ProjectRow({
         variant="row"
       />
       <ProjectTile
+        orgSlug={orgSlug}
         icon={project.icon}
+        iconImage={project.iconImage}
         color={project.color}
         size="sm"
         seed={project.slug}
