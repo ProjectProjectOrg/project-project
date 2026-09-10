@@ -74,7 +74,7 @@ describe("analyzeCutout", () => {
 
   it("does not reject a subject merely because it touches the edge", () => {
     const clipped = solid(64, 64, (x, y) =>
-      x > 40 && y > 40 ? [20, 90, 200, 255] : [255, 255, 255, 255]
+      y > 40 && x > 20 && x < 44 ? [20, 90, 200, 255] : [255, 255, 255, 255]
     )
     expect(analyzeCutout(clipped, { tolerance: 24 }).clean).toBe(true)
   })
