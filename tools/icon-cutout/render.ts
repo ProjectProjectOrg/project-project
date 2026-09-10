@@ -5,10 +5,17 @@ import { deflateSync, inflateSync } from "node:zlib"
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { analyzeCutout, type MatchMode, type RgbaImage } from "./cutout"
+import {
+  analyzeCutout,
+  type MatchMode,
+  type RgbaImage
+} from "../../packages/frontend/src/dev/icon-cutout/cutout"
 
 const here = dirname(fileURLToPath(import.meta.url))
-const fixturesDir = join(here, "fixtures")
+const fixturesDir = join(
+  here,
+  "../../packages/frontend/src/dev/icon-cutout/fixtures"
+)
 const outDir = join(here, "out")
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {

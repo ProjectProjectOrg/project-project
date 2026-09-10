@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url"
 
 const SIZE = 512
 const here = dirname(fileURLToPath(import.meta.url))
-const outDir = join(here, "fixtures")
+const outDir = join(
+  here,
+  "../../packages/frontend/src/dev/icon-cutout/fixtures"
+)
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n
@@ -32,7 +35,12 @@ const encodePng = (rgba, width, height) => {
   for (let y = 0; y < height; y++) {
     raw[y * (width * 4 + 1)] = 0
     rgba.copy
-      ? rgba.copy(raw, y * (width * 4 + 1) + 1, y * width * 4, (y + 1) * width * 4)
+      ? rgba.copy(
+          raw,
+          y * (width * 4 + 1) + 1,
+          y * width * 4,
+          (y + 1) * width * 4
+        )
       : Buffer.from(rgba.buffer, y * width * 4, width * 4).copy(
           raw,
           y * (width * 4 + 1) + 1
@@ -95,12 +103,14 @@ const paint = (c, test, color) => {
   for (let y = 0; y < SIZE; y++)
     for (let x = 0; x < SIZE; x++) {
       const a = coverage(test, x, y)
-      if (a > 0) c.set(x, y, typeof color === "function" ? color(x, y) : color, a)
+      if (a > 0)
+        c.set(x, y, typeof color === "function" ? color(x, y) : color, a)
     }
 }
 
 const circle = (cx, cy, r) => (x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r
-const diamond = (cx, cy, r) => (x, y) => Math.abs(x - cx) + Math.abs(y - cy) <= r
+const diamond = (cx, cy, r) => (x, y) =>
+  Math.abs(x - cx) + Math.abs(y - cy) <= r
 
 const INK = [37, 99, 235]
 const ACCENT = [244, 114, 22]
@@ -164,7 +174,8 @@ mkdirSync(outDir, { recursive: true })
 {
   const c = canvas()
   let seed = 7
-  const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
+  const rand = () =>
+    (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
   fill(c, () => {
     const n = Math.round((rand() - 0.5) * 7)
     return [244 + n, 242 + n, 238 + n]
@@ -220,7 +231,8 @@ mkdirSync(outDir, { recursive: true })
 {
   const c = canvas()
   let seed = 99
-  const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
+  const rand = () =>
+    (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
   const blobs = Array.from({ length: 26 }, () => ({
     x: rand() * SIZE,
     y: rand() * SIZE,

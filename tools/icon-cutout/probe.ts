@@ -4,9 +4,16 @@ import { inflateSync } from "node:zlib"
 import { readFileSync, readdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { analyzeCutout, type MatchMode, type RgbaImage } from "./cutout"
+import {
+  analyzeCutout,
+  type MatchMode,
+  type RgbaImage
+} from "../../packages/frontend/src/dev/icon-cutout/cutout"
 
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "fixtures")
+const fixturesDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../packages/frontend/src/dev/icon-cutout/fixtures"
+)
 
 const decodePng = (buffer: Buffer): RgbaImage => {
   let offset = 8
@@ -32,7 +39,12 @@ const decodePng = (buffer: Buffer): RgbaImage => {
   for (let y = 0; y < height; y++) {
     const filter = raw[y * (stride + 1)]
     if (filter !== 0) throw new Error(`unexpected PNG filter ${filter}`)
-    raw.copy(data as unknown as Uint8Array, y * stride, y * (stride + 1) + 1, y * (stride + 1) + 1 + stride)
+    raw.copy(
+      data as unknown as Uint8Array,
+      y * stride,
+      y * (stride + 1) + 1,
+      y * (stride + 1) + 1 + stride
+    )
   }
   return { data, width, height }
 }
@@ -44,12 +56,18 @@ const fixtures = readdirSync(fixturesDir)
   .filter((f) => f.endsWith(".png"))
   .sort()
 
-const EXPECTED: Record<string, boolean> = {
+// null = no single correct verdict; the right answer depends on tolerance and
+// on what the user wants kept. Excluded from scoring.
+const EXPECTED: Record<string, boolean | null> = {
   "mark-flat-white.png": true,
   "mark-offwhite-noise.png": true,
   "mark-soft-shadow.png": true,
   "projectproject-logo.png": true,
   "mark-gradient.png": false,
+  // Transparent corners. Below ~90 the fill cannot cross into the squircle and
+  // rejects; above it the squircle goes too and the glyph survives as a
+  // sticker. Both are legitimate — which one is wanted is the user's call.
+  "projectproject-app-icon.png": null,
   // Clipped by the image edge, but the cutout itself is correct — that is a
   // cropping problem, not a cutout one.
   "mark-touches-border.png": true,
@@ -73,12 +91,16 @@ for (const mode of ["global"] as Array<MatchMode>) {
       ].join(" ")
     )
     let agree = 0
+    let scored = 0
     for (const name of fixtures) {
       const image = decodePng(readFileSync(join(fixturesDir, name)))
       const result = analyzeCutout(image, { tolerance, feather: 1, mode })
-      const want = EXPECTED[name]
-      const match = result.clean === want
-      if (match) agree++
+      const want = EXPECTED[name] ?? null
+      const match = want === null ? null : result.clean === want
+      if (match !== null) {
+        scored++
+        if (match) agree++
+      }
       const failed = result.checks
         .filter((c) => !c.passed)
         .map((c) => c.id)
@@ -92,11 +114,11 @@ for (const mode of ["global"] as Array<MatchMode>) {
           pct(result.metrics.borderRetained).padStart(7),
           num(result.metrics.edgeContrast).padStart(6),
           (result.clean ? "clean" : "reject").padStart(9),
-          (want ? "clean" : "reject").padStart(6),
-          match ? "" : `  MISMATCH (${failed || "all passed"})`
+          (want === null ? "either" : want ? "clean" : "reject").padStart(6),
+          match === false ? `  MISMATCH (${failed || "all passed"})` : ""
         ].join(" ")
       )
     }
-    console.log(`agreement: ${agree}/${fixtures.length}`)
+    console.log(`agreement: ${agree}/${scored}`)
   }
 }
