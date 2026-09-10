@@ -4,6 +4,12 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
 
+### What lives in markdown, what lives in Postgres
+
+Markdown holds what is **portable and cheap**: anything a human would write or read, anything another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque, or meaningless outside this instance. Losing the Postgres half costs a re-upload, not information.
+
+A project's `icon` (emoji) and `color` (hex) stay in frontmatter; its `banner` and `iconImage` live only in `project_index`. An attachment id is meaningless copied into another workspace; a hex colour survives that copy. See `docs/superpowers/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
+
 **For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Use the project UI quality checklist when working on UI so the change is reviewed against the product and design rules.
 
 The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.

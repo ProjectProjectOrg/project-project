@@ -25,8 +25,6 @@ import {
 } from "@projectproject/shared"
 import type { CursorPayload } from "@projectproject/shared"
 import type {
-  ProjectBanner,
-  ProjectIconImage,
   AddMemberInput,
   AssignableRole,
   ConnectGithubInput,
@@ -454,8 +452,8 @@ export const ProjectsLive = Layer.effect(
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
           return rows.map((r) => ({
-            banner: r.banner,
-            iconImage: r.iconImage,
+            banner: r.banner ?? null,
+            iconImage: r.iconImage ?? null,
             org: orgSlug,
             slug: r.slug,
             key: makeProjectKey(r.key),
@@ -630,9 +628,7 @@ export const ProjectsLive = Layer.effect(
       body: string,
       members: ReadonlyArray<Member>,
       connection: GithubConnection | null,
-      setup: ProjectSetup,
-      banner: ProjectBanner | null = null,
-      iconImage: ProjectIconImage | null = null
+      setup: ProjectSetup
     ): Effect.Effect<void, MarkdownError> =>
       projectDocs.write(orgSlug, slug, {
         org: orgSlug,
@@ -648,8 +644,6 @@ export const ProjectsLive = Layer.effect(
           role: m.role
         })),
         github: connection,
-        banner,
-        iconImage,
         setup,
         body
       })
@@ -823,8 +817,8 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
-            banner: file.banner ?? null,
-            iconImage: file.iconImage ?? null,
+            banner: indexRow.banner ?? null,
+            iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
             body: file.body,
             members,
@@ -850,7 +844,9 @@ export const ProjectsLive = Layer.effect(
           const connection = yield* loadGithubConnection(indexRow)
 
           const nextBanner =
-            input.banner === undefined ? (file.banner ?? null) : input.banner
+            input.banner === undefined
+              ? (indexRow.banner ?? null)
+              : input.banner
           if (input.banner !== undefined) {
             yield* replaceProjectImageReference(db, {
               orgSlug,
@@ -865,7 +861,7 @@ export const ProjectsLive = Layer.effect(
 
           const nextIconImage =
             input.iconImage === undefined
-              ? (file.iconImage ?? null)
+              ? (indexRow.iconImage ?? null)
               : input.iconImage
           if (input.iconImage !== undefined) {
             const slots = iconImageSlots(nextIconImage)
@@ -926,9 +922,7 @@ export const ProjectsLive = Layer.effect(
             nextBody,
             members,
             connection,
-            file.setup,
-            nextBanner,
-            nextIconImage
+            file.setup
           )
 
           return {
@@ -981,9 +975,7 @@ export const ProjectsLive = Layer.effect(
             file.body,
             members,
             connection,
-            setup,
-            file.banner ?? null,
-            file.iconImage ?? null
+            setup
           )
           return {
             org: orgSlug,
@@ -996,8 +988,8 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             setup,
-            banner: file.banner ?? null,
-            iconImage: file.iconImage ?? null,
+            banner: indexRow.banner ?? null,
+            iconImage: indexRow.iconImage ?? null,
             body: file.body,
             members,
             pendingMembers
@@ -1046,9 +1038,7 @@ export const ProjectsLive = Layer.effect(
           file.body,
           members,
           connection,
-          file.setup,
-          file.banner ?? null,
-          file.iconImage ?? null
+          file.setup
         )
         return {
           org: orgSlug,
@@ -1060,8 +1050,8 @@ export const ProjectsLive = Layer.effect(
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
-          banner: file.banner ?? null,
-          iconImage: file.iconImage ?? null,
+          banner: indexRow.banner ?? null,
+          iconImage: indexRow.iconImage ?? null,
           setup: file.setup,
           body: file.body,
           members,
