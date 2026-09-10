@@ -95,8 +95,8 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       [randomUUID(), organizationId, userId]
     )
     await pool.query(
-      "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'T','Switch','folder','#3b82f6',$4)",
-      [projectId, slug, organizationId, userId]
+      "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by,banner) VALUES ($1,$2,$3,'T','Switch','folder','#3b82f6',$4,$5)",
+      [projectId, slug, organizationId, userId, JSON.stringify(banner)]
     )
     await pool.query(
       "INSERT INTO organization_integration (id,organization_id,provider,status) VALUES ($1,$2,'github','active')",
@@ -201,13 +201,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
                   invitePeopleDismissedAt: null,
                   connectGithubDismissedAt: null
                 },
-                banner,
                 body: "Project body"
               }),
-            write: (_org, _slug, next) =>
-              Effect.sync(() => {
-                expect(next.banner).toEqual(banner)
-              }),
+            write: () => Effect.void,
             removeDir: unused,
             readRaw: unused
           })
