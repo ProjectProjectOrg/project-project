@@ -77,7 +77,12 @@ const full = time("analyzeCutout @512 (current)", 20, () => {
 })
 
 time("  └ featherAlpha alone", 20, () => {
-  featherAlpha(new Uint8ClampedArray(image.width * image.height), image.width, image.height, 1)
+  featherAlpha(
+    new Uint8ClampedArray(image.width * image.height),
+    image.width,
+    image.height,
+    1
+  )
 })
 
 time("analyzeCutout @512 feather 0", 20, () => {
