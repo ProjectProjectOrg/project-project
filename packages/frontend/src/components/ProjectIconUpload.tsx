@@ -174,6 +174,7 @@ export function ProjectIconUpload({
   const [error, setError] = useState(false)
   const objectUrls = useRef<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
+  const restyleToken = useRef(0)
 
   useEffect(
     () => () => {
@@ -183,6 +184,7 @@ export function ProjectIconUpload({
   )
 
   const closeDraft = () => {
+    restyleToken.current++
     if (draft) {
       URL.revokeObjectURL(draft.previewUrl)
       draft.bitmap.close()
@@ -202,6 +204,7 @@ export function ProjectIconUpload({
       return
     }
     setError(false)
+    restyleToken.current++
     try {
       const bitmap = await createImageBitmap(file)
       const preview = await buildDraftPreview(
@@ -226,21 +229,25 @@ export function ProjectIconUpload({
 
   const restyle = async (treatment: IconTreatment, tolerance: number) => {
     if (!draft) return
+    const token = ++restyleToken.current
     const preview = await buildDraftPreview(draft.bitmap, treatment, tolerance)
+    if (token !== restyleToken.current) {
+      URL.revokeObjectURL(preview.url)
+      return
+    }
     objectUrls.current.push(preview.url)
-    URL.revokeObjectURL(draft.previewUrl)
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            treatment: preview.treatment,
-            clean: preview.clean,
-            transparent: preview.transparent,
-            tolerance,
-            previewUrl: preview.url
-          }
-        : current
-    )
+    setDraft((current) => {
+      if (!current) return current
+      URL.revokeObjectURL(current.previewUrl)
+      return {
+        ...current,
+        treatment: preview.treatment,
+        clean: preview.clean,
+        transparent: preview.transparent,
+        tolerance,
+        previewUrl: preview.url
+      }
+    })
   }
 
   const apply = async () => {
