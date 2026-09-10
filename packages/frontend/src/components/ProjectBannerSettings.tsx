@@ -19,6 +19,12 @@ import { ImagePlus, Trash2, Upload } from "lucide-react"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useShape } from "@/lib/shape-context"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -426,16 +432,43 @@ export default function ProjectBannerSettings({
                         />
                       </Button>
                     ))}
-                    <Button
-                      variant="tertiary"
-                      size="image-option"
-                      title={m.project_banner_settings_upload()}
-                      aria-label={m.project_banner_settings_upload()}
-                      disabled={!storageAvailable || submitting}
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Upload className="size-3.5" strokeWidth={1.75} />
-                    </Button>
+                    {AsyncResult.isSuccess(storage) && !storageAvailable ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="tertiary"
+                                size="image-option"
+                                aria-label={m.project_banner_settings_upload()}
+                                aria-disabled
+                                className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                                onClick={() => {
+                                  if (!storageAvailable) return
+                                  fileRef.current?.click()
+                                }}
+                              />
+                            }
+                          >
+                            <Upload className="size-3.5" strokeWidth={1.75} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {m.project_banner_settings_storage_required()}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <Button
+                        variant="tertiary"
+                        size="image-option"
+                        title={m.project_banner_settings_upload()}
+                        aria-label={m.project_banner_settings_upload()}
+                        disabled={submitting}
+                        onClick={() => fileRef.current?.click()}
+                      >
+                        <Upload className="size-3.5" strokeWidth={1.75} />
+                      </Button>
+                    )}
                   </motion.div>
                   <motion.div
                     transition={morph}
@@ -572,11 +605,6 @@ export default function ProjectBannerSettings({
             </AnimatePresence>
           </div>
         </motion.div>
-        {AsyncResult.isSuccess(storage) && !storageAvailable && editing && (
-          <p className="text-xs text-muted-foreground">
-            {m.project_banner_settings_storage_required()}
-          </p>
-        )}
         {editing &&
           AsyncResult.matchWithError(storage, {
             onInitial: () => null,
