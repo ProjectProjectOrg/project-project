@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  BANNER_PLACEHOLDER_MAX_LENGTH,
   CreatableProjectKey,
   Project,
   ProjectIconImage,
@@ -92,7 +93,8 @@ describe("project banner input", () => {
   const banner = {
     type: "preset",
     preset: "sunset",
-    crop: { x: 0.5, y: 0.65, zoom: 1 }
+    crop: { x: 0.5, y: 0.65, zoom: 1 },
+    placeholder: null
   }
 
   it("supports setting and removing a banner", () => {
@@ -135,11 +137,29 @@ describe("project banner input", () => {
     const attachment = {
       type: "attachment",
       attachmentId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-      crop: banner.crop
+      crop: banner.crop,
+      placeholder: null
     }
     expect(decode({ banner: attachment })._tag).toBe("Success")
     expect(
       decode({ banner: { ...attachment, attachmentId: "../other" } })._tag
+    ).toBe("Failure")
+  })
+
+  it("accepts an inline webp placeholder and rejects other payloads", () => {
+    const withPlaceholder = (placeholder: unknown) =>
+      decode({ banner: { ...banner, placeholder } })._tag
+    expect(withPlaceholder("data:image/webp;base64,UklGRhoAAABXRUJQ")).toBe(
+      "Success"
+    )
+    expect(withPlaceholder("data:image/png;base64,iVBORw0KGgo=")).toBe(
+      "Failure"
+    )
+    expect(withPlaceholder("https://example.com/tiny.webp")).toBe("Failure")
+    expect(
+      withPlaceholder(
+        `data:image/webp;base64,${"A".repeat(BANNER_PLACEHOLDER_MAX_LENGTH)}`
+      )
     ).toBe("Failure")
   })
 })

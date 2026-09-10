@@ -45,6 +45,7 @@ export function ProjectBanner({
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
   const source = preview ? preview.source : bannerSource(orgSlug, banner)
+  const placeholder = preview ? null : (banner?.placeholder ?? null)
   const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
   const reduceMotion = useReducedMotion() ?? false
   const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
@@ -54,6 +55,10 @@ export function ProjectBanner({
   } | null>(null)
   const [painted, setPainted] = useState(false)
   const [placeholderFailed, setPlaceholderFailed] = useState(false)
+  const [placeholderSize, setPlaceholderSize] = useState<{
+    width: number
+    height: number
+  } | null>(null)
   const wasCached = useMemo(
     () => (source ? isImageLoaded(source) : false),
     [source]
@@ -106,6 +111,24 @@ export function ProjectBanner({
     }
   }, [source])
 
+  useEffect(() => {
+    setPlaceholderSize(null)
+    if (!placeholder) return undefined
+    let cancelled = false
+    const thumbnail = new Image()
+    thumbnail.onload = () => {
+      if (!cancelled)
+        setPlaceholderSize({
+          width: thumbnail.naturalWidth,
+          height: thumbnail.naturalHeight
+        })
+    }
+    thumbnail.src = placeholder
+    return () => {
+      cancelled = true
+    }
+  }, [placeholder])
+
   const onShaderRender = useCallback(() => setPainted(true), [])
 
   if (!source) return null
@@ -113,10 +136,11 @@ export function ProjectBanner({
   const skipBlur = wasCached
   const settings = { ...bannerDefaults, ...crop }
   const blurRadius = variant === "header" ? 12 : variant === "card" ? 6 : 3
-  const cropStyle = naturalSize
+  const blurSize = naturalSize ?? placeholderSize
+  const cropStyle = blurSize
     ? bannerCropStyle(
-        naturalSize.width,
-        naturalSize.height,
+        blurSize.width,
+        blurSize.height,
         containerSize.width,
         containerSize.height,
         crop
@@ -146,7 +170,7 @@ export function ProjectBanner({
           style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
         >
           <motion.img
-            src={source}
+            src={placeholder ?? source}
             alt=""
             onError={() => setPlaceholderFailed(true)}
             className={cn(
