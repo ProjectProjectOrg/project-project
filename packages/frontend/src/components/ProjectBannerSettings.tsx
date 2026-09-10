@@ -13,6 +13,7 @@ import {
 } from "@/atoms/projects"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
+import { compressImage } from "@/lib/imageCompression"
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ImagePlus, Trash2, Upload } from "lucide-react"
@@ -154,7 +155,12 @@ export default function ProjectBannerSettings({
     let next: ProjectBanner | null = null
     if (!draft.removed) {
       if (draft.file) {
-        const uploaded = await upload({ file: draft.file })
+        const compressed = await compressImage(draft.file, {
+          maxEdge: 2560,
+          hasAlpha: false,
+          quality: 0.82
+        })
+        const uploaded = await upload({ file: compressed })
         if (Exit.isFailure(uploaded)) return
         next = {
           type: "attachment",
