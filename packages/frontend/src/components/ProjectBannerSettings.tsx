@@ -18,6 +18,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ImagePlus, Trash2, Upload } from "lucide-react"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
+import { Slider } from "@/components/ui/slider"
 import { useShape } from "@/lib/shape-context"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -440,22 +441,18 @@ export default function ProjectBannerSettings({
                     transition={morph}
                     className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
                   >
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{m.project_banner_settings_zoom()}</span>
-                      <input
-                        type="range"
-                        aria-label={m.project_banner_settings_zoom()}
-                        min={1}
-                        max={4}
-                        step={0.05}
-                        value={draft.settings.zoom}
-                        disabled={!image || draft.removed}
-                        onChange={(event) =>
-                          setZoom(Number(event.target.value))
-                        }
-                        className="w-36 accent-foreground disabled:opacity-50"
-                      />
-                    </label>
+                    <Slider
+                      size="compact"
+                      label={m.project_banner_settings_zoom()}
+                      min={1}
+                      max={4}
+                      step={0.05}
+                      value={draft.settings.zoom}
+                      disabled={!image || draft.removed}
+                      onChange={(value) => setZoom(value as number)}
+                      formatValue={(value) => `${value.toFixed(2)}×`}
+                      className="w-56"
+                    />
                     <div className="flex items-center gap-1">
                       <AnimatePresence initial={false} mode="popLayout">
                         {!draft.removed && (
