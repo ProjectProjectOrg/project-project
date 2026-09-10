@@ -175,10 +175,20 @@ export function ProjectIconUpload({
   const objectUrls = useRef<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const restyleToken = useRef(0)
+  const pendingTolerance = useRef<number | null>(null)
+  const toleranceFrame = useRef<number | null>(null)
 
   useEffect(
     () => () => {
       objectUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    },
+    []
+  )
+
+  useEffect(
+    () => () => {
+      if (toleranceFrame.current !== null)
+        cancelAnimationFrame(toleranceFrame.current)
     },
     []
   )
@@ -247,6 +257,20 @@ export function ProjectIconUpload({
         tolerance,
         previewUrl: preview.url
       }
+    })
+  }
+
+  const onToleranceChange = (value: number) => {
+    setDraft((current) =>
+      current ? { ...current, tolerance: value } : current
+    )
+    pendingTolerance.current = value
+    if (toleranceFrame.current !== null) return
+    toleranceFrame.current = requestAnimationFrame(() => {
+      toleranceFrame.current = null
+      const next = pendingTolerance.current
+      pendingTolerance.current = null
+      if (next !== null && draft) void restyle(draft.treatment, next)
     })
   }
 
@@ -351,9 +375,7 @@ export function ProjectIconUpload({
                 min={0}
                 max={CUTOUT_MAX_TOLERANCE}
                 value={draft.tolerance}
-                onChange={(value) =>
-                  void restyle(draft.treatment, value as number)
-                }
+                onChange={(value) => onToleranceChange(value as number)}
               />
             )}
             {error && (
