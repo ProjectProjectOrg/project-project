@@ -62,7 +62,8 @@ it("keeps project content visible while the banner image is pending or fails", a
         banner={{
           type: "preset",
           preset: "sunset",
-          crop: { x: 0.5, y: 0.5, zoom: 1 }
+          crop: { x: 0.5, y: 0.5, zoom: 1 },
+          placeholder: null
         }}
       />
       <h1>Project content</h1>
@@ -86,7 +87,8 @@ it("paints a blurred placeholder immediately on the card variant, sized for a sm
       banner={{
         type: "preset",
         preset: "sunset",
-        crop: { x: 0.5, y: 0.5, zoom: 1 }
+        crop: { x: 0.5, y: 0.5, zoom: 1 },
+        placeholder: null
       }}
     />
   )
@@ -111,7 +113,8 @@ it("paints a blurred placeholder immediately on the row variant, sized for a tin
       banner={{
         type: "preset",
         preset: "sunset",
-        crop: { x: 0.5, y: 0.5, zoom: 1 }
+        crop: { x: 0.5, y: 0.5, zoom: 1 },
+        placeholder: null
       }}
     />
   )
@@ -131,7 +134,8 @@ it("skips the blurred placeholder when the banner was already loaded this sessio
         {
           type: "attachment",
           attachmentId: "test-attachment-id",
-          crop: { x: 0.5, y: 0.5, zoom: 1 }
+          crop: { x: 0.5, y: 0.5, zoom: 1 },
+          placeholder: null
         } as never
       }
     />
@@ -149,7 +153,8 @@ it("skips the animated crossfade when reduced motion is preferred", () => {
       banner={{
         type: "preset",
         preset: "sunset",
-        crop: { x: 0.5, y: 0.5, zoom: 1 }
+        crop: { x: 0.5, y: 0.5, zoom: 1 },
+        placeholder: null
       }}
     />
   )
@@ -157,6 +162,88 @@ it("skips the animated crossfade when reduced motion is preferred", () => {
   expect(img).not.toBeNull()
   expect(img?.className).not.toContain("transition-opacity")
   expect(img?.style.transition).toBe("")
+})
+
+it("paints the inline placeholder instead of the network image on first render", () => {
+  const placeholder = "data:image/webp;base64,UklGRhh"
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="card"
+      banner={
+        {
+          type: "attachment",
+          attachmentId: "test-attachment-id",
+          crop: { x: 0.5, y: 0.5, zoom: 1 },
+          placeholder
+        } as never
+      }
+    />
+  )
+  const img = container.querySelector("img")
+  expect(img?.getAttribute("src")).toBe(placeholder)
+  expect(img?.style.filter).toBe("blur(6px)")
+})
+
+it("frames the inline placeholder with the banner's crop before the photo loads", async () => {
+  let resizeCallback: ResizeObserverCallback | null = null
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallback = callback
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+  )
+  vi.stubGlobal(
+    "Image",
+    class {
+      constructor() {
+        photos.push(this as unknown as HTMLImageElement)
+      }
+      src = ""
+      crossOrigin = ""
+      naturalWidth = 24
+      naturalHeight = 8
+      onload: (() => void) | null = null
+      decode = () => Promise.reject(new Error("skip shader"))
+    }
+  )
+  const { container } = render(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      variant="row"
+      banner={
+        {
+          type: "attachment",
+          attachmentId: "test-attachment-id",
+          crop: { x: 1, y: 1, zoom: 2 },
+          placeholder: "data:image/webp;base64,UklGRhh"
+        } as never
+      }
+    />
+  )
+  const thumbnail = photos.find((photo) => photo.src.startsWith("data:"))
+  expect(thumbnail).toBeTruthy()
+  await act(async () => {
+    thumbnail?.onload?.(new Event("load"))
+  })
+  await act(async () => {
+    resizeCallback?.(
+      [{ contentRect: { width: 900, height: 300 } } as ResizeObserverEntry],
+      {} as ResizeObserver
+    )
+  })
+  const img = container.querySelector("img")
+  expect(img?.style.width).toBe("200%")
+  expect(img?.style.height).toBe("200%")
+  expect(img?.style.left).toBe("-100%")
+  expect(img?.style.top).toBe("-100%")
 })
 
 it("frames the placeholder using the banner's actual crop once sizes are known", async () => {
@@ -194,7 +281,8 @@ it("frames the placeholder using the banner's actual crop once sizes are known",
       banner={{
         type: "preset",
         preset: "sunset",
-        crop: { x: 1, y: 1, zoom: 2 }
+        crop: { x: 1, y: 1, zoom: 2 },
+        placeholder: null
       }}
     />
   )

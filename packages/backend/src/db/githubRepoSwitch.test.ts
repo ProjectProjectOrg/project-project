@@ -14,6 +14,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { Slug, TicketId, TicketStatus } from "@projectproject/shared"
 import { DbLive } from "../Layers/Db"
+import { BannerPlaceholders } from "../Services/BannerPlaceholders"
 import { ProjectsLive } from "../Layers/Projects"
 import { TicketIndexLive } from "../Layers/TicketIndex"
 import { GitHub } from "../Services/GitHub"
@@ -61,7 +62,8 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   const banner = {
     type: "preset" as const,
     preset: "sunset" as const,
-    crop: { x: 0.5, y: 0.65, zoom: 1 }
+    crop: { x: 0.5, y: 0.65, zoom: 1 },
+    placeholder: null
   }
   let ticket = initialTicket
   let failWrite = false
@@ -185,6 +187,11 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         Layer.provide(docs),
         Layer.provide(lock),
         Layer.provide(db),
+        Layer.provide(
+          Layer.succeed(BannerPlaceholders, {
+            ensure: (_org, _slug, current) => Effect.succeed(current)
+          })
+        ),
         Layer.provide(
           Layer.succeed(ProjectDocs, {
             read: () =>

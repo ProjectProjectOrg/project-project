@@ -4,6 +4,7 @@ import * as Layer from "effect/Layer"
 import { AttachmentUploadsLive } from "./Layers/AttachmentUploads"
 import { AttachmentsLive } from "./Layers/Attachments"
 import { AuthenticationLive } from "./Layers/Auth"
+import { BannerPlaceholdersLive } from "./Layers/BannerPlaceholders"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { CommentsLive } from "./Layers/Comments"
 import { CurrentOrgLive } from "./Layers/CurrentOrg"
@@ -77,6 +78,7 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(
       EverhourTimeTrackingLive.pipe(Layer.provideMerge(EverhourLive))
     ),
+    Layer.provideMerge(BannerPlaceholdersLive),
     Layer.provideMerge(UsersLive),
     Layer.provideMerge(TicketIndexLive),
     Layer.provideMerge(ProjectDocsLive),

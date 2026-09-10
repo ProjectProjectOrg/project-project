@@ -49,10 +49,12 @@ import {
   projectMember,
   projectStatus
 } from "../db/schema"
+import { normalizeBanner } from "../bannerPlaceholder"
 import {
   iconImageSlots,
   replaceProjectImageReference
 } from "../projectImageReferences"
+import { BannerPlaceholders } from "../Services/BannerPlaceholders"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
@@ -149,6 +151,7 @@ export const ProjectsLive = Layer.effect(
         .pipe(Effect.catchTag("SqlError", Effect.die))
 
     const sql = yield* SqlClient.SqlClient
+    const bannerPlaceholders = yield* BannerPlaceholders
     const projectDocs = yield* ProjectDocs
     const ticketDocs = yield* TicketDocs
     const ticketIndex = yield* TicketIndex
@@ -452,7 +455,7 @@ export const ProjectsLive = Layer.effect(
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
           return rows.map((r) => ({
-            banner: r.banner ?? null,
+            banner: normalizeBanner(r.banner),
             iconImage: r.iconImage ?? null,
             org: orgSlug,
             slug: r.slug,
@@ -806,6 +809,11 @@ export const ProjectsLive = Layer.effect(
           const members = yield* loadMembers(slug)
           const pendingMembers = yield* loadPendingMembers(slug)
           const connection = yield* loadGithubConnection(indexRow)
+          const banner = yield* bannerPlaceholders.ensure(
+            orgSlug,
+            slug,
+            indexRow.banner
+          )
           const key = makeProjectKey(indexRow.key)
           return {
             org: orgSlug,
@@ -817,7 +825,7 @@ export const ProjectsLive = Layer.effect(
             createdBy: indexRow.createdBy,
             createdAt: indexRow.createdAt,
             github: connection,
-            banner: indexRow.banner ?? null,
+            banner,
             iconImage: indexRow.iconImage ?? null,
             setup: file.setup,
             body: file.body,
@@ -845,8 +853,8 @@ export const ProjectsLive = Layer.effect(
 
           const nextBanner =
             input.banner === undefined
-              ? (indexRow.banner ?? null)
-              : input.banner
+              ? normalizeBanner(indexRow.banner)
+              : normalizeBanner(input.banner)
           if (input.banner !== undefined) {
             yield* replaceProjectImageReference(db, {
               orgSlug,
@@ -988,7 +996,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             setup,
-            banner: indexRow.banner ?? null,
+            banner: normalizeBanner(indexRow.banner),
             iconImage: indexRow.iconImage ?? null,
             body: file.body,
             members,
@@ -1050,7 +1058,7 @@ export const ProjectsLive = Layer.effect(
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
-          banner: indexRow.banner ?? null,
+          banner: normalizeBanner(indexRow.banner),
           iconImage: indexRow.iconImage ?? null,
           setup: file.setup,
           body: file.body,
