@@ -1,4 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { useAtomValue } from "@effect/atom-react"
 import { useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
@@ -43,14 +51,16 @@ export function ProjectBanner({
   const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
   const [painted, setPainted] = useState(false)
   const [placeholderFailed, setPlaceholderFailed] = useState(false)
-  const wasCached = useRef(false)
+  const wasCached = useMemo(
+    () => (source ? isImageLoaded(source) : false),
+    [source]
+  )
 
   useEffect(() => {
     setShaderImage(null)
     setPainted(false)
     setPlaceholderFailed(false)
     if (!source) return undefined
-    wasCached.current = isImageLoaded(source)
     let cancelled = false
     const photo = new Image()
     photo.crossOrigin = "anonymous"
@@ -72,8 +82,9 @@ export function ProjectBanner({
 
   if (!source) return null
 
-  const skipBlur = variant !== "header" || wasCached.current
+  const skipBlur = wasCached
   const settings = { ...bannerDefaults, ...crop }
+  const blurRadius = variant === "header" ? 12 : variant === "card" ? 6 : 3
 
   return (
     <div
@@ -100,7 +111,7 @@ export function ProjectBanner({
             painted ? "opacity-0" : "opacity-100"
           )}
           style={{
-            filter: painted ? "blur(0px)" : "blur(12px)",
+            filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
             transition: reduceMotion ? undefined : "filter 500ms ease-out"
           }}
         />
@@ -129,6 +140,7 @@ export function ProjectBanner({
                 key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
                 image={shaderImage}
                 settings={settings}
+                onFirstRender={onShaderRender}
               />
             )}
           </Suspense>
@@ -140,10 +152,12 @@ export function ProjectBanner({
 
 function StaticBanner({
   image,
-  settings
+  settings,
+  onFirstRender
 }: {
   image: HTMLImageElement
   settings: BannerPrototypeSettings
+  onFirstRender?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -170,6 +184,7 @@ function StaticBanner({
   }, [])
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
+      onFirstRender?.()
       if (
         canvas.width > 0 &&
         canvas.height > 0 &&
@@ -178,7 +193,7 @@ function StaticBanner({
       )
         setBitmap({ src: canvas.toDataURL("image/png"), ...size })
     },
-    [size]
+    [size, onFirstRender]
   )
   return (
     <div ref={ref} className="size-full">
