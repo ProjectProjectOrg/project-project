@@ -314,7 +314,7 @@ function ProjectsGroupRow({
             orgSlug={orgSlug}
             icon={icon}
             iconImage={iconImage}
-            size={20}
+            size={16}
           />
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>

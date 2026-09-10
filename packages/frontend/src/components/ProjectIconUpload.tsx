@@ -13,6 +13,12 @@ import { orgStorageAtom } from "@/atoms/storage"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import {
   analyzeCutout,
   hasAlpha,
   CUTOUT_DEFAULT_TOLERANCE,
@@ -72,6 +78,7 @@ export const buildIconImage = (input: {
 }
 
 const ICON_CROP: IconCrop = { x: 0.5, y: 0.5, zoom: 1 }
+const CUTOUT_APPLY_MAX_EDGE = 512
 
 const analyseAt = (bitmap: ImageBitmap, edge: number, tolerance: number) => {
   const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height))
@@ -208,6 +215,7 @@ export function ProjectIconUpload({
   }
 
   const onFileSelected = async (file: File) => {
+    if (fileRef.current) fileRef.current.value = ""
     if (
       !isRasterImageContentType(file.type) ||
       file.size > ATTACHMENT_MAX_BYTES ||
@@ -280,13 +288,43 @@ export function ProjectIconUpload({
 
   const apply = async () => {
     if (!draft) return
-    const edge = Math.max(draft.bitmap.width, draft.bitmap.height)
+
+    if (draft.treatment === "full_bleed") {
+      const uploadedSource = await upload({ file: draft.file })
+      if (Exit.isFailure(uploadedSource)) return
+      const saved = await update({
+        iconImage: buildIconImage({
+          classification: {
+            treatment: "full_bleed",
+            clean: false,
+            transparent: false,
+            tolerance: draft.tolerance
+          },
+          sourceAttachmentId: uploadedSource.value.id,
+          renderedAttachmentId: uploadedSource.value.id,
+          crop: ICON_CROP
+        })
+      })
+      if (Exit.isSuccess(saved)) closeDraft()
+      return
+    }
+
     const { source, alpha, clean } = analyseAt(
       draft.bitmap,
-      edge,
+      CUTOUT_APPLY_MAX_EDGE,
       draft.tolerance
     )
     const transparent = hasAlpha(source)
+
+    if (!clean) {
+      setDraft((current) =>
+        current
+          ? { ...current, clean: false, treatment: "full_bleed" }
+          : current
+      )
+      return
+    }
+
     const classification: IconClassification = {
       treatment: draft.treatment,
       clean,
@@ -296,19 +334,6 @@ export function ProjectIconUpload({
 
     const uploadedSource = await upload({ file: draft.file })
     if (Exit.isFailure(uploadedSource)) return
-
-    if (resolveIconTreatment(classification) === "full_bleed") {
-      const saved = await update({
-        iconImage: buildIconImage({
-          classification,
-          sourceAttachmentId: uploadedSource.value.id,
-          renderedAttachmentId: uploadedSource.value.id,
-          crop: ICON_CROP
-        })
-      })
-      if (Exit.isSuccess(saved)) closeDraft()
-      return
-    }
 
     const blob = transparent ? draft.file : await compositeToBlob(source, alpha)
     const uploadedRendered = await upload({
@@ -382,11 +407,6 @@ export function ProjectIconUpload({
                 onChange={(value) => onToleranceChange(value as number)}
               />
             )}
-            {error && (
-              <p role="alert" className="text-xs text-destructive">
-                {m.project_identity_error()}
-              </p>
-            )}
             {(AsyncResult.isFailure(uploadState) ||
               AsyncResult.isFailure(updateState)) && (
               <p role="alert" className="text-xs text-destructive">
@@ -408,18 +428,41 @@ export function ProjectIconUpload({
           </div>
         ) : (
           <div className="flex items-center gap-1">
-            <Button
-              variant="tertiary"
-              size="sm"
-              leadingIcon={Upload}
-              disabled={!storageAvailable}
-              title={
-                storageAvailable ? undefined : m.project_icon_storage_required()
-              }
-              onClick={() => fileRef.current?.click()}
-            >
-              {m.project_icon_upload()}
-            </Button>
+            {AsyncResult.isSuccess(storage) && !storageAvailable ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        leadingIcon={Upload}
+                        aria-disabled
+                        className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                        onClick={() => {
+                          if (!storageAvailable) return
+                          fileRef.current?.click()
+                        }}
+                      />
+                    }
+                  >
+                    {m.project_icon_upload()}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {m.project_icon_storage_required()}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button
+                variant="tertiary"
+                size="sm"
+                leadingIcon={Upload}
+                onClick={() => fileRef.current?.click()}
+              >
+                {m.project_icon_upload()}
+              </Button>
+            )}
             {iconImage && (
               <Button
                 variant="ghost"
@@ -433,11 +476,16 @@ export function ProjectIconUpload({
             )}
           </div>
         )}
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {m.project_icon_file_rejected()}
+          </p>
+        )}
         <input
           ref={fileRef}
           hidden
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+          accept="image/png,image/jpeg,image/webp,image/avif"
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (!file) return

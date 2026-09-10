@@ -154,6 +154,7 @@
   "project_icon_apply": "Apply",
   "project_icon_cancel": "Cancel",
   "project_icon_cutout_rejected": "The background isn't uniform enough to remove cleanly. The image will be cropped instead.",
+  "project_icon_file_rejected": "That file can't be used. Pick a PNG, JPEG or WebP under 25 MB.",
   "project_icon_remove": "Remove image",
   "project_icon_storage_required": "Connect object storage to upload a project icon.",
   "project_icon_tolerance": "Background removal",
