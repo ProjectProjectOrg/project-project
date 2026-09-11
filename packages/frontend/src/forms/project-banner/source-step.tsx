@@ -162,6 +162,7 @@ export function BannerSourceStep({
                         form.setFieldValue("crop.x", entry.x)
                         form.setFieldValue("crop.y", entry.y)
                         form.setFieldValue("crop.zoom", 1)
+                        onAdvance()
                       }}
                       className="flex flex-col gap-1.5 text-left outline-none transition-transform duration-100 active:scale-[0.97]"
                     >
@@ -174,9 +175,10 @@ export function BannerSourceStep({
                         )}
                       >
                         <img
-                          src={entry.src}
+                          src={entry.thumbSrc}
                           alt=""
                           loading="lazy"
+                          decoding="async"
                           className="size-full object-cover"
                           style={{
                             objectPosition: `${entry.x * 100}% ${entry.y * 100}%`
