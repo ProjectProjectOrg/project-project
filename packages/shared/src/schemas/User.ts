@@ -40,6 +40,13 @@ import { PersonalEverhour } from "./Everhour"
 
 export const UserId = Schema.String.pipe(
   Schema.check(Schema.isMinLength(1)),
+  Schema.check(
+    Schema.makeFilter((id) =>
+      id === "mine" || id === "unassigned"
+        ? "Reserved filter value cannot be used as a user id"
+        : undefined
+    )
+  ),
   Schema.brand("UserId")
 )
 export type UserId = typeof UserId.Type

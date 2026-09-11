@@ -1,9 +1,13 @@
 import { renderHook } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { ticketListQueryFromSearch } from "@projectproject/shared"
+import * as Schema from "effect/Schema"
+import { TicketListQuery } from "@projectproject/shared"
 import { useUpdateTicketQuery } from "./url"
 
+const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
+
 const navigation = vi.hoisted(() => ({ navigate: vi.fn() }))
+
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigation.navigate,
   useRouter: () => ({ state: { location: { pathname: "/tickets" } } })
@@ -12,7 +16,7 @@ vi.mock("@tanstack/react-router", () => ({
 describe("ticket query navigation", () => {
   it("replaces ticket search fields and resets pagination while preserving the view", () => {
     const { result } = renderHook(() => useUpdateTicketQuery())
-    result.current(ticketListQueryFromSearch({ q: "latest", type: ["bug"] }))
+    result.current(decodeTicketListQuery({ q: "latest", type: ["bug"] }))
     const options = navigation.navigate.mock.lastCall?.[0]
     expect(options).toMatchObject({
       to: "/tickets",
@@ -24,6 +28,7 @@ describe("ticket query navigation", () => {
         view: "list",
         q: "old",
         status: ["done"],
+        updatedAfter: "2026-01-01T00:00:00.000Z",
         cursor: "next"
       })
     ).toMatchObject({
@@ -31,6 +36,7 @@ describe("ticket query navigation", () => {
       q: "latest",
       type: ["bug"],
       status: undefined,
+      updatedAfter: undefined,
       cursor: undefined
     })
   })

@@ -1,8 +1,11 @@
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import * as Schema from "effect/Schema"
 import {
-  ticketListQueryToSearch,
+  TicketListQuery as TicketListQuerySchema,
   type TicketListQuery
 } from "@projectproject/shared"
+
+const encodeTicketListQuery = Schema.encodeSync(TicketListQuerySchema)
 
 export function queryHasActiveFilter(q: TicketListQuery): boolean {
   if (q.q !== undefined && q.q.length > 0) return true
@@ -19,23 +22,20 @@ export function queryHasActiveFilter(q: TicketListQuery): boolean {
   )
 }
 
-export const TICKET_SEARCH_KEYS = [
-  "status",
-  "type",
-  "assignee",
-  "tags",
-  "groupId",
-  "hasBranch",
-  "hasPr",
-  "archived",
-  "sort",
-  "q",
-  "cursor"
-] as const
-
-const clearedTicketSearch = Object.fromEntries(
-  TICKET_SEARCH_KEYS.map((key) => [key, undefined])
-)
+const clearedTicketSearch = {
+  status: undefined,
+  type: undefined,
+  assignee: undefined,
+  tags: undefined,
+  groupId: undefined,
+  hasBranch: undefined,
+  hasPr: undefined,
+  updatedAfter: undefined,
+  archived: undefined,
+  sort: undefined,
+  q: undefined,
+  cursor: undefined
+}
 
 export function useResetTicketSearch() {
   const router = useRouter()
@@ -53,7 +53,7 @@ export function useUpdateTicketQuery() {
   const router = useRouter()
   const navigate = useNavigate()
   return (query: TicketListQuery) => {
-    const nextSearch = ticketListQueryToSearch({ ...query, cursor: undefined })
+    const nextSearch = encodeTicketListQuery({ ...query, cursor: undefined })
     void navigate({
       to: router.state.location.pathname,
       search: (prev) => ({ ...prev, ...clearedTicketSearch, ...nextSearch }),

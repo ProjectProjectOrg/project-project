@@ -155,7 +155,7 @@ export const McpTools = {
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
-      ...TicketFilter.fields,
+      filter: Schema.optional(TicketFilter),
       ...Pagination.fields
     }),
     output: Page(Ticket),

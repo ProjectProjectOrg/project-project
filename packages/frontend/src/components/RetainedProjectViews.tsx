@@ -1,12 +1,13 @@
 import { Activity, useMemo, useState } from "react"
 import { useMatches } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { GroupId, ticketListQueryFromSearch } from "@projectproject/shared"
+import { GroupId, TicketListQuery } from "@projectproject/shared"
 import { BacklogView } from "./TicketList/BacklogView"
 import { useUpdateTicketQuery } from "./TicketList/url"
 import { SprintDetail } from "./sprints/SprintDetail"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 
 export function RetainedProjectViews({
   orgSlug,
@@ -46,12 +47,12 @@ export function RetainedProjectViews({
   }
   const updateQuery = useUpdateTicketQuery()
   const backlogQuery = useMemo(
-    () => ticketListQueryFromSearch(lastBacklog ?? {}),
+    () => lastBacklog ?? defaultTicketListQuery,
     [lastBacklog]
   )
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
-    const query = ticketListQueryFromSearch(lastSprint?.search ?? {})
+    const query = lastSprint?.search ?? defaultTicketListQuery
     return sprintId ? { ...query, groupId: [sprintId] } : query
   }, [lastSprint?.search, sprintId])
 

@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-router"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { TicketDetail, ticketListQueryFromSearch } from "@projectproject/shared"
+import { TicketDetail, TicketListQuery } from "@projectproject/shared"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
@@ -24,6 +24,8 @@ import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projec
 import { Route as TicketRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
 import { Row } from "./TicketList/Row"
 import { SprintBoardCard } from "./sprints/SprintBoardCard"
+
+const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 
 vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
   useProject: () => ({ github: null })
@@ -67,10 +69,10 @@ it("starts backlog sections alongside metadata without waiting, even with collap
     "projectproject:ticket-list-collapsed:org/project",
     JSON.stringify(["todo", "review"])
   )
-  const query = ticketListQueryFromSearch({
+  const query = decodeTicketListQuery({
     q: "search",
     status: ["review"],
-    sort: "title:desc"
+    sort: { key: "title", dir: "desc" }
   })
   expect(
     load(BacklogRoute.options.loader, {
@@ -83,7 +85,8 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   const sections = requests.find((url) => url.pathname.endsWith("/sections"))
   expect(sections?.searchParams.get("q")).toBe("search")
   expect(sections?.searchParams.has("status")).toBe(false)
-  expect(sections?.searchParams.get("sort")).toBe("title:desc")
+  expect(sections?.searchParams.get("sort[key]")).toBe("title")
+  expect(sections?.searchParams.get("sort[dir]")).toBe("desc")
   expect(requests.map((url) => url.pathname)).toContain(
     "/api/orgs/org/projects/project/statuses"
   )
@@ -96,7 +99,14 @@ it.each(["board", "list", "description"] as const)(
       load(SprintRoute.options.loader, {
         context: { registry },
         params,
-        deps: { view, q: "needle", status: ["review"], groupId: ["G-2"] }
+        deps: {
+          ...decodeTicketListQuery({
+            q: "needle",
+            status: ["review"],
+            groupId: ["G-2"]
+          }),
+          view
+        }
       })
     ).toMatchObject({ crumb: { groupId: "G-1" } })
     await waitFor(() =>
@@ -207,7 +217,7 @@ it.each(["row", "card"] as const)(
             orgSlug="org"
             slug="project"
             ticket={ticket}
-            query={ticketListQueryFromSearch({})}
+            query={decodeTicketListQuery({})}
             members={[]}
             showSprintCol={false}
             showExtraActionsCol={false}

@@ -67,14 +67,15 @@ export type TicketFilter = typeof TicketFilter.Type
 
 export const TICKET_LIST_LIMIT = 50
 
-export const TicketListQuery = Schema.Struct({
-  ...TicketFilterFields,
-  sort: TicketSort.pipe(
-    Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
-  ),
-  q: Schema.optional(Schema.String),
-  cursor: Schema.optional(Schema.String)
-})
+export const TicketListQuery = TicketFilter.pipe(
+  Schema.fieldsAssign({
+    sort: TicketSort.pipe(
+      Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
+    ),
+    q: Schema.optional(Schema.String),
+    cursor: Schema.optional(Schema.String)
+  })
+)
 export type TicketListQuery = typeof TicketListQuery.Type
 
 export const TicketListPage = Page(Ticket)
@@ -86,10 +87,9 @@ export const TicketCounts = Schema.Struct({
 })
 export type TicketCounts = typeof TicketCounts.Type
 
-export const TicketCountQuery = Schema.Struct({
-  ...TicketFilterFields,
-  q: Schema.optional(Schema.String)
-})
+export const TicketCountQuery = TicketFilter.pipe(
+  Schema.fieldsAssign({ q: Schema.optional(Schema.String) })
+)
 export type TicketCountQuery = typeof TicketCountQuery.Type
 
 export const TicketSections = Schema.Struct({

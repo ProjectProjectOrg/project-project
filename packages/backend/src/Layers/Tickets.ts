@@ -32,12 +32,14 @@ import {
   UpdateTicketInput,
   Validation,
   type ProjectKey,
+  type GroupIdFilter,
   type TicketCountQuery,
   type TicketCounts,
   type TicketListPage,
   type TicketListQuery,
   type TicketSections,
-  type TicketStatus
+  type TicketStatus,
+  sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
 import { FigmaLinks } from "../Services/FigmaLinks"
@@ -198,12 +200,12 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      groupIds: ReadonlyArray<string | null> | undefined
+      groupIds: ReadonlyArray<GroupIdFilter> | undefined
     ): Effect.Effect<ReadonlySet<string> | null, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         if (groupIds === undefined || groupIds.length === 0) return null
-        const wantsUngrouped = groupIds.includes(null)
-        const explicitIds = groupIds.filter((id): id is string => id !== null)
+        const wantsUngrouped = groupIds.includes("ungrouped")
+        const explicitIds = groupIds.filter((id) => id !== "ungrouped")
         const memberSet = new Set<string>()
         if (explicitIds.length > 0) {
           const details = yield* Effect.forEach(
@@ -222,8 +224,10 @@ export const TicketsLive = Layer.effect(
         if (wantsUngrouped) {
           const allGroups = yield* groups.list(orgSlug, userId, slug)
           const inAnyActiveSprint = new Set<string>()
+          const now = yield* DateTime.nowAsDate
           for (const g of allGroups) {
-            if (g.completedAt !== null) continue
+            if (g.kind !== "sprint" || sprintState(g, now) !== "active")
+              continue
             for (const t of g.tickets) inAnyActiveSprint.add(t)
           }
           const allTicketIds = yield* ticketIndex.listIds(project)

@@ -13,35 +13,22 @@ import {
   ticketsInSprintAtom,
   ticketsInSprintKey
 } from "@/atoms/tickets"
-import {
-  GroupId,
-  ticketListQueryFromSearch,
-  ticketListQueryToSearch,
-  type TicketListQuery
-} from "@projectproject/shared"
+import { GroupId, TicketListQuery } from "@projectproject/shared"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
-type SprintRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
-  view?: "list" | "board" | "description"
-}
+const SprintRouteSearchSchema = TicketListQuery.pipe(
+  Schema.fieldsAssign({
+    view: Schema.optional(Schema.Literals(["list", "board", "description"]))
+  })
+)
+type SprintRouteSearch = typeof SprintRouteSearchSchema.Type
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
 )({
   component: () => null,
-  validateSearch: (search: Record<string, unknown>): SprintRouteSearch => {
-    const { groupId: _groupId, ...sanitized } = ticketListQueryToSearch(
-      ticketListQueryFromSearch(search)
-    )
-    const view =
-      search.view === "list"
-        ? "list"
-        : search.view === "description"
-          ? "description"
-          : "board"
-    return { ...sanitized, view }
-  },
+  validateSearch: Schema.toStandardSchemaV1(SprintRouteSearchSchema),
   loaderDeps: ({ search }) => search,
   loader: ({
     context: { registry },
@@ -75,6 +62,5 @@ function sprintListQuery(
   search: SprintRouteSearch,
   id: GroupId
 ): TicketListQuery {
-  const query = ticketListQueryFromSearch(search)
-  return { ...query, groupId: [id] }
+  return { ...search, groupId: [id] }
 }

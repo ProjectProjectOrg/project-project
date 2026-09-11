@@ -3,14 +3,12 @@ import { projectStatusesAtom } from "@/atoms/projectStatuses"
 import { sprintsListAtom, projectKey } from "@/atoms/sprints"
 import { ticketsSectionsAtom, ticketsSectionsKey } from "@/atoms/tickets"
 import { createFileRoute } from "@tanstack/react-router"
-import {
-  ticketListQueryFromSearch,
-  ticketListQueryToSearch
-} from "@projectproject/shared"
+import * as Schema from "effect/Schema"
+import { TicketListQuery } from "@projectproject/shared"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   component: () => null,
-  loaderDeps: ({ search }) => ticketListQueryFromSearch(search),
+  loaderDeps: ({ search }) => search,
   loader: ({
     context: { registry },
     params: { orgSlug, slug },
@@ -24,6 +22,5 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
       ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
     )()
   },
-  validateSearch: (search: Record<string, unknown>) =>
-    ticketListQueryToSearch(ticketListQueryFromSearch(search))
+  validateSearch: Schema.toStandardSchemaV1(TicketListQuery)
 })

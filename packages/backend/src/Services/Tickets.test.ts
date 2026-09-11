@@ -8,6 +8,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vite-plus/test"
 import {
   DEFAULT_TICKET_SORT,
+  Group,
   matchesTicketQuery,
   NotFound,
   padNumericIdSort,
@@ -206,20 +207,24 @@ const FakeDb = Layer.succeed(
   ) as never
 )
 
-const FakeGroups = Layer.succeed(Groups, {
-  list: () => unexpected("Groups.list"),
-  listPaged: () => unexpected("Groups.listPaged"),
-  listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
-  get: () => unexpected("Groups.get"),
-  create: () => unexpected("Groups.create"),
-  update: () => unexpected("Groups.update"),
-  updateTickets: () => unexpected("Groups.updateTickets"),
-  addTickets: () => unexpected("Groups.addTickets"),
-  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
-  complete: () => unexpected("Groups.complete"),
-  remove: () => unexpected("Groups.remove"),
-  removeTicketFromAllGroups: () => Effect.void
-} satisfies GroupsShape)
+const makeFakeGroups = (overrides: Partial<GroupsShape> = {}) =>
+  Layer.succeed(Groups, {
+    list: () => unexpected("Groups.list"),
+    listPaged: () => unexpected("Groups.listPaged"),
+    listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
+    get: () => unexpected("Groups.get"),
+    create: () => unexpected("Groups.create"),
+    update: () => unexpected("Groups.update"),
+    updateTickets: () => unexpected("Groups.updateTickets"),
+    addTickets: () => unexpected("Groups.addTickets"),
+    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
+    complete: () => unexpected("Groups.complete"),
+    remove: () => unexpected("Groups.remove"),
+    removeTicketFromAllGroups: () => Effect.void,
+    ...overrides
+  } satisfies GroupsShape)
+
+const FakeGroups = makeFakeGroups()
 
 const makeFakeAttachments = (
   overrides: Partial<AttachmentsShape> = {}
@@ -549,6 +554,7 @@ function makeTicketsLayer(
   options: {
     readonly projects?: Layer.Layer<Projects>
     readonly github?: Layer.Layer<GitHub>
+    readonly groups?: Layer.Layer<Groups>
     readonly ticketIndex?: Layer.Layer<TicketIndex>
     readonly attachments?: Layer.Layer<Attachments>
     readonly figmaLinks?: Layer.Layer<FigmaLinks>
@@ -557,7 +563,7 @@ function makeTicketsLayer(
   return TicketsLive.pipe(
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
-    Layer.provide(FakeGroups),
+    Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
     Layer.provide(options.attachments ?? makeFakeAttachments()),
     Layer.provide(options.figmaLinks ?? makeFakeFigmaLinks()),
@@ -1520,6 +1526,59 @@ it.effect("list reads ticket index rows", () => {
     )
   )
 })
+
+it.effect(
+  "list resolves the ungrouped filter without treating it as a group id",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2"])
+    const activeSprint = Schema.decodeSync(Group)({
+      id: "G-1",
+      name: "Sprint",
+      kind: "sprint",
+      tickets: ["T-1"],
+      color: "#123456",
+      startsAt: null,
+      endsAt: null,
+      completedAt: null,
+      createdBy: "user-1",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    })
+    const epic = Schema.decodeSync(Group)({
+      id: "G-2",
+      name: "Epic",
+      kind: "epic",
+      tickets: ["T-2"],
+      color: "#654321",
+      startsAt: null,
+      endsAt: null,
+      completedAt: null,
+      createdBy: "user-1",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    })
+    const groups = makeFakeGroups({
+      list: () => Effect.succeed([activeSprint, epic])
+    })
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.list("org", "user-1", "p", {
+        sort: DEFAULT_TICKET_SORT,
+        groupId: ["ungrouped"]
+      })
+
+      expect(result.items.map((ticket) => ticket.id)).toEqual(["T-2"])
+    }).pipe(
+      Effect.provide(
+        makeTicketsLayer("T", docs.layer, {
+          groups,
+          ticketIndex: makeFakeTicketIndex(docs.documents)
+        })
+      )
+    )
+  }
+)
 
 it.effect("list defaults to created desc", () => {
   const { documents, layer } = makeTicketsFixture("T", [])

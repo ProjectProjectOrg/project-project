@@ -114,8 +114,13 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
-import { TicketCounts, TicketListPage, TicketSections } from "./filters/Ticket"
-import { TicketCountParams, TicketListParams } from "./filters/url"
+import {
+  TicketCountQuery,
+  TicketCounts,
+  TicketListPage,
+  TicketListQuery,
+  TicketSections
+} from "./filters/Ticket"
 import {
   Attachment,
   AttachmentListPage,
@@ -1042,7 +1047,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/sections",
       {
         params: ProjectPath,
-        query: TicketListParams,
+        query: TicketListQuery,
         success: TicketSections,
         error: [Unauthorized, NotFound]
       }
@@ -1051,7 +1056,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
-      query: TicketListParams,
+      query: TicketListQuery,
       success: TicketListPage,
       error: [Unauthorized, NotFound]
     })
@@ -1074,7 +1079,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/count",
       {
         params: ProjectPath,
-        query: TicketCountParams,
+        query: TicketCountQuery,
         success: TicketCounts,
         error: [Unauthorized, NotFound]
       }

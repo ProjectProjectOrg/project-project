@@ -22,7 +22,8 @@ export interface MatchableTicket {
 
 export const matchesTicketFilter = (
   ticket: MatchableTicket,
-  filter: TicketFilter | undefined
+  filter: TicketFilter | undefined,
+  viewerId?: UserId
 ): boolean => {
   if (!filter) return true
 
@@ -39,15 +40,15 @@ export const matchesTicketFilter = (
   if (filter.assignee !== undefined) {
     if (filter.assignee.length === 0) return false
     const wantsUnassigned = filter.assignee.includes("unassigned")
-    const wantedIds = filter.assignee.filter(
-      (assignee): assignee is UserId =>
-        assignee !== "unassigned" && assignee !== "mine"
-    )
     const isUnassigned = ticket.assignees.length === 0
-    const hasWantedId = ticket.assignees.some((assignee) =>
-      wantedIds.some((id) => id === assignee)
+    const hasWantedAssignee = ticket.assignees.some((ticketAssignee) =>
+      filter.assignee?.some((wantedAssignee) =>
+        wantedAssignee === "mine"
+          ? ticketAssignee === viewerId
+          : wantedAssignee === ticketAssignee
+      )
     )
-    if (!(wantsUnassigned && isUnassigned) && !hasWantedId) return false
+    if (!(wantsUnassigned && isUnassigned) && !hasWantedAssignee) return false
   }
 
   if (filter.tags !== undefined) {
@@ -81,15 +82,7 @@ export const matchesTicketQuery = (
   const showArchived = query.archived === true
   if ((ticket.archivedAt !== null) !== showArchived) return false
 
-  const resolvedFilter: TicketFilter = query.assignee
-    ? {
-        ...query,
-        assignee: query.assignee.flatMap((assignee) =>
-          assignee === "mine" ? (viewerId ? [viewerId] : []) : [assignee]
-        )
-      }
-    : query
-  if (!matchesTicketFilter(ticket, resolvedFilter)) return false
+  if (!matchesTicketFilter(ticket, query, viewerId)) return false
 
   if (query.q !== undefined) {
     const needle = query.q.trim().toLowerCase()

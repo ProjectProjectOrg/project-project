@@ -1,10 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  ticketListQueryFromSearch,
-  type TicketListQuery
-} from "@projectproject/shared"
+import { TicketListQuery } from "@projectproject/shared"
+import * as Schema from "effect/Schema"
 import { TicketToolbar } from "./TicketToolbar"
 
 vi.mock("@/atoms/projectStatuses", async () => {
@@ -16,10 +14,14 @@ vi.mock("@/atoms/projectStatuses", async () => {
   }
 })
 
+const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 const commit = vi.fn<(query: TicketListQuery) => void>()
 function Toolbar() {
   const [query, setQuery] = useState(
-    ticketListQueryFromSearch({ type: ["bug"], sort: "title:asc" })
+    decodeTicketListQuery({
+      type: ["bug"],
+      sort: { key: "title", dir: "asc" }
+    })
   )
   return (
     <TicketToolbar
@@ -85,7 +87,7 @@ describe("toolbar search ownership", () => {
       vi.advanceTimersByTime(200)
     })
     expect(commit).toHaveBeenCalledExactlyOnceWith({
-      sort: ticketListQueryFromSearch({ sort: "title:asc" }).sort
+      sort: { key: "title", dir: "asc" }
     })
   })
 
