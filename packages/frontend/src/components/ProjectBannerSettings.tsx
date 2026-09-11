@@ -13,6 +13,7 @@ import {
 } from "@/atoms/projects"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
+import { compressImage } from "@/lib/imageCompression"
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ImagePlus, Trash2, Upload } from "lucide-react"
@@ -88,6 +89,7 @@ export default function ProjectBannerSettings({
   const contentRef = useRef<HTMLDivElement>(null)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [error, setError] = useState(false)
+  const [applyFailed, setApplyFailed] = useState(false)
   const objectUrls = useRef<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<{
@@ -137,15 +139,18 @@ export default function ProjectBannerSettings({
 
   const edit = (removed: boolean) => {
     setError(false)
+    setApplyFailed(false)
     setDraft({ ...applied, removed })
     setEditing(true)
   }
   const cancel = () => {
     setError(false)
+    setApplyFailed(false)
     setDraft(applied)
     setEditing(false)
   }
   const apply = async () => {
+    setApplyFailed(false)
     const crop = {
       x: draft.settings.x,
       y: draft.settings.y,
@@ -154,7 +159,18 @@ export default function ProjectBannerSettings({
     let next: ProjectBanner | null = null
     if (!draft.removed) {
       if (draft.file) {
-        const uploaded = await upload({ file: draft.file })
+        let compressed: File
+        try {
+          compressed = await compressImage(draft.file, {
+            maxEdge: 2560,
+            hasAlpha: false,
+            quality: 0.82
+          })
+        } catch {
+          setApplyFailed(true)
+          return
+        }
+        const uploaded = await upload({ file: compressed })
         if (Exit.isFailure(uploaded)) return
         next = {
           type: "attachment",
@@ -622,6 +638,11 @@ export default function ProjectBannerSettings({
           </p>
         )}
         {AsyncResult.isFailure(updateState) && (
+          <p role="alert" className="text-xs text-destructive">
+            {m.project_banner_settings_save_error()}
+          </p>
+        )}
+        {applyFailed && (
           <p role="alert" className="text-xs text-destructive">
             {m.project_banner_settings_save_error()}
           </p>

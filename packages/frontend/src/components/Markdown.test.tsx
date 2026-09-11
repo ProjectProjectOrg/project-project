@@ -43,7 +43,7 @@ describe("Markdown attachment density", () => {
     expect(screen.queryByRole("img")).toBeNull()
     expect(screen.getByRole("link").getAttribute("download")).toBe("shot")
     expect(screen.getByRole("link").getAttribute("href")).toBe(
-      `/api/attachments/acme/${ID}`
+      `/api/attachments/acme/${ID}?w=320`
     )
   })
 
