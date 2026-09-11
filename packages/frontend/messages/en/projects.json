@@ -164,6 +164,7 @@
   "org_switcher_switch_aria_label": "Switch to {name}",
   "org_switcher_trigger_aria_label": "Switch organization",
   "project_appearance_accent_row": "Accent color",
+  "project_appearance_banner_custom": "Custom image",
   "project_appearance_banner_none": "No banner",
   "project_appearance_banner_row": "Banner",
   "project_appearance_cancel": "Cancel",
