@@ -13,7 +13,6 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { Results } from "./lib/results"
 import { applyTicketPatch } from "./ticketPatch"
 
 export interface BacklogRequest {
@@ -132,10 +131,11 @@ const backlogView = (req: BacklogRequest) =>
         }
       }
 
-      const { waiting, timestamp } = Results.meta(parts)
+      const gate = AsyncResult.all(parts)
+      if (!AsyncResult.isSuccess(gate)) return gate
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
-        { waiting, timestamp }
+        { waiting: gate.waiting, timestamp: gate.timestamp }
       )
     },
     (refresh) => refresh(sectionsQuery(req))
