@@ -54,7 +54,7 @@ export function ProjectBannerForm({
   const failed =
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(banner ? 1 : 0)
   const [rejected, setRejected] = useState(false)
   const reduce = useReducedMotion() ?? false
   const fade = reduce ? { duration: 0 } : transitions.fade
@@ -151,7 +151,10 @@ export function ProjectBannerForm({
   )
   const sourceDetail = preset
     ? `${preset.label()} · ${preset.artist}`
-    : (fileRef.current?.name ?? m.project_appearance_banner_none())
+    : (fileRef.current?.name ??
+      (values.source.src
+        ? m.project_appearance_banner_custom()
+        : m.project_appearance_banner_none()))
 
   const removeBanner = () => {
     fileRef.current = null
