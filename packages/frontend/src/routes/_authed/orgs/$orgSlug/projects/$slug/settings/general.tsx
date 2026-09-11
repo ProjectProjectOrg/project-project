@@ -64,6 +64,7 @@ function GeneralSettings() {
           orgSlug={orgSlug}
           slug={project.slug}
           name={project.name}
+          projectKey={project.key}
           icon={project.icon}
           iconImage={project.iconImage}
           color={project.color}

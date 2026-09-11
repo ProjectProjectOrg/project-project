@@ -11,17 +11,24 @@ export type LiveIcon = {
 export function IconPreviewTile({
   live,
   size,
-  radius
+  radius,
+  background
 }: {
   live: LiveIcon
   size: number
   radius: number
+  background?: string
 }) {
   return (
     <span
       aria-hidden
       className="relative inline-flex shrink-0 items-center justify-center overflow-hidden corner-squircle"
-      style={{ width: size, height: size, borderRadius: radius }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        backgroundColor: live.treatment === "sticker" ? background : undefined
+      }}
     >
       <CroppedImage
         src={live.src}
