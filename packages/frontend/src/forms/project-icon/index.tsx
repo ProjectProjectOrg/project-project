@@ -67,10 +67,9 @@ export function ProjectIconForm({
   const [step, setStep] = useState(0)
   const draft = useIconDraft()
   const reduce = useReducedMotion() ?? false
-  const morph = reduce ? { duration: 0 } : transitions.layout
   const fade = reduce ? { duration: 0 } : transitions.fade
-  const fadeIn = reduce ? false : { opacity: 0 }
-  const fadeOut = { opacity: 0 }
+  const fadeIn = reduce ? false : { opacity: 0, y: -4 }
+  const fadeOut = { opacity: 0, y: 4 }
 
   const form = useAppForm({
     ...iconFormOpts(icon, iconImage !== null),
@@ -252,7 +251,7 @@ export function ProjectIconForm({
           <motion.div
             key="source-summary"
             initial={fadeIn}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={fadeOut}
             transition={fade}
           >
@@ -268,7 +267,7 @@ export function ProjectIconForm({
           <motion.div
             key="crop-summary"
             initial={fadeIn}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={fadeOut}
             transition={fade}
           >
@@ -284,66 +283,64 @@ export function ProjectIconForm({
         )}
       </AnimatePresence>
 
-      <motion.div layout transition={morph}>
-        <AnimatePresence initial={false} mode="wait">
-          {step === 0 && (
-            <motion.div
-              key="source"
-              initial={fadeIn}
-              animate={{ opacity: 1 }}
-              exit={fadeOut}
-              transition={fade}
-            >
-              <SourceStep
-                form={form}
-                draft={draft}
-                orgSlug={orgSlug}
-                onAdvance={() => {
-                  if (form.state.values.source.kind === "emoji") {
-                    void form.handleSubmit()
-                    return
-                  }
-                  setStep(1)
-                }}
-              />
-            </motion.div>
-          )}
-          {step === 1 && (
-            <motion.div
-              key="crop"
-              initial={fadeIn}
-              animate={{ opacity: 1 }}
-              exit={fadeOut}
-              transition={fade}
-            >
-              <CropStep
-                form={form}
-                src={values.source.objectUrl ?? ""}
-                onAdvance={() => setStep(2)}
-              />
-            </motion.div>
-          )}
-          {step === 2 && (
-            <motion.div
-              key="treatment"
-              initial={fadeIn}
-              animate={{ opacity: 1 }}
-              exit={fadeOut}
-              transition={fade}
-            >
-              <TreatmentStep
-                form={form}
-                draft={draft}
-                busy={busy}
-                error={failed}
-                accent={accent}
-                onRemove={() => void removeImage()}
-                onChangePhoto={() => setStep(0)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+      <AnimatePresence initial={false} mode="popLayout">
+        {step === 0 && (
+          <motion.div
+            key="source"
+            initial={fadeIn}
+            animate={{ opacity: 1, y: 0 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <SourceStep
+              form={form}
+              draft={draft}
+              orgSlug={orgSlug}
+              onAdvance={() => {
+                if (form.state.values.source.kind === "emoji") {
+                  void form.handleSubmit()
+                  return
+                }
+                setStep(1)
+              }}
+            />
+          </motion.div>
+        )}
+        {step === 1 && (
+          <motion.div
+            key="crop"
+            initial={fadeIn}
+            animate={{ opacity: 1, y: 0 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <CropStep
+              form={form}
+              src={values.source.objectUrl ?? ""}
+              onAdvance={() => setStep(2)}
+            />
+          </motion.div>
+        )}
+        {step === 2 && (
+          <motion.div
+            key="treatment"
+            initial={fadeIn}
+            animate={{ opacity: 1, y: 0 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <TreatmentStep
+              form={form}
+              draft={draft}
+              busy={busy}
+              error={failed}
+              accent={accent}
+              onRemove={() => void removeImage()}
+              onChangePhoto={() => setStep(0)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </form.AppForm>
   )
 }

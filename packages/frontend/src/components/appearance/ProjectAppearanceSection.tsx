@@ -25,6 +25,7 @@ import {
   bannerSource,
   bannerPresets
 } from "@/components/project-banner-presets"
+import { AutoHeight } from "@/components/ui/auto-height"
 import { Button } from "@/components/ui/button"
 import { ProjectBannerForm } from "@/forms/project-banner"
 import { ProjectIconForm } from "@/forms/project-icon"
@@ -62,7 +63,6 @@ export function ProjectAppearanceSection({
   const [pickingColor, setPickingColor] = useState(false)
 
   const reduce = useReducedMotion() ?? false
-  const morph = reduce ? { duration: 0 } : transitions.layout
   const fade = reduce ? { duration: 0 } : transitions.fade
   const fadeIn = reduce ? false : { opacity: 0 }
   const fadeOut = { opacity: 0 }
@@ -86,67 +86,69 @@ export function ProjectAppearanceSection({
       </h2>
 
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
-        <motion.div layout transition={morph} className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5">
           <AppearanceCard>
-            <AnimatePresence initial={false} mode="wait">
-              {editing === "icon" ? (
-                <motion.div
-                  key="icon-editor"
-                  initial={fadeIn}
-                  animate={{ opacity: 1 }}
-                  exit={fadeOut}
-                  transition={fade}
-                >
-                  <EditorHeader
-                    title={m.project_appearance_icon_row()}
-                    onCancel={() => {
-                      setEditing(null)
-                      setLive(null)
-                    }}
-                  />
-                  <ProjectIconForm
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    icon={icon}
-                    iconImage={iconImage}
-                    accent={color}
-                    onDone={() => {
-                      setEditing(null)
-                      setLive(null)
-                    }}
-                    onLiveChange={setLive}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="icon-row"
-                  initial={fadeIn}
-                  animate={{ opacity: 1 }}
-                  exit={fadeOut}
-                  transition={fade}
-                >
-                  <AppearanceRow
-                    thumb={
-                      <span className="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] corner-squircle">
-                        <ProjectIconDisplay
-                          orgSlug={orgSlug}
-                          icon={icon}
-                          iconImage={iconImage}
-                          size={40}
-                        />
-                      </span>
-                    }
-                    label={m.project_appearance_icon_row()}
-                    detail={
-                      iconImage
-                        ? m.project_appearance_icon_custom()
-                        : m.project_appearance_icon_emoji_only()
-                    }
-                    action={changeAction("icon")}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <AutoHeight>
+              <AnimatePresence initial={false} mode="popLayout">
+                {editing === "icon" ? (
+                  <motion.div
+                    key="icon-editor"
+                    initial={fadeIn}
+                    animate={{ opacity: 1 }}
+                    exit={fadeOut}
+                    transition={fade}
+                  >
+                    <EditorHeader
+                      title={m.project_appearance_icon_row()}
+                      onCancel={() => {
+                        setEditing(null)
+                        setLive(null)
+                      }}
+                    />
+                    <ProjectIconForm
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      icon={icon}
+                      iconImage={iconImage}
+                      accent={color}
+                      onDone={() => {
+                        setEditing(null)
+                        setLive(null)
+                      }}
+                      onLiveChange={setLive}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="icon-row"
+                    initial={fadeIn}
+                    animate={{ opacity: 1 }}
+                    exit={fadeOut}
+                    transition={fade}
+                  >
+                    <AppearanceRow
+                      thumb={
+                        <span className="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] corner-squircle">
+                          <ProjectIconDisplay
+                            orgSlug={orgSlug}
+                            icon={icon}
+                            iconImage={iconImage}
+                            size={40}
+                          />
+                        </span>
+                      }
+                      label={m.project_appearance_icon_row()}
+                      detail={
+                        iconImage
+                          ? m.project_appearance_icon_custom()
+                          : m.project_appearance_icon_emoji_only()
+                      }
+                      action={changeAction("icon")}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </AutoHeight>
           </AppearanceCard>
 
           <AppearanceCard className={pickingColor ? "z-20" : undefined}>
@@ -176,63 +178,65 @@ export function ProjectAppearanceSection({
           </AppearanceCard>
 
           <AppearanceCard>
-            <AnimatePresence initial={false} mode="wait">
-              {editing === "banner" ? (
-                <motion.div
-                  key="banner-editor"
-                  initial={fadeIn}
-                  animate={{ opacity: 1 }}
-                  exit={fadeOut}
-                  transition={fade}
-                >
-                  <EditorHeader
-                    title={m.project_appearance_banner_row()}
-                    onCancel={() => setEditing(null)}
-                  />
-                  <ProjectBannerForm
-                    key={key}
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    banner={banner}
-                    onDone={() => setEditing(null)}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="banner-row"
-                  initial={fadeIn}
-                  animate={{ opacity: 1 }}
-                  exit={fadeOut}
-                  transition={fade}
-                >
-                  <AppearanceRow
-                    thumb={
-                      <span className="block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
-                        {bannerThumb ? (
-                          <img
-                            src={bannerThumb}
-                            alt=""
-                            className="size-full object-cover"
-                            style={{
-                              objectPosition: `${(banner?.crop.x ?? 0.5) * 100}% ${(banner?.crop.y ?? 0.5) * 100}%`
-                            }}
-                          />
-                        ) : null}
-                      </span>
-                    }
-                    label={m.project_appearance_banner_row()}
-                    detail={
-                      bannerPreset
-                        ? `${bannerPreset.label()} · ${bannerPreset.artist}`
-                        : banner
-                          ? m.project_appearance_icon_custom()
-                          : m.project_appearance_banner_none()
-                    }
-                    action={changeAction("banner")}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <AutoHeight>
+              <AnimatePresence initial={false} mode="popLayout">
+                {editing === "banner" ? (
+                  <motion.div
+                    key="banner-editor"
+                    initial={fadeIn}
+                    animate={{ opacity: 1 }}
+                    exit={fadeOut}
+                    transition={fade}
+                  >
+                    <EditorHeader
+                      title={m.project_appearance_banner_row()}
+                      onCancel={() => setEditing(null)}
+                    />
+                    <ProjectBannerForm
+                      key={key}
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      banner={banner}
+                      onDone={() => setEditing(null)}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="banner-row"
+                    initial={fadeIn}
+                    animate={{ opacity: 1 }}
+                    exit={fadeOut}
+                    transition={fade}
+                  >
+                    <AppearanceRow
+                      thumb={
+                        <span className="block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
+                          {bannerThumb ? (
+                            <img
+                              src={bannerThumb}
+                              alt=""
+                              className="size-full object-cover"
+                              style={{
+                                objectPosition: `${(banner?.crop.x ?? 0.5) * 100}% ${(banner?.crop.y ?? 0.5) * 100}%`
+                              }}
+                            />
+                          ) : null}
+                        </span>
+                      }
+                      label={m.project_appearance_banner_row()}
+                      detail={
+                        bannerPreset
+                          ? `${bannerPreset.label()} · ${bannerPreset.artist}`
+                          : banner
+                            ? m.project_appearance_icon_custom()
+                            : m.project_appearance_banner_none()
+                      }
+                      action={changeAction("banner")}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </AutoHeight>
           </AppearanceCard>
 
           {AsyncResult.isFailure(updateState) ? (
@@ -240,7 +244,7 @@ export function ProjectAppearanceSection({
               {m.project_identity_error()}
             </p>
           ) : null}
-        </motion.div>
+        </div>
 
         <div className="flex flex-col gap-2.5">
           <div className="flex items-baseline justify-between gap-4">
