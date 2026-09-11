@@ -1,11 +1,29 @@
 import { CroppedImage } from "@/components/CroppedImage"
-import { cn } from "@/lib/utils"
 import type { IconCrop, IconTreatment } from "@/lib/iconDraft"
+import { cn } from "@/lib/utils"
 
-export type LiveIcon = {
-  readonly src: string
-  readonly crop: IconCrop
-  readonly treatment: IconTreatment
+export type LiveIcon =
+  | { readonly kind: "emoji"; readonly emoji: string }
+  | {
+      readonly kind: "image"
+      readonly src: string
+      readonly crop: IconCrop
+      readonly treatment: IconTreatment
+    }
+
+export type LiveImageIcon = Extract<LiveIcon, { kind: "image" }>
+
+export function LiveIconImage({ live }: { live: LiveImageIcon }) {
+  return (
+    <CroppedImage
+      src={live.src}
+      crop={live.crop}
+      className={cn(
+        live.treatment === "sticker" &&
+          "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
+      )}
+    />
+  )
 }
 
 export function IconPreviewTile({
@@ -14,7 +32,7 @@ export function IconPreviewTile({
   radius,
   background
 }: {
-  live: LiveIcon
+  live: LiveImageIcon
   size: number
   radius: number
   background?: string
@@ -30,14 +48,7 @@ export function IconPreviewTile({
         backgroundColor: live.treatment === "sticker" ? background : undefined
       }}
     >
-      <CroppedImage
-        src={live.src}
-        crop={live.crop}
-        className={cn(
-          live.treatment === "sticker" &&
-            "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
-        )}
-      />
+      <LiveIconImage live={live} />
     </span>
   )
 }

@@ -5,6 +5,7 @@ import {
   type DitherDirection,
   type DitherStops
 } from "@/components/ui/button-dither"
+import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 type TileSize = "xs" | "sm" | "md" | "lg"
@@ -68,6 +69,7 @@ export function ProjectTile({
   size,
   seed,
   waiting = false,
+  iconNode,
   className
 }: {
   orgSlug: string
@@ -77,6 +79,7 @@ export function ProjectTile({
   size: TileSize
   seed?: string
   waiting?: boolean
+  iconNode?: ReactNode
   className?: string
 }) {
   const variant = variantForSeed(seed)
@@ -98,14 +101,16 @@ export function ProjectTile({
         pixelSize={size === "xs" ? 1 : 2}
         shape="square"
       />
-      <span aria-hidden className="relative">
-        <ProjectIconDisplay
-          orgSlug={orgSlug}
-          icon={icon}
-          iconImage={iconImage}
-          size={SIZE_TO_PX[size]}
-          emojiStyle={{ filter: EMOJI_SHADOW }}
-        />
+      <span aria-hidden className="relative size-full">
+        {iconNode ?? (
+          <ProjectIconDisplay
+            orgSlug={orgSlug}
+            icon={icon}
+            iconImage={iconImage}
+            size={SIZE_TO_PX[size]}
+            emojiStyle={{ filter: EMOJI_SHADOW }}
+          />
+        )}
       </span>
     </span>
   )

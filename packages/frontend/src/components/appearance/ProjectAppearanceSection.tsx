@@ -259,6 +259,7 @@ export function ProjectAppearanceSection({
               projectKey={projectKey}
               icon={icon}
               iconImage={iconImage}
+              color={color}
               banner={banner}
               live={live}
               waiting={updateState.waiting}
@@ -276,6 +277,7 @@ export function ProjectAppearanceSection({
                 projectKey={projectKey}
                 icon={icon}
                 iconImage={iconImage}
+                color={color}
                 banner={banner}
                 live={live}
               />
