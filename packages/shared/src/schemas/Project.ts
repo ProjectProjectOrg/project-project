@@ -140,16 +140,31 @@ export const ProjectBannerCrop = Schema.Struct({
   )
 })
 
+export const BANNER_PLACEHOLDER_BUDGET = 1536
+
+export const BANNER_PLACEHOLDER_MAX_LENGTH = 4096
+
+export const ProjectBannerPlaceholder = Schema.NullOr(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/)
+    ),
+    Schema.check(Schema.isMaxLength(BANNER_PLACEHOLDER_MAX_LENGTH))
+  )
+)
+
 export const ProjectBanner = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("preset"),
     preset: ProjectBannerPreset,
-    crop: ProjectBannerCrop
+    crop: ProjectBannerCrop,
+    placeholder: ProjectBannerPlaceholder
   }),
   Schema.Struct({
     type: Schema.Literal("attachment"),
     attachmentId: AttachmentId,
-    crop: ProjectBannerCrop
+    crop: ProjectBannerCrop,
+    placeholder: ProjectBannerPlaceholder
   })
 ])
 export type ProjectBanner = typeof ProjectBanner.Type
