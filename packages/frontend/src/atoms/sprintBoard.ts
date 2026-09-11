@@ -12,7 +12,6 @@ import type {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { sprintQuery } from "./sprintDetail"
-import { applyTicketPatch } from "./ticketPatch"
 
 export interface BoardRequest {
   readonly params: {
@@ -106,9 +105,7 @@ const placeTicket = (
       ? 0
       : filtered.findIndex((t) => t.id === input.after) + 1
   const ticket =
-    input.status !== undefined
-      ? applyTicketPatch(moved, { status: input.status })
-      : moved
+    input.status !== undefined ? { ...moved, status: input.status } : moved
   const next = [...filtered]
   next.splice(insertAt, 0, ticket)
   return { ...value, tickets: next }
@@ -149,7 +146,17 @@ export const updateBoardTicket = Atom.family(
         AsyncResult.map(current, (value) => ({
           ...value,
           tickets: value.tickets.map((t) =>
-            t.id === id ? applyTicketPatch(t, patch) : t
+            t.id === id
+              ? {
+                  ...t,
+                  title: patch.title ?? t.title,
+                  status: patch.status ?? t.status,
+                  type: patch.type ?? t.type,
+                  priority: patch.priority ?? t.priority,
+                  tags: patch.tags ?? t.tags,
+                  assignees: patch.assignees ?? t.assignees
+                }
+              : t
           )
         })),
       fn: (set) =>
