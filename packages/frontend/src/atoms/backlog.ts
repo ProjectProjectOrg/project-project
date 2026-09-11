@@ -8,6 +8,7 @@ import {
   type TicketCounts,
   type TicketId,
   type TicketListQuery,
+  type TicketStatus,
   type UpdateTicketInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
@@ -104,18 +105,44 @@ const patchRow = (
   id: TicketId,
   patch: UpdateTicketInput
 ): BacklogValue => {
+  let moved: BacklogRow | undefined
+  let from: TicketStatus | undefined
   const sections: Record<string, BacklogSection> = {}
+
   for (const [status, section] of Object.entries(value.sections)) {
-    sections[status] = {
-      ...section,
-      items: section.items.map((row) =>
-        row.ticket.id === id
-          ? { ...row, ticket: applyTicketPatch(row.ticket, patch) }
-          : row
-      )
+    const items: Array<BacklogRow> = []
+    for (const row of section.items) {
+      if (row.ticket.id !== id) {
+        items.push(row)
+        continue
+      }
+      const next = { ...row, ticket: applyTicketPatch(row.ticket, patch) }
+      // A status patch relocates the row; anything else edits it in place.
+      if (patch.status !== undefined && patch.status !== status) {
+        moved = next
+        from = status as TicketStatus
+      } else {
+        items.push(next)
+      }
     }
+    sections[status] = { ...section, items }
   }
-  return { ...value, sections }
+
+  if (!moved || patch.status === undefined) return { ...value, sections }
+
+  const target = sections[patch.status] ?? { items: [], nextCursor: null }
+  sections[patch.status] = {
+    ...target,
+    items: [moved, ...target.items.filter((row) => row.ticket.id !== id)]
+  }
+
+  const byStatus = { ...value.counts.byStatus }
+  if (from !== undefined) {
+    byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
+  }
+  byStatus[patch.status] = (byStatus[patch.status] ?? 0) + 1
+
+  return { counts: { total: value.counts.total, byStatus }, sections }
 }
 
 const replaceRow = (value: BacklogValue, ticket: Ticket): BacklogValue => {

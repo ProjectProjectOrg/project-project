@@ -137,3 +137,59 @@ describe("backlog optimistic update", () => {
     expect(backlog(a)).toBe(backlog(b))
   })
 })
+
+describe("backlog status move", () => {
+  it("moves the row between sections and adjusts counts", async () => {
+    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(
+        Response.json({
+          counts: { total: 1, byStatus: { todo: 1, in_progress: 0 } },
+          sections: {
+            todo: { items: [encode(ticket)], nextCursor: null },
+            in_progress: { items: [], nextCursor: null }
+          }
+        })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { status: doing })
+
+      const moved = registry.get(view)
+      if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+      expect(moved.value.sections.todo.items).toHaveLength(0)
+      expect(moved.value.sections.in_progress.items[0].ticket.id).toBe(
+        ticket.id
+      )
+      expect(moved.value.counts.byStatus[ticket.status]).toBe(0)
+      expect(moved.value.counts.byStatus[doing]).toBe(1)
+      expect(moved.value.counts.total).toBe(1)
+
+      finish(
+        Response.json(
+          encodeUpdateResponse(asDetail({ ...ticket, status: doing }))
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+})
