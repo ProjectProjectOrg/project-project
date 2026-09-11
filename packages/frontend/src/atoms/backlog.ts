@@ -71,32 +71,110 @@ const sectionsQuery = (req: BacklogRequest) =>
     reactivityKeys: [Keys.ticketsIn(scopeOf(req))]
   })
 
+/** Cursors the user has loaded, per status. Client view state, not cache. */
+const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
+  Atom.make<Readonly<Record<string, ReadonlyArray<string>>>>({}).pipe(
+    Atom.setIdleTTL("2 minutes")
+  )
+)
+
+/**
+ * One cursor page. Registers `ticketPages` as well as `ticketsIn` so a mutation
+ * can refresh pages without also re-invalidating the sections query, which the
+ * optimistic wrapper already refreshes on commit.
+ */
+const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
+  Api.query("tickets", "list", {
+    params: req.params,
+    query: { ...req.query, status: [status as TicketStatus], cursor },
+    timeToLive: "2 minutes",
+    reactivityKeys: [
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketPages(scopeOf(req))
+    ]
+  })
+
+const dedupeById = (
+  rows: ReadonlyArray<BacklogRow>
+): ReadonlyArray<BacklogRow> => {
+  const seen = new Set<string>()
+  const out: Array<BacklogRow> = []
+  for (const row of rows) {
+    if (seen.has(row.ticket.id)) continue
+    seen.add(row.ticket.id)
+    out.push(row)
+  }
+  return out
+}
+
 /**
  * The composed backlog value. Task 6 extends this readable with loaded cursor
  * pages; the wrapper below never changes.
  */
 const backlogView = (req: BacklogRequest) =>
-  Atom.readable(
-    (get) =>
-      AsyncResult.map(
-        AsyncResult.all([get(sectionsQuery(req))]),
-        ([base]): BacklogValue => {
-          const sections: Record<string, BacklogSection> = {}
-          for (const [status, page] of Object.entries(base.sections)) {
-            sections[status] = {
-              items: page.items.map(toRow),
-              nextCursor: page.nextCursor
-            }
-          }
-          return { counts: base.counts, sections }
+  Atom.readable<AsyncResult.AsyncResult<BacklogValue, unknown>>(
+    (get) => {
+      const base = get(sectionsQuery(req))
+      if (!AsyncResult.isSuccess(base)) {
+        return base as unknown as AsyncResult.AsyncResult<BacklogValue, unknown>
+      }
+      const loaded = get(loadedPagesAtom(req))
+      const parts: Array<AsyncResult.AsyncResult<unknown, unknown>> = [base]
+      const sections: Record<string, BacklogSection> = {}
+
+      for (const [status, page] of Object.entries(base.value.sections)) {
+        const rows: Array<BacklogRow> = page.items.map(toRow)
+        let nextCursor = page.nextCursor
+        for (const cursor of loaded[status] ?? []) {
+          const result = get(pageQuery(req, status, cursor))
+          parts.push(result)
+          // A failed page keeps its cursor so the user can retry; it must not
+          // fail the whole section.
+          if (!AsyncResult.isSuccess(result)) continue
+          for (const ticket of result.value.items) rows.push(toRow(ticket))
+          nextCursor = result.value.nextCursor
         }
-      ),
+        sections[status] = { items: dedupeById(rows), nextCursor }
+      }
+
+      // A failed or unmounted page must not fail the region, so this cannot be
+      // `AsyncResult.all` over the pages. Waiting is the union across parts.
+      return AsyncResult.success<BacklogValue>(
+        { counts: base.value.counts, sections },
+        { waiting: parts.some((part) => part.waiting) }
+      )
+    },
     (refresh) => refresh(sectionsQuery(req))
   )
 
 /** The value every backlog consumer reads. */
 export const backlog = Atom.family((req: BacklogRequest) =>
   Atom.optimistic(backlogView(req))
+)
+
+export const loadMoreBacklog = Atom.family(
+  ({
+    req,
+    status
+  }: {
+    readonly req: BacklogRequest
+    readonly status: string
+  }) =>
+    Api.runtime.fn((_input: void, get: Atom.FnContext) =>
+      Effect.sync(() => {
+        const current = get(backlog(req))
+        if (!AsyncResult.isSuccess(current)) return
+        const cursor = current.value.sections[status]?.nextCursor
+        if (!cursor) return
+        const loaded = get(loadedPagesAtom(req))
+        const cursors = loaded[status] ?? []
+        if (cursors.includes(cursor)) return
+        get.set(loadedPagesAtom(req), {
+          ...loaded,
+          [status]: [...cursors, cursor]
+        })
+      })
+    )
 )
 
 const patchRow = (
@@ -180,7 +258,8 @@ export const updateBacklogTicket = Atom.family(
             // this view's own query, so publishing it here would refetch twice.
             yield* Reactivity.invalidate([
               Keys.ticket(scopeOf(req), id),
-              Keys.ticketLists(scopeOf(req))
+              Keys.ticketLists(scopeOf(req)),
+              Keys.ticketPages(scopeOf(req))
             ])
             return updated
           })

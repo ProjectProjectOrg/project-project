@@ -1,6 +1,7 @@
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 import {
@@ -10,7 +11,12 @@ import {
   TicketStatus
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
-import { backlog, backlogRequest, updateBacklogTicket } from "./backlog"
+import {
+  backlog,
+  backlogRequest,
+  loadMoreBacklog,
+  updateBacklogTicket
+} from "./backlog"
 
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
@@ -307,6 +313,146 @@ describe("backlog status move", () => {
 
       finish(new Response("nope", { status: 500 }))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("backlog pagination", () => {
+  it("keeps loaded pages across an optimistic commit refresh", async () => {
+    const second = { ...ticket, id: Schema.decodeSync(TicketId)("T-2") }
+    let finish = (_r: Response) => {}
+    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      if (url.pathname.endsWith("/sections")) {
+        return Promise.resolve(
+          Response.json({
+            counts: { total: 2, byStatus: { todo: 2 } },
+            sections: {
+              todo: { items: [encode(ticket)], nextCursor: "cursor-1" }
+            }
+          })
+        )
+      }
+      return Promise.resolve(
+        Response.json({ items: [encode(second)], nextCursor: null })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(loadMoreBacklog({ req, status: "todo" }), undefined)
+      await vi.waitFor(() => {
+        const loaded = registry.get(view)
+        if (!AsyncResult.isSuccess(loaded)) throw new Error("not loaded")
+        expect(loaded.value.sections.todo.items).toHaveLength(2)
+      })
+
+      registry.set(mutation, { priority: "high" })
+      finish(
+        Response.json(
+          encodeUpdateResponse(asDetail({ ...ticket, priority: "high" }))
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(settled.value.sections.todo.items.map((r) => r.ticket.id)).toEqual(
+        ["T-1", "T-2"]
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("does not drop the optimistic overlay early when a load-more page has not settled yet", async () => {
+    // The known risk: an unmounted/not-yet-settled cursor page reads as
+    // `Initial`, and `Initial` is not itself "waiting" by definition. If the
+    // composed view ever reported `waiting: false` while such a page was
+    // still pending, `Atom.optimistic`'s commit check
+    // (`!value.waiting && value.timestamp >= current.timestamp`) would treat
+    // the mutation's commit-refresh as settled and release the overlay
+    // before the page caught up -- the exact flicker this design removes.
+    //
+    // This never fires here because the atom runtime marks any not-yet-
+    // resolved async computation as `waiting: true` regardless of its
+    // `_tag` (see `makeEffect` in `effect/unstable/reactivity/Atom.ts`,
+    // which returns `AsyncResult.waiting(initialValue)` -- forcing
+    // `waiting: true` on an `Initial` result -- whenever there is no
+    // synchronous value and no previous one to fall back to). So a page
+    // that never resolves keeps `parts.some((part) => part.waiting)` true
+    // for as long as it is pending, and the overlay is held rather than
+    // dropped. Proven below: the page request never resolves, yet the view
+    // still reports `waiting: true` after the mutation's own request lands.
+    let finishPatch = (_r: Response) => {}
+    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finishPatch = resolve
+        })
+      }
+      if (url.pathname.endsWith("/sections")) {
+        return Promise.resolve(
+          Response.json({
+            counts: { total: 1, byStatus: { todo: 1 } },
+            sections: {
+              todo: { items: [encode(ticket)], nextCursor: "cursor-1" }
+            }
+          })
+        )
+      }
+      // The load-more page request never resolves.
+      return new Promise<Response>(() => {})
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    const loadMore = loadMoreBacklog({ req, status: "todo" })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() => expect(registry.get(loadMore).waiting).toBe(false))
+
+      registry.set(mutation, { priority: "high" })
+      finishPatch(
+        Response.json(
+          encodeUpdateResponse(asDetail({ ...ticket, priority: "high" }))
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+
+      // Give the commit-refresh a chance to run; the pending page must keep
+      // the view waiting rather than settling on an incomplete value.
+      await Effect.runPromise(Effect.sleep("50 millis"))
+      expect(registry.get(view)).toMatchObject({
+        _tag: "Success",
+        waiting: true
+      })
     } finally {
       registry.dispose()
     }
