@@ -256,6 +256,7 @@ export function ProjectIconForm({
             transition={fade}
           >
             <StepSummaryRow
+              shareId="icon-source"
               thumb={thumb(values.source.objectUrl)}
               label={m.project_icon_summary_source_label()}
               value={sourceDetail}
@@ -272,6 +273,7 @@ export function ProjectIconForm({
             transition={fade}
           >
             <StepSummaryRow
+              shareId="icon-crop"
               thumb={thumb(previewUrl ?? values.source.objectUrl)}
               label={m.project_icon_summary_crop_label()}
               value={m.project_icon_summary_crop_value({

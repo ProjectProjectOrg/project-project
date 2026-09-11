@@ -1,7 +1,9 @@
+import { motion, useReducedMotion } from "motion/react"
 import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { Button } from "@/components/ui/button"
 import { CropWindow } from "@/components/ui/crop-window"
 import { Slider } from "@/components/ui/slider"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { cropSchema, stepValidator } from "./opts"
 import type { IconForm } from "./index"
@@ -15,6 +17,9 @@ export function CropStep({
   src: string
   onAdvance: () => void
 }) {
+  const reduce = useReducedMotion() ?? false
+  const shared = reduce ? { duration: 0 } : transitions.morph
+
   return (
     <form.FormGroup
       name="crop"
@@ -30,26 +35,28 @@ export function CropStep({
             void group.handleSubmit()
           }}
         >
-          <StepHeading current={2} total={3}>
+          <StepHeading current={2} total={3} shareId="icon-crop">
             {m.project_icon_step_crop_heading()}
           </StepHeading>
 
           <group.Subscribe selector={(state) => state.values}>
             {(crop) => (
               <>
-                <CropWindow
-                  src={src}
-                  aspect={1}
-                  shape="squircle"
-                  label={m.project_icon_crop_label()}
-                  caption={m.project_icon_crop_caption()}
-                  value={crop}
-                  onChange={(next) => {
-                    form.setFieldValue("crop.x", next.x)
-                    form.setFieldValue("crop.y", next.y)
-                    form.setFieldValue("crop.zoom", next.zoom)
-                  }}
-                />
+                <motion.div layoutId="icon-crop-thumb" transition={shared}>
+                  <CropWindow
+                    src={src}
+                    aspect={1}
+                    shape="squircle"
+                    label={m.project_icon_crop_label()}
+                    caption={m.project_icon_crop_caption()}
+                    value={crop}
+                    onChange={(next) => {
+                      form.setFieldValue("crop.x", next.x)
+                      form.setFieldValue("crop.y", next.y)
+                      form.setFieldValue("crop.zoom", next.zoom)
+                    }}
+                  />
+                </motion.div>
                 <Slider
                   size="compact"
                   label={m.project_icon_crop_zoom()}
