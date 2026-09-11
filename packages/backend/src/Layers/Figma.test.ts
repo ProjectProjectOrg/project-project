@@ -176,6 +176,18 @@ describe("FigmaLive status mapping", () => {
       expect(file.thumbnailUrl).toBe("https://figma-thumbnails.example/abc.png")
     }).pipe(Effect.provide(FigmaLive))
   )
+
+  it.effect("rejects a malformed successful response", () =>
+    Effect.gen(function* () {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => jsonResponse(200, { lastModified: 42 }))
+      )
+      const figma = yield* Figma
+      const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
+      expect(Schema.is(FigmaError)(error)).toBe(true)
+    }).pipe(Effect.provide(FigmaLive))
+  )
 })
 
 describe("FigmaLive subtle behaviours", () => {
