@@ -12,6 +12,7 @@ import { ColorPicker } from "@/components/ColorPicker"
 import { ProjectTile } from "@/components/ProjectTile"
 import { Button } from "@/components/ui/button"
 import { ProjectIconForm } from "@/forms/project-icon"
+import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
 import { RenderPreviews } from "@/components/appearance/RenderPreviews"
 import { m } from "@/paraglide/messages"
 
@@ -62,6 +63,7 @@ export function ProjectAppearanceSection({
   const update = useAtomSet(updateProjectAtom(key))
   const updateState = useAtomValue(updateProjectAtom(key))
   const [editingIcon, setEditingIcon] = useState(false)
+  const [live, setLive] = useState<LiveIcon | null>(null)
 
   const previews = (
     <RenderPreviews
@@ -71,6 +73,7 @@ export function ProjectAppearanceSection({
       icon={icon}
       iconImage={iconImage}
       color={color}
+      live={live}
       waiting={updateState.waiting}
     />
   )
@@ -89,6 +92,7 @@ export function ProjectAppearanceSection({
                 icon={icon}
                 iconImage={iconImage}
                 onDone={() => setEditingIcon(false)}
+                onLiveChange={setLive}
               />
               <Button
                 variant="ghost"
