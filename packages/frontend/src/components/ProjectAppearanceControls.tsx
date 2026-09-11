@@ -1,7 +1,7 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
   ProjectColor,
   ProjectIcon,
@@ -21,6 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
@@ -32,28 +33,87 @@ type SharedProps = {
   canEdit: boolean
 }
 
-function useProjectUpdate(orgSlug: string, slug: string) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key))
-  const updateState = useAtomValue(updateProjectAtom(key))
-  return {
-    update,
-    waiting: updateState.waiting,
-    error: Result.isFailure(updateState)
-  }
+type TriggerShape = "squircle" | "square" | "circle"
+
+const TRIGGER_SHAPE: Record<TriggerShape, string> = {
+  squircle: "rounded-2xl corner-squircle",
+  square: "rounded-md",
+  circle: "rounded-full"
 }
 
-function MutationError({ show }: { show: boolean }) {
-  if (!show) return null
+function useAppearanceMutation(orgSlug: string, slug: string) {
+  const update = useAtomSet(updateProjectAtom(projectKey(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+
+  const submit = async (input: Parameters<typeof update>[0]) => {
+    setBusy(true)
+    setError(false)
+    const result = await update(input)
+    setBusy(false)
+    setError(Exit.isFailure(result))
+  }
+
+  return { submit, busy, error }
+}
+
+function AppearanceControl({
+  label,
+  ariaLabel,
+  shape,
+  trigger,
+  canEdit,
+  error,
+  children
+}: {
+  label: string
+  ariaLabel: string
+  shape: TriggerShape
+  trigger: ReactNode
+  canEdit: boolean
+  error: boolean
+  children: ReactNode
+}) {
   return (
-    <div role="alert" className="mt-1 text-xs text-destructive">
-      {m.project_identity_error()}
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {canEdit ? (
+        <Popover>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={ariaLabel}
+                className={cn(
+                  "w-fit shrink-0 outline-none transition-transform duration-100 active:scale-[0.97]",
+                  TRIGGER_SHAPE[shape]
+                )}
+              >
+                {trigger}
+              </button>
+            }
+          />
+          <PopoverContent
+            align="start"
+            sideOffset={8}
+            keepMounted
+            className="w-fit p-0"
+          >
+            {children}
+            {error && (
+              <div role="alert" className="p-3 pt-0 text-xs text-destructive">
+                {m.project_identity_error()}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+      ) : (
+        trigger
+      )}
     </div>
   )
-}
-
-function ControlLabel({ children }: { children: ReactNode }) {
-  return <span className="text-xs text-muted-foreground">{children}</span>
 }
 
 export function ProjectIconControl({
@@ -68,58 +128,34 @@ export function ProjectIconControl({
   iconImage: ProjectIconImage | null
   color: string
 }) {
-  const { waiting, error } = useProjectUpdate(orgSlug, slug)
-  const tile = (
-    <ProjectTile
-      orgSlug={orgSlug}
-      icon={icon}
-      iconImage={iconImage}
-      color={color}
-      size="lg"
-      seed={slug}
-      waiting={waiting}
-    />
-  )
-
-  if (!canEdit) {
-    return (
-      <div className="flex flex-col items-start gap-1.5">
-        <ControlLabel>{m.project_identity_icon_label()}</ControlLabel>
-        {tile}
-      </div>
-    )
-  }
-
+  const updateState = useAtomValue(updateProjectAtom(projectKey(orgSlug, slug)))
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <ControlLabel>{m.project_identity_icon_label()}</ControlLabel>
-      <Popover>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              aria-label={m.project_identity_icon_aria_label()}
-              className="w-fit shrink-0 rounded-2xl corner-squircle outline-none transition-transform duration-100 active:scale-[0.97]"
-            >
-              {tile}
-            </button>
-          }
+    <AppearanceControl
+      label={m.project_identity_icon_label()}
+      ariaLabel={m.project_identity_icon_aria_label()}
+      shape="squircle"
+      canEdit={canEdit}
+      error={false}
+      trigger={
+        <ProjectTile
+          orgSlug={orgSlug}
+          icon={icon}
+          iconImage={iconImage}
+          color={color}
+          size="lg"
+          seed={slug}
+          waiting={updateState.waiting}
         />
-        <PopoverContent
-          align="start"
-          sideOffset={8}
-          keepMounted
-          className="w-fit p-3"
-        >
-          <ProjectIconUpload
-            orgSlug={orgSlug}
-            slug={slug}
-            iconImage={iconImage}
-          />
-          <MutationError show={error} />
-        </PopoverContent>
-      </Popover>
-    </div>
+      }
+    >
+      <div className="p-3">
+        <ProjectIconUpload
+          orgSlug={orgSlug}
+          slug={slug}
+          iconImage={iconImage}
+        />
+      </div>
+    </AppearanceControl>
   )
 }
 
@@ -129,60 +165,39 @@ export function ProjectEmojiControl({
   icon,
   canEdit
 }: SharedProps & { icon: string }) {
-  const { update, error } = useProjectUpdate(orgSlug, slug)
-
-  const chip = (
-    <span className="grid size-8 place-items-center rounded-md border border-border bg-muted text-base leading-none">
-      {icon}
-    </span>
-  )
-
-  if (!canEdit) {
-    return (
-      <div className="flex flex-col items-start gap-1.5">
-        <ControlLabel>{m.project_identity_emoji_label()}</ControlLabel>
-        {chip}
-      </div>
-    )
-  }
+  const { submit, busy, error } = useAppearanceMutation(orgSlug, slug)
 
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <ControlLabel>{m.project_identity_emoji_label()}</ControlLabel>
-      <Popover>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              aria-label={m.project_identity_emoji_aria_label()}
-              className="w-fit shrink-0 rounded-md outline-none transition-transform duration-100 active:scale-[0.97]"
-            >
-              {chip}
-            </button>
-          }
-        />
-        <PopoverContent
-          align="start"
-          sideOffset={8}
-          keepMounted
-          className="w-fit p-0"
+    <AppearanceControl
+      label={m.project_identity_emoji_label()}
+      ariaLabel={m.project_identity_emoji_aria_label()}
+      shape="square"
+      canEdit={canEdit}
+      error={error}
+      trigger={
+        <span
+          className={cn(
+            "grid size-8 place-items-center rounded-md border border-border bg-muted text-base leading-none",
+            busy && "animate-pulse"
+          )}
         >
-          <EmojiPicker
-            className="h-[320px]"
-            onEmojiSelect={({ emoji }) =>
-              update({ icon: makeProjectIcon(emoji) })
-            }
-          >
-            <EmojiPickerSearch
-              placeholder={m.project_identity_emoji_search_placeholder()}
-              aria-label={m.project_identity_emoji_aria_label()}
-            />
-            <EmojiPickerContent />
-          </EmojiPicker>
-          <MutationError show={error} />
-        </PopoverContent>
-      </Popover>
-    </div>
+          {icon}
+        </span>
+      }
+    >
+      <EmojiPicker
+        className="h-[320px]"
+        onEmojiSelect={({ emoji }) =>
+          void submit({ icon: makeProjectIcon(emoji) })
+        }
+      >
+        <EmojiPickerSearch
+          placeholder={m.project_identity_emoji_search_placeholder()}
+          aria-label={m.project_identity_emoji_aria_label()}
+        />
+        <EmojiPickerContent />
+      </EmojiPicker>
+    </AppearanceControl>
   )
 }
 
@@ -192,55 +207,34 @@ export function ProjectAccentColorControl({
   color,
   canEdit
 }: SharedProps & { color: string }) {
-  const { update, error } = useProjectUpdate(orgSlug, slug)
-
-  const swatch = (
-    <span
-      aria-hidden
-      className="block size-8 rounded-full border border-border/60 shadow-sm"
-      style={{ backgroundColor: color }}
-    />
-  )
-
-  if (!canEdit) {
-    return (
-      <div className="flex flex-col items-start gap-1.5">
-        <ControlLabel>{m.project_identity_accent_color_label()}</ControlLabel>
-        {swatch}
-      </div>
-    )
-  }
+  const { submit, busy, error } = useAppearanceMutation(orgSlug, slug)
 
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <ControlLabel>{m.project_identity_accent_color_label()}</ControlLabel>
-      <Popover>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              aria-label={m.project_identity_accent_color_aria_label()}
-              className="w-fit shrink-0 rounded-full outline-none transition-transform duration-100 active:scale-[0.97]"
-            >
-              {swatch}
-            </button>
-          }
+    <AppearanceControl
+      label={m.project_identity_accent_color_label()}
+      ariaLabel={m.project_identity_accent_color_aria_label()}
+      shape="circle"
+      canEdit={canEdit}
+      error={error}
+      trigger={
+        <span
+          aria-hidden
+          className={cn(
+            "block size-8 rounded-full border border-border/60 shadow-sm",
+            busy && "animate-pulse"
+          )}
+          style={{ backgroundColor: color }}
         />
-        <PopoverContent
-          align="start"
-          sideOffset={8}
-          keepMounted
-          className="w-fit p-3"
-        >
-          <ColorPicker
-            value={color}
-            onChange={(next) => update({ color: makeProjectColor(next) })}
-            ariaLabel={m.color_picker_aria_label()}
-          />
-          <MutationError show={error} />
-        </PopoverContent>
-      </Popover>
-    </div>
+      }
+    >
+      <div className="p-3">
+        <ColorPicker
+          value={color}
+          onChange={(next) => void submit({ color: makeProjectColor(next) })}
+          ariaLabel={m.color_picker_aria_label()}
+        />
+      </div>
+    </AppearanceControl>
   )
 }
 
@@ -258,6 +252,9 @@ export function ProjectAppearanceGroup({
 }) {
   return (
     <div className="flex flex-col gap-2">
+      <span className="text-xs text-muted-foreground">
+        {m.project_settings_identity_label()}
+      </span>
       <div className="flex items-start gap-5">
         <ProjectIconControl
           orgSlug={orgSlug}
