@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { AttachmentId } from "@projectproject/shared"
-import { buildIconImage, resolveIconTreatment } from "./ProjectIconUpload"
+import { buildIconImage, resolveIconTreatment } from "@/lib/iconDraft"
 
 const sourceAttachmentId = "attachment_source" as AttachmentId
 const renderedAttachmentId = "attachment_rendered" as AttachmentId
