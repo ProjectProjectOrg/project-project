@@ -33,10 +33,19 @@ export const OrgMember = Schema.Struct({
 })
 export type OrgMember = typeof OrgMember.Type
 
+export const OrgInvitationStatus = Schema.Literals([
+  "pending",
+  "accepted",
+  "rejected",
+  "canceled"
+])
+export type OrgInvitationStatus = typeof OrgInvitationStatus.Type
+
 export const OrgInvitation = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
-  role: OrgRole
+  role: OrgRole,
+  status: OrgInvitationStatus
 })
 export type OrgInvitation = typeof OrgInvitation.Type
 
@@ -52,7 +61,8 @@ export const UserInvitation = Schema.Struct({
   orgName: Schema.String,
   role: OrgRole,
   inviterEmail: Schema.NullOr(Schema.String),
-  expiresAt: Schema.DateFromString
+  expiresAt: Schema.DateFromString,
+  createdAt: Schema.DateFromString
 })
 export type UserInvitation = typeof UserInvitation.Type
 
@@ -66,6 +76,11 @@ export const UpdateMemberRoleInput = Schema.Struct({
   role: AssignableRole
 })
 export type UpdateMemberRoleInput = typeof UpdateMemberRoleInput.Type
+
+export const TransferOrgOwnershipInput = Schema.Struct({
+  userId: Schema.String
+})
+export type TransferOrgOwnershipInput = typeof TransferOrgOwnershipInput.Type
 
 export const RenameOrgInput = Schema.Struct({
   name: Schema.String

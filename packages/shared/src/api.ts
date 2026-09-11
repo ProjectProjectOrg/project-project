@@ -31,6 +31,7 @@ import {
   OrgMember,
   OrgMembers,
   RenameOrgInput,
+  TransferOrgOwnershipInput,
   UpdateMemberRoleInput,
   UserInvitation
 } from "./schemas/Org"
@@ -212,7 +213,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.get("get", "/orgs/:orgSlug", {
       params: OrgPath,
       success: OrgDetail,
-      error: [Unauthorized, NotFound]
+      error: [Unauthorized, NotFound, Forbidden]
     })
   )
   .add(
@@ -288,7 +289,7 @@ const OrgGroup = HttpApiGroup.make("org")
       "/orgs/:orgSlug/transfer-ownership",
       {
         params: OrgPath,
-        payload: TransferOwnershipInput,
+        payload: TransferOrgOwnershipInput,
         success: OrgMembers,
         error: [Unauthorized, NotFound, Forbidden, Validation]
       }
