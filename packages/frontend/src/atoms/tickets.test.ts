@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import {
+  Ticket,
   TicketId,
   TicketStatus,
   TicketDetail,
@@ -433,13 +434,12 @@ describe("applyOptimisticTicketUpdate", () => {
         )
         expect(registry.get(preview)).toEqual({ input: patch, waiting: true })
         const stale = registry.get(sections)
-        expect(stale).toMatchObject({
-          value: {
-            sections: {
-              todo: { items: [{ ticket: { type: "chore", priority: "med" } }] }
-            }
-          }
-        })
+        expect(Result.isSuccess(stale)).toBe(true)
+        if (Result.isSuccess(stale)) {
+          expect(stale.value.sections.todo?.items[0]?.ticket).toEqual(
+            Schema.decodeSync(Ticket)(Schema.encodeSync(Ticket)(ticket))
+          )
+        }
         const resolveRefresh = await vi.waitFor(() => {
           if (!finishRefresh)
             throw new Error("Sections refresh has not started")
