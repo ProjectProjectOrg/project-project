@@ -6,23 +6,41 @@ import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { preloadImage } from "@/lib/imagePreload"
+import { bannerSource } from "@/components/project-banner-presets"
 import {
   attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
   CreatableProjectKey,
   type Project,
   type ProjectSetup,
   type UpdateProjectInput as UpdateProjectInputShared
 } from "@projectproject/shared"
 
+const ICON_PRELOAD_CSS_SIZE = 40
+
 const preloadProjectImages = (orgSlug: string, project: Project) => {
-  if (project.banner?.type === "attachment")
-    void preloadImage(attachmentUrl(orgSlug, project.banner.attachmentId))
+  if (project.banner?.type === "attachment") {
+    const source = bannerSource(
+      orgSlug,
+      project.banner,
+      typeof window === "undefined" ? undefined : window.innerWidth
+    )
+    if (source) void preloadImage(source)
+  }
   if (project.iconImage) {
     const id =
       project.iconImage.type === "sticker"
         ? project.iconImage.renderedAttachmentId
         : project.iconImage.sourceAttachmentId
-    void preloadImage(attachmentUrl(orgSlug, id))
+    void preloadImage(
+      withAttachmentParams(attachmentUrl(orgSlug, id), {
+        width: attachmentWidthForCss(
+          ICON_PRELOAD_CSS_SIZE * project.iconImage.crop.zoom,
+          typeof window === "undefined" ? 1 : window.devicePixelRatio
+        )
+      })
+    )
   }
 }
 

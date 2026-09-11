@@ -1,5 +1,10 @@
 import { useRef, useState } from "react"
-import { attachmentUrl, type ProjectIconImage } from "@projectproject/shared"
+import {
+  attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
+  type ProjectIconImage
+} from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 
 export function ProjectIconDisplay({
@@ -44,11 +49,19 @@ export function ProjectIconDisplay({
       style={{ width: size, height: size }}
     >
       <img
-        src={attachmentUrl(
-          orgSlug,
-          iconImage.type === "sticker"
-            ? iconImage.renderedAttachmentId
-            : iconImage.sourceAttachmentId
+        src={withAttachmentParams(
+          attachmentUrl(
+            orgSlug,
+            iconImage.type === "sticker"
+              ? iconImage.renderedAttachmentId
+              : iconImage.sourceAttachmentId
+          ),
+          {
+            width: attachmentWidthForCss(
+              size * iconImage.crop.zoom,
+              typeof window === "undefined" ? 1 : window.devicePixelRatio
+            )
+          }
         )}
         alt=""
         onError={() => setFailed(true)}

@@ -1,5 +1,7 @@
 import {
   attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
   type ProjectBanner,
   type ProjectBannerPreset
 } from "@projectproject/shared"
@@ -103,10 +105,21 @@ export const bannerDefaults: BannerPrototypeSettings = {
 
 export const bannerSource = (
   orgSlug: string,
-  banner: ProjectBanner | null
+  banner: ProjectBanner | null,
+  cssWidth?: number
 ): string | null => {
   if (banner === null) return null
-  return banner.type === "preset"
-    ? (bannerPresets.find((preset) => preset.id === banner.preset)?.src ?? null)
-    : attachmentUrl(orgSlug, banner.attachmentId)
+  if (banner.type === "preset") {
+    return (
+      bannerPresets.find((preset) => preset.id === banner.preset)?.src ?? null
+    )
+  }
+  const url = attachmentUrl(orgSlug, banner.attachmentId)
+  if (cssWidth === undefined) return url
+  return withAttachmentParams(url, {
+    width: attachmentWidthForCss(
+      cssWidth,
+      typeof window === "undefined" ? 1 : window.devicePixelRatio
+    )
+  })
 }

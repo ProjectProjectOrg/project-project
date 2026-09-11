@@ -29,7 +29,13 @@ export function ProjectBanner({
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
-  const source = preview ? preview.source : bannerSource(orgSlug, banner)
+  const source = preview
+    ? preview.source
+    : bannerSource(
+        orgSlug,
+        banner,
+        typeof window === "undefined" ? undefined : window.innerWidth
+      )
   const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   useEffect(() => {

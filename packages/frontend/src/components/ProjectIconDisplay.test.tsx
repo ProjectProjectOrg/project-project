@@ -37,7 +37,7 @@ describe("ProjectIconDisplay", () => {
     )
     const img = container.querySelector("img")
     expect(img?.getAttribute("src")).toBe(
-      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M3"
+      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M3?w=64"
     )
   })
 
@@ -77,7 +77,7 @@ describe("ProjectIconDisplay", () => {
     )
     const img = container.querySelector("img")
     expect(img?.getAttribute("src")).toBe(
-      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M2"
+      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M2?w=64"
     )
   })
 
@@ -119,7 +119,7 @@ describe("ProjectIconDisplay", () => {
     )
     const nextImg = container.querySelector("img")
     expect(nextImg?.getAttribute("src")).toBe(
-      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M9"
+      "/api/attachments/acme/01JBQ8Z3X4Y5W6V7T8S9R0Q1M9?w=64"
     )
   })
 })

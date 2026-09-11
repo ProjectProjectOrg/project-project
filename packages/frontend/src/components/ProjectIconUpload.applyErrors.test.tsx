@@ -1,9 +1,19 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import * as Exit from "effect/Exit"
 
 const uploadSpy = vi.fn()
 const updateSpy = vi.fn()
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+})
 
 vi.mock("@effect/atom-react", () => ({
   useAtomSet: (atom: string) =>

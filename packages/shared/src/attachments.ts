@@ -31,6 +31,29 @@ export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   return { orgSlug, id }
 }
 
+export const ATTACHMENT_WIDTH_RUNGS = [
+  64, 128, 256, 512, 1024, 2048, 2560
+] as const
+
+const TOP_RUNG = ATTACHMENT_WIDTH_RUNGS[ATTACHMENT_WIDTH_RUNGS.length - 1]
+
+export const resolveAttachmentWidthRung = (
+  raw: string | number | null
+): number | null => {
+  if (raw === null) return null
+  const parsed = typeof raw === "number" ? raw : Number(raw)
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > TOP_RUNG) return null
+  return ATTACHMENT_WIDTH_RUNGS.find((rung) => rung >= parsed) ?? null
+}
+
+export const attachmentWidthForCss = (
+  cssWidth: number,
+  devicePixelRatio: number
+): number | null =>
+  resolveAttachmentWidthRung(
+    Math.min(TOP_RUNG, Math.ceil(cssWidth * Math.max(1, devicePixelRatio)))
+  )
+
 const WIDTH_PARAM = "w"
 
 const DENSITY_PARAM = "d"
@@ -66,6 +89,9 @@ export const attachmentSrc = (url: string): string => {
     ? base
     : `${base}?${WIDTH_PARAM}=${encodeURIComponent(width)}`
 }
+
+export const attachmentDownloadSrc = (url: string): string =>
+  `${stripQuery(url)}?download=1`
 
 export const withAttachmentParams = (
   url: string,

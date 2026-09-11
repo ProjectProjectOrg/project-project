@@ -412,13 +412,11 @@ export function ProjectIconUpload({
     const uploadedSource = await upload({ file: compressedSource })
     if (Exit.isFailure(uploadedSource)) return
 
-    const uploadedRendered = transparent
-      ? await upload({ file: draft.file })
-      : await upload({
-          file: new File([await compositeToBlob(source, alpha)], "icon.png", {
-            type: "image/png"
-          })
-        })
+    const uploadedRendered = await upload({
+      file: new File([await compositeToBlob(source, alpha)], "icon.png", {
+        type: "image/png"
+      })
+    })
     if (Exit.isFailure(uploadedRendered)) return
 
     const saved = await update({

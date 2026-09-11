@@ -1,5 +1,6 @@
 import { motion } from "motion/react"
 import { Download } from "lucide-react"
+import { attachmentDownloadSrc } from "@projectproject/shared"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
@@ -17,7 +18,7 @@ export function AttachmentDownload({
       layoutId={`${morphId}-download`}
       layout="position"
       transition={transitions.morph}
-      href={url}
+      href={attachmentDownloadSrc(url)}
       download={filename}
       aria-label={m.editor_attachment_download()}
       title={m.editor_attachment_download()}
