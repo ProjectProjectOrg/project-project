@@ -11,7 +11,6 @@ import type {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { Results } from "./lib/results"
 import { sprintQuery } from "./sprintDetail"
 import { applyTicketPatch } from "./ticketPatch"
 
@@ -52,21 +51,20 @@ const boardView = (req: BoardRequest) =>
     (get) => {
       const group = get(sprintQuery({ params: req.params }))
       const tickets = get(ticketsQuery(req))
-      const blocked = Results.blocked([group, tickets])
-      if (blocked) return blocked
-      if (!AsyncResult.isSuccess(group) || !AsyncResult.isSuccess(tickets)) {
-        return group
-      }
-      const byId = new Map(tickets.value.map((t) => [t.id, t]))
-      const ordered: Array<Ticket> = []
-      for (const id of group.value.tickets) {
-        const ticket = byId.get(id)
-        if (ticket) ordered.push(ticket)
-      }
-      const { waiting, timestamp } = Results.meta([group, tickets])
-      return AsyncResult.success<BoardValue>(
-        { tickets: ordered, completedAt: group.value.completedAt },
-        { waiting, timestamp }
+      return AsyncResult.map(
+        AsyncResult.all([group, tickets]),
+        ([groupValue, ticketsValue]) => {
+          const byId = new Map(ticketsValue.map((t) => [t.id, t]))
+          const ordered: Array<Ticket> = []
+          for (const id of groupValue.tickets) {
+            const ticket = byId.get(id)
+            if (ticket) ordered.push(ticket)
+          }
+          return {
+            tickets: ordered,
+            completedAt: groupValue.completedAt
+          }
+        }
       )
     },
     (refresh) => {
