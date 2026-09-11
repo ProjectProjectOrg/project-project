@@ -255,8 +255,9 @@ export function ProjectIconUpload({
     setError(false)
     const token = ++restyleToken.current
     cancelPendingTolerance()
+    let bitmap: ImageBitmap | null = null
     try {
-      const bitmap = await createImageBitmap(file)
+      bitmap = await createImageBitmap(file)
       if (token !== restyleToken.current) {
         bitmap.close()
         return
@@ -285,6 +286,7 @@ export function ProjectIconUpload({
         previewUrl: preview.url
       })
     } catch {
+      bitmap?.close()
       setError(true)
     }
   }
@@ -434,7 +436,10 @@ export function ProjectIconUpload({
                   type="button"
                   aria-pressed={active}
                   disabled={item.key === "sticker" && !draft.clean}
-                  onClick={() => void restyle(item.key, draft.tolerance)}
+                  onClick={() => {
+                    cancelPendingTolerance()
+                    void restyle(item.key, draft.tolerance)
+                  }}
                   className={cn(
                     SEGMENTED_ITEM_CLASS(active, "inline"),
                     "disabled:cursor-not-allowed disabled:opacity-50"
