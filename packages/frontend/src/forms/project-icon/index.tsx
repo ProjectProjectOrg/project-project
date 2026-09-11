@@ -19,6 +19,7 @@ import {
   analyseAt,
   buildIconImage,
   compositeToBlob,
+  iconPreviewChanged,
   CUTOUT_APPLY_MAX_EDGE
 } from "@/lib/iconDraft"
 import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
@@ -210,23 +211,36 @@ export function ProjectIconForm({
       form.setFieldValue("treatment.kind", resolved)
   }, [form, resolved])
 
+  // Opening the editor is not an edit: until the draft diverges from the saved
+  // icon the previews keep rendering what is applied, so there is nothing to
+  // swap in and nothing to flash.
+  const changed = iconPreviewChanged(
+    values,
+    { icon, iconImage },
+    draft.fileName() !== null,
+    CUTOUT_DEFAULT_TOLERANCE
+  )
+
   useEffect(() => {
     if (!onLiveChange) return undefined
     onLiveChange(
-      values.source.kind === "emoji"
-        ? { kind: "emoji", emoji: values.source.emoji }
-        : previewUrl
-          ? {
-              kind: "image",
-              src: previewUrl,
-              crop: values.crop,
-              treatment: values.treatment.kind
-            }
-          : null
+      !changed
+        ? null
+        : values.source.kind === "emoji"
+          ? { kind: "emoji", emoji: values.source.emoji }
+          : previewUrl
+            ? {
+                kind: "image",
+                src: previewUrl,
+                crop: values.crop,
+                treatment: values.treatment.kind
+              }
+            : null
     )
     return () => onLiveChange(null)
   }, [
     onLiveChange,
+    changed,
     previewUrl,
     values.crop,
     values.source.kind,
