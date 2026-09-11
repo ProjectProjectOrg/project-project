@@ -44,7 +44,13 @@ export function useIconDraft() {
     setPreview(next)
   }
 
-  const accept = async (file: File): Promise<string | null> => {
+  const accept = async (
+    file: File,
+    initial: { treatment: IconTreatment; tolerance: number } = {
+      treatment: "sticker",
+      tolerance: CUTOUT_DEFAULT_TOLERANCE
+    }
+  ): Promise<string | null> => {
     if (
       !isRasterImageContentType(file.type) ||
       file.size > ATTACHMENT_MAX_BYTES ||
@@ -60,11 +66,26 @@ export function useIconDraft() {
       fileRef.current = file
       const url = URL.createObjectURL(file)
       objectUrls.current.push(url)
-      await restyle("sticker", CUTOUT_DEFAULT_TOLERANCE)
+      await restyle(initial.treatment, initial.tolerance)
       return url
     } catch {
       setRejected(true)
       return null
+    }
+  }
+
+  const primeFrom = async (
+    url: string,
+    initial: { treatment: IconTreatment; tolerance: number }
+  ) => {
+    if (bitmapRef.current) return
+    try {
+      const response = await fetch(url)
+      if (!response.ok) return
+      const blob = await response.blob()
+      await accept(new File([blob], "icon", { type: blob.type }), initial)
+    } catch {
+      setRejected(false)
     }
   }
 
@@ -79,6 +100,7 @@ export function useIconDraft() {
     setRejected,
     restyle,
     accept,
+    primeFrom,
     markUnclean,
     bitmap: () => bitmapRef.current,
     file: () => fileRef.current

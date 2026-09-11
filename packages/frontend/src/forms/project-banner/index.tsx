@@ -136,14 +136,7 @@ export function ProjectBannerForm({
       crop: { ...bannerDefaults, ...values.crop }
     })
     return () => setPreview(null)
-  }, [
-    setPreview,
-    values.source.kind,
-    values.source.src,
-    values.crop.x,
-    values.crop.y,
-    values.crop.zoom
-  ])
+  }, [setPreview, values.source.kind, values.source.src, values.crop])
 
   return (
     <form.AppForm>

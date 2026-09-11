@@ -39,12 +39,13 @@ export function TreatmentStep({
             void group.handleSubmit()
           }}
         >
-          {preview ? (
+          {preview || form.state.values.source.objectUrl ? (
             <IconPreviewTile
               live={{
-                src: preview.url,
+                src: preview?.url ?? form.state.values.source.objectUrl!,
                 crop: form.state.values.crop,
-                treatment: preview.treatment
+                treatment:
+                  preview?.treatment ?? form.state.values.treatment.kind
               }}
               size={64}
               radius={16}
