@@ -24,12 +24,13 @@
     "test:db": "vp test run --project backend packages/backend/src/db packages/backend/src/Layers/OAuthApplications.test.ts packages/backend/src/Layers/McpHttp.test.ts packages/backend/src/Layers/GitHubIntegrations.test.ts --no-file-parallelism"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.41.0",
+    "@oxlint/plugins": "1.79.0",
     "@types/node": "^22.10.0",
+    "effect": "4.0.0-rc.112",
     "kysely": "0.27.6",
     "typescript": "7.0.2",
-    "@effect/tsgo": "0.41.0",
-    "vite-plus": "0.3.0",
-    "effect": "4.0.0-rc.112"
+    "vite-plus": "0.3.0"
   },
   "packageManager": "bun@1.4.2",
   "engines": {
