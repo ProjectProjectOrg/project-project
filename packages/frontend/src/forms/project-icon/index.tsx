@@ -246,7 +246,7 @@ export function ProjectIconForm({
 
   return (
     <form.AppForm>
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {step > 0 && (
           <motion.div
             key="source-summary"
