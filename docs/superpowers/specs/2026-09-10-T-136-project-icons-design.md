@@ -143,10 +143,11 @@ it from theme at render time; the stored PNG stays a plain alpha cutout.
 - **Entry point:** the existing emoji picker in project settings gains an upload
   affordance. No second entry point on the project header — the banner
   established settings as where image editing happens.
-- **Permissions:** reuse the project write check guarding `updateProject`;
-  `owner`, `admin` and `member` may all set an icon, matching who can already
-  set the emoji. Verify `prepareProject` / `commitProject` enforce the same
-  check, since they are separate endpoints.
+- **Permissions:** reuse the project write check guarding `updateProject`, which
+  is `requireRole(["owner", "admin"])` (`Projects.ts:847`) — members cannot
+  update a project at all, including its emoji. `prepareProject` and
+  `commitProject` already apply the identical check on the null-ticket path, so
+  icons need no new permission concept.
 - **Disconnected storage:** render the upload affordance disabled with the
   existing `StorageNotConnected` messaging, as `ProjectBannerSettings` already
   does via `storageAvailable`. The emoji still renders, so the icon never
