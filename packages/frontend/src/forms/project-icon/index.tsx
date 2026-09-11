@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ProjectIcon, type ProjectIconImage } from "@projectproject/shared"
 import type { ReactFormType } from "@tanstack/react-form"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
@@ -16,10 +16,13 @@ import {
   compositeToBlob,
   CUTOUT_APPLY_MAX_EDGE
 } from "@/lib/iconDraft"
+import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
+import { m } from "@/paraglide/messages"
 import { CropStep } from "./crop-step"
 import { iconFormOpts } from "./opts"
 import { SourceStep } from "./source-step"
 import { TreatmentStep } from "./treatment-step"
+import { StepSummary } from "./step-summary"
 import { useIconDraft } from "./useIconDraft"
 
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
@@ -31,13 +34,15 @@ export function ProjectIconForm({
   slug,
   icon,
   iconImage,
-  onDone
+  onDone,
+  onLiveChange
 }: {
   orgSlug: string
   slug: string
   icon: string
   iconImage: ProjectIconImage | null
   onDone?: () => void
+  onLiveChange?: (live: LiveIcon | null) => void
 }) {
   const key = projectKey(orgSlug, slug)
   const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
@@ -127,8 +132,55 @@ export function ProjectIconForm({
     }
   })
 
+  const values = form.state.values
+  const previewUrl = draft.preview?.url ?? null
+
+  useEffect(() => {
+    if (!onLiveChange) return undefined
+    onLiveChange(
+      previewUrl
+        ? {
+            src: previewUrl,
+            crop: values.crop,
+            treatment: values.treatment.kind
+          }
+        : null
+    )
+    return () => onLiveChange(null)
+  }, [
+    onLiveChange,
+    previewUrl,
+    values.crop.x,
+    values.crop.y,
+    values.crop.zoom,
+    values.treatment.kind
+  ])
+
+  const summaries = [
+    {
+      label: m.project_icon_step_source_label(),
+      value:
+        values.source.kind === "emoji"
+          ? m.project_icon_summary_emoji({ emoji: values.source.emoji })
+          : m.project_icon_summary_image()
+    },
+    {
+      label: m.project_icon_step_crop_label(),
+      value: m.project_icon_summary_crop({ zoom: values.crop.zoom.toFixed(2) })
+    }
+  ]
+
   return (
     <form.AppForm>
+      {summaries.slice(0, step).map((summary, index) => (
+        <StepSummary
+          key={summary.label}
+          label={summary.label}
+          value={summary.value}
+          onChange={() => setStep(index)}
+        />
+      ))}
+
       {step === 0 && (
         <SourceStep
           form={form}

@@ -1,6 +1,10 @@
 import type { ProjectIconImage } from "@projectproject/shared"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { ProjectTile } from "@/components/ProjectTile"
+import {
+  IconPreviewTile,
+  type LiveIcon
+} from "@/components/appearance/IconPreviewTile"
 import { m } from "@/paraglide/messages"
 
 export function RenderPreviews({
@@ -10,6 +14,7 @@ export function RenderPreviews({
   icon,
   iconImage,
   color,
+  live,
   waiting = false
 }: {
   orgSlug: string
@@ -18,20 +23,25 @@ export function RenderPreviews({
   icon: string
   iconImage: ProjectIconImage | null
   color: string
+  live?: LiveIcon | null
   waiting?: boolean
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <ProjectTile
-          orgSlug={orgSlug}
-          icon={icon}
-          iconImage={iconImage}
-          color={color}
-          size="md"
-          seed={slug}
-          waiting={waiting}
-        />
+        {live ? (
+          <IconPreviewTile live={live} size={40} radius={14} />
+        ) : (
+          <ProjectTile
+            orgSlug={orgSlug}
+            icon={icon}
+            iconImage={iconImage}
+            color={color}
+            size="md"
+            seed={slug}
+            waiting={waiting}
+          />
+        )}
         <span className="text-xs text-muted-foreground">
           {m.project_appearance_renders_header()}
         </span>
@@ -42,12 +52,16 @@ export function RenderPreviews({
           aria-hidden
           className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] corner-squircle text-[13px] leading-none"
         >
-          <ProjectIconDisplay
-            orgSlug={orgSlug}
-            icon={icon}
-            iconImage={iconImage}
-            size={16}
-          />
+          {live ? (
+            <IconPreviewTile live={live} size={16} radius={4} />
+          ) : (
+            <ProjectIconDisplay
+              orgSlug={orgSlug}
+              icon={icon}
+              iconImage={iconImage}
+              size={16}
+            />
+          )}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
           {name}
