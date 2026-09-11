@@ -196,6 +196,16 @@ export function SourceStep({
             </p>
           ) : null}
 
+          <group.Subscribe selector={(state) => state.values}>
+            {(source) =>
+              source.kind === "image" && source.objectUrl ? (
+                <Button type="submit" size="sm" className="self-start">
+                  {m.project_appearance_continue()}
+                </Button>
+              ) : null
+            }
+          </group.Subscribe>
+
           <input
             ref={fileRef}
             hidden
