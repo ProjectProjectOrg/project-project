@@ -15,6 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RailBackLink } from "@/components/RailBackLink"
 import { cn } from "@/lib/utils"
 import { transitions } from "@/lib/springs"
@@ -72,6 +73,9 @@ export function SprintRail({
   const project = useAtomValue(projectAtom(projectRouteKey(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
   const projectIcon = Result.isSuccess(project) ? project.value.icon : null
+  const projectIconImage = Result.isSuccess(project)
+    ? project.value.iconImage
+    : null
   const reduceMotion = useReducedMotion()
   const list = useAtomValue(sprintsListAtom(key))
   const sprints = Result.isSuccess(list) ? list.value : []
@@ -112,9 +116,14 @@ export function SprintRail({
         {projectIcon ? (
           <span
             aria-hidden
-            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none"
+            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] corner-squircle text-[13px] leading-none"
           >
-            {projectIcon}
+            <ProjectIconDisplay
+              orgSlug={orgSlug}
+              icon={projectIcon}
+              iconImage={projectIconImage}
+              size={16}
+            />
           </span>
         ) : null}
         <span className="min-w-0 flex-1 truncate font-medium">

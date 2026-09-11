@@ -50,3 +50,18 @@ it("does not offer gif in the file picker's accept list", () => {
   ) as HTMLInputElement
   expect(fileInput.accept).not.toContain("gif")
 })
+
+it("rejects a gif even when it gets past the picker's accept hint", async () => {
+  const { container } = render(
+    <ProjectIconUpload orgSlug="org" slug="proj" iconImage={null} />
+  )
+  const fileInput = container.querySelector(
+    "input[type='file']"
+  ) as HTMLInputElement
+  const gif = new File([new Uint8Array(8)], "loop.gif", { type: "image/gif" })
+
+  fireEvent.change(fileInput, { target: { files: [gif] } })
+
+  const alert = await screen.findByRole("alert")
+  expect(alert.textContent).toContain("That file can't be used")
+})

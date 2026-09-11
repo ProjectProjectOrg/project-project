@@ -1,5 +1,15 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react"
-import { afterEach, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+})
 
 vi.mock("@effect/atom-react", () => ({
   useAtomSet: () => async () => ({}),

@@ -45,6 +45,13 @@ export const RASTER_IMAGE_CONTENT_TYPES = [
   "image/avif"
 ] as const
 
+export const PROJECT_ICON_CONTENT_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/avif"
+] as const
+
 export const ATTACHMENT_CONTENT_TYPES = [
   ...RASTER_IMAGE_CONTENT_TYPES,
   "application/pdf",
@@ -65,6 +72,11 @@ export const isAllowedAttachmentContentType = (value: string): boolean =>
 
 export const isRasterImageContentType = (value: string): boolean =>
   (RASTER_IMAGE_CONTENT_TYPES as readonly string[]).includes(
+    normalizeContentType(value)
+  )
+
+export const isProjectIconContentType = (value: string): boolean =>
+  (PROJECT_ICON_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )
 
