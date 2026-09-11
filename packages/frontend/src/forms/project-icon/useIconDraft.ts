@@ -4,14 +4,22 @@ import {
   isRasterImageContentType
 } from "@projectproject/shared"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/lib/iconCutout"
-import { buildDraftPreview, type IconTreatment } from "@/lib/iconDraft"
+import {
+  buildDraftPreview,
+  resolveIconTreatment,
+  type IconTreatment
+} from "@/lib/iconDraft"
 
 export type IconPreview = {
-  readonly url: string
+  readonly cutoutUrl: string
+  readonly fullUrl: string
   readonly clean: boolean
   readonly transparent: boolean
   readonly treatment: IconTreatment
 }
+
+export const draftPreviewUrl = (preview: IconPreview): string =>
+  preview.treatment === "sticker" ? preview.cutoutUrl : preview.fullUrl
 
 export type IconDraft = ReturnType<typeof useIconDraft>
 
@@ -22,6 +30,7 @@ export function useIconDraft() {
   const fileRef = useRef<File | null>(null)
   const objectUrls = useRef<string[]>([])
   const restyleToken = useRef(0)
+  const toleranceRef = useRef<number | null>(null)
   const primed = useRef(false)
 
   useEffect(
@@ -35,13 +44,35 @@ export function useIconDraft() {
   const restyle = async (treatment: IconTreatment, tolerance: number) => {
     const bitmap = bitmapRef.current
     if (!bitmap) return
+    // Only the tolerance changes the pixels. Switching treatment picks which of
+    // the two renders is the chosen one, so rebuilding them would swap both
+    // tiles' images for identical copies and make the choice flicker.
+    if (toleranceRef.current === tolerance) {
+      setPreview((current) =>
+        current
+          ? {
+              ...current,
+              treatment: resolveIconTreatment({
+                treatment,
+                clean: current.clean,
+                transparent: current.transparent,
+                tolerance
+              })
+            }
+          : current
+      )
+      return
+    }
     const token = ++restyleToken.current
     const next = await buildDraftPreview(bitmap, treatment, tolerance)
     if (token !== restyleToken.current) {
-      URL.revokeObjectURL(next.url)
+      URL.revokeObjectURL(next.cutoutUrl)
+      if (next.fullUrl !== next.cutoutUrl) URL.revokeObjectURL(next.fullUrl)
       return
     }
-    objectUrls.current.push(next.url)
+    toleranceRef.current = tolerance
+    objectUrls.current.push(next.cutoutUrl)
+    if (next.fullUrl !== next.cutoutUrl) objectUrls.current.push(next.fullUrl)
     setPreview(next)
   }
 
@@ -62,6 +93,7 @@ export function useIconDraft() {
     }
     setRejected(false)
     primed.current = false
+    toleranceRef.current = null
     try {
       bitmapRef.current?.close()
       bitmapRef.current = await createImageBitmap(file)

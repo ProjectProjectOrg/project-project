@@ -143,6 +143,12 @@ export const compositeToBlob = (
   )
 }
 
+/**
+ * Builds both renders, not just the selected one. The treatment step offers a
+ * choice between them side by side, and each tile has to show what its own
+ * option produces however the other is set — a preview that changed with the
+ * selection would be showing the answer to a different question.
+ */
 export const buildDraftPreview = async (
   bitmap: ImageBitmap,
   requestedTreatment: IconTreatment,
@@ -160,12 +166,14 @@ export const buildDraftPreview = async (
     transparent,
     tolerance
   })
-  const blob = await compositeToBlob(
-    source,
-    treatment === "sticker" && !transparent ? alpha : null
-  )
+  const full = URL.createObjectURL(await compositeToBlob(source, null))
+  // An image that already carries alpha is its own cutout.
+  const cutout = transparent
+    ? full
+    : URL.createObjectURL(await compositeToBlob(source, alpha))
   return {
-    url: URL.createObjectURL(blob),
+    cutoutUrl: cutout,
+    fullUrl: full,
     clean,
     transparent,
     treatment

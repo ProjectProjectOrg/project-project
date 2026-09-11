@@ -67,11 +67,16 @@ export function TreatmentStep({
   onChangePhoto: () => void
 }) {
   const preview = draft.preview
-  const src = preview?.url ?? form.state.values.source.objectUrl
   const failed = preview?.clean === false
 
-  const tile = (treatment: IconTreatment) =>
-    src ? (
+  // Each tile shows its own option, not the one currently selected, so picking
+  // between them doesn't rewrite what they are offering.
+  const tile = (treatment: IconTreatment) => {
+    const src =
+      treatment === "sticker"
+        ? (preview?.cutoutUrl ?? null)
+        : (preview?.fullUrl ?? form.state.values.source.objectUrl)
+    return src ? (
       <IconPreviewTile
         live={{
           kind: "image",
@@ -84,6 +89,7 @@ export function TreatmentStep({
         background={treatment === "sticker" ? accent : undefined}
       />
     ) : null
+  }
 
   return (
     <form.FormGroup
