@@ -3,11 +3,18 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
 import type {
+  AssignableRole,
   CursorPayload,
+  InviteMemberInput,
   NotFound,
   Org,
+  OrgDetail,
+  OrgInvitation,
+  OrgMember,
+  OrgMembers,
   PersonalEverhour,
-  PersonalGithub
+  PersonalGithub,
+  UserInvitation
 } from "@projectproject/shared"
 
 export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
@@ -64,6 +71,65 @@ export interface BetterAuthShape {
     request: Request,
     input: { accept: boolean; oauth_query: string }
   ) => Effect.Effect<{ redirectURI: string }, BetterAuthError>
+  readonly getMembers: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly renameOrg: (
+    request: Request,
+    orgSlug: string,
+    name: string
+  ) => Effect.Effect<OrgDetail, BetterAuthError | NotFound>
+  readonly inviteMember: (
+    request: Request,
+    orgSlug: string,
+    input: InviteMemberInput
+  ) => Effect.Effect<OrgInvitation, BetterAuthError | NotFound>
+  readonly updateMemberRole: (
+    request: Request,
+    orgSlug: string,
+    userId: string,
+    role: AssignableRole
+  ) => Effect.Effect<OrgMember, BetterAuthError | NotFound>
+  readonly removeMember: (
+    request: Request,
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly cancelInvitation: (
+    request: Request,
+    orgSlug: string,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly transferOwnership: (
+    request: Request,
+    orgSlug: string,
+    toUserId: string,
+    selfUserId: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly leaveOrg: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly listInvitations: (
+    request: Request
+  ) => Effect.Effect<ReadonlyArray<UserInvitation>, BetterAuthError>
+  readonly getInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<UserInvitation, BetterAuthError | NotFound>
+  readonly acceptInvitation: (
+    request: Request,
+    invitationId: string,
+    userId: string
+  ) => Effect.Effect<Org, BetterAuthError | NotFound>
+  readonly rejectInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly getPublicClientName: (
+    clientId: string
+  ) => Effect.Effect<string | null, BetterAuthError>
 }
 
 export class BetterAuth extends Context.Service<BetterAuth, BetterAuthShape>()(

@@ -83,6 +83,8 @@ import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
 import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
 import { StorageHandlerLive } from "./handlers/storage"
+import { InvitationsHandlerLive } from "./handlers/invitations"
+import { OAuthPublicHandlerLive } from "./handlers/oauthPublic"
 import { OrgHandlerLive } from "./handlers/org"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
@@ -142,6 +144,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(OrgHandlerLive),
+  Layer.provide(InvitationsHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
@@ -151,6 +154,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
+  Layer.provide(OAuthPublicHandlerLive),
   Layer.provide(StorageHandlerLive),
   Layer.provide(AttachmentsHandlerLive),
   Layer.provide(BackendHttpServicesLive)

@@ -23,7 +23,18 @@ import {
 } from "effect/unstable/httpapi"
 import * as Schema from "effect/Schema"
 import { User } from "./schemas/User"
-import { Org, OrgDetail } from "./schemas/Org"
+import {
+  InviteMemberInput,
+  Org,
+  OrgDetail,
+  OrgInvitation,
+  OrgMember,
+  OrgMembers,
+  OrgTransferOwnershipInput,
+  RenameOrgInput,
+  UpdateMemberRoleInput,
+  UserInvitation
+} from "./schemas/Org"
 import {
   AddMemberInput,
   ConnectGithubInput,
@@ -183,6 +194,15 @@ const AuthGroup = HttpApiGroup.make("auth")
   .middleware(Authentication)
 
 const OrgPath = Schema.Struct({ orgSlug: Slug })
+const OrgMemberPath = Schema.Struct({
+  orgSlug: Slug,
+  userId: Schema.String
+})
+const OrgInvitationPath = Schema.Struct({
+  orgSlug: Slug,
+  invitationId: Schema.String
+})
+const InvitationPath = Schema.Struct({ invitationId: Schema.String })
 
 const OrgGroup = HttpApiGroup.make("org")
   .add(
@@ -209,6 +229,100 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("restore", "/orgs/:orgSlug/restore", {
       params: OrgPath,
       success: OrgDetail,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
+      params: OrgPath,
+      success: OrgMembers,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch("rename", "/orgs/:orgSlug", {
+      params: OrgPath,
+      payload: RenameOrgInput,
+      success: OrgDetail,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("inviteMember", "/orgs/:orgSlug/members", {
+      params: OrgPath,
+      payload: InviteMemberInput,
+      success: OrgInvitation,
+      error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch("updateMemberRole", "/orgs/:orgSlug/members/:userId", {
+      params: OrgMemberPath,
+      payload: UpdateMemberRoleInput,
+      success: OrgMember,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
+      params: OrgMemberPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "cancelInvitation",
+      "/orgs/:orgSlug/invitations/:invitationId",
+      {
+        params: OrgInvitationPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post("transferOwnership", "/orgs/:orgSlug/transfer-ownership", {
+      params: OrgPath,
+      payload: OrgTransferOwnershipInput,
+      success: OrgMembers,
+      error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
+      params: OrgPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .middleware(Authentication)
+
+const InvitationsGroup = HttpApiGroup.make("invitations")
+  .add(
+    HttpApiEndpoint.get("list", "/invitations", {
+      success: Schema.Array(UserInvitation),
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/invitations/:invitationId", {
+      params: InvitationPath,
+      success: UserInvitation,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("accept", "/invitations/:invitationId/accept", {
+      params: InvitationPath,
+      success: Org,
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("reject", "/invitations/:invitationId/reject", {
+      params: InvitationPath,
+      success: HttpApiSchema.NoContent,
       error: [Unauthorized, NotFound, Forbidden, Conflict]
     })
   )
@@ -1408,11 +1522,20 @@ const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   )
   .middleware(Authentication)
 
+const OAuthPublicGroup = HttpApiGroup.make("oauthPublic").add(
+  HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
+    query: Schema.Struct({ client_id: Schema.String }),
+    success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
+    error: [NotFound]
+  })
+)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(OrgGroup)
+  .add(InvitationsGroup)
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
@@ -1424,5 +1547,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(StatusesGroup)
   .add(GroupsGroup)
   .add(OAuthApplicationsGroup)
+  .add(OAuthPublicGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

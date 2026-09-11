@@ -18,6 +18,7 @@ import {
   NoGithubToken,
   type BetterAuthShape
 } from "../Services/BetterAuth"
+import { betterAuthOrgMethods } from "./BetterAuthOrg"
 
 export const BetterAuthLive = Layer.effect(
   BetterAuth,
@@ -218,7 +219,8 @@ export const BetterAuthLive = Layer.effect(
               })
               .then((result) => ({ redirectURI: result.url })),
           catch: (cause) => new BetterAuthError({ cause })
-        })
+        }),
+      ...betterAuthOrgMethods
     } satisfies BetterAuthShape
   })
 )
