@@ -28,5 +28,15 @@ export const Keys = {
   /** Queries whose ordering or matching depends on ticket titles. */
   ticketTitleQuery: (scope: string): string => `ticket-title-query/${scope}`,
   /** Queries whose ordering or matching depends on `updatedAt`. */
-  ticketUpdatedQuery: (scope: string): string => `ticket-updated-query/${scope}`
+  ticketUpdatedQuery: (scope: string): string =>
+    `ticket-updated-query/${scope}`,
+  /** Any query returning this project's sprints. */
+  sprints: (scope: string): string => `sprints/${scope}`,
+  /** Which sprint a ticket belongs to. */
+  sprintMembership: (scope: string, groupId?: string): string =>
+    groupId === undefined
+      ? `sprint-membership/${scope}`
+      : `sprint-membership/${scope}/${groupId}`,
+  /** One sprint's detail record. */
+  sprint: (scope: string, id: string): string => `sprint/${scope}/${id}`
 } as const
