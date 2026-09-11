@@ -5,9 +5,11 @@ import { useRef, useState } from "react"
 import { Database, Upload } from "lucide-react"
 import { orgStorageAtom } from "@/atoms/storage"
 import { SegmentedTabs, SEGMENTED_ITEM_CLASS } from "@/components/SegmentedTabs"
+import { motion, useReducedMotion } from "motion/react"
 import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { bannerPresets } from "@/components/project-banner-presets"
 import { Button } from "@/components/ui/button"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { bannerSourceSchema, bannerStepValidator } from "./opts"
@@ -32,6 +34,8 @@ export function BannerSourceStep({
   const storageKnown = AsyncResult.isSuccess(storage)
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const reduce = useReducedMotion() ?? false
+  const shared = reduce ? { duration: 0 } : transitions.morph
 
   return (
     <form.FormGroup
@@ -166,7 +170,9 @@ export function BannerSourceStep({
                       }}
                       className="flex flex-col gap-1.5 text-left outline-none transition-transform duration-100 active:scale-[0.97]"
                     >
-                      <span
+                      <motion.span
+                        layoutId={`banner-preset-${entry.id}`}
+                        transition={shared}
                         className={cn(
                           "block aspect-[3/1] w-full overflow-hidden rounded-md transition-shadow",
                           source.preset === entry.id
@@ -184,7 +190,7 @@ export function BannerSourceStep({
                             objectPosition: `${entry.x * 100}% ${entry.y * 100}%`
                           }}
                         />
-                      </span>
+                      </motion.span>
                       <span className="truncate text-xs text-muted-foreground">
                         {entry.label()}
                       </span>

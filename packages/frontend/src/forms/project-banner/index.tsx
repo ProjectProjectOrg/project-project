@@ -174,6 +174,11 @@ export function ProjectBannerForm({
           >
             <StepSummaryRow
               shareId="banner-source"
+              thumbShareId={
+                values.source.preset
+                  ? `banner-preset-${values.source.preset}`
+                  : undefined
+              }
               thumb={
                 <span className="block h-7 w-[84px] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
                   {values.source.src ? (
