@@ -31,7 +31,7 @@ import { CropStep } from "./crop-step"
 import { iconFormOpts } from "./opts"
 import { SourceStep } from "./source-step"
 import { TreatmentStep } from "./treatment-step"
-import { useIconDraft } from "./useIconDraft"
+import { draftPreviewUrl, useIconDraft } from "./useIconDraft"
 
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 
@@ -173,7 +173,7 @@ export function ProjectIconForm({
   })
 
   const values = useFormValues(form)
-  const previewUrl = draft.preview?.url ?? null
+  const previewUrl = draft.preview ? draftPreviewUrl(draft.preview) : null
 
   const thumb = (src: string | null) =>
     src ? (
