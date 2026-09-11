@@ -108,19 +108,21 @@ export function StepSummaryRow({
   label,
   value,
   onChange,
-  shareId
+  shareId,
+  thumbShareId
 }: {
   thumb: ReactNode
   label: string
   value: string
   onChange: () => void
   shareId?: string
+  thumbShareId?: string
 }) {
   const shared = useSharedTransition()
   return (
     <div className="flex items-center gap-3 border-b border-border px-3 py-2.5">
       <motion.span
-        layoutId={shareId && `${shareId}-thumb`}
+        layoutId={thumbShareId ?? (shareId && `${shareId}-thumb`)}
         transition={shared}
         className="inline-flex"
       >
