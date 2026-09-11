@@ -19,7 +19,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     ...(mode === "test"
       ? []
-      : [tanstackRouter({ target: "react", autoCodeSplitting: true })]),
+      : [
+          tanstackRouter({
+            target: "react",
+            autoCodeSplitting: true,
+            routeFileIgnorePattern:
+              mode === "production" ? "^dev\\." : undefined
+          })
+        ]),
     react(),
     ...(mode === "test" ? [] : [tailwindcss()]),
     paraglideVitePlugin({

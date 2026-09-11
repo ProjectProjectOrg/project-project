@@ -121,6 +121,7 @@
   "project_banner_settings_storage_required": "Connect organization storage to upload an image. You can still choose an artwork.",
   "project_banner_settings_upload": "Upload an image",
   "project_banner_settings_zoom": "Zoom",
+  "project_banner_settings_zoom_value": "{zoom}×",
   "project_banner_template_bordighera": "Bordighera",
   "project_banner_template_cliff_walk": "Cliff Walk at Pourville",
   "project_banner_template_credit": "{artist} / {provider}",
