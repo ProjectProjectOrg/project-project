@@ -66,6 +66,26 @@ export class MentionInvalid extends Schema.TaggedError<MentionInvalid>()(
   { httpApiStatus: 400 }
 ) {}
 
+// 409 — the invitation exists but cannot be accepted. `reason` is a closed set
+// so the frontend can render one string per case without matching on prose:
+//   - `expired`                      — past `expiresAt`.
+//   - `not_recipient`                — addressed to a different email.
+//   - `email_verification_required`  — caller hasn't verified their email yet.
+// A missing or unknown invitation stays `NotFound`.
+export const InvitationNotAcceptableReason = Schema.Literals([
+  "expired",
+  "not_recipient",
+  "email_verification_required"
+])
+export type InvitationNotAcceptableReason =
+  typeof InvitationNotAcceptableReason.Type
+
+export class InvitationNotAcceptable extends Schema.TaggedError<InvitationNotAcceptable>()(
+  "InvitationNotAcceptable",
+  { reason: InvitationNotAcceptableReason },
+  { httpApiStatus: 409 }
+) {}
+
 export class ProjectOwnerRemovalBlocked extends Schema.TaggedError<ProjectOwnerRemovalBlocked>()(
   "ProjectOwnerRemovalBlocked",
   { projectSlugs: Schema.Array(Schema.String) },

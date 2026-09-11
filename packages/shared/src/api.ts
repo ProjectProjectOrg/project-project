@@ -146,6 +146,7 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  InvitationNotAcceptable,
   MentionInvalid,
   NotFound,
   ProjectOwnerRemovalBlocked,
@@ -320,7 +321,7 @@ const InvitationsGroup = HttpApiGroup.make("invitations")
     HttpApiEndpoint.post("accept", "/invitations/:invitationId/accept", {
       params: InvitationPath,
       success: Org,
-      error: [Unauthorized, NotFound, Conflict]
+      error: [Unauthorized, NotFound, InvitationNotAcceptable]
     })
   )
   .add(
@@ -1526,14 +1527,14 @@ const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
     })
   )
   .middleware(Authentication)
-  // Added after .middleware on purpose: this endpoint is unauthenticated.
-  .add(
-    HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
-      query: Schema.Struct({ client_id: Schema.String }),
-      success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
-      error: [NotFound]
-    })
-  )
+
+const PublicOAuthGroup = HttpApiGroup.make("publicOAuth").add(
+  HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
+    query: Schema.Struct({ client_id: Schema.String }),
+    success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
+    error: [NotFound]
+  })
+)
 
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
@@ -1552,5 +1553,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(StatusesGroup)
   .add(GroupsGroup)
   .add(OAuthApplicationsGroup)
+  .add(PublicOAuthGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
