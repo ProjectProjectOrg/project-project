@@ -20,7 +20,7 @@
 - **Mutations are family-keyed and optimistic by default**, using `Atom.optimistic` / `Atom.optimisticFn` keyed by `projectKey(orgSlug, slug)`.
 - **Feather is a constant of 1.** Never exposed, never persisted.
 - **Tolerance range is 0–160, default 24.** Integer.
-- **Live preview analyses at 256px.** Full resolution runs once, on apply.
+- **Live preview analyses at 256px.** Apply re-analyses once at 512px (`CUTOUT_APPLY_MAX_EDGE`), not at the source resolution.
 - **No new npm dependencies.** The cutout is hand-written; the slider already exists at `@/components/ui/slider`.
 - Run `bun run test`, `bun run typecheck`, and `bun run format` before each commit.
 
@@ -818,7 +818,7 @@ const analyseAt = (bitmap: ImageBitmap, edge: number, tolerance: number) => {
 }
 ```
 
-Preview calls pass `CUTOUT_PREVIEW_EDGE`; the apply path passes `Math.max(bitmap.width, bitmap.height)`.
+Preview calls pass `CUTOUT_PREVIEW_EDGE`; the apply path passes `CUTOUT_APPLY_MAX_EDGE` (512).
 
 The apply path:
 
@@ -845,8 +845,7 @@ const compositeToBlob = (
 }
 
 const apply = async () => {
-  const edge = Math.max(bitmap.width, bitmap.height)
-  const { source, alpha, clean } = analyseAt(bitmap, edge, tolerance)
+  const { source, alpha, clean } = analyseAt(bitmap, CUTOUT_APPLY_MAX_EDGE, tolerance)
   const transparent = hasAlpha(source)
 
   const uploadedSource = await upload({ file })

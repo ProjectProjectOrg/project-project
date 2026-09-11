@@ -458,32 +458,7 @@ export default function ProjectBannerSettings({
                         />
                       </Button>
                     ))}
-                    {AsyncResult.isSuccess(storage) && !storageAvailable ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Button
-                                variant="tertiary"
-                                size="image-option"
-                                aria-label={m.project_banner_settings_upload()}
-                                aria-disabled
-                                className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
-                                onClick={() => {
-                                  if (!storageAvailable) return
-                                  fileRef.current?.click()
-                                }}
-                              />
-                            }
-                          >
-                            <Upload className="size-3.5" strokeWidth={1.75} />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {m.project_banner_settings_storage_required()}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
+                    {storageAvailable ? (
                       <Button
                         variant="tertiary"
                         size="image-option"
@@ -494,6 +469,37 @@ export default function ProjectBannerSettings({
                       >
                         <Upload className="size-3.5" strokeWidth={1.75} />
                       </Button>
+                    ) : AsyncResult.isInitial(storage) ? (
+                      <Button
+                        variant="tertiary"
+                        size="image-option"
+                        title={m.project_banner_settings_upload()}
+                        aria-label={m.project_banner_settings_upload()}
+                        disabled
+                      >
+                        <Upload className="size-3.5" strokeWidth={1.75} />
+                      </Button>
+                    ) : (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="tertiary"
+                                size="image-option"
+                                aria-label={m.project_banner_settings_upload()}
+                                aria-disabled
+                                className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                              />
+                            }
+                          >
+                            <Upload className="size-3.5" strokeWidth={1.75} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {m.project_banner_settings_storage_required()}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </motion.div>
                   <motion.div

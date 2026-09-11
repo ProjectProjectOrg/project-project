@@ -3,7 +3,8 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
 import {
   ATTACHMENT_MAX_BYTES,
-  isRasterImageContentType,
+  isProjectIconContentType,
+  PROJECT_ICON_CONTENT_TYPES,
   type AttachmentId,
   type ProjectIconImage
 } from "@projectproject/shared"
@@ -15,6 +16,11 @@ import {
   type CompressImageOptions
 } from "@/lib/imageCompression"
 import { Button } from "@/components/ui/button"
+import {
+  SEGMENTED_ITEM_CLASS,
+  SegmentedTabs,
+  type SegmentedItem
+} from "@/components/SegmentedTabs"
 import { Slider } from "@/components/ui/slider"
 import {
   Tooltip,
@@ -37,14 +43,14 @@ import { Trash2, Upload } from "lucide-react"
 
 export type IconTreatment = "sticker" | "full_bleed"
 
-export interface IconClassification {
+export type IconClassification = {
   readonly treatment: IconTreatment
   readonly clean: boolean
   readonly transparent: boolean
   readonly tolerance: number
 }
 
-export interface IconCrop {
+export type IconCrop = {
   readonly x: number
   readonly y: number
   readonly zoom: number
@@ -95,9 +101,24 @@ const analyseAt = (bitmap: ImageBitmap, edge: number, tolerance: number) => {
   ctx.drawImage(bitmap, 0, 0, width, height)
   const image = ctx.getImageData(0, 0, width, height)
   const source: RgbaImage = { data: image.data, width, height }
-  if (hasAlpha(source)) return { source, alpha: null, clean: true }
+  if (hasAlpha(source))
+    return { source, alpha: null, clean: true, reason: null }
   const result = analyzeCutout(source, { tolerance })
-  return { source, alpha: result.alpha, clean: result.clean }
+  return {
+    source,
+    alpha: result.alpha,
+    clean: result.clean,
+    reason: rejectionReason(result.checks)
+  }
+}
+
+const rejectionReason = (
+  checks: ReadonlyArray<{ readonly id: string; readonly passed: boolean }>
+): CutoutRejection | null => {
+  if (checks.every((check) => check.passed)) return null
+  return checks.some((check) => check.id === "minSize" && !check.passed)
+    ? "too_small"
+    : "background"
 }
 
 const compositeToBlob = (
@@ -121,11 +142,14 @@ const compositeToBlob = (
   )
 }
 
-interface Draft {
+type CutoutRejection = "too_small" | "background"
+
+type Draft = {
   readonly file: File
   readonly bitmap: ImageBitmap
   readonly treatment: IconTreatment
   readonly clean: boolean
+  readonly reason: CutoutRejection | null
   readonly transparent: boolean
   readonly tolerance: number
   readonly previewUrl: string
@@ -136,7 +160,7 @@ const buildDraftPreview = async (
   requestedTreatment: IconTreatment,
   tolerance: number
 ) => {
-  const { source, alpha, clean } = analyseAt(
+  const { source, alpha, clean, reason } = analyseAt(
     bitmap,
     CUTOUT_PREVIEW_EDGE,
     tolerance
@@ -155,6 +179,7 @@ const buildDraftPreview = async (
   return {
     url: URL.createObjectURL(blob),
     clean,
+    reason,
     transparent,
     treatment
   }
@@ -189,9 +214,13 @@ export function ProjectIconUpload({
   const pendingTolerance = useRef<number | null>(null)
   const toleranceFrame = useRef<number | null>(null)
 
+  const liveBitmap = useRef<ImageBitmap | null>(null)
+
   useEffect(
     () => () => {
       objectUrls.current.forEach((url) => URL.revokeObjectURL(url))
+      liveBitmap.current?.close()
+      liveBitmap.current = null
     },
     []
   )
@@ -209,10 +238,9 @@ export function ProjectIconUpload({
   const closeDraft = () => {
     restyleToken.current++
     cancelPendingTolerance()
-    if (draft) {
-      URL.revokeObjectURL(draft.previewUrl)
-      draft.bitmap.close()
-    }
+    if (draft) URL.revokeObjectURL(draft.previewUrl)
+    liveBitmap.current?.close()
+    liveBitmap.current = null
     setDraft(null)
     setError(false)
     if (fileRef.current) fileRef.current.value = ""
@@ -221,7 +249,7 @@ export function ProjectIconUpload({
   const onFileSelected = async (file: File) => {
     if (fileRef.current) fileRef.current.value = ""
     if (
-      !isRasterImageContentType(file.type) ||
+      !isProjectIconContentType(file.type) ||
       file.size > ATTACHMENT_MAX_BYTES ||
       file.size === 0
     ) {
@@ -229,21 +257,33 @@ export function ProjectIconUpload({
       return
     }
     setError(false)
-    restyleToken.current++
+    const token = ++restyleToken.current
     cancelPendingTolerance()
     try {
       const bitmap = await createImageBitmap(file)
+      if (token !== restyleToken.current) {
+        bitmap.close()
+        return
+      }
       const preview = await buildDraftPreview(
         bitmap,
         "sticker",
         CUTOUT_DEFAULT_TOLERANCE
       )
+      if (token !== restyleToken.current) {
+        bitmap.close()
+        URL.revokeObjectURL(preview.url)
+        return
+      }
+      liveBitmap.current?.close()
+      liveBitmap.current = bitmap
       objectUrls.current.push(preview.url)
       setDraft({
         file,
         bitmap,
         treatment: preview.treatment,
         clean: preview.clean,
+        reason: preview.reason,
         transparent: preview.transparent,
         tolerance: CUTOUT_DEFAULT_TOLERANCE,
         previewUrl: preview.url
@@ -253,7 +293,12 @@ export function ProjectIconUpload({
     }
   }
 
-  const restyle = async (treatment: IconTreatment, tolerance: number) => {
+  const restyle = async (
+    treatment: IconTreatment,
+    tolerance: number,
+    cleanOverride?: boolean,
+    reasonOverride?: CutoutRejection
+  ) => {
     if (!draft) return
     const token = ++restyleToken.current
     const preview = await buildDraftPreview(draft.bitmap, treatment, tolerance)
@@ -268,7 +313,8 @@ export function ProjectIconUpload({
       return {
         ...current,
         treatment: preview.treatment,
-        clean: preview.clean,
+        clean: cleanOverride ?? preview.clean,
+        reason: reasonOverride ?? preview.reason,
         transparent: preview.transparent,
         tolerance,
         previewUrl: preview.url
@@ -331,7 +377,7 @@ export function ProjectIconUpload({
       return
     }
 
-    const { source, alpha, clean } = analyseAt(
+    const { source, alpha, clean, reason } = analyseAt(
       draft.bitmap,
       CUTOUT_APPLY_MAX_EDGE,
       draft.tolerance
@@ -339,10 +385,11 @@ export function ProjectIconUpload({
     const transparent = hasAlpha(source)
 
     if (!clean) {
-      setDraft((current) =>
-        current
-          ? { ...current, clean: false, treatment: "full_bleed" }
-          : current
+      await restyle(
+        "full_bleed",
+        draft.tolerance,
+        false,
+        reason ?? "background"
       )
       return
     }
@@ -387,6 +434,11 @@ export function ProjectIconUpload({
     void update({ iconImage: null })
   }
 
+  const treatmentItems: ReadonlyArray<SegmentedItem<IconTreatment>> = [
+    { key: "sticker", label: m.project_icon_treatment_sticker() },
+    { key: "full_bleed", label: m.project_icon_treatment_full_bleed() }
+  ]
+
   return (
     <fieldset disabled={submitting} className="contents">
       <div className="flex flex-col gap-2">
@@ -404,28 +456,30 @@ export function ProjectIconUpload({
                   : "rounded-[25%]"
               )}
             />
-            <div className="flex items-center gap-1">
-              <Button
-                variant="tertiary"
-                size="sm"
-                aria-pressed={draft.treatment === "sticker"}
-                disabled={!draft.clean}
-                onClick={() => void restyle("sticker", draft.tolerance)}
-              >
-                {m.project_icon_treatment_sticker()}
-              </Button>
-              <Button
-                variant="tertiary"
-                size="sm"
-                aria-pressed={draft.treatment === "full_bleed"}
-                onClick={() => void restyle("full_bleed", draft.tolerance)}
-              >
-                {m.project_icon_treatment_full_bleed()}
-              </Button>
-            </div>
+            <SegmentedTabs
+              items={treatmentItems}
+              variant="inline"
+              isActive={(key) => key === draft.treatment}
+              renderItem={(item, content, { active }) => (
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  disabled={item.key === "sticker" && !draft.clean}
+                  onClick={() => void restyle(item.key, draft.tolerance)}
+                  className={cn(
+                    SEGMENTED_ITEM_CLASS(active, "inline"),
+                    "disabled:cursor-not-allowed disabled:opacity-50"
+                  )}
+                >
+                  {content}
+                </button>
+              )}
+            />
             {!draft.clean && (
               <p className="text-xs text-muted-foreground">
-                {m.project_icon_cutout_rejected()}
+                {draft.reason === "too_small"
+                  ? m.project_icon_cutout_too_small()
+                  : m.project_icon_cutout_rejected()}
               </p>
             )}
             {draft.treatment === "sticker" && !draft.transparent && (
@@ -516,7 +570,7 @@ export function ProjectIconUpload({
           ref={fileRef}
           hidden
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/avif"
+          accept={PROJECT_ICON_CONTENT_TYPES.join(",")}
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (!file) return

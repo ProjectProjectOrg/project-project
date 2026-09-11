@@ -41,6 +41,25 @@ describe("ProjectIconDisplay", () => {
     )
   })
 
+  it("honours crop zoom and position for a sticker", () => {
+    const { container } = render(
+      <ProjectIconDisplay
+        orgSlug="acme"
+        icon="🌵"
+        iconImage={
+          {
+            ...sticker,
+            crop: { x: 0.25, y: 0.75, zoom: 2 }
+          } as ProjectIconImage
+        }
+        size={40}
+      />
+    )
+    const img = container.querySelector("img")
+    expect(img?.style.objectPosition).toBe("25% 75%")
+    expect(img?.style.scale).toBe("2")
+  })
+
   it("renders the source attachment for full_bleed", () => {
     const { container } = render(
       <ProjectIconDisplay
