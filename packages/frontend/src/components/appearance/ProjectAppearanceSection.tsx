@@ -72,12 +72,15 @@ export function ProjectAppearanceSection({
   )
   const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
-  const changeAction = (target: "icon" | "banner") =>
-    canEdit ? (
-      <Button variant="tertiary" size="sm" onClick={() => setEditing(target)}>
-        {m.project_appearance_change()}
-      </Button>
-    ) : null
+  // The row itself is the button; this only has to look like one.
+  const changeAffordance = canEdit ? (
+    <Button render={<span />} variant="tertiary" size="sm">
+      {m.project_appearance_change()}
+    </Button>
+  ) : null
+
+  const openEditor = (target: "icon" | "banner") =>
+    canEdit ? () => setEditing(target) : undefined
 
   return (
     <section className="flex flex-col gap-3">
@@ -145,7 +148,8 @@ export function ProjectAppearanceSection({
                           ? m.project_appearance_icon_custom()
                           : m.project_appearance_icon_emoji_only()
                       }
-                      action={changeAction("icon")}
+                      action={changeAffordance}
+                      onActivate={openEditor("icon")}
                     />
                   </motion.div>
                 )}
@@ -236,7 +240,8 @@ export function ProjectAppearanceSection({
                             ? m.project_appearance_icon_custom()
                             : m.project_appearance_banner_none()
                       }
-                      action={changeAction("banner")}
+                      action={changeAffordance}
+                      onActivate={openEditor("banner")}
                     />
                   </motion.div>
                 )}
