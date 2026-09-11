@@ -163,7 +163,7 @@ export function ProjectBannerForm({
 
   return (
     <form.AppForm>
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {step > 0 && (
           <motion.div
             key="banner-source-summary"
