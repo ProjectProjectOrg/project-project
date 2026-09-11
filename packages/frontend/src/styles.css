@@ -62,6 +62,7 @@
   --active: rgb(0 0 0 / 0.07);
   --overlay: 0 0 0;
   --focus-ring: #6b97ff;
+  --icon-sticker-outline: rgb(0 0 0 / 0.55);
 }
 
 .dark {
@@ -91,6 +92,7 @@
   --hover: rgb(255 255 255 / 0.06);
   --active: rgb(255 255 255 / 0.1);
   --overlay: 255 255 255;
+  --icon-sticker-outline: rgb(255 255 255 / 0.9);
 }
 
 @theme inline {

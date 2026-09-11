@@ -1,9 +1,14 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Schema from "effect/Schema"
-import { ProjectColor, ProjectIcon } from "@projectproject/shared"
+import {
+  ProjectColor,
+  ProjectIcon,
+  type ProjectIconImage
+} from "@projectproject/shared"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
+import { ProjectIconUpload } from "@/components/ProjectIconUpload"
 import { ProjectTile } from "@/components/ProjectTile"
 import {
   EmojiPicker,
@@ -25,6 +30,7 @@ type Props = {
   orgSlug: string
   slug: string
   icon: string
+  iconImage: ProjectIconImage | null
   color: string
   canEdit: boolean
   size?: "header" | "settings"
@@ -34,6 +40,7 @@ export function ProjectIdentityEditor({
   orgSlug,
   slug,
   icon,
+  iconImage,
   color,
   canEdit,
   size = "header"
@@ -45,7 +52,9 @@ export function ProjectIdentityEditor({
   const error = Result.isFailure(updateState)
   const tile = (
     <ProjectTile
+      orgSlug={orgSlug}
       icon={icon}
+      iconImage={iconImage}
       color={color}
       size={size === "header" ? "md" : "lg"}
       seed={slug}
@@ -103,6 +112,13 @@ export function ProjectIdentityEditor({
             />
             <EmojiPickerContent />
           </EmojiPicker>
+          <div className="mt-2">
+            <ProjectIconUpload
+              orgSlug={orgSlug}
+              slug={slug}
+              iconImage={iconImage}
+            />
+          </div>
           {error ? (
             <div role="alert" className="mt-2 text-xs text-destructive">
               {m.project_identity_error()}

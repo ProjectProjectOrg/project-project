@@ -1,3 +1,5 @@
+import type { ProjectIconImage } from "@projectproject/shared"
+import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import {
   DitherBackdrop,
   type DitherDirection,
@@ -12,6 +14,13 @@ const SIZE_TO_CLASS: Record<TileSize, string> = {
   sm: "size-9 rounded-2xl text-lg",
   md: "size-10 rounded-2xl text-xl",
   lg: "size-12 rounded-2xl text-2xl"
+}
+
+const SIZE_TO_PX: Record<TileSize, number> = {
+  xs: 16,
+  sm: 36,
+  md: 40,
+  lg: 48
 }
 
 type DitherVariant = {
@@ -52,14 +61,18 @@ const EMOJI_SHADOW = [
 ].join(" ")
 
 export function ProjectTile({
+  orgSlug,
   icon,
+  iconImage,
   color,
   size,
   seed,
   waiting = false,
   className
 }: {
+  orgSlug: string
   icon: string
+  iconImage: ProjectIconImage | null
   color: string
   size: TileSize
   seed?: string
@@ -85,8 +98,14 @@ export function ProjectTile({
         pixelSize={size === "xs" ? 1 : 2}
         shape="square"
       />
-      <span aria-hidden className="relative" style={{ filter: EMOJI_SHADOW }}>
-        {icon}
+      <span aria-hidden className="relative">
+        <ProjectIconDisplay
+          orgSlug={orgSlug}
+          icon={icon}
+          iconImage={iconImage}
+          size={SIZE_TO_PX[size]}
+          emojiStyle={{ filter: EMOJI_SHADOW }}
+        />
       </span>
     </span>
   )
