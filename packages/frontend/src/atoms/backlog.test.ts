@@ -192,4 +192,123 @@ describe("backlog status move", () => {
       registry.dispose()
     }
   })
+
+  it("composes two stacked status moves out of `current`, not the original server value", async () => {
+    const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
+    const doneStatus = Schema.decodeSync(TicketStatus)("done")
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(
+        Response.json({
+          counts: { total: 1, byStatus: { todo: 1, in_progress: 0, done: 0 } },
+          sections: {
+            todo: { items: [encode(ticket)], nextCursor: null },
+            in_progress: { items: [], nextCursor: null },
+            done: { items: [], nextCursor: null }
+          }
+        })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      // Fire the second move while the first is still in flight, so the
+      // second reducer call runs against whatever `current` holds at that
+      // point rather than the original fetched value.
+      registry.set(mutation, { status: inProgress })
+      registry.set(mutation, { status: doneStatus })
+
+      const composed = registry.get(view)
+      if (!AsyncResult.isSuccess(composed))
+        throw new Error("no optimistic value")
+      expect(composed.waiting).toBe(true)
+      expect(composed.value.sections.todo.items).toHaveLength(0)
+      expect(composed.value.sections.in_progress.items).toHaveLength(0)
+      expect(composed.value.sections.done.items).toHaveLength(1)
+      expect(composed.value.sections.done.items[0].ticket.id).toBe(ticket.id)
+      // `in_progress` was entered and left within the same batch — assert the
+      // observed count directly (0) rather than trusting the `Math.max(0, ...)`
+      // guard not to have been needed.
+      expect(composed.value.counts.byStatus[ticket.status]).toBe(0)
+      expect(composed.value.counts.byStatus[inProgress]).toBe(0)
+      expect(composed.value.counts.byStatus[doneStatus]).toBe(1)
+      expect(composed.value.counts.total).toBe(1)
+
+      finish(
+        Response.json(
+          encodeUpdateResponse(asDetail({ ...ticket, status: doneStatus }))
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("carries a stacked field edit through a subsequent status move", async () => {
+    // A reducer that stopped deriving from `current` (e.g. re-read the
+    // original fetch instead) would apply the status move to the
+    // pre-priority-edit ticket and silently drop the priority change.
+    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(
+        Response.json({
+          counts: { total: 1, byStatus: { todo: 1, in_progress: 0 } },
+          sections: {
+            todo: { items: [encode(ticket)], nextCursor: null },
+            in_progress: { items: [], nextCursor: null }
+          }
+        })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { priority: "high" })
+      registry.set(mutation, { status: doing })
+
+      const composed = registry.get(view)
+      if (!AsyncResult.isSuccess(composed))
+        throw new Error("no optimistic value")
+      expect(composed.value.sections.todo.items).toHaveLength(0)
+      expect(composed.value.sections.in_progress.items[0].ticket.priority).toBe(
+        "high"
+      )
+
+      finish(new Response("nope", { status: 500 }))
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
 })
