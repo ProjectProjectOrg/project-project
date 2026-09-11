@@ -34,6 +34,7 @@ export function AppearanceRow({
   label,
   detail,
   action,
+  onActivate,
   shareId,
   thumbShareId
 }: {
@@ -41,12 +42,18 @@ export function AppearanceRow({
   label: string
   detail: string
   action?: ReactNode
+  /**
+   * Opening the editor is the row's only action, so the whole row becomes the
+   * button and `action` is rendered as its affordance rather than a control of
+   * its own — a button inside a button is neither valid nor reachable.
+   */
+  onActivate?: () => void
   shareId?: string
   thumbShareId?: string
 }) {
   const shared = useSharedTransition()
-  return (
-    <div className="flex items-center gap-3 p-3">
+  const content = (
+    <>
       <motion.span
         layoutId={thumbShareId}
         transition={shared}
@@ -54,7 +61,7 @@ export function AppearanceRow({
       >
         {thumb}
       </motion.span>
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 flex-1 flex-col text-left">
         <motion.span
           layoutId={shareId && `${shareId}-label`}
           transition={shared}
@@ -75,7 +82,20 @@ export function AppearanceRow({
           {action}
         </motion.span>
       ) : null}
-    </div>
+    </>
+  )
+
+  if (!onActivate)
+    return <div className="flex items-center gap-3 p-3">{content}</div>
+
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      className="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      {content}
+    </button>
   )
 }
 
