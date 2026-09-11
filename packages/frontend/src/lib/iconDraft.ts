@@ -23,6 +23,54 @@ export interface IconCrop {
 
 export const CUTOUT_APPLY_MAX_EDGE = 512
 
+export interface IconDraftValues {
+  readonly source: { readonly kind: "emoji" | "image"; readonly emoji: string }
+  readonly crop: IconCrop
+  readonly treatment: {
+    readonly kind: IconTreatment
+    readonly tolerance: number
+  }
+}
+
+export const appliedIconTreatment = (
+  iconImage: ProjectIconImage | null,
+  fallbackTolerance: number
+): { readonly kind: IconTreatment; readonly tolerance: number } => ({
+  kind: iconImage?.type === "full_bleed" ? "full_bleed" : "sticker",
+  tolerance:
+    iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
+      ? iconImage.cutoutTolerance
+      : fallbackTolerance
+})
+
+/**
+ * The editor seeds itself from the saved icon, so it holds a full draft before
+ * the user has touched anything. Only once that draft diverges is it worth
+ * showing: until then the previews should keep rendering the icon already
+ * applied, rather than swapping in a re-derived copy that merely looks the same.
+ */
+export const iconPreviewChanged = (
+  values: IconDraftValues,
+  applied: {
+    readonly icon: string
+    readonly iconImage: ProjectIconImage | null
+  },
+  pickedNewFile: boolean,
+  fallbackTolerance: number
+): boolean => {
+  if (values.source.kind === "emoji")
+    return applied.iconImage !== null || values.source.emoji !== applied.icon
+  if (applied.iconImage === null || pickedNewFile) return true
+  const treatment = appliedIconTreatment(applied.iconImage, fallbackTolerance)
+  return (
+    values.crop.x !== applied.iconImage.crop.x ||
+    values.crop.y !== applied.iconImage.crop.y ||
+    values.crop.zoom !== applied.iconImage.crop.zoom ||
+    values.treatment.kind !== treatment.kind ||
+    values.treatment.tolerance !== treatment.tolerance
+  )
+}
+
 export const resolveIconTreatment = (
   classification: IconClassification
 ): IconTreatment =>
