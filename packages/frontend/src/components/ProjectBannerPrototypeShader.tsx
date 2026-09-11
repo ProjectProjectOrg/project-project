@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { bannerCropRect } from "./project-banner-frame"
 
 export type BannerPrototypeSettings = {
   pixelSize: number
@@ -27,9 +28,7 @@ const fragment = `#version 300 es
 precision highp float;
 uniform sampler2D photo;
 uniform vec2 resolution;
-uniform vec2 sourceSize;
-uniform vec2 cropPosition;
-uniform float zoom;
+uniform vec4 cropRect;
 uniform float pixelSize;
 uniform float strength;
 uniform float colorAmount;
@@ -60,17 +59,7 @@ float noise(float p) {
   return mix(hash(cell), hash(cell + 1.0), blend);
 }
 vec4 sampleCrop(vec2 point) {
-  float sourceAspect = sourceSize.x / sourceSize.y;
-  vec2 crop = sourceAspect > 3.0
-    ? vec2(3.0 / sourceAspect, 1.0)
-    : vec2(1.0, sourceAspect / 3.0);
-  crop /= zoom;
-  float displayAspect = resolution.x / resolution.y;
-  vec2 visible = displayAspect > 3.0
-    ? vec2(1.0, 3.0 / displayAspect)
-    : vec2(displayAspect / 3.0, 1.0);
-  point = (point - 0.5) * visible + 0.5;
-  return texture(photo, (1.0 - crop) * cropPosition + point * crop);
+  return texture(photo, cropRect.xy + point * cropRect.zw);
 }
 void main() {
   vec2 cell = floor(uv * resolution / pixelSize);
@@ -142,19 +131,13 @@ export function ProjectBannerPrototypeShader({
           canvas.clientHeight * Math.min(window.devicePixelRatio || 1, 2)
         )
         if (!canvas.width || !canvas.height) return
-        const sourceAspect = image.naturalWidth / image.naturalHeight
-        const cropWidth =
-          (sourceAspect > 3 ? image.naturalHeight * 3 : image.naturalWidth) /
-          s.zoom
-        const cropHeight = cropWidth / 3
-        const displayAspect = canvas.width / canvas.height
-        const width = displayAspect > 3 ? cropWidth : cropHeight * displayAspect
-        const height =
-          displayAspect > 3 ? cropWidth / displayAspect : cropHeight
-        const x =
-          (image.naturalWidth - cropWidth) * s.x + (cropWidth - width) / 2
-        const y =
-          (image.naturalHeight - cropHeight) * s.y + (cropHeight - height) / 2
+        const { x, y, width, height } = bannerCropRect(
+          image.naturalWidth,
+          image.naturalHeight,
+          canvas.width,
+          canvas.height,
+          s
+        )
         context.globalCompositeOperation = "source-over"
         context.drawImage(
           image,
@@ -243,9 +226,7 @@ export function ProjectBannerPrototypeShader({
     const uniforms = Object.fromEntries(
       [
         "resolution",
-        "sourceSize",
-        "cropPosition",
-        "zoom",
+        "cropRect",
         "pixelSize",
         "strength",
         "colorAmount",
@@ -264,9 +245,20 @@ export function ProjectBannerPrototypeShader({
       if (!canvas.width || !canvas.height) return
       gl.viewport(0, 0, canvas.width, canvas.height)
       gl.uniform2f(uniforms.resolution, canvas.width, canvas.height)
-      gl.uniform2f(uniforms.sourceSize, image.naturalWidth, image.naturalHeight)
-      gl.uniform2f(uniforms.cropPosition, s.x, s.y)
-      gl.uniform1f(uniforms.zoom, s.zoom)
+      const rect = bannerCropRect(
+        image.naturalWidth,
+        image.naturalHeight,
+        canvas.width,
+        canvas.height,
+        s
+      )
+      gl.uniform4f(
+        uniforms.cropRect,
+        rect.x / image.naturalWidth,
+        rect.y / image.naturalHeight,
+        rect.width / image.naturalWidth,
+        rect.height / image.naturalHeight
+      )
       gl.uniform1f(uniforms.pixelSize, s.pixelSize * dpr)
       gl.uniform1f(uniforms.strength, s.strength)
       gl.uniform1f(uniforms.colorAmount, s.color)

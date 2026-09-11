@@ -60,16 +60,18 @@ export function ProjectBanner({
   } | null>(null)
   const [painted, setPainted] = useState(false)
   const [placeholderFailed, setPlaceholderFailed] = useState(false)
+  const [shaderFailed, setShaderFailed] = useState(false)
   const wasCached = useMemo(
     () => (source ? isImageLoaded(source) : false),
     [source]
   )
-  const containerRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
 
-  useEffect(() => {
-    const node = containerRef.current
-    if (!node) return undefined
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!node) return
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
       const width = Math.round(entry.contentRect.width)
@@ -81,14 +83,21 @@ export function ProjectBanner({
       )
     })
     observer.observe(node)
-    return () => observer.disconnect()
+    observerRef.current = observer
+    setContainerSize({
+      width: Math.round(node.clientWidth),
+      height: Math.round(node.clientHeight)
+    })
   }, [])
+
+  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   useEffect(() => {
     setShaderImage(null)
     setNaturalSize(null)
     setPainted(false)
     setPlaceholderFailed(false)
+    setShaderFailed(false)
     if (!source) return undefined
     let cancelled = false
     const photo = new Image()
@@ -104,7 +113,12 @@ export function ProjectBanner({
         .then(() => {
           if (!cancelled) setShaderImage(photo)
         })
-        .catch(() => undefined)
+        .catch(() => {
+          if (!cancelled) setShaderFailed(true)
+        })
+    }
+    photo.onerror = () => {
+      if (!cancelled) setPlaceholderFailed(true)
     }
     photo.src = source
     return () => {
@@ -162,7 +176,10 @@ export function ProjectBanner({
             style={{ ...cropStyle }}
             initial={false}
             animate={{
-              filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
+              filter:
+                painted || shaderFailed
+                  ? `blur(0px) grayscale(${1 - settings.color})`
+                  : `blur(${blurRadius}px) grayscale(${1 - settings.color})`,
               opacity: painted ? 0 : 1
             }}
             transition={{ filter: unblur, opacity: dissolve }}
