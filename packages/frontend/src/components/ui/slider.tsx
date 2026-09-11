@@ -58,6 +58,7 @@ interface SliderEngineProps extends Omit<
   valuePosition?: ValuePosition
   formatValue?: (v: number) => string
   label?: string
+  endLabels?: readonly [string, string]
   disabled?: boolean
   trackClassName?: string
   trackStyle?: CSSProperties
@@ -334,6 +335,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       valuePosition = "left",
       formatValue = String,
       label,
+      endLabels,
       disabled = false,
       trackClassName,
       trackStyle,
@@ -1131,6 +1133,16 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
             {renderVisualThumb(0)}
             {isRange && renderVisualThumb(1)}
           </div>
+
+          {endLabels && (
+            <div
+              data-slot="slider-end-labels"
+              className="mt-1 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-muted-foreground"
+            >
+              <span>{endLabels[0]}</span>
+              <span className="text-right">{endLabels[1]}</span>
+            </div>
+          )}
         </div>
 
         {/* Bottom / Right value */}
@@ -1165,6 +1177,7 @@ interface SliderComfortableProps extends Omit<
   variant?: "pips" | "scrubber"
   label?: string
   formatValue?: (v: number) => string
+  endLabels?: readonly [string, string]
   disabled?: boolean
 }
 
@@ -1179,6 +1192,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
       variant = "pips",
       label,
       formatValue = String,
+      endLabels,
       disabled = false,
       className,
       ...props
@@ -1813,6 +1827,16 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
             />
           )}
         </motion.div>
+
+        {endLabels && (
+          <div
+            data-slot="slider-end-labels"
+            className="mt-1 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-muted-foreground"
+          >
+            <span>{endLabels[0]}</span>
+            <span className="text-right">{endLabels[1]}</span>
+          </div>
+        )}
       </div>
     )
   }
