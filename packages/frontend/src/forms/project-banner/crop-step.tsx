@@ -1,3 +1,4 @@
+import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { Button } from "@/components/ui/button"
 import { CropWindow } from "@/components/ui/crop-window"
 import { Slider } from "@/components/ui/slider"
@@ -10,13 +11,13 @@ export function BannerCropStep({
   src,
   busy,
   error,
-  onBack
+  onRemove
 }: {
   form: BannerForm
   src: string
   busy: boolean
   error: boolean
-  onBack: () => void
+  onRemove: () => void
 }) {
   return (
     <form.FormGroup
@@ -26,13 +27,17 @@ export function BannerCropStep({
     >
       {(group) => (
         <form
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-3 p-3"
           onSubmit={(event) => {
             event.preventDefault()
             event.stopPropagation()
             void group.handleSubmit()
           }}
         >
+          <StepHeading current={2} total={2}>
+            {m.project_banner_step_crop_heading()}
+          </StepHeading>
+
           <group.Subscribe selector={(state) => state.values}>
             {(crop) => (
               <>
@@ -56,6 +61,7 @@ export function BannerCropStep({
                   max={4}
                   step={0.05}
                   value={crop.zoom}
+                  valuePosition="top"
                   onChange={(zoom) =>
                     form.setFieldValue("crop.zoom", zoom as number)
                   }
@@ -65,19 +71,28 @@ export function BannerCropStep({
                     m.project_icon_crop_zoom_max()
                   ]}
                 />
+                <p className="text-[13px] text-muted-foreground">
+                  {m.project_banner_crop_hint()}
+                </p>
               </>
             )}
           </group.Subscribe>
 
           {error ? (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-[13px] text-destructive">
               {m.project_banner_settings_save_error()}
             </p>
           ) : null}
 
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onBack}>
-              {m.project_icon_back()}
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRemove}
+              disabled={busy}
+            >
+              {m.project_banner_remove()}
             </Button>
             <Button type="submit" size="sm" disabled={busy}>
               {m.project_banner_settings_apply()}

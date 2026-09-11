@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useState } from "react"
 import {
   attachmentUrl,
@@ -21,12 +22,14 @@ import {
   CUTOUT_APPLY_MAX_EDGE
 } from "@/lib/iconDraft"
 import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
+import { StepSummaryRow } from "@/components/appearance/AppearanceCard"
+import { IconPreviewTile } from "@/components/appearance/IconPreviewTile"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { CropStep } from "./crop-step"
 import { iconFormOpts } from "./opts"
 import { SourceStep } from "./source-step"
 import { TreatmentStep } from "./treatment-step"
-import { StepSummary } from "./step-summary"
 import { useIconDraft } from "./useIconDraft"
 
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
@@ -38,6 +41,7 @@ export function ProjectIconForm({
   slug,
   icon,
   iconImage,
+  accent,
   onDone,
   onLiveChange
 }: {
@@ -45,6 +49,7 @@ export function ProjectIconForm({
   slug: string
   icon: string
   iconImage: ProjectIconImage | null
+  accent: string
   onDone?: () => void
   onLiveChange?: (live: LiveIcon | null) => void
 }) {
@@ -61,6 +66,11 @@ export function ProjectIconForm({
 
   const [step, setStep] = useState(0)
   const draft = useIconDraft()
+  const reduce = useReducedMotion() ?? false
+  const morph = reduce ? { duration: 0 } : transitions.layout
+  const fade = reduce ? { duration: 0 } : transitions.fade
+  const fadeIn = reduce ? false : { opacity: 0 }
+  const fadeOut = { opacity: 0 }
 
   const form = useAppForm({
     ...iconFormOpts(icon, iconImage !== null),
@@ -165,6 +175,23 @@ export function ProjectIconForm({
   const values = form.state.values
   const previewUrl = draft.preview?.url ?? null
 
+  const thumb = (src: string | null) =>
+    src ? (
+      <IconPreviewTile
+        live={{
+          src,
+          crop: values.crop,
+          treatment: values.treatment.kind
+        }}
+        size={28}
+        radius={8}
+      />
+    ) : (
+      <span className="grid size-7 shrink-0 place-items-center rounded-lg corner-squircle bg-muted text-sm leading-none">
+        {values.source.emoji}
+      </span>
+    )
+
   useEffect(() => {
     if (!iconImage) return
     void draft.primeFrom(attachmentUrl(orgSlug, iconImage.sourceAttachmentId), {
@@ -197,62 +224,115 @@ export function ProjectIconForm({
     return () => onLiveChange(null)
   }, [onLiveChange, previewUrl, values.crop, values.treatment.kind])
 
-  const summaries = [
-    {
-      label: m.project_icon_step_source_label(),
-      value:
-        values.source.kind === "emoji"
-          ? m.project_icon_summary_emoji({ emoji: values.source.emoji })
-          : m.project_icon_summary_image()
-    },
-    {
-      label: m.project_icon_step_crop_label(),
-      value: m.project_icon_summary_crop({ zoom: values.crop.zoom.toFixed(2) })
-    }
-  ]
+  const sourceDetail =
+    values.source.kind === "emoji"
+      ? `${m.project_icon_source_emoji_tab()} · ${values.source.emoji}`
+      : (draft.fileName() ?? m.project_appearance_icon_custom())
+
+  const removeImage = async () => {
+    await update({ iconImage: null })
+    onDone?.()
+  }
 
   return (
     <form.AppForm>
-      {summaries.slice(0, step).map((summary, index) => (
-        <StepSummary
-          key={summary.label}
-          label={summary.label}
-          value={summary.value}
-          onChange={() => setStep(index)}
-        />
-      ))}
+      <AnimatePresence initial={false}>
+        {step > 0 && (
+          <motion.div
+            key="source-summary"
+            initial={fadeIn}
+            animate={{ opacity: 1 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <StepSummaryRow
+              thumb={thumb(values.source.objectUrl)}
+              label={m.project_icon_summary_source_label()}
+              value={sourceDetail}
+              onChange={() => setStep(0)}
+            />
+          </motion.div>
+        )}
+        {step > 1 && (
+          <motion.div
+            key="crop-summary"
+            initial={fadeIn}
+            animate={{ opacity: 1 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <StepSummaryRow
+              thumb={thumb(previewUrl ?? values.source.objectUrl)}
+              label={m.project_icon_summary_crop_label()}
+              value={m.project_icon_summary_crop_value({
+                zoom: values.crop.zoom.toFixed(2)
+              })}
+              onChange={() => setStep(1)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {step === 0 && (
-        <SourceStep
-          form={form}
-          draft={draft}
-          orgSlug={orgSlug}
-          onAdvance={() => {
-            if (form.state.values.source.kind === "emoji") {
-              void form.handleSubmit()
-              return
-            }
-            setStep(1)
-          }}
-        />
-      )}
-      {step === 1 && (
-        <CropStep
-          form={form}
-          src={form.state.values.source.objectUrl ?? ""}
-          onBack={() => setStep(0)}
-          onAdvance={() => setStep(2)}
-        />
-      )}
-      {step === 2 && (
-        <TreatmentStep
-          form={form}
-          draft={draft}
-          busy={busy}
-          error={failed}
-          onBack={() => setStep(1)}
-        />
-      )}
+      <motion.div layout transition={morph}>
+        <AnimatePresence initial={false} mode="wait">
+          {step === 0 && (
+            <motion.div
+              key="source"
+              initial={fadeIn}
+              animate={{ opacity: 1 }}
+              exit={fadeOut}
+              transition={fade}
+            >
+              <SourceStep
+                form={form}
+                draft={draft}
+                orgSlug={orgSlug}
+                onAdvance={() => {
+                  if (form.state.values.source.kind === "emoji") {
+                    void form.handleSubmit()
+                    return
+                  }
+                  setStep(1)
+                }}
+              />
+            </motion.div>
+          )}
+          {step === 1 && (
+            <motion.div
+              key="crop"
+              initial={fadeIn}
+              animate={{ opacity: 1 }}
+              exit={fadeOut}
+              transition={fade}
+            >
+              <CropStep
+                form={form}
+                src={values.source.objectUrl ?? ""}
+                onAdvance={() => setStep(2)}
+              />
+            </motion.div>
+          )}
+          {step === 2 && (
+            <motion.div
+              key="treatment"
+              initial={fadeIn}
+              animate={{ opacity: 1 }}
+              exit={fadeOut}
+              transition={fade}
+            >
+              <TreatmentStep
+                form={form}
+                draft={draft}
+                busy={busy}
+                error={failed}
+                accent={accent}
+                onRemove={() => void removeImage()}
+                onChangePhoto={() => setStep(0)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </form.AppForm>
   )
 }

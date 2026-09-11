@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 import {
   ATTACHMENT_MAX_BYTES,
@@ -20,7 +21,10 @@ import {
   bannerSource
 } from "@/components/project-banner-presets"
 import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
+import { StepSummaryRow } from "@/components/appearance/AppearanceCard"
+import { transitions } from "@/lib/springs"
 import { useAppForm } from "@/lib/form"
+import { m } from "@/paraglide/messages"
 import { BannerCropStep } from "./crop-step"
 import { bannerFormOpts } from "./opts"
 import { BannerSourceStep } from "./source-step"
@@ -52,6 +56,11 @@ export function ProjectBannerForm({
 
   const [step, setStep] = useState(0)
   const [rejected, setRejected] = useState(false)
+  const reduce = useReducedMotion() ?? false
+  const morph = reduce ? { duration: 0 } : transitions.layout
+  const fade = reduce ? { duration: 0 } : transitions.fade
+  const fadeIn = reduce ? false : { opacity: 0 }
+  const fadeOut = { opacity: 0 }
   const fileRef = useRef<File | null>(null)
   const objectUrls = useRef<string[]>([])
 
@@ -138,58 +147,116 @@ export function ProjectBannerForm({
     return () => setPreview(null)
   }, [setPreview, values.source.kind, values.source.src, values.crop])
 
+  const preset = bannerPresets.find(
+    (entry) => entry.id === values.source.preset
+  )
+  const sourceDetail = preset
+    ? `${preset.label()} · ${preset.artist}`
+    : (fileRef.current?.name ?? m.project_appearance_banner_none())
+
+  const removeBanner = () => {
+    fileRef.current = null
+    form.setFieldValue("source.kind", "none")
+    form.setFieldValue("source.src", null)
+    form.setFieldValue("source.preset", null)
+    void form.handleSubmit()
+  }
+
   return (
     <form.AppForm>
-      {step === 0 && (
-        <BannerSourceStep
-          form={form}
-          orgSlug={orgSlug}
-          rejected={rejected}
-          onPickFile={(file) => {
-            if (
-              !isRasterImageContentType(file.type) ||
-              file.size > ATTACHMENT_MAX_BYTES ||
-              file.size === 0
-            ) {
-              setRejected(true)
-              return
-            }
-            setRejected(false)
-            fileRef.current = file
-            const url = URL.createObjectURL(file)
-            objectUrls.current.push(url)
-            form.setFieldValue("source.kind", "upload")
-            form.setFieldValue("source.src", url)
-            form.setFieldValue("source.preset", null)
-            form.setFieldValue("crop.x", 0.5)
-            form.setFieldValue("crop.y", 0.5)
-            form.setFieldValue("crop.zoom", 1)
-          }}
-          onRemove={() => {
-            fileRef.current = null
-            form.setFieldValue("source.kind", "none")
-            form.setFieldValue("source.src", null)
-            form.setFieldValue("source.preset", null)
-            void form.handleSubmit()
-          }}
-          onAdvance={() => {
-            if (values.source.kind === "none" || !values.source.src) {
-              void form.handleSubmit()
-              return
-            }
-            setStep(1)
-          }}
-        />
-      )}
-      {step === 1 && (
-        <BannerCropStep
-          form={form}
-          src={values.source.src ?? ""}
-          busy={busy}
-          error={failed}
-          onBack={() => setStep(0)}
-        />
-      )}
+      <AnimatePresence initial={false}>
+        {step > 0 && (
+          <motion.div
+            key="banner-source-summary"
+            initial={fadeIn}
+            animate={{ opacity: 1 }}
+            exit={fadeOut}
+            transition={fade}
+          >
+            <StepSummaryRow
+              thumb={
+                <span className="block h-7 w-[84px] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
+                  {values.source.src ? (
+                    <img
+                      src={values.source.src}
+                      alt=""
+                      className="size-full object-cover"
+                      style={{
+                        objectPosition: `${values.crop.x * 100}% ${values.crop.y * 100}%`
+                      }}
+                    />
+                  ) : null}
+                </span>
+              }
+              label={m.project_banner_summary_source_label()}
+              value={sourceDetail}
+              onChange={() => setStep(0)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div layout transition={morph}>
+        <AnimatePresence initial={false} mode="wait">
+          {step === 0 && (
+            <motion.div
+              key="banner-source"
+              initial={fadeIn}
+              animate={{ opacity: 1 }}
+              exit={fadeOut}
+              transition={fade}
+            >
+              <BannerSourceStep
+                form={form}
+                orgSlug={orgSlug}
+                rejected={rejected}
+                onPickFile={(file) => {
+                  if (
+                    !isRasterImageContentType(file.type) ||
+                    file.size > ATTACHMENT_MAX_BYTES ||
+                    file.size === 0
+                  ) {
+                    setRejected(true)
+                    return
+                  }
+                  setRejected(false)
+                  fileRef.current = file
+                  const url = URL.createObjectURL(file)
+                  objectUrls.current.push(url)
+                  form.setFieldValue("source.kind", "upload")
+                  form.setFieldValue("source.src", url)
+                  form.setFieldValue("source.preset", null)
+                  form.setFieldValue("crop.x", 0.5)
+                  form.setFieldValue("crop.y", 0.5)
+                  form.setFieldValue("crop.zoom", 1)
+                  setStep(1)
+                }}
+                onAdvance={() => {
+                  if (!values.source.src) return
+                  setStep(1)
+                }}
+              />
+            </motion.div>
+          )}
+          {step === 1 && (
+            <motion.div
+              key="banner-crop"
+              initial={fadeIn}
+              animate={{ opacity: 1 }}
+              exit={fadeOut}
+              transition={fade}
+            >
+              <BannerCropStep
+                form={form}
+                src={values.source.src ?? ""}
+                busy={busy}
+                error={failed}
+                onRemove={removeBanner}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </form.AppForm>
   )
 }
