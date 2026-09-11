@@ -1,7 +1,9 @@
+import { motion, useReducedMotion } from "motion/react"
 import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { Button } from "@/components/ui/button"
 import { CropWindow } from "@/components/ui/crop-window"
 import { Slider } from "@/components/ui/slider"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { bannerCropSchema, bannerStepValidator } from "./opts"
 import type { BannerForm } from "./index"
@@ -19,6 +21,9 @@ export function BannerCropStep({
   error: boolean
   onRemove: () => void
 }) {
+  const reduce = useReducedMotion() ?? false
+  const shared = reduce ? { duration: 0 } : transitions.morph
+
   return (
     <form.FormGroup
       name="crop"
@@ -41,19 +46,21 @@ export function BannerCropStep({
           <group.Subscribe selector={(state) => state.values}>
             {(crop) => (
               <>
-                <CropWindow
-                  src={src}
-                  aspect={3}
-                  shape="rect"
-                  label={m.project_banner_settings_crop()}
-                  caption={m.project_banner_crop_caption()}
-                  value={crop}
-                  onChange={(next) => {
-                    form.setFieldValue("crop.x", next.x)
-                    form.setFieldValue("crop.y", next.y)
-                    form.setFieldValue("crop.zoom", next.zoom)
-                  }}
-                />
+                <motion.div layoutId="banner-result" transition={shared}>
+                  <CropWindow
+                    src={src}
+                    aspect={3}
+                    shape="rect"
+                    label={m.project_banner_settings_crop()}
+                    caption={m.project_banner_crop_caption()}
+                    value={crop}
+                    onChange={(next) => {
+                      form.setFieldValue("crop.x", next.x)
+                      form.setFieldValue("crop.y", next.y)
+                      form.setFieldValue("crop.zoom", next.zoom)
+                    }}
+                  />
+                </motion.div>
                 <Slider
                   size="compact"
                   label={m.project_banner_settings_zoom()}

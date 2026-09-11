@@ -227,6 +227,7 @@ export function ProjectAppearanceSection({
                         </span>
                       }
                       shareId="banner"
+                      thumbShareId="banner-result"
                       label={m.project_appearance_banner_row()}
                       detail={
                         bannerPreset
