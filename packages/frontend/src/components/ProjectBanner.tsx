@@ -164,26 +164,32 @@ export function ProjectBanner({
     if (cachedRender !== null && !editing) return undefined
     if (requestedSourceRef.current === source) return undefined
     requestedSourceRef.current = source
-    let cancelled = false
     const photo = new Image()
     photo.crossOrigin = "anonymous"
+    // The request outlives this effect run. Saving a banner changes the source
+    // and settles the cache lookup in separate commits, so the effect re-runs
+    // mid-flight; tearing the load down there would strand it behind the guard
+    // above and leave the banner blurred until a reload. Staleness is decided
+    // by the ref instead, which always names the source we still want.
+    const current = () => requestedSourceRef.current === source
     photo.onload = () => {
-      if (!cancelled)
-        setNaturalSize({
-          width: photo.naturalWidth,
-          height: photo.naturalHeight
-        })
+      if (!current()) return
+      setNaturalSize({
+        width: photo.naturalWidth,
+        height: photo.naturalHeight
+      })
       void photo
         .decode()
         .then(() => {
-          if (!cancelled) setShaderImage(photo)
+          if (current()) setShaderImage(photo)
         })
         .catch(() => undefined)
     }
-    photo.src = source
-    return () => {
-      cancelled = true
+    photo.onerror = () => {
+      if (current()) requestedSourceRef.current = null
     }
+    photo.src = source
+    return undefined
   }, [source, lookupSettled, cachedRender, editing])
 
   useEffect(() => {
