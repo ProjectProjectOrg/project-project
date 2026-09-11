@@ -3,12 +3,16 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useEffect, useState } from "react"
-import { ProjectIcon, type ProjectIconImage } from "@projectproject/shared"
+import {
+  attachmentUrl,
+  ProjectIcon,
+  type ProjectIconImage
+} from "@projectproject/shared"
 import type { ReactFormType } from "@tanstack/react-form"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { compressImage } from "@/lib/imageCompression"
-import { hasAlpha } from "@/lib/iconCutout"
+import { CUTOUT_DEFAULT_TOLERANCE, hasAlpha } from "@/lib/iconCutout"
 import { useAppForm } from "@/lib/form"
 import {
   analyseAt,
@@ -60,6 +64,24 @@ export function ProjectIconForm({
 
   const form = useAppForm({
     ...iconFormOpts(icon, iconImage !== null),
+    defaultValues: {
+      ...iconFormOpts(icon, iconImage !== null).defaultValues,
+      source: {
+        kind: iconImage ? ("image" as const) : ("emoji" as const),
+        emoji: icon,
+        objectUrl: iconImage
+          ? attachmentUrl(orgSlug, iconImage.sourceAttachmentId)
+          : null
+      },
+      crop: iconImage ? { ...iconImage.crop } : { x: 0.5, y: 0.5, zoom: 1 },
+      treatment: {
+        kind: iconImage?.type === "sticker" ? "sticker" : "full_bleed",
+        tolerance:
+          iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
+            ? iconImage.cutoutTolerance
+            : CUTOUT_DEFAULT_TOLERANCE
+      }
+    },
     onSubmit: async ({ value }) => {
       if (value.source.kind === "emoji") {
         const saved = await update({
@@ -72,7 +94,15 @@ export function ProjectIconForm({
 
       const bitmap = draft.bitmap()
       const file = draft.file()
-      if (!bitmap || !file) return
+
+      if (!bitmap || !file) {
+        if (!iconImage) return
+        const saved = await update({
+          iconImage: { ...iconImage, crop: value.crop }
+        })
+        if (Exit.isSuccess(saved)) onDone?.()
+        return
+      }
 
       const { source, alpha, clean } = analyseAt(
         bitmap,
