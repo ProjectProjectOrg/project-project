@@ -117,6 +117,34 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
+## Forms — TanStack Form and the mutation atom
+
+Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
+
+- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
+- Form components live in `packages/frontend/src/components/form/<name>/index.tsx`.
+- A form's schema and defaults live in an `opts.ts` beside the form, with the form component in `index.tsx`.
+
+**Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@projectproject/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
+
+### The form owns validity; the atom owns the mutation
+
+This is the rule that keeps forms consistent with the optimistic-update conventions below. TanStack Form ships `isSubmitting` and `canSubmit`, which overlap with the mutation atom's `waiting` and `AsyncResult.isFailure`. Do not use both for the same thing.
+
+- **The form owns** field values, validation, and — for stepped forms — which step you may advance to. `canSubmit` gates the final action.
+- **The atom owns** the mutation. `onSubmit` awaits the Effect-Atom mutation, and everything the user sees about progress and failure (`waiting`, `animate-pulse`, error text) is read from the atom, never from `isSubmitting`.
+
+Never disable a control on `isSubmitting` when an atom is doing the work — pass the atom's `waiting` in as a prop instead. `SteppedForm` takes `busy` for exactly this reason.
+
+### Notes on the v2 alpha
+
+Behaviours that are easy to get wrong and cost real debugging time:
+
+- **`group.state` is not reactive.** Read group validity through `group.Subscribe`, not `group.state.isValid`.
+- **Select `isValidating` alongside validity.** A group reports `isValidating` on first render, and without it an advance button paints enabled for a frame before mount validation lands.
+- **A validator only runs while its group is mounted.** Render a `FormGroup` for every step even when the step body is collapsed, or form-level `canSubmit` will ignore steps the user never visited.
+- Validators are an array of `{ run, triggers, runOnMount }`. There is no `onChange`/`onMount` key and no `revalidateLogic` — that was the v1 model.
+
 ## Mutations and optimistic updates
 
 **Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.

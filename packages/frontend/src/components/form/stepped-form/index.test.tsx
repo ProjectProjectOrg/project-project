@@ -50,10 +50,17 @@ const NonEmptyEmoji = Schema.toStandardSchemaV1(
   Schema.Struct({ emoji: Schema.NonEmptyString })
 )
 
-function ValidatedHarness() {
-  const [step, setStep] = useState("source")
+function ValidatedHarness({
+  step: initialStep = "source",
+  onSubmit
+}: {
+  step?: string
+  onSubmit?: (emoji: string) => void
+} = {}) {
+  const [step, setStep] = useState(initialStep)
   const form = useAppForm({
-    defaultValues: { source: { emoji: "" }, crop: { zoom: 1 } }
+    defaultValues: { source: { emoji: "" }, crop: { zoom: 1 } },
+    onSubmit: ({ value }) => onSubmit?.(value.source.emoji)
   })
 
   return (
@@ -85,7 +92,25 @@ function ValidatedHarness() {
             id: "crop",
             heading: "Which part of the photo?",
             summary: "Centred",
-            children: <p>crop body</p>
+            children: (
+              <form.Field name="crop.zoom">
+                {(field) => (
+                  <>
+                    <span>Zoom {field.value}</span>
+                    <input
+                      type="range"
+                      aria-label="Zoom"
+                      min={1}
+                      max={4}
+                      value={field.value}
+                      onChange={(event) =>
+                        field.handleChange(Number(event.target.value))
+                      }
+                    />
+                  </>
+                )}
+              </form.Field>
+            )
           }
         ]}
       />
@@ -142,7 +167,62 @@ describe("SteppedForm", () => {
 
     fireEvent.click(getByRole("button", { name: "Next" }))
 
-    expect(getByText("crop body")).toBeTruthy()
+    expect(getByText("Zoom 1")).toBeTruthy()
+  })
+
+  it("submits from the last step only once the whole form is valid", async () => {
+    const submitted: Array<string> = []
+    const { getByRole } = render(
+      <ValidatedHarness
+        step="crop"
+        onSubmit={(emoji) => submitted.push(emoji)}
+      />
+    )
+
+    const apply = getByRole("button", { name: "Apply" })
+    expect(apply.hasAttribute("disabled")).toBe(true)
+
+    fireEvent.click(getByRole("button", { name: "Change" }))
+    fireEvent.change(getByRole("textbox", { name: "Emoji" }), {
+      target: { value: "🎨" }
+    })
+    await waitFor(() =>
+      expect(
+        getByRole("button", { name: "Next" }).hasAttribute("disabled")
+      ).toBe(false)
+    )
+    fireEvent.click(getByRole("button", { name: "Next" }))
+
+    await waitFor(() =>
+      expect(
+        getByRole("button", { name: "Apply" }).hasAttribute("disabled")
+      ).toBe(false)
+    )
+    fireEvent.click(getByRole("button", { name: "Apply" }))
+
+    await waitFor(() => expect(submitted).toEqual(["🎨"]))
+  })
+
+  it("clears later steps when an earlier step's value changes", async () => {
+    const { getByRole, getByText } = render(<ValidatedHarness step="crop" />)
+
+    fireEvent.change(getByRole("slider", { name: "Zoom" }), {
+      target: { value: "3" }
+    })
+    await waitFor(() => expect(getByText("Zoom 3")).toBeTruthy())
+
+    fireEvent.click(getByRole("button", { name: "Change" }))
+    fireEvent.change(getByRole("textbox", { name: "Emoji" }), {
+      target: { value: "🎨" }
+    })
+    await waitFor(() =>
+      expect(
+        getByRole("button", { name: "Next" }).hasAttribute("disabled")
+      ).toBe(false)
+    )
+    fireEvent.click(getByRole("button", { name: "Next" }))
+
+    expect(getByText("Zoom 1")).toBeTruthy()
   })
 
   it("disables the fieldset while the mutation is in flight", () => {
