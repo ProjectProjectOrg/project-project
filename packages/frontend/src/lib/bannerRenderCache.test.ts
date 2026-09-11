@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   bannerRenderUrl,
   bucketRenderWidth,
+  evictBannerRenders,
   readBannerRender,
   resetBannerRenderCacheHandle,
   writeBannerRender
@@ -13,6 +14,7 @@ const key = {
   variant: "header" as const,
   crop: { x: 0.6147973773672097, y: 0.63011670364, zoom: 2.05 },
   width: 900,
+  height: 300,
   pixelRatio: 2
 }
 
@@ -144,5 +146,35 @@ describe("readBannerRender / writeBannerRender", () => {
     resetBannerRenderCacheHandle()
     expect(await readBannerRender(key)).toBeNull()
     await expect(writeBannerRender(key, blob("x"))).resolves.toBeUndefined()
+  })
+})
+
+describe("bannerRenderUrl", () => {
+  it("buckets the width but keys the exact height", () => {
+    const url = bannerRenderUrl({ ...key, width: 900, height: 300 })
+    expect(url).toContain(`w=${bucketRenderWidth(900)}`)
+    expect(url).toContain("h=300")
+  })
+
+  it("distinguishes two renders that share a width bucket but differ in height", () => {
+    expect(bannerRenderUrl({ ...key, height: 300 })).not.toBe(
+      bannerRenderUrl({ ...key, height: 160 })
+    )
+  })
+})
+
+describe("evictBannerRenders", () => {
+  it("drops every variant for the project and leaves other projects alone", async () => {
+    const cache = stubCaches()
+    await writeBannerRender(key, blob("header"))
+    await writeBannerRender({ ...key, variant: "card" }, blob("card"))
+    await writeBannerRender({ ...key, project: "acme/other" }, blob("other"))
+    expect(cache.store.size).toBe(3)
+
+    await evictBannerRenders(key.project)
+
+    const remaining = [...cache.store.keys()]
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0]).toContain(encodeURIComponent("acme/other"))
   })
 })

@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { evictBannerRenders } from "@/lib/bannerRenderCache"
 import { preloadImage } from "@/lib/imagePreload"
 import { bannerSource } from "@/components/project-banner-presets"
 import {
@@ -105,6 +106,8 @@ export const updateProjectAtom = Atom.family((key: string) => {
           params: { orgSlug, slug },
           payload: input
         })
+        if ("banner" in input)
+          yield* Effect.promise(() => evictBannerRenders(key))
         get.refresh(projectBaseAtom(key))
         get.refresh(projectsListBaseAtom(orgSlug))
         return updated

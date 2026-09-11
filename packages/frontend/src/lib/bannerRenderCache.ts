@@ -10,6 +10,7 @@ export type BannerRenderKey = {
     readonly zoom: number
   }
   readonly width: number
+  readonly height: number
   readonly pixelRatio: number
 }
 
@@ -36,6 +37,7 @@ export const bannerRenderUrl = (key: BannerRenderKey): string => {
     y: round(key.crop.y),
     z: round(key.crop.zoom),
     w: String(bucketRenderWidth(key.width)),
+    h: String(key.height),
     dpr: String(key.pixelRatio)
   })
   return `${scopeOf(key)}?${params.toString()}`
@@ -51,6 +53,31 @@ const openCache = (): Promise<Cache | null> => {
 
 export const resetBannerRenderCacheHandle = () => {
   opening = null
+}
+
+export const clearBannerRenderCache = async (): Promise<void> => {
+  if (typeof caches === "undefined") return
+  try {
+    await caches.delete(CACHE_NAME)
+  } catch {
+    return
+  } finally {
+    opening = null
+  }
+}
+
+export const evictBannerRenders = async (project: string): Promise<void> => {
+  const cache = await openCache()
+  if (!cache) return
+  try {
+    const scope = `${KEY_ORIGIN}/${encodeURIComponent(project)}/`
+    const stale = (await cache.keys()).filter((request) =>
+      request.url.startsWith(scope)
+    )
+    await Promise.all(stale.map((request) => cache.delete(request.url)))
+  } catch {
+    return
+  }
 }
 
 export const readBannerRender = async (
