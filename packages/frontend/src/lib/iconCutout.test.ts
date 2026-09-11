@@ -79,6 +79,29 @@ describe("analyzeCutout", () => {
     expect(analyzeCutout(clipped, { tolerance: 24 }).clean).toBe(true)
   })
 
+  it("cuts out a subject that covers a whole corner patch", () => {
+    const cornerClipped = solid(64, 64, (x, y) =>
+      x > 40 && y > 40 ? [20, 90, 200, 255] : [255, 255, 255, 255]
+    )
+    const result = analyzeCutout(cornerClipped, { tolerance: 24 })
+    expect(result.clean).toBe(true)
+    expect(result.alpha[0]).toBe(0)
+    expect(result.alpha[56 * 64 + 56]).toBe(255)
+  })
+
+  it("rejects a subject whose boundary barely clears the flood tolerance", () => {
+    const antialiased = solid(64, 64, (x, y) => {
+      if (x > 16 && x < 48 && y > 16 && y < 48) return [225, 225, 225, 255]
+      if (x > 15 && x < 49 && y > 15 && y < 49) return [240, 240, 240, 255]
+      return [255, 255, 255, 255]
+    })
+    const result = analyzeCutout(antialiased, { tolerance: 24 })
+    expect(result.checks.find((c) => c.id === "edgeContrast")?.passed).toBe(
+      false
+    )
+    expect(result.clean).toBe(false)
+  })
+
   it("rejects images too small for corner sampling without producing NaN", () => {
     const tiny = solid(8, 8, () => [255, 255, 255, 255])
     const result = analyzeCutout(tiny, { tolerance: 24 })
