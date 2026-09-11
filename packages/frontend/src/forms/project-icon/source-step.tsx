@@ -98,7 +98,7 @@ export function SourceStep({
                 <group.Field name="emoji">
                   {(field) => (
                     <EmojiPicker
-                      className="h-[280px] rounded-md border border-border"
+                      className="h-[280px] w-full rounded-md border border-border"
                       onEmojiSelect={({ emoji }) => {
                         field.handleChange(emoji)
                         onAdvance()
