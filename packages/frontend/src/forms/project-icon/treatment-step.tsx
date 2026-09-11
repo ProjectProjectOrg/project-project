@@ -1,4 +1,5 @@
 import { SegmentedTabs, SEGMENTED_ITEM_CLASS } from "@/components/SegmentedTabs"
+import { IconPreviewTile } from "@/components/appearance/IconPreviewTile"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { CUTOUT_MAX_TOLERANCE } from "@/lib/iconCutout"
@@ -39,17 +40,14 @@ export function TreatmentStep({
           }}
         >
           {preview ? (
-            <img
-              src={preview.url}
-              alt=""
-              width={64}
-              height={64}
-              className={cn(
-                "size-16 object-cover",
-                preview.treatment === "sticker"
-                  ? "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
-                  : "rounded-[25%] corner-squircle"
-              )}
+            <IconPreviewTile
+              live={{
+                src: preview.url,
+                crop: form.state.values.crop,
+                treatment: preview.treatment
+              }}
+              size={64}
+              radius={16}
             />
           ) : null}
 
