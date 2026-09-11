@@ -60,7 +60,7 @@ export function SourceStep({
             void group.handleSubmit()
           }}
         >
-          <StepHeading current={1} total={3}>
+          <StepHeading current={1} total={3} shareId="icon-source">
             {m.project_icon_step_source_heading()}
           </StepHeading>
 

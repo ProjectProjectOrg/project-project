@@ -107,19 +107,40 @@ export function StepSummaryRow({
   thumb,
   label,
   value,
-  onChange
+  onChange,
+  shareId
 }: {
   thumb: ReactNode
   label: string
   value: string
   onChange: () => void
+  shareId?: string
 }) {
+  const shared = useSharedTransition()
   return (
     <div className="flex items-center gap-3 border-b border-border px-3 py-2.5">
-      {thumb}
+      <motion.span
+        layoutId={shareId && `${shareId}-thumb`}
+        transition={shared}
+        className="inline-flex"
+      >
+        {thumb}
+      </motion.span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="truncate text-[13px]">{value}</span>
+        <motion.span
+          layoutId={shareId && `${shareId}-eyebrow`}
+          transition={shared}
+          className="w-fit text-xs text-muted-foreground"
+        >
+          {label}
+        </motion.span>
+        <motion.span
+          layoutId={shareId && `${shareId}-title`}
+          transition={shared}
+          className="truncate text-[13px]"
+        >
+          {value}
+        </motion.span>
       </span>
       <Button type="button" variant="ghost" size="sm" onClick={onChange}>
         {m.project_appearance_change()}
@@ -131,12 +152,15 @@ export function StepSummaryRow({
 export function StepHeading({
   current,
   total,
-  children
+  children,
+  shareId
 }: {
   current: number
   total: number
   children: ReactNode
+  shareId?: string
 }) {
+  const shared = useSharedTransition()
   const heading = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
@@ -145,16 +169,22 @@ export function StepHeading({
 
   return (
     <div className="flex items-baseline gap-2.5">
-      <span className="text-xs text-muted-foreground">
+      <motion.span
+        layoutId={shareId && `${shareId}-eyebrow`}
+        transition={shared}
+        className="w-fit text-xs text-muted-foreground"
+      >
         {m.project_appearance_step_of({ current, total })}
-      </span>
-      <h3
+      </motion.span>
+      <motion.h3
         ref={heading}
+        layoutId={shareId && `${shareId}-title`}
+        transition={shared}
         tabIndex={-1}
         className="text-[13px] font-medium outline-none"
       >
         {children}
-      </h3>
+      </motion.h3>
     </div>
   )
 }

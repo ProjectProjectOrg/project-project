@@ -48,7 +48,7 @@ export function BannerSourceStep({
             void group.handleSubmit()
           }}
         >
-          <StepHeading current={1} total={2}>
+          <StepHeading current={1} total={2} shareId="banner-source">
             {m.project_banner_step_source_heading()}
           </StepHeading>
 
