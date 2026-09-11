@@ -30,14 +30,10 @@ export function IconPreviewTile({
           live.treatment === "sticker" &&
             "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
         )}
-        style={
-          live.treatment === "full_bleed"
-            ? {
-                objectPosition: `${live.crop.x * 100}% ${live.crop.y * 100}%`,
-                scale: String(live.crop.zoom)
-              }
-            : undefined
-        }
+        style={{
+          objectPosition: `${live.crop.x * 100}% ${live.crop.y * 100}%`,
+          scale: String(live.crop.zoom)
+        }}
       />
     </span>
   )
