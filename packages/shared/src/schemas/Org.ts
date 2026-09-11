@@ -66,15 +66,14 @@ export const UserInvitation = Schema.Struct({
 })
 export type UserInvitation = typeof UserInvitation.Type
 
-// Mirrors zod v4's `z.email()` exactly (zod/src/v4/core/regexes.ts:42), which is
-// what better-auth applies at crud-invites.mjs:88 before it checks membership.
-// Diverging would let a rejected address reach that check and leak org existence.
-const EMAIL_PATTERN =
-  /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9-]*\.)+[A-Za-z]{2,}$/
+// source must stay byte-equal to zod v4 regexes.email (better-auth uses z.email())
+export const INVITE_EMAIL_PATTERN = new RegExp(
+  "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+)
 
 export const InviteEmail = Schema.String.pipe(
   Schema.check(Schema.isMaxLength(254)),
-  Schema.check(Schema.isPattern(EMAIL_PATTERN))
+  Schema.check(Schema.isPattern(INVITE_EMAIL_PATTERN))
 )
 export type InviteEmail = typeof InviteEmail.Type
 

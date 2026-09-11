@@ -13,7 +13,11 @@ import {
   type BetterAuthError,
   type InvitationState
 } from "../Services/BetterAuth"
-import { betterAuthErrorCode, isClientRefusal } from "./org"
+import {
+  betterAuthErrorCode,
+  betterAuthErrorStatus,
+  isClientRefusal
+} from "./org"
 
 const NOT_RECIPIENT = "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION"
 const VERIFICATION_REQUIRED = new Set([
@@ -30,6 +34,14 @@ const UNUSABLE_CODES = new Set([
 const addressedTo = (state: InvitationState, recipientEmail: string) =>
   state.email.toLowerCase() === recipientEmail.toLowerCase()
 
+const UNNAMED_REFUSAL_STATUS = 400
+
+const namesAKnownRefusal = (code: string) =>
+  code === NOT_RECIPIENT ||
+  code === MEMBERSHIP_LIMIT ||
+  VERIFICATION_REQUIRED.has(code) ||
+  UNUSABLE_CODES.has(code)
+
 export const acceptErrorToFailure = (
   error: BetterAuthError,
   state: InvitationState | null,
@@ -38,8 +50,15 @@ export const acceptErrorToFailure = (
 ): Effect.Effect<never, NotFound | InvitationNotAcceptable> => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
-  if (code === NOT_RECIPIENT) {
-    return Effect.fail(new InvitationNotAcceptable({ reason: "not_recipient" }))
+  if (code === null) {
+    if (betterAuthErrorStatus(error) !== UNNAMED_REFUSAL_STATUS) {
+      return Effect.die(error)
+    }
+  } else if (!namesAKnownRefusal(code)) {
+    return Effect.die(error)
+  }
+  if (state === null || !addressedTo(state, recipientEmail)) {
+    return Effect.fail(new NotFound())
   }
   if (code !== null && VERIFICATION_REQUIRED.has(code)) {
     return Effect.fail(
@@ -51,16 +70,10 @@ export const acceptErrorToFailure = (
       new InvitationNotAcceptable({ reason: "membership_limit_reached" })
     )
   }
-  if (code === null || UNUSABLE_CODES.has(code)) {
-    if (state === null || !addressedTo(state, recipientEmail)) {
-      return Effect.fail(new NotFound())
-    }
-    if (state.expiresAt.getTime() <= now.getTime()) {
-      return Effect.fail(new InvitationNotAcceptable({ reason: "expired" }))
-    }
-    return Effect.fail(new NotFound())
+  if (state.expiresAt.getTime() <= now.getTime()) {
+    return Effect.fail(new InvitationNotAcceptable({ reason: "expired" }))
   }
-  return Effect.die(error)
+  return Effect.fail(new NotFound())
 }
 
 export const invitationErrorToFailure = (
@@ -68,15 +81,12 @@ export const invitationErrorToFailure = (
 ): Effect.Effect<never, NotFound> => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
-  if (
-    code === null ||
-    code === NOT_RECIPIENT ||
-    code === MEMBERSHIP_LIMIT ||
-    VERIFICATION_REQUIRED.has(code) ||
-    UNUSABLE_CODES.has(code)
-  ) {
-    return Effect.fail(new NotFound())
+  if (code === null) {
+    return betterAuthErrorStatus(error) === UNNAMED_REFUSAL_STATUS
+      ? Effect.fail(new NotFound())
+      : Effect.die(error)
   }
+  if (namesAKnownRefusal(code)) return Effect.fail(new NotFound())
   return Effect.die(error)
 }
 

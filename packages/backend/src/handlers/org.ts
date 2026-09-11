@@ -81,13 +81,18 @@ const INVALID_CODES = new Map([
   ["INVALID_EMAIL", "invalid_email"]
 ])
 
-export const isClientRefusal = (error: BetterAuthError): boolean => {
+export const betterAuthErrorStatus = (
+  error: BetterAuthError
+): number | null => {
   const { cause } = error
-  return isAPIError(cause) && cause.statusCode >= 400 && cause.statusCode < 500
+  return isAPIError(cause) ? cause.statusCode : null
 }
 
-// `APIError.fromStatus` stores the body verbatim and sets no `code`, so a null
-// here means "a 4xx we cannot name", not "not a refusal". Callers must decide.
+export const isClientRefusal = (error: BetterAuthError): boolean => {
+  const status = betterAuthErrorStatus(error)
+  return status !== null && status >= 400 && status < 500
+}
+
 export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
   const { cause } = error
   if (!isAPIError(cause)) return null

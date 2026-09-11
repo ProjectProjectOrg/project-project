@@ -15,7 +15,7 @@ const inviteError = (code: string) =>
   })
 
 const codelessError = (
-  status: "BAD_REQUEST" | "FORBIDDEN" = "BAD_REQUEST",
+  status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" = "BAD_REQUEST",
   message = "Invitation not found!"
 ) => new BetterAuthError({ cause: new APIError(status, { message }) })
 
@@ -37,19 +37,19 @@ const lapsed = {
 const failureOf = <E>(effect: Effect.Effect<never, E>) =>
   Effect.runPromise(effect.pipe(Effect.flip))
 
-it("reports an invitation addressed to someone else as not_recipient", async () => {
-  const result = await failureOf(
-    acceptErrorToFailure(
-      inviteError("YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION"),
-      live,
-      now,
-      RECIPIENT
+it("hides an invitation the caller has no claim to, however better-auth words it", async () => {
+  const other = { ...live, email: "someone.else@example.com" }
+  for (const code of [
+    "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION",
+    "INVITATION_NOT_FOUND",
+    "ORGANIZATION_MEMBERSHIP_LIMIT_REACHED",
+    "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION"
+  ]) {
+    const result = await failureOf(
+      acceptErrorToFailure(inviteError(code), other, now, RECIPIENT)
     )
-  )
-  expect(result).toMatchObject({
-    _tag: "InvitationNotAcceptable",
-    reason: "not_recipient"
-  })
+    expect(result, code).toMatchObject({ _tag: "NotFound" })
+  }
 })
 
 it("reports an unverified email as email_verification_required", async () => {
@@ -195,6 +195,27 @@ it("asks an unverified user to verify rather than showing an empty list", async 
     _tag: "InvitationNotAcceptable",
     reason: "email_verification_required"
   })
+})
+
+it("keeps a codeless 401 loud instead of reporting a missing invitation", async () => {
+  const exit = await Effect.runPromiseExit(
+    invitationErrorToFailure(codelessError("UNAUTHORIZED", "Not authenticated"))
+  )
+  expect(exit._tag).toBe("Failure")
+  expect(JSON.stringify(exit)).not.toContain("NotFound")
+})
+
+it("keeps a codeless 401 loud on accept too", async () => {
+  const exit = await Effect.runPromiseExit(
+    acceptErrorToFailure(
+      codelessError("UNAUTHORIZED", "Not authenticated"),
+      live,
+      now,
+      RECIPIENT
+    )
+  )
+  expect(exit._tag).toBe("Failure")
+  expect(JSON.stringify(exit)).not.toContain("NotFound")
 })
 
 it("dies on an unrecognised invitation code rather than guessing", async () => {
