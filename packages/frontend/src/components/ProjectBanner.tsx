@@ -41,7 +41,13 @@ export function ProjectBanner({
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
-  const source = preview ? preview.source : bannerSource(orgSlug, banner)
+  const source = preview
+    ? preview.source
+    : bannerSource(
+        orgSlug,
+        banner,
+        typeof window === "undefined" ? undefined : window.innerWidth
+      )
   const placeholder = preview ? null : (banner?.placeholder ?? null)
   const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
   const reduceMotion = useReducedMotion() ?? false

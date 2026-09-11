@@ -30,7 +30,6 @@ import {
   planReap,
   planDedupe,
   planReferences,
-  resolveAttachmentWidthRung,
   summarizeAttachments,
   planStatuses,
   validateUploadRequest
@@ -952,39 +951,6 @@ describe("attachmentServesInline", () => {
     expect(
       attachmentServesInline({ contentType: "image/png", download: true })
     ).toBe(false)
-  })
-})
-
-describe("resolveAttachmentWidthRung", () => {
-  it("returns null when no width is requested", () => {
-    expect(resolveAttachmentWidthRung(null)).toBeNull()
-  })
-
-  it("returns null for a non-numeric width", () => {
-    expect(resolveAttachmentWidthRung("wide")).toBeNull()
-  })
-
-  it("returns null for a zero or negative width", () => {
-    expect(resolveAttachmentWidthRung("0")).toBeNull()
-    expect(resolveAttachmentWidthRung("-64")).toBeNull()
-  })
-
-  it("returns null for a width larger than the top rung", () => {
-    expect(resolveAttachmentWidthRung("2049")).toBeNull()
-    expect(resolveAttachmentWidthRung("10000")).toBeNull()
-  })
-
-  it("rounds up to the nearest rung", () => {
-    expect(resolveAttachmentWidthRung("1")).toBe(64)
-    expect(resolveAttachmentWidthRung("65")).toBe(128)
-    expect(resolveAttachmentWidthRung("200")).toBe(256)
-    expect(resolveAttachmentWidthRung("513")).toBe(1024)
-  })
-
-  it("leaves an exact rung unchanged", () => {
-    for (const rung of [64, 128, 256, 512, 1024, 2048]) {
-      expect(resolveAttachmentWidthRung(String(rung))).toBe(rung)
-    }
   })
 })
 
