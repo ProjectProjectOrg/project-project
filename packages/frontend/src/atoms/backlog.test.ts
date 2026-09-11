@@ -15,6 +15,7 @@ import {
   backlog,
   backlogRequest,
   loadMoreBacklog,
+  quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
 
@@ -382,24 +383,6 @@ describe("backlog pagination", () => {
   })
 
   it("does not drop the optimistic overlay early when a load-more page has not settled yet", async () => {
-    // The known risk: an unmounted/not-yet-settled cursor page reads as
-    // `Initial`, and `Initial` is not itself "waiting" by definition. If the
-    // composed view ever reported `waiting: false` while such a page was
-    // still pending, `Atom.optimistic`'s commit check
-    // (`!value.waiting && value.timestamp >= current.timestamp`) would treat
-    // the mutation's commit-refresh as settled and release the overlay
-    // before the page caught up -- the exact flicker this design removes.
-    //
-    // This never fires here because the atom runtime marks any not-yet-
-    // resolved async computation as `waiting: true` regardless of its
-    // `_tag` (see `makeEffect` in `effect/unstable/reactivity/Atom.ts`,
-    // which returns `AsyncResult.waiting(initialValue)` -- forcing
-    // `waiting: true` on an `Initial` result -- whenever there is no
-    // synchronous value and no previous one to fall back to). So a page
-    // that never resolves keeps `parts.some((part) => part.waiting)` true
-    // for as long as it is pending, and the overlay is held rather than
-    // dropped. Proven below: the page request never resolves, yet the view
-    // still reports `waiting: true` after the mutation's own request lands.
     let finishPatch = (_r: Response) => {}
     fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input))
@@ -453,6 +436,72 @@ describe("backlog pagination", () => {
         _tag: "Success",
         waiting: true
       })
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("backlog quick create", () => {
+  it("keeps the caller's row key when the server row arrives", async () => {
+    const created = {
+      ...ticket,
+      id: Schema.decodeSync(TicketId)("T-9"),
+      title: "Created"
+    }
+    let served = [ticket]
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(sections(served))
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const create = quickCreateBacklogTicket(req)
+    registry.mount(view)
+    registry.mount(create)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(create, {
+        ticket: { title: "Created", status: ticket.status },
+        viewerId: "user-1",
+        projectPrefix: "T",
+        clientId: "creation-1"
+      })
+
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.value.sections.todo.items[0]).toMatchObject({
+        key: "creation-1",
+        pending: true
+      })
+
+      served = [created, ticket]
+      finish(Response.json(encodeUpdateResponse(asDetail(created))))
+      await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
+
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(
+        settled.value.sections.todo.items.map(({ key, pending }) => ({
+          key,
+          pending
+        }))
+      ).toEqual([
+        { key: "creation-1", pending: false },
+        { key: "T-1", pending: false }
+      ])
     } finally {
       registry.dispose()
     }

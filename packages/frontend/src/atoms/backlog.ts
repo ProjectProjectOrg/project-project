@@ -1,8 +1,10 @@
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
+  type QuickCreateTicketInput,
   type Ticket,
   type TicketCounts,
   type TicketId,
@@ -119,6 +121,7 @@ const backlogView = (req: BacklogRequest) =>
         return base as unknown as AsyncResult.AsyncResult<BacklogValue, unknown>
       }
       const loaded = get(loadedPagesAtom(req))
+      const createdKeys = get(createdKeysAtom(scopeOf(req)))
       const parts: Array<AsyncResult.AsyncResult<unknown, unknown>> = [base]
       const sections: Record<string, BacklogSection> = {}
 
@@ -134,7 +137,13 @@ const backlogView = (req: BacklogRequest) =>
           for (const ticket of result.value.items) rows.push(toRow(ticket))
           nextCursor = result.value.nextCursor
         }
-        sections[status] = { items: dedupeById(rows), nextCursor }
+        sections[status] = {
+          items: dedupeById(rows).map((row) => ({
+            ...row,
+            key: createdKeys.get(row.ticket.id) ?? row.key
+          })),
+          nextCursor
+        }
       }
 
       // A failed or unmounted page must not fail the region, so this cannot be
@@ -265,4 +274,100 @@ export const updateBacklogTicket = Atom.family(
           })
         )
     })
+)
+
+/**
+ * Maps a server ticket id to the client key its row was created with, so the
+ * row keeps its React identity when the optimistic placeholder is replaced by
+ * the real ticket. View state, not cache.
+ */
+const createdKeysAtom = Atom.family((_scope: string) =>
+  Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
+    Atom.setIdleTTL("2 minutes")
+  )
+)
+
+export interface QuickCreateArg {
+  readonly ticket: QuickCreateTicketInput
+  readonly viewerId: string
+  readonly projectPrefix: string
+  readonly clientId: string
+}
+
+const placeholderId = (
+  taken: ReadonlyArray<BacklogRow>,
+  prefix: string
+): TicketId => {
+  const used = new Set(taken.map((row) => row.ticket.id))
+  let n = 999999
+  while (used.has(`${prefix}-${n}` as TicketId)) n++
+  return `${prefix}-${n}` as TicketId
+}
+
+export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
+  Atom.optimisticFn(backlog(req), {
+    reducer: (current, input: QuickCreateArg) =>
+      AsyncResult.map(current, (value) => {
+        const status = input.ticket.status ?? ("todo" as TicketStatus)
+        const section = value.sections[status] ?? {
+          items: [],
+          nextCursor: null
+        }
+        const now = DateTime.toDate(DateTime.nowUnsafe())
+        const predicted: Ticket = {
+          id: placeholderId(section.items, input.projectPrefix),
+          title: input.ticket.title,
+          status,
+          type: input.ticket.type ?? "other",
+          priority: "med",
+          tags: [],
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          gitState: { tag: "no_branch", baseBranch: "" },
+          assignees: [],
+          archivedAt: null,
+          createdBy: input.viewerId,
+          createdAt: now,
+          updatedAt: now
+        }
+        return {
+          counts: {
+            total: value.counts.total + 1,
+            byStatus: {
+              ...value.counts.byStatus,
+              [status]: (value.counts.byStatus[status] ?? 0) + 1
+            }
+          },
+          sections: {
+            ...value.sections,
+            [status]: {
+              ...section,
+              items: [
+                { ticket: predicted, key: input.clientId, pending: true },
+                ...section.items
+              ]
+            }
+          }
+        }
+      }),
+    fn: Api.runtime.fn(
+      Effect.fn(function* (input: QuickCreateArg, get) {
+        const created = yield* Api.use((client) =>
+          client.tickets.quickCreate({
+            params: req.params,
+            payload: input.ticket
+          })
+        )
+        const index = createdKeysAtom(scopeOf(req))
+        get.set(index, new Map(get(index)).set(created.id, input.clientId))
+        yield* Reactivity.invalidate([
+          Keys.ticketLists(scopeOf(req)),
+          Keys.ticketPages(scopeOf(req))
+        ])
+        return created
+      })
+    )
+  })
 )
