@@ -21,17 +21,29 @@ type Rendered = {
   readonly src: string
   readonly width: number
   readonly height: number
+  readonly signature: string
 }
+
+const signatureOf = (
+  image: HTMLImageElement,
+  settings: BannerPrototypeSettings
+) => `${image.src}|${settings.x}|${settings.y}|${settings.zoom}`
 
 export function CachedShaderBanner({
   image,
   settings,
   cacheKey,
+  live = false,
   onFirstRender
 }: {
   image: HTMLImageElement
   settings: BannerPrototypeSettings
   cacheKey: BannerRenderKey | null
+  /**
+   * Keeps the canvas — and with it the compiled program and uploaded texture —
+   * mounted so crop changes cost a uniform update instead of a fresh context.
+   */
+  live?: boolean
   onFirstRender?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -62,9 +74,14 @@ export function CachedShaderBanner({
     [rendered]
   )
 
+  const signature = signatureOf(image, settings)
+
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
       onFirstRender?.()
+      // A live crop redraws on every pointer move; encoding each of those to
+      // WebP would stall the drag and evict the real render from the cache.
+      if (live) return
       if (
         canvas.width <= 0 ||
         canvas.height <= 0 ||
@@ -74,19 +91,22 @@ export function CachedShaderBanner({
         return
       void toBlob(canvas).then((blob) => {
         if (!blob) return
-        setRendered({ src: URL.createObjectURL(blob), ...size })
+        setRendered({ src: URL.createObjectURL(blob), ...size, signature })
         if (cacheKey) void writeBannerRender(cacheKey, blob)
       })
     },
-    [size, onFirstRender, cacheKey]
+    [size, onFirstRender, cacheKey, live, signature]
   )
 
   const usable =
-    rendered && rendered.width === size.width && rendered.height === size.height
+    rendered &&
+    rendered.width === size.width &&
+    rendered.height === size.height &&
+    rendered.signature === signature
 
   return (
     <div ref={ref} className="size-full">
-      {usable ? (
+      {usable && !live ? (
         <img src={rendered.src} alt="" className="block size-full" />
       ) : (
         size.width > 0 &&
