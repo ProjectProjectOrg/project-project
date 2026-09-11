@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test"
 import { useState } from "react"
 import * as Schema from "effect/Schema"
 import { useAppForm } from "@/lib/form"
+import { SteppedForm } from "./index"
 
 afterEach(cleanup)
 
@@ -20,7 +21,8 @@ function Harness({
 
   return (
     <form.AppForm>
-      <form.SteppedForm
+      <SteppedForm
+        form={form}
         step={step}
         onStepChange={setStep}
         busy={busy}
@@ -56,7 +58,8 @@ function ValidatedHarness() {
 
   return (
     <form.AppForm>
-      <form.SteppedForm
+      <SteppedForm
+        form={form}
         step={step}
         onStepChange={setStep}
         labels={{ change: "Change", next: "Next", submit: "Apply" }}
@@ -67,15 +70,15 @@ function ValidatedHarness() {
             summary: "Emoji",
             validator: NonEmptyEmoji,
             children: (
-              <form.AppField name="source.emoji">
+              <form.Field name="source.emoji">
                 {(field) => (
                   <input
                     aria-label="Emoji"
-                    value={field.state.value}
+                    value={field.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                   />
                 )}
-              </form.AppField>
+              </form.Field>
             )
           },
           {

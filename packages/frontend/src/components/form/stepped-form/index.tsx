@@ -1,8 +1,6 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec"
+import type { AnyReactFormApi, StandardSchemaV1 } from "@tanstack/react-form"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { useStore } from "@tanstack/react-form"
-import { useFormContext } from "@/lib/form-context"
 
 export type SteppedFormStep = {
   id: string
@@ -12,11 +10,6 @@ export type SteppedFormStep = {
   children: ReactNode
 }
 
-const isSatisfied = (schema: StandardSchemaV1, value: unknown) => {
-  const result = schema["~standard"].validate(value)
-  return result instanceof Promise ? false : !result.issues?.length
-}
-
 export type SteppedFormLabels = {
   change: ReactNode
   next: ReactNode
@@ -24,23 +17,20 @@ export type SteppedFormLabels = {
 }
 
 export function SteppedForm({
+  form,
   steps,
   step,
   onStepChange,
   labels,
   busy = false
 }: {
+  form: AnyReactFormApi
   steps: ReadonlyArray<SteppedFormStep>
   step: string
   onStepChange: (id: string) => void
   labels: SteppedFormLabels
   busy?: boolean
 }) {
-  const form = useFormContext()
-  const values = useStore(form.store, (state) => state.values) as Record<
-    string,
-    unknown
-  >
   const activeIndex = steps.findIndex((entry) => entry.id === step)
   const nextStep = steps[activeIndex + 1]
 
@@ -50,20 +40,41 @@ export function SteppedForm({
         entry.id === step ? (
           <div key={entry.id} className="flex flex-col gap-2">
             <span className="text-sm font-medium">{entry.heading}</span>
-            {entry.children}
-            {nextStep ? (
-              <Button
-                size="sm"
-                disabled={
-                  entry.validator
-                    ? !isSatisfied(entry.validator, values[entry.id])
-                    : false
-                }
-                onClick={() => onStepChange(nextStep.id)}
-              >
-                {labels.next}
-              </Button>
-            ) : null}
+            <form.FormGroup
+              name={entry.id}
+              validators={
+                entry.validator
+                  ? [
+                      {
+                        run: entry.validator,
+                        triggers: ["change"],
+                        runOnMount: true
+                      }
+                    ]
+                  : []
+              }
+            >
+              {(group) => (
+                <>
+                  {entry.children}
+                  {nextStep ? (
+                    <group.Subscribe
+                      selector={(state) => state.isValid && !state.isValidating}
+                    >
+                      {(canAdvance) => (
+                        <Button
+                          size="sm"
+                          disabled={!canAdvance}
+                          onClick={() => onStepChange(nextStep.id)}
+                        >
+                          {labels.next}
+                        </Button>
+                      )}
+                    </group.Subscribe>
+                  ) : null}
+                </>
+              )}
+            </form.FormGroup>
           </div>
         ) : (
           <div key={entry.id} className="flex items-center justify-between">
