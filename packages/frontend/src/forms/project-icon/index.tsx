@@ -14,7 +14,7 @@ import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { compressImage } from "@/lib/imageCompression"
 import { CUTOUT_DEFAULT_TOLERANCE, hasAlpha } from "@/lib/iconCutout"
-import { useAppForm } from "@/lib/form"
+import { useAppForm, useFormValues } from "@/lib/form"
 import {
   analyseAt,
   buildIconImage,
@@ -171,7 +171,7 @@ export function ProjectIconForm({
     }
   })
 
-  const values = form.state.values
+  const values = useFormValues(form)
   const previewUrl = draft.preview?.url ?? null
 
   const thumb = (src: string | null) =>

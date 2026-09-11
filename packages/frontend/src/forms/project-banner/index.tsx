@@ -23,7 +23,7 @@ import {
 import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
 import { StepSummaryRow } from "@/components/appearance/AppearanceCard"
 import { transitions } from "@/lib/springs"
-import { useAppForm } from "@/lib/form"
+import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 import { BannerCropStep } from "./crop-step"
 import { bannerFormOpts } from "./opts"
@@ -136,7 +136,7 @@ export function ProjectBannerForm({
     }
   })
 
-  const values = form.state.values
+  const values = useFormValues(form)
 
   useEffect(() => {
     setPreview({
