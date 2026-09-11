@@ -1,17 +1,18 @@
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { Api } from "./Api"
 import { Keys, projectScope } from "./keys"
+import { stubFetch } from "./testFetch"
 
-afterEach(() => vi.unstubAllGlobals())
+const fetch = stubFetch()
 
 describe("Api", () => {
   it("shares one atom and one request between structurally equal queries", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(Response.json({ total: 0, byStatus: {} })))
+    const handler = vi.fn(() =>
+      Promise.resolve(Response.json({ total: 0, byStatus: {} }))
     )
+    fetch.set(handler)
     const request = {
       params: { orgSlug: "acme", slug: "web" },
       query: {},
@@ -28,7 +29,7 @@ describe("Api", () => {
       await vi.waitFor(() =>
         expect(AsyncResult.isSuccess(registry.get(a))).toBe(true)
       )
-      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(handler).toHaveBeenCalledTimes(1)
     } finally {
       registry.dispose()
     }
