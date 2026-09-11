@@ -338,7 +338,7 @@ it("paints the inline placeholder instead of the network image on first render",
   )
   const img = container.querySelector("img")
   expect(img?.getAttribute("src")).toBe(placeholder)
-  expect(img?.style.filter).toBe("blur(6px)")
+  expect(img?.style.filter).toBe("blur(6px) grayscale(0.5)")
 })
 
 it("frames the inline placeholder with the banner's crop before the photo loads", async () => {
