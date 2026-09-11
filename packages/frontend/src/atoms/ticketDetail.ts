@@ -9,8 +9,6 @@ import type {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { applyTicketDetailPatch } from "./ticketPatch"
-
 export interface TicketRequest {
   readonly params: {
     readonly orgSlug: string
@@ -60,9 +58,16 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimisticFn(ticketDetail(req), {
     reducer: (current, patch: UpdateTicketInput) =>
-      AsyncResult.map(current, (ticket) =>
-        applyTicketDetailPatch(ticket, patch)
-      ),
+      AsyncResult.map(current, (ticket) => ({
+        ...ticket,
+        title: patch.title ?? ticket.title,
+        status: patch.status ?? ticket.status,
+        type: patch.type ?? ticket.type,
+        priority: patch.priority ?? ticket.priority,
+        tags: patch.tags ?? ticket.tags,
+        assignees: patch.assignees ?? ticket.assignees,
+        body: patch.body ?? ticket.body
+      })),
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(function* (patch: UpdateTicketInput) {

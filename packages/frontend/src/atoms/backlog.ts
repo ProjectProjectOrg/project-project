@@ -13,8 +13,6 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { applyTicketPatch } from "./ticketPatch"
-
 export interface BacklogRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }
   readonly query: Record<string, string | ReadonlyArray<string>>
@@ -161,7 +159,18 @@ const patchRow = (
         items.push(row)
         continue
       }
-      const next = { ...row, ticket: applyTicketPatch(row.ticket, patch) }
+      const next = {
+        ...row,
+        ticket: {
+          ...row.ticket,
+          title: patch.title ?? row.ticket.title,
+          status: patch.status ?? row.ticket.status,
+          type: patch.type ?? row.ticket.type,
+          priority: patch.priority ?? row.ticket.priority,
+          tags: patch.tags ?? row.ticket.tags,
+          assignees: patch.assignees ?? row.ticket.assignees
+        }
+      }
       if (patch.status !== undefined && patch.status !== status) {
         moved = next
         from = status
