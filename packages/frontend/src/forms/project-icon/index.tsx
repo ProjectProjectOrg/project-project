@@ -179,6 +179,7 @@ export function ProjectIconForm({
     src ? (
       <IconPreviewTile
         live={{
+          kind: "image",
           src,
           crop: values.crop,
           treatment: values.treatment.kind
@@ -213,16 +214,26 @@ export function ProjectIconForm({
   useEffect(() => {
     if (!onLiveChange) return undefined
     onLiveChange(
-      previewUrl
-        ? {
-            src: previewUrl,
-            crop: values.crop,
-            treatment: values.treatment.kind
-          }
-        : null
+      values.source.kind === "emoji"
+        ? { kind: "emoji", emoji: values.source.emoji }
+        : previewUrl
+          ? {
+              kind: "image",
+              src: previewUrl,
+              crop: values.crop,
+              treatment: values.treatment.kind
+            }
+          : null
     )
     return () => onLiveChange(null)
-  }, [onLiveChange, previewUrl, values.crop, values.treatment.kind])
+  }, [
+    onLiveChange,
+    previewUrl,
+    values.crop,
+    values.source.kind,
+    values.source.emoji,
+    values.treatment.kind
+  ])
 
   const sourceDetail =
     values.source.kind === "emoji"

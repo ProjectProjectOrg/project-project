@@ -73,7 +73,12 @@ export function TreatmentStep({
   const tile = (treatment: IconTreatment) =>
     src ? (
       <IconPreviewTile
-        live={{ src, crop: form.state.values.crop, treatment }}
+        live={{
+          kind: "image",
+          src,
+          crop: form.state.values.crop,
+          treatment
+        }}
         size={40}
         radius={12}
         background={treatment === "sticker" ? accent : undefined}
