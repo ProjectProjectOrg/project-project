@@ -13,7 +13,7 @@ import {
 } from "@/atoms/projects"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
 import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ImagePlus, Trash2, Upload } from "lucide-react"
 import { ErrorPage } from "@/components/ErrorPage"
@@ -23,6 +23,7 @@ import { useShape } from "@/lib/shape-context"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 import {
   bannerDefaults,
   bannerPresets,
@@ -67,6 +68,14 @@ export default function ProjectBannerSettings({
   const storageAvailable =
     AsyncResult.isSuccess(storage) && storage.value.status === "active"
   const submitting = updateState.waiting || uploadState.waiting
+  const zoomFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(getLocale(), {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }),
+    []
+  )
   const setPreview = useAtomSet(projectBannerPreviewAtom(key))
   const applied: BannerState = {
     source: bannerSource(orgSlug, banner) ?? initialState.source,
@@ -448,9 +457,13 @@ export default function ProjectBannerSettings({
                       max={4}
                       step={0.05}
                       value={draft.settings.zoom}
-                      disabled={!image || draft.removed}
+                      disabled={!image || draft.removed || submitting}
                       onChange={(value) => setZoom(value as number)}
-                      formatValue={(value) => `${value.toFixed(2)}×`}
+                      formatValue={(value) =>
+                        m.project_banner_settings_zoom_value({
+                          zoom: zoomFormatter.format(value)
+                        })
+                      }
                       className="w-56"
                     />
                     <div className="flex items-center gap-1">

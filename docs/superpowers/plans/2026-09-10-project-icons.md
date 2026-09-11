@@ -6,7 +6,7 @@
 
 **Architecture:** Icons reuse the project image infrastructure T-158 landed for banners: the slot-keyed `project_image_reference` table, the null-ticket `prepareProject`/`commitProject` upload endpoints, and the frontmatter-plus-`jsonb`-mirror pattern in `ProjectDocs`. Icons add two slots, `icon` and `icon_source`. All image processing happens in the browser with a deterministic corner flood fill — no model, no new runtime dependency.
 
-**Tech Stack:** Effect v3 (`Schema`, `Effect.gen`, `Context.Service`), Drizzle ORM + Postgres, TanStack Start/Router, `@effect/atom-react`, shadcn/Radix + Fluid Functionalism components, Tailwind v4, paraglide i18n, Vitest.
+**Tech Stack:** Effect v4 (`Schema`, `Effect.gen`, `Context.Service`), Drizzle ORM + Postgres, TanStack Start/Router, `@effect/atom-react`, shadcn/Radix + Fluid Functionalism components, Tailwind v4, paraglide i18n, Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-09-10-T-136-project-icons-design.md`
 

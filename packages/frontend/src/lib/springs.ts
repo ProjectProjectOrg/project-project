@@ -28,7 +28,7 @@ export const transitions = {
   presence: { duration: 0.18, ease: standardEase }
 } as const
 
-export const spring = {
+export const sliderSprings = {
   fast: { ...springs.fast, exit: { duration: 0.06 } },
   moderate: { ...springs.moderate, exit: { duration: 0.12 } },
   slow: { ...springs.slow, exit: { duration: 0.16 } }

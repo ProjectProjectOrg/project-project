@@ -1,6 +1,6 @@
 // THROWAWAY — T-136 cutout probe UI. Dev-only route, not shipped, so the
 // strings here deliberately bypass paraglide.
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, notFound } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   analyzeCutout,
@@ -10,6 +10,9 @@ import {
 import { Slider } from "@/components/ui/slider"
 
 export const Route = createFileRoute("/dev/icon-cutout")({
+  beforeLoad: () => {
+    if (!import.meta.env.DEV) throw notFound()
+  },
   component: IconCutoutProbe
 })
 
