@@ -46,9 +46,6 @@ export function ProjectBanner({
   const appliedCrop = banner?.crop ?? bannerDefaults
   const source = preview ? preview.source : appliedSource
   const crop = preview?.crop ?? appliedCrop
-  // The editor publishes the saved banner as a preview the moment it opens, so
-  // "is the editor open" and "has the banner actually changed" are separate
-  // questions: the first warms the shader, only the second may repaint.
   const editing = preview !== null
   const changed = bannerPreviewChanged(preview, appliedSource, appliedCrop)
   const placeholder = changed ? null : (banner?.placeholder ?? null)
@@ -128,8 +125,6 @@ export function ProjectBanner({
   useEffect(() => {
     if (!measured) return undefined
     setLookupSettled(cacheKey === null)
-    // Losing the key means the crop is being dragged; hold the settled render
-    // on screen as the floor the live shader crossfades up from.
     if (cacheKey === null) return undefined
     setCachedRender(null)
     let cancelled = false
@@ -158,22 +153,15 @@ export function ProjectBanner({
   }, [source])
 
   useEffect(() => {
-    // While the editor is open the shader loads even behind a cache hit, so the
-    // first drag has its texture ready instead of decoding mid-gesture.
     if (!source || !lookupSettled) return undefined
     if (cachedRender !== null && !editing) return undefined
     if (requestedSourceRef.current === source) return undefined
     requestedSourceRef.current = source
     const photo = new Image()
     photo.crossOrigin = "anonymous"
-    // The request outlives this effect run. Saving a banner changes the source
-    // and settles the cache lookup in separate commits, so the effect re-runs
-    // mid-flight; tearing the load down there would strand it behind the guard
-    // above and leave the banner blurred until a reload. Staleness is decided
-    // by the ref instead, which always names the source we still want.
-    const current = () => requestedSourceRef.current === source
+    const stillWanted = () => requestedSourceRef.current === source
     photo.onload = () => {
-      if (!current()) return
+      if (!stillWanted()) return
       setNaturalSize({
         width: photo.naturalWidth,
         height: photo.naturalHeight
@@ -181,12 +169,12 @@ export function ProjectBanner({
       void photo
         .decode()
         .then(() => {
-          if (current()) setShaderImage(photo)
+          if (stillWanted()) setShaderImage(photo)
         })
         .catch(() => undefined)
     }
     photo.onerror = () => {
-      if (current()) requestedSourceRef.current = null
+      if (stillWanted()) requestedSourceRef.current = null
     }
     photo.src = source
     return undefined
@@ -215,8 +203,6 @@ export function ProjectBanner({
   if (!source) return null
 
   const skipBlur = wasCached
-  // The settled render holds until the live shader has actually painted the new
-  // crop, so a drag hands over without a blank frame in between.
   const settled =
     cachedRender !== null && !(changed && painted) ? cachedRender : null
   const shaderVisible = settled === null && (skipBlur || painted)

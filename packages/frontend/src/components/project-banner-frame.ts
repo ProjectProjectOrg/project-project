@@ -71,11 +71,6 @@ export type BannerPreview = {
   readonly crop: BannerFrameCrop
 }
 
-/**
- * A live preview only counts as a change once it differs from what is already
- * applied. Opening the editor publishes the saved banner as a preview, and that
- * must leave the rendered banner exactly as it was.
- */
 export const bannerPreviewChanged = (
   preview: BannerPreview | null,
   appliedSource: string | null,

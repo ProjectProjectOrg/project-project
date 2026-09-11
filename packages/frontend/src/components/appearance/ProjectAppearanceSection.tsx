@@ -72,7 +72,6 @@ export function ProjectAppearanceSection({
   )
   const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
-  // The row itself is the button; this only has to look like one.
   const changeAffordance = canEdit ? (
     <Button render={<span />} variant="tertiary" size="sm">
       {m.project_appearance_change()}

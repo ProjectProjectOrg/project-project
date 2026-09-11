@@ -70,8 +70,6 @@ it("switches treatment without rebuilding the renders", async () => {
     await result.current.restyle("full_bleed", TOLERANCE)
   })
 
-  // Same pixels, different choice: rebuilding would swap both tiles' images
-  // for identical copies and make the previews flicker on every click.
   expect(built.calls).toBe(1)
   expect(result.current.preview?.treatment).toBe("full_bleed")
   expect(result.current.preview?.cutoutUrl).toBe(`blob:cutout-${TOLERANCE}`)

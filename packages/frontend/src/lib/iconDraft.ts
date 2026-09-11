@@ -43,12 +43,6 @@ export const appliedIconTreatment = (
       : fallbackTolerance
 })
 
-/**
- * The editor seeds itself from the saved icon, so it holds a full draft before
- * the user has touched anything. Only once that draft diverges is it worth
- * showing: until then the previews should keep rendering the icon already
- * applied, rather than swapping in a re-derived copy that merely looks the same.
- */
 export const iconPreviewChanged = (
   values: IconDraftValues,
   applied: {
@@ -143,12 +137,6 @@ export const compositeToBlob = (
   )
 }
 
-/**
- * Builds both renders, not just the selected one. The treatment step offers a
- * choice between them side by side, and each tile has to show what its own
- * option produces however the other is set — a preview that changed with the
- * selection would be showing the answer to a different question.
- */
 export const buildDraftPreview = async (
   bitmap: ImageBitmap,
   requestedTreatment: IconTreatment,

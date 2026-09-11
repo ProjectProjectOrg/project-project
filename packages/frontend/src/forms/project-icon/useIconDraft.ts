@@ -30,7 +30,7 @@ export function useIconDraft() {
   const fileRef = useRef<File | null>(null)
   const objectUrls = useRef<string[]>([])
   const restyleToken = useRef(0)
-  const toleranceRef = useRef<number | null>(null)
+  const renderedTolerance = useRef<number | null>(null)
   const primed = useRef(false)
 
   useEffect(
@@ -44,10 +44,7 @@ export function useIconDraft() {
   const restyle = async (treatment: IconTreatment, tolerance: number) => {
     const bitmap = bitmapRef.current
     if (!bitmap) return
-    // Only the tolerance changes the pixels. Switching treatment picks which of
-    // the two renders is the chosen one, so rebuilding them would swap both
-    // tiles' images for identical copies and make the choice flicker.
-    if (toleranceRef.current === tolerance) {
+    if (renderedTolerance.current === tolerance) {
       setPreview((current) =>
         current
           ? {
@@ -70,7 +67,7 @@ export function useIconDraft() {
       if (next.fullUrl !== next.cutoutUrl) URL.revokeObjectURL(next.fullUrl)
       return
     }
-    toleranceRef.current = tolerance
+    renderedTolerance.current = tolerance
     objectUrls.current.push(next.cutoutUrl)
     if (next.fullUrl !== next.cutoutUrl) objectUrls.current.push(next.fullUrl)
     setPreview(next)
@@ -93,7 +90,7 @@ export function useIconDraft() {
     }
     setRejected(false)
     primed.current = false
-    toleranceRef.current = null
+    renderedTolerance.current = null
     try {
       bitmapRef.current?.close()
       bitmapRef.current = await createImageBitmap(file)

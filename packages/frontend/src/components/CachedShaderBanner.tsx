@@ -39,10 +39,6 @@ export function CachedShaderBanner({
   image: HTMLImageElement
   settings: BannerPrototypeSettings
   cacheKey: BannerRenderKey | null
-  /**
-   * Keeps the canvas — and with it the compiled program and uploaded texture —
-   * mounted so crop changes cost a uniform update instead of a fresh context.
-   */
   live?: boolean
   onFirstRender?: () => void
 }) {
@@ -79,8 +75,6 @@ export function CachedShaderBanner({
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
       onFirstRender?.()
-      // A live crop redraws on every pointer move; encoding each of those to
-      // WebP would stall the drag and evict the real render from the cache.
       if (live) return
       if (
         canvas.width <= 0 ||

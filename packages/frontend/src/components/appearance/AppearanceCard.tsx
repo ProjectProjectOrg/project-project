@@ -42,11 +42,6 @@ export function AppearanceRow({
   label: string
   detail: string
   action?: ReactNode
-  /**
-   * Opening the editor is the row's only action, so the whole row becomes the
-   * button and `action` is rendered as its affordance rather than a control of
-   * its own — a button inside a button is neither valid nor reachable.
-   */
   onActivate?: () => void
   shareId?: string
   thumbShareId?: string
@@ -92,7 +87,7 @@ export function AppearanceRow({
     <button
       type="button"
       onClick={onActivate}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 outline-none transition-colors hover:bg-accent/50 focus-visible:ring-1 focus-visible:ring-ring"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 outline-none transition-all duration-100 hover:bg-accent/40 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
     >
       {content}
     </button>

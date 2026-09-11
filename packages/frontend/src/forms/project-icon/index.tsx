@@ -211,9 +211,6 @@ export function ProjectIconForm({
       form.setFieldValue("treatment.kind", resolved)
   }, [form, resolved])
 
-  // Opening the editor is not an edit: until the draft diverges from the saved
-  // icon the previews keep rendering what is applied, so there is nothing to
-  // swap in and nothing to flash.
   const changed = iconPreviewChanged(
     values,
     { icon, iconImage },
