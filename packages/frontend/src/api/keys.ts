@@ -1,4 +1,4 @@
-import type { TicketId } from "@projectproject/shared"
+import type { GroupId, TicketId } from "@projectproject/shared"
 
 /** `orgSlug/slug` — the string every project-scoped reactivity key is built on. */
 export const projectScope = (orgSlug: string, slug: string): string =>
@@ -36,5 +36,7 @@ export const Keys = {
   sprintMembership: (scope: string, groupId?: string): string =>
     groupId === undefined
       ? `sprint-membership/${scope}`
-      : `sprint-membership/${scope}/${groupId}`
+      : `sprint-membership/${scope}/${groupId}`,
+  /** One sprint's own content, wherever it is shown. */
+  sprint: (scope: string, id: GroupId): string => `sprint/${scope}/${id}`
 } as const

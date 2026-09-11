@@ -144,6 +144,7 @@ export const updateSprint = Atom.family(
                 )
               )
             )
+            yield* Reactivity.invalidate([Keys.sprint(scopeOf(req), groupId)])
             return updated
           })
         )
@@ -168,7 +169,10 @@ export const deleteSprint = Atom.family(
           yield* Api.use((client) =>
             client.groups.delete({ params: { ...req.params, id: groupId } })
           )
-          yield* Reactivity.invalidate([Keys.sprintMembership(scopeOf(req))])
+          yield* Reactivity.invalidate([
+            Keys.sprintMembership(scopeOf(req)),
+            Keys.sprint(scopeOf(req), groupId)
+          ])
         })
       )
     })
@@ -230,7 +234,8 @@ export const completeSprint = Atom.family(
             )
             yield* Reactivity.invalidate([
               Keys.sprintMembership(scopeOf(req)),
-              Keys.ticketsIn(scopeOf(req))
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.sprint(scopeOf(req), groupId)
             ])
             return completed
           })
