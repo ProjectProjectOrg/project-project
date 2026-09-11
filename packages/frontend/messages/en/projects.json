@@ -211,6 +211,7 @@
   "project_settings_github_connected": "GitHub is connected for branch and PR automation.",
   "project_settings_github_heading": "GitHub",
   "project_settings_github_not_connected": "Connect a repository to enable branch and PR automation.",
+  "project_settings_identity_label": "Icon & color",
   "project_settings_integrations_description": "Connect external services used by this project.",
   "project_settings_integrations_heading": "Integrations",
   "project_settings_integrations_tab": "Integrations",
