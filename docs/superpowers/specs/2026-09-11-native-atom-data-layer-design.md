@@ -194,10 +194,9 @@ const boardView = (req: BoardRequest) =>
 export const board = Atom.family((req: BoardRequest) => Atom.optimistic(boardView(req)))
 ```
 
-`combineResults` is a small pure helper in `src/atoms/lib/results.ts`: Success
-only when all inputs are Success, `waiting` if any input is waiting, timestamp
-is the maximum, first Failure wins. It is a derived-read helper, not an
-optimistic layer.
+Gate composed reads with `AsyncResult.all(parts)`: first non-success wins,
+`waiting` if any input is waiting. Propagate `waiting` / `timestamp` from that
+combined result when returning `AsyncResult.success`. No separate helper module.
 
 The same pattern serves pagination. Cursor pages are their own `Api.query`
 atoms, a small state atom per request lists the loaded cursors, the section
@@ -212,7 +211,7 @@ export const updateBacklogTicket = Atom.family(
   ({ req, id }: { req: BacklogRequest; id: TicketId }) =>
     Atom.optimisticFn(backlog(req), {
       reducer: (current, patch: UpdateTicketInput) =>
-        Result.map(current, (sections) => applyTicketPatch(sections, id, patch)),
+        AsyncResult.map(current, (value) => patchRow(value, id, patch)),
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
@@ -357,8 +356,8 @@ proxying.
 Each stage is one PR with registry-level tests in the existing stubbed-fetch
 style (`packages/frontend/src/atoms/tickets.sections.test.ts`).
 
-0. Foundations. Add `src/api/Api.ts`, `src/api/keys.ts`,
-   `src/atoms/lib/results.ts`. Replace the AGENTS.md mutation section with the
+0. Foundations. Add `src/api/Api.ts`, `src/api/keys.ts`. Replace the AGENTS.md
+   mutation section with the
    rules above. Old atoms keep working unchanged.
 1. Tickets: backlog sections, detail, search, counts. Migrate `Row`, the field
    buttons, `StatusField`, `SectionList`, quick create, load more, hover card,

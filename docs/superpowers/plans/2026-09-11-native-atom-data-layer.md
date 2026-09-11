@@ -53,8 +53,6 @@ Phases C, E and F do not depend on each other, except that Task 22 depends on Ph
 | --- | --- |
 | `packages/frontend/src/api/Api.ts` | The single `AtomHttpApi` client and its runtime |
 | `packages/frontend/src/api/keys.ts` | Typed constructors for reactivity key strings |
-| `packages/frontend/src/atoms/lib/results.ts` | Pure helpers to combine several `AsyncResult`s into one |
-| `packages/frontend/src/atoms/ticketPatch.ts` | Pure functions applying an `UpdateTicketInput` to a ticket |
 | `packages/frontend/src/atoms/ticketDetail.ts` | Detail query, wrapper, update/archive/unarchive/delete |
 | `packages/frontend/src/atoms/backlog.ts` | Sections query, page queries, composed view, wrapper, mutations |
 | `packages/frontend/src/atoms/ticketCounts.ts` | Counts query and wrapper for the project sidebar |
@@ -254,206 +252,21 @@ git commit -m "feat(api): add the AtomHttpApi client and reactivity key vocabula
 
 ---
 
-### Task 2: Pure helpers for patches and result composition
+### Task 2: Conventions (no extra foundation modules)
 
-**Files:**
-- Create: `packages/frontend/src/atoms/ticketPatch.ts`
-- Create: `packages/frontend/src/atoms/lib/results.ts`
-- Test: `packages/frontend/src/atoms/ticketPatch.test.ts`
-- Test: `packages/frontend/src/atoms/lib/results.test.ts`
+Phase A is **only** Task 1 (`Api` + `keys`). Do **not** add `ticketPatch.ts`,
+`results.ts`, or other shared atom helpers in foundations.
 
-**Interfaces:**
-- Produces: `applyTicketPatch(ticket: Ticket, patch: UpdateTicketInput): Ticket`, `applyTicketDetailPatch(ticket: TicketDetail, patch: UpdateTicketInput): TicketDetail`, `Results.blocked(parts): AsyncResult<never, E> | undefined`, `Results.meta(parts): { waiting: boolean; timestamp: number }`.
+**Composed views** (`backlog`, `sprintBoard`) assemble several `Api.query` atoms
+inside an `Atom.readable`, gate on `AsyncResult.all(parts)`, then build their
+value. Propagate `waiting` / `timestamp` from that combined result when
+returning `AsyncResult.success`.
 
-- [ ] **Step 1: Write the failing tests**
-
-Create `packages/frontend/src/atoms/ticketPatch.test.ts`:
-
-```ts
-import * as DateTime from "effect/DateTime"
-import * as Schema from "effect/Schema"
-import { describe, expect, it } from "vitest"
-import { TicketId, TicketStatus, type TicketDetail } from "@projectproject/shared"
-import { applyTicketDetailPatch, applyTicketPatch } from "./ticketPatch"
-
-const base = {
-  id: Schema.decodeSync(TicketId)("T-1"),
-  title: "Before",
-  status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
-  priority: "med",
-  tags: [],
-  branch: null,
-  pr: null,
-  prState: null,
-  lastTransitionedPr: null,
-  gitState: { tag: "no_branch", baseBranch: "main" },
-  assignees: [],
-  archivedAt: null,
-  createdBy: "user-1",
-  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
-  body: "Before"
-} satisfies TicketDetail
-
-describe("applyTicketPatch", () => {
-  it("overrides only the provided fields", () => {
-    const next = applyTicketPatch(base, { priority: "high" })
-    expect(next.priority).toBe("high")
-    expect(next.title).toBe("Before")
-  })
-
-  it("ignores body, which is not part of a list row", () => {
-    const next = applyTicketPatch(base, { body: "After" })
-    expect(next).not.toHaveProperty("body", "After")
-  })
-})
-
-describe("applyTicketDetailPatch", () => {
-  it("also applies body", () => {
-    const next = applyTicketDetailPatch(base, { body: "After", title: "Next" })
-    expect(next.body).toBe("After")
-    expect(next.title).toBe("Next")
-  })
-})
-```
-
-Create `packages/frontend/src/atoms/lib/results.test.ts`:
-
-```ts
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-import { describe, expect, it } from "vitest"
-import { Results } from "./results"
-
-describe("Results.blocked", () => {
-  it("returns undefined when everything succeeded", () => {
-    expect(
-      Results.blocked([AsyncResult.success(1), AsyncResult.success(2)])
-    ).toBeUndefined()
-  })
-
-  it("returns the first non-success", () => {
-    const initial = AsyncResult.initial<number>()
-    expect(Results.blocked([AsyncResult.success(1), initial])).toBe(initial)
-  })
-})
-
-describe("Results.meta", () => {
-  it("is waiting when any part is waiting and takes the newest timestamp", () => {
-    const older = AsyncResult.success(1, { timestamp: 10 })
-    const newer = AsyncResult.success(2, { timestamp: 20, waiting: true })
-    expect(Results.meta([older, newer])).toEqual({ waiting: true, timestamp: 20 })
-  })
-
-  it("is not waiting when every part settled", () => {
-    const a = AsyncResult.success(1, { timestamp: 30 })
-    const b = AsyncResult.success(2, { timestamp: 25 })
-    expect(Results.meta([a, b])).toEqual({ waiting: false, timestamp: 30 })
-  })
-})
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run: `bun run test src/atoms/ticketPatch.test.ts src/atoms/lib/results.test.ts`
-Expected: FAIL — modules not found.
-
-- [ ] **Step 3: Write the patch helpers**
-
-Create `packages/frontend/src/atoms/ticketPatch.ts`. This is the existing
-`applyOptimisticTicketPreview` / `applyOptimisticTicketUpdate` pair, moved out
-of `atoms/tickets.ts` and renamed:
-
-```ts
-import type { Ticket, TicketDetail, UpdateTicketInput } from "@projectproject/shared"
-
-/** Apply a server patch to a list row. Fields absent from the patch are kept. */
-export function applyTicketPatch(
-  ticket: Ticket,
-  patch: UpdateTicketInput
-): Ticket {
-  return {
-    ...ticket,
-    title: patch.title ?? ticket.title,
-    status: patch.status ?? ticket.status,
-    type: patch.type ?? ticket.type,
-    priority: patch.priority ?? ticket.priority,
-    tags: patch.tags ?? ticket.tags,
-    assignees: patch.assignees ?? ticket.assignees
-  }
-}
-
-/** Same, for the detail view, which also owns `body`. */
-export function applyTicketDetailPatch(
-  ticket: TicketDetail,
-  patch: UpdateTicketInput
-): TicketDetail {
-  return {
-    ...applyTicketPatch(ticket, patch),
-    body: patch.body ?? ticket.body
-  }
-}
-```
-
-- [ ] **Step 4: Write the result helpers**
-
-Create `packages/frontend/src/atoms/lib/results.ts`:
-
-```ts
-import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
-
-type AnyResult = AsyncResult.AsyncResult<any, any>
-
-/**
- * Combine several `AsyncResult`s that back one rendered region.
- *
- * `Atom.optimistic` only drops its overlay when the wrapped source emits a
- * non-waiting Success with a timestamp at least as new as the optimistic value.
- * A region assembled from several queries must therefore report `waiting: true`
- * while any of them is in flight, and carry the newest contributing timestamp.
- * Getting this wrong reintroduces the flicker this whole design removes.
- */
-export const Results = {
-  /** The first part that is not a Success, or `undefined` when all succeeded. */
-  blocked: <E>(
-    parts: ReadonlyArray<AsyncResult.AsyncResult<unknown, E>>
-  ): AsyncResult.AsyncResult<never, E> | undefined => {
-    for (const part of parts) {
-      if (!AsyncResult.isSuccess(part)) {
-        return part as AsyncResult.AsyncResult<never, E>
-      }
-    }
-    return undefined
-  },
-
-  /** Waiting if any part is waiting; timestamp is the newest across parts. */
-  meta: (
-    parts: ReadonlyArray<AnyResult>
-  ): { readonly waiting: boolean; readonly timestamp: number } => {
-    let waiting = false
-    let timestamp = 0
-    for (const part of parts) {
-      if (part.waiting) waiting = true
-      if (AsyncResult.isSuccess(part) && part.timestamp > timestamp) {
-        timestamp = part.timestamp
-      }
-    }
-    return { waiting, timestamp }
-  }
-} as const
-```
-
-- [ ] **Step 5: Run tests to verify they pass**
-
-Run: `bun run test src/atoms/ticketPatch.test.ts src/atoms/lib/results.test.ts`
-Expected: PASS (6 tests).
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add packages/frontend/src/atoms/ticketPatch.ts packages/frontend/src/atoms/ticketPatch.test.ts packages/frontend/src/atoms/lib
-git commit -m "feat(atoms): add pure ticket patch and result composition helpers"
-```
+**Optimistic ticket updates** merge a partial `UpdateTicketInput` **inside each
+`Atom.optimisticFn` reducer** with `AsyncResult.map` — the executor pattern.
+Fields absent from the patch are kept with `patch.field ?? ticket.field`. List
+rows omit `body`; detail includes it. No shared `applyTicketPatch` module; the
+reducer owns the merge next to the mutation it serves.
 
 ---
 
@@ -466,7 +279,7 @@ git commit -m "feat(atoms): add pure ticket patch and result composition helpers
 - Test: `packages/frontend/src/atoms/ticketDetail.test.ts`
 
 **Interfaces:**
-- Consumes: `Api`, `Keys`, `projectScope` (Task 1); `applyTicketDetailPatch` (Task 2).
+- Consumes: `Api`, `Keys`, `projectScope` (Task 1); inline reducer conventions (Task 2).
 - Produces: `TicketRequest`, `ticketRequest(orgSlug, slug, id): TicketRequest`, `ticketDetail(req)`, `updateTicketDetail(req)`, `archiveTicket(req)`, `unarchiveTicket(req)`, `deleteTicket(req)`.
 
 - [ ] **Step 1: Write the failing test**
@@ -644,8 +457,6 @@ import type {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { applyTicketDetailPatch } from "./ticketPatch"
-
 export interface TicketRequest {
   readonly params: {
     readonly orgSlug: string
@@ -698,7 +509,16 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimisticFn(ticketDetail(req), {
     reducer: (current, patch: UpdateTicketInput) =>
-      AsyncResult.map(current, (ticket) => applyTicketDetailPatch(ticket, patch)),
+      AsyncResult.map(current, (ticket) => ({
+        ...ticket,
+        title: patch.title ?? ticket.title,
+        status: patch.status ?? ticket.status,
+        type: patch.type ?? ticket.type,
+        priority: patch.priority ?? ticket.priority,
+        tags: patch.tags ?? ticket.tags,
+        assignees: patch.assignees ?? ticket.assignees,
+        body: patch.body ?? ticket.body
+      })),
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(function* (patch: UpdateTicketInput) {
@@ -798,7 +618,7 @@ git commit -m "feat(atoms): add the native ticket detail wrapper and mutations"
 - Test: `packages/frontend/src/atoms/backlog.test.ts`
 
 **Interfaces:**
-- Consumes: `Api`, `Keys`, `projectScope`, `Results`, `applyTicketPatch`.
+- Consumes: `Api`, `Keys`, `projectScope`, `AsyncResult.all` (Task 2).
 - Produces: `BacklogRequest`, `backlogRequest(orgSlug, slug, query: TicketListQuery): BacklogRequest`, `BacklogRow`, `BacklogSection`, `BacklogValue`, `backlog(req)`, `updateBacklogTicket({ req, id })`.
 
 - [ ] **Step 1: Write the failing test**
@@ -959,7 +779,6 @@ import {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { Results } from "./lib/results"
-import { applyTicketPatch } from "./ticketPatch"
 
 export interface BacklogRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }
@@ -1026,8 +845,6 @@ const backlogView = (req: BacklogRequest) =>
   Atom.readable(
     (get) => {
       const base = get(sectionsQuery(req))
-      const blocked = Results.blocked([base])
-      if (blocked) return blocked
       if (!AsyncResult.isSuccess(base)) return base
       const sections: Record<string, BacklogSection> = {}
       for (const [status, page] of Object.entries(base.value.sections)) {
@@ -1036,10 +853,11 @@ const backlogView = (req: BacklogRequest) =>
           nextCursor: page.nextCursor
         }
       }
-      const { waiting, timestamp } = Results.meta([base])
+      const gate = AsyncResult.all([base])
+      if (!AsyncResult.isSuccess(gate)) return gate
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
-        { waiting, timestamp }
+        { waiting: gate.waiting, timestamp: gate.timestamp }
       )
     },
     (refresh) => refresh(sectionsQuery(req))
@@ -1061,7 +879,18 @@ const patchRow = (
       ...section,
       items: section.items.map((row) =>
         row.ticket.id === id
-          ? { ...row, ticket: applyTicketPatch(row.ticket, patch) }
+          ? {
+              ...row,
+              ticket: {
+                ...row.ticket,
+                title: patch.title ?? row.ticket.title,
+                status: patch.status ?? row.ticket.status,
+                type: patch.type ?? row.ticket.type,
+                priority: patch.priority ?? row.ticket.priority,
+                tags: patch.tags ?? row.ticket.tags,
+                assignees: patch.assignees ?? row.ticket.assignees
+              }
+            }
           : row
       )
     }
@@ -1225,7 +1054,18 @@ const patchRow = (
         items.push(row)
         continue
       }
-      const next = { ...row, ticket: applyTicketPatch(row.ticket, patch) }
+      const next = {
+        ...row,
+        ticket: {
+          ...row.ticket,
+          title: patch.title ?? row.ticket.title,
+          status: patch.status ?? row.ticket.status,
+          type: patch.type ?? row.ticket.type,
+          priority: patch.priority ?? row.ticket.priority,
+          tags: patch.tags ?? row.ticket.tags,
+          assignees: patch.assignees ?? row.ticket.assignees
+        }
+      }
       // A status patch relocates the row; anything else edits it in place.
       if (patch.status !== undefined && patch.status !== status) {
         moved = next
@@ -1423,10 +1263,11 @@ const backlogView = (req: BacklogRequest) =>
         sections[status] = { items: dedupeById(rows), nextCursor }
       }
 
-      const { waiting, timestamp } = Results.meta(parts)
+      const gate = AsyncResult.all(parts)
+      if (!AsyncResult.isSuccess(gate)) return gate
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
-        { waiting, timestamp }
+        { waiting: gate.waiting, timestamp: gate.timestamp }
       )
     },
     (refresh) => refresh(sectionsQuery(req))
@@ -2159,21 +2000,20 @@ const boardView = (req: BoardRequest) =>
     (get) => {
       const group = get(sprintQuery(req))
       const tickets = get(ticketsQuery(req))
-      const blocked = Results.blocked([group, tickets])
-      if (blocked) return blocked
-      if (!AsyncResult.isSuccess(group) || !AsyncResult.isSuccess(tickets)) {
-        return group
-      }
-      const byId = new Map(tickets.value.map((t) => [t.id, t]))
-      const ordered: Array<Ticket> = []
-      for (const id of group.value.tickets) {
-        const ticket = byId.get(id)
-        if (ticket) ordered.push(ticket)
-      }
-      const { waiting, timestamp } = Results.meta([group, tickets])
-      return AsyncResult.success<BoardValue>(
-        { tickets: ordered, completedAt: group.value.completedAt },
-        { waiting, timestamp }
+      return AsyncResult.map(
+        AsyncResult.all([group, tickets]),
+        ([groupValue, ticketsValue]) => {
+          const byId = new Map(ticketsValue.map((t) => [t.id, t]))
+          const ordered: Array<Ticket> = []
+          for (const id of groupValue.tickets) {
+            const ticket = byId.get(id)
+            if (ticket) ordered.push(ticket)
+          }
+          return {
+            tickets: ordered,
+            completedAt: groupValue.completedAt
+          }
+        }
       )
     },
     (refresh) => {
@@ -2233,7 +2073,17 @@ export const updateBoardTicket = Atom.family(
         AsyncResult.map(current, (value) => ({
           ...value,
           tickets: value.tickets.map((t) =>
-            t.id === id ? applyTicketPatch(t, patch) : t
+            t.id === id
+              ? {
+                  ...t,
+                  title: patch.title ?? t.title,
+                  status: patch.status ?? t.status,
+                  type: patch.type ?? t.type,
+                  priority: patch.priority ?? t.priority,
+                  tags: patch.tags ?? t.tags,
+                  assignees: patch.assignees ?? t.assignees
+                }
+              : t
           )
         })),
       fn: (set) =>
@@ -3565,7 +3415,7 @@ the debounce and the abort controller.
 | --- | --- |
 | `packages/frontend/src/services/ApiClient.ts` | replaced by `src/api/Api.ts` |
 | `packages/frontend/src/runtime.ts` | `AppLayer` had one entry; `Api.runtime` replaces it |
-| `packages/frontend/src/atoms/tickets.ts` | split into `ticketDetail`, `backlog`, `ticketCounts`, `ticketSearch`, `ticketPatch` |
+| `packages/frontend/src/atoms/tickets.ts` | split into `ticketDetail`, `backlog`, `ticketCounts`, `ticketSearch` |
 | `packages/frontend/src/atoms/sprints.ts` | split into `sprintList`, `sprintDetail`, `sprintBoard` |
 | `packages/frontend/src/lib/pendingTicketStatus.ts` + test | the overlay it reconciled is gone |
 | `packages/frontend/src/lib/pendingSprintAssignment.ts` + test | same |
@@ -3722,8 +3572,8 @@ which are the only part that matters there.
 `CountsRequest`, `SearchRequest`, `SprintListRequest`, `SprintRequest`,
 `BoardRequest`, `TagsRequest`, `OrgRequest`, each defined once. Value types are
 `BacklogRow`, `BacklogSection`, `BacklogValue`, `BoardValue`. Helpers are
-`applyTicketPatch`, `applyTicketDetailPatch`, `Results.blocked`, `Results.meta`,
-`placeTicket`, `collapseRole`. `scopeOf` is local to each atom module;
+`placeTicket`, `collapseRole`. Ticket patches merge inline inside each
+`Atom.optimisticFn` reducer; composed views gate on `AsyncResult.all`. `scopeOf` is local to each atom module;
 `projectScope` is shared. The shared schemas added in Task 17 (`OrgMember`,
 `OrgInvitation`, `OrgMembers`, `UserInvitation`, `InviteMemberInput`,
 `UpdateMemberRoleInput`, `TransferOwnershipInput`, `RenameOrgInput`) are the
@@ -3745,13 +3595,12 @@ deleted rather than kept in parallel.
 3. **`github` is a redesign, not a conversion** (Task 23). Closure-mutable
    per-key caches, a read atom that fires invalidation as a side effect, and a
    manual epoch bus used as a reactivity channel. Budget accordingly.
-4. **Composed-region timestamps.** Every composed view must report `waiting`
-   while any source is in flight and carry the newest timestamp. Get this wrong
-   and the hold silently breaks, which looks exactly like the bug being fixed.
-   `Results.meta` centralises it; do not hand-roll the comparison.
+4. **Composed-region waiting.** Every composed view must gate on
+   `AsyncResult.all(parts)` and propagate `waiting` from that combined result.
+   Get this wrong and the optimistic hold silently breaks.
 5. **`useMemo` on request objects.** A request object rebuilt each render is a
    new family key and refetches every render. This is the most likely mistake
    when rewiring components. Consider a lint rule.
 6. **Unmounted page queries.** In Task 6, an unmounted cursor page reports
-   Initial, which `Results.meta` does not count as waiting. If manual checking
-   shows a flicker there, count Initial as waiting and add a test.
+   Initial. If manual checking shows a flicker there, handle Initial explicitly
+   in the composed readable and add a test.
