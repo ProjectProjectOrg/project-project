@@ -368,6 +368,97 @@ describe("applyOptimisticTicketUpdate", () => {
     }
   )
 
+  it.each(["backlog type", "backlog priority", "backlog assignees"] as const)(
+    "keeps %s optimistic until its sections finish refreshing",
+    async (scenario) => {
+      const registry = AtomRegistry.make()
+      const key = ticketKey("org", "project", ticket.id)
+      const query = { sort: { key: "id", dir: "asc" } } as const
+      const sectionsKey = ticketsSectionsKey("org", "project", query)
+      const sections = ticketsSectionsAtom(sectionsKey)
+      const preview = ticketUpdatePreviewAtom(key)
+      const patch =
+        scenario === "backlog type"
+          ? { type: "bug" as const }
+          : scenario === "backlog priority"
+            ? { priority: "high" as const }
+            : { assignees: ["user-2"] }
+      const updated = { ...ticket, ...patch } satisfies TicketDetail
+      let saved = false
+      let finishRefresh: ((response: Response) => void) | undefined
+      const encoded = Schema.encodeSync(TicketDetail)
+      const sectionsResponse = (value: TicketDetail) =>
+        Response.json({
+          counts: { total: 1, byStatus: { todo: 1 } },
+          sections: {
+            todo: { items: [encoded(value)], nextCursor: null }
+          }
+        })
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === "PATCH") {
+            expect(await new Response(init.body).json()).toEqual(patch)
+            saved = true
+            return Response.json(encoded(updated))
+          }
+          const url = new URL(
+            input instanceof Request ? input.url : String(input)
+          )
+          if (url.pathname.endsWith("/sections")) {
+            if (saved)
+              return new Promise<Response>((resolve) => {
+                finishRefresh = resolve
+              })
+            return sectionsResponse(ticket)
+          }
+          return Response.json(encoded(saved ? updated : ticket))
+        })
+      )
+      try {
+        registry.mount(sections)
+        registry.mount(preview)
+        await vi.waitFor(() =>
+          expect(Result.isSuccess(registry.get(sections))).toBe(true)
+        )
+        registry.set(updateTicketAtom(key), {
+          ...patch,
+          ticketSectionsKey: sectionsKey
+        })
+        await vi.waitFor(() =>
+          expect(registry.get(ticketAtom(key))).toMatchObject({
+            _tag: "Success",
+            value: patch
+          })
+        )
+        expect(registry.get(preview)).toEqual({ input: patch, waiting: true })
+        const stale = registry.get(sections)
+        expect(stale).toMatchObject({
+          value: {
+            sections: {
+              todo: { items: [{ ticket: { type: "chore", priority: "med" } }] }
+            }
+          }
+        })
+        const resolveRefresh = await vi.waitFor(() => {
+          if (!finishRefresh)
+            throw new Error("Sections refresh has not started")
+          return finishRefresh
+        })
+        resolveRefresh(sectionsResponse(updated))
+        await vi.waitFor(() =>
+          expect(registry.get(preview)).toEqual({ input: {}, waiting: false })
+        )
+        expect(registry.get(sections)).toMatchObject({
+          value: { sections: { todo: { items: [{ ticket: patch }] } } },
+          waiting: false
+        })
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
   it("rolls back a rejected detail edit", async () => {
     const registry = AtomRegistry.make()
     const key = ticketKey("org", "project", ticket.id)

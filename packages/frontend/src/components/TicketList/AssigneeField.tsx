@@ -144,6 +144,7 @@ export function AssigneeField({
   ticket,
   members,
   sprintTicketsKey,
+  ticketSectionsKey,
   variant = "row",
   className
 }: {
@@ -152,6 +153,7 @@ export function AssigneeField({
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
   sprintTicketsKey?: string
+  ticketSectionsKey?: string
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -162,7 +164,7 @@ export function AssigneeField({
   const resolved = resolveAssignees(assignees, members)
 
   const setAssignees = (next: ReadonlyArray<string>) => {
-    update({ assignees: next, sprintTicketsKey })
+    update({ assignees: next, sprintTicketsKey, ticketSectionsKey })
   }
   const toggle = (memberId: string) =>
     setAssignees(
