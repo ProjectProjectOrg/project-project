@@ -101,7 +101,7 @@ export function ProjectTile({
         pixelSize={size === "xs" ? 1 : 2}
         shape="square"
       />
-      <span aria-hidden className="relative size-full">
+      <span aria-hidden className={cn("relative", iconNode && "size-full")}>
         {iconNode ?? (
           <ProjectIconDisplay
             orgSlug={orgSlug}
