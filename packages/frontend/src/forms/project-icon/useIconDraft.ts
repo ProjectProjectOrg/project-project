@@ -22,6 +22,7 @@ export function useIconDraft() {
   const fileRef = useRef<File | null>(null)
   const objectUrls = useRef<string[]>([])
   const restyleToken = useRef(0)
+  const primed = useRef(false)
 
   useEffect(
     () => () => {
@@ -60,6 +61,7 @@ export function useIconDraft() {
       return null
     }
     setRejected(false)
+    primed.current = false
     try {
       bitmapRef.current?.close()
       bitmapRef.current = await createImageBitmap(file)
@@ -84,6 +86,7 @@ export function useIconDraft() {
       if (!response.ok) return
       const blob = await response.blob()
       await accept(new File([blob], "icon", { type: blob.type }), initial)
+      primed.current = true
     } catch {
       setRejected(false)
     }
@@ -104,6 +107,6 @@ export function useIconDraft() {
     markUnclean,
     bitmap: () => bitmapRef.current,
     file: () => fileRef.current,
-    fileName: () => fileRef.current?.name ?? null
+    fileName: () => (primed.current ? null : (fileRef.current?.name ?? null))
   }
 }

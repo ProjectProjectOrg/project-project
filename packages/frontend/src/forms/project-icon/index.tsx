@@ -64,7 +64,7 @@ export function ProjectIconForm({
   const failed =
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(iconImage ? 1 : 0)
   const draft = useIconDraft()
   const reduce = useReducedMotion() ?? false
   const fade = reduce ? { duration: 0 } : transitions.fade
