@@ -3,7 +3,6 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
-  ticketListQueryToSearch,
   type Ticket,
   type TicketCounts,
   type TicketId,
@@ -17,7 +16,7 @@ import { applyTicketPatch } from "./ticketPatch"
 
 export interface BacklogRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }
-  readonly query: Record<string, string | ReadonlyArray<string>>
+  readonly query: TicketListQuery
 }
 
 /**
@@ -31,11 +30,11 @@ export const backlogRequest = (
   query: TicketListQuery
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: ticketListQueryToSearch({
+  query: {
     ...query,
-    filter: { ...query.filter, status: undefined },
+    status: undefined,
     cursor: undefined
-  })
+  }
 })
 
 const scopeOf = (req: BacklogRequest) =>

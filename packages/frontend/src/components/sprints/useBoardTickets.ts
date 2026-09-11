@@ -41,7 +41,7 @@ export function useBoardTickets(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewerId = Result.isSuccess(me) ? me.value.id : undefined
 
   const ticketById = useMemo(() => {
     const m = new Map<TicketId, Ticket>()
@@ -52,8 +52,8 @@ export function useBoardTickets(
   }, [list])
 
   const boardQuery = useMemo(() => {
-    const { archived: _archived, ...filter } = query.filter ?? {}
-    return { filter, q: query.q }
+    const { archived: _archived, cursor: _cursor, sort: _sort, ...filter } = query
+    return filter
   }, [query])
 
   const matchingTicketIds = useMemo(

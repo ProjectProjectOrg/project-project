@@ -8,6 +8,7 @@
 // `Project` is the full record (used by list responses for now; later by /get).
 
 import * as Schema from "effect/Schema"
+import { UserId } from "./User"
 import { AttachmentId } from "./Attachment"
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -62,7 +63,7 @@ export type AssignableRole = typeof AssignableRole.Type
 // rest are display fields. `username` and `image` are nullable because
 // users created before those fields were populated may not have them yet.
 export const Member = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   username: Schema.NullOr(Schema.String),
   name: Schema.String,
   email: Schema.String,

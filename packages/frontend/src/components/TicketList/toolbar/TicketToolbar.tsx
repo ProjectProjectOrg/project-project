@@ -37,18 +37,15 @@ export function TicketToolbar({
   }, [])
 
   const patchFilter = (patch: Partial<TicketFilter>) => {
-    onQueryChange({
-      ...query,
-      filter: pruneFilter({ ...query.filter, ...patch })
-    })
+    onQueryChange({ ...query, ...pruneFilter({ ...query, ...patch }) })
   }
   const clearAll = () => {
     search.reset()
     onQueryChange({ sort: query.sort })
   }
   const hasActiveFilters =
-    !!query.filter?.status?.length ||
-    activeFilterCount(query.filter, filters) > 0 ||
+    !!query.status?.length ||
+    activeFilterCount(query, filters) > 0 ||
     !!query.q
 
   return (

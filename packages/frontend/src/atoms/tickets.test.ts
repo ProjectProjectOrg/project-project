@@ -689,7 +689,7 @@ it.each(["title", "body"] as const)(
     const unrelated = ticketsSectionsAtom(
       ticketsSectionsKey("org", "project", {
         ...query,
-        filter: { tags: [Schema.decodeSync(TagName)("other")] }
+        tags: [Schema.decodeSync(TagName)("other")]
       })
     )
     const counts = ticketsCountAtom(ticketsCountKey("org", "project", {}))

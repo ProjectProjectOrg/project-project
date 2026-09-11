@@ -71,7 +71,7 @@ describe("toolbar search ownership", () => {
     })
     expect(commit).toHaveBeenCalledTimes(1)
     expect(commit.mock.lastCall?.[0].q).toBe("latest")
-    expect(commit.mock.lastCall?.[0].filter?.type).toEqual(["bug"])
+    expect(commit.mock.lastCall?.[0].type).toEqual(["bug"])
   })
 
   it("clears an uncommitted draft, preserves sort, and cancels its pending commit", () => {
@@ -112,6 +112,6 @@ describe("toolbar search ownership", () => {
       vi.advanceTimersByTime(200)
     })
     expect(commit.mock.lastCall?.[0].q).toBe("pending")
-    expect(commit.mock.lastCall?.[0].filter).toBeUndefined()
+    expect(commit.mock.lastCall?.[0].type).toBeUndefined()
   })
 })

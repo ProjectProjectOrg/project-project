@@ -91,7 +91,7 @@ export function SearchInput() {
 export function Status() {
   const { query, patchFilter, counts, orgSlug, slug, controlsCompact } =
     useTicketToolbar()
-  const selected = query.filter?.status
+  const selected = query.status
   const status = selected?.length === 1 ? selected[0] : "all"
   const setStatus = (status: TicketStatus | "all") =>
     patchFilter({ status: status === "all" ? undefined : [status] })

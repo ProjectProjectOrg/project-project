@@ -84,14 +84,14 @@ export function SectionTicketCreator({
   )
   const addToSprint = useAddTicketsToSprint(sprintProjectKey)
 
-  const groupIdFilter = query.filter?.groupId
+  const groupIdFilter = query.groupId
   const singleGroupIdFilter =
     groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
   const activeSprintId: GroupId | null =
-    singleGroupIdFilter && singleGroupIdFilter !== null
-      ? (singleGroupIdFilter as GroupId)
+    singleGroupIdFilter && singleGroupIdFilter !== "ungrouped"
+      ? singleGroupIdFilter
       : null
-  const isExplicitNoSprintFilter = singleGroupIdFilter === null
+  const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints

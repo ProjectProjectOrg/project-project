@@ -19,7 +19,7 @@ export function useServerTicketCounts(
   slug: string,
   query: TicketListQuery
 ): Record<string, number> {
-  const countQuery: TicketCountQuery = { filter: query.filter, q: query.q }
+  const countQuery: TicketCountQuery = query
   const countsResult = useAtomValue(
     ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
   )

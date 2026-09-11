@@ -6,18 +6,16 @@ import {
 
 export function queryHasActiveFilter(q: TicketListQuery): boolean {
   if (q.q !== undefined && q.q.length > 0) return true
-  const f = q.filter
-  if (!f) return false
   return (
-    (f.status?.length ?? 0) > 0 ||
-    (f.type?.length ?? 0) > 0 ||
-    (f.assignee?.length ?? 0) > 0 ||
-    (f.tags?.length ?? 0) > 0 ||
-    (f.groupId?.length ?? 0) > 0 ||
-    f.hasBranch !== undefined ||
-    f.hasPr !== undefined ||
-    f.updatedAfter !== undefined ||
-    f.archived !== undefined
+    (q.status?.length ?? 0) > 0 ||
+    (q.type?.length ?? 0) > 0 ||
+    (q.assignee?.length ?? 0) > 0 ||
+    (q.tags?.length ?? 0) > 0 ||
+    (q.groupId?.length ?? 0) > 0 ||
+    q.hasBranch !== undefined ||
+    q.hasPr !== undefined ||
+    q.updatedAfter !== undefined ||
+    q.archived !== undefined
   )
 }
 
@@ -35,8 +33,9 @@ export const TICKET_SEARCH_KEYS = [
   "cursor"
 ] as const
 
-type SearchValue = string | ReadonlyArray<string> | undefined
-type SearchRecord = { readonly [k: string]: SearchValue }
+const clearedTicketSearch = Object.fromEntries(
+  TICKET_SEARCH_KEYS.map((key) => [key, undefined])
+)
 
 export function useResetTicketSearch() {
   const router = useRouter()
@@ -44,11 +43,7 @@ export function useResetTicketSearch() {
   return () => {
     void navigate({
       to: router.state.location.pathname,
-      search: (prev: SearchRecord): SearchRecord => {
-        const cleared: { [k: string]: SearchValue } = { ...prev }
-        for (const k of TICKET_SEARCH_KEYS) cleared[k] = undefined
-        return cleared
-      },
+      search: (prev) => ({ ...prev, ...clearedTicketSearch }),
       replace: true
     })
   }
@@ -61,11 +56,7 @@ export function useUpdateTicketQuery() {
     const nextSearch = ticketListQueryToSearch({ ...query, cursor: undefined })
     void navigate({
       to: router.state.location.pathname,
-      search: (prev: SearchRecord): SearchRecord => {
-        const cleared: { [k: string]: SearchValue } = { ...prev }
-        for (const k of TICKET_SEARCH_KEYS) cleared[k] = undefined
-        return { ...cleared, ...nextSearch }
-      },
+      search: (prev) => ({ ...prev, ...clearedTicketSearch, ...nextSearch }),
       replace: true,
       resetScroll: false
     })

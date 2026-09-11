@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
   sprintState,
+  type AssigneeFilter,
   type TicketType,
   type TicketFilter,
   type Member
@@ -56,7 +57,7 @@ export function Filters() {
     slug,
     searchActive: compact
   } = useTicketToolbar()
-  const value = query.filter
+  const value = query
   const activeFilterCount = countActiveFilters(value, filters)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
@@ -250,13 +251,9 @@ function FilterAssignee({
   const viewerId = Result.isSuccess(me) ? me.value.id : null
   const assignees = value
   const assigneeFilter =
-    assignees?.length === 1 ? (assignees[0] ?? "unassigned") : "all"
-  const setAssigneeFilter = (assignee: string) =>
-    onChange(
-      assignee === "all"
-        ? undefined
-        : [assignee === "unassigned" ? null : assignee]
-    )
+    assignees?.length === 1 ? assignees[0] : "all"
+  const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>
+    onChange(assignee === "all" ? undefined : [assignee])
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
@@ -325,10 +322,12 @@ function FilterSprint({
 }) {
   const groups = value
   const sprintFilter =
-    groups?.length === 1 ? (groups[0] ?? "unassigned") : "all"
+    groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
     onChange(
-      sprint === "all" ? undefined : [sprint === "unassigned" ? null : sprint]
+      sprint === "all"
+        ? undefined
+        : [sprint === "unassigned" ? "ungrouped" : sprint]
     )
   const sprintsList = useAtomValue(
     sprintsListAtom(sprintsProjectKey(orgSlug, slug))

@@ -4,6 +4,7 @@ import { TicketStatus, TicketType } from "../schemas/Ticket"
 import { TagName } from "../schemas/Tag"
 import { GroupId } from "../schemas/Group"
 import { Ticket } from "../schemas/Ticket"
+import { UserId } from "../schemas/User"
 import { Page } from "../Pagination"
 
 export const SortKey = Schema.Literals([
@@ -38,16 +39,18 @@ export const NATURAL_SORT_DIR: Record<SortKey, SortDir> = {
 }
 
 export const AssigneeFilter = Schema.Union([
-  Schema.Literal("mine"),
-  Schema.Null,
-  Schema.String
+  Schema.Literals(["mine", "unassigned"]),
+  UserId
 ])
 export type AssigneeFilter = typeof AssigneeFilter.Type
 
-export const GroupIdFilter = Schema.NullOr(GroupId)
+export const GroupIdFilter = Schema.Union([
+  Schema.Literal("ungrouped"),
+  GroupId
+])
 export type GroupIdFilter = typeof GroupIdFilter.Type
 
-export const TicketFilter = Schema.Struct({
+const TicketFilterFields = {
   status: Schema.optional(Schema.Array(TicketStatus)),
   type: Schema.optional(Schema.Array(TicketType)),
   assignee: Schema.optional(Schema.Array(AssigneeFilter)),
@@ -57,13 +60,15 @@ export const TicketFilter = Schema.Struct({
   updatedAfter: Schema.optional(Schema.DateFromString),
   groupId: Schema.optional(Schema.Array(GroupIdFilter)),
   archived: Schema.optional(Schema.Boolean)
-})
+} as const
+
+export const TicketFilter = Schema.Struct(TicketFilterFields)
 export type TicketFilter = typeof TicketFilter.Type
 
 export const TICKET_LIST_LIMIT = 50
 
 export const TicketListQuery = Schema.Struct({
-  filter: Schema.optional(TicketFilter),
+  ...TicketFilterFields,
   sort: TicketSort.pipe(
     Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
   ),
@@ -82,7 +87,7 @@ export const TicketCounts = Schema.Struct({
 export type TicketCounts = typeof TicketCounts.Type
 
 export const TicketCountQuery = Schema.Struct({
-  filter: Schema.optional(TicketFilter),
+  ...TicketFilterFields,
   q: Schema.optional(Schema.String)
 })
 export type TicketCountQuery = typeof TicketCountQuery.Type

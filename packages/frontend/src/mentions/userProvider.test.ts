@@ -1,11 +1,15 @@
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import * as Schema from "effect/Schema"
 import { afterEach, expect, it, vi } from "vitest"
+import { UserId } from "@projectproject/shared"
 import { meAtom } from "@/atoms/auth"
 import { AppLayer } from "@/runtime"
 import { userMentionProvider } from "./userProvider"
 
 afterEach(() => vi.unstubAllGlobals())
+
+const userId = Schema.decodeSync(UserId)
 
 it("reuses cached identity for repeated mentions and matches supplied members without requests", async () => {
   const registry = Registry.make()
@@ -42,7 +46,7 @@ it("reuses cached identity for repeated mentions and matches supplied members wi
         )
     )
   const member = {
-    id: "member-1",
+    id: userId("member-1"),
     name: "Wouter",
     username: "wvh",
     email: "wouter@example.com",

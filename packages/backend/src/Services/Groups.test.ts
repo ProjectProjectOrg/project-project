@@ -13,7 +13,8 @@ import {
   ProjectIcon,
   ProjectKey,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  UserId
 } from "@projectproject/shared"
 import type { GroupDetail, ProjectDetail, Role } from "@projectproject/shared"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
@@ -30,6 +31,7 @@ import {
 import * as TicketDocumentLock from "../ticketDocumentLock"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
+const userId = Schema.decodeSync(UserId)
 const setTestNow = TestClock.setTime(
   DateTime.toEpochMillis(DateTime.makeUnsafe("2026-05-19T00:00:00.000Z"))
 )
@@ -274,7 +276,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
     body: "# Project\n",
     members: [
       {
-        id: "user-1",
+        id: userId("user-1"),
         username: null,
         name: "User One",
         email: "user@example.com",

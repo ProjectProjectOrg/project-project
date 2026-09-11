@@ -86,14 +86,14 @@ export function SegmentedList({
   const hasActiveFilter = queryHasActiveFilter(query)
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
-    const requested = query.filter?.status
+    const requested = query.status
     const allOrdered = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
     if (requested !== undefined && requested.length > 0) {
       return allOrdered.filter((s) => requested.includes(s))
     }
     if (!hasActiveFilter) return allOrdered
     return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)
-  }, [statuses, query.filter, hasActiveFilter, byStatus])
+  }, [statuses, query.status, hasActiveFilter, byStatus])
 
   const [collapsedRaw, setCollapsedRaw] = useLocalStorageState(
     `projectproject:ticket-list-collapsed:${orgSlug}/${slug}`,

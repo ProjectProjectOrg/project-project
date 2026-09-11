@@ -77,7 +77,7 @@ export function SprintTicketCreator({
   const sectionKey = ticketsListKeyForStatus(
     orgSlug,
     slug,
-    { sort: { key: "updated", dir: "desc" }, filter: { groupId: [groupId] } },
+    { sort: { key: "updated", dir: "desc" }, groupId: [groupId] },
     "todo" as TicketStatus
   )
 

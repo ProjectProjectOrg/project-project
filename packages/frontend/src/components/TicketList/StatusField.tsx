@@ -169,7 +169,7 @@ export function StatusBadgeTrigger({
                 status
               ),
               countKey: ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
+                ...query,
                 q: query.q
               })
             })
@@ -268,7 +268,7 @@ export function StatusButton({
                 status
               ),
               countKey: ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
+                ...query,
                 q: query.q
               })
             })

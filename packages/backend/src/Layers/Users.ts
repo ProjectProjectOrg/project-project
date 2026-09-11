@@ -10,9 +10,12 @@
 
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import type { User } from "@projectproject/shared"
+import * as Schema from "effect/Schema"
+import { UserId, type User } from "@projectproject/shared"
 import { Db } from "../Services/Db"
 import { Users, type UsersShape, type UserSummary } from "../Services/Users"
+
+const decodeUserId = Schema.decodeSync(UserId)
 
 const userColumns = {
   id: true,
@@ -75,7 +78,7 @@ export const UsersLive = Layer.effect(
         .pipe(
           Effect.map((rows) =>
             rows.map((r): User => ({
-              id: r.id,
+              id: decodeUserId(r.id),
               email: r.email,
               name: r.name,
               username: r.username,

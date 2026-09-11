@@ -335,14 +335,12 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
           project,
           {
             sort: { key: "updated", dir: "desc" },
-            filter: {
-              status: [ticketStatus("in_progress")],
-              assignee: ["mine"],
-              tags: [tagName("backend")],
-              hasBranch: true,
-              hasPr: true,
-              updatedAfter: januaryEleventh
-            }
+            status: [ticketStatus("in_progress")],
+            assignee: ["mine"],
+            tags: [tagName("backend")],
+            hasBranch: true,
+            hasPr: true,
+            updatedAfter: januaryEleventh
           },
           { viewerId: "viewer", limit: 10 }
         )
@@ -358,7 +356,7 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
           },
           { filter: { type: ["bug"] }, expected: ["T-11"] },
           {
-            filter: { assignee: [null] },
+            filter: { assignee: ["unassigned"] },
             expected: ["T-10", "T-13", "T-14"]
           },
           {
@@ -385,7 +383,7 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
           Effect.gen(function* () {
             const rows = yield* index.query(
               project,
-              { filter, sort: { key: "id", dir: "asc" } },
+              { ...filter, sort: { key: "id", dir: "asc" } },
               { viewerId: "viewer", limit: 10 }
             )
             expect(rows.map(({ entry }) => entry.id)).toEqual(expected)
@@ -439,7 +437,7 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
 
         const counts = yield* index.count(
           project,
-          { filter: { tags: [tagName("backend")] } },
+          { tags: [tagName("backend")] },
           { viewerId: "viewer" }
         )
         expect(counts).toEqual({
@@ -450,7 +448,7 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
         const archived = yield* index.query(
           project,
           {
-            filter: { archived: true },
+            archived: true,
             sort: { key: "id", dir: "asc" }
           },
           { viewerId: "viewer", limit: 10 }

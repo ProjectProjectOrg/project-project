@@ -31,6 +31,7 @@ import {
   type ChecksStatus,
   type PullRequestState,
   type TicketCountQuery,
+  type TicketFilter,
   type TicketListQuery,
   type TicketPriority,
   type TicketSort,
@@ -137,10 +138,10 @@ interface TicketWhereOptions {
 
 const ticketWhereConditions = (
   project: TicketIndexProject,
-  query: Pick<TicketListQuery, "filter" | "q">,
+  query: TicketFilter & Pick<TicketListQuery, "q">,
   options: TicketWhereOptions
 ): ReadonlyArray<SQL> => {
-  const filter = query.filter
+  const filter = query
   const conditions: Array<SQL> = [
     eq(ticketIndex.projectId, project.projectId),
     filter?.archived === true
@@ -179,9 +180,11 @@ const ticketWhereConditions = (
     const assignees = filter.assignee.map((assignee) =>
       assignee === "mine" ? options.viewerId : assignee
     )
-    const requestedIds = assignees.filter((assignee) => assignee !== null)
+    const requestedIds = assignees.filter(
+      (assignee) => assignee !== "unassigned"
+    )
     const assigneeConditions: Array<SQL> = []
-    if (assignees.includes(null)) {
+    if (assignees.includes("unassigned")) {
       assigneeConditions.push(
         drizzleSql`cardinality(${ticketIndex.assignees}) = 0`
       )

@@ -7,7 +7,12 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
-import { CommentId, TicketId, TicketStatus } from "@projectproject/shared"
+import {
+  CommentId,
+  TicketId,
+  TicketStatus,
+  UserId
+} from "@projectproject/shared"
 import { parseCommentsRegion } from "../comments-region"
 import { Comments } from "../Services/Comments"
 import { Db } from "../Services/Db"
@@ -25,6 +30,7 @@ import { CommentsLive } from "./Comments"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
+const userId = Schema.decodeSync(UserId)
 const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 
 const unexpected = (method: string): Effect.Effect<never> =>
@@ -100,7 +106,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
 } satisfies TicketIndexShape)
 
 const author = {
-  id: "user-1",
+  id: userId("user-1"),
   email: "user@example.com",
   name: "User",
   username: "user",

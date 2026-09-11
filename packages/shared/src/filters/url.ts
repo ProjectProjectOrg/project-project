@@ -1,252 +1,207 @@
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as SchemaGetter from "effect/SchemaGetter"
+import { GroupId } from "../schemas/Group"
+import { StatusSlug } from "../schemas/Status"
+import { TagName } from "../schemas/Tag"
+import { TicketType } from "../schemas/Ticket"
 import {
+  AssigneeFilter,
   DEFAULT_TICKET_SORT,
-  type AssigneeFilter,
+  SortDir,
+  SortKey,
+  TicketCountQuery,
+  TicketFilter,
+  TicketListQuery,
   type GroupIdFilter,
-  type SortDir,
-  type SortKey,
-  type TicketFilter,
-  type TicketListQuery,
   type TicketSort
 } from "./Ticket"
-import { StatusSlug } from "../schemas/Status"
 
-const MultiStringParam = Schema.optional(Schema.Array(Schema.String))
+const MultiStringParam = Schema.Union([
+  Schema.String,
+  Schema.Array(Schema.String)
+])
 
-export const BaseTicketFilterParams = Schema.Struct({
-  status: MultiStringParam,
-  type: MultiStringParam,
-  assignee: MultiStringParam,
-  tags: MultiStringParam,
-  groupId: MultiStringParam,
+const BaseTicketFilterParamFields = {
+  status: Schema.optional(MultiStringParam),
+  type: Schema.optional(MultiStringParam),
+  assignee: Schema.optional(MultiStringParam),
+  tags: Schema.optional(MultiStringParam),
+  groupId: Schema.optional(MultiStringParam),
   hasBranch: Schema.optional(Schema.String),
   hasPr: Schema.optional(Schema.String),
   updatedAfter: Schema.optional(Schema.String),
   archived: Schema.optional(Schema.String),
   q: Schema.optional(Schema.String)
-})
+} as const
 
-export const TicketListParams = Schema.Struct({
-  ...BaseTicketFilterParams.fields,
+const RawTicketFilterParams = Schema.Struct(BaseTicketFilterParamFields)
+const RawTicketListParams = Schema.Struct({
+  ...BaseTicketFilterParamFields,
   sort: Schema.optional(Schema.String),
   cursor: Schema.optional(Schema.String)
 })
 
-export const TicketCountParams = BaseTicketFilterParams
+type RawTicketFilterParams = typeof RawTicketFilterParams.Type
+type RawTicketListParams = typeof RawTicketListParams.Type
 
-export type TicketListParamsInput =
-  | typeof TicketListParams.Type
-  | { readonly [key: string]: unknown }
-export type TicketCountParamsInput =
-  | typeof TicketCountParams.Type
-  | { readonly [key: string]: unknown }
-
-const ASSIGNEE_UNASSIGNED_SENTINEL = "unassigned"
-const GROUP_UNASSIGNED_SENTINEL = "unassigned"
+const BooleanParam = Schema.Literals(["true", "false"]).pipe(
+  Schema.decodeTo(Schema.Boolean, {
+    decode: SchemaGetter.transform((value) => value === "true"),
+    encode: SchemaGetter.transform((value) => (value ? "true" : "false"))
+  })
+)
+const decodeBoolean = Schema.decodeUnknownOption(BooleanParam)
+const decodeDate = Schema.decodeUnknownOption(Schema.DateFromString)
+const encodeBoolean = Schema.encodeSync(BooleanParam)
+const encodeDate = Schema.encodeSync(Schema.DateFromString)
 
 const isStatusSlug = Schema.is(StatusSlug)
-const TYPE_VALUES = ["feat", "bug", "chore", "other"] as const
-const SORT_KEY_VALUES = [
-  "id",
-  "created",
-  "updated",
-  "title",
-  "priority"
-] as const
-const SORT_DIR_VALUES = ["asc", "desc"] as const
+const isTicketType = Schema.is(TicketType)
+const isAssigneeFilter = Schema.is(AssigneeFilter)
+const isTagName = Schema.is(TagName)
+const isGroupId = Schema.is(GroupId)
+const isSortKey = Schema.is(SortKey)
+const isSortDir = Schema.is(SortDir)
 
-const asArray = <T>(value: unknown): ReadonlyArray<T> | undefined => {
-  if (value === undefined || value === null) return undefined
-  if (Array.isArray(value)) return value as ReadonlyArray<T>
-  return [value as T]
-}
+const valuesOf = (
+  value: string | ReadonlyArray<string> | undefined
+): ReadonlyArray<string> =>
+  value === undefined ? [] : typeof value === "string" ? [value] : value
 
-const decodeStatus = (value: unknown) => {
-  const arr = asArray<string>(value)
-  if (!arr) return undefined
-  const filtered = arr.filter(isStatusSlug)
-  return filtered.length === 0 ? undefined : filtered
-}
+const nonEmpty = <A>(values: ReadonlyArray<A>): ReadonlyArray<A> | undefined =>
+  values.length > 0 ? values : undefined
 
-const decodeType = (value: unknown) => {
-  const arr = asArray<string>(value)
-  if (!arr) return undefined
-  const filtered = arr.filter((s): s is (typeof TYPE_VALUES)[number] =>
-    (TYPE_VALUES as ReadonlyArray<string>).includes(s)
-  )
-  return filtered.length === 0 ? undefined : filtered
-}
+const nonEmptyString = (value: string | undefined): string | undefined =>
+  value && value.length > 0 ? value : undefined
 
-const decodeAssignee = (
-  value: unknown
-): ReadonlyArray<AssigneeFilter> | undefined => {
-  const arr = asArray<string>(value)
-  if (!arr) return undefined
-  const mapped = arr.map((s): AssigneeFilter => {
-    if (s === "mine") return "mine"
-    if (s === ASSIGNEE_UNASSIGNED_SENTINEL) return null
-    return s
-  })
-  return mapped.length === 0 ? undefined : mapped
-}
-
-const decodeStringArray = (
-  value: unknown
-): ReadonlyArray<string> | undefined => {
-  const arr = asArray<string>(value)
-  if (!arr) return undefined
-  const filtered = arr.filter((s) => typeof s === "string" && s.length > 0)
-  return filtered.length === 0 ? undefined : filtered
-}
-
-const GROUP_ID_PATTERN = /^G-[1-9][0-9]*$/
-const TAG_NAME_PATTERN = /^[a-z0-9][a-z0-9 -]{0,30}$/
-
-const decodeBranded = (
-  value: unknown,
-  pattern: RegExp
-): ReadonlyArray<string> | undefined => {
-  const arr = decodeStringArray(value)
-  if (!arr) return undefined
-  const filtered = arr.filter((s) => pattern.test(s))
-  return filtered.length === 0 ? undefined : filtered
-}
-
-const decodeGroupId = (
-  value: unknown
-): ReadonlyArray<GroupIdFilter> | undefined => {
-  const arr = decodeStringArray(value)
-  if (!arr) return undefined
-  const mapped: Array<GroupIdFilter> = []
-  for (const s of arr) {
-    if (s === GROUP_UNASSIGNED_SENTINEL) {
-      mapped.push(null)
-    } else if (GROUP_ID_PATTERN.test(s)) {
-      mapped.push(s as GroupIdFilter)
+const decodeGroupIds = (
+  value: string | ReadonlyArray<string> | undefined
+): TicketFilter["groupId"] => {
+  const groupIds: Array<GroupIdFilter> = []
+  for (const groupId of valuesOf(value)) {
+    if (groupId === "unassigned" || groupId === "ungrouped") {
+      groupIds.push("ungrouped")
+    } else if (isGroupId(groupId)) {
+      groupIds.push(groupId)
     }
   }
-  return mapped.length === 0 ? undefined : mapped
+  return nonEmpty(groupIds)
 }
 
-const decodeBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") return value
-  if (value === "true") return true
-  if (value === "false") return false
-  return undefined
-}
+const decodeTicketFilter = (params: RawTicketFilterParams): TicketFilter => {
+  const status = nonEmpty(valuesOf(params.status).filter(isStatusSlug))
+  const type = nonEmpty(valuesOf(params.type).filter(isTicketType))
+  const assignee = nonEmpty(
+    valuesOf(params.assignee).filter(isAssigneeFilter)
+  )
+  const tags = nonEmpty(valuesOf(params.tags).filter(isTagName))
+  const groupId = decodeGroupIds(params.groupId)
+  const hasBranch = Option.getOrUndefined(decodeBoolean(params.hasBranch))
+  const hasPr = Option.getOrUndefined(decodeBoolean(params.hasPr))
+  const updatedAfter = Option.getOrUndefined(decodeDate(params.updatedAfter))
+  const archived = Option.getOrUndefined(decodeBoolean(params.archived))
 
-const decodeDate = (value: unknown): Date | undefined => {
-  if (typeof value !== "string" || value.length === 0) return undefined
-  // @effect-diagnostics-next-line globalDate:off
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed
-}
-
-const decodeSort = (value: unknown): TicketSort => {
-  if (typeof value !== "string") return DEFAULT_TICKET_SORT
-  const [keyRaw, dirRaw] = value.split(":")
-  if (!keyRaw || !dirRaw) return DEFAULT_TICKET_SORT
-  if (!(SORT_KEY_VALUES as ReadonlyArray<string>).includes(keyRaw)) {
-    return DEFAULT_TICKET_SORT
+  return {
+    ...(status ? { status } : {}),
+    ...(type ? { type } : {}),
+    ...(assignee ? { assignee } : {}),
+    ...(tags ? { tags } : {}),
+    ...(groupId ? { groupId } : {}),
+    ...(hasBranch !== undefined ? { hasBranch } : {}),
+    ...(hasPr !== undefined ? { hasPr } : {}),
+    ...(updatedAfter !== undefined ? { updatedAfter } : {}),
+    ...(archived !== undefined ? { archived } : {})
   }
-  if (!(SORT_DIR_VALUES as ReadonlyArray<string>).includes(dirRaw)) {
-    return DEFAULT_TICKET_SORT
-  }
-  return { key: keyRaw as SortKey, dir: dirRaw as SortDir }
 }
 
-type MutableTicketFilter = {
-  -readonly [K in keyof TicketFilter]: TicketFilter[K]
+const decodeSort = (value: string | undefined): TicketSort => {
+  if (value === undefined) return DEFAULT_TICKET_SORT
+  const [key, dir, extra] = value.split(":")
+  return extra === undefined && isSortKey(key) && isSortDir(dir)
+    ? { key, dir }
+    : DEFAULT_TICKET_SORT
 }
 
-type MutableTicketListQuery = {
-  -readonly [K in keyof TicketListQuery]: TicketListQuery[K]
-}
+const decodeTicketListParams = (
+  params: RawTicketListParams
+): TicketListQuery => ({
+  ...decodeTicketFilter(params),
+  sort: decodeSort(params.sort),
+  ...(nonEmptyString(params.q) ? { q: params.q } : {}),
+  ...(nonEmptyString(params.cursor) ? { cursor: params.cursor } : {})
+})
 
-export const ticketListQueryFromSearch = (
-  search: TicketListParamsInput
-): TicketListQuery => {
-  const filter: Partial<MutableTicketFilter> = {}
-  const status = decodeStatus(search.status)
-  if (status) filter.status = status
-  const type = decodeType(search.type)
-  if (type) filter.type = type
-  const assignee = decodeAssignee(search.assignee)
-  if (assignee) filter.assignee = assignee
-  const tags = decodeBranded(search.tags, TAG_NAME_PATTERN)
-  if (tags) filter.tags = tags as TicketFilter["tags"]
-  const groupId = decodeGroupId(search.groupId)
-  if (groupId) filter.groupId = groupId
-  const hasBranch = decodeBoolean(search.hasBranch)
-  if (hasBranch !== undefined) filter.hasBranch = hasBranch
-  const hasPr = decodeBoolean(search.hasPr)
-  if (hasPr !== undefined) filter.hasPr = hasPr
-  const updatedAfter = decodeDate(search.updatedAfter)
-  if (updatedAfter !== undefined) filter.updatedAfter = updatedAfter
-  const archived = decodeBoolean(search.archived)
-  if (archived !== undefined) filter.archived = archived
+const decodeTicketCountParams = (
+  params: RawTicketFilterParams
+): TicketCountQuery => ({
+  ...decodeTicketFilter(params),
+  ...(nonEmptyString(params.q) ? { q: params.q } : {})
+})
 
-  const out: MutableTicketListQuery = {
-    sort: decodeSort(search.sort)
-  }
-  if (Object.keys(filter).length > 0) out.filter = filter as TicketFilter
-  if (typeof search.q === "string" && search.q.length > 0) out.q = search.q
-  if (typeof search.cursor === "string" && search.cursor.length > 0) {
-    out.cursor = search.cursor
-  }
-  return out
-}
-
-const encodeAssignee = (
-  values: ReadonlyArray<AssigneeFilter>
+const encodeGroupIds = (
+  values: NonNullable<TicketFilter["groupId"]>
 ): ReadonlyArray<string> =>
-  values.map((v) => (v === null ? ASSIGNEE_UNASSIGNED_SENTINEL : v))
+  values.map((groupId) => (groupId === "ungrouped" ? "unassigned" : groupId))
 
-const encodeGroupId = (
-  values: ReadonlyArray<GroupIdFilter>
-): ReadonlyArray<string> =>
-  values.map((v) => (v === null ? GROUP_UNASSIGNED_SENTINEL : v))
+const encodeTicketFilter = (
+  filter: TicketFilter
+): RawTicketFilterParams => ({
+  ...(filter.status?.length ? { status: filter.status } : {}),
+  ...(filter.type?.length ? { type: filter.type } : {}),
+  ...(filter.assignee?.length ? { assignee: filter.assignee } : {}),
+  ...(filter.tags?.length ? { tags: filter.tags } : {}),
+  ...(filter.groupId?.length
+    ? { groupId: encodeGroupIds(filter.groupId) }
+    : {}),
+  ...(filter.hasBranch !== undefined
+    ? { hasBranch: encodeBoolean(filter.hasBranch) }
+    : {}),
+  ...(filter.hasPr !== undefined ? { hasPr: encodeBoolean(filter.hasPr) } : {}),
+  ...(filter.updatedAfter !== undefined
+    ? { updatedAfter: encodeDate(filter.updatedAfter) }
+    : {}),
+  ...(filter.archived !== undefined
+    ? { archived: encodeBoolean(filter.archived) }
+    : {})
+})
 
-const isDefaultSort = (sort: TicketSort) =>
+const isDefaultSort = (sort: TicketSort): boolean =>
   sort.key === DEFAULT_TICKET_SORT.key && sort.dir === DEFAULT_TICKET_SORT.dir
 
-type TicketListQueryInput = {
-  filter?: {
-    status?: ReadonlyArray<StatusSlug>
-    type?: ReadonlyArray<"feat" | "bug" | "chore" | "other">
-    assignee?: ReadonlyArray<AssigneeFilter>
-    tags?: ReadonlyArray<string>
-    groupId?: ReadonlyArray<GroupIdFilter>
-    hasBranch?: boolean
-    hasPr?: boolean
-    updatedAfter?: Date
-    archived?: boolean
-  }
-  sort?: TicketSort
-  q?: string
-  cursor?: string
-}
+const encodeTicketListParams = (
+  query: TicketListQuery
+): RawTicketListParams => ({
+  ...encodeTicketFilter(query),
+  ...(!isDefaultSort(query.sort)
+    ? { sort: `${query.sort.key}:${query.sort.dir}` }
+    : {}),
+  ...(nonEmptyString(query.q) ? { q: query.q } : {}),
+  ...(nonEmptyString(query.cursor) ? { cursor: query.cursor } : {})
+})
 
-export const ticketListQueryToSearch = (
-  query: TicketListQueryInput
-): Record<string, string | ReadonlyArray<string>> => {
-  const out: Record<string, string | ReadonlyArray<string>> = {}
-  const f = query.filter
-  if (f) {
-    if (f.status?.length) out.status = f.status
-    if (f.type?.length) out.type = f.type
-    if (f.assignee?.length) out.assignee = encodeAssignee(f.assignee)
-    if (f.tags?.length) out.tags = f.tags
-    if (f.groupId?.length) out.groupId = encodeGroupId(f.groupId)
-    if (f.hasBranch !== undefined) out.hasBranch = String(f.hasBranch)
-    if (f.hasPr !== undefined) out.hasPr = String(f.hasPr)
-    if (f.updatedAfter) out.updatedAfter = f.updatedAfter.toISOString()
-    if (f.archived !== undefined) out.archived = String(f.archived)
-  }
-  if (query.sort && !isDefaultSort(query.sort)) {
-    out.sort = `${query.sort.key}:${query.sort.dir}`
-  }
-  if (query.q && query.q.length > 0) out.q = query.q
-  if (query.cursor) out.cursor = query.cursor
-  return out
-}
+const encodeTicketCountParams = (
+  query: TicketCountQuery
+): RawTicketFilterParams => ({
+  ...encodeTicketFilter(query),
+  ...(nonEmptyString(query.q) ? { q: query.q } : {})
+})
+
+export const TicketListParams = RawTicketListParams.pipe(
+  Schema.decodeTo(Schema.toType(TicketListQuery), {
+    decode: SchemaGetter.transform(decodeTicketListParams),
+    encode: SchemaGetter.transform(encodeTicketListParams)
+  })
+)
+
+export const TicketCountParams = RawTicketFilterParams.pipe(
+  Schema.decodeTo(Schema.toType(TicketCountQuery), {
+    decode: SchemaGetter.transform(decodeTicketCountParams),
+    encode: SchemaGetter.transform(encodeTicketCountParams)
+  })
+)
+
+export const ticketListQueryFromSearch =
+  Schema.decodeUnknownSync(TicketListParams)
+
+export const ticketListQueryToSearch = Schema.encodeSync(TicketListParams)

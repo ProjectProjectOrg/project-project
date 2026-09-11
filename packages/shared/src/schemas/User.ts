@@ -38,6 +38,12 @@
 import * as Schema from "effect/Schema"
 import { PersonalEverhour } from "./Everhour"
 
+export const UserId = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.brand("UserId")
+)
+export type UserId = typeof UserId.Type
+
 export const PersonalGithub = Schema.Struct({
   connected: Schema.Boolean
 })
@@ -52,7 +58,7 @@ export const EditorPreference = Schema.Literals([
 export type EditorPreference = typeof EditorPreference.Type
 
 export const User = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   email: Schema.String,
   name: Schema.String,
   username: Schema.NullOr(Schema.String),

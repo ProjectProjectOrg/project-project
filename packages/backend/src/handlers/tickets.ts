@@ -4,7 +4,6 @@ import { HttpApiBuilder } from "effect/unstable/httpapi"
 import {
   AppApi,
   CurrentUser,
-  ticketListQueryFromSearch,
   Validation
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
@@ -27,7 +26,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             params.slug,
-            ticketListQueryFromSearch(query)
+            query
           )
         }).pipe(dieOnMarkdown)
       )
@@ -41,7 +40,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             params.slug,
-            ticketListQueryFromSearch(query)
+            query
           )
         }).pipe(dieOnMarkdown)
       )
@@ -75,7 +74,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             org.orgSlug,
             user.id,
             params.slug,
-            ticketListQueryFromSearch(query)
+            query
           )
         }).pipe(dieOnMarkdown)
       )

@@ -76,5 +76,5 @@ function sprintListQuery(
   id: GroupId
 ): TicketListQuery {
   const query = ticketListQueryFromSearch(search)
-  return { ...query, filter: { ...query.filter, groupId: [id] } }
+  return { ...query, groupId: [id] }
 }

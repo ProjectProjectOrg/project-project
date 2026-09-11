@@ -222,7 +222,7 @@ const list_tickets = (
     const tickets = yield* Tickets
     const query: TicketListQuery = {
       sort: DEFAULT_TICKET_SORT,
-      filter: input.filter,
+      ...input.filter,
       cursor: input.cursor
     }
     return yield* tickets.list(

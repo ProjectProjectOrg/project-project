@@ -17,8 +17,10 @@ import {
   TICKET_LIST_LIMIT,
   TicketId,
   TicketStatus,
+  UserId,
   tryDecodeCursor,
   type TicketCountQuery,
+  type TicketFilter,
   type TicketListQuery
 } from "@projectproject/shared"
 import { applyPullRequestWebhookToTicket } from "../Layers/GitHubWebhooks"
@@ -52,6 +54,7 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
+const userId = Schema.decodeUnknownSync(UserId)
 const githubIntegration = {
   projectIntegrationLinkId: "link-1",
   organizationId: "org-1",
@@ -343,7 +346,7 @@ const ticketSortValue = (
 
 const matchingDocuments = (
   documents: Map<string, TicketDocument>,
-  query: Pick<TicketListQuery, "filter" | "q">,
+  query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: string,
   ticketIds?: ReadonlyArray<string>,
   excludeTicketIds?: ReadonlyArray<string>
@@ -354,7 +357,7 @@ const matchingDocuments = (
     (document) =>
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
-      matchesTicketQuery(document, query, viewerId)
+      matchesTicketQuery(document, query, userId(viewerId))
   )
 }
 
@@ -1686,7 +1689,7 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
 
     const mine = yield* tickets.list("org", "user-1", "p", {
       sort: DEFAULT_TICKET_SORT,
-      filter: { assignee: ["mine"] }
+      assignee: ["mine"]
     })
     expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
   }).pipe(Effect.provide(layer))
@@ -1773,7 +1776,7 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const result = yield* tickets.count("org", "user-1", "p", {
-        filter: { status: [ticketStatus("done")] }
+        status: [ticketStatus("done")]
       })
       expect(result).toEqual({
         total: 6,
@@ -1815,7 +1818,7 @@ it.effect("count still applies non-status filters", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const result = yield* tickets.count("org", "user-1", "p", {
-      filter: { type: ["bug"] }
+      type: ["bug"]
     })
     expect(result).toEqual({
       total: 2,
@@ -1851,7 +1854,7 @@ it.effect("count substitutes mine to viewerId like list", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const result = yield* tickets.count("org", "user-1", "p", {
-      filter: { assignee: ["mine"] }
+      assignee: ["mine"]
     })
     expect(result).toEqual({
       total: 2,
@@ -2008,14 +2011,14 @@ it.effect(
       ).toEqual(["T-53"])
       const next = yield* tickets.list("org", "user-1", "p", {
         ...query,
-        filter: { status: [ticketStatus("todo")] },
+        status: [ticketStatus("todo")],
         cursor: todo.nextCursor ?? undefined
       })
       expect(next.items.map(({ id }) => id)).toEqual(["T-51", "T-52"])
       expect(next.nextCursor).toBeNull()
       const selected = yield* tickets.sections("org", "user-1", "p", {
         ...query,
-        filter: { status: [ticketStatus("in_progress")] }
+        status: [ticketStatus("in_progress")]
       })
       expect(Object.keys(selected.sections)).toEqual(["in_progress"])
       expect(selected.counts).toEqual(snapshot.counts)

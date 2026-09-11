@@ -34,7 +34,6 @@ import {
   type ProjectKey,
   type TicketCountQuery,
   type TicketCounts,
-  type TicketFilter,
   type TicketListPage,
   type TicketListQuery,
   type TicketSections,
@@ -259,7 +258,7 @@ export const TicketsLive = Layer.effect(
           orgSlug,
           userId,
           slug,
-          query.filter?.groupId
+          query.groupId
         )
         const pageLimit = limit ?? TICKET_LIST_LIMIT
         const queryEntries = yield* ticketIndex.query(project, query, {
@@ -375,14 +374,11 @@ export const TicketsLive = Layer.effect(
           orgSlug,
           userId,
           slug,
-          query.filter?.groupId
+          query.groupId
         )
-        const filterWithoutStatus: TicketFilter | undefined = query.filter
-          ? { ...query.filter, status: undefined }
-          : undefined
         const queryForCount: TicketCountQuery = {
-          filter: filterWithoutStatus,
-          q: query.q
+          ...query,
+          status: undefined
         }
         const counts = yield* ticketIndex.count(project, queryForCount, {
           viewerId: userId,
@@ -407,7 +403,7 @@ export const TicketsLive = Layer.effect(
         orgSlug,
         userId,
         slug,
-        query.filter?.groupId
+        query.groupId
       )
       const options = {
         viewerId: userId,
@@ -416,8 +412,8 @@ export const TicketsLive = Layer.effect(
       const counts = yield* ticketIndex.count(
         project,
         {
-          filter: { ...query.filter, status: undefined },
-          q: query.q
+          ...query,
+          status: undefined
         },
         options
       )
@@ -428,8 +424,8 @@ export const TicketsLive = Layer.effect(
       )
       const statuses = Object.keys(counts.byStatus).filter(
         (status) =>
-          !query.filter?.status?.length ||
-          query.filter.status.some((requested) => requested === status)
+          !query.status?.length ||
+          query.status.some((requested) => requested === status)
       )
       const pages = yield* Effect.forEach(
         statuses,
@@ -439,10 +435,7 @@ export const TicketsLive = Layer.effect(
               project,
               {
                 ...query,
-                filter: {
-                  ...query.filter,
-                  status: [Schema.decodeSync(Ticket.fields.status)(status)]
-                },
+                status: [Schema.decodeSync(Ticket.fields.status)(status)],
                 cursor: undefined
               },
               { ...options, limit: TICKET_LIST_LIMIT + 1 }

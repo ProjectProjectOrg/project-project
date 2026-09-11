@@ -11,7 +11,6 @@ import {
   TicketCountQuery,
   TicketId,
   TicketListQuery,
-  ticketListQueryToSearch,
   type GroupId,
   type QuickCreateTicketInput,
   type Ticket,
@@ -28,7 +27,7 @@ const watchTicketContent = Effect.fn(function* (
   query: {
     q?: string
     sort?: { key: string }
-    filter?: { updatedAfter?: Date }
+    updatedAfter?: Date
   }
 ) {
   const reactivity = yield* Reactivity.Reactivity
@@ -37,7 +36,7 @@ const watchTicketContent = Effect.fn(function* (
     ...(query.q || query.sort?.key === "title"
       ? [`ticket-title-query/${project}`]
       : []),
-    ...(query.sort?.key === "updated" || query.filter?.updatedAfter
+    ...(query.sort?.key === "updated" || query.updatedAfter
       ? [`ticket-updated-query/${project}`]
       : [])
   ]
@@ -83,7 +82,7 @@ export const ticketsListKeyForStatus = (
 ): string =>
   ticketsListKey(orgSlug, slug, {
     ...baseQuery,
-    filter: { ...baseQuery.filter, status: [status] },
+    status: [status],
     cursor: undefined
   })
 
@@ -160,7 +159,7 @@ export const ticketsSectionsKey = (
 ) =>
   ticketsListKey(orgSlug, slug, {
     ...query,
-    filter: { ...query.filter, status: undefined },
+    status: undefined,
     cursor: undefined
   })
 
@@ -183,7 +182,7 @@ export const ticketsSectionsBaseAtom = Atom.family((key: string) => {
         const track = yield* watchTicketContent(get, orgSlug, slug, query)
         const snapshot = yield* client.tickets.sections({
           params: { orgSlug, slug },
-          query: ticketListQueryToSearch(query)
+          query
         })
         track(
           Object.values(snapshot.sections).flatMap((page) => page.items),
@@ -214,7 +213,7 @@ export const ticketsSectionsBaseAtom = Atom.family((key: string) => {
       Atom.withReactivity([
         `tickets/${orgSlug}/${slug}`,
         `ticket-lists/${orgSlug}/${slug}`,
-        ...(decodeStoredQuery(queryJson).filter?.groupId?.length
+        ...(decodeStoredQuery(queryJson).groupId?.length
           ? [`sprint-membership/${orgSlug}/${slug}`]
           : [])
       ]),
@@ -329,7 +328,7 @@ export const loadMoreTicketsAtom = Atom.family((sectionKey: string) => {
   return runtime.fn(
     Effect.fn(function* (_: void, get) {
       const query = yield* decodeListQuery(queryJson)
-      const status = query.filter?.status?.[0]
+      const status = query.status?.[0]
       if (!status) return
       const base = get(ticketsSectionsBaseAtom(key))
       const snapshot: TicketSectionsResult = get(ticketsSectionsAtom(key))
@@ -339,7 +338,7 @@ export const loadMoreTicketsAtom = Atom.family((sectionKey: string) => {
       const client = yield* ApiClient
       const page = yield* client.tickets.list({
         params: { orgSlug, slug },
-        query: ticketListQueryToSearch({ ...query, cursor })
+        query: { ...query, cursor }
       })
       const appended = get(ticketsSectionsAppendedAtom(key))
       const previous = appended[status]
@@ -393,7 +392,7 @@ const ticketsCountBaseAtom = Atom.family((key: string) => {
         const client = yield* ApiClient
         return yield* client.tickets.count({
           params: { orgSlug, slug },
-          query: ticketListQueryToSearch(query)
+          query
         })
       })
     )
@@ -402,10 +401,10 @@ const ticketsCountBaseAtom = Atom.family((key: string) => {
         `tickets/${orgSlug}/${slug}`,
         `ticket-lists/${orgSlug}/${slug}`,
         ...(query.q ? [`ticket-title-query/${orgSlug}/${slug}`] : []),
-        ...(query.filter?.updatedAfter
+        ...(query.updatedAfter
           ? [`ticket-updated-query/${orgSlug}/${slug}`]
           : []),
-        ...(query.filter?.groupId?.length
+        ...(query.groupId?.length
           ? [`sprint-membership/${orgSlug}/${slug}`]
           : [])
       ]),

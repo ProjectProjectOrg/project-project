@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
 import { ApiClient } from "@/services/ApiClient"
-import { ticketListQueryToSearch } from "@projectproject/shared"
+import { DEFAULT_TICKET_SORT } from "@projectproject/shared"
 import type { MentionProvider } from "./registry"
 
 export const ticketMentionProvider: MentionProvider = {
@@ -12,9 +12,10 @@ export const ticketMentionProvider: MentionProvider = {
       const client = yield* ApiClient
       const page = yield* client.tickets.list({
         params: { orgSlug: scope.orgSlug, slug: scope.slug },
-        query: ticketListQueryToSearch({
-          q: query.length > 0 ? query : undefined
-        })
+        query: {
+          q: query.length > 0 ? query : undefined,
+          sort: DEFAULT_TICKET_SORT
+        }
       })
       const q = query.toLowerCase()
       return page.items
