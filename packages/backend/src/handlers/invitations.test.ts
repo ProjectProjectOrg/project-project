@@ -88,16 +88,18 @@ it("treats an invitation expiring exactly now as expired", async () => {
   })
 })
 
-it("dies rather than forcing a membership-limit refusal into one of the three reasons", async () => {
-  const exit = await Effect.runPromiseExit(
+it("reports a full organisation as membership_limit_reached", async () => {
+  const result = await failureOf(
     acceptErrorToFailure(
       inviteError("ORGANIZATION_MEMBERSHIP_LIMIT_REACHED"),
       live,
       now
     )
   )
-  expect(exit._tag).toBe("Failure")
-  expect(JSON.stringify(exit)).not.toContain("InvitationNotAcceptable")
+  expect(result).toMatchObject({
+    _tag: "InvitationNotAcceptable",
+    reason: "membership_limit_reached"
+  })
 })
 
 it("hides another user's invitation behind NotFound on read and reject", async () => {

@@ -46,8 +46,6 @@ export const pendingInvitations = (
   )
 
 const FORBIDDING_CODES = new Set([
-  "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION",
-  "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION",
   "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION",
   "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION",
   "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_ORGANIZATION",
@@ -59,6 +57,8 @@ const FORBIDDING_CODES = new Set([
 ])
 
 const MISSING_CODES = new Set([
+  "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION",
+  "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION",
   "ORGANIZATION_NOT_FOUND",
   "MEMBER_NOT_FOUND",
   "INVITATION_NOT_FOUND",
@@ -101,6 +101,17 @@ export const memberErrorToFailure = (
   return Effect.die(error)
 }
 
+export const opaqueErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, NotFound> =>
+  memberErrorToFailure(error).pipe(
+    Effect.catchTags({
+      Forbidden: () => new NotFound(),
+      Conflict: () => new NotFound(),
+      Validation: () => new NotFound()
+    })
+  )
+
 export const memberAccessErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound> =>
@@ -111,11 +122,21 @@ export const memberAccessErrorToFailure = (
     })
   )
 
-export const leaveErrorToFailure = (
+export const memberChangeErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound | Conflict> =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Validation: () => new Forbidden() })
+  )
+
+export const leaveErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, NotFound | Conflict> =>
+  memberErrorToFailure(error).pipe(
+    Effect.catchTags({
+      Forbidden: () => new NotFound(),
+      Validation: () => new NotFound()
+    })
   )
 
 export const transferErrorToFailure = (
@@ -167,7 +188,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const request = yield* webRequest
         return yield* ba
           .getMembers(request, params.orgSlug)
-          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+          .pipe(Effect.catchTag("BetterAuthError", opaqueErrorToFailure))
       })
     )
     .handle("rename", ({ params, payload }) =>
@@ -204,7 +225,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
             params.userId,
             payload.role
           )
-          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+          .pipe(Effect.catchTag("BetterAuthError", memberChangeErrorToFailure))
       })
     )
     .handle("removeMember", ({ params }) =>
@@ -214,7 +235,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const request = yield* webRequest
         yield* ba
           .removeMember(request, params.orgSlug, params.userId)
-          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+          .pipe(Effect.catchTag("BetterAuthError", memberChangeErrorToFailure))
       })
     )
     .handle("cancelInvitation", ({ params }) =>

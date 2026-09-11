@@ -191,7 +191,7 @@ it.effect("get returns null deletedAt/purgeAt for a live org", () =>
   )
 )
 
-it.effect("get reports an unknown org as NotFound", () =>
+it.effect("get requires membership", () =>
   Effect.gen(function* () {
     const org = yield* Org
     const result = yield* Effect.result(org.get("acme", "user-1"))
@@ -199,18 +199,16 @@ it.effect("get reports an unknown org as NotFound", () =>
     if (result._tag === "Failure") {
       expect(result.failure._tag).toBe("NotFound")
     }
-  }).pipe(
-    Effect.provide(makeOrgLayer(makeState({ orgRow: null, orgExists: false })))
-  )
+  }).pipe(Effect.provide(makeOrgLayer(makeState({ orgRow: null }))))
 )
 
-it.effect("get refuses a non-member of an existing org with Forbidden", () =>
+it.effect("get does not distinguish a non-member from an unknown org", () =>
   Effect.gen(function* () {
     const org = yield* Org
     const result = yield* Effect.result(org.get("acme", "user-1"))
     expect(result._tag).toBe("Failure")
     if (result._tag === "Failure") {
-      expect(result.failure._tag).toBe("Forbidden")
+      expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(
     Effect.provide(makeOrgLayer(makeState({ orgRow: null, orgExists: true })))

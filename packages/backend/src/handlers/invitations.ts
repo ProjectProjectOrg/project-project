@@ -20,6 +20,7 @@ const VERIFICATION_REQUIRED = new Set([
   "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION",
   "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION"
 ])
+const MEMBERSHIP_LIMIT = "ORGANIZATION_MEMBERSHIP_LIMIT_REACHED"
 const UNUSABLE_CODES = new Set([
   "INVITATION_NOT_FOUND",
   "ORGANIZATION_NOT_FOUND",
@@ -39,6 +40,11 @@ export const acceptErrorToFailure = (
   if (VERIFICATION_REQUIRED.has(code)) {
     return Effect.fail(
       new InvitationNotAcceptable({ reason: "email_verification_required" })
+    )
+  }
+  if (code === MEMBERSHIP_LIMIT) {
+    return Effect.fail(
+      new InvitationNotAcceptable({ reason: "membership_limit_reached" })
     )
   }
   if (UNUSABLE_CODES.has(code)) {

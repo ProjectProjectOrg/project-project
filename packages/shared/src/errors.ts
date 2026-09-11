@@ -71,11 +71,13 @@ export class MentionInvalid extends Schema.TaggedError<MentionInvalid>()(
 //   - `expired`                      — past `expiresAt`.
 //   - `not_recipient`                — addressed to a different email.
 //   - `email_verification_required`  — caller hasn't verified their email yet.
+//   - `membership_limit_reached`     — the organisation is already at capacity.
 // A missing or unknown invitation stays `NotFound`.
 export const InvitationNotAcceptableReason = Schema.Literals([
   "expired",
   "not_recipient",
-  "email_verification_required"
+  "email_verification_required",
+  "membership_limit_reached"
 ])
 export type InvitationNotAcceptableReason =
   typeof InvitationNotAcceptableReason.Type

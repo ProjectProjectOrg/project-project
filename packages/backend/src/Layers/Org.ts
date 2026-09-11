@@ -100,17 +100,13 @@ export const OrgLive = Layer.effect(
         )
 
     const get: OrgShape["get"] = (orgSlug, userId) =>
-      Effect.gen(function* () {
-        const row = yield* getRow(orgSlug, userId)
-        if (row) return toDetail(row, row.deletedAt)
-        const existing = yield* db
-          .select({ id: organization.id })
-          .from(organization)
-          .where(eq(organization.slug, orgSlug))
-          .limit(1)
-          .pipe(Effect.orDie)
-        return yield* existing[0] ? new Forbidden() : new NotFound()
-      })
+      getRow(orgSlug, userId).pipe(
+        Effect.flatMap((row) =>
+          row
+            ? Effect.succeed(toDetail(row, row.deletedAt))
+            : Effect.fail(new NotFound())
+        )
+      )
 
     const softDelete: OrgShape["softDelete"] = (orgSlug, userId) =>
       Effect.gen(function* () {

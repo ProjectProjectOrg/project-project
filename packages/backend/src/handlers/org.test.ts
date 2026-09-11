@@ -6,7 +6,9 @@ import {
   collapseRole,
   leaveErrorToFailure,
   memberAccessErrorToFailure,
+  memberChangeErrorToFailure,
   memberErrorToFailure,
+  opaqueErrorToFailure,
   pendingInvitations,
   transferErrorToFailure
 } from "./org"
@@ -46,22 +48,34 @@ it("falls back to member for unknown or empty roles", () => {
   expect(collapseRole("ownerish")).toBe("member")
 })
 
-it("maps a non-member on a members read to Forbidden", async () => {
-  const result = await failureOf(
+it("hides non-membership behind NotFound on both statuses", async () => {
+  for (const status of ["FORBIDDEN", "BAD_REQUEST"] as const) {
+    const result = await failureOf(
+      memberAccessErrorToFailure(
+        orgError(status, "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION")
+      )
+    )
+    expect(result, status).toMatchObject({ _tag: "NotFound" })
+  }
+  const alternate = await failureOf(
     memberAccessErrorToFailure(
-      orgError("FORBIDDEN", "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION")
+      orgError("FORBIDDEN", "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION")
     )
   )
-  expect(result).toMatchObject({ _tag: "Forbidden" })
+  expect(alternate).toMatchObject({ _tag: "NotFound" })
 })
 
-it("maps a 400-status non-member refusal to Forbidden, not NotFound", async () => {
-  const result = await failureOf(
-    memberAccessErrorToFailure(
-      orgError("BAD_REQUEST", "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION")
-    )
-  )
-  expect(result).toMatchObject({ _tag: "Forbidden" })
+it("never lets a members read emit anything but NotFound", async () => {
+  for (const [status, code] of [
+    ["FORBIDDEN", "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION"],
+    ["BAD_REQUEST", "ORGANIZATION_NOT_FOUND"],
+    ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION"],
+    ["BAD_REQUEST", "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION"],
+    ["BAD_REQUEST", "ROLE_NOT_FOUND"]
+  ] as const) {
+    const result = await failureOf(opaqueErrorToFailure(orgError(status, code)))
+    expect(result, code).toMatchObject({ _tag: "NotFound" })
+  }
 })
 
 it("maps every permission refusal to Forbidden regardless of status", async () => {
@@ -71,7 +85,8 @@ it("maps every permission refusal to Forbidden regardless of status", async () =
     ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_INVITE_USERS_TO_THIS_ORGANIZATION"],
     ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_INVITE_USER_WITH_THIS_ROLE"],
     ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_CANCEL_THIS_INVITATION"],
-    ["UNAUTHORIZED", "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER"]
+    ["UNAUTHORIZED", "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER"],
+    ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION"]
   ] as const
   for (const [status, code] of forbidding) {
     const result = await failureOf(
@@ -134,16 +149,39 @@ it("reports the last-owner refusal as Conflict on leave", async () => {
   expect(result).toMatchObject({ _tag: "Conflict", reason: "last_owner" })
 })
 
-it("collapses the last-owner refusal to Forbidden where Conflict is undeclared", async () => {
+it("reports the last-owner refusal as Conflict on member changes too", async () => {
+  for (const code of [
+    "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER",
+    "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+  ]) {
+    const result = await failureOf(
+      memberChangeErrorToFailure(orgError("BAD_REQUEST", code))
+    )
+    expect(result, code).toMatchObject({
+      _tag: "Conflict",
+      reason: "last_owner"
+    })
+  }
+})
+
+it("keeps an insufficient-rights refusal as Forbidden on member changes", async () => {
   const result = await failureOf(
-    memberAccessErrorToFailure(
-      orgError(
-        "BAD_REQUEST",
-        "YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER"
-      )
+    memberChangeErrorToFailure(
+      orgError("FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER")
     )
   )
   expect(result).toMatchObject({ _tag: "Forbidden" })
+})
+
+it("never emits Forbidden from leave, which has no such refusal", async () => {
+  for (const [status, code] of [
+    ["FORBIDDEN", "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION"],
+    ["FORBIDDEN", "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION"],
+    ["BAD_REQUEST", "MEMBER_NOT_FOUND"]
+  ] as const) {
+    const result = await failureOf(leaveErrorToFailure(orgError(status, code)))
+    expect(result, code).toMatchObject({ _tag: "NotFound" })
+  }
 })
 
 it("keeps transfer-ownership refusals inside its declared surface", async () => {

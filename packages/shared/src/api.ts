@@ -213,7 +213,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.get("get", "/orgs/:orgSlug", {
       params: OrgPath,
       success: OrgDetail,
-      error: [Unauthorized, NotFound, Forbidden]
+      error: [Unauthorized, NotFound]
     })
   )
   .add(
@@ -234,7 +234,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
       params: OrgPath,
       success: OrgMembers,
-      error: [Unauthorized, NotFound, Forbidden]
+      error: [Unauthorized, NotFound]
     })
   )
   .add(
@@ -261,7 +261,7 @@ const OrgGroup = HttpApiGroup.make("org")
         params: OrgMemberPath,
         payload: UpdateMemberRoleInput,
         success: OrgMember,
-        error: [Unauthorized, NotFound, Forbidden]
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     )
   )
@@ -269,7 +269,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
       params: OrgMemberPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden]
+      error: [Unauthorized, NotFound, Forbidden, Conflict]
     })
   )
   .add(
@@ -299,7 +299,7 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
       params: OrgPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: [Unauthorized, NotFound, Conflict]
     })
   )
   .middleware(Authentication)
