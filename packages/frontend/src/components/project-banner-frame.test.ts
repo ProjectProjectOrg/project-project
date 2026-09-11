@@ -4,8 +4,67 @@ import {
   bannerCropRect,
   bannerCropStyle,
   bannerCrossfadeTransitions,
-  bannerFadeMask
+  bannerFadeMask,
+  bannerPreviewChanged
 } from "./project-banner-frame"
+
+describe("bannerPreviewChanged", () => {
+  const applied = { x: 0.5, y: 0.65, zoom: 1 }
+
+  it("is unchanged when there is no preview at all", () => {
+    expect(bannerPreviewChanged(null, "banner.jpg", applied)).toBe(false)
+  })
+
+  it("is unchanged when the editor opens on the banner already applied", () => {
+    expect(
+      bannerPreviewChanged(
+        { source: "banner.jpg", crop: { ...applied } },
+        "banner.jpg",
+        applied
+      )
+    ).toBe(false)
+  })
+
+  it("notices a nudged crop", () => {
+    expect(
+      bannerPreviewChanged(
+        { source: "banner.jpg", crop: { ...applied, y: 0.66 } },
+        "banner.jpg",
+        applied
+      )
+    ).toBe(true)
+  })
+
+  it("notices a zoom change", () => {
+    expect(
+      bannerPreviewChanged(
+        { source: "banner.jpg", crop: { ...applied, zoom: 1.2 } },
+        "banner.jpg",
+        applied
+      )
+    ).toBe(true)
+  })
+
+  it("notices a different source", () => {
+    expect(
+      bannerPreviewChanged(
+        { source: "other.jpg", crop: { ...applied } },
+        "banner.jpg",
+        applied
+      )
+    ).toBe(true)
+  })
+
+  it("notices a banner being cleared", () => {
+    expect(
+      bannerPreviewChanged(
+        { source: null, crop: { ...applied } },
+        "banner.jpg",
+        applied
+      )
+    ).toBe(true)
+  })
+})
 
 describe("bannerCropRect", () => {
   it("uses the full width for a 3:1 source at zoom 1, centered", () => {

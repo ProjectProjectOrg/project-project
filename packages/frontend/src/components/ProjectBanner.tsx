@@ -18,7 +18,8 @@ import { bannerDefaults, bannerSource } from "./project-banner-presets"
 import {
   bannerCropStyle,
   bannerCrossfadeTransitions,
-  bannerFadeMask
+  bannerFadeMask,
+  bannerPreviewChanged
 } from "./project-banner-frame"
 import { CachedShaderBanner } from "./CachedShaderBanner"
 
@@ -41,9 +42,16 @@ export function ProjectBanner({
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
-  const source = preview ? preview.source : bannerSource(orgSlug, banner)
-  const placeholder = preview ? null : (banner?.placeholder ?? null)
-  const crop = preview?.crop ?? banner?.crop ?? bannerDefaults
+  const appliedSource = bannerSource(orgSlug, banner)
+  const appliedCrop = banner?.crop ?? bannerDefaults
+  const source = preview ? preview.source : appliedSource
+  const crop = preview?.crop ?? appliedCrop
+  // The editor publishes the saved banner as a preview the moment it opens, so
+  // "is the editor open" and "has the banner actually changed" are separate
+  // questions: the first warms the shader, only the second may repaint.
+  const editing = preview !== null
+  const changed = bannerPreviewChanged(preview, appliedSource, appliedCrop)
+  const placeholder = changed ? null : (banner?.placeholder ?? null)
   const reduceMotion = useReducedMotion() ?? false
   const [shaderImage, setShaderImage] = useState<HTMLImageElement | null>(null)
   const [naturalSize, setNaturalSize] = useState<{
@@ -69,7 +77,7 @@ export function ProjectBanner({
 
   const cacheKey = useMemo<BannerRenderKey | null>(
     () =>
-      source === null || preview !== null || containerSize.width <= 0
+      source === null || changed || containerSize.width <= 0
         ? null
         : {
             project: projectKey(orgSlug, slug),
@@ -81,7 +89,7 @@ export function ProjectBanner({
           },
     [
       source,
-      preview,
+      changed,
       containerSize.width,
       orgSlug,
       slug,
@@ -119,9 +127,11 @@ export function ProjectBanner({
 
   useEffect(() => {
     if (!measured) return undefined
-    setCachedRender(null)
     setLookupSettled(cacheKey === null)
+    // Losing the key means the crop is being dragged; hold the settled render
+    // on screen as the floor the live shader crossfades up from.
     if (cacheKey === null) return undefined
+    setCachedRender(null)
     let cancelled = false
     let objectUrl: string | null = null
     void readBannerRender(cacheKey).then((blob) => {
@@ -144,10 +154,14 @@ export function ProjectBanner({
     setNaturalSize(null)
     setPainted(false)
     setPlaceholderFailed(false)
+    setCachedRender(null)
   }, [source])
 
   useEffect(() => {
-    if (!source || !lookupSettled || cachedRender !== null) return undefined
+    // While the editor is open the shader loads even behind a cache hit, so the
+    // first drag has its texture ready instead of decoding mid-gesture.
+    if (!source || !lookupSettled) return undefined
+    if (cachedRender !== null && !editing) return undefined
     if (requestedSourceRef.current === source) return undefined
     requestedSourceRef.current = source
     let cancelled = false
@@ -170,7 +184,7 @@ export function ProjectBanner({
     return () => {
       cancelled = true
     }
-  }, [source, lookupSettled, cachedRender])
+  }, [source, lookupSettled, cachedRender, editing])
 
   useEffect(() => {
     setPlaceholderSize(null)
@@ -195,6 +209,11 @@ export function ProjectBanner({
   if (!source) return null
 
   const skipBlur = wasCached
+  // The settled render holds until the live shader has actually painted the new
+  // crop, so a drag hands over without a blank frame in between.
+  const settled =
+    cachedRender !== null && !(changed && painted) ? cachedRender : null
+  const shaderVisible = settled === null && (skipBlur || painted)
   const settings = { ...bannerDefaults, ...crop }
   const blurRadius = variant === "header" ? 12 : variant === "card" ? 6 : 3
   const blurSize = naturalSize ?? placeholderSize
@@ -225,52 +244,54 @@ export function ProjectBanner({
         opacity: bannerDefaults.overallOpacity
       }}
     >
-      {cachedRender !== null ? (
-        <img src={cachedRender} alt="" className="block size-full" />
-      ) : (
-        <>
-          {!skipBlur && !placeholderFailed && (
-            <div
-              className="absolute inset-0 overflow-hidden"
-              style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
-            >
-              <motion.img
-                src={placeholder ?? source}
-                alt=""
-                onError={() => setPlaceholderFailed(true)}
-                className={cn(
-                  "absolute",
-                  !cropStyle && "inset-0 size-full object-cover"
-                )}
-                style={{ ...cropStyle }}
-                initial={false}
-                animate={{
-                  filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
-                  opacity: painted ? 0 : 1
-                }}
-                transition={{ filter: unblur, opacity: dissolve }}
-              />
-            </div>
-          )}
-          {shaderImage && (
-            <motion.div
-              className="size-full"
-              initial={false}
-              animate={{ opacity: skipBlur || painted ? 1 : 0 }}
-              transition={skipBlur ? { duration: 0 } : dissolve}
-            >
-              <Suspense fallback={null}>
-                <CachedShaderBanner
-                  key={`${source}/${crop.x}/${crop.y}/${crop.zoom}/${variant}`}
-                  image={shaderImage}
-                  settings={settings}
-                  cacheKey={cacheKey}
-                  onFirstRender={onShaderRender}
-                />
-              </Suspense>
-            </motion.div>
-          )}
-        </>
+      {settled !== null && (
+        <img
+          src={settled}
+          alt=""
+          className="absolute inset-0 block size-full"
+        />
+      )}
+      {settled === null && !skipBlur && !placeholderFailed && (
+        <div
+          className="absolute inset-0 overflow-hidden"
+          style={{ maskImage: fadeMask, WebkitMaskImage: fadeMask }}
+        >
+          <motion.img
+            src={placeholder ?? source}
+            alt=""
+            onError={() => setPlaceholderFailed(true)}
+            className={cn(
+              "absolute",
+              !cropStyle && "inset-0 size-full object-cover"
+            )}
+            style={{ ...cropStyle }}
+            initial={false}
+            animate={{
+              filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
+              opacity: painted ? 0 : 1
+            }}
+            transition={{ filter: unblur, opacity: dissolve }}
+          />
+        </div>
+      )}
+      {shaderImage && (
+        <motion.div
+          className="absolute inset-0 size-full"
+          initial={false}
+          animate={{ opacity: shaderVisible ? 1 : 0 }}
+          transition={skipBlur || settled !== null ? { duration: 0 } : dissolve}
+        >
+          <Suspense fallback={null}>
+            <CachedShaderBanner
+              key={`${source}/${variant}`}
+              image={shaderImage}
+              settings={settings}
+              cacheKey={cacheKey}
+              live={editing}
+              onFirstRender={onShaderRender}
+            />
+          </Suspense>
+        </motion.div>
       )}
     </div>
   )
