@@ -1,4 +1,8 @@
-import type { Ticket, TicketDetail, UpdateTicketInput } from "@projectproject/shared"
+import type {
+  Ticket,
+  TicketDetail,
+  UpdateTicketInput
+} from "@projectproject/shared"
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(

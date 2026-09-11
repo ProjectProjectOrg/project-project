@@ -17,7 +17,8 @@ export const projectScope = (orgSlug: string, slug: string): string =>
  */
 export const Keys = {
   /** One ticket's content, wherever it is shown. */
-  ticket: (scope: string, id: TicketId): string => `ticket-content/${scope}/${id}`,
+  ticket: (scope: string, id: TicketId): string =>
+    `ticket-content/${scope}/${id}`,
   /** Any query whose rows are tickets in this project. */
   ticketsIn: (scope: string): string => `tickets/${scope}`,
   /** Any list/section/board projection of this project's tickets. */

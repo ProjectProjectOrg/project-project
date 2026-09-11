@@ -19,7 +19,10 @@ describe("Results.meta", () => {
   it("is waiting when any part is waiting and takes the newest timestamp", () => {
     const older = AsyncResult.success(1, { timestamp: 10 })
     const newer = AsyncResult.success(2, { timestamp: 20, waiting: true })
-    expect(Results.meta([older, newer])).toEqual({ waiting: true, timestamp: 20 })
+    expect(Results.meta([older, newer])).toEqual({
+      waiting: true,
+      timestamp: 20
+    })
   })
 
   it("is not waiting when every part settled", () => {
