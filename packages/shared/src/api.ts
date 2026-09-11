@@ -256,12 +256,16 @@ const OrgGroup = HttpApiGroup.make("org")
     })
   )
   .add(
-    HttpApiEndpoint.patch("updateMemberRole", "/orgs/:orgSlug/members/:userId", {
-      params: OrgMemberPath,
-      payload: UpdateMemberRoleInput,
-      success: OrgMember,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
-    })
+    HttpApiEndpoint.patch(
+      "updateMemberRole",
+      "/orgs/:orgSlug/members/:userId",
+      {
+        params: OrgMemberPath,
+        payload: UpdateMemberRoleInput,
+        success: OrgMember,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
   )
   .add(
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
@@ -282,12 +286,16 @@ const OrgGroup = HttpApiGroup.make("org")
     )
   )
   .add(
-    HttpApiEndpoint.post("transferOwnership", "/orgs/:orgSlug/transfer-ownership", {
-      params: OrgPath,
-      payload: OrgTransferOwnershipInput,
-      success: OrgMembers,
-      error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
-    })
+    HttpApiEndpoint.post(
+      "transferOwnership",
+      "/orgs/:orgSlug/transfer-ownership",
+      {
+        params: OrgPath,
+        payload: OrgTransferOwnershipInput,
+        success: OrgMembers,
+        error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
+      }
+    )
   )
   .add(
     HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {

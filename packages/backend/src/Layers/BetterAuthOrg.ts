@@ -22,7 +22,11 @@ const makeAssignableRole = Schema.decodeUnknownSync(
 const mapMember = (member: {
   userId: string
   role: string
-  user?: { name?: string | null; email?: string | null; image?: string | null } | null
+  user?: {
+    name?: string | null
+    email?: string | null
+    image?: string | null
+  } | null
 }): OrgMember => ({
   userId: member.userId,
   role: collapseRole(member.role),
@@ -59,6 +63,37 @@ const orgIdForSlug = (request: Request, orgSlug: string) =>
 export const betterAuthOrgMethods = {
   getMembers: (request: Request, orgSlug: string) =>
     Effect.tryPromise({
+      try: () =>
+        auth.api.getFullOrganization({
+          query: { organizationSlug: orgSlug },
+          headers: request.headers,
+          request
+        }),
+      catch: (cause) => new BetterAuthError({ cause })
+    }).pipe(
+      Effect.flatMap((full) => {
+        if (!full) return Effect.fail(new NotFound())
+        const members = (full.members ?? []).map(mapMember)
+        const invitations = (full.invitations ?? [])
+          .filter((invitation) => invitation.status === "pending")
+          .map(mapInvitation)
+        return Effect.succeed({ members, invitations } satisfies OrgMembers)
+      })
+    ),
+
+  renameOrg: (request: Request, orgSlug: string, name: string) =>
+    Effect.gen(function* () {
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.updateOrganization({
+            body: { data: { name }, organizationId: orgId },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      const full = yield* Effect.tryPromise({
         try: () =>
           auth.api.getFullOrganization({
             query: { organizationSlug: orgSlug },
@@ -66,69 +101,38 @@ export const betterAuthOrgMethods = {
             request
           }),
         catch: (cause) => new BetterAuthError({ cause })
-      }).pipe(
-        Effect.flatMap((full) => {
-          if (!full) return Effect.fail(new NotFound())
-          const members = (full.members ?? []).map(mapMember)
-          const invitations = (full.invitations ?? [])
-            .filter((invitation) => invitation.status === "pending")
-            .map(mapInvitation)
-          return Effect.succeed({ members, invitations } satisfies OrgMembers)
-        })
-      ),
-
-  renameOrg: (request: Request, orgSlug: string, name: string) =>
-    Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.updateOrganization({
-              body: { data: { name }, organizationId: orgId },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        const full = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.getFullOrganization({
-              query: { organizationSlug: orgSlug },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        if (!full) return yield* new NotFound()
-        const self = full.members?.[0]
-        return {
-          id: full.id,
-          slug: full.slug,
-          name: full.name,
-          role: collapseRole(self?.role ?? "member"),
-          createdAt: full.createdAt,
-          deletedAt: full.deletedAt ?? null,
-          purgeAt: null
-        } satisfies OrgDetail
-      }),
+      })
+      if (!full) return yield* new NotFound()
+      const self = full.members?.[0]
+      return {
+        id: full.id,
+        slug: full.slug,
+        name: full.name,
+        role: collapseRole(self?.role ?? "member"),
+        createdAt: full.createdAt,
+        deletedAt: full.deletedAt ?? null,
+        purgeAt: null
+      } satisfies OrgDetail
+    }),
 
   inviteMember: (request: Request, orgSlug: string, input: InviteMemberInput) =>
     Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        const invitation = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.createInvitation({
-              body: {
-                email: input.email,
-                role: input.role,
-                organizationId: orgId
-              },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        return mapInvitation(invitation)
-      }),
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      const invitation = yield* Effect.tryPromise({
+        try: () =>
+          auth.api.createInvitation({
+            body: {
+              email: input.email,
+              role: input.role,
+              organizationId: orgId
+            },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      return mapInvitation(invitation)
+    }),
 
   updateMemberRole: (
     request: Request,
@@ -137,58 +141,58 @@ export const betterAuthOrgMethods = {
     role: AssignableRole
   ) =>
     Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        const full = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.getFullOrganization({
-              query: { organizationSlug: orgSlug },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        const member = full?.members?.find((m) => m.userId === userId)
-        if (!member) return yield* new NotFound()
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.updateMemberRole({
-              body: {
-                role: makeAssignableRole(role),
-                memberId: member.id,
-                organizationId: orgId
-              },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        return mapMember({ ...member, role })
-      }),
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      const full = yield* Effect.tryPromise({
+        try: () =>
+          auth.api.getFullOrganization({
+            query: { organizationSlug: orgSlug },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      const member = full?.members?.find((m) => m.userId === userId)
+      if (!member) return yield* new NotFound()
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.updateMemberRole({
+            body: {
+              role: makeAssignableRole(role),
+              memberId: member.id,
+              organizationId: orgId
+            },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      return mapMember({ ...member, role })
+    }),
 
   removeMember: (request: Request, orgSlug: string, userId: string) =>
     Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        const full = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.getFullOrganization({
-              query: { organizationSlug: orgSlug },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        const member = full?.members?.find((m) => m.userId === userId)
-        if (!member) return yield* new NotFound()
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.removeMember({
-              body: { memberIdOrEmail: member.id, organizationId: orgId },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-      }),
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      const full = yield* Effect.tryPromise({
+        try: () =>
+          auth.api.getFullOrganization({
+            query: { organizationSlug: orgSlug },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      const member = full?.members?.find((m) => m.userId === userId)
+      if (!member) return yield* new NotFound()
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.removeMember({
+            body: { memberIdOrEmail: member.id, organizationId: orgId },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+    }),
 
   cancelInvitation: (
     request: Request,
@@ -196,14 +200,14 @@ export const betterAuthOrgMethods = {
     invitationId: string
   ) =>
     Effect.tryPromise({
-        try: () =>
-          auth.api.cancelInvitation({
-            body: { invitationId },
-            headers: request.headers,
-            request
-          }),
-        catch: (cause) => new BetterAuthError({ cause })
-      }),
+      try: () =>
+        auth.api.cancelInvitation({
+          body: { invitationId },
+          headers: request.headers,
+          request
+        }),
+      catch: (cause) => new BetterAuthError({ cause })
+    }),
 
   transferOwnership: (
     request: Request,
@@ -212,110 +216,110 @@ export const betterAuthOrgMethods = {
     selfUserId: string
   ) =>
     Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        const full = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.getFullOrganization({
-              query: { organizationSlug: orgSlug },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        const target = full?.members?.find((m) => m.userId === toUserId)
-        const self = full?.members?.find((m) => m.userId === selfUserId)
-        if (!target || !self) return yield* new NotFound()
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.updateMemberRole({
-              body: { role: "owner", memberId: target.id, organizationId: orgId },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.updateMemberRole({
-              body: { role: "admin", memberId: self.id, organizationId: orgId },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        return yield* betterAuthOrgMethods.getMembers(request, orgSlug)
-      }),
-
-  leaveOrg: (request: Request, orgSlug: string) =>
-    Effect.gen(function* () {
-        const orgId = yield* orgIdForSlug(request, orgSlug)
-        yield* Effect.tryPromise({
-          try: () =>
-            auth.api.leaveOrganization({
-              body: { organizationId: orgId },
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-      }),
-
-  listInvitations: (request: Request) =>
-    Effect.gen(function* () {
-        const listed = yield* Effect.tryPromise({
-          try: () =>
-            auth.api.listUserInvitations({
-              headers: request.headers,
-              request
-            }),
-          catch: (cause) => new BetterAuthError({ cause })
-        })
-        const out: Array<UserInvitation> = []
-        for (const invite of listed ?? []) {
-          const detail = yield* Effect.tryPromise({
-            try: () =>
-              auth.api.getInvitation({
-                query: { id: invite.id },
-                headers: request.headers,
-                request
-              }),
-            catch: (cause) => new BetterAuthError({ cause })
-          })
-          if (!detail) continue
-          out.push({
-            id: detail.id,
-            orgSlug: detail.organizationSlug,
-            orgName: detail.organizationName,
-            role: collapseRole(detail.role),
-            inviterEmail: detail.inviterEmail ?? null,
-            expiresAt: detail.expiresAt
-          })
-        }
-        return out
-      }),
-
-  getInvitation: (request: Request, invitationId: string) =>
-    Effect.tryPromise({
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      const full = yield* Effect.tryPromise({
         try: () =>
-          auth.api.getInvitation({
-            query: { id: invitationId },
+          auth.api.getFullOrganization({
+            query: { organizationSlug: orgSlug },
             headers: request.headers,
             request
           }),
         catch: (cause) => new BetterAuthError({ cause })
-      }).pipe(
-        Effect.flatMap((detail) => {
-          if (!detail) return Effect.fail(new NotFound())
-          return Effect.succeed({
-            id: detail.id,
-            orgSlug: detail.organizationSlug,
-            orgName: detail.organizationName,
-            role: collapseRole(detail.role),
-            inviterEmail: detail.inviterEmail ?? null,
-            expiresAt: detail.expiresAt
-          } satisfies UserInvitation)
+      })
+      const target = full?.members?.find((m) => m.userId === toUserId)
+      const self = full?.members?.find((m) => m.userId === selfUserId)
+      if (!target || !self) return yield* new NotFound()
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.updateMemberRole({
+            body: { role: "owner", memberId: target.id, organizationId: orgId },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.updateMemberRole({
+            body: { role: "admin", memberId: self.id, organizationId: orgId },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      return yield* betterAuthOrgMethods.getMembers(request, orgSlug)
+    }),
+
+  leaveOrg: (request: Request, orgSlug: string) =>
+    Effect.gen(function* () {
+      const orgId = yield* orgIdForSlug(request, orgSlug)
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.leaveOrganization({
+            body: { organizationId: orgId },
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+    }),
+
+  listInvitations: (request: Request) =>
+    Effect.gen(function* () {
+      const listed = yield* Effect.tryPromise({
+        try: () =>
+          auth.api.listUserInvitations({
+            headers: request.headers,
+            request
+          }),
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+      const out: Array<UserInvitation> = []
+      for (const invite of listed ?? []) {
+        const detail = yield* Effect.tryPromise({
+          try: () =>
+            auth.api.getInvitation({
+              query: { id: invite.id },
+              headers: request.headers,
+              request
+            }),
+          catch: (cause) => new BetterAuthError({ cause })
         })
-      ),
+        if (!detail) continue
+        out.push({
+          id: detail.id,
+          orgSlug: detail.organizationSlug,
+          orgName: detail.organizationName,
+          role: collapseRole(detail.role),
+          inviterEmail: detail.inviterEmail ?? null,
+          expiresAt: detail.expiresAt
+        })
+      }
+      return out
+    }),
+
+  getInvitation: (request: Request, invitationId: string) =>
+    Effect.tryPromise({
+      try: () =>
+        auth.api.getInvitation({
+          query: { id: invitationId },
+          headers: request.headers,
+          request
+        }),
+      catch: (cause) => new BetterAuthError({ cause })
+    }).pipe(
+      Effect.flatMap((detail) => {
+        if (!detail) return Effect.fail(new NotFound())
+        return Effect.succeed({
+          id: detail.id,
+          orgSlug: detail.organizationSlug,
+          orgName: detail.organizationName,
+          role: collapseRole(detail.role),
+          inviterEmail: detail.inviterEmail ?? null,
+          expiresAt: detail.expiresAt
+        } satisfies UserInvitation)
+      })
+    ),
 
   acceptInvitation: (request: Request, invitationId: string, _userId: string) =>
     Effect.gen(function* () {
@@ -341,14 +345,14 @@ export const betterAuthOrgMethods = {
 
   rejectInvitation: (request: Request, invitationId: string) =>
     Effect.tryPromise({
-        try: () =>
-          auth.api.rejectInvitation({
-            body: { invitationId },
-            headers: request.headers,
-            request
-          }),
-        catch: (cause) => new BetterAuthError({ cause })
-      }),
+      try: () =>
+        auth.api.rejectInvitation({
+          body: { invitationId },
+          headers: request.headers,
+          request
+        }),
+      catch: (cause) => new BetterAuthError({ cause })
+    }),
 
   getPublicClientName: (clientId: string) =>
     Effect.tryPromise({

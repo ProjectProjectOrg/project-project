@@ -10,9 +10,9 @@ export const OAuthPublicHandlerLive = HttpApiBuilder.group(
     handlers.handle("publicClient", ({ query }) =>
       Effect.gen(function* () {
         const ba = yield* BetterAuth
-        const name = yield* ba.getPublicClientName(query.client_id).pipe(
-          Effect.catchTag("BetterAuthError", () => Effect.succeed(null))
-        )
+        const name = yield* ba
+          .getPublicClientName(query.client_id)
+          .pipe(Effect.catchTag("BetterAuthError", () => Effect.succeed(null)))
         if (name === null) return yield* new NotFound()
         return { name }
       })

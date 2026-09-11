@@ -1,6 +1,12 @@
 import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { AppApi, Conflict, CurrentUser, Forbidden, NotFound } from "@projectproject/shared"
+import {
+  AppApi,
+  Conflict,
+  CurrentUser,
+  Forbidden,
+  NotFound
+} from "@projectproject/shared"
 import { BetterAuthError } from "../Services/BetterAuth"
 import * as Effect from "effect/Effect"
 import { Org } from "../Services/Org"
@@ -55,9 +61,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
       Effect.gen(function* () {
         const ba = yield* BetterAuth
         const request = yield* webRequest
-        return yield* withMemberErrors(
-          ba.getMembers(request, params.orgSlug)
-        )
+        return yield* withMemberErrors(ba.getMembers(request, params.orgSlug))
       })
     )
     .handle("rename", ({ params, payload }) =>
@@ -106,11 +110,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const ba = yield* BetterAuth
         const request = yield* webRequest
         yield* withMemberErrors(
-          ba.cancelInvitation(
-            request,
-            params.orgSlug,
-            params.invitationId
-          )
+          ba.cancelInvitation(request, params.orgSlug, params.invitationId)
         )
       })
     )
