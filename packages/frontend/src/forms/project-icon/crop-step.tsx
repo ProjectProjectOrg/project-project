@@ -1,3 +1,4 @@
+import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { Button } from "@/components/ui/button"
 import { CropWindow } from "@/components/ui/crop-window"
 import { Slider } from "@/components/ui/slider"
@@ -8,12 +9,10 @@ import type { IconForm } from "./index"
 export function CropStep({
   form,
   src,
-  onBack,
   onAdvance
 }: {
   form: IconForm
   src: string
-  onBack: () => void
   onAdvance: () => void
 }) {
   return (
@@ -24,13 +23,17 @@ export function CropStep({
     >
       {(group) => (
         <form
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-3 p-3"
           onSubmit={(event) => {
             event.preventDefault()
             event.stopPropagation()
             void group.handleSubmit()
           }}
         >
+          <StepHeading current={2} total={3}>
+            {m.project_icon_step_crop_heading()}
+          </StepHeading>
+
           <group.Subscribe selector={(state) => state.values}>
             {(crop) => (
               <>
@@ -58,23 +61,22 @@ export function CropStep({
                     form.setFieldValue("crop.zoom", zoom as number)
                   }
                   formatValue={(value) => `${value.toFixed(2)}×`}
+                  valuePosition="top"
                   endLabels={[
                     m.project_icon_crop_zoom_min(),
                     m.project_icon_crop_zoom_max()
                   ]}
                 />
+                <p className="text-[13px] text-muted-foreground">
+                  {m.project_icon_crop_hint()}
+                </p>
               </>
             )}
           </group.Subscribe>
 
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onBack}>
-              {m.project_icon_back()}
-            </Button>
-            <Button type="submit" size="sm">
-              {m.project_icon_next()}
-            </Button>
-          </div>
+          <Button type="submit" size="sm" className="self-start">
+            {m.project_appearance_continue()}
+          </Button>
         </form>
       )}
     </form.FormGroup>

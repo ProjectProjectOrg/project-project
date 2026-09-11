@@ -48,6 +48,7 @@ const renderForm = () =>
       slug="proj"
       icon="🎨"
       iconImage={null}
+      accent="#5F7A4F"
       onDone={() => {}}
     />
   )
@@ -85,12 +86,20 @@ it("does not offer gif in the file picker's accept list", () => {
   expect(fileInput.accept).toContain("image/png")
 })
 
-it("saves the emoji and clears any image when the emoji source is applied", async () => {
+it("picks the emoji inline rather than in a popover", () => {
+  const { container } = renderForm()
+
+  fireEvent.click(screen.getByRole("button", { name: "Emoji" }))
+
+  expect(container.querySelector("[data-slot='popover-content']")).toBeNull()
+  expect(
+    container.querySelector("[data-slot='emoji-picker-search']")
+  ).toBeTruthy()
+})
+
+it("offers no call to action on the source step", () => {
   renderForm()
 
-  fireEvent.click(screen.getByRole("button", { name: "Next" }))
-
-  await vi.waitFor(() => expect(mocks.update).toHaveBeenCalled())
-  expect(mocks.update).toHaveBeenCalledWith({ icon: "🎨", iconImage: null })
-  expect(mocks.upload).not.toHaveBeenCalled()
+  expect(screen.queryByRole("button", { name: "Apply" })).toBeNull()
+  expect(screen.queryByRole("button", { name: "Continue" })).toBeNull()
 })

@@ -103,6 +103,7 @@ export function useIconDraft() {
     primeFrom,
     markUnclean,
     bitmap: () => bitmapRef.current,
-    file: () => fileRef.current
+    file: () => fileRef.current,
+    fileName: () => fileRef.current?.name ?? null
   }
 }

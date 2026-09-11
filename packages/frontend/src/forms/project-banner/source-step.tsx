@@ -1,9 +1,11 @@
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
-import { useRef } from "react"
-import { Trash2, Upload } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { useRef, useState } from "react"
+import { Database, Upload } from "lucide-react"
 import { orgStorageAtom } from "@/atoms/storage"
 import { SegmentedTabs, SEGMENTED_ITEM_CLASS } from "@/components/SegmentedTabs"
+import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { bannerPresets } from "@/components/project-banner-presets"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -16,20 +18,20 @@ export function BannerSourceStep({
   orgSlug,
   onAdvance,
   onPickFile,
-  onRemove,
   rejected
 }: {
   form: BannerForm
   orgSlug: string
   onAdvance: () => void
   onPickFile: (file: File) => void
-  onRemove: () => void
   rejected: boolean
 }) {
   const storage = useAtomValue(orgStorageAtom(orgSlug))
   const storageAvailable =
     AsyncResult.isSuccess(storage) && storage.value.status === "active"
+  const storageKnown = AsyncResult.isSuccess(storage)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
 
   return (
     <form.FormGroup
@@ -39,22 +41,29 @@ export function BannerSourceStep({
     >
       {(group) => (
         <form
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-3 p-3"
           onSubmit={(event) => {
             event.preventDefault()
             event.stopPropagation()
             void group.handleSubmit()
           }}
         >
+          <StepHeading current={1} total={2}>
+            {m.project_banner_step_source_heading()}
+          </StepHeading>
+
           <group.Field name="kind">
             {(field) => (
               <SegmentedTabs
                 variant="inline"
+                className="self-start"
                 items={[
                   { key: "artwork", label: m.project_banner_tab_artwork() },
                   { key: "upload", label: m.project_banner_tab_upload() }
                 ]}
-                isActive={(key) => key === field.value}
+                isActive={(key) =>
+                  key === (field.value === "none" ? "artwork" : field.value)
+                }
                 renderItem={(item, content, { active }) => (
                   <button
                     type="button"
@@ -76,28 +85,70 @@ export function BannerSourceStep({
           <group.Subscribe selector={(state) => state.values}>
             {(source) =>
               source.kind === "upload" ? (
-                <div className="flex flex-col gap-2">
-                  <Button
+                storageKnown && !storageAvailable ? (
+                  <div className="flex gap-3 rounded-md bg-muted p-3">
+                    <Database
+                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                      strokeWidth={1.75}
+                    />
+                    <div className="flex flex-col items-start gap-2">
+                      <span className="text-[13px] font-medium">
+                        {m.project_banner_settings_storage_required()}
+                      </span>
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        render={
+                          <Link
+                            to="/orgs/$orgSlug/settings/storage"
+                            params={{ orgSlug }}
+                          />
+                        }
+                      >
+                        {m.project_icon_storage_action()}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
                     type="button"
-                    variant="tertiary"
-                    size="sm"
-                    leadingIcon={Upload}
-                    disabled={!storageAvailable}
                     onClick={() => fileRef.current?.click()}
+                    onDragOver={(event) => {
+                      event.preventDefault()
+                      setDragging(true)
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      setDragging(false)
+                      const file = event.dataTransfer.files[0]
+                      if (file) onPickFile(file)
+                    }}
+                    className={cn(
+                      "flex flex-col items-center gap-1 rounded-md border border-dashed px-4 py-8",
+                      "transition-all duration-100 active:scale-[0.97]",
+                      dragging
+                        ? "border-ring bg-accent/60"
+                        : "border-border hover:bg-accent/40"
+                    )}
                   >
-                    {m.project_banner_settings_upload()}
-                  </Button>
-                  {AsyncResult.isSuccess(storage) && !storageAvailable ? (
-                    <p className="text-xs text-muted-foreground">
-                      {m.project_banner_settings_storage_required()}
-                    </p>
-                  ) : null}
-                </div>
+                    <Upload
+                      className="mb-1 size-4 text-muted-foreground"
+                      strokeWidth={1.75}
+                    />
+                    <span className="text-[13px] font-medium">
+                      {m.project_icon_dropzone_title()}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {m.project_icon_dropzone_hint()}
+                    </span>
+                  </button>
+                )
               ) : (
                 <div
                   role="group"
                   aria-label={m.project_banner_templates_heading()}
-                  className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                  className="grid grid-cols-2 gap-2.5"
                 >
                   {bannerPresets.map((entry) => (
                     <button
@@ -112,14 +163,14 @@ export function BannerSourceStep({
                         form.setFieldValue("crop.y", entry.y)
                         form.setFieldValue("crop.zoom", 1)
                       }}
-                      className="group/reveal flex flex-col gap-1.5 text-left outline-none"
+                      className="flex flex-col gap-1.5 text-left outline-none transition-transform duration-100 active:scale-[0.97]"
                     >
                       <span
                         className={cn(
-                          "block aspect-[3/1] w-full overflow-hidden rounded-lg ring-1 transition-[box-shadow]",
+                          "block aspect-[3/1] w-full overflow-hidden rounded-md transition-shadow",
                           source.preset === entry.id
                             ? "ring-2 ring-foreground"
-                            : "ring-border/60"
+                            : "ring-1 ring-border"
                         )}
                       >
                         <img
@@ -143,25 +194,14 @@ export function BannerSourceStep({
           </group.Subscribe>
 
           {rejected ? (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-[13px] text-destructive">
               {m.project_banner_settings_load_error()}
             </p>
           ) : null}
 
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={m.project_banner_settings_remove()}
-              onClick={onRemove}
-            >
-              <Trash2 />
-            </Button>
-            <Button type="submit" size="sm">
-              {m.project_icon_next()}
-            </Button>
-          </div>
+          <Button type="submit" size="sm" className="self-start">
+            {m.project_appearance_continue()}
+          </Button>
 
           <input
             ref={fileRef}
