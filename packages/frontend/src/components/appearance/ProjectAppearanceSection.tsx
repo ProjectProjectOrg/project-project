@@ -59,6 +59,7 @@ export function ProjectAppearanceSection({
   const updateState = useAtomValue(updateProjectAtom(key))
   const [editing, setEditing] = useState<"icon" | "banner" | null>(null)
   const [live, setLive] = useState<LiveIcon | null>(null)
+  const [pickingColor, setPickingColor] = useState(false)
 
   const reduce = useReducedMotion() ?? false
   const morph = reduce ? { duration: 0 } : transitions.layout
@@ -148,7 +149,7 @@ export function ProjectAppearanceSection({
             </AnimatePresence>
           </AppearanceCard>
 
-          <AppearanceCard>
+          <AppearanceCard className={pickingColor ? "z-20" : undefined}>
             <AppearanceRow
               thumb={
                 <span
@@ -167,6 +168,7 @@ export function ProjectAppearanceSection({
                       update({ color: makeProjectColor(next) })
                     }
                     ariaLabel={m.color_picker_aria_label()}
+                    onOpenChange={setPickingColor}
                   />
                 ) : null
               }
