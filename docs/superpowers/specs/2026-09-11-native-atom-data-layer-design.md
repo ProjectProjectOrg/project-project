@@ -313,6 +313,45 @@ preview logic.
   `packages/shared` decision for Wouter.
 - No SSR hydration or `Atom.serializable` work.
 
+## Addendum: the organisation surface moves to HttpApi
+
+Added 2026-09-11 after review, and reflected in Phase E of the plan.
+
+The frontend currently calls better-auth directly from the browser for
+organisation member management, while organisation reads, project member
+management and OAuth consent already go through our API. That split is an
+accident. It is also the only reason `atoms/orgs.ts` and `atoms/auth.ts` would
+need a different transport, and therefore a different optimistic pattern, from
+every other module.
+
+**Decision.** Ordinary authorization-gated CRUD moves behind `AppApi`: the
+member list, invite, role change, remove, cancel invitation, transfer
+ownership, leave, rename, the four user-scoped invitation operations, and the
+public OAuth client lookup. The backend calls better-auth's server-side
+`auth.api` through the existing `BetterAuth` service, which already wraps
+`listOrganizations`, `getOrganization` and `submitConsent` this way.
+
+**Boundary.** Session and credential operations stay on `authClient` in the
+browser: sign in, sign out, magic link, social link and unlink, list accounts,
+`useSession`, `getSession` and `setActive`. They set cookies, perform full-page
+redirects, and drive `authClient.$store.atoms.$sessionSignal`, which
+`main.tsx` and `lib/sessionCache.ts` use to rebuild the registry on identity
+change. Proxying them would mean reimplementing cookie handling for no gain.
+
+**Consequences.** One transport and one optimistic pattern for everything the
+UI edits. Typed errors in the `E` channel instead of the `authData()` helper
+that throws on better-auth's `{ data, error }` shape. `transferOwnership`
+becomes a single atomic endpoint rather than two sequential client calls that
+can half-fail and leave an organisation with two owners or none. better-auth's
+comma-separated role storage stops reaching the browser.
+
+**Cost.** Thirteen new endpoints, and authorization for organisation membership
+moves from better-auth's own route handlers to ours. There is no public prior
+art for this combination: the request for an official Effect integration,
+better-auth issue #7338, was closed as not planned in January 2026, and the
+community work that exists solves session middleware rather than operation
+proxying.
+
 ## Module inventory and migration order
 
 Each stage is one PR with registry-level tests in the existing stubbed-fetch

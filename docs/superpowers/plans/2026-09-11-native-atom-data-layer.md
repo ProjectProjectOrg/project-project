@@ -20,10 +20,13 @@
 | B. Ticket atoms | 3-8 | Detail, backlog, counts, search |
 | C. Sprint atoms | 9-12 | Sprint list, detail, board, placement, membership |
 | D. Components and routes | 13-16 | Field components, backlog, detail, board |
-| E. Aggregate modules | 17-23 | The thirteen remaining atom modules and their consumers |
-| F. Deletion and docs | 24-25 | Old client and runtime gone, conventions rewritten |
+| E. Organisation API surface | 17-18 | Org members and invitations served over HttpApi |
+| F. Aggregate modules | 19-25 | The thirteen remaining atom modules and their consumers |
+| G. Deletion and docs | 26-27 | Old client and runtime gone, conventions rewritten |
 
-Phases C and E do not depend on each other. Phase D depends on B and C. Phase F depends on everything.
+Phases C, E and F do not depend on each other, except that Task 22 depends on Phase E. Phase D depends on B and C. Phase G depends on everything.
+
+**Phase E is backend work** in `packages/shared` and `packages/backend`. It is the only phase that changes the API surface, which `AGENTS.md` lists as needing Wouter's sign-off. Get the endpoint shapes in Task 17 approved before writing Task 18.
 
 ## Global Constraints
 
@@ -61,6 +64,17 @@ Phases C and E do not depend on each other. Phase D depends on B and C. Phase F 
 | `packages/frontend/src/atoms/sprintBoard.ts` | Group order plus ticket content composed into one region |
 | `packages/frontend/src/lib/gitStateMerge.ts` | Stale git-state merge, extracted from `github.ts` |
 | `packages/frontend/src/lib/orderKey.ts` | `compareByOrderKey`, moved out of the components layer |
+| `packages/frontend/src/atoms/invitations.ts` | User-scoped invitations, replacing the browser's better-auth fan-out |
+| `packages/backend/src/handlers/invitations.ts` | Handlers for the four invitation endpoints |
+| `packages/backend/src/handlers/org.test.ts` | Role collapsing and better-auth error mapping |
+
+**Backend and shared, Phase E:** `packages/shared/src/schemas/Org.ts` and
+`packages/shared/src/api.ts` gain the member and invitation surface;
+`packages/backend/src/Services/BetterAuth.ts`,
+`packages/backend/src/Layers/BetterAuth.ts`,
+`packages/backend/src/handlers/org.ts`,
+`packages/backend/src/handlers/oauthApplications.ts` and
+`packages/backend/src/main.ts` implement it.
 
 **Rewritten in place:** `tags.ts`, `projectStatuses.ts`, `projects.ts`, `orgs.ts`, `auth.ts`, `comments.ts`, `attachments.ts`, `storage.ts`, `github.ts`, `everhour.ts`, `figma.ts`, `timeTracking.ts`, `oauthApplications.ts`, `oauthConsent.ts`.
 
@@ -73,6 +87,8 @@ Phases C and E do not depend on each other. Phase D depends on B and C. Phase F 
 **Module boundary rule:** an atom module never imports from `components/`. Two violations exist today and are fixed here: `projectStatuses.ts` imports `compareByOrderKey` from `components/sprints/board-utils`, and `projects.ts` imports `bannerSource` from `components/project-banner-presets`.
 
 ---
+
+## Phase A: foundations
 
 ### Task 1: The Api client and reactivity keys
 
@@ -440,6 +456,8 @@ git commit -m "feat(atoms): add pure ticket patch and result composition helpers
 ```
 
 ---
+
+## Phase B: ticket atoms
 
 ### Task 3: Ticket detail wrapper and update mutation
 
@@ -1850,6 +1868,8 @@ git commit -m "feat(atoms): add native ticket counts and search queries"
 
 ---
 
+## Phase C: sprint atoms
+
 ### Task 9: Sprint list module
 
 **Files:**
@@ -2288,6 +2308,8 @@ git commit -m "feat(atoms): read sprint carryover statuses from the board wrappe
 
 ---
 
+## Phase D: components and routes
+
 ### Task 13: Field components become presentational
 
 Every ticket field control currently owns its own mutation atom and receives a
@@ -2439,7 +2461,7 @@ reads `sprintMembership(sprintListRequest(orgSlug, slug))`.
 
 `toolbar/counts.ts` reads `ticketCounts(countsRequest(...))`. `toolbar/Filters.tsx`
 reads `sprintList(sprintListRequest(...))` and `tagsFor(tagsRequest(...))` once
-Task 17 lands; until then leave the tags read untouched.
+Task 19 lands; until then leave the tags read untouched.
 
 - [ ] **Step 5: Switch the routes**
 
@@ -2580,14 +2602,457 @@ git commit -m "refactor(sprints): move the board and sprint surfaces onto the na
 
 ---
 
-## Phase E: aggregate modules
+## Phase E: move the organisation surface onto HttpApi
+
+Today the frontend talks to better-auth directly from the browser for
+organisation member management, while org reads, project member management and
+OAuth consent already go through our API. That split is an accident, not a
+design, and it is the only reason the orgs and auth atom modules need a
+different transport from everything else.
+
+These two tasks close the gap. After them, Task 22 is an ordinary recipe
+application rather than a special case.
+
+**What moves.** Ordinary authorization-gated CRUD: the member list, invite,
+role change, remove, cancel invitation, transfer ownership, leave, rename, and
+the four user-scoped invitation operations.
+
+**What stays on `authClient`, deliberately.** Sign in, sign out, magic link,
+social link and unlink, list accounts, `useSession`, `getSession` and
+`setActive`. These set cookies, perform full-page redirects, and drive
+`authClient.$store.atoms.$sessionSignal`, which `main.tsx` and
+`lib/sessionCache.ts` use to rebuild the registry on identity change. Proxying
+them would mean reimplementing cookie handling for no gain.
+
+**Precedent in this repo.** `Services/BetterAuth.ts` already wraps server-side
+better-auth calls behind an Effect service, including `listOrganizations`,
+`getOrganization` and `submitConsent`. `handlers/oauthApplications.ts:53-59`
+already shows how to forward the raw request so better-auth sees the caller's
+session. These tasks extend that shape; they do not introduce it.
+
+---
+
+### Task 17: Organisation and invitation API surface
+
+**Files:**
+- Modify: `packages/shared/src/schemas/Org.ts`
+- Modify: `packages/shared/src/api.ts`
+
+**Interfaces:**
+- Produces the schemas and endpoint identifiers Tasks 18 and 22 depend on.
+
+- [ ] **Step 1: Add the member and invitation schemas**
+
+In `packages/shared/src/schemas/Org.ts`, next to the existing `Org`, `OrgDetail`
+and `OrgRole`:
+
+```ts
+export const AssignableRole = Schema.Literals(["admin", "member"])
+export type AssignableRole = typeof AssignableRole.Type
+
+export const OrgMember = Schema.Struct({
+  userId: Schema.String,
+  role: OrgRole,
+  name: Schema.String,
+  email: Schema.String,
+  image: Schema.NullOr(Schema.String)
+})
+export type OrgMember = typeof OrgMember.Type
+
+export const OrgInvitation = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  role: OrgRole
+})
+export type OrgInvitation = typeof OrgInvitation.Type
+
+export const OrgMembers = Schema.Struct({
+  members: Schema.Array(OrgMember),
+  invitations: Schema.Array(OrgInvitation)
+})
+export type OrgMembers = typeof OrgMembers.Type
+
+/** An invitation as the invited user sees it, before they belong to the org. */
+export const UserInvitation = Schema.Struct({
+  id: Schema.String,
+  orgSlug: Slug,
+  orgName: Schema.String,
+  role: OrgRole,
+  inviterEmail: Schema.NullOr(Schema.String),
+  expiresAt: Schema.DateFromString
+})
+export type UserInvitation = typeof UserInvitation.Type
+
+export const InviteMemberInput = Schema.Struct({
+  email: Schema.String,
+  role: AssignableRole
+})
+export type InviteMemberInput = typeof InviteMemberInput.Type
+
+export const UpdateMemberRoleInput = Schema.Struct({ role: AssignableRole })
+export type UpdateMemberRoleInput = typeof UpdateMemberRoleInput.Type
+
+export const TransferOwnershipInput = Schema.Struct({ toUserId: Schema.String })
+export type TransferOwnershipInput = typeof TransferOwnershipInput.Type
+
+export const RenameOrgInput = Schema.Struct({ name: Schema.String })
+export type RenameOrgInput = typeof RenameOrgInput.Type
+```
+
+`AssignableRole` already exists elsewhere; if it is defined outside
+`schemas/Org.ts` today, move it here rather than declaring a second copy, and
+update its importers.
+
+These four types replace the locally declared `OrgMember`, `OrgInvitation` and
+`OrgMembers` in `packages/frontend/src/atoms/orgs.ts:30-45`, which exist only
+because the data never crossed our API before.
+
+- [ ] **Step 2: Add the paths**
+
+In `packages/shared/src/api.ts`, next to the existing path structs:
+
+```ts
+const OrgMemberPath = Schema.Struct({ orgSlug: Slug, userId: Schema.String })
+const OrgInvitationPath = Schema.Struct({
+  orgSlug: Slug,
+  invitationId: Schema.String
+})
+const InvitationPath = Schema.Struct({ invitationId: Schema.String })
+```
+
+- [ ] **Step 3: Extend `OrgGroup`**
+
+Add these eight endpoints to the existing `OrgGroup`, before `.middleware(Authentication)`:
+
+| Endpoint | Method and path | Payload | Success | Errors |
+| --- | --- | --- | --- | --- |
+| `members` | GET `/orgs/:orgSlug/members` | — | `OrgMembers` | `Unauthorized`, `NotFound`, `Forbidden` |
+| `rename` | PATCH `/orgs/:orgSlug` | `RenameOrgInput` | `OrgDetail` | `Unauthorized`, `NotFound`, `Forbidden` |
+| `inviteMember` | POST `/orgs/:orgSlug/members` | `InviteMemberInput` | `OrgInvitation` | `Unauthorized`, `NotFound`, `Forbidden`, `Validation`, `Conflict` |
+| `updateMemberRole` | PATCH `/orgs/:orgSlug/members/:userId` | `UpdateMemberRoleInput` | `OrgMember` | `Unauthorized`, `NotFound`, `Forbidden` |
+| `removeMember` | DELETE `/orgs/:orgSlug/members/:userId` | — | `HttpApiSchema.NoContent` | `Unauthorized`, `NotFound`, `Forbidden` |
+| `cancelInvitation` | DELETE `/orgs/:orgSlug/invitations/:invitationId` | — | `HttpApiSchema.NoContent` | `Unauthorized`, `NotFound`, `Forbidden` |
+| `transferOwnership` | POST `/orgs/:orgSlug/transfer-ownership` | `TransferOwnershipInput` | `OrgMembers` | `Unauthorized`, `NotFound`, `Forbidden`, `Validation` |
+| `leave` | POST `/orgs/:orgSlug/leave` | — | `HttpApiSchema.NoContent` | `Unauthorized`, `NotFound`, `Forbidden`, `Conflict` |
+
+Written out, following the existing style in the group:
+
+```ts
+  .add(
+    HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
+      params: OrgPath,
+      success: OrgMembers,
+      error: [Unauthorized, NotFound, Forbidden]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch("updateMemberRole", "/orgs/:orgSlug/members/:userId", {
+      params: OrgMemberPath,
+      payload: UpdateMemberRoleInput,
+      success: OrgMember,
+      error: [Unauthorized, NotFound, Forbidden]
+    })
+  )
+```
+
+`transferOwnership` returns the whole `OrgMembers` because it changes two rows
+at once. Today the frontend does this as two sequential `updateMemberRole`
+calls, which can half-fail and leave the org with two owners or none. One
+endpoint makes it atomic.
+
+`leave` returns `Conflict` when the caller is the sole owner.
+
+- [ ] **Step 4: Add the `invitations` group**
+
+Invitations are addressed by the invited user, who is not yet a member of the
+organisation, so they cannot live under `/orgs/:orgSlug`.
+
+```ts
+const InvitationsGroup = HttpApiGroup.make("invitations")
+  .add(
+    HttpApiEndpoint.get("list", "/invitations", {
+      success: Schema.Array(UserInvitation),
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/invitations/:invitationId", {
+      params: InvitationPath,
+      success: UserInvitation,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("accept", "/invitations/:invitationId/accept", {
+      params: InvitationPath,
+      success: Org,
+      error: [Unauthorized, NotFound, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("reject", "/invitations/:invitationId/reject", {
+      params: InvitationPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .middleware(Authentication)
+```
+
+`accept` returns the `Org` so the frontend can route to it without a second
+fetch. `list` replaces `pendingInvitesBaseAtom`, which currently makes one
+`getSession` call, one `listUserInvitations` call and then one `getInvitation`
+call per invitation, all from the browser.
+
+- [ ] **Step 5: Add the public OAuth client endpoint**
+
+`atoms/oauthConsent.ts` reaches `authClient.$fetch("/oauth2/public-client")`
+directly. Add it to `OAuthApplicationsGroup` so the consent screen uses one
+transport:
+
+```ts
+  .add(
+    HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
+      query: Schema.Struct({ client_id: Schema.String }),
+      success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
+      error: [NotFound]
+    })
+  )
+```
+
+This endpoint is unauthenticated by design: the consent screen renders the
+application name before the user has consented.
+
+- [ ] **Step 6: Register `InvitationsGroup` on `AppApi`**
+
+Add `.add(InvitationsGroup)` to the `AppApi` composition at the bottom of
+`packages/shared/src/api.ts`.
+
+- [ ] **Step 7: Verify**
+
+Run: `cd packages/shared && bun run typecheck`
+Expected: clean. The backend will not compile yet, because `HttpApiBuilder.group`
+requires every endpoint to be handled. That is Task 18.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add packages/shared/src
+git commit -m "feat(shared): add organisation member and invitation endpoints"
+```
+
+---
+
+### Task 18: Organisation and invitation handlers
+
+**Files:**
+- Modify: `packages/backend/src/Services/BetterAuth.ts`
+- Modify: `packages/backend/src/Layers/BetterAuth.ts`
+- Modify: `packages/backend/src/handlers/org.ts`
+- Create: `packages/backend/src/handlers/invitations.ts`
+- Modify: `packages/backend/src/handlers/oauthApplications.ts`
+- Modify: `packages/backend/src/main.ts`
+- Create: `packages/backend/src/handlers/org.test.ts`
+
+**Interfaces:**
+- Consumes: the schemas and endpoints from Task 17.
+- Produces: `OrgHandlerLive` extended, `InvitationsHandlerLive`, and twelve new methods on `BetterAuthShape`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `packages/backend/src/handlers/org.test.ts`. Follow
+`handlers/oauthApplications.test.ts`: test the pure error-mapping and role
+-collapsing functions directly rather than standing up a server.
+
+```ts
+import { expect, it } from "vite-plus/test"
+import { collapseRole } from "./org"
+
+it("collapses better-auth's comma-separated roles to the highest one", () => {
+  expect(collapseRole("member")).toBe("member")
+  expect(collapseRole("admin,member")).toBe("admin")
+  expect(collapseRole("owner,admin")).toBe("owner")
+})
+```
+
+`collapseRole` is the server-side home of `toOrgRole` from
+`packages/frontend/src/atoms/orgs.ts:47-52`. better-auth stores roles as a
+comma-separated string; that detail should not reach the browser.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd packages/backend && bun run test src/handlers/org.test.ts`
+Expected: FAIL — `collapseRole` is not exported.
+
+- [ ] **Step 3: Extend `BetterAuthShape`**
+
+In `packages/backend/src/Services/BetterAuth.ts`, add to the interface. Every
+method that mutates takes the caller's `Request` so better-auth sees the
+session, exactly as `submitConsent` already does:
+
+```ts
+  readonly getMembers: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly renameOrg: (
+    request: Request,
+    orgSlug: string,
+    name: string
+  ) => Effect.Effect<OrgDetail, BetterAuthError | NotFound>
+  readonly inviteMember: (
+    request: Request,
+    orgSlug: string,
+    input: InviteMemberInput
+  ) => Effect.Effect<OrgInvitation, BetterAuthError | NotFound>
+  readonly updateMemberRole: (
+    request: Request,
+    orgSlug: string,
+    userId: string,
+    role: AssignableRole
+  ) => Effect.Effect<OrgMember, BetterAuthError | NotFound>
+  readonly removeMember: (
+    request: Request,
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly cancelInvitation: (
+    request: Request,
+    orgSlug: string,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly transferOwnership: (
+    request: Request,
+    orgSlug: string,
+    toUserId: string,
+    selfUserId: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly leaveOrg: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly listInvitations: (
+    request: Request
+  ) => Effect.Effect<ReadonlyArray<UserInvitation>, BetterAuthError>
+  readonly getInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<UserInvitation, BetterAuthError | NotFound>
+  readonly acceptInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<Org, BetterAuthError | NotFound>
+  readonly rejectInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly getPublicClientName: (
+    clientId: string
+  ) => Effect.Effect<string | null, BetterAuthError>
+```
+
+- [ ] **Step 4: Implement them in `Layers/BetterAuth.ts`**
+
+Each follows the existing `submitConsent` shape: `Effect.tryPromise` around
+`auth.api.<method>({ body, headers: request.headers, request })`, with
+`catch: (cause) => new BetterAuthError({ cause })`. The better-auth organisation
+plugin methods are `getFullOrganization`, `updateOrganization`, `createInvitation`,
+`updateMemberRole`, `removeMember`, `cancelInvitation`, `leaveOrganization`,
+`listUserInvitations`, `getInvitation`, `acceptInvitation` and
+`rejectInvitation`. Confirm each name against the installed version before
+writing; do not trust this list blind.
+
+`transferOwnership` is the one that is not a single better-auth call. Implement
+it as the two role changes inside one `Effect.gen`, promoting the target before
+demoting the caller, so a mid-way failure leaves an org with two owners rather
+than none:
+
+```ts
+transferOwnership: (request, orgSlug, toUserId, selfUserId) =>
+  Effect.gen(function* () {
+    yield* setRole(request, orgSlug, toUserId, "owner")
+    yield* setRole(request, orgSlug, selfUserId, "admin")
+    return yield* getMembers(request, orgSlug)
+  })
+```
+
+Map better-auth's comma-separated role string through `collapseRole` in every
+method that returns a member.
+
+- [ ] **Step 5: Extend the org handler**
+
+In `packages/backend/src/handlers/org.ts`, export `collapseRole` and add the
+eight handlers. Each obtains the web request the way
+`handlers/oauthApplications.ts:54-55` does:
+
+```ts
+    .handle("updateMemberRole", ({ params, payload }) =>
+      Effect.gen(function* () {
+        const ba = yield* BetterAuth
+        const req = yield* HttpServerRequest.HttpServerRequest
+        const request = yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
+        return yield* ba.updateMemberRole(
+          request,
+          params.orgSlug,
+          params.userId,
+          payload.role
+        )
+      })
+    )
+```
+
+Authorization is better-auth's: it rejects a non-admin caller, and the
+`BetterAuthError` maps to `Forbidden`. Add a `memberErrorToFailure` helper
+beside the existing `consentErrorToFailure` that inspects the `APIError` status
+and produces `Forbidden`, `NotFound`, `Conflict` or `Validation`. Give it its
+own unit test in `org.test.ts`.
+
+- [ ] **Step 6: Create the invitations handler**
+
+`packages/backend/src/handlers/invitations.ts`, same shape, four handlers.
+
+- [ ] **Step 7: Add `publicClient` to the OAuth handler**
+
+One handler calling `ba.getPublicClientName(query.client_id)`.
+
+- [ ] **Step 8: Register the new group**
+
+Add `InvitationsHandlerLive` to the layer composition in
+`packages/backend/src/main.ts` alongside the other handler groups.
+
+- [ ] **Step 9: Verify**
+
+```bash
+cd packages/backend && bun run test && bun run typecheck
+```
+
+Expected: pass. The typecheck is the real gate here: `HttpApiBuilder.group`
+fails to compile until every endpoint added in Task 17 has a handler.
+
+- [ ] **Step 10: Manual check**
+
+Start the app per `docs/PROJECTPROJECT.md`. In organisation settings, invite a
+member, change a role, cancel an invitation. Watch the network tab: every call
+goes to `/api/orgs/...`, none to `/api/auth/...`.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add packages/backend/src
+git commit -m "feat(backend): serve organisation members and invitations over HttpApi"
+```
+
+---
+
+## Phase F: aggregate modules
 
 These thirteen modules are already close to the target shape: most have a
 private base, a public `Atom.optimistic` wrapper and `Atom.optimisticFn`
-mutations. The migration is mechanical except for `orgs`, `auth` and `github`,
-which get their own tasks.
+mutations. The migration is mechanical except for `github`, which carries
+machinery the recipe does not cover and gets its own task. `orgs` and `auth`
+would also have been an exception, but Phase E removes the reason.
 
-**The recipe, applied in every task below.** Task 17 is written out in full as
+**The recipe, applied in every task below.** Task 19 is written out in full as
 the worked example; later tasks give each module's specifics rather than
 repeating the recipe.
 
@@ -2604,16 +3069,17 @@ repeating the recipe.
 6. Give every read that is currently unwrapped a wrapper.
 7. Replace every no-op "waiting flag" reducer with a real one.
 
-- [ ] Before starting Phase E, add the remaining key constructors to
+- [ ] Before starting Phase F, add the remaining key constructors to
   `src/api/keys.ts` in one commit: `tags`, `tagUsage`, `statuses`, `project`,
-  `projects`, `org`, `orgs`, `orgMembers`, `comments`, `attachments`,
-  `storage`, `gitStates`, `branches`, `githubIntegration`, `everhourProfile`,
-  `everhourProject`, `figmaProfile`, `figmaProject`, `figmaTicketLinks`,
-  `activeTimer`, `ticketTime`, `workTypes`, `oauthApplications`.
+  `projects`, `org`, `orgs`, `orgMembers`, `invitations`, `me`, `comments`,
+  `attachments`, `storage`, `gitStates`, `branches`, `githubIntegration`,
+  `githubAuth`, `everhourProfile`, `everhourProject`, `figmaProfile`,
+  `figmaProject`, `figmaTicketLinks`, `activeTimer`, `ticketTime`, `workTypes`,
+  `oauthApplications`, `oauthClient`.
 
 ---
 
-### Task 17: Tags and project statuses
+### Task 19: Tags and project statuses
 
 **Files:**
 - Modify: `packages/frontend/src/atoms/tags.ts`
@@ -2754,7 +3220,7 @@ git commit -m "refactor(atoms): move tags and project statuses onto the native l
 
 ---
 
-### Task 18: Projects and storage
+### Task 20: Projects and storage
 
 **Files:**
 - Modify: `packages/frontend/src/atoms/projects.ts`, `packages/frontend/src/atoms/storage.ts`
@@ -2786,7 +3252,7 @@ the component that renders the images.
 `projects.ts` imports `bannerSource` from `@/components/project-banner-presets`,
 an atom module reaching into the components layer. Move the pure part it needs
 into `packages/frontend/src/lib/bannerSource.ts` alongside the `orderKey` move
-in Task 17.
+in Task 19.
 
 **storage.ts:** `orgStorage(req)` reads `storage` / `get`,
 `Keys.storage(orgSlug)`, 30 second TTL. `connectStorage` gets a real reducer
@@ -2806,7 +3272,7 @@ Stop exporting `orgStorageBaseAtom`; the one external refresh becomes
 
 ---
 
-### Task 19: Comments and attachments
+### Task 21: Comments and attachments
 
 **Files:**
 - Modify: `packages/frontend/src/atoms/comments.ts`, `packages/frontend/src/atoms/attachments.ts`
@@ -2842,66 +3308,80 @@ today it publishes nothing, which is an inconsistency, not a deliberate choice.
 
 ---
 
-### Task 20: Orgs and auth
+### Task 22: Orgs and auth
 
-**These two modules mostly do not call our API.** `auth.ts` uses better-auth's
-`authClient` for everything except `meAtom`, and `orgs.ts` uses it for members,
-invitations and renames. They cannot become `Api.query`.
+**Depends on Phase E.** With the org surface served over HttpApi, most of this
+module is now an ordinary recipe application. Only the session half still uses
+`authClient`.
 
-**The rule for them:** keep `Effect.tryPromise` around `authClient`, but run it
-through `Api.runtime.atom` and `Api.runtime.fn` so there is still exactly one
-runtime, and give every read explicit reactivity keys so the refresh fan-out
-stops being manual.
+**orgs.ts, all via `Api.query`:**
 
-```ts
-const orgMembersQuery = (req: OrgRequest) =>
-  Api.runtime
-    .atom(
-      Effect.gen(function* () {
-        const full = yield* authData(() =>
-          authClient.organization.getFullOrganization({
-            query: { organizationSlug: req.orgSlug }
-          })
-        )
-        return toOrgMembers(full)
-      })
-    )
-    .pipe(
-      Atom.withReactivity([Keys.orgMembers(req.orgSlug)]),
-      Atom.setIdleTTL("30 seconds")
-    )
+| Export | Endpoint | Keys | TTL | Change |
+| --- | --- | --- | --- | --- |
+| `userOrgs()` | `org` / `myOrgs` | `Keys.orgs()` | 1 minute | **newly wrapped** |
+| `orgDetail(req)` | `org` / `get` | `Keys.org(orgSlug)` | 2 minutes | stop exporting the base |
+| `orgMembers(req)` | `org` / `members` | `Keys.orgMembers(orgSlug)` | 30 seconds | was a direct better-auth call |
 
-export const orgMembers = Atom.family((req: OrgRequest) =>
-  Atom.optimistic(orgMembersQuery(req))
-)
-```
+**orgs.ts mutations, all `Atom.optimisticFn`:**
 
-Also in this task:
+| Export | Target | Input | Endpoint | Reducer |
+| --- | --- | --- | --- | --- |
+| `renameOrg(req)` | `orgDetail(req)` | `RenameOrgInput` | `org` / `rename` | set `name`; publish `Keys.orgs()` |
+| `inviteMember(req)` | `orgMembers(req)` | `InviteMemberInput` | `org` / `inviteMember` | **insert a pending invitation row.** Today's reducer is a no-op |
+| `updateMemberRole({ req, userId })` | `orgMembers(req)` | `UpdateMemberRoleInput` | `org` / `updateMemberRole` | rewrite that member's role |
+| `removeMember({ req, userId })` | `orgMembers(req)` | `void` | `org` / `removeMember` | filter the member out |
+| `cancelInvitation({ req, invitationId })` | `orgMembers(req)` | `void` | `org` / `cancelInvitation` | filter the invitation out |
+| `transferOwnership(req)` | `orgMembers(req)` | `TransferOwnershipInput` | `org` / `transferOwnership` | promote target to owner, demote caller to admin |
+| `leaveOrg(req)` | — | `void` | `org` / `leave` | plain `Api.runtime.fn`; publish `Keys.orgs()` |
+| `softDeleteOrg(req)` / `restoreOrg(req)` | `orgDetail(req)` | `void` | unchanged | give them real reducers |
 
-- Give `userOrgs` and `meAtom` wrappers; both are unwrapped today.
-- Replace the no-op reducer on `inviteOrgMember` with one that inserts a pending
-  invitation row.
-- Every member mutation currently reads `orgDetailBaseAtom` inside its `fn` to
-  find `organizationId`, and calls `Effect.die` if it is not loaded. Pass the
-  organization id through the family key instead, so the ordering dependency is
-  in the type rather than in a runtime death.
-- `routes/welcome.tsx` hand-rolls `registry.mount` / `registry.set` /
-  `Registry.getResult(..., { suspendOnWaiting: true })` / `unmount` in a
-  `Promise.all` to accept several invitations. Replace it with
-  `useAtomSet(acceptInvite(req), { mode: "promiseExit" })` per invitation and a
-  plain `Promise.all` over those.
+Three things this deletes outright:
 
-- [ ] **Step 1: Write failing tests** for the invitation insert preview and the
-  member role change preview.
+- The local `OrgMember`, `OrgInvitation` and `OrgMembers` types at
+  `atoms/orgs.ts:30-45`, replaced by the shared schemas from Task 17.
+- `toOrgRole`, the comma-separated-role collapse at `atoms/orgs.ts:47-52`. That
+  is a better-auth storage detail and now lives in `collapseRole` on the server.
+- The `orgDetailBaseAtom` read inside every member mutation's `fn`, which
+  existed to find `organizationId` and called `Effect.die` when the org was not
+  loaded yet. The server resolves the org from the slug in the path, so the
+  dependency disappears rather than moving.
+
+**invitations, a new module** `packages/frontend/src/atoms/invitations.ts`:
+`invitations()` reads `invitations` / `list` with `Keys.invitations()`.
+`acceptInvitation({ invitationId })` and `rejectInvitation({ invitationId })`
+are `Atom.optimisticFn` on it, both removing the row optimistically; accept also
+publishes `Keys.orgs()`. This replaces `pendingInvitesBaseAtom`, which fired one
+`getSession`, one `listUserInvitations` and one `getInvitation` per invitation
+from the browser.
+
+**auth.ts keeps only the session half.** `meAtom` becomes `me()` on
+`auth` / `me` with `Keys.me()` and a wrapper. `logout`,
+`connectPersonalGithub`, `disconnectPersonalGithub`, `updateEditorPreference`
+and `setActiveOrganization` stay as `Api.runtime.fn` wrapping `authClient`,
+because they manage cookies, redirects and the session store. Give them
+explicit key publication instead of `get.refresh(meAtom)`.
+
+- [ ] **Step 1: Write failing tests** for the invitation insert preview, the
+  member role change preview, and an accepted invitation disappearing from the
+  list immediately.
 - [ ] **Step 2: Run them and watch them fail.**
-- [ ] **Step 3: Rewrite both modules** per the rule above.
-- [ ] **Step 4: Rewrite `routes/welcome.tsx`** and the org settings consumers.
-- [ ] **Step 5: Run the suite, typecheck, format, lint.**
-- [ ] **Step 6: Commit** `refactor(atoms): move orgs and auth onto one runtime with declared keys`.
+- [ ] **Step 3: Rewrite `orgs.ts` and `auth.ts`, and add `invitations.ts`.**
+- [ ] **Step 4: Rewrite `routes/welcome.tsx`.** It currently hand-rolls
+  `registry.mount` / `registry.set` /
+  `Registry.getResult(..., { suspendOnWaiting: true })` / `unmount` inside a
+  `Promise.all` to accept several invitations at once. Replace with
+  `useAtomSet(acceptInvitation(...), { mode: "promiseExit" })` per invitation
+  and a plain `Promise.all`, dropping the local `failedAccepts` and
+  `acceptingAll` state.
+- [ ] **Step 5: Update the org settings consumers**, `OrgMembersSection.tsx`,
+  `MembersSection.tsx`, `settings/members.tsx`, `settings/general.tsx`,
+  `settings/danger.tsx`, `OrgSwitcher.tsx`, `DeletedOrgPage.tsx`.
+- [ ] **Step 6: Run the suite, typecheck, format, lint.**
+- [ ] **Step 7: Commit** `refactor(atoms): move orgs, invitations and auth onto the native layer`.
 
 ---
 
-### Task 21: GitHub
+### Task 23: GitHub
 
 **This is the one aggregate module that is a redesign rather than a
 conversion.** It carries four hand-rolled mechanisms that the native layer
@@ -2941,7 +3421,7 @@ All four become wrappers; three are unwrapped today. The repo pagination loop in
 `githubRepos` stays inside the query effect.
 
 **Mutations:** `connectGithub(req)` and `disconnectGithub(req)` target
-`project(req)` from Task 18. `createBranch({ req, id })`,
+`project(req)` from Task 20. `createBranch({ req, id })`,
 `attachBranch({ req, id })` and `clearBranch({ req, id })` target
 `projectGitStates(req)`. Delete the fabricated full `GitStatesResponse` in the
 reducers: use `AsyncResult.map`, which leaves a non-Success result untouched
@@ -2965,7 +3445,7 @@ atom.
 
 ---
 
-### Task 22: Everhour, Figma and time tracking
+### Task 24: Everhour, Figma and time tracking
 
 **Files:**
 - Modify: `packages/frontend/src/atoms/{everhour,figma,timeTracking}.ts`
@@ -3014,7 +3494,7 @@ following Task 11.
 
 ---
 
-### Task 23: OAuth modules and mention providers
+### Task 25: OAuth modules and mention providers
 
 **Files:**
 - Modify: `packages/frontend/src/atoms/{oauthApplications,oauthConsent}.ts`
@@ -3024,12 +3504,13 @@ following Task 11.
 **oauthApplications.ts** is the smallest module in the codebase and already has
 a real reducer. Apply the recipe and move on.
 
-**oauthConsent.ts** calls `authClient.$fetch("/oauth2/public-client")` rather
-than our API. Keep that call, wrap it in `Api.runtime.atom` per the Task 20 rule,
-and wrap the read in `Atom.optimistic`. Drop the ignored `oauthQuery` field from
-`SubmitConsentInput`; the family key already carries it.
+**oauthConsent.ts** used to reach `authClient.$fetch("/oauth2/public-client")`
+directly. Task 17 added `oauthApplications` / `publicClient`, so
+`oauthClientName(req)` becomes an ordinary `Api.query` with a wrapper and the
+second transport disappears from this screen. Drop the ignored `oauthQuery`
+field from `SubmitConsentInput`; the family key already carries it.
 
-**The mention providers are a deletion blocker for Phase F.**
+**The mention providers are a deletion blocker for Phase G.**
 `mentions/registry.ts` puts `ApiClient` in the provider signature's `R` channel,
 `mentions/ticketProvider.tsx` yields `ApiClient` as a value, and
 `MentionsPlugin.tsx` discharges both with `Effect.provide(AppLayer)` plus its own
@@ -3074,7 +3555,9 @@ the debounce and the abort controller.
 
 ---
 
-### Task 24: Delete the old client, runtime and overlays
+## Phase G: deletion and docs
+
+### Task 26: Delete the old client, runtime and overlays
 
 **Files deleted:**
 
@@ -3088,13 +3571,13 @@ the debounce and the abort controller.
 | `packages/frontend/src/lib/pendingSprintAssignment.ts` + test | same |
 | `packages/frontend/src/atoms/tickets.test.ts`, `tickets.sections.test.ts` | superseded by the new module tests |
 | `packages/frontend/src/atoms/sprints.test.ts` | superseded |
-| `packages/frontend/src/atoms/orgAttachmentsKey.ts` + test | deleted in Task 19 |
+| `packages/frontend/src/atoms/orgAttachmentsKey.ts` + test | deleted in Task 21 |
 
 - [ ] **Step 1: Delete the files above.**
 
 - [ ] **Step 2: Fix the last two `AppLayer` references**
 
-`components/Lexical/MentionsPlugin.tsx:28` imports `AppLayer`; Task 23 should
+`components/Lexical/MentionsPlugin.tsx:28` imports `AppLayer`; Task 25 should
 already have removed the need, so delete the import.
 `mentions/userProvider.test.ts:5` imports `runtime`; point it at `Api.runtime`.
 
@@ -3126,7 +3609,7 @@ git commit -m "refactor(frontend): delete the legacy api client, runtime and opt
 
 ---
 
-### Task 25: Rewrite the conventions
+### Task 27: Rewrite the conventions
 
 **Files:**
 - Modify: `AGENTS.md`
@@ -3210,13 +3693,17 @@ git commit -m "docs: rewrite the optimistic update conventions for the native at
 
 ## Self-Review
 
-**Spec coverage.** Spec section 1 (one client) is Task 1 and Task 24. Section 2
-(key vocabulary) is Task 1 plus the Phase E preamble. Section 3 (reads are
-wrappers) is Tasks 3, 4, 8, 9, 10, 17-23. Section 4 (composed view models) is
-Tasks 6, 11 and 22. Section 5 (mutations) is every atom task. Section 6
-(structural changes) is Tasks 5, 7, 11. Section 7 (waiting and failure) is Tasks
-13-16. Section 8 (component contract) is Tasks 13-16. "What is deleted" is Task
-24. The convention rewrite is Task 25.
+**Spec coverage.** Spec section 1 (one client) is Task 1 and Task 26. Section 2
+(key vocabulary) is Task 1 plus the Phase F preamble. Section 3 (reads are
+wrappers) is Tasks 3, 4, 8, 9, 10 and 19-25. Section 4 (composed view models) is
+Tasks 6, 11 and 24. Section 5 (mutations) is every atom task. Section 6
+(structural changes) is Tasks 5, 7 and 11. Sections 7 and 8 (waiting, failure,
+component contract) are Tasks 13-16. "What is deleted" is Task 26. The
+convention rewrite is Task 27.
+
+Phase E is not in the original spec. It came out of the review question about
+whether auth and orgs should reach better-auth through our API rather than from
+the browser. The spec now carries it as an addendum, so the two documents agree.
 
 **Placeholder scan.** One genuine open decision remains, in Task 9 Step 4:
 whether `updateSprint` can preview `body` against the list wrapper depends on
@@ -3224,36 +3711,47 @@ whether `groups.list` returns `Group` (no `body`) or `GroupDetail`. The task
 states both branches and requires the implementer to pick and record the choice.
 Everything else carries its content.
 
-**Density note.** Tasks 1-13 carry full code because the patterns are new. Tasks
-17-23 carry each module's exact reads, mutations, keys, TTLs and specific
-defects instead of repeating the recipe, which is written once in the Phase E
-preamble and demonstrated in full in Task 17. That is deliberate: thirteen
-near-identical code listings would obscure the per-module differences, which are
-the only part that matters there.
+**Density note.** Tasks 1-13 and 17-18 carry full code because the patterns are
+new. Tasks 19-25 carry each module's exact reads, mutations, keys, TTLs and
+specific defects instead of repeating the recipe, which is written once in the
+Phase F preamble and demonstrated in full in Task 19. That is deliberate:
+thirteen near-identical code listings would obscure the per-module differences,
+which are the only part that matters there.
 
 **Type consistency.** Request types are `TicketRequest`, `BacklogRequest`,
 `CountsRequest`, `SearchRequest`, `SprintListRequest`, `SprintRequest`,
 `BoardRequest`, `TagsRequest`, `OrgRequest`, each defined once. Value types are
 `BacklogRow`, `BacklogSection`, `BacklogValue`, `BoardValue`. Helpers are
 `applyTicketPatch`, `applyTicketDetailPatch`, `Results.blocked`, `Results.meta`,
-`placeTicket`. `scopeOf` is local to each atom module; `projectScope` is shared.
+`placeTicket`, `collapseRole`. `scopeOf` is local to each atom module;
+`projectScope` is shared. The shared schemas added in Task 17 (`OrgMember`,
+`OrgInvitation`, `OrgMembers`, `UserInvitation`, `InviteMemberInput`,
+`UpdateMemberRoleInput`, `TransferOwnershipInput`, `RenameOrgInput`) are the
+only names Tasks 18 and 22 use for that data; the frontend's local copies are
+deleted rather than kept in parallel.
 
 **Risks, in descending order.**
 
-1. **Scale.** This is roughly 4,400 lines of atoms plus about 100 consumer files
-   in one branch. It cannot be reviewed as a single diff. Land it as a stack, one
-   PR per task, or at minimum one per phase.
-2. **Three modules are redesigns, not conversions.** `github` (Task 21),
-   `orgs` and `auth` (Task 20) carry behaviour the recipe does not cover:
-   closure-mutable caches, a read atom that invalidates, a manual epoch bus, and
-   a non-HTTP transport. Budget accordingly.
-3. **Composed-region timestamps.** Every composed view must report `waiting`
+1. **Scale.** This is roughly 4,400 lines of atoms plus about 100 consumer
+   files, and now a backend phase as well, on one branch. It cannot be reviewed
+   as a single diff. Land it as a stack, one PR per task, or at minimum one per
+   phase.
+2. **Phase E changes the public API surface.** Thirteen new endpoints, and
+   authorization for organisation membership moves from better-auth's own route
+   handlers to ours. Get Task 17's endpoint shapes signed off before Task 18,
+   and treat the `Forbidden` mapping in `memberErrorToFailure` as security
+   -relevant code, not plumbing: a mis-mapped error is the difference between a
+   rejected call and a silent success.
+3. **`github` is a redesign, not a conversion** (Task 23). Closure-mutable
+   per-key caches, a read atom that fires invalidation as a side effect, and a
+   manual epoch bus used as a reactivity channel. Budget accordingly.
+4. **Composed-region timestamps.** Every composed view must report `waiting`
    while any source is in flight and carry the newest timestamp. Get this wrong
    and the hold silently breaks, which looks exactly like the bug being fixed.
    `Results.meta` centralises it; do not hand-roll the comparison.
-4. **`useMemo` on request objects.** A request object rebuilt each render is a
+5. **`useMemo` on request objects.** A request object rebuilt each render is a
    new family key and refetches every render. This is the most likely mistake
    when rewiring components. Consider a lint rule.
-5. **Unmounted page queries.** In Task 6, an unmounted cursor page reports
+6. **Unmounted page queries.** In Task 6, an unmounted cursor page reports
    Initial, which `Results.meta` does not count as waiting. If manual checking
    shows a flicker there, count Initial as waiting and add a test.
