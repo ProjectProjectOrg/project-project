@@ -166,6 +166,18 @@ export function ProjectIconForm({
   const previewUrl = draft.preview?.url ?? null
 
   useEffect(() => {
+    if (!iconImage) return
+    void draft.primeFrom(attachmentUrl(orgSlug, iconImage.sourceAttachmentId), {
+      treatment: iconImage.type === "sticker" ? "sticker" : "full_bleed",
+      tolerance:
+        iconImage.type === "sticker" && iconImage.cutoutTolerance !== null
+          ? iconImage.cutoutTolerance
+          : CUTOUT_DEFAULT_TOLERANCE
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iconImage, orgSlug])
+
+  useEffect(() => {
     if (!onLiveChange) return undefined
     onLiveChange(
       previewUrl
@@ -177,14 +189,7 @@ export function ProjectIconForm({
         : null
     )
     return () => onLiveChange(null)
-  }, [
-    onLiveChange,
-    previewUrl,
-    values.crop.x,
-    values.crop.y,
-    values.crop.zoom,
-    values.treatment.kind
-  ])
+  }, [onLiveChange, previewUrl, values.crop, values.treatment.kind])
 
   const summaries = [
     {
