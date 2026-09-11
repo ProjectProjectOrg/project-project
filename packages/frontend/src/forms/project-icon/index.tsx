@@ -75,7 +75,7 @@ export function ProjectIconForm({
       },
       crop: iconImage ? { ...iconImage.crop } : { x: 0.5, y: 0.5, zoom: 1 },
       treatment: {
-        kind: iconImage?.type === "sticker" ? "sticker" : "full_bleed",
+        kind: iconImage?.type === "full_bleed" ? "full_bleed" : "sticker",
         tolerance:
           iconImage?.type === "sticker" && iconImage.cutoutTolerance !== null
             ? iconImage.cutoutTolerance
@@ -176,6 +176,12 @@ export function ProjectIconForm({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iconImage, orgSlug])
+
+  const resolved = draft.preview?.treatment
+  useEffect(() => {
+    if (resolved && resolved !== form.state.values.treatment.kind)
+      form.setFieldValue("treatment.kind", resolved)
+  }, [form, resolved])
 
   useEffect(() => {
     if (!onLiveChange) return undefined
