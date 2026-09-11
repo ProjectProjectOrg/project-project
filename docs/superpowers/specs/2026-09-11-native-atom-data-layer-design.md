@@ -84,9 +84,12 @@ Verified against `node_modules/effect/src/unstable/reactivity/Atom.ts` at
   view-model be wrapped in `Atom.optimistic`.
 - `Atom.family` memoizes on `MutableHashMap`, and Effect v4 `Hash.hash` hashes
   plain objects structurally, so a request object is a valid family key.
-- `Reactivity` keys accept record form. `{ tickets: [a, b] }` registers
-  `tickets`, `tickets:a` and `tickets:b`, so a mutation can invalidate one
-  entity, one project, or everything under a resource with the same vocabulary.
+- `Reactivity` keys accept array form and record form, but only array form is
+  precise. `keysToHashes` hashes a record's bare top-level key as well as each
+  `key:id` pair, so registering `{ tickets: [a] }` and invalidating
+  `{ tickets: [b] }` still matches on the bare `tickets` hash. Record form
+  therefore behaves as "every query of this resource". Use array form with
+  explicit strings.
 
 ## Architecture
 
@@ -116,23 +119,31 @@ retention, and `reactivityKeys` registration.
 
 ```ts
 // packages/frontend/src/api/keys.ts
+export const projectScope = (orgSlug: string, slug: string) => `${orgSlug}/${slug}`
+
 export const Keys = {
-  ticket: (project: string, id: TicketId) => ({ tickets: [`${project}/${id}`] }),
-  ticketsIn: (project: string) => ({ tickets: [project] }),
-  ticketLists: (project: string) => ({ ticketLists: [project] }),
-  sprints: (project: string) => ({ sprints: [project] }),
-  sprintMembership: (project: string, groupId?: GroupId) => ({
-    sprintMembership: groupId ? [project, `${project}/${groupId}`] : [project]
-  }),
+  ticket: (scope: string, id: TicketId) => `ticket-content/${scope}/${id}`,
+  ticketsIn: (scope: string) => `tickets/${scope}`,
+  ticketLists: (scope: string) => `ticket-lists/${scope}`,
+  ticketPages: (scope: string) => `ticket-pages/${scope}`,
+  sprintMembership: (scope: string, groupId?: GroupId) =>
+    groupId === undefined
+      ? `sprint-membership/${scope}`
+      : `sprint-membership/${scope}/${groupId}`
   // tags, statuses, members, comments, attachments, github, integrations …
 } as const
 ```
 
+These are the strings the current modules already use, now built in one typed
+place. Keeping them identical means legacy and migrated atoms invalidate each
+other correctly while the migration is in progress.
+
 Queries declare the keys they listen to at definition. Mutations declare the
-keys they publish inside the atom module. Components never see a key. Existing
-string patterns map one to one: `tickets/*` becomes `Keys.ticketsIn`,
-`ticket-lists/*` becomes `Keys.ticketLists`, `ticket-content/*/*` becomes
-`Keys.ticket`, and so on.
+keys they publish inside the atom module. Components never see a key.
+
+**A mutation publishes only keys that other views registered.** Publishing a key
+its own view's query listens to causes that view to refetch twice per edit,
+because the optimistic wrapper already refreshes its own source on commit.
 
 ### 3. Reads are wrappers over their own query
 
