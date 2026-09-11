@@ -484,6 +484,7 @@ const mergeTicketUpdateInput = (
 
 type UpdateTicketArg = UpdateTicketInput & {
   readonly sprintTicketsKey?: string
+  readonly ticketSectionsKey?: string
 }
 
 export const updateTicketAtom = Atom.family((key: string) => {
@@ -492,11 +493,15 @@ export const updateTicketAtom = Atom.family((key: string) => {
   return Atom.optimisticFn(optimisticTicketUpdateAtom(key), {
     reducer: (
       current,
-      { sprintTicketsKey: _sprintTicketsKey, ...input }: UpdateTicketArg
+      {
+        sprintTicketsKey: _sprintTicketsKey,
+        ticketSectionsKey: _ticketSectionsKey,
+        ...input
+      }: UpdateTicketArg
     ) => mergeTicketUpdateInput(current, input),
     fn: runtime.fn(
       Effect.fn(function* (
-        { sprintTicketsKey, ...input }: UpdateTicketArg,
+        { sprintTicketsKey, ticketSectionsKey, ...input }: UpdateTicketArg,
         get
       ) {
         unsaved = { ...unsaved, ...input }
@@ -532,6 +537,13 @@ export const updateTicketAtom = Atom.family((key: string) => {
         if (sprintTicketsKey !== undefined) {
           yield* get
             .result(ticketsInSprintAtom(sprintTicketsKey), {
+              suspendOnWaiting: true
+            })
+            .pipe(Effect.ignore)
+        }
+        if (ticketSectionsKey !== undefined) {
+          yield* get
+            .result(ticketsSectionsBaseAtom(ticketSectionsKey), {
               suspendOnWaiting: true
             })
             .pipe(Effect.ignore)

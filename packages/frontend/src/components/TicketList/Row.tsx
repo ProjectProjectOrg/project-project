@@ -5,7 +5,8 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   applyOptimisticTicketPreview,
   ticketKey,
-  ticketUpdatePreviewAtom
+  ticketUpdatePreviewAtom,
+  ticketsSectionsKey
 } from "@/atoms/tickets"
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
@@ -63,6 +64,7 @@ function RowImpl({
     ticket,
     updatePreview.input
   )
+  const ticketSectionsKeyValue = ticketsSectionsKey(orgSlug, slug, query)
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -137,6 +139,7 @@ function RowImpl({
               slug={slug}
               ticket={visibleTicket}
               stopPropagation
+              ticketSectionsKey={ticketSectionsKeyValue}
             />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
@@ -174,6 +177,7 @@ function RowImpl({
                 slug={slug}
                 ticket={visibleTicket}
                 members={members}
+                ticketSectionsKey={ticketSectionsKeyValue}
                 className="hidden sm:inline-flex"
               />
             </div>
@@ -181,6 +185,7 @@ function RowImpl({
               orgSlug={orgSlug}
               slug={slug}
               ticket={visibleTicket}
+              ticketSectionsKey={ticketSectionsKeyValue}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (
