@@ -13,7 +13,7 @@ import {
   type BetterAuthError,
   type InvitationState
 } from "../Services/BetterAuth"
-import { betterAuthErrorCode } from "./org"
+import { betterAuthErrorCode, isClientRefusal } from "./org"
 
 const NOT_RECIPIENT = "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION"
 const VERIFICATION_REQUIRED = new Set([
@@ -27,17 +27,21 @@ const UNUSABLE_CODES = new Set([
   "INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION"
 ])
 
+const addressedTo = (state: InvitationState, recipientEmail: string) =>
+  state.email.toLowerCase() === recipientEmail.toLowerCase()
+
 export const acceptErrorToFailure = (
   error: BetterAuthError,
   state: InvitationState | null,
-  now: Date
+  now: Date,
+  recipientEmail: string
 ): Effect.Effect<never, NotFound | InvitationNotAcceptable> => {
+  if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
-  if (code === null) return Effect.die(error)
   if (code === NOT_RECIPIENT) {
     return Effect.fail(new InvitationNotAcceptable({ reason: "not_recipient" }))
   }
-  if (VERIFICATION_REQUIRED.has(code)) {
+  if (code !== null && VERIFICATION_REQUIRED.has(code)) {
     return Effect.fail(
       new InvitationNotAcceptable({ reason: "email_verification_required" })
     )
@@ -47,8 +51,11 @@ export const acceptErrorToFailure = (
       new InvitationNotAcceptable({ reason: "membership_limit_reached" })
     )
   }
-  if (UNUSABLE_CODES.has(code)) {
-    if (state !== null && state.expiresAt.getTime() <= now.getTime()) {
+  if (code === null || UNUSABLE_CODES.has(code)) {
+    if (state === null || !addressedTo(state, recipientEmail)) {
+      return Effect.fail(new NotFound())
+    }
+    if (state.expiresAt.getTime() <= now.getTime()) {
       return Effect.fail(new InvitationNotAcceptable({ reason: "expired" }))
     }
     return Effect.fail(new NotFound())
@@ -59,14 +66,29 @@ export const acceptErrorToFailure = (
 export const invitationErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<never, NotFound> => {
+  if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
-  if (code === null) return Effect.die(error)
   if (
+    code === null ||
     code === NOT_RECIPIENT ||
+    code === MEMBERSHIP_LIMIT ||
     VERIFICATION_REQUIRED.has(code) ||
     UNUSABLE_CODES.has(code)
   ) {
     return Effect.fail(new NotFound())
+  }
+  return Effect.die(error)
+}
+
+export const listInvitationsErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, InvitationNotAcceptable> => {
+  if (!isClientRefusal(error)) return Effect.die(error)
+  const code = betterAuthErrorCode(error)
+  if (code !== null && VERIFICATION_REQUIRED.has(code)) {
+    return Effect.fail(
+      new InvitationNotAcceptable({ reason: "email_verification_required" })
+    )
   }
   return Effect.die(error)
 }
@@ -88,7 +110,9 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
           const request = yield* webRequest
           return yield* ba
             .listInvitations(request)
-            .pipe(Effect.catchTag("BetterAuthError", Effect.die))
+            .pipe(
+              Effect.catchTag("BetterAuthError", listInvitationsErrorToFailure)
+            )
         })
       )
       .handle("get", ({ params }) =>
@@ -103,7 +127,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
       )
       .handle("accept", ({ params }) =>
         Effect.gen(function* () {
-          yield* CurrentUser
+          const user = yield* CurrentUser
           const ba = yield* BetterAuth
           const request = yield* webRequest
           return yield* ba.acceptInvitation(request, params.invitationId).pipe(
@@ -113,7 +137,12 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
                   .getInvitationState(params.invitationId)
                   .pipe(Effect.orDie)
                 const now = DateTime.toDate(yield* DateTime.now)
-                return yield* acceptErrorToFailure(error, state, now)
+                return yield* acceptErrorToFailure(
+                  error,
+                  state,
+                  now,
+                  user.email
+                )
               })
             )
           )

@@ -21,6 +21,11 @@ const orgError = (
     cause: new APIError(status, { code, message: code })
   })
 
+const codelessError = (
+  status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" = "BAD_REQUEST",
+  message = "User not found"
+) => new BetterAuthError({ cause: new APIError(status, { message }) })
+
 const failureOf = <E>(effect: Effect.Effect<never, E>) =>
   Effect.runPromise(effect.pipe(Effect.flip))
 
@@ -211,6 +216,21 @@ it("dies on a 5xx from better-auth rather than reporting a client refusal", asyn
   )
   expect(exit._tag).toBe("Failure")
   expect(JSON.stringify(exit)).not.toContain("NotFound")
+})
+
+it("maps a malformed invite email to Validation instead of dying", async () => {
+  const result = await failureOf(
+    memberErrorToFailure(orgError("BAD_REQUEST", "INVALID_EMAIL"))
+  )
+  expect(result).toMatchObject({ _tag: "Validation", reason: "invalid_email" })
+})
+
+it("dies on a codeless 4xx on the org surface rather than guessing", async () => {
+  const exit = await Effect.runPromiseExit(
+    memberErrorToFailure(codelessError())
+  )
+  expect(exit._tag).toBe("Failure")
+  expect(JSON.stringify(exit)).not.toContain("Forbidden")
 })
 
 it("dies on an unrecognised 4xx code rather than guessing a mapping", async () => {

@@ -26,6 +26,7 @@ export class NoGithubToken extends Data.TaggedError("NoGithubToken")<{}> {}
 
 export interface InvitationState {
   readonly status: string
+  readonly email: string
   readonly expiresAt: Date
 }
 

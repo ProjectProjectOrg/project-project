@@ -481,13 +481,14 @@ export const BetterAuthLive = Layer.effect(
         Effect.gen(function* () {
           const row = yield* attempt(() =>
             db.query.invitation.findFirst({
-              columns: { status: true, expiresAt: true },
+              columns: { status: true, email: true, expiresAt: true },
               where: { id: invitationId }
             })
           )
           if (!row) return null
           return {
             status: row.status,
+            email: row.email,
             expiresAt: row.expiresAt
           } satisfies InvitationState
         }),

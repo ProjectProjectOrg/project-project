@@ -76,13 +76,21 @@ const CONFLICTING_CODES = new Map([
   ["INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION", "inviter_left"]
 ])
 
-const INVALID_CODES = new Map([["ROLE_NOT_FOUND", "role_not_found"]])
+const INVALID_CODES = new Map([
+  ["ROLE_NOT_FOUND", "role_not_found"],
+  ["INVALID_EMAIL", "invalid_email"]
+])
 
+export const isClientRefusal = (error: BetterAuthError): boolean => {
+  const { cause } = error
+  return isAPIError(cause) && cause.statusCode >= 400 && cause.statusCode < 500
+}
+
+// `APIError.fromStatus` stores the body verbatim and sets no `code`, so a null
+// here means "a 4xx we cannot name", not "not a refusal". Callers must decide.
 export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
   const { cause } = error
-  if (!isAPIError(cause) || cause.statusCode < 400 || cause.statusCode >= 500) {
-    return null
-  }
+  if (!isAPIError(cause)) return null
   const code = cause.body?.code
   return typeof code === "string" ? code : null
 }
@@ -90,6 +98,7 @@ export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
 export const memberErrorToFailure = (
   error: BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound | Conflict | Validation> => {
+  if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
   if (code === null) return Effect.die(error)
   if (FORBIDDING_CODES.has(code)) return Effect.fail(new Forbidden())

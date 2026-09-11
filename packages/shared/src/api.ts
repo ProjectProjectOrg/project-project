@@ -313,7 +313,7 @@ const InvitationsGroup = HttpApiGroup.make("invitations")
   .add(
     HttpApiEndpoint.get("list", "/invitations", {
       success: Schema.Array(UserInvitation),
-      error: Unauthorized
+      error: [Unauthorized, InvitationNotAcceptable]
     })
   )
   .add(
