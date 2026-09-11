@@ -34,18 +34,26 @@ export function AppearanceRow({
   label,
   detail,
   action,
-  shareId
+  shareId,
+  thumbShareId
 }: {
   thumb: ReactNode
   label: string
   detail: string
   action?: ReactNode
   shareId?: string
+  thumbShareId?: string
 }) {
   const shared = useSharedTransition()
   return (
     <div className="flex items-center gap-3 p-3">
-      {thumb}
+      <motion.span
+        layoutId={thumbShareId}
+        transition={shared}
+        className="inline-flex"
+      >
+        {thumb}
+      </motion.span>
       <span className="flex min-w-0 flex-1 flex-col">
         <motion.span
           layoutId={shareId && `${shareId}-label`}
