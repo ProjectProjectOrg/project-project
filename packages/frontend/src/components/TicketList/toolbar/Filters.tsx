@@ -250,8 +250,7 @@ function FilterAssignee({
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : null
   const assignees = value
-  const assigneeFilter =
-    assignees?.length === 1 ? assignees[0] : "all"
+  const assigneeFilter = assignees?.length === 1 ? assignees[0] : "all"
   const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>
     onChange(assignee === "all" ? undefined : [assignee])
   return (
@@ -321,14 +320,9 @@ function FilterSprint({
   slug: string
 }) {
   const groups = value
-  const sprintFilter =
-    groups?.length === 1 ? groups[0] : "all"
+  const sprintFilter = groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
-    onChange(
-      sprint === "all"
-        ? undefined
-        : [sprint === "unassigned" ? "ungrouped" : sprint]
-    )
+    onChange(sprint === "all" ? undefined : [sprint])
   const sprintsList = useAtomValue(
     sprintsListAtom(sprintsProjectKey(orgSlug, slug))
   )
@@ -353,11 +347,11 @@ function FilterSprint({
       </DropdownMenuItem>
       <DropdownMenuItem
         closeOnClick={false}
-        onClick={() => setSprintFilter("unassigned")}
+        onClick={() => setSprintFilter("ungrouped")}
         className="cursor-pointer"
       >
         {m.tickets_filters_sprint_none()}
-        {sprintFilter === "unassigned" && (
+        {sprintFilter === "ungrouped" && (
           <Check className="ml-auto size-3.5 text-muted-foreground" />
         )}
       </DropdownMenuItem>

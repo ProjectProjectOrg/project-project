@@ -214,24 +214,18 @@ const list_tickets = (
   input: {
     orgSlug: string
     projectSlug: string
-    filter?: TicketFilter
-  } & Pagination
+  } & TicketFilter &
+    Pagination
 ) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const tickets = yield* Tickets
+    const { orgSlug, projectSlug, limit, ...filter } = input
     const query: TicketListQuery = {
       sort: DEFAULT_TICKET_SORT,
-      ...input.filter,
-      cursor: input.cursor
+      ...filter
     }
-    return yield* tickets.list(
-      input.orgSlug,
-      current.id,
-      input.projectSlug,
-      query,
-      input.limit
-    )
+    return yield* tickets.list(orgSlug, current.id, projectSlug, query, limit)
   })
 
 const get_ticket = (input: {

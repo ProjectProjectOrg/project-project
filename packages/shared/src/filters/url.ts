@@ -92,9 +92,7 @@ const decodeGroupIds = (
 const decodeTicketFilter = (params: RawTicketFilterParams): TicketFilter => {
   const status = nonEmpty(valuesOf(params.status).filter(isStatusSlug))
   const type = nonEmpty(valuesOf(params.type).filter(isTicketType))
-  const assignee = nonEmpty(
-    valuesOf(params.assignee).filter(isAssigneeFilter)
-  )
+  const assignee = nonEmpty(valuesOf(params.assignee).filter(isAssigneeFilter))
   const tags = nonEmpty(valuesOf(params.tags).filter(isTagName))
   const groupId = decodeGroupIds(params.groupId)
   const hasBranch = Option.getOrUndefined(decodeBoolean(params.hasBranch))
@@ -144,9 +142,7 @@ const encodeGroupIds = (
 ): ReadonlyArray<string> =>
   values.map((groupId) => (groupId === "ungrouped" ? "unassigned" : groupId))
 
-const encodeTicketFilter = (
-  filter: TicketFilter
-): RawTicketFilterParams => ({
+const encodeTicketFilter = (filter: TicketFilter): RawTicketFilterParams => ({
   ...(filter.status?.length ? { status: filter.status } : {}),
   ...(filter.type?.length ? { type: filter.type } : {}),
   ...(filter.assignee?.length ? { assignee: filter.assignee } : {}),

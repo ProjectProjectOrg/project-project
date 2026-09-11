@@ -1,11 +1,7 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import {
-  AppApi,
-  CurrentUser,
-  Validation
-} from "@projectproject/shared"
+import { AppApi, CurrentUser, Validation } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Tickets } from "../Services/Tickets"
@@ -36,12 +32,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.list(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            query
-          )
+          return yield* tickets.list(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("search", ({ params, query }) =>
@@ -70,12 +61,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          return yield* tickets.count(
-            org.orgSlug,
-            user.id,
-            params.slug,
-            query
-          )
+          return yield* tickets.count(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("quickCreate", ({ params, payload }) =>

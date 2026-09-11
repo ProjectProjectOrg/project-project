@@ -7,11 +7,7 @@ import {
 } from "@/atoms/projectStatuses"
 import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
-import type {
-  ProjectStatus,
-  TicketCountQuery,
-  TicketListQuery
-} from "@projectproject/shared"
+import type { ProjectStatus, TicketListQuery } from "@projectproject/shared"
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export function useServerTicketCounts(
@@ -19,9 +15,8 @@ export function useServerTicketCounts(
   slug: string,
   query: TicketListQuery
 ): Record<string, number> {
-  const countQuery: TicketCountQuery = query
   const countsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
+    ticketsCountAtom(ticketsCountKey(orgSlug, slug, query))
   )
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))

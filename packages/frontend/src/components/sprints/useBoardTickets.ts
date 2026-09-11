@@ -52,7 +52,12 @@ export function useBoardTickets(
   }, [list])
 
   const boardQuery = useMemo(() => {
-    const { archived: _archived, cursor: _cursor, sort: _sort, ...filter } = query
+    const {
+      archived: _archived,
+      cursor: _cursor,
+      sort: _sort,
+      ...filter
+    } = query
     return filter
   }, [query])
 

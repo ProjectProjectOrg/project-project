@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react"
 import type { TicketFilter } from "@projectproject/shared"
 import { useTicketSearch } from "../search"
-import { activeFilterCount, pruneFilter } from "./model"
+import { activeFilterCount } from "./model"
 import { TicketToolbarContext, type TicketToolbarProps } from "./context"
 import { Filters } from "./Filters"
 import { ClearAll, SearchInput, Sort, Status } from "./parts"
@@ -37,16 +37,14 @@ export function TicketToolbar({
   }, [])
 
   const patchFilter = (patch: Partial<TicketFilter>) => {
-    onQueryChange({ ...query, ...pruneFilter({ ...query, ...patch }) })
+    onQueryChange({ ...query, ...patch })
   }
   const clearAll = () => {
     search.reset()
     onQueryChange({ sort: query.sort })
   }
   const hasActiveFilters =
-    !!query.status?.length ||
-    activeFilterCount(query, filters) > 0 ||
-    !!query.q
+    !!query.status?.length || activeFilterCount(query, filters) > 0 || !!query.q
 
   return (
     <TicketToolbarContext

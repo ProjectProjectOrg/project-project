@@ -52,9 +52,7 @@ export function RetainedProjectViews({
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     const query = ticketListQueryFromSearch(lastSprint?.search ?? {})
-    return sprintId
-      ? { ...query, groupId: [sprintId] }
-      : query
+    return sprintId ? { ...query, groupId: [sprintId] } : query
   }, [lastSprint?.search, sprintId])
 
   return (

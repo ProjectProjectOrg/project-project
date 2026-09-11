@@ -276,18 +276,10 @@ describe("matchesTicketQuery", () => {
       updatedAt: isoDate("2026-05-10T00:00:00.000Z")
     }
     expect(
-      matchesTicketQuery(
-        predicted,
-        { status: [s("todo")] },
-        userId("user-a")
-      )
+      matchesTicketQuery(predicted, { status: [s("todo")] }, userId("user-a"))
     ).toBe(true)
     expect(
-      matchesTicketQuery(
-        predicted,
-        { status: [s("done")] },
-        userId("user-a")
-      )
+      matchesTicketQuery(predicted, { status: [s("done")] }, userId("user-a"))
     ).toBe(false)
     expect(
       matchesTicketQuery(predicted, { q: "anything" }, userId("user-a"))
