@@ -1,0 +1,126 @@
+import { HttpServerRequest } from "effect/unstable/http"
+import { HttpApiBuilder } from "effect/unstable/httpapi"
+import {
+  AppApi,
+  CurrentUser,
+  InvitationNotAcceptable,
+  NotFound
+} from "@projectproject/shared"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import {
+  BetterAuth,
+  type BetterAuthError,
+  type InvitationState
+} from "../Services/BetterAuth"
+import { betterAuthErrorCode } from "./org"
+
+const NOT_RECIPIENT = "YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION"
+const VERIFICATION_REQUIRED = new Set([
+  "EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION",
+  "EMAIL_VERIFICATION_REQUIRED_FOR_INVITATION"
+])
+const UNUSABLE_CODES = new Set([
+  "INVITATION_NOT_FOUND",
+  "ORGANIZATION_NOT_FOUND",
+  "INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION"
+])
+
+export const acceptErrorToFailure = (
+  error: BetterAuthError,
+  state: InvitationState | null,
+  now: Date
+): Effect.Effect<never, NotFound | InvitationNotAcceptable> => {
+  const code = betterAuthErrorCode(error)
+  if (code === null) return Effect.die(error)
+  if (code === NOT_RECIPIENT) {
+    return Effect.fail(new InvitationNotAcceptable({ reason: "not_recipient" }))
+  }
+  if (VERIFICATION_REQUIRED.has(code)) {
+    return Effect.fail(
+      new InvitationNotAcceptable({ reason: "email_verification_required" })
+    )
+  }
+  if (UNUSABLE_CODES.has(code)) {
+    if (state !== null && state.expiresAt.getTime() <= now.getTime()) {
+      return Effect.fail(new InvitationNotAcceptable({ reason: "expired" }))
+    }
+    return Effect.fail(new NotFound())
+  }
+  return Effect.die(error)
+}
+
+export const invitationErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, NotFound> => {
+  const code = betterAuthErrorCode(error)
+  if (code === null) return Effect.die(error)
+  if (
+    code === NOT_RECIPIENT ||
+    VERIFICATION_REQUIRED.has(code) ||
+    UNUSABLE_CODES.has(code)
+  ) {
+    return Effect.fail(new NotFound())
+  }
+  return Effect.die(error)
+}
+
+const webRequest = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  return yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
+})
+
+export const InvitationsHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "invitations",
+  (handlers) =>
+    handlers
+      .handle("list", () =>
+        Effect.gen(function* () {
+          yield* CurrentUser
+          const ba = yield* BetterAuth
+          const request = yield* webRequest
+          return yield* ba
+            .listInvitations(request)
+            .pipe(Effect.catchTag("BetterAuthError", Effect.die))
+        })
+      )
+      .handle("get", ({ params }) =>
+        Effect.gen(function* () {
+          yield* CurrentUser
+          const ba = yield* BetterAuth
+          const request = yield* webRequest
+          return yield* ba
+            .getInvitation(request, params.invitationId)
+            .pipe(Effect.catchTag("BetterAuthError", invitationErrorToFailure))
+        })
+      )
+      .handle("accept", ({ params }) =>
+        Effect.gen(function* () {
+          yield* CurrentUser
+          const ba = yield* BetterAuth
+          const request = yield* webRequest
+          return yield* ba.acceptInvitation(request, params.invitationId).pipe(
+            Effect.catchTag("BetterAuthError", (error) =>
+              Effect.gen(function* () {
+                const state = yield* ba
+                  .getInvitationState(params.invitationId)
+                  .pipe(Effect.orDie)
+                const now = DateTime.toDate(yield* DateTime.now)
+                return yield* acceptErrorToFailure(error, state, now)
+              })
+            )
+          )
+        })
+      )
+      .handle("reject", ({ params }) =>
+        Effect.gen(function* () {
+          yield* CurrentUser
+          const ba = yield* BetterAuth
+          const request = yield* webRequest
+          yield* ba
+            .rejectInvitation(request, params.invitationId)
+            .pipe(Effect.catchTag("BetterAuthError", invitationErrorToFailure))
+        })
+      )
+)

@@ -1,22 +1,29 @@
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { auth } from "../auth"
 import * as schema from "../db/schema"
-import { member, organization } from "../db/schema"
+import { member, oauthClient, organization, user } from "../db/schema"
 import {
   NotFound,
   paginateSorted,
+  type AssignableRole,
   type CursorPayload,
   type Org,
-  type OrgRole
+  type OrgInvitation,
+  type OrgMember,
+  type OrgMembers,
+  type OrgRole,
+  type UserInvitation
 } from "@projectproject/shared"
+import { collapseRole, pendingInvitations } from "../handlers/org"
 import {
   BetterAuth,
   BetterAuthError,
   NoGithubToken,
-  type BetterAuthShape
+  type BetterAuthShape,
+  type InvitationState
 } from "../Services/BetterAuth"
 
 export const BetterAuthLive = Layer.effect(
@@ -25,6 +32,109 @@ export const BetterAuthLive = Layer.effect(
     const db = drizzle(process.env.DATABASE_URL!, {
       relations: schema.relations
     })
+
+    const attempt = <A>(thunk: () => Promise<A>) =>
+      Effect.tryPromise({
+        try: thunk,
+        catch: (cause) => new BetterAuthError({ cause })
+      })
+
+    const resolveOrgId = (orgSlug: string) =>
+      Effect.gen(function* () {
+        const row = yield* attempt(() =>
+          db.query.organization.findFirst({
+            columns: { id: true },
+            where: { slug: orgSlug }
+          })
+        )
+        if (!row) return yield* new NotFound()
+        return row.id
+      })
+
+    const resolveMemberId = (organizationId: string, userId: string) =>
+      Effect.gen(function* () {
+        const row = yield* attempt(() =>
+          db.query.member.findFirst({
+            columns: { id: true },
+            where: { organizationId, userId }
+          })
+        )
+        if (!row) return yield* new NotFound()
+        return row.id
+      })
+
+    const readMember = (organizationId: string, userId: string) =>
+      Effect.gen(function* () {
+        const rows = yield* attempt(() =>
+          db
+            .select({
+              userId: member.userId,
+              role: member.role,
+              name: user.name,
+              email: user.email,
+              image: user.image
+            })
+            .from(member)
+            .innerJoin(user, eq(member.userId, user.id))
+            .where(
+              and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, userId)
+              )
+            )
+            .limit(1)
+        )
+        const first = rows[0]
+        if (!first) return yield* new NotFound()
+        return {
+          userId: first.userId,
+          role: collapseRole(first.role),
+          name: first.name,
+          email: first.email,
+          image: first.image ?? null
+        } satisfies OrgMember
+      })
+
+    const readMembers = (request: Request, orgSlug: string) =>
+      Effect.gen(function* () {
+        const full = yield* attempt(() =>
+          auth.api.getFullOrganization({
+            query: { organizationSlug: orgSlug },
+            headers: request.headers,
+            request
+          })
+        )
+        if (!full) return yield* new NotFound()
+        return {
+          members: full.members.map((row) => ({
+            userId: row.userId,
+            role: collapseRole(row.role),
+            name: row.user.name,
+            email: row.user.email,
+            image: row.user.image ?? null
+          })),
+          invitations: pendingInvitations(full.invitations)
+        } satisfies OrgMembers
+      })
+
+    const setRole = (
+      request: Request,
+      orgSlug: string,
+      userId: string,
+      role: string
+    ) =>
+      Effect.gen(function* () {
+        const organizationId = yield* resolveOrgId(orgSlug)
+        const memberId = yield* resolveMemberId(organizationId, userId)
+        yield* attempt(() =>
+          auth.api.updateMemberRole({
+            body: { role, memberId, organizationId },
+            headers: request.headers,
+            request
+          })
+        )
+        return yield* readMember(organizationId, userId)
+      })
 
     return {
       handler: (request) =>
@@ -218,6 +328,213 @@ export const BetterAuthLive = Layer.effect(
               })
               .then((result) => ({ redirectURI: result.url })),
           catch: (cause) => new BetterAuthError({ cause })
+        }),
+      getMembers: (request, orgSlug) => readMembers(request, orgSlug),
+      renameOrg: (request, orgSlug, name) =>
+        Effect.gen(function* () {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          yield* attempt(() =>
+            auth.api.updateOrganization({
+              body: { data: { name }, organizationId },
+              headers: request.headers,
+              request
+            })
+          )
+        }),
+      inviteMember: (request, orgSlug, input) =>
+        Effect.gen(function* () {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          const created = yield* attempt(() =>
+            auth.api.createInvitation({
+              body: {
+                email: input.email,
+                role: input.role,
+                organizationId
+              },
+              headers: request.headers,
+              request
+            })
+          )
+          return {
+            id: created.id,
+            email: created.email,
+            role: collapseRole(created.role ?? ""),
+            status: "pending"
+          } satisfies OrgInvitation
+        }),
+      updateMemberRole: (request, orgSlug, userId, role: AssignableRole) =>
+        setRole(request, orgSlug, userId, role),
+      removeMember: (request, orgSlug, userId) =>
+        Effect.gen(function* () {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          const memberId = yield* resolveMemberId(organizationId, userId)
+          yield* attempt(() =>
+            auth.api.removeMember({
+              body: { memberIdOrEmail: memberId, organizationId },
+              headers: request.headers,
+              request
+            })
+          )
+        }),
+      cancelInvitation: (request, orgSlug, invitationId) =>
+        Effect.gen(function* () {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          const row = yield* attempt(() =>
+            db.query.invitation.findFirst({
+              columns: { organizationId: true },
+              where: { id: invitationId }
+            })
+          )
+          if (!row || row.organizationId !== organizationId) {
+            return yield* new NotFound()
+          }
+          yield* attempt(() =>
+            auth.api.cancelInvitation({
+              body: { invitationId },
+              headers: request.headers,
+              request
+            })
+          )
+        }),
+      transferOwnership: (request, orgSlug, toUserId, selfUserId) =>
+        Effect.gen(function* () {
+          yield* setRole(request, orgSlug, toUserId, "owner")
+          yield* setRole(request, orgSlug, selfUserId, "admin")
+          return yield* readMembers(request, orgSlug)
+        }),
+      leaveOrg: (request, orgSlug) =>
+        Effect.gen(function* () {
+          const organizationId = yield* resolveOrgId(orgSlug)
+          yield* attempt(() =>
+            auth.api.leaveOrganization({
+              body: { organizationId },
+              headers: request.headers,
+              request
+            })
+          )
+        }),
+      listInvitations: (request) =>
+        Effect.gen(function* () {
+          const invitations = yield* attempt(() =>
+            auth.api.listUserInvitations({
+              headers: request.headers,
+              request
+            })
+          )
+          if (invitations.length === 0) return []
+          const orgIds = [...new Set(invitations.map((i) => i.organizationId))]
+          const inviterIds = [...new Set(invitations.map((i) => i.inviterId))]
+          const orgs = yield* attempt(() =>
+            db
+              .select({
+                id: organization.id,
+                slug: organization.slug,
+                name: organization.name
+              })
+              .from(organization)
+              .where(inArray(organization.id, orgIds))
+          )
+          const inviters = yield* attempt(() =>
+            db
+              .select({ id: user.id, email: user.email })
+              .from(user)
+              .where(inArray(user.id, inviterIds))
+          )
+          const orgById = new Map(orgs.map((o) => [o.id, o]))
+          const inviterById = new Map(inviters.map((u) => [u.id, u.email]))
+          return invitations.flatMap((i) => {
+            const org = orgById.get(i.organizationId)
+            if (!org) return []
+            return [
+              {
+                id: i.id,
+                orgSlug: org.slug as Org["slug"],
+                orgName: org.name,
+                role: collapseRole(i.role ?? ""),
+                inviterEmail: inviterById.get(i.inviterId) ?? null,
+                expiresAt: i.expiresAt,
+                createdAt: i.createdAt
+              } satisfies UserInvitation
+            ]
+          })
+        }),
+      getInvitation: (request, invitationId) =>
+        Effect.gen(function* () {
+          const found = yield* attempt(() =>
+            auth.api.getInvitation({
+              query: { id: invitationId },
+              headers: request.headers,
+              request
+            })
+          )
+          return {
+            id: found.id,
+            orgSlug: found.organizationSlug as Org["slug"],
+            orgName: found.organizationName,
+            role: collapseRole(found.role ?? ""),
+            inviterEmail: found.inviterEmail ?? null,
+            expiresAt: found.expiresAt,
+            createdAt: found.createdAt
+          } satisfies UserInvitation
+        }),
+      getInvitationState: (invitationId) =>
+        Effect.gen(function* () {
+          const row = yield* attempt(() =>
+            db.query.invitation.findFirst({
+              columns: { status: true, expiresAt: true },
+              where: { id: invitationId }
+            })
+          )
+          if (!row) return null
+          return {
+            status: row.status,
+            expiresAt: row.expiresAt
+          } satisfies InvitationState
+        }),
+      acceptInvitation: (request, invitationId) =>
+        Effect.gen(function* () {
+          const accepted = yield* attempt(() =>
+            auth.api.acceptInvitation({
+              body: { invitationId },
+              headers: request.headers,
+              request
+            })
+          )
+          const acceptedMember = accepted?.member
+          if (!acceptedMember) return yield* new NotFound()
+          const rows = yield* attempt(() =>
+            db
+              .select({ slug: organization.slug, name: organization.name })
+              .from(organization)
+              .where(eq(organization.id, acceptedMember.organizationId))
+              .limit(1)
+          )
+          const org = rows[0]
+          if (!org) return yield* new NotFound()
+          return {
+            slug: org.slug as Org["slug"],
+            name: org.name,
+            role: collapseRole(acceptedMember.role ?? "")
+          } satisfies Org
+        }),
+      rejectInvitation: (request, invitationId) =>
+        attempt(() =>
+          auth.api.rejectInvitation({
+            body: { invitationId },
+            headers: request.headers,
+            request
+          })
+        ).pipe(Effect.asVoid),
+      getPublicClientName: (clientId) =>
+        Effect.gen(function* () {
+          const rows = yield* attempt(() =>
+            db
+              .select({ name: oauthClient.name })
+              .from(oauthClient)
+              .where(eq(oauthClient.clientId, clientId))
+              .limit(1)
+          )
+          return rows[0]?.name ?? null
         })
     } satisfies BetterAuthShape
   })

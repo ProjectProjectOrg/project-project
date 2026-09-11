@@ -13,7 +13,7 @@ export interface OrgShape {
   readonly get: (
     orgSlug: string,
     userId: string
-  ) => Effect.Effect<OrgDetail, NotFound>
+  ) => Effect.Effect<OrgDetail, NotFound | Forbidden>
   readonly softDelete: (
     orgSlug: string,
     userId: string

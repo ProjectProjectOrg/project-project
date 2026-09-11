@@ -1,7 +1,134 @@
+import { isAPIError } from "better-auth/api"
+import { HttpServerRequest } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { AppApi, CurrentUser } from "@projectproject/shared"
+import {
+  AppApi,
+  Conflict,
+  CurrentUser,
+  Forbidden,
+  NotFound,
+  type OrgInvitation,
+  type OrgRole,
+  Validation
+} from "@projectproject/shared"
 import * as Effect from "effect/Effect"
+import { BetterAuth, type BetterAuthError } from "../Services/BetterAuth"
 import { Org } from "../Services/Org"
+
+export const collapseRole = (role: string): OrgRole => {
+  const roles = new Set(role.split(",").map((entry) => entry.trim()))
+  if (roles.has("owner")) return "owner"
+  if (roles.has("admin")) return "admin"
+  return "member"
+}
+
+interface RawInvitation {
+  readonly id: string
+  readonly email: string
+  readonly role?: string | null
+  readonly status: string
+}
+
+export const pendingInvitations = (
+  invitations: ReadonlyArray<RawInvitation>
+): ReadonlyArray<OrgInvitation> =>
+  invitations.flatMap((invitation) =>
+    invitation.status === "pending"
+      ? [
+          {
+            id: invitation.id,
+            email: invitation.email,
+            role: collapseRole(invitation.role ?? ""),
+            status: "pending" as const
+          }
+        ]
+      : []
+  )
+
+const FORBIDDING_CODES = new Set([
+  "USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION",
+  "YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION",
+  "YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION",
+  "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_ORGANIZATION",
+  "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_ORGANIZATION",
+  "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER",
+  "YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_MEMBER",
+  "YOU_ARE_NOT_ALLOWED_TO_INVITE_USERS_TO_THIS_ORGANIZATION",
+  "YOU_ARE_NOT_ALLOWED_TO_INVITE_USER_WITH_THIS_ROLE",
+  "YOU_ARE_NOT_ALLOWED_TO_CANCEL_THIS_INVITATION"
+])
+
+const MISSING_CODES = new Set([
+  "ORGANIZATION_NOT_FOUND",
+  "MEMBER_NOT_FOUND",
+  "INVITATION_NOT_FOUND",
+  "NO_ACTIVE_ORGANIZATION"
+])
+
+const CONFLICTING_CODES = new Map([
+  ["USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION", "already_member"],
+  ["USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION", "already_invited"],
+  ["YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER", "last_owner"],
+  ["YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER", "last_owner"],
+  ["ORGANIZATION_MEMBERSHIP_LIMIT_REACHED", "membership_limit"],
+  ["INVITATION_LIMIT_REACHED", "invitation_limit"],
+  ["ORGANIZATION_SLUG_ALREADY_TAKEN", "slug_taken"],
+  ["INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION", "inviter_left"]
+])
+
+const INVALID_CODES = new Map([["ROLE_NOT_FOUND", "role_not_found"]])
+
+export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
+  const { cause } = error
+  if (!isAPIError(cause) || cause.statusCode < 400 || cause.statusCode >= 500) {
+    return null
+  }
+  const code = cause.body?.code
+  return typeof code === "string" ? code : null
+}
+
+export const memberErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, Forbidden | NotFound | Conflict | Validation> => {
+  const code = betterAuthErrorCode(error)
+  if (code === null) return Effect.die(error)
+  if (FORBIDDING_CODES.has(code)) return Effect.fail(new Forbidden())
+  if (MISSING_CODES.has(code)) return Effect.fail(new NotFound())
+  const conflict = CONFLICTING_CODES.get(code)
+  if (conflict) return Effect.fail(new Conflict({ reason: conflict }))
+  const invalid = INVALID_CODES.get(code)
+  if (invalid) return Effect.fail(new Validation({ reason: invalid }))
+  return Effect.die(error)
+}
+
+export const memberAccessErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, Forbidden | NotFound> =>
+  memberErrorToFailure(error).pipe(
+    Effect.catchTags({
+      Conflict: () => new Forbidden(),
+      Validation: () => new Forbidden()
+    })
+  )
+
+export const leaveErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, Forbidden | NotFound | Conflict> =>
+  memberErrorToFailure(error).pipe(
+    Effect.catchTags({ Validation: () => new Forbidden() })
+  )
+
+export const transferErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<never, Forbidden | NotFound | Validation> =>
+  memberErrorToFailure(error).pipe(
+    Effect.catchTags({ Conflict: () => new Forbidden() })
+  )
+
+const webRequest = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  return yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
+})
 
 export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
   handlers
@@ -31,6 +158,93 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const user = yield* CurrentUser
         const org = yield* Org
         return yield* org.restore(params.orgSlug, user.id)
+      })
+    )
+    .handle("members", ({ params }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        return yield* ba
+          .getMembers(request, params.orgSlug)
+          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+      })
+    )
+    .handle("rename", ({ params, payload }) =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const ba = yield* BetterAuth
+        const org = yield* Org
+        const request = yield* webRequest
+        yield* ba
+          .renameOrg(request, params.orgSlug, payload.name)
+          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+        return yield* org.get(params.orgSlug, user.id)
+      })
+    )
+    .handle("inviteMember", ({ params, payload }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        return yield* ba
+          .inviteMember(request, params.orgSlug, payload)
+          .pipe(Effect.catchTag("BetterAuthError", memberErrorToFailure))
+      })
+    )
+    .handle("updateMemberRole", ({ params, payload }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        return yield* ba
+          .updateMemberRole(
+            request,
+            params.orgSlug,
+            params.userId,
+            payload.role
+          )
+          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+      })
+    )
+    .handle("removeMember", ({ params }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        yield* ba
+          .removeMember(request, params.orgSlug, params.userId)
+          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+      })
+    )
+    .handle("cancelInvitation", ({ params }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        yield* ba
+          .cancelInvitation(request, params.orgSlug, params.invitationId)
+          .pipe(Effect.catchTag("BetterAuthError", memberAccessErrorToFailure))
+      })
+    )
+    .handle("transferOwnership", ({ params, payload }) =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        return yield* ba
+          .transferOwnership(request, params.orgSlug, payload.userId, user.id)
+          .pipe(Effect.catchTag("BetterAuthError", transferErrorToFailure))
+      })
+    )
+    .handle("leave", ({ params }) =>
+      Effect.gen(function* () {
+        yield* CurrentUser
+        const ba = yield* BetterAuth
+        const request = yield* webRequest
+        yield* ba
+          .leaveOrg(request, params.orgSlug)
+          .pipe(Effect.catchTag("BetterAuthError", leaveErrorToFailure))
       })
     )
 )
