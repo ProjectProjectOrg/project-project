@@ -11,6 +11,7 @@ import {
   TicketCountQuery,
   TicketId,
   TicketListQuery,
+  TicketSearchQuery,
   type GroupId,
   type QuickCreateTicketInput,
   type Ticket,
@@ -63,7 +64,9 @@ class MalformedQuery extends Data.TaggedError("MalformedQuery")<{
   readonly cause: unknown
 }> {}
 
-const encodeQueryForKey = Schema.encodeSync(TicketListQuery)
+const TicketListKeyQuery = Schema.fromJsonString(TicketListQuery)
+const encodeQueryForKey = Schema.encodeSync(TicketListKeyQuery)
+const decodeQueryFromKey = Schema.decodeUnknownSync(TicketListKeyQuery)
 
 export const ticketsListKey = (
   orgSlug: string,
@@ -71,7 +74,7 @@ export const ticketsListKey = (
   query: TicketListQuery
 ): string => {
   const encoded = encodeQueryForKey(query)
-  return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
+  return `${orgSlug}/${slug}/${encoded}`
 }
 
 export const ticketsListKeyForStatus = (
@@ -104,8 +107,6 @@ export const pendingTicketStatusChangesAtom = Atom.family((_key: string) =>
   Atom.make<ReadonlyMap<TicketId, PendingTicketStatusChange>>(new Map())
 )
 
-const decodeQueryFromKey = Schema.decodeUnknownSync(TicketListQuery)
-
 const splitFamilyKey = (key: string): SplitFamilyKey => {
   const firstSlash = key.indexOf("/")
   const secondSlash = key.indexOf("/", firstSlash + 1)
@@ -118,8 +119,7 @@ const splitFamilyKey = (key: string): SplitFamilyKey => {
 
 const decodeListQuery = (queryJson: string) =>
   Effect.try({
-    // @effect-diagnostics-next-line preferSchemaOverJson:off
-    try: () => decodeQueryFromKey(JSON.parse(queryJson) as unknown),
+    try: () => decodeQueryFromKey(queryJson),
     catch: (cause) => new MalformedQuery({ cause })
   })
 
@@ -163,9 +163,7 @@ export const ticketsSectionsKey = (
     cursor: undefined
   })
 
-const decodeStoredQuery = Schema.decodeSync(
-  Schema.fromJsonString(TicketListQuery)
-)
+const decodeStoredQuery = Schema.decodeSync(TicketListKeyQuery)
 
 const sectionsKeyForListKey = (key: string) => {
   const { orgSlug, slug, queryJson } = splitFamilyKey(key)
@@ -362,7 +360,9 @@ export const loadMoreTicketsAtom = Atom.family((sectionKey: string) => {
   )
 })
 
-const encodeCountQueryForKey = Schema.encodeSync(TicketCountQuery)
+const TicketCountKeyQuery = Schema.fromJsonString(TicketCountQuery)
+const encodeCountQueryForKey = Schema.encodeSync(TicketCountKeyQuery)
+const decodeCountQueryFromKey = Schema.decodeUnknownSync(TicketCountKeyQuery)
 
 export const ticketsCountKey = (
   orgSlug: string,
@@ -370,21 +370,18 @@ export const ticketsCountKey = (
   query: TicketCountQuery
 ): string => {
   const encoded = encodeCountQueryForKey(query)
-  return `${orgSlug}/${slug}/${JSON.stringify(encoded)}`
+  return `${orgSlug}/${slug}/${encoded}`
 }
-
-const decodeCountQueryFromKey = Schema.decodeUnknownSync(TicketCountQuery)
 
 const decodeCountQuery = (queryJson: string) =>
   Effect.try({
-    // @effect-diagnostics-next-line preferSchemaOverJson:off
-    try: () => decodeCountQueryFromKey(JSON.parse(queryJson) as unknown),
+    try: () => decodeCountQueryFromKey(queryJson),
     catch: (cause) => new MalformedQuery({ cause })
   })
 
 const ticketsCountBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug, queryJson } = splitFamilyKey(key)
-  const query = decodeCountQueryFromKey(JSON.parse(queryJson))
+  const query = decodeCountQueryFromKey(queryJson)
   return runtime
     .atom(
       Effect.gen(function* () {
@@ -761,63 +758,37 @@ export const ticketsInSprintAtom = Atom.family((key: string) => {
     )
 })
 
-export interface TicketSearchOptions {
-  readonly q?: string
-  readonly excludeGroupId?: string
-  readonly limit?: number
-}
+const TicketSearchKeyQuery = Schema.fromJsonString(TicketSearchQuery)
+const encodeTicketSearchQuery = Schema.encodeSync(TicketSearchKeyQuery)
+const decodeTicketSearchQuery = Schema.decodeSync(TicketSearchKeyQuery)
 
 export const ticketSearchKey = (
   orgSlug: string,
   slug: string,
-  options: TicketSearchOptions
-) =>
-  `${orgSlug}/${slug}/${JSON.stringify({
-    q: options.q ?? "",
-    excludeGroupId: options.excludeGroupId ?? "",
-    limit: options.limit ?? 0
-  })}`
+  query: TicketSearchQuery
+) => `${orgSlug}/${slug}/${encodeTicketSearchQuery(query)}`
 
 const splitSearchKey = (
   key: string
-): { orgSlug: string; slug: string; options: TicketSearchOptions } => {
+): { orgSlug: string; slug: string; query: TicketSearchQuery } => {
   const firstSlash = key.indexOf("/")
   const secondSlash = key.indexOf("/", firstSlash + 1)
-  const orgSlug = key.slice(0, firstSlash)
-  const slug = key.slice(firstSlash + 1, secondSlash)
-  const optionsJson = key.slice(secondSlash + 1)
-  const parsed = JSON.parse(optionsJson) as {
-    q: string
-    excludeGroupId: string
-    limit: number
-  }
   return {
-    orgSlug,
-    slug,
-    options: {
-      q: parsed.q.length > 0 ? parsed.q : undefined,
-      excludeGroupId:
-        parsed.excludeGroupId.length > 0 ? parsed.excludeGroupId : undefined,
-      limit: parsed.limit > 0 ? parsed.limit : undefined
-    }
+    orgSlug: key.slice(0, firstSlash),
+    slug: key.slice(firstSlash + 1, secondSlash),
+    query: decodeTicketSearchQuery(key.slice(secondSlash + 1))
   }
 }
 
 export const ticketSearchAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, options } = splitSearchKey(key)
+  const { orgSlug, slug, query } = splitSearchKey(key)
   return runtime
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
         return yield* client.tickets.search({
           params: { orgSlug, slug },
-          query: {
-            ...(options.q ? { q: options.q } : {}),
-            ...(options.excludeGroupId
-              ? { excludeGroupId: options.excludeGroupId }
-              : {}),
-            ...(options.limit ? { limit: String(options.limit) } : {})
-          }
+          query
         })
       })
     )
@@ -826,7 +797,7 @@ export const ticketSearchAtom = Atom.family((key: string) => {
         `tickets/${orgSlug}/${slug}`,
         `ticket-lists/${orgSlug}/${slug}`,
         `ticket-title-query/${orgSlug}/${slug}`,
-        ...(options.excludeGroupId
+        ...(query.excludeGroupId
           ? [`sprint-membership/${orgSlug}/${slug}`]
           : [])
       ]),

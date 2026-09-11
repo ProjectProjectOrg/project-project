@@ -92,6 +92,18 @@ export const TicketCountQuery = TicketFilter.pipe(
 )
 export type TicketCountQuery = typeof TicketCountQuery.Type
 
+export const TicketSearchQuery = Schema.Struct({
+  q: Schema.optional(Schema.String),
+  excludeGroupId: Schema.optional(GroupId),
+  limit: Schema.optional(
+    Schema.FiniteFromString.pipe(
+      Schema.check(Schema.isInt()),
+      Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+    )
+  )
+})
+export type TicketSearchQuery = typeof TicketSearchQuery.Type
+
 export const TicketSections = Schema.Struct({
   counts: TicketCounts,
   sections: Schema.Record(TicketStatus, TicketListPage)

@@ -21,6 +21,7 @@ import type {
   RepoGone,
   Ticket,
   TicketCountQuery,
+  TicketSearchQuery,
   TicketCounts,
   TicketDetail,
   TicketListPage,
@@ -59,11 +60,7 @@ export interface TicketsShape {
     orgSlug: string,
     userId: string,
     slug: string,
-    options: {
-      readonly q?: string
-      readonly excludeGroupId?: string
-      readonly limit?: number
-    }
+    options: TicketSearchQuery
   ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
   readonly listInGroup: (
     orgSlug: string,

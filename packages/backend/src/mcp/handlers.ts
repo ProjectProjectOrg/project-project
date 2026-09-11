@@ -5,7 +5,7 @@ import {
   formatAttachmentMarkdown,
   isRasterImageContentType,
   type McpTools,
-  DEFAULT_TICKET_SORT,
+  TicketListQuery,
   Unauthorized,
   Validation,
   tryDecodeCursor,
@@ -17,9 +17,7 @@ import {
   type GroupId,
   type Pagination,
   type SprintState,
-  type TicketFilter,
   type TicketId,
-  type TicketListQuery,
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@projectproject/shared"
@@ -214,17 +212,13 @@ const list_tickets = (
   input: {
     orgSlug: string
     projectSlug: string
-    filter?: TicketFilter
-  } & Pagination
+  } & TicketListQuery &
+    Pick<Pagination, "limit">
 ) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const tickets = yield* Tickets
-    const query: TicketListQuery = {
-      sort: DEFAULT_TICKET_SORT,
-      ...input.filter,
-      cursor: input.cursor
-    }
+    const query = TicketListQuery.make(input)
     return yield* tickets.list(
       input.orgSlug,
       current.id,

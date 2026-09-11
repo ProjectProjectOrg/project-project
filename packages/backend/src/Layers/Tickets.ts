@@ -37,6 +37,7 @@ import {
   type TicketCounts,
   type TicketListPage,
   type TicketListQuery,
+  type TicketSearchQuery,
   type TicketSections,
   type TicketStatus,
   sprintState
@@ -309,11 +310,7 @@ export const TicketsLive = Layer.effect(
       orgSlug: string,
       userId: string,
       slug: string,
-      options: {
-        readonly q?: string
-        readonly excludeGroupId?: string
-        readonly limit?: number
-      }
+      options: TicketSearchQuery
     ): Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError> =>
       Effect.gen(function* () {
         yield* ensureAccess(orgSlug, userId, slug)

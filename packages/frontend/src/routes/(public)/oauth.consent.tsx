@@ -2,6 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
 import { meAtom } from "@/atoms/auth"
 import { oauthClientNameAtom, submitConsentAtom } from "@/atoms/oauthConsent"
@@ -12,17 +13,14 @@ import { Logo, Wordmark } from "@/components/Logo"
 import { oauthConsentErrorMessage } from "@/lib/errorMessage"
 import { rawQueryFromSearch } from "@/lib/oauthQuery"
 
-type Search = {
-  client_id?: string
-  scope?: string
-}
+const OauthConsentSearch = Schema.Struct({
+  client_id: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String)
+})
 
 export const Route = createFileRoute("/(public)/oauth/consent")({
   component: OauthConsentPage,
-  validateSearch: (raw): Search => ({
-    client_id: typeof raw.client_id === "string" ? raw.client_id : undefined,
-    scope: typeof raw.scope === "string" ? raw.scope : undefined
-  })
+  validateSearch: Schema.toStandardSchemaV1(OauthConsentSearch)
 })
 
 function OauthConsentPage() {

@@ -2,7 +2,6 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { type FormEvent, useEffect, useRef, useState } from "react"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import {
   type EditorPreference,
@@ -44,13 +43,10 @@ const ProfileSearch = Schema.Struct({
   error: Schema.optional(Schema.NonEmptyString),
   figmaError: Schema.optional(Schema.NonEmptyString)
 })
-const decodeProfileSearch = Schema.decodeUnknownOption(ProfileSearch)
-type ProfileSearch = Schema.Schema.Type<typeof ProfileSearch>
 
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
-  validateSearch: (search: Record<string, unknown>): ProfileSearch =>
-    Option.getOrElse(decodeProfileSearch(search), () => ({})),
+  validateSearch: Schema.toStandardSchemaV1(ProfileSearch),
   loader: () => ({
     crumb: {
       type: "static" as const,

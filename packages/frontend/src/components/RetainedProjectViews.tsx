@@ -1,13 +1,13 @@
 import { Activity, useMemo, useState } from "react"
-import { useMatches } from "@tanstack/react-router"
+import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { GroupId, TicketListQuery } from "@projectproject/shared"
 import { BacklogView } from "./TicketList/BacklogView"
-import { useUpdateTicketQuery } from "./TicketList/url"
 import { SprintDetail } from "./sprints/SprintDetail"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
+const encodeTicketListQuery = Schema.encodeSync(TicketListQuery)
 
 export function RetainedProjectViews({
   orgSlug,
@@ -16,6 +16,8 @@ export function RetainedProjectViews({
   orgSlug: string
   slug: string
 }) {
+  const router = useRouter()
+  const navigate = useNavigate()
   const backlog = useMatches({
     select: (matches) =>
       matches.find(
@@ -45,7 +47,29 @@ export function RetainedProjectViews({
   ) {
     setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
   }
-  const updateQuery = useUpdateTicketQuery()
+  const updateQuery = (query: TicketListQuery) => {
+    const nextSearch = encodeTicketListQuery(query)
+    void navigate({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        status: nextSearch.status,
+        type: nextSearch.type,
+        assignee: nextSearch.assignee,
+        tags: nextSearch.tags,
+        groupId: nextSearch.groupId,
+        hasBranch: nextSearch.hasBranch,
+        hasPr: nextSearch.hasPr,
+        updatedAfter: nextSearch.updatedAfter,
+        archived: nextSearch.archived,
+        sort: nextSearch.sort,
+        q: nextSearch.q,
+        cursor: undefined,
+        view: previous.view
+      }),
+      replace: true,
+      resetScroll: false
+    })
+  }
   const backlogQuery = useMemo(
     () => lastBacklog ?? defaultTicketListQuery,
     [lastBacklog]

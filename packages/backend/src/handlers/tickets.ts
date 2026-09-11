@@ -41,18 +41,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           const currentOrg = yield* CurrentOrg
           const org = yield* currentOrg.resolve(params.orgSlug, user.id)
           const tickets = yield* Tickets
-          const limitNum =
-            query.limit !== undefined
-              ? Number.parseInt(query.limit, 10)
-              : undefined
-          return yield* tickets.search(org.orgSlug, user.id, params.slug, {
-            q: query.q,
-            excludeGroupId: query.excludeGroupId,
-            limit:
-              limitNum !== undefined && Number.isFinite(limitNum)
-                ? limitNum
-                : undefined
-          })
+          return yield* tickets.search(org.orgSlug, user.id, params.slug, query)
         }).pipe(dieOnMarkdown)
       )
       .handle("count", ({ params, query }) =>

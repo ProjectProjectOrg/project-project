@@ -119,6 +119,7 @@ import {
   TicketCounts,
   TicketListPage,
   TicketListQuery,
+  TicketSearchQuery,
   TicketSections
 } from "./filters/Ticket"
 import {
@@ -1034,12 +1035,6 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
   )
   .middleware(Authentication)
 
-const TicketSearchParams = Schema.Struct({
-  q: Schema.optional(Schema.String),
-  excludeGroupId: Schema.optional(Schema.String),
-  limit: Schema.optional(Schema.String)
-})
-
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get(
@@ -1067,7 +1062,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/search",
       {
         params: ProjectPath,
-        query: TicketSearchParams,
+        query: TicketSearchQuery,
         success: Schema.Array(Ticket),
         error: [Unauthorized, NotFound]
       }

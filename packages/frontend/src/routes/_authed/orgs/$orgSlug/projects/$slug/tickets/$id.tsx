@@ -16,18 +16,15 @@ import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
-interface TicketDetailSearch {
-  focusBody?: 1
-}
+const TicketDetailSearch = Schema.Struct({
+  focusBody: Schema.optional(Schema.Literal(1))
+})
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
 )({
   component: TicketDetailRoute,
-  validateSearch: (search: Record<string, unknown>): TicketDetailSearch => {
-    if (search.focusBody === 1) return { focusBody: 1 }
-    return {}
-  },
+  validateSearch: Schema.toStandardSchemaV1(TicketDetailSearch),
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(

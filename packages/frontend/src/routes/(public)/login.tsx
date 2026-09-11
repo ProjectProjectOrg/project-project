@@ -1,6 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
+import * as Schema from "effect/Schema"
 import { Mail } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
@@ -27,15 +28,13 @@ const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
   }
 ]
 
-type Search = {
-  redirect?: string
-}
+const LoginSearch = Schema.Struct({
+  redirect: Schema.optional(Schema.String)
+})
 
 export const Route = createFileRoute("/(public)/login")({
   component: LoginPage,
-  validateSearch: (raw): Search => ({
-    redirect: typeof raw.redirect === "string" ? raw.redirect : undefined
-  })
+  validateSearch: Schema.toStandardSchemaV1(LoginSearch)
 })
 
 function LoginPage() {
