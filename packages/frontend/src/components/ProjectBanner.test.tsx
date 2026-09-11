@@ -65,8 +65,7 @@ const stubRenderCache = (hit: Blob | null) => {
   }
   vi.stubGlobal("caches", { open: () => Promise.resolve(cache) })
   resetBannerRenderCacheHandle()
-  // Subclass rather than spread: jsdom's cookie jar constructs URLs, so a
-  // plain object here breaks anything that reaches for the locale.
+  // jsdom's cookie jar constructs a URL, so a spread object breaks locale reads.
   vi.stubGlobal(
     "URL",
     class extends URL {
@@ -201,9 +200,6 @@ it("paints a banner whose source changes while the cache lookup is in flight", a
   await resize()
   await act(async () => {})
 
-  // Saving an uploaded banner swaps the source and restarts the cache lookup in
-  // separate commits, so the load effect re-runs while its photo is still in
-  // flight. That must not strand the request and leave the blur up forever.
   rerender(
     <ProjectBanner
       orgSlug="org"

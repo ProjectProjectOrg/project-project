@@ -54,8 +54,5 @@ it("proves form.state alone is a snapshot, not a subscription", () => {
 
   zoomIn()
 
-  // The live banner preview and the step summaries hang off these values, so
-  // reading form.state directly strands them on whatever the crop was when the
-  // form last happened to render for some other reason.
   expect(screen.getByTestId("zoom").textContent).toBe("1")
 })

@@ -34,8 +34,6 @@ it("opens the editor from anywhere in the row, not just the affordance", () => {
 it("exposes the row as a single control rather than nesting one inside it", () => {
   row(vi.fn())
 
-  // A button inside a button is invalid and unreachable by keyboard, so the
-  // "Change" affordance must stay presentational.
   expect(screen.getAllByRole("button")).toHaveLength(1)
   expect(screen.getByRole("button").textContent).toContain("Icon")
 })

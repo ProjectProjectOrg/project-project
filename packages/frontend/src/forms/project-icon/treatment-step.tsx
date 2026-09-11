@@ -5,6 +5,7 @@ import { IconPreviewTile } from "@/components/appearance/IconPreviewTile"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { CUTOUT_MAX_TOLERANCE } from "@/lib/iconCutout"
+import { useFormValues } from "@/lib/form"
 import type { IconTreatment } from "@/lib/iconDraft"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -66,22 +67,21 @@ export function TreatmentStep({
   onRemove: () => void
   onChangePhoto: () => void
 }) {
+  const values = useFormValues(form)
   const preview = draft.preview
   const failed = preview?.clean === false
 
-  // Each tile shows its own option, not the one currently selected, so picking
-  // between them doesn't rewrite what they are offering.
   const tile = (treatment: IconTreatment) => {
     const src =
       treatment === "sticker"
         ? (preview?.cutoutUrl ?? null)
-        : (preview?.fullUrl ?? form.state.values.source.objectUrl)
+        : (preview?.fullUrl ?? values.source.objectUrl)
     return src ? (
       <IconPreviewTile
         live={{
           kind: "image",
           src,
-          crop: form.state.values.crop,
+          crop: values.crop,
           treatment
         }}
         size={40}

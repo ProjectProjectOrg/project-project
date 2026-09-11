@@ -168,7 +168,7 @@ export function BannerSourceStep({
                         form.setFieldValue("crop.zoom", 1)
                         onAdvance()
                       }}
-                      className="flex flex-col gap-1.5 text-left outline-none transition-transform duration-100 active:scale-[0.97]"
+                      className="group flex flex-col gap-1.5 rounded-md text-left outline-none transition-transform duration-100 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
                     >
                       <motion.span
                         layoutId={`banner-preset-${entry.id}`}
@@ -177,7 +177,7 @@ export function BannerSourceStep({
                           "block aspect-[3/1] w-full overflow-hidden rounded-md transition-shadow",
                           source.preset === entry.id
                             ? "ring-2 ring-foreground"
-                            : "ring-1 ring-border"
+                            : "ring-1 ring-border group-hover:ring-ring"
                         )}
                       >
                         <img
