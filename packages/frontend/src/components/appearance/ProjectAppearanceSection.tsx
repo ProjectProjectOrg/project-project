@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { lazy, Suspense, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
   ProjectColor,
   type ProjectBanner,
@@ -10,13 +10,13 @@ import {
 import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
 import { ProjectTile } from "@/components/ProjectTile"
+import { bannerSource } from "@/components/project-banner-presets"
+import { ProjectBannerForm } from "@/forms/project-banner"
 import { Button } from "@/components/ui/button"
 import { ProjectIconForm } from "@/forms/project-icon"
 import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
 import { RenderPreviews } from "@/components/appearance/RenderPreviews"
 import { m } from "@/paraglide/messages"
-
-const BannerSettings = lazy(() => import("@/components/ProjectBannerSettings"))
 
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
 
@@ -64,6 +64,8 @@ export function ProjectAppearanceSection({
   const updateState = useAtomValue(updateProjectAtom(key))
   const [editingIcon, setEditingIcon] = useState(false)
   const [live, setLive] = useState<LiveIcon | null>(null)
+  const [editingBanner, setEditingBanner] = useState(false)
+  const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
   const previews = (
     <RenderPreviews
@@ -146,18 +148,53 @@ export function ProjectAppearanceSection({
             )}
           </AppearanceRow>
 
-          {canEdit ? (
-            <div className="py-3">
-              <Suspense fallback={null}>
-                <BannerSettings
-                  key={key}
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  banner={banner}
-                />
-              </Suspense>
+          {editingBanner ? (
+            <div className="flex flex-col gap-3 py-3">
+              <ProjectBannerForm
+                key={key}
+                orgSlug={orgSlug}
+                slug={slug}
+                banner={banner}
+                onDone={() => setEditingBanner(false)}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start"
+                onClick={() => setEditingBanner(false)}
+              >
+                {m.common_cancel_button()}
+              </Button>
             </div>
-          ) : null}
+          ) : (
+            <AppearanceRow
+              label={m.project_appearance_banner_row()}
+              action={
+                canEdit ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingBanner(true)}
+                  >
+                    {m.project_appearance_icon_change()}
+                  </Button>
+                ) : null
+              }
+            >
+              <span className="block h-9 w-28 overflow-hidden rounded-md bg-muted ring-1 ring-border/60">
+                {bannerThumb ? (
+                  <img
+                    src={bannerThumb}
+                    alt=""
+                    className="size-full object-cover"
+                    style={{
+                      objectPosition: `${(banner?.crop.x ?? 0.5) * 100}% ${(banner?.crop.y ?? 0.5) * 100}%`
+                    }}
+                  />
+                ) : null}
+              </span>
+            </AppearanceRow>
+          )}
 
           {AsyncResult.isFailure(updateState) ? (
             <p role="alert" className="py-2 text-xs text-destructive">
