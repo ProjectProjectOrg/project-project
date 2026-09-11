@@ -99,6 +99,7 @@ export function ProjectAppearanceSection({
                     transition={fade}
                   >
                     <EditorHeader
+                      shareId="icon"
                       title={m.project_appearance_icon_row()}
                       onCancel={() => {
                         setEditing(null)
@@ -137,6 +138,7 @@ export function ProjectAppearanceSection({
                           />
                         </span>
                       }
+                      shareId="icon"
                       label={m.project_appearance_icon_row()}
                       detail={
                         iconImage
@@ -189,6 +191,7 @@ export function ProjectAppearanceSection({
                     transition={fade}
                   >
                     <EditorHeader
+                      shareId="banner"
                       title={m.project_appearance_banner_row()}
                       onCancel={() => setEditing(null)}
                     />
@@ -223,6 +226,7 @@ export function ProjectAppearanceSection({
                           ) : null}
                         </span>
                       }
+                      shareId="banner"
                       label={m.project_appearance_banner_row()}
                       detail={
                         bannerPreset

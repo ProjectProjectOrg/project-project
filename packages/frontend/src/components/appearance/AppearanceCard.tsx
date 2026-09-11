@@ -1,7 +1,14 @@
+import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+function useSharedTransition() {
+  const reduce = useReducedMotion() ?? false
+  return reduce ? { duration: 0 } : transitions.morph
+}
 
 export function AppearanceCard({
   children,
@@ -26,40 +33,72 @@ export function AppearanceRow({
   thumb,
   label,
   detail,
-  action
+  action,
+  shareId
 }: {
   thumb: ReactNode
   label: string
   detail: string
   action?: ReactNode
+  shareId?: string
 }) {
+  const shared = useSharedTransition()
   return (
     <div className="flex items-center gap-3 p-3">
       {thumb}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[13px] font-medium">{label}</span>
+        <motion.span
+          layoutId={shareId && `${shareId}-label`}
+          transition={shared}
+          className="w-fit truncate text-[13px] font-medium"
+        >
+          {label}
+        </motion.span>
         <span className="truncate text-[13px] text-muted-foreground">
           {detail}
         </span>
       </span>
-      {action}
+      {action ? (
+        <motion.span
+          layoutId={shareId && `${shareId}-action`}
+          transition={shared}
+          className="inline-flex"
+        >
+          {action}
+        </motion.span>
+      ) : null}
     </div>
   )
 }
 
 export function EditorHeader({
   title,
-  onCancel
+  onCancel,
+  shareId
 }: {
   title: string
   onCancel: () => void
+  shareId?: string
 }) {
+  const shared = useSharedTransition()
   return (
     <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-      <span className="text-[13px] font-medium">{title}</span>
-      <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-        {m.project_appearance_cancel()}
-      </Button>
+      <motion.span
+        layoutId={shareId && `${shareId}-label`}
+        transition={shared}
+        className="w-fit text-[13px] font-medium"
+      >
+        {title}
+      </motion.span>
+      <motion.span
+        layoutId={shareId && `${shareId}-action`}
+        transition={shared}
+        className="inline-flex"
+      >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          {m.project_appearance_cancel()}
+        </Button>
+      </motion.span>
     </div>
   )
 }
