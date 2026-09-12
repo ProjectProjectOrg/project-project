@@ -20,12 +20,14 @@ export function BannerSourceStep({
   orgSlug,
   onAdvance,
   onPickFile,
+  onPickPreset,
   rejected
 }: {
   form: BannerForm
   orgSlug: string
   onAdvance: () => void
   onPickFile: (file: File) => void
+  onPickPreset: () => void
   rejected: boolean
 }) {
   const storage = useAtomValue(orgStorageAtom(orgSlug))
@@ -130,7 +132,7 @@ export function BannerSourceStep({
                     }}
                     className={cn(
                       "flex flex-col items-center gap-1 rounded-md border border-dashed px-4 py-8",
-                      "transition-all duration-100 active:scale-[0.97]",
+                      "transition-all duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                       dragging
                         ? "border-ring bg-accent/60"
                         : "border-border hover:bg-accent/40"
@@ -160,6 +162,7 @@ export function BannerSourceStep({
                       type="button"
                       aria-pressed={source.preset === entry.id}
                       onClick={() => {
+                        onPickPreset()
                         form.setFieldValue("source.kind", "artwork")
                         form.setFieldValue("source.preset", entry.id)
                         form.setFieldValue("source.src", entry.src)
@@ -168,7 +171,7 @@ export function BannerSourceStep({
                         form.setFieldValue("crop.zoom", 1)
                         onAdvance()
                       }}
-                      className="group flex flex-col gap-1.5 rounded-md text-left outline-none transition-transform duration-100 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
+                      className="group flex flex-col gap-1.5 rounded-md text-left outline-none transition-transform duration-100 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
                     >
                       <motion.span
                         layoutId={`banner-preset-${entry.id}`}

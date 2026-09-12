@@ -17,6 +17,7 @@ import { CUTOUT_DEFAULT_TOLERANCE, hasAlpha } from "@/lib/iconCutout"
 import { useAppForm, useFormValues } from "@/lib/form"
 import {
   analyseAt,
+  appliedIconTreatment,
   buildIconImage,
   compositeToBlob,
   iconPreviewChanged,
@@ -66,6 +67,7 @@ export function ProjectIconForm({
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)
 
   const [step, setStep] = useState(iconImage ? 1 : 0)
+  const [treatmentBlocked, setTreatmentBlocked] = useState(false)
   const draft = useIconDraft()
   const reduce = useReducedMotion() ?? false
   const fade = reduce ? { duration: 0 } : transitions.fade
@@ -107,6 +109,17 @@ export function ProjectIconForm({
 
       if (!bitmap || !file) {
         if (!iconImage) return
+        const applied = appliedIconTreatment(
+          iconImage,
+          CUTOUT_DEFAULT_TOLERANCE
+        )
+        if (
+          value.treatment.kind !== applied.kind ||
+          value.treatment.tolerance !== applied.tolerance
+        ) {
+          setTreatmentBlocked(true)
+          return
+        }
         const saved = await update({
           iconImage: { ...iconImage, crop: value.crop }
         })
@@ -343,6 +356,7 @@ export function ProjectIconForm({
             transition={fade}
           >
             <TreatmentStep
+              blocked={treatmentBlocked}
               form={form}
               draft={draft}
               busy={busy}

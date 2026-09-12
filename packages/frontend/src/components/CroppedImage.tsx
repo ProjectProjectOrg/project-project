@@ -15,7 +15,11 @@ export function CroppedImage({
   className?: string
   onError?: () => void
 }) {
-  const [sourceAspect, setSourceAspect] = useState<number | null>(null)
+  const [measured, setMeasured] = useState<{
+    src: string
+    aspect: number
+  } | null>(null)
+  const sourceAspect = measured?.src === src ? measured.aspect : null
   const style: CSSProperties | undefined = sourceAspect
     ? coverCropStyle(sourceAspect, containerAspect, crop)
     : undefined
@@ -28,7 +32,7 @@ export function CroppedImage({
       onLoad={(event) => {
         const image = event.currentTarget
         if (image.naturalHeight > 0)
-          setSourceAspect(image.naturalWidth / image.naturalHeight)
+          setMeasured({ src, aspect: image.naturalWidth / image.naturalHeight })
       }}
       onError={onError}
       className={cn(sourceAspect ? "" : "size-full object-cover", className)}

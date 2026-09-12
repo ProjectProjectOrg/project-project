@@ -65,7 +65,12 @@ export function RenderPreviews({
   )
 
   return (
-    <div className={cn("flex flex-col gap-2.5", waiting && "animate-pulse")}>
+    <div
+      className={cn(
+        "flex flex-col gap-2.5",
+        waiting && "animate-pulse motion-reduce:animate-none"
+      )}
+    >
       <div className="relative isolate min-h-[132px] overflow-hidden rounded-lg border border-border bg-card">
         <ProjectBannerSurface
           orgSlug={orgSlug}

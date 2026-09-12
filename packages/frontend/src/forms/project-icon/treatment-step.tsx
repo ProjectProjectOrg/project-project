@@ -36,7 +36,7 @@ function TreatmentChoice({
       onClick={onSelect}
       className={cn(
         "flex flex-1 items-center gap-2.5 rounded-md border p-2.5 text-left",
-        "transition-all duration-100 active:scale-[0.97]",
+        "transition-all duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
         active ? "border-foreground" : "border-border hover:bg-accent/40",
         disabled && "cursor-not-allowed opacity-50"
       )}
@@ -53,6 +53,7 @@ function TreatmentChoice({
 export function TreatmentStep({
   form,
   draft,
+  blocked,
   busy,
   error,
   accent,
@@ -61,6 +62,7 @@ export function TreatmentStep({
 }: {
   form: IconForm
   draft: IconDraft
+  blocked: boolean
   busy: boolean
   error: boolean
   accent: string
@@ -217,6 +219,12 @@ export function TreatmentStep({
               ) : null
             }
           </group.Subscribe>
+
+          {blocked ? (
+            <p role="alert" className="text-[13px] text-destructive">
+              {m.project_icon_treatment_needs_image()}
+            </p>
+          ) : null}
 
           {error ? (
             <p role="alert" className="text-[13px] text-destructive">

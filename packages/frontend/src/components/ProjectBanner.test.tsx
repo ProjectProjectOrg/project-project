@@ -55,10 +55,25 @@ const attachmentBanner = (
     placeholder
   }) as never
 
-const stubRenderCache = (hit: Blob | null) => {
+const stubRenderCache = (
+  hit: Blob | null,
+  options: { deferAfter?: number } = {}
+) => {
+  const pending: Array<() => void> = []
+  let lookups = 0
   const cache = {
     match: () =>
-      Promise.resolve(hit ? { blob: () => Promise.resolve(hit) } : undefined),
+      ++lookups > (options.deferAfter ?? Number.POSITIVE_INFINITY)
+        ? new Promise((resolve) => pending.push(() => resolve(undefined)))
+        : Promise.resolve(
+            hit ? { blob: () => Promise.resolve(hit) } : undefined
+          ),
+    settlePending: async () => {
+      const waiting = pending.splice(0, pending.length)
+      await act(async () => {
+        waiting.forEach((resolve) => resolve())
+      })
+    },
     put: vi.fn(() => Promise.resolve()),
     keys: () => Promise.resolve([]),
     delete: vi.fn(() => Promise.resolve(true))
@@ -185,7 +200,7 @@ it("falls through to the photo and shader when the render cache misses", async (
 
 it("paints a banner whose source changes while the cache lookup is in flight", async () => {
   stubLayout()
-  stubRenderCache(null)
+  const cache = stubRenderCache(null, { deferAfter: 1 })
   trackImages({ decodes: true })
   const resize = sizedResizeObserver()
 
@@ -208,6 +223,8 @@ it("paints a banner whose source changes while the cache lookup is in flight", a
     />
   )
   await act(async () => {})
+
+  await cache.settlePending()
 
   const pending = photoRequests().at(-1)
   expect(pending?.src).toContain("after-save")

@@ -215,6 +215,7 @@
   "project_icon_tolerance": "Background removal",
   "project_icon_treatment_full_bleed": "Cropped",
   "project_icon_treatment_full_bleed_hint": "Photo fills the tile",
+  "project_icon_treatment_needs_image": "The image is still loading. Pick the photo again to change how it sits in the tile.",
   "project_icon_treatment_sticker": "Cutout",
   "project_icon_treatment_sticker_hint": "Subject cut out, on your accent",
   "project_icon_upload": "Upload image",

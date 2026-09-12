@@ -50,10 +50,16 @@ function EmojiPickerSearch({
   )
 }
 
-function EmojiPickerRow({ children, ...props }: EmojiPickerListRowProps) {
+function EmojiPickerRow({
+  children,
+  style,
+  ...props
+}: EmojiPickerListRowProps) {
   return (
     <div
       {...props}
+      // frimousse sets display:flex inline on every row, which would beat the class
+      style={{ ...style, display: "grid" }}
       className="grid scroll-my-1 grid-cols-[repeat(var(--frimousse-list-columns),minmax(0,1fr))] px-1"
       data-slot="emoji-picker-row"
     >

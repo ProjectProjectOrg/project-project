@@ -30,14 +30,17 @@ export function useIconDraft() {
   const [rejected, setRejected] = useState(false)
   const bitmapRef = useRef<ImageBitmap | null>(null)
   const fileRef = useRef<File | null>(null)
-  const objectUrls = useRef<string[]>([])
+  const previewUrls = useRef<ReadonlyArray<string>>([])
+  const sourceUrl = useRef<string | null>(null)
   const restyleToken = useRef(0)
+  const draftToken = useRef(0)
   const renderedTolerance = useRef<number | null>(null)
   const primed = useRef(false)
 
   useEffect(
     () => () => {
-      objectUrls.current.forEach((url) => URL.revokeObjectURL(url))
+      previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+      if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
       bitmapRef.current?.close()
     },
     []
@@ -63,15 +66,18 @@ export function useIconDraft() {
       return
     }
     const token = ++restyleToken.current
+    const draft = draftToken.current
     const next = await buildDraftPreview(bitmap, treatment, tolerance)
-    if (token !== restyleToken.current) {
-      URL.revokeObjectURL(next.cutoutUrl)
-      if (next.fullUrl !== next.cutoutUrl) URL.revokeObjectURL(next.fullUrl)
+    const fresh = [next.cutoutUrl, next.fullUrl].filter(
+      (url, index, all) => all.indexOf(url) === index
+    )
+    if (token !== restyleToken.current || draft !== draftToken.current) {
+      fresh.forEach((url) => URL.revokeObjectURL(url))
       return
     }
     renderedTolerance.current = tolerance
-    objectUrls.current.push(next.cutoutUrl)
-    if (next.fullUrl !== next.cutoutUrl) objectUrls.current.push(next.fullUrl)
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    previewUrls.current = fresh
     setPreview(next)
   }
 
@@ -91,18 +97,25 @@ export function useIconDraft() {
       return null
     }
     setRejected(false)
+    const token = ++draftToken.current
     primed.current = false
     renderedTolerance.current = null
     try {
+      const bitmap = await createImageBitmap(file)
+      if (token !== draftToken.current) {
+        bitmap.close()
+        return null
+      }
       bitmapRef.current?.close()
-      bitmapRef.current = await createImageBitmap(file)
+      bitmapRef.current = bitmap
       fileRef.current = file
+      if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
       const url = URL.createObjectURL(file)
-      objectUrls.current.push(url)
+      sourceUrl.current = url
       await restyle(initial.treatment, initial.tolerance)
-      return url
+      return token === draftToken.current ? url : null
     } catch {
-      setRejected(true)
+      if (token === draftToken.current) setRejected(true)
       return null
     }
   }
@@ -112,12 +125,17 @@ export function useIconDraft() {
     initial: { treatment: IconTreatment; tolerance: number }
   ) => {
     if (bitmapRef.current) return
+    const token = draftToken.current
     try {
       const response = await fetch(url)
       if (!response.ok) return
       const blob = await response.blob()
-      await accept(new File([blob], "icon", { type: blob.type }), initial)
-      primed.current = true
+      if (token !== draftToken.current || bitmapRef.current) return
+      const accepted = await accept(
+        new File([blob], "icon", { type: blob.type }),
+        initial
+      )
+      if (accepted) primed.current = true
     } catch {
       setRejected(false)
     }

@@ -91,7 +91,7 @@ export function ProjectBannerForm({
       let next: ProjectBanner | null = null
 
       if (value.source.kind !== "none") {
-        if (fileRef.current) {
+        if (value.source.kind === "upload" && fileRef.current) {
           let compressed: CompressedBanner
           try {
             compressed = await compressBanner(fileRef.current, {
@@ -217,6 +217,9 @@ export function ProjectBannerForm({
               form={form}
               orgSlug={orgSlug}
               rejected={rejected}
+              onPickPreset={() => {
+                fileRef.current = null
+              }}
               onPickFile={(file) => {
                 if (
                   !isRasterImageContentType(file.type) ||

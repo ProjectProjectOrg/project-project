@@ -13,6 +13,7 @@ import {
   EmojiPickerSearch
 } from "@/components/ui/emoji-picker"
 import { cn } from "@/lib/utils"
+import { CUTOUT_DEFAULT_TOLERANCE } from "@/lib/iconCutout"
 import { m } from "@/paraglide/messages"
 import { sourceSchema, stepValidator } from "./opts"
 import type { IconDraft } from "./useIconDraft"
@@ -40,8 +41,11 @@ export function SourceStep({
     const url = await draft.accept(file)
     if (!url) return
     form.setFieldValue("source.objectUrl", url)
-    form.resetField("crop")
-    form.resetField("treatment")
+    form.setFieldValue("crop", { x: 0.5, y: 0.5, zoom: 1 })
+    form.setFieldValue("treatment", {
+      kind: "sticker",
+      tolerance: CUTOUT_DEFAULT_TOLERANCE
+    })
     onAdvance()
   }
 
@@ -156,7 +160,7 @@ export function SourceStep({
                   }}
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-md border border-dashed px-4 py-8",
-                    "transition-all duration-100 active:scale-[0.97]",
+                    "transition-all duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                     dragging
                       ? "border-ring bg-accent/60"
                       : "border-border hover:bg-accent/40"

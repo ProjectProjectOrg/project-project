@@ -13,6 +13,7 @@ import {
   updateProjectAtom
 } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
+import { CroppedImage } from "@/components/CroppedImage"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import {
   AppearanceCard,
@@ -22,6 +23,7 @@ import {
 import type { LiveIcon } from "@/components/appearance/IconPreviewTile"
 import { RenderPreviews } from "@/components/appearance/RenderPreviews"
 import {
+  bannerDefaults,
   bannerSource,
   bannerPresets
 } from "@/components/project-banner-presets"
@@ -218,13 +220,10 @@ export function ProjectAppearanceSection({
                       thumb={
                         <span className="block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
                           {bannerThumb ? (
-                            <img
+                            <CroppedImage
                               src={bannerThumb}
-                              alt=""
-                              className="size-full object-cover"
-                              style={{
-                                objectPosition: `${(banner?.crop.x ?? 0.5) * 100}% ${(banner?.crop.y ?? 0.5) * 100}%`
-                              }}
+                              crop={banner?.crop ?? bannerDefaults}
+                              containerAspect={88 / 40}
                             />
                           ) : null}
                         </span>
@@ -236,7 +235,7 @@ export function ProjectAppearanceSection({
                         bannerPreset
                           ? `${bannerPreset.label()} · ${bannerPreset.artist}`
                           : banner
-                            ? m.project_appearance_icon_custom()
+                            ? m.project_appearance_banner_custom()
                             : m.project_appearance_banner_none()
                       }
                       action={changeAffordance}
