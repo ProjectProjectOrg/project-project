@@ -3,7 +3,7 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   attachmentUrl,
   ProjectIcon,
@@ -66,6 +66,14 @@ export function ProjectIconForm({
   const failed =
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)
 
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   const [step, setStep] = useState(iconImage ? 1 : 0)
   const [treatmentBlocked, setTreatmentBlocked] = useState(false)
   const draft = useIconDraft()
@@ -95,12 +103,15 @@ export function ProjectIconForm({
       }
     },
     onSubmit: async ({ value }) => {
+      if (busy) return
+      draft.setRejected(false)
+      setTreatmentBlocked(false)
       if (value.source.kind === "emoji") {
         const saved = await update({
           icon: makeProjectIcon(value.source.emoji),
           iconImage: null
         })
-        if (Exit.isSuccess(saved)) onDone?.()
+        if (mounted.current && Exit.isSuccess(saved)) onDone?.()
         return
       }
 
@@ -123,65 +134,64 @@ export function ProjectIconForm({
         const saved = await update({
           iconImage: { ...iconImage, crop: value.crop }
         })
-        if (Exit.isSuccess(saved)) onDone?.()
-        return
-      }
-
-      const { source, alpha, clean } = analyseAt(
-        bitmap,
-        CUTOUT_APPLY_MAX_EDGE,
-        value.treatment.tolerance
-      )
-      const transparent = hasAlpha(source)
-      const wantsSticker = value.treatment.kind === "sticker"
-
-      if (wantsSticker && !clean) {
-        draft.markUnclean()
+        if (mounted.current && Exit.isSuccess(saved)) onDone?.()
         return
       }
 
       let compressed: File
+      let rendered: File | null = null
+      let classification: Parameters<typeof buildIconImage>[0]["classification"]
       try {
+        const { source, alpha, clean } = analyseAt(
+          bitmap,
+          CUTOUT_APPLY_MAX_EDGE,
+          value.treatment.tolerance
+        )
+        const transparent = hasAlpha(source)
+        const wantsSticker = value.treatment.kind === "sticker"
+        if (wantsSticker && !clean) {
+          draft.markUnclean()
+          return
+        }
+        classification = {
+          treatment: value.treatment.kind,
+          clean,
+          transparent,
+          tolerance: value.treatment.tolerance
+        }
         compressed = await compressImage(file, {
           maxEdge: 1024,
           hasAlpha: transparent,
           quality: 0.85
         })
+        if (!mounted.current) return
+        if (wantsSticker)
+          rendered = transparent
+            ? file
+            : new File([await compositeToBlob(source, alpha)], "icon.png", {
+                type: "image/png"
+              })
       } catch {
-        draft.setRejected(true)
+        if (mounted.current) draft.setRejected(true)
         return
       }
-
+      if (!mounted.current) return
       const uploadedSource = await upload({ file: compressed })
-      if (Exit.isFailure(uploadedSource)) return
-
-      const uploadedRendered = !wantsSticker
-        ? uploadedSource
-        : transparent
-          ? await upload({ file })
-          : await upload({
-              file: new File(
-                [await compositeToBlob(source, alpha)],
-                "icon.png",
-                { type: "image/png" }
-              )
-            })
-      if (Exit.isFailure(uploadedRendered)) return
+      if (!mounted.current || Exit.isFailure(uploadedSource)) return
+      const uploadedRendered = rendered
+        ? await upload({ file: rendered })
+        : uploadedSource
+      if (!mounted.current || Exit.isFailure(uploadedRendered)) return
 
       const saved = await update({
         iconImage: buildIconImage({
-          classification: {
-            treatment: value.treatment.kind,
-            clean,
-            transparent,
-            tolerance: value.treatment.tolerance
-          },
+          classification,
           sourceAttachmentId: uploadedSource.value.id,
           renderedAttachmentId: uploadedRendered.value.id,
           crop: value.crop
         })
       })
-      if (Exit.isSuccess(saved)) onDone?.()
+      if (mounted.current && Exit.isSuccess(saved)) onDone?.()
     }
   })
 
@@ -222,7 +232,7 @@ export function ProjectIconForm({
   useEffect(() => {
     if (resolved && resolved !== form.state.values.treatment.kind)
       form.setFieldValue("treatment.kind", resolved)
-  }, [form, resolved])
+  }, [form, resolved, values.source.objectUrl])
 
   const changed = iconPreviewChanged(
     values,
@@ -264,12 +274,17 @@ export function ProjectIconForm({
       : (draft.fileName() ?? m.project_appearance_icon_custom())
 
   const removeImage = async () => {
-    await update({ iconImage: null })
-    onDone?.()
+    const saved = await update({ iconImage: null })
+    if (mounted.current && Exit.isSuccess(saved)) onDone?.()
   }
 
   return (
     <form.AppForm>
+      {draft.rejected ? (
+        <p role="alert" className="px-3 pt-3 text-[13px] text-destructive">
+          {m.project_icon_file_rejected()}
+        </p>
+      ) : null}
       <AnimatePresence initial={false} mode="popLayout">
         {step > 0 && (
           <motion.div
@@ -322,6 +337,8 @@ export function ProjectIconForm({
               form={form}
               draft={draft}
               orgSlug={orgSlug}
+              busy={busy}
+              error={failed}
               onAdvance={() => {
                 if (form.state.values.source.kind === "emoji") {
                   void form.handleSubmit()

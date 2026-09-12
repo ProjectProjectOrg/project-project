@@ -7,7 +7,6 @@ import { Slider } from "@/components/ui/slider"
 import { CUTOUT_MAX_TOLERANCE } from "@/lib/iconCutout"
 import { useFormValues } from "@/lib/form"
 import type { IconTreatment } from "@/lib/iconDraft"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { stepValidator, treatmentSchema } from "./opts"
 import type { IconDraft } from "./useIconDraft"
@@ -29,24 +28,20 @@ function TreatmentChoice({
   onSelect: () => void
 }) {
   return (
-    <button
+    <Button
       type="button"
       aria-pressed={active}
       disabled={disabled}
       onClick={onSelect}
-      className={cn(
-        "flex flex-1 items-center gap-2.5 rounded-md border p-2.5 text-left",
-        "transition-all duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-        active ? "border-foreground" : "border-border hover:bg-accent/40",
-        disabled && "cursor-not-allowed opacity-50"
-      )}
+      variant="selection-card"
+      size="selection-card"
     >
       {preview}
       <span className="flex min-w-0 flex-col">
         <span className="text-[13px] font-medium">{title}</span>
         <span className="text-xs text-muted-foreground">{hint}</span>
       </span>
-    </button>
+    </Button>
   )
 }
 

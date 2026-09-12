@@ -84,13 +84,14 @@ export function AppearanceRow({
     return <div className="flex items-center gap-3 p-3">{content}</div>
 
   return (
-    <button
+    <Button
       type="button"
       onClick={onActivate}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-lg p-3 outline-none transition-all duration-100 hover:bg-accent/40 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+      variant="appearance-row"
+      size="appearance-row"
     >
       {content}
-    </button>
+    </Button>
   )
 }
 

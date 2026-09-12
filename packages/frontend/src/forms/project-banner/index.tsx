@@ -60,6 +60,13 @@ export function ProjectBannerForm({
   const fade = reduce ? { duration: 0 } : transitions.fade
   const fadeIn = reduce ? false : { opacity: 0, y: -4 }
   const fadeOut = { opacity: 0, y: 4 }
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const fileRef = useRef<File | null>(null)
   const objectUrls = useRef<string[]>([])
 
@@ -88,6 +95,7 @@ export function ProjectBannerForm({
       }
     }),
     onSubmit: async ({ value }) => {
+      setRejected(false)
       let next: ProjectBanner | null = null
 
       if (value.source.kind !== "none") {
@@ -100,11 +108,12 @@ export function ProjectBannerForm({
               quality: 0.82
             })
           } catch {
-            setRejected(true)
+            if (mounted.current) setRejected(true)
             return
           }
+          if (!mounted.current) return
           const uploaded = await upload({ file: compressed.file })
-          if (Exit.isFailure(uploaded)) return
+          if (!mounted.current || Exit.isFailure(uploaded)) return
           next = {
             type: "attachment",
             attachmentId: uploaded.value.id,
@@ -128,8 +137,9 @@ export function ProjectBannerForm({
         }
       }
 
+      if (!mounted.current) return
       const saved = await update({ banner: next })
-      if (Exit.isSuccess(saved)) {
+      if (mounted.current && Exit.isSuccess(saved)) {
         setPreview(null)
         onDone?.()
       }
@@ -227,7 +237,7 @@ export function ProjectBannerForm({
                   file.size === 0
                 ) {
                   setRejected(true)
-                  return
+                  return false
                 }
                 setRejected(false)
                 fileRef.current = file
@@ -239,10 +249,10 @@ export function ProjectBannerForm({
                 form.setFieldValue("crop.x", 0.5)
                 form.setFieldValue("crop.y", 0.5)
                 form.setFieldValue("crop.zoom", 1)
-                setStep(1)
+                return true
               }}
               onAdvance={() => {
-                if (!values.source.src) return
+                if (!form.state.values.source.src) return
                 setStep(1)
               }}
             />
@@ -261,6 +271,7 @@ export function ProjectBannerForm({
               src={values.source.src ?? ""}
               busy={busy}
               error={failed}
+              rejected={rejected}
               onRemove={removeBanner}
             />
           </motion.div>

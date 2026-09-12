@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@effect/atom-react", () => ({
   useAtomSet: (atom: string) =>
     atom === "upload-atom" ? mocks.upload : mocks.update,
-  useAtomValue: () => ({ waiting: false })
+  useAtomValue: (atom: string) =>
+    atom === "storage-atom"
+      ? { _tag: "Success", value: { status: "active" }, waiting: false }
+      : { _tag: "Initial", waiting: false }
 }))
 vi.mock("@/atoms/attachments", () => ({
   uploadProjectImageAtom: () => "upload-atom"

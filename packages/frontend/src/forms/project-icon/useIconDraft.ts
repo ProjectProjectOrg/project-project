@@ -36,19 +36,29 @@ export function useIconDraft() {
   const draftToken = useRef(0)
   const renderedTolerance = useRef<number | null>(null)
   const primed = useRef(false)
+  const mounted = useRef(false)
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      draftToken.current += 1
+      restyleToken.current += 1
       previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
+      previewUrls.current = []
       if (sourceUrl.current) URL.revokeObjectURL(sourceUrl.current)
+      sourceUrl.current = null
       bitmapRef.current?.close()
-    },
-    []
-  )
+      bitmapRef.current = null
+      fileRef.current = null
+    }
+  }, [])
 
   const restyle = async (treatment: IconTreatment, tolerance: number) => {
     const bitmap = bitmapRef.current
-    if (!bitmap) return
+    if (!bitmap || !mounted.current) return
+    const token = ++restyleToken.current
+    const draft = draftToken.current
     if (renderedTolerance.current === tolerance) {
       setPreview((current) =>
         current
@@ -65,9 +75,14 @@ export function useIconDraft() {
       )
       return
     }
-    const token = ++restyleToken.current
-    const draft = draftToken.current
-    const next = await buildDraftPreview(bitmap, treatment, tolerance)
+    let next: Awaited<ReturnType<typeof buildDraftPreview>>
+    try {
+      next = await buildDraftPreview(bitmap, treatment, tolerance)
+    } catch {
+      if (token === restyleToken.current && draft === draftToken.current)
+        setRejected(true)
+      return
+    }
     const fresh = [next.cutoutUrl, next.fullUrl].filter(
       (url, index, all) => all.indexOf(url) === index
     )
@@ -88,6 +103,7 @@ export function useIconDraft() {
       tolerance: CUTOUT_DEFAULT_TOLERANCE
     }
   ): Promise<string | null> => {
+    if (!mounted.current) return null
     if (
       !isProjectIconContentType(file.type) ||
       file.size > ATTACHMENT_MAX_BYTES ||
@@ -130,14 +146,15 @@ export function useIconDraft() {
       const response = await fetch(url)
       if (!response.ok) return
       const blob = await response.blob()
-      if (token !== draftToken.current || bitmapRef.current) return
+      if (!mounted.current || token !== draftToken.current || bitmapRef.current)
+        return
       const accepted = await accept(
         new File([blob], "icon", { type: blob.type }),
         initial
       )
       if (accepted) primed.current = true
     } catch {
-      setRejected(false)
+      if (mounted.current && token === draftToken.current) setRejected(false)
     }
   }
 

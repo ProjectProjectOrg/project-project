@@ -292,6 +292,7 @@ export function ProjectAppearanceSection({
                 color={color}
                 banner={banner}
                 live={live}
+                waiting={updateState.waiting}
               />
             </div>
           </details>

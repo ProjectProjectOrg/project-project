@@ -8,7 +8,7 @@ import {
 
 export type IconTreatment = "sticker" | "full_bleed"
 
-export interface IconClassification {
+export type IconClassification = {
   readonly treatment: IconTreatment
   readonly clean: boolean
   readonly transparent: boolean
@@ -17,7 +17,7 @@ export interface IconClassification {
 
 export type CutoutRejection = "too_small" | "background"
 
-export interface IconCrop {
+export type IconCrop = {
   readonly x: number
   readonly y: number
   readonly zoom: number
@@ -25,7 +25,7 @@ export interface IconCrop {
 
 export const CUTOUT_APPLY_MAX_EDGE = 512
 
-export interface IconDraftValues {
+export type IconDraftValues = {
   readonly source: { readonly kind: "emoji" | "image"; readonly emoji: string }
   readonly crop: IconCrop
   readonly treatment: {
@@ -171,11 +171,12 @@ export const buildDraftPreview = async (
     transparent,
     tolerance
   })
-  const full = URL.createObjectURL(await compositeToBlob(source, null))
-  // An image that already carries alpha is its own cutout.
-  const cutout = transparent
-    ? full
-    : URL.createObjectURL(await compositeToBlob(source, alpha))
+  const fullBlob = await compositeToBlob(source, null)
+  const cutoutBlob = transparent
+    ? fullBlob
+    : await compositeToBlob(source, alpha)
+  const full = URL.createObjectURL(fullBlob)
+  const cutout = transparent ? full : URL.createObjectURL(cutoutBlob)
   return {
     cutoutUrl: cutout,
     fullUrl: full,

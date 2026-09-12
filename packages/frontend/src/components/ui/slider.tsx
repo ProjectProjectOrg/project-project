@@ -36,10 +36,10 @@ type ValuePosition = "left" | "right" | "top" | "bottom" | "tooltip"
 /** Props of the compact engine — the feature-rich design (ranges, discrete
  *  step lists, value display) that renders the ladder's compact step. The
  *  public <Slider> accepts these plus `variant` and `size`. */
-interface SliderEngineProps extends Omit<
+type SliderEngineProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "onChange" | "defaultValue"
-> {
+> & {
   value: SliderValue
   onChange: (value: SliderValue) => void
   min?: number
@@ -128,7 +128,7 @@ function toRadixValue(value: SliderValue): number[] {
 // ValueDisplay (internal)
 // ---------------------------------------------------------------------------
 
-interface ValueDisplayProps {
+type ValueDisplayProps = {
   values: number[]
   editingIndex: number | null
   onStartEdit: (index: number) => void
@@ -283,7 +283,7 @@ function ValueDisplay({
 // TooltipValue (internal)
 // ---------------------------------------------------------------------------
 
-interface TooltipValueProps {
+type TooltipValueProps = {
   value: number
   formatValue: (v: number) => string
   motionX: MotionValue<number>
@@ -1159,7 +1159,7 @@ CompactSlider.displayName = "SliderCompact"
 // ComfortableSlider — the default-step design (pips / scrubber layouts).
 // ---------------------------------------------------------------------------
 
-interface SliderComfortableProps extends Omit<
+type SliderComfortableProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   | "onChange"
   | "defaultValue"
@@ -1168,7 +1168,7 @@ interface SliderComfortableProps extends Omit<
   | "onDragEnd"
   | "onDragOver"
   | "onAnimationStart"
-> {
+> & {
   value: number
   onChange: (value: number) => void
   min?: number
@@ -1854,7 +1854,7 @@ ComfortableSlider.displayName = "SliderComfortable"
 // it regardless of the resolved step, so no capability is ever lost.
 // ---------------------------------------------------------------------------
 
-interface SliderProps extends SliderEngineProps {
+type SliderProps = SliderEngineProps & {
   /** Default-step layout: value pips along the track, or an edge-to-edge
    *  scrubber. Ignored when the compact design renders. */
   variant?: "pips" | "scrubber"

@@ -14,12 +14,16 @@ import { m } from "@/paraglide/messages"
 
 function EmojiPicker({
   className,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof EmojiPickerPrimitive.Root>) {
+}: React.ComponentProps<typeof EmojiPickerPrimitive.Root> & {
+  variant?: "default" | "embedded"
+}) {
   return (
     <EmojiPickerPrimitive.Root
       className={cn(
         "bg-popover text-popover-foreground isolate flex h-full w-fit flex-col overflow-hidden rounded-md",
+        variant === "embedded" && "h-[280px] w-full border border-border",
         className
       )}
       data-slot="emoji-picker"

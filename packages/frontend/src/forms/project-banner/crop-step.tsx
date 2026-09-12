@@ -13,12 +13,14 @@ export function BannerCropStep({
   src,
   busy,
   error,
+  rejected,
   onRemove
 }: {
   form: BannerForm
   src: string
   busy: boolean
   error: boolean
+  rejected: boolean
   onRemove: () => void
 }) {
   const reduce = useReducedMotion() ?? false
@@ -84,6 +86,12 @@ export function BannerCropStep({
               </>
             )}
           </group.Subscribe>
+
+          {rejected ? (
+            <p role="alert" className="text-[13px] text-destructive">
+              {m.project_banner_settings_load_error()}
+            </p>
+          ) : null}
 
           {error ? (
             <p role="alert" className="text-[13px] text-destructive">

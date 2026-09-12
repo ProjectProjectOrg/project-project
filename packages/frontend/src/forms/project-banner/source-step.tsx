@@ -8,9 +8,10 @@ import { SegmentedTabs, SEGMENTED_ITEM_CLASS } from "@/components/SegmentedTabs"
 import { motion, useReducedMotion } from "motion/react"
 import { StepHeading } from "@/components/appearance/AppearanceCard"
 import { bannerPresets } from "@/components/project-banner-presets"
+import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
-import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { bannerSourceSchema, bannerStepValidator } from "./opts"
 import type { BannerForm } from "./index"
@@ -26,14 +27,11 @@ export function BannerSourceStep({
   form: BannerForm
   orgSlug: string
   onAdvance: () => void
-  onPickFile: (file: File) => void
+  onPickFile: (file: File) => boolean
   onPickPreset: () => void
   rejected: boolean
 }) {
   const storage = useAtomValue(orgStorageAtom(orgSlug))
-  const storageAvailable =
-    AsyncResult.isSuccess(storage) && storage.value.status === "active"
-  const storageKnown = AsyncResult.isSuccess(storage)
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const reduce = useReducedMotion() ?? false
@@ -91,65 +89,73 @@ export function BannerSourceStep({
           <group.Subscribe selector={(state) => state.values}>
             {(source) =>
               source.kind === "upload" ? (
-                storageKnown && !storageAvailable ? (
-                  <div className="flex gap-3 rounded-md bg-muted p-3">
-                    <Database
-                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                      strokeWidth={1.75}
+                AsyncResult.matchWithError(storage, {
+                  onInitial: () => (
+                    <div
+                      aria-busy="true"
+                      className="h-32 animate-pulse rounded-md bg-muted"
                     />
-                    <div className="flex flex-col items-start gap-2">
-                      <span className="text-[13px] font-medium">
-                        {m.project_banner_settings_storage_required()}
-                      </span>
+                  ),
+                  onError: (error) => <ErrorPage error={error} contained />,
+                  onDefect: (defect) => <ErrorPage error={defect} contained />,
+                  onSuccess: ({ value }) =>
+                    value.status !== "active" ? (
+                      <div className="flex gap-3 rounded-md bg-muted p-3">
+                        <Database
+                          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                          strokeWidth={1.75}
+                        />
+                        <div className="flex flex-col items-start gap-2">
+                          <span className="text-[13px] font-medium">
+                            {m.project_banner_settings_storage_required()}
+                          </span>
+                          <Button
+                            variant="tertiary"
+                            size="sm"
+                            render={
+                              <Link
+                                to="/orgs/$orgSlug/settings/storage"
+                                params={{ orgSlug }}
+                              />
+                            }
+                          >
+                            {m.project_icon_storage_action()}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
                       <Button
-                        variant="tertiary"
-                        size="sm"
-                        render={
-                          <Link
-                            to="/orgs/$orgSlug/settings/storage"
-                            params={{ orgSlug }}
-                          />
-                        }
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        onDragOver={(event) => {
+                          event.preventDefault()
+                          setDragging(true)
+                        }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={(event) => {
+                          event.preventDefault()
+                          setDragging(false)
+                          const file = event.dataTransfer.files[0]
+                          if (file && onPickFile(file))
+                            void group.handleSubmit()
+                        }}
+                        variant="dropzone"
+                        size="dropzone"
+                        data-dragging={dragging}
                       >
-                        {m.project_icon_storage_action()}
+                        <Upload
+                          className="mb-1 size-4 text-muted-foreground"
+                          strokeWidth={1.75}
+                        />
+                        <span className="text-[13px] font-medium">
+                          {m.project_icon_dropzone_title()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {m.project_icon_dropzone_hint()}
+                        </span>
                       </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    onDragOver={(event) => {
-                      event.preventDefault()
-                      setDragging(true)
-                    }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={(event) => {
-                      event.preventDefault()
-                      setDragging(false)
-                      const file = event.dataTransfer.files[0]
-                      if (file) onPickFile(file)
-                    }}
-                    className={cn(
-                      "flex flex-col items-center gap-1 rounded-md border border-dashed px-4 py-8",
-                      "transition-all duration-100 active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                      dragging
-                        ? "border-ring bg-accent/60"
-                        : "border-border hover:bg-accent/40"
-                    )}
-                  >
-                    <Upload
-                      className="mb-1 size-4 text-muted-foreground"
-                      strokeWidth={1.75}
-                    />
-                    <span className="text-[13px] font-medium">
-                      {m.project_icon_dropzone_title()}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {m.project_icon_dropzone_hint()}
-                    </span>
-                  </button>
-                )
+                    )
+                })
               ) : (
                 <div
                   role="group"
@@ -157,7 +163,7 @@ export function BannerSourceStep({
                   className="grid grid-cols-2 gap-2.5"
                 >
                   {bannerPresets.map((entry) => (
-                    <button
+                    <Button
                       key={entry.id}
                       type="button"
                       aria-pressed={source.preset === entry.id}
@@ -169,9 +175,10 @@ export function BannerSourceStep({
                         form.setFieldValue("crop.x", entry.x)
                         form.setFieldValue("crop.y", entry.y)
                         form.setFieldValue("crop.zoom", 1)
-                        onAdvance()
+                        void group.handleSubmit()
                       }}
-                      className="group flex flex-col gap-1.5 rounded-md text-left outline-none transition-transform duration-100 focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+                      variant="artwork-option"
+                      size="artwork-option"
                     >
                       <motion.span
                         layoutId={`banner-preset-${entry.id}`}
@@ -180,7 +187,7 @@ export function BannerSourceStep({
                           "block aspect-[3/1] w-full overflow-hidden rounded-md transition-shadow",
                           source.preset === entry.id
                             ? "ring-2 ring-foreground"
-                            : "ring-1 ring-border group-hover:ring-ring"
+                            : "ring-1 ring-border group-hover/reveal:ring-ring"
                         )}
                       >
                         <img
@@ -197,7 +204,7 @@ export function BannerSourceStep({
                       <span className="truncate text-xs text-muted-foreground">
                         {entry.label()}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )
@@ -222,7 +229,7 @@ export function BannerSourceStep({
             onChange={(event) => {
               const file = event.target.files?.[0]
               event.target.value = ""
-              if (file) onPickFile(file)
+              if (file && onPickFile(file)) void group.handleSubmit()
             }}
           />
         </form>
