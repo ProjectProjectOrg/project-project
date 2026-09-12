@@ -159,7 +159,9 @@ export function TreatmentStep({
                   {m.project_icon_cutout_failed_title()}
                 </span>
                 <span className="text-[13px] text-muted-foreground">
-                  {m.project_icon_cutout_failed_body()}
+                  {preview?.reason === "too_small"
+                    ? m.project_icon_cutout_too_small()
+                    : m.project_icon_cutout_failed_body()}
                 </span>
                 <div className="flex items-center gap-2">
                   <Button

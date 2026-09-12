@@ -110,6 +110,7 @@ import {
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
+import { clearBannerRenderCache } from "@/lib/bannerRenderCache"
 import { githubAuthEpochAtom } from "./github"
 
 export const meAtom = runtime.atom(
@@ -122,6 +123,7 @@ export const meAtom = runtime.atom(
 export const logoutAtom = runtime.fn(
   Effect.fn(function* (_: void) {
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
+    yield* Effect.promise(() => clearBannerRenderCache())
   })
 )
 

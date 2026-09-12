@@ -6,7 +6,7 @@
 
 **Architecture:** Icons reuse the project image infrastructure T-158 landed for banners: the slot-keyed `project_image_reference` table, the null-ticket `prepareProject`/`commitProject` upload endpoints, and the frontmatter-plus-`jsonb`-mirror pattern in `ProjectDocs`. Icons add two slots, `icon` and `icon_source`. All image processing happens in the browser with a deterministic corner flood fill — no model, no new runtime dependency.
 
-**Tech Stack:** Effect v3 (`Schema`, `Effect.gen`, `Context.Service`), Drizzle ORM + Postgres, TanStack Start/Router, `@effect/atom-react`, shadcn/Radix + Fluid Functionalism components, Tailwind v4, paraglide i18n, Vitest.
+**Tech Stack:** Effect v4 (`Schema`, `Effect.gen`, `Context.Service`), Drizzle ORM + Postgres, TanStack Start/Router, `@effect/atom-react`, shadcn/Radix + Fluid Functionalism components, Tailwind v4, paraglide i18n, Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-09-10-T-136-project-icons-design.md`
 
@@ -20,7 +20,7 @@
 - **Mutations are family-keyed and optimistic by default**, using `Atom.optimistic` / `Atom.optimisticFn` keyed by `projectKey(orgSlug, slug)`.
 - **Feather is a constant of 1.** Never exposed, never persisted.
 - **Tolerance range is 0–160, default 24.** Integer.
-- **Live preview analyses at 256px.** Full resolution runs once, on apply.
+- **Live preview analyses at 256px.** Apply re-analyses once at 512px (`CUTOUT_APPLY_MAX_EDGE`), not at the source resolution.
 - **No new npm dependencies.** The cutout is hand-written; the slider already exists at `@/components/ui/slider`.
 - Run `bun run test`, `bun run typecheck`, and `bun run format` before each commit.
 
@@ -818,7 +818,7 @@ const analyseAt = (bitmap: ImageBitmap, edge: number, tolerance: number) => {
 }
 ```
 
-Preview calls pass `CUTOUT_PREVIEW_EDGE`; the apply path passes `Math.max(bitmap.width, bitmap.height)`.
+Preview calls pass `CUTOUT_PREVIEW_EDGE`; the apply path passes `CUTOUT_APPLY_MAX_EDGE` (512).
 
 The apply path:
 
@@ -845,8 +845,7 @@ const compositeToBlob = (
 }
 
 const apply = async () => {
-  const edge = Math.max(bitmap.width, bitmap.height)
-  const { source, alpha, clean } = analyseAt(bitmap, edge, tolerance)
+  const { source, alpha, clean } = analyseAt(bitmap, CUTOUT_APPLY_MAX_EDGE, tolerance)
   const transparent = hasAlpha(source)
 
   const uploadedSource = await upload({ file })

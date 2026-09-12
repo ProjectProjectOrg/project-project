@@ -1,5 +1,10 @@
 import { useRef, useState } from "react"
-import { attachmentUrl, type ProjectIconImage } from "@projectproject/shared"
+import {
+  attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
+  type ProjectIconImage
+} from "@projectproject/shared"
 import { CroppedImage } from "@/components/CroppedImage"
 import { cn } from "@/lib/utils"
 
@@ -45,11 +50,19 @@ export function ProjectIconDisplay({
       style={{ width: size, height: size }}
     >
       <CroppedImage
-        src={attachmentUrl(
-          orgSlug,
-          iconImage.type === "sticker"
-            ? iconImage.renderedAttachmentId
-            : iconImage.sourceAttachmentId
+        src={withAttachmentParams(
+          attachmentUrl(
+            orgSlug,
+            iconImage.type === "sticker"
+              ? iconImage.renderedAttachmentId
+              : iconImage.sourceAttachmentId
+          ),
+          {
+            width: attachmentWidthForCss(
+              size * iconImage.crop.zoom,
+              typeof window === "undefined" ? 1 : window.devicePixelRatio
+            )
+          }
         )}
         crop={iconImage.crop}
         onError={() => setFailed(true)}

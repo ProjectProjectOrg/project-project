@@ -1,4 +1,4 @@
-export interface RgbaImage {
+export type RgbaImage = {
   readonly data: Uint8ClampedArray
   readonly width: number
   readonly height: number
@@ -9,23 +9,26 @@ export const CUTOUT_DEFAULT_TOLERANCE = 24
 export const CUTOUT_MAX_TOLERANCE = 160
 export const CUTOUT_PREVIEW_EDGE = 256
 
-export interface CutoutParams {
+export type CutoutParams = {
   readonly tolerance: number
   readonly feather?: number
 }
 
-export interface CutoutCheck {
+export type CutoutCheck = {
   readonly id: string
   readonly passed: boolean
 }
 
-export interface CutoutResult {
+export type CutoutResult = {
   readonly alpha: Uint8ClampedArray
   readonly checks: ReadonlyArray<CutoutCheck>
   readonly clean: boolean
 }
 
 const CORNER_PATCH = 16
+const CORNER_AGREEMENT = 24
+const CORNER_CONSENSUS = 3
+const EDGE_CONTRAST_RATIO = 1.5
 
 const distance = (
   data: Uint8ClampedArray,
@@ -35,20 +38,33 @@ const distance = (
   b: number
 ) => Math.hypot(data[i] - r, data[i + 1] - g, data[i + 2] - b)
 
+const meanDistance = (
+  a: readonly [number, number, number],
+  b: readonly [number, number, number]
+) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+const median = (values: ReadonlyArray<number>) => {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = sorted.length >> 1
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid]
+}
+
 const cornerPatches = (image: RgbaImage) => {
   const { data, width, height } = image
   const origins = [
     [0, 0],
-    [width - CORNER_PATCH, 0],
-    [0, height - CORNER_PATCH],
-    [width - CORNER_PATCH, height - CORNER_PATCH]
+    [Math.max(0, width - CORNER_PATCH), 0],
+    [0, Math.max(0, height - CORNER_PATCH)],
+    [Math.max(0, width - CORNER_PATCH), Math.max(0, height - CORNER_PATCH)]
   ]
   return origins.map(([ox, oy]) => {
     const sums = [0, 0, 0]
     const squares = [0, 0, 0]
     let n = 0
-    for (let y = oy; y < oy + CORNER_PATCH; y++)
-      for (let x = ox; x < ox + CORNER_PATCH; x++) {
+    for (let y = oy; y < Math.min(height, oy + CORNER_PATCH); y++)
+      for (let x = ox; x < Math.min(width, ox + CORNER_PATCH); x++) {
         const i = (y * width + x) * 4
         for (let c = 0; c < 3; c++) {
           sums[c] += data[i + c]
@@ -82,20 +98,24 @@ export const analyzeCutout = (
 
   const patches = cornerPatches(image)
 
+  const seed = [0, 1, 2].map((c) =>
+    median(patches.map((p) => p.mean[c]))
+  ) as unknown as readonly [number, number, number]
+  const agreeing = patches.filter(
+    (p) => meanDistance(p.mean, seed) <= CORNER_AGREEMENT
+  )
+  const consensus = agreeing.length > 0 ? agreeing : patches
+
   let cornerSpread = 0
-  for (let a = 0; a < patches.length; a++)
-    for (let b = a + 1; b < patches.length; b++)
+  for (let a = 0; a < consensus.length; a++)
+    for (let b = a + 1; b < consensus.length; b++)
       cornerSpread = Math.max(
         cornerSpread,
-        Math.hypot(
-          patches[a].mean[0] - patches[b].mean[0],
-          patches[a].mean[1] - patches[b].mean[1],
-          patches[a].mean[2] - patches[b].mean[2]
-        )
+        meanDistance(consensus[a].mean, consensus[b].mean)
       )
-  const cornerNoise = Math.max(...patches.map((p) => p.noise))
+  const cornerNoise = Math.max(...consensus.map((p) => p.noise))
   const background = [0, 1, 2].map(
-    (c) => patches.reduce((sum, p) => sum + p.mean[c], 0) / patches.length
+    (c) => consensus.reduce((sum, p) => sum + p.mean[c], 0) / consensus.length
   ) as unknown as readonly [number, number, number]
 
   const pixels = width * height
@@ -174,7 +194,7 @@ export const analyzeCutout = (
   const checks: ReadonlyArray<CutoutCheck> = [
     {
       id: "cornerSpread",
-      passed: cornerSpread <= 24
+      passed: consensus.length >= CORNER_CONSENSUS && cornerSpread <= 24
     },
     {
       id: "cornerNoise",
@@ -190,7 +210,7 @@ export const analyzeCutout = (
     },
     {
       id: "edgeContrast",
-      passed: edgeContrast >= 26
+      passed: edgeContrast >= params.tolerance * EDGE_CONTRAST_RATIO
     }
   ]
 

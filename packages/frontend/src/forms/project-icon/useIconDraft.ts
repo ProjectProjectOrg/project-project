@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import {
   ATTACHMENT_MAX_BYTES,
-  isRasterImageContentType
+  isProjectIconContentType
 } from "@projectproject/shared"
 import { CUTOUT_DEFAULT_TOLERANCE } from "@/lib/iconCutout"
 import {
   buildDraftPreview,
   resolveIconTreatment,
+  type CutoutRejection,
   type IconTreatment
 } from "@/lib/iconDraft"
 
@@ -14,6 +15,7 @@ export type IconPreview = {
   readonly cutoutUrl: string
   readonly fullUrl: string
   readonly clean: boolean
+  readonly reason: CutoutRejection | null
   readonly transparent: boolean
   readonly treatment: IconTreatment
 }
@@ -81,7 +83,7 @@ export function useIconDraft() {
     }
   ): Promise<string | null> => {
     if (
-      !isRasterImageContentType(file.type) ||
+      !isProjectIconContentType(file.type) ||
       file.size > ATTACHMENT_MAX_BYTES ||
       file.size === 0
     ) {

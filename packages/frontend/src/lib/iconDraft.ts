@@ -15,6 +15,8 @@ export interface IconClassification {
   readonly tolerance: number
 }
 
+export type CutoutRejection = "too_small" | "background"
+
 export interface IconCrop {
   readonly x: number
   readonly y: number
@@ -111,9 +113,24 @@ export const analyseAt = (
   ctx.drawImage(bitmap, 0, 0, width, height)
   const image = ctx.getImageData(0, 0, width, height)
   const source: RgbaImage = { data: image.data, width, height }
-  if (hasAlpha(source)) return { source, alpha: null, clean: true }
+  if (hasAlpha(source))
+    return { source, alpha: null, clean: true, reason: null }
   const result = analyzeCutout(source, { tolerance })
-  return { source, alpha: result.alpha, clean: result.clean }
+  return {
+    source,
+    alpha: result.alpha,
+    clean: result.clean,
+    reason: rejectionReason(result.checks)
+  }
+}
+
+const rejectionReason = (
+  checks: ReadonlyArray<{ readonly id: string; readonly passed: boolean }>
+): CutoutRejection | null => {
+  if (checks.every((check) => check.passed)) return null
+  return checks.some((check) => check.id === "minSize" && !check.passed)
+    ? "too_small"
+    : "background"
 }
 
 export const compositeToBlob = (
@@ -142,7 +159,7 @@ export const buildDraftPreview = async (
   requestedTreatment: IconTreatment,
   tolerance: number
 ) => {
-  const { source, alpha, clean } = analyseAt(
+  const { source, alpha, clean, reason } = analyseAt(
     bitmap,
     CUTOUT_PREVIEW_EDGE,
     tolerance
@@ -163,6 +180,7 @@ export const buildDraftPreview = async (
     cutoutUrl: cutout,
     fullUrl: full,
     clean,
+    reason,
     transparent,
     treatment
   }

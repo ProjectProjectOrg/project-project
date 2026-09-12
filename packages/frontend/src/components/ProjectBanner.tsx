@@ -2,7 +2,6 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -11,7 +10,11 @@ import { useAtomValue } from "@effect/atom-react"
 import { motion, useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
-import { readBannerRender, type BannerRenderKey } from "@/lib/bannerRenderCache"
+import {
+  bucketRenderWidth,
+  readBannerRender,
+  type BannerRenderKey
+} from "@/lib/bannerRenderCache"
 import { isImageLoaded } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 import { bannerDefaults, bannerSource } from "./project-banner-presets"
@@ -42,7 +45,11 @@ export function ProjectBanner({
   const preview = useAtomValue(
     projectBannerPreviewAtom(projectKey(orgSlug, slug))
   )
-  const appliedSource = bannerSource(orgSlug, banner)
+  const appliedSource = bannerSource(
+    orgSlug,
+    banner,
+    typeof window === "undefined" ? undefined : window.innerWidth
+  )
   const appliedCrop = banner?.crop ?? bannerDefaults
   const source = preview ? preview.source : appliedSource
   const crop = preview?.crop ?? appliedCrop
@@ -57,6 +64,7 @@ export function ProjectBanner({
   } | null>(null)
   const [painted, setPainted] = useState(false)
   const [placeholderFailed, setPlaceholderFailed] = useState(false)
+  const [shaderFailed, setShaderFailed] = useState(false)
   const [placeholderSize, setPlaceholderSize] = useState<{
     width: number
     height: number
@@ -65,29 +73,37 @@ export function ProjectBanner({
     () => (source ? isImageLoaded(source) : false),
     [source]
   )
-  const containerRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
   const requestedSourceRef = useRef<string | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [cachedRender, setCachedRender] = useState<string | null>(null)
   const [lookupSettled, setLookupSettled] = useState(false)
   const [measured, setMeasured] = useState(false)
 
+  const bucketedWidth =
+    containerSize.width > 0 ? bucketRenderWidth(containerSize.width) : 0
+
   const cacheKey = useMemo<BannerRenderKey | null>(
     () =>
-      source === null || changed || containerSize.width <= 0
+      source === null ||
+      changed ||
+      bucketedWidth <= 0 ||
+      containerSize.height <= 0
         ? null
         : {
             project: projectKey(orgSlug, slug),
             source,
             variant,
             crop: { x: crop.x, y: crop.y, zoom: crop.zoom },
-            width: containerSize.width,
+            width: bucketedWidth,
+            height: containerSize.height,
             pixelRatio: devicePixelRatio()
           },
     [
       source,
       changed,
-      containerSize.width,
+      bucketedWidth,
+      containerSize.height,
       orgSlug,
       slug,
       variant,
@@ -97,17 +113,10 @@ export function ProjectBanner({
     ]
   )
 
-  useLayoutEffect(() => {
-    const node = containerRef.current
-    const width = Math.round(node?.clientWidth ?? 0)
-    const height = Math.round(node?.clientHeight ?? 0)
-    if (width > 0 && height > 0) setContainerSize({ width, height })
-    setMeasured(true)
-  }, [])
-
-  useEffect(() => {
-    const node = containerRef.current
-    if (!node) return undefined
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!node) return
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return
       const width = Math.round(entry.contentRect.width)
@@ -119,8 +128,14 @@ export function ProjectBanner({
       )
     })
     observer.observe(node)
-    return () => observer.disconnect()
+    observerRef.current = observer
+    const width = Math.round(node.clientWidth)
+    const height = Math.round(node.clientHeight)
+    if (width > 0 && height > 0) setContainerSize({ width, height })
+    setMeasured(true)
   }, [])
+
+  useEffect(() => () => observerRef.current?.disconnect(), [])
 
   useEffect(() => {
     if (!measured) return undefined
@@ -150,6 +165,7 @@ export function ProjectBanner({
     setPainted(false)
     setPlaceholderFailed(false)
     setCachedRender(null)
+    setShaderFailed(false)
   }, [source])
 
   useEffect(() => {
@@ -171,10 +187,14 @@ export function ProjectBanner({
         .then(() => {
           if (stillWanted()) setShaderImage(photo)
         })
-        .catch(() => undefined)
+        .catch(() => {
+          if (stillWanted()) setShaderFailed(true)
+        })
     }
     photo.onerror = () => {
-      if (stillWanted()) requestedSourceRef.current = null
+      if (!stillWanted()) return
+      requestedSourceRef.current = null
+      setPlaceholderFailed(true)
     }
     photo.src = source
     return undefined
@@ -259,7 +279,10 @@ export function ProjectBanner({
             style={{ ...cropStyle }}
             initial={false}
             animate={{
-              filter: painted ? "blur(0px)" : `blur(${blurRadius}px)`,
+              filter:
+                painted || shaderFailed
+                  ? `blur(0px) grayscale(${1 - settings.color})`
+                  : `blur(${blurRadius}px) grayscale(${1 - settings.color})`,
               opacity: painted ? 0 : 1
             }}
             transition={{ filter: unblur, opacity: dissolve }}
