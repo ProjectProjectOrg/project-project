@@ -103,8 +103,13 @@ it("shows compression failures in the crop step without uploading or saving", as
 
 it("does not upload or save when cancelled during compression", async () => {
   const file = new File(["image"], "banner.png", { type: "image/png" })
-  const pending = Promise.withResolvers<{ file: File; placeholder: string }>()
-  mocks.compress.mockReturnValueOnce(pending.promise)
+  let finishCompression!: (value: { file: File; placeholder: string }) => void
+  const pending = new Promise<{ file: File; placeholder: string }>(
+    (resolve) => {
+      finishCompression = resolve
+    }
+  )
+  mocks.compress.mockReturnValueOnce(pending)
   const onDone = vi.fn()
   const { container, unmount } = render(
     <ProjectBannerForm
@@ -128,8 +133,8 @@ it("does not upload or save when cancelled during compression", async () => {
   unmount()
 
   await act(async () => {
-    pending.resolve({ file, placeholder: "data:image/png;base64,AA==" })
-    await pending.promise
+    finishCompression({ file, placeholder: "data:image/png;base64,AA==" })
+    await pending
   })
 
   expect(mocks.upload).not.toHaveBeenCalled()
