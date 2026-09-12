@@ -36,10 +36,10 @@ type ValuePosition = "left" | "right" | "top" | "bottom" | "tooltip"
 /** Props of the compact engine — the feature-rich design (ranges, discrete
  *  step lists, value display) that renders the ladder's compact step. The
  *  public <Slider> accepts these plus `variant` and `size`. */
-interface SliderEngineProps extends Omit<
+type SliderEngineProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "onChange" | "defaultValue"
-> {
+> & {
   value: SliderValue
   onChange: (value: SliderValue) => void
   min?: number
@@ -58,6 +58,7 @@ interface SliderEngineProps extends Omit<
   valuePosition?: ValuePosition
   formatValue?: (v: number) => string
   label?: string
+  endLabels?: readonly [string, string]
   disabled?: boolean
   trackClassName?: string
   trackStyle?: CSSProperties
@@ -127,7 +128,7 @@ function toRadixValue(value: SliderValue): number[] {
 // ValueDisplay (internal)
 // ---------------------------------------------------------------------------
 
-interface ValueDisplayProps {
+type ValueDisplayProps = {
   values: number[]
   editingIndex: number | null
   onStartEdit: (index: number) => void
@@ -282,7 +283,7 @@ function ValueDisplay({
 // TooltipValue (internal)
 // ---------------------------------------------------------------------------
 
-interface TooltipValueProps {
+type TooltipValueProps = {
   value: number
   formatValue: (v: number) => string
   motionX: MotionValue<number>
@@ -334,6 +335,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
       valuePosition = "left",
       formatValue = String,
       label,
+      endLabels,
       disabled = false,
       trackClassName,
       trackStyle,
@@ -1131,6 +1133,16 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
             {renderVisualThumb(0)}
             {isRange && renderVisualThumb(1)}
           </div>
+
+          {endLabels && (
+            <div
+              data-slot="slider-end-labels"
+              className="mt-1 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-muted-foreground"
+            >
+              <span>{endLabels[0]}</span>
+              <span className="text-right">{endLabels[1]}</span>
+            </div>
+          )}
         </div>
 
         {/* Bottom / Right value */}
@@ -1147,7 +1159,7 @@ CompactSlider.displayName = "SliderCompact"
 // ComfortableSlider — the default-step design (pips / scrubber layouts).
 // ---------------------------------------------------------------------------
 
-interface SliderComfortableProps extends Omit<
+type SliderComfortableProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   | "onChange"
   | "defaultValue"
@@ -1156,7 +1168,7 @@ interface SliderComfortableProps extends Omit<
   | "onDragEnd"
   | "onDragOver"
   | "onAnimationStart"
-> {
+> & {
   value: number
   onChange: (value: number) => void
   min?: number
@@ -1165,6 +1177,7 @@ interface SliderComfortableProps extends Omit<
   variant?: "pips" | "scrubber"
   label?: string
   formatValue?: (v: number) => string
+  endLabels?: readonly [string, string]
   disabled?: boolean
 }
 
@@ -1179,6 +1192,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
       variant = "pips",
       label,
       formatValue = String,
+      endLabels,
       disabled = false,
       className,
       ...props
@@ -1813,6 +1827,16 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
             />
           )}
         </motion.div>
+
+        {endLabels && (
+          <div
+            data-slot="slider-end-labels"
+            className="mt-1 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-muted-foreground"
+          >
+            <span>{endLabels[0]}</span>
+            <span className="text-right">{endLabels[1]}</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -1830,7 +1854,7 @@ ComfortableSlider.displayName = "SliderComfortable"
 // it regardless of the resolved step, so no capability is ever lost.
 // ---------------------------------------------------------------------------
 
-interface SliderProps extends SliderEngineProps {
+type SliderProps = SliderEngineProps & {
   /** Default-step layout: value pips along the track, or an edge-to-edge
    *  scrubber. Ignored when the compact design renders. */
   variant?: "pips" | "scrubber"

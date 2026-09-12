@@ -44,29 +44,50 @@ afterEach(() => {
   cachedUrls.clear()
 })
 
-const attachmentBanner = (placeholder: string | null) =>
+const attachmentBanner = (
+  placeholder: string | null,
+  attachmentId = "test-attachment-id"
+) =>
   ({
     type: "attachment",
-    attachmentId: "test-attachment-id",
+    attachmentId,
     crop: { x: 0.5, y: 0.5, zoom: 1 },
     placeholder
   }) as never
 
-const stubRenderCache = (hit: Blob | null) => {
+const stubRenderCache = (
+  hit: Blob | null,
+  options: { deferAfter?: number } = {}
+) => {
+  const pending: Array<() => void> = []
+  let lookups = 0
   const cache = {
     match: () =>
-      Promise.resolve(hit ? { blob: () => Promise.resolve(hit) } : undefined),
+      ++lookups > (options.deferAfter ?? Number.POSITIVE_INFINITY)
+        ? new Promise((resolve) => pending.push(() => resolve(undefined)))
+        : Promise.resolve(
+            hit ? { blob: () => Promise.resolve(hit) } : undefined
+          ),
+    settlePending: async () => {
+      const waiting = pending.splice(0, pending.length)
+      await act(async () => {
+        waiting.forEach((resolve) => resolve())
+      })
+    },
     put: vi.fn(() => Promise.resolve()),
     keys: () => Promise.resolve([]),
     delete: vi.fn(() => Promise.resolve(true))
   }
   vi.stubGlobal("caches", { open: () => Promise.resolve(cache) })
   resetBannerRenderCacheHandle()
-  vi.stubGlobal("URL", {
-    ...URL,
-    createObjectURL: () => "blob:cached-render",
-    revokeObjectURL: () => undefined
-  })
+  // jsdom's cookie jar constructs a URL, so a spread object breaks locale reads.
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static override createObjectURL = () => "blob:cached-render"
+      static override revokeObjectURL = () => undefined
+    }
+  )
   return cache
 }
 
@@ -89,7 +110,7 @@ const restoreLayout = () => {
   }
 }
 
-const trackImages = () => {
+const trackImages = ({ decodes = false }: { decodes?: boolean } = {}) => {
   vi.stubGlobal(
     "Image",
     class {
@@ -101,7 +122,9 @@ const trackImages = () => {
       naturalWidth = 1200
       naturalHeight = 400
       onload: (() => void) | null = null
-      decode = () => Promise.reject(new Error("skip shader"))
+      onerror: (() => void) | null = null
+      decode = () =>
+        decodes ? Promise.resolve() : Promise.reject(new Error("skip shader"))
     }
   )
 }
@@ -173,6 +196,46 @@ it("falls through to the photo and shader when the render cache misses", async (
   await act(async () => {})
 
   expect(photoRequests()).toHaveLength(1)
+})
+
+it("paints a banner whose source changes while the cache lookup is in flight", async () => {
+  stubLayout()
+  const cache = stubRenderCache(null, { deferAfter: 1 })
+  trackImages({ decodes: true })
+  const resize = sizedResizeObserver()
+
+  const view = (
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      banner={attachmentBanner(null, "before-save")}
+    />
+  )
+  const { container, rerender } = render(view)
+  await resize()
+  await act(async () => {})
+
+  rerender(
+    <ProjectBanner
+      orgSlug="org"
+      slug="project"
+      banner={attachmentBanner("data:image/webp;base64,UklGRhh", "after-save")}
+    />
+  )
+  await act(async () => {})
+
+  await cache.settlePending()
+
+  const pending = photoRequests().at(-1)
+  expect(pending?.src).toContain("after-save")
+  await act(async () => {
+    pending?.onload?.(new Event("load"))
+  })
+  await import("./ProjectBannerPrototypeShader")
+  await act(async () => {})
+  await resize()
+
+  expect(container.querySelector("canvas")).not.toBeNull()
 })
 
 it("still renders when Cache Storage is unavailable", async () => {

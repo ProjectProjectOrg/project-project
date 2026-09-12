@@ -41,23 +41,41 @@ describe("ProjectIconDisplay", () => {
     )
   })
 
-  it("honours crop zoom and position for a sticker", () => {
+  it("applies the crop to a sticker, not only to full_bleed", () => {
     const { container } = render(
       <ProjectIconDisplay
         orgSlug="acme"
         icon="🌵"
-        iconImage={
-          {
-            ...sticker,
-            crop: { x: 0.25, y: 0.75, zoom: 2 }
-          } as ProjectIconImage
-        }
+        iconImage={{ ...sticker, crop: { x: 0, y: 0, zoom: 2 } }}
         size={40}
       />
     )
-    const img = container.querySelector("img")
-    expect(img?.style.objectPosition).toBe("25% 75%")
-    expect(img?.style.scale).toBe("2")
+    const img = container.querySelector("img")!
+    Object.defineProperty(img, "naturalWidth", { value: 100 })
+    Object.defineProperty(img, "naturalHeight", { value: 100 })
+    fireEvent.load(img)
+
+    expect(img.style.width).toBe("200%")
+    expect(img.style.height).toBe("200%")
+    expect(img.style.left).toBe("0%")
+  })
+
+  it("pans a zoomed crop to the far edge rather than toward the centre", () => {
+    const { container } = render(
+      <ProjectIconDisplay
+        orgSlug="acme"
+        icon="🌵"
+        iconImage={{ ...sticker, crop: { x: 1, y: 1, zoom: 2 } }}
+        size={40}
+      />
+    )
+    const img = container.querySelector("img")!
+    Object.defineProperty(img, "naturalWidth", { value: 100 })
+    Object.defineProperty(img, "naturalHeight", { value: 100 })
+    fireEvent.load(img)
+
+    expect(img.style.left).toBe("-100%")
+    expect(img.style.top).toBe("-100%")
   })
 
   it("renders the source attachment for full_bleed", () => {
