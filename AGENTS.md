@@ -117,6 +117,39 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
+## Forms — TanStack Form and the mutation atom
+
+Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
+
+- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
+- A form lives in `packages/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
+
+**Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@projectproject/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
+
+### Multi-step forms are FormGroups, not a bespoke primitive
+
+Follow the upstream multi-step wizard example. There is no stepped-form component and there should not be one — the library already does the work:
+
+- One `form.FormGroup name="<step>"` per step, rendered conditionally on the current step index.
+- **The group's `onSubmit` is how you advance.** A step's button submits the *group*; the group validates, and `onSubmit` fires only when it passes, so advancing is gated without computing validity or disabling anything. `onSubmitInvalid` handles the failure case.
+- The last step's group `onSubmit` calls `form.handleSubmit()`.
+- Put the whole-form schema in the form's own `validators` with `triggers: []`, so it runs on `form.handleSubmit()` only. That validates every step regardless of which groups are mounted.
+- Use `createValidator` for the per-step validators so a step only revalidates on change after its first submit attempt — don't show errors before the user has tried.
+- Type a form passed to step components with `ReactFormType<typeof yourFormOpts>`.
+
+### The form owns validity; the atom owns the mutation
+
+- **The form owns** field values, validation, and step progression.
+- **The atom owns** the mutation. `onSubmit` awaits the Effect-Atom mutation, and everything the user sees about progress and failure (`waiting`, `animate-pulse`, error text) is read from the atom, never from `isSubmitting`.
+
+Never disable a control on `isSubmitting` when an atom is doing the work — pass the atom's `waiting` down instead.
+
+### Notes on the v2 alpha
+
+- Validators are an array of `{ run, triggers, runOnMount }`. There is no `onChange`/`onMount` key and no `revalidateLogic` — that was the v1 model.
+- **`group.state` is not reactive.** Read group state through `group.Subscribe`.
+- Range checks are `Schema.isBetween({ minimum, maximum })` in Effect v4, not `Schema.between`.
+
 ## Mutations and optimistic updates
 
 **Default to optimistic.** Any mutation that updates a list or aggregate the user is staring at should flip the UI synchronously and let the server resolve in the background. We use Effect-Atom's first-party `Atom.optimistic` + `Atom.optimisticFn` — don't invent custom optimistic layers.
