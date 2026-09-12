@@ -1,5 +1,8 @@
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
-import { parseAttachmentUrl } from "@projectproject/shared"
+import {
+  parseAttachmentUrl,
+  resolveAttachmentWidthRung
+} from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import sharp from "sharp"
@@ -7,8 +10,7 @@ import { toWebHeaders } from "./toWebHeaders"
 import {
   Attachments,
   attachmentServesInline,
-  deriveAttachmentEtag,
-  resolveAttachmentWidthRung
+  deriveAttachmentEtag
 } from "../Services/Attachments"
 import { BetterAuth } from "../Services/BetterAuth"
 
@@ -25,12 +27,25 @@ const fetchUpstream = (url: string) => attempt(() => fetch(url))
 
 const readBytes = (response: Response) => attempt(() => response.arrayBuffer())
 
-const readMetadata = (bytes: Uint8Array) =>
-  attempt(() => sharp(bytes).metadata())
+const RESIZE_MAX_PIXELS = 40_000_000
+const RESIZE_TIMEOUT_SECONDS = 10
 
-const resizeTo = (bytes: Uint8Array, width: number) =>
+const openImage = (bytes: Uint8Array, animated: boolean) =>
+  sharp(bytes, {
+    limitInputPixels: RESIZE_MAX_PIXELS,
+    ...(animated ? { animated: true } : {})
+  }).timeout({ seconds: RESIZE_TIMEOUT_SECONDS })
+
+const readMetadata = (bytes: Uint8Array) =>
+  attempt(() => openImage(bytes, false).metadata())
+
+const resizeTo = (bytes: Uint8Array, width: number, animated: boolean) =>
   attempt(() =>
-    sharp(bytes).resize({ width, withoutEnlargement: true }).toBuffer()
+    openImage(bytes, animated)
+      .rotate()
+      .resize({ width, withoutEnlargement: true })
+      .keepIccProfile()
+      .toBuffer()
   )
 
 const streamOriginal = (
@@ -90,7 +105,8 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
       return serveOriginal()
     }
 
-    const resized = yield* resizeTo(original, rung)
+    const animated = (metadata.pages ?? 1) > 1
+    const resized = yield* resizeTo(original, rung, animated)
     if (resized === null) return notFound
 
     const etag = deriveAttachmentEtag(upstreamEtag, rung)

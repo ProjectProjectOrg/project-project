@@ -1,9 +1,19 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import * as Exit from "effect/Exit"
 
 const uploadSpy = vi.fn()
 const updateSpy = vi.fn()
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  )
+})
 
 vi.mock("@effect/atom-react", () => ({
   useAtomSet: (atom: string) =>
@@ -93,7 +103,7 @@ const stubEnvironment = () => {
 }
 
 describe("ProjectIconUpload transparent-source passthrough", () => {
-  it("uploads a transparent WebP source with its real type and the original bytes", async () => {
+  it("composites a transparent source at the apply cap instead of passing the original through", async () => {
     stubEnvironment()
     uploadSpy.mockResolvedValue(Exit.succeed({ id: "attachment_1" }))
     updateSpy.mockResolvedValue(Exit.succeed(undefined))
@@ -126,10 +136,11 @@ describe("ProjectIconUpload transparent-source passthrough", () => {
 
     expect(uploadSpy).toHaveBeenCalledTimes(2)
     const renderedUpload = uploadSpy.mock.calls[1][0] as { file: File }
-    expect(renderedUpload.file.type).toBe("image/webp")
+    expect(renderedUpload.file.type).toBe("image/png")
+    expect(renderedUpload.file.name).toBe("icon.png")
     const uploadedBytes = new Uint8Array(
       await renderedUpload.file.arrayBuffer()
     )
-    expect(Array.from(uploadedBytes)).toEqual(Array.from(bytes))
+    expect(Array.from(uploadedBytes)).not.toEqual(Array.from(bytes))
   })
 })

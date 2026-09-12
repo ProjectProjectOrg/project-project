@@ -249,7 +249,7 @@ it("paints a blurred placeholder immediately on the card variant, sized for a sm
   )
   const img = container.querySelector("img")
   expect(img).not.toBeNull()
-  expect(img?.style.filter).toBe("blur(6px)")
+  expect(img?.style.filter).toBe("blur(6px) grayscale(0.5)")
   expect(container.querySelector("canvas")).toBeNull()
   const maskWrapper = img?.parentElement
   const expectedStops = bannerFadeMask(bannerDefaults.fade).match(/[\d.]+%/g)
@@ -275,7 +275,7 @@ it("paints a blurred placeholder immediately on the row variant, sized for a tin
   )
   const img = container.querySelector("img")
   expect(img).not.toBeNull()
-  expect(img?.style.filter).toBe("blur(3px)")
+  expect(img?.style.filter).toBe("blur(3px) grayscale(0.5)")
 })
 
 it("skips the blurred placeholder when the banner was already loaded this session", () => {
@@ -338,7 +338,7 @@ it("paints the inline placeholder instead of the network image on first render",
   )
   const img = container.querySelector("img")
   expect(img?.getAttribute("src")).toBe(placeholder)
-  expect(img?.style.filter).toBe("blur(6px)")
+  expect(img?.style.filter).toBe("blur(6px) grayscale(0.5)")
 })
 
 it("frames the inline placeholder with the banner's crop before the photo loads", async () => {

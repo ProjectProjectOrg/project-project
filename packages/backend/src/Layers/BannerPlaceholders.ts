@@ -4,9 +4,7 @@ import { and, eq, sql as sqlFragment } from "drizzle-orm"
 import type { ProjectBanner } from "@projectproject/shared"
 import {
   bannerNeedsPlaceholder,
-  encodeBannerPlaceholder,
-  normalizeBanner,
-  type AttachmentBanner
+  encodeBannerPlaceholder
 } from "../bannerPlaceholder"
 import { attachmentIndex, projectIndex } from "../db/schema"
 import {
@@ -19,12 +17,15 @@ import { S3Storage } from "../Services/S3Storage"
 
 const PRESIGN_TTL_SECONDS = 60
 
+const GENERATE_TIMEOUT = "10 seconds"
+
 export const BannerPlaceholdersLive = Layer.effect(
   BannerPlaceholders,
   Effect.gen(function* () {
     const db = yield* Db
     const orgStorage = yield* OrgStorage
     const s3 = yield* S3Storage
+    const unencodable = new Set<string>()
 
     const generate = (orgSlug: string, attachmentId: string) =>
       Effect.gen(function* () {
@@ -60,6 +61,7 @@ export const BannerPlaceholdersLive = Layer.effect(
           encodeBannerPlaceholder(new Uint8Array(buffer))
         )
       }).pipe(
+        Effect.timeout(GENERATE_TIMEOUT),
         Effect.catchCause((cause) =>
           Effect.as(
             Effect.logWarning("banner placeholder generation failed", cause),
@@ -71,11 +73,13 @@ export const BannerPlaceholdersLive = Layer.effect(
     const persist = (
       projectSlug: string,
       attachmentId: string,
-      banner: AttachmentBanner
+      placeholder: string
     ) =>
       db
         .update(projectIndex)
-        .set({ banner })
+        .set({
+          banner: sqlFragment`jsonb_set(${projectIndex.banner}, '{placeholder}', ${JSON.stringify(placeholder)}::jsonb, true)`
+        })
         .where(
           and(
             eq(projectIndex.slug, projectSlug),
@@ -91,16 +95,16 @@ export const BannerPlaceholdersLive = Layer.effect(
       banner
     ) =>
       Effect.gen(function* () {
-        const normalized = normalizeBanner(banner)
+        const normalized = banner ?? null
         if (!bannerNeedsPlaceholder(normalized)) return normalized
+        if (unencodable.has(normalized.attachmentId)) return normalized
         const placeholder = yield* generate(orgSlug, normalized.attachmentId)
-        if (placeholder === null) return normalized
-        const next: ProjectBanner = { ...normalized, placeholder }
-        yield* persist(projectSlug, normalized.attachmentId, {
-          ...normalized,
-          placeholder
-        })
-        return next
+        if (placeholder === null) {
+          unencodable.add(normalized.attachmentId)
+          return normalized
+        }
+        yield* persist(projectSlug, normalized.attachmentId, placeholder)
+        return { ...normalized, placeholder } satisfies ProjectBanner
       })
 
     return { ensure } satisfies BannerPlaceholdersShape

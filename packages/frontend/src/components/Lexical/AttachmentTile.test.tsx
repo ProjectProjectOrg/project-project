@@ -20,7 +20,7 @@ describe("AttachmentTile", () => {
     )
     expect(screen.getByText("Zip")).toBeDefined()
     const link = screen.getByLabelText("Download")
-    expect(link.getAttribute("href")).toBe(URL)
+    expect(link.getAttribute("href")).toBe(`${URL}?download=1`)
     expect(link.getAttribute("download")).toBe("bundle.zip")
   })
 

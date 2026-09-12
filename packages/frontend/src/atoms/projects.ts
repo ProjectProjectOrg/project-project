@@ -5,25 +5,43 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { evictBannerRenders } from "@/lib/bannerRenderCache"
 import { preloadImage } from "@/lib/imagePreload"
 import { bannerSource } from "@/components/project-banner-presets"
 import {
   attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
   CreatableProjectKey,
   type Project,
   type ProjectSetup,
   type UpdateProjectInput as UpdateProjectInputShared
 } from "@projectproject/shared"
 
+const ICON_PRELOAD_CSS_SIZE = 40
+
 const preloadProjectImages = (orgSlug: string, project: Project) => {
-  const banner = bannerSource(orgSlug, project.banner)
-  if (project.banner?.type === "attachment" && banner) void preloadImage(banner)
+  if (project.banner?.type === "attachment") {
+    const source = bannerSource(
+      orgSlug,
+      project.banner,
+      typeof window === "undefined" ? undefined : window.innerWidth
+    )
+    if (source) void preloadImage(source)
+  }
   if (project.iconImage) {
     const id =
       project.iconImage.type === "sticker"
         ? project.iconImage.renderedAttachmentId
         : project.iconImage.sourceAttachmentId
-    void preloadImage(attachmentUrl(orgSlug, id))
+    void preloadImage(
+      withAttachmentParams(attachmentUrl(orgSlug, id), {
+        width: attachmentWidthForCss(
+          ICON_PRELOAD_CSS_SIZE * project.iconImage.crop.zoom,
+          typeof window === "undefined" ? 1 : window.devicePixelRatio
+        )
+      })
+    )
   }
 }
 
@@ -88,6 +106,8 @@ export const updateProjectAtom = Atom.family((key: string) => {
           params: { orgSlug, slug },
           payload: input
         })
+        if ("banner" in input)
+          yield* Effect.promise(() => evictBannerRenders(key))
         get.refresh(projectBaseAtom(key))
         get.refresh(projectsListBaseAtom(orgSlug))
         return updated
