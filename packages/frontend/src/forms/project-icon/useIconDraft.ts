@@ -75,6 +75,8 @@ export function useIconDraft() {
       )
       return
     }
+    const initializingSaved =
+      primed.current && renderedTolerance.current === null
     let next: Awaited<ReturnType<typeof buildDraftPreview>>
     try {
       next = await buildDraftPreview(bitmap, treatment, tolerance)
@@ -93,7 +95,7 @@ export function useIconDraft() {
     renderedTolerance.current = tolerance
     previewUrls.current.forEach((url) => URL.revokeObjectURL(url))
     previewUrls.current = fresh
-    setPreview(next)
+    setPreview(initializingSaved ? { ...next, treatment } : next)
   }
 
   const accept = async (
@@ -101,7 +103,8 @@ export function useIconDraft() {
     initial: { treatment: IconTreatment; tolerance: number } = {
       treatment: "sticker",
       tolerance: CUTOUT_DEFAULT_TOLERANCE
-    }
+    },
+    savedSource = false
   ): Promise<string | null> => {
     if (!mounted.current) return null
     if (
@@ -114,7 +117,7 @@ export function useIconDraft() {
     }
     setRejected(false)
     const token = ++draftToken.current
-    primed.current = false
+    primed.current = savedSource
     renderedTolerance.current = null
     try {
       const bitmap = await createImageBitmap(file)
@@ -148,11 +151,7 @@ export function useIconDraft() {
       const blob = await response.blob()
       if (!mounted.current || token !== draftToken.current || bitmapRef.current)
         return
-      const accepted = await accept(
-        new File([blob], "icon", { type: blob.type }),
-        initial
-      )
-      if (accepted) primed.current = true
+      await accept(new File([blob], "icon", { type: blob.type }), initial, true)
     } catch {
       if (mounted.current && token === draftToken.current) setRejected(false)
     }

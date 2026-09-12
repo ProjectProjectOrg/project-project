@@ -23,6 +23,7 @@ import {
 import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
 import { StepSummaryRow } from "@/components/appearance/AppearanceCard"
 import { transitions } from "@/lib/springs"
+import { bannerPreviewChanged } from "@/components/project-banner-frame"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 import { BannerCropStep } from "./crop-step"
@@ -149,12 +150,24 @@ export function ProjectBannerForm({
   const values = useFormValues(form)
 
   useEffect(() => {
-    setPreview({
+    const preview = {
       source: values.source.kind === "none" ? null : values.source.src,
       crop: { ...bannerDefaults, ...values.crop }
-    })
+    }
+    setPreview(
+      bannerPreviewChanged(preview, applied, banner?.crop ?? bannerDefaults)
+        ? preview
+        : null
+    )
     return () => setPreview(null)
-  }, [setPreview, values.source.kind, values.source.src, values.crop])
+  }, [
+    setPreview,
+    applied,
+    banner?.crop,
+    values.source.kind,
+    values.source.src,
+    values.crop
+  ])
 
   const preset = bannerPresets.find(
     (entry) => entry.id === values.source.preset

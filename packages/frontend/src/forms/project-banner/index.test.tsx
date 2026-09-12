@@ -141,3 +141,22 @@ it("does not upload or save when cancelled during compression", async () => {
   expect(mocks.update).not.toHaveBeenCalled()
   expect(onDone).not.toHaveBeenCalled()
 })
+
+it("does not publish a preview when opening an unchanged saved banner", () => {
+  render(
+    <ProjectBannerForm
+      orgSlug="org"
+      slug="proj"
+      banner={{
+        type: "preset",
+        preset: "saint_lazare",
+        crop: { x: 0.5, y: 0.5, zoom: 1 },
+        placeholder: null
+      }}
+    />
+  )
+  expect(mocks.preview).toHaveBeenCalledWith(null)
+  expect(mocks.preview.mock.calls.every(([preview]) => preview === null)).toBe(
+    true
+  )
+})

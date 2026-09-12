@@ -163,3 +163,67 @@ it("revokes preview URLs produced after the editor unmounts", async () => {
   expect(revoke).toHaveBeenCalledWith("blob:late-cutout")
   expect(revoke).toHaveBeenCalledWith("blob:late-full")
 })
+
+it("never reports a saved source as a newly picked file during priming", async () => {
+  const { buildDraftPreview } = await import("@/lib/iconDraft")
+  const pending = deferred<Awaited<ReturnType<typeof buildDraftPreview>>>()
+  vi.mocked(buildDraftPreview).mockReturnValueOnce(pending.promise)
+  vi.stubGlobal("fetch", async () => ({
+    ok: true,
+    blob: async () => pngFile()
+  }))
+  const names: Array<string | null> = []
+  const { result, rerender } = renderHook(() => {
+    const draft = useIconDraft()
+    names.push(draft.fileName())
+    return draft
+  })
+  let priming: Promise<void>
+  await act(async () => {
+    priming = result.current.primeFrom("/saved-icon", {
+      treatment: "sticker",
+      tolerance: TOLERANCE
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  rerender()
+  expect(result.current.fileName()).toBeNull()
+  await act(async () => {
+    pending.resolve({
+      cutoutUrl: "blob:saved-cutout",
+      fullUrl: "blob:saved-full",
+      clean: true,
+      reason: null,
+      transparent: false,
+      treatment: "sticker"
+    })
+    await priming
+  })
+  expect(names.every((name) => name === null)).toBe(true)
+})
+
+it("preserves the saved treatment when priming reclassifies the source", async () => {
+  const { buildDraftPreview } = await import("@/lib/iconDraft")
+  vi.mocked(buildDraftPreview).mockResolvedValueOnce({
+    cutoutUrl: "blob:saved-cutout",
+    fullUrl: "blob:saved-full",
+    clean: false,
+    reason: "background",
+    transparent: false,
+    treatment: "full_bleed"
+  })
+  vi.stubGlobal("fetch", async () => ({
+    ok: true,
+    blob: async () => pngFile()
+  }))
+  const { result } = renderHook(() => useIconDraft())
+  await act(async () => {
+    await result.current.primeFrom("/saved-icon", {
+      treatment: "sticker",
+      tolerance: TOLERANCE
+    })
+  })
+  expect(result.current.preview?.treatment).toBe("sticker")
+})
