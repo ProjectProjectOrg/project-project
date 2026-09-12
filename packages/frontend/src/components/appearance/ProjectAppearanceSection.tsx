@@ -218,7 +218,7 @@ export function ProjectAppearanceSection({
                   >
                     <AppearanceRow
                       thumb={
-                        <span className="block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
+                        <span className="relative block h-10 w-[88px] shrink-0 overflow-hidden rounded-md bg-muted">
                           {bannerThumb ? (
                             <CroppedImage
                               src={bannerThumb}
