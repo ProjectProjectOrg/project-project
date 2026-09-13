@@ -886,6 +886,28 @@ export const TicketsLive = Layer.effect(
         )
         .pipe(Effect.ignore)
 
+    const restoreSplitDocuments = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      indexProject: TicketIndexProject,
+      original: TicketDocument,
+      created: ReadonlyArray<TicketDocument>
+    ) =>
+      Effect.forEach(
+        created,
+        (document) => discardSplitResult(orgSlug, slug, indexProject, document),
+        { discard: true }
+      ).pipe(
+        Effect.andThen(
+          ticketDocs
+            .write(orgSlug, slug, id, original)
+            .pipe(
+              Effect.andThen(ticketIndex.upsertTicket(indexProject, original))
+            )
+        )
+      )
+
     const split = (
       orgSlug: string,
       userId: string,
@@ -927,6 +949,7 @@ export const TicketsLive = Layer.effect(
           { discard: true }
         )
 
+        const originalId = makeTicketId(id)
         const sprintTargets = input.results
           .map((result) => result.sprintId)
           .filter((sprintId) => sprintId !== null)
@@ -938,8 +961,21 @@ export const TicketsLive = Layer.effect(
             sprintTargets
           )
         }
+        const originalSprint = (yield* groups.list(orgSlug, userId, slug)).find(
+          (group) =>
+            group.kind === "sprint" &&
+            group.completedAt === null &&
+            group.tickets.includes(originalId)
+        )
+        const originalSprintId = originalSprint?.id ?? null
+        const originalSprintIndex =
+          originalSprint?.tickets.indexOf(originalId) ?? -1
+        const originalSprintAnchor = originalSprint
+          ? originalSprintIndex === 0
+            ? null
+            : originalSprint.tickets[originalSprintIndex - 1]
+          : undefined
 
-        const originalId = makeTicketId(id)
         const written = yield* withTicketDocumentLock(
           orgSlug,
           slug,
@@ -1007,49 +1043,91 @@ export const TicketsLive = Layer.effect(
                 (next) => ticketIndex.upsertTicket(indexProject, next)
               )
 
-              return { retained, createdDocuments }
+              return { original, retained, createdDocuments }
             })
 
             return yield* run.pipe(
               Effect.onError(() =>
-                Effect.forEach(
-                  persisted,
-                  (document) =>
-                    discardSplitResult(orgSlug, slug, indexProject, document),
-                  { discard: true }
-                ).pipe(
-                  Effect.andThen(
-                    ticketDocs
-                      .write(orgSlug, slug, id, original)
-                      .pipe(
-                        Effect.andThen(
-                          ticketIndex.upsertTicket(indexProject, original)
-                        )
-                      )
-                  ),
-                  Effect.catchCause(() => Effect.void)
-                )
+                restoreSplitDocuments(
+                  orgSlug,
+                  slug,
+                  id,
+                  indexProject,
+                  original,
+                  persisted
+                ).pipe(Effect.ignoreCause)
               )
             )
           })
         )
 
+        let sprintAnchor = originalId
+        const sprintAssignments = [
+          { ticketId: originalId, sprintId: retainedInput.sprintId },
+          ...written.createdDocuments.map((document, index) => ({
+            ticketId: document.id,
+            sprintId: newInputs[index].sprintId
+          }))
+        ]
         yield* Effect.forEach(
-          [
-            { ticketId: originalId, sprintId: retainedInput.sprintId },
-            ...written.createdDocuments.map((document, index) => ({
-              ticketId: document.id,
-              sprintId: newInputs[index].sprintId
-            }))
-          ],
+          sprintAssignments,
           ({ ticketId, sprintId }) =>
-            groups.setSprintMembership(orgSlug, slug, ticketId, sprintId, {
-              after: originalId
-            }),
+            groups
+              .setSprintMembership(orgSlug, slug, ticketId, sprintId, {
+                after: sprintAnchor
+              })
+              .pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    sprintAnchor = ticketId
+                  })
+                )
+              ),
           { discard: true }
         ).pipe(
-          Effect.catchCause((cause) =>
-            Effect.logWarning("split: sprint membership not applied", cause)
+          Effect.onError(() =>
+            Effect.forEach(
+              written.createdDocuments,
+              (document) =>
+                groups
+                  .setSprintMembership(orgSlug, slug, document.id, null)
+                  .pipe(
+                    Effect.catchCause((cause) =>
+                      Effect.logError("split: sprint rollback failed", cause)
+                    )
+                  ),
+              { discard: true }
+            ).pipe(
+              Effect.andThen(
+                groups
+                  .setSprintMembership(
+                    orgSlug,
+                    slug,
+                    originalId,
+                    originalSprintId,
+                    { after: originalSprintAnchor }
+                  )
+                  .pipe(
+                    Effect.catchCause((cause) =>
+                      Effect.logError("split: sprint rollback failed", cause)
+                    )
+                  )
+              ),
+              Effect.andThen(
+                restoreSplitDocuments(
+                  orgSlug,
+                  slug,
+                  id,
+                  indexProject,
+                  written.original,
+                  written.createdDocuments
+                ).pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logError("split: ticket rollback failed", cause)
+                  )
+                )
+              )
+            )
           )
         )
 

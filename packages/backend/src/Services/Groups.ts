@@ -131,7 +131,7 @@ export interface GroupsShape {
     slug: string,
     ticketId: TicketId,
     sprintId: GroupId | null,
-    options?: { readonly after?: TicketId }
+    options?: { readonly after?: TicketId | null }
   ) => Effect.Effect<void, MarkdownError>
   readonly removeTicketFromAllGroups: (
     orgSlug: string,

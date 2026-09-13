@@ -4,15 +4,19 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
 import * as Config from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vite-plus/test"
 import {
   Forbidden,
+  GroupColor,
   GroupId,
+  type Group,
   ProjectKey,
   TagName,
+  TicketId,
   TicketStatus
 } from "@projectproject/shared"
 import { Attachments, type AttachmentsShape } from "../Services/Attachments"
@@ -24,6 +28,7 @@ import { Groups, type GroupsShape } from "../Services/Groups"
 import { Projects, type ProjectsShape } from "../Services/Projects"
 import { TicketIndex, type TicketIndexShape } from "../Services/TicketIndex"
 import { Tickets } from "../Services/Tickets"
+import { MarkdownError } from "../Services/Markdown"
 import { MarkdownLive } from "./Markdown"
 import { TicketDocsLive } from "./TicketDocs"
 import { TicketDocs } from "../Services/TicketDocs"
@@ -34,6 +39,8 @@ const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
 const decodeStatus = Schema.decodeUnknownSync(TicketStatus)
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
+const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 function unexpected(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected ${method} call`))
@@ -50,8 +57,16 @@ const sprintAssignments: Array<{
   ticketId: string
   sprintId: string | null
 }> = []
+const sprintAssignmentAnchors: Array<string | null> = []
+const sprintMemberships = new Map<string, string>()
+const sprintTicketOrders = new Map<string, Array<string>>()
+const groupTimestamp = DateTime.toDate(
+  DateTime.makeUnsafe("2026-09-13T00:00:00.000Z")
+)
 
 let sprintAssignable = true
+let failSprintAssignmentAt = Number.POSITIVE_INFINITY
+let sprintAssignmentAttempts = 0
 let nextTicketNumber = 1
 let failUpsertAfter = Number.POSITIVE_INFINITY
 let upserts = 0
@@ -81,7 +96,22 @@ const FakeProjects = Layer.succeed(Projects, {
 } satisfies ProjectsShape)
 
 const FakeGroups = Layer.succeed(Groups, {
-  list: () => unexpected("Groups.list"),
+  list: () =>
+    Effect.sync(() => {
+      return [...sprintTicketOrders].map(([sprintId, tickets]): Group => ({
+        id: decodeGroupId(sprintId),
+        name: sprintId,
+        kind: "sprint",
+        color: decodeGroupColor("#777777"),
+        tickets: tickets.map((ticketId) => decodeTicketId(ticketId)),
+        startsAt: null,
+        endsAt: null,
+        completedAt: null,
+        createdBy: "user-1",
+        createdAt: groupTimestamp,
+        updatedAt: groupTimestamp
+      }))
+    }),
   listPaged: () => unexpected("Groups.listPaged"),
   listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
   get: () => unexpected("Groups.get"),
@@ -94,9 +124,45 @@ const FakeGroups = Layer.succeed(Groups, {
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () =>
     Effect.suspend(() => (sprintAssignable ? Effect.void : new Forbidden())),
-  setSprintMembership: (_orgSlug, _slug, ticketId, sprintId) =>
-    Effect.sync(() => {
+  setSprintMembership: (_orgSlug, _slug, ticketId, sprintId, options) =>
+    Effect.suspend(() => {
+      sprintAssignmentAttempts += 1
+      if (sprintAssignmentAttempts === failSprintAssignmentAt) {
+        return new MarkdownError({
+          cause: new Error("sprint write failed"),
+          message: "sprint write failed"
+        })
+      }
       sprintAssignments.push({ ticketId, sprintId })
+      sprintAssignmentAnchors.push(options?.after ?? null)
+      for (const [id, tickets] of sprintTicketOrders) {
+        sprintTicketOrders.set(
+          id,
+          tickets.filter((candidate) => candidate !== ticketId)
+        )
+      }
+      if (sprintId === null) sprintMemberships.delete(ticketId)
+      else {
+        sprintMemberships.set(ticketId, sprintId)
+        const tickets = sprintTicketOrders.get(sprintId) ?? []
+        const anchor =
+          options?.after === undefined || options.after === null
+            ? -1
+            : tickets.indexOf(options.after)
+        sprintTicketOrders.set(
+          sprintId,
+          options?.after === null
+            ? [ticketId, ...tickets]
+            : anchor >= 0
+              ? [
+                  ...tickets.slice(0, anchor + 1),
+                  ticketId,
+                  ...tickets.slice(anchor + 1)
+                ]
+              : [...tickets, ticketId]
+        )
+      }
+      return Effect.void
     }),
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
@@ -226,7 +292,12 @@ const TestLayer = Layer.unwrap(
 
 const resetFakes = Effect.sync(() => {
   sprintAssignments.length = 0
+  sprintAssignmentAnchors.length = 0
+  sprintMemberships.clear()
+  sprintTicketOrders.clear()
   sprintAssignable = true
+  failSprintAssignmentAt = Number.POSITIVE_INFINITY
+  sprintAssignmentAttempts = 0
   nextTicketNumber = 1
   upserts = 0
   failUpsertAfter = Number.POSITIVE_INFINITY
@@ -304,6 +375,11 @@ it.effect("split retains the original and creates the remaining tickets", () =>
         ticketId: created.id,
         sprintId: null
       }))
+    ])
+    expect(sprintAssignmentAnchors).toEqual([
+      original.id,
+      original.id,
+      outcome.created[0].id
     ])
   }).pipe(Effect.provide(TestLayer))
 )
@@ -410,4 +486,52 @@ it.effect("split removes created tickets when the original update fails", () =>
     expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
     expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
   }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "split rolls back ticket and sprint writes when membership fails",
+  () =>
+    Effect.gen(function* () {
+      yield* resetFakes
+      const tickets = yield* Tickets
+      const docs = yield* TicketDocs
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = yield* Config.string("PROJECTS_DIR")
+      const original = yield* seedOriginal
+      const originalSprintId = decodeGroupId("G-1")
+      sprintMemberships.set(original.id, originalSprintId)
+      sprintTicketOrders.set(originalSprintId, ["T-10", original.id, "T-9"])
+      failSprintAssignmentAt = 2
+
+      const outcome = yield* Effect.result(
+        tickets.split("org", "user-1", "p", original.id, {
+          results: [
+            result("Detail page layout", "feat"),
+            { ...result("Sidebar API", "feat"), sprintId: originalSprintId },
+            {
+              ...result("View preference migration", "chore"),
+              sprintId: originalSprintId
+            }
+          ]
+        })
+      )
+
+      expect(outcome._tag).toBe("Failure")
+      if (outcome._tag === "Failure") {
+        expect(outcome.failure._tag).toBe("MarkdownError")
+      }
+      const restored = yield* docs.read("org", "p", original.id)
+      expect(restored.title).toBe(original.title)
+      expect(sprintMemberships.get(original.id)).toBe(originalSprintId)
+      expect(sprintMemberships.has("T-2")).toBe(false)
+      expect(sprintMemberships.has("T-3")).toBe(false)
+      expect(sprintTicketOrders.get(originalSprintId)).toEqual([
+        "T-10",
+        original.id,
+        "T-9"
+      ])
+      expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
+      expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
+    }).pipe(Effect.provide(TestLayer))
 )

@@ -88,7 +88,12 @@ export function SprintSelect({
   const current = sprints.find((sprint) => sprint.id === value) ?? null
   const label = current?.name ?? m.tickets_assign_sprint_chip()
 
-  if (!sprints.some((sprint) => sprint.completedAt === null)) return null
+  if (
+    !sprints.some((sprint) => sprint.completedAt === null) &&
+    value === null
+  ) {
+    return null
+  }
 
   return (
     <SprintAssignMenu
@@ -97,7 +102,7 @@ export function SprintSelect({
       sprints={sprints}
       selectedId={current?.id ?? null}
       onSelect={(sprint) => onChange(sprint.id)}
-      onClear={current ? () => onChange(null) : undefined}
+      onClear={value !== null ? () => onChange(null) : undefined}
       trigger={
         <Hitbox
           mode="inline"

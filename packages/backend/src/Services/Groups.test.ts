@@ -1367,3 +1367,25 @@ it.effect("addTickets serializes concurrent calls on the same project", () =>
     )
   )
 )
+
+it.effect("setSprintMembership places a ticket at the start", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1"), ticketId("T-2")]
+    })
+
+    yield* groups.setSprintMembership("org", "p", ticketId("T-3"), sprint.id, {
+      after: null
+    })
+
+    const updated = yield* groups.get("org", "user-1", "p", sprint.id)
+    expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+    )
+  )
+)

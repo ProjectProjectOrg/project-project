@@ -8,8 +8,10 @@ import {
   sprintsListAtom,
   sprintsListBaseAtom
 } from "@/atoms/sprints"
+import { ErrorPage } from "@/components/ErrorPage"
 import { TicketPageHeader } from "@/components/TicketPage/TicketPageHeader"
 import { TicketPageShell } from "@/components/TicketPage/TicketPageShell"
+import { DitherShell } from "@/components/ui/dither-shell"
 import { TicketSplitForm } from "@/forms/ticket-split"
 import { m } from "@/paraglide/messages"
 import type { Member, TicketDetail, TicketId } from "@projectproject/shared"
@@ -31,28 +33,49 @@ export function TicketSplitPage({
   const commentsResult = useAtomValue(
     commentsAtom(commentsKey(orgSlug, slug, ticket.id))
   )
-  const commentCount = Result.isSuccess(commentsResult)
-    ? commentsResult.value.length
-    : 0
   const pKey = projectKey(orgSlug, slug)
   const sprintsResult = useAtomValue(sprintsListAtom(pKey))
   const sprintMembership = useAtomValue(sprintMembershipAtom(pKey))
   const refreshSprints = useAtomRefresh(sprintsListBaseAtom(pKey))
-  const sprintsSettled = !Result.isInitial(sprintsResult)
-  const sprintId = sprintMembership.get(ticket.id)?.id ?? null
 
   const returnToOrigin = (created: ReadonlyArray<TicketId>) => {
-    if (created.length > 0) refreshSprints()
-    if (canGoBack) {
+    if (created.length === 0 && canGoBack) {
       router.history.back()
       return
     }
+    if (created.length > 0) refreshSprints()
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id: ticket.id },
-      search: created.length > 0 ? { splitInto: [...created] } : {}
+      search: created.length > 0 ? { splitInto: [...created] } : {},
+      replace: created.length > 0
     })
   }
+
+  const content = Result.matchWithError(
+    Result.all({ comments: commentsResult, sprints: sprintsResult }),
+    {
+      onInitial: () => (
+        <DitherShell contained animated>
+          {null}
+        </DitherShell>
+      ),
+      onError: (error) => <ErrorPage contained error={error} />,
+      onDefect: (defect) => <ErrorPage contained error={defect} />,
+      onSuccess: ({ value }) => (
+        <TicketSplitForm
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          members={members}
+          commentCount={value.comments.length}
+          sprintId={sprintMembership.get(ticket.id)?.id ?? null}
+          onSplit={returnToOrigin}
+          onCancel={() => returnToOrigin([])}
+        />
+      )
+    }
+  )
 
   return (
     <TicketPageShell
@@ -74,18 +97,7 @@ export function TicketSplitPage({
         />
       }
     >
-      {sprintsSettled && (
-        <TicketSplitForm
-          orgSlug={orgSlug}
-          slug={slug}
-          ticket={ticket}
-          members={members}
-          commentCount={commentCount}
-          sprintId={sprintId}
-          onSplit={returnToOrigin}
-          onCancel={() => returnToOrigin([])}
-        />
-      )}
+      {content}
     </TicketPageShell>
   )
 }

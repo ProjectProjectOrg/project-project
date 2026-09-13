@@ -768,7 +768,7 @@ export const GroupsLive = Layer.effect(
       slug: string,
       ticketId: TicketId,
       sprintId: GroupId | null,
-      options?: { readonly after?: TicketId }
+      options?: { readonly after?: TicketId | null }
     ): Effect.Effect<void, MarkdownError> =>
       withProjectLock(
         orgSlug,
@@ -791,19 +791,23 @@ export const GroupsLive = Layer.effect(
                 if (present === wanted) return
 
                 const remaining = group.tickets.filter((t) => t !== ticketId)
-                const anchor = options?.after
-                  ? remaining.indexOf(options.after)
-                  : -1
+                const after = options?.after
+                const anchor =
+                  after === undefined || after === null
+                    ? -1
+                    : remaining.indexOf(after)
                 const next: GroupDocument = {
                   ...group,
                   tickets: wanted
-                    ? anchor >= 0
-                      ? [
-                          ...remaining.slice(0, anchor + 1),
-                          ticketId,
-                          ...remaining.slice(anchor + 1)
-                        ]
-                      : [...remaining, ticketId]
+                    ? after === null
+                      ? [ticketId, ...remaining]
+                      : anchor >= 0
+                        ? [
+                            ...remaining.slice(0, anchor + 1),
+                            ticketId,
+                            ...remaining.slice(anchor + 1)
+                          ]
+                        : [...remaining, ticketId]
                     : remaining,
                   updatedAt: yield* DateTime.nowAsDate
                 }

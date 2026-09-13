@@ -220,6 +220,7 @@ export function TicketSplitForm({
                   type="button"
                   variant="ghost"
                   size="md"
+                  disabled={splitState.waiting}
                   onClick={() => {
                     left.current = true
                     onCancel()
