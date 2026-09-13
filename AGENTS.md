@@ -121,7 +121,7 @@ Within each message file, group keys by prefix in the order listed above, then s
 
 Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
 
-- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
+- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
 - A form lives in `packages/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
 
 **Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@projectproject/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
@@ -147,7 +147,7 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 ### Notes on the v2 alpha
 
 - Validators are an array of `{ run, triggers, runOnMount }`. There is no `onChange`/`onMount` key and no `revalidateLogic` — that was the v1 model.
-- **`group.state` is not reactive.** Read group state through `group.Subscribe`.
+- **Neither `form.state` nor `group.state` is reactive.** Both are snapshots. Read group state through `group.Subscribe`; read form values through `useFormValues(form)`, which selects off `form.atom`. Fields subscribe for themselves, so a component reading `form.state.values` during render silently freezes at whatever the values were when it last rendered for some other reason — live previews and step summaries drawn that way never update.
 - Range checks are `Schema.isBetween({ minimum, maximum })` in Effect v4, not `Schema.between`.
 
 ## Mutations and optimistic updates

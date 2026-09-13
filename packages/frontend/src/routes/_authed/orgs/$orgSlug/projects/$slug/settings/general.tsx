@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { lazy, Suspense, useEffect, useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import {
   deleteProjectAtom,
   projectKey,
@@ -11,14 +11,12 @@ import {
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { Markdown } from "@/components/Markdown"
-import { ProjectAppearanceGroup } from "@/components/ProjectAppearanceControls"
+import { ProjectAppearanceSection } from "@/components/appearance/ProjectAppearanceSection"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
-
-const BannerSettings = lazy(() => import("@/components/ProjectBannerSettings"))
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/general"
@@ -59,45 +57,20 @@ function GeneralSettings() {
     }
   }
 
-  const bannerEnabled = canEdit
-
   return (
     <div className="flex w-full flex-col gap-8">
       <section className="flex flex-col gap-4">
-        {bannerEnabled ? (
-          <div className="flex flex-col gap-3">
-            <span className="text-sm font-medium">
-              {m.project_settings_appearance_label()}
-            </span>
-            <div className="flex flex-col gap-x-6 gap-y-4 sm:flex-row sm:items-start">
-              <ProjectAppearanceGroup
-                orgSlug={orgSlug}
-                slug={project.slug}
-                icon={project.icon}
-                iconImage={project.iconImage}
-                color={project.color}
-                canEdit={canEdit}
-              />
-              <Suspense fallback={null}>
-                <BannerSettings
-                  key={key}
-                  orgSlug={orgSlug}
-                  slug={project.slug}
-                  banner={project.banner}
-                />
-              </Suspense>
-            </div>
-          </div>
-        ) : (
-          <ProjectAppearanceGroup
-            orgSlug={orgSlug}
-            slug={project.slug}
-            icon={project.icon}
-            iconImage={project.iconImage}
-            color={project.color}
-            canEdit={canEdit}
-          />
-        )}
+        <ProjectAppearanceSection
+          orgSlug={orgSlug}
+          slug={project.slug}
+          name={project.name}
+          projectKey={project.key}
+          icon={project.icon}
+          iconImage={project.iconImage}
+          color={project.color}
+          banner={project.banner}
+          canEdit={canEdit}
+        />
         <form onSubmit={onNameSubmit} className="grid gap-2">
           <label className="text-sm font-medium" htmlFor="project-name">
             {m.project_settings_name_label()}

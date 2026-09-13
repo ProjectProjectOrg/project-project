@@ -66,6 +66,22 @@ export const bannerCropStyle = (
   }
 }
 
+export type BannerPreview = {
+  readonly source: string | null
+  readonly crop: BannerFrameCrop
+}
+
+export const bannerPreviewChanged = (
+  preview: BannerPreview | null,
+  appliedSource: string | null,
+  appliedCrop: BannerFrameCrop
+): boolean =>
+  preview !== null &&
+  (preview.source !== appliedSource ||
+    preview.crop.x !== appliedCrop.x ||
+    preview.crop.y !== appliedCrop.y ||
+    preview.crop.zoom !== appliedCrop.zoom)
+
 const FADE_MASK_STEPS = 8
 
 export const bannerFadeMask = (fadeDepth: number): string => {
