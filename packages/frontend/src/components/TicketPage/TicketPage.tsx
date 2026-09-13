@@ -9,6 +9,7 @@ import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
+import { MemberAvatar } from "@/components/MemberAvatar"
 import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
@@ -188,30 +189,50 @@ export function TicketPage({
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <MetaRow label={m.tickets_page_meta_created()}>
-            <time
-              dateTime={ticket.createdAt.toISOString()}
-              title={ticket.createdAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.createdAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <div className="flex min-w-0 items-center gap-2">
+              {ticket.creator && (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <MemberAvatar member={ticket.creator} size={18} />
+                  <span className="truncate text-xs">
+                    {ticket.creator.name || ticket.creator.email}
+                  </span>
+                </span>
+              )}
+              <time
+                dateTime={ticket.createdAt.toISOString()}
+                title={ticket.createdAt.toLocaleString(locale)}
+                className="shrink-0 text-xs"
+              >
+                {ticket.createdAt.toLocaleDateString(locale, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric"
+                })}
+              </time>
+            </div>
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_updated()}>
-            <time
-              dateTime={ticket.updatedAt.toISOString()}
-              title={ticket.updatedAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.updatedAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <div className="flex min-w-0 items-center gap-2">
+              {ticket.updater && (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <MemberAvatar member={ticket.updater} size={18} />
+                  <span className="truncate text-xs">
+                    {ticket.updater.name || ticket.updater.email}
+                  </span>
+                </span>
+              )}
+              <time
+                dateTime={ticket.updatedAt.toISOString()}
+                title={ticket.updatedAt.toLocaleString(locale)}
+                className="shrink-0 text-xs"
+              >
+                {ticket.updatedAt.toLocaleDateString(locale, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric"
+                })}
+              </time>
+            </div>
           </MetaRow>
         </aside>
       </div>

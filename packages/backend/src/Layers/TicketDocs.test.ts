@@ -55,6 +55,7 @@ const ticketDocument = (
   archivedAt: null,
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
+  updatedBy: "user-1",
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
   commentsRegion: "",
   body: "# Branch matching\n"

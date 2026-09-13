@@ -617,6 +617,8 @@ export function applyOptimisticTicketUpdate(
 ): TicketDetail {
   return {
     ...applyOptimisticTicketPreview(ticket, input),
+    creator: ticket.creator,
+    updater: ticket.updater,
     body: input.body ?? ticket.body
   }
 }
