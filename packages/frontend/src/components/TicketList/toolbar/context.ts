@@ -1,4 +1,4 @@
-import { createContext, use } from "react"
+import { createContext, use, type ReactNode } from "react"
 import type {
   Member,
   TicketFilter,
@@ -16,9 +16,13 @@ export type TicketToolbarProps = {
   counts: Record<string, number>
   filters: ReadonlyArray<FilterDimension>
   showSort?: boolean
+  children?: ReactNode
 }
 
-type TicketToolbarContextValue = Omit<TicketToolbarProps, "showSort"> & {
+type TicketToolbarContextValue = Omit<
+  TicketToolbarProps,
+  "showSort" | "children"
+> & {
   search: ReturnType<typeof useTicketSearch>
   searchActive: boolean
   controlsCompact: boolean

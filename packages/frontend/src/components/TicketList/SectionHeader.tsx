@@ -8,11 +8,18 @@ import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import type { ProjectStatus, TicketStatus } from "@projectproject/shared"
 
+export type SectionHeading = {
+  label: string
+  icon: ReactNode
+  detail?: ReactNode
+}
+
 type BareProps = {
   variant?: "bare"
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   count: number
+  heading?: SectionHeading
 }
 
 type StickyProps = {
@@ -20,12 +27,14 @@ type StickyProps = {
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
   count: number
+  heading?: SectionHeading
   collapsed: boolean
   creating: boolean
   onToggleCollapsed: () => void
   onStartCreate: () => void
   onDismissCreate: () => void
   creator: ReactNode
+  canCreate?: boolean
 }
 
 export const SectionHeader = forwardRef<
@@ -38,19 +47,26 @@ export const SectionHeader = forwardRef<
   return <BareSectionHeader {...props} />
 })
 
-function BareSectionHeader({ status, statuses, count }: BareProps): ReactNode {
+function BareSectionHeader({
+  status,
+  statuses,
+  count,
+  heading
+}: BareProps): ReactNode {
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
-  const label = statusLabelFor(status, statuses)
+  const label = heading?.label ?? statusLabelFor(status, statuses)
 
   return (
     <div className="flex w-full items-center gap-2">
       <span className="grid size-6 shrink-0 place-items-center">
-        <Icon
-          className={cn("size-4", meta.className)}
-          style={meta.color ? { color: meta.color } : undefined}
-          strokeWidth={1.75}
-        />
+        {heading?.icon ?? (
+          <Icon
+            className={cn("size-4", meta.className)}
+            style={meta.color ? { color: meta.color } : undefined}
+            strokeWidth={1.75}
+          />
+        )}
       </span>
       <span className="truncate text-sm font-medium">{label}</span>
       <span
@@ -59,6 +75,11 @@ function BareSectionHeader({ status, statuses, count }: BareProps): ReactNode {
       >
         {count}
       </span>
+      {heading?.detail && (
+        <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
+          {heading.detail}
+        </span>
+      )}
     </div>
   )
 }
@@ -72,6 +93,8 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
       status,
       statuses,
       count,
+      heading,
+      canCreate = true,
       collapsed,
       creating,
       onToggleCollapsed,
@@ -81,7 +104,7 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
     },
     ref: Ref<HTMLDivElement>
   ) {
-    const label = statusLabelFor(status, statuses)
+    const label = heading?.label ?? statusLabelFor(status, statuses)
     return (
       <div
         ref={ref}
@@ -143,41 +166,44 @@ const StickySectionHeader = forwardRef<HTMLDivElement, StickyProps>(
                   status={status}
                   statuses={statuses}
                   count={count}
+                  heading={heading}
                 />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (creating) onDismissCreate()
-            else onStartCreate()
-          }}
-          aria-label={
-            creating
-              ? m.tickets_section_create_dismiss_aria_label({ label })
-              : m.tickets_section_create_aria_label({ label })
-          }
-          title={
-            creating
-              ? m.tickets_section_create_dismiss_aria_label({ label })
-              : m.tickets_section_create_aria_label({ label })
-          }
-        >
-          <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
-            <Plus
-              className={cn(
-                "size-4 transition-transform duration-200 ease-out",
-                creating && "rotate-45"
-              )}
-              strokeWidth={1.75}
-            />
-          </span>
-        </Hitbox>
+        {canCreate && (
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (creating) onDismissCreate()
+              else onStartCreate()
+            }}
+            aria-label={
+              creating
+                ? m.tickets_section_create_dismiss_aria_label({ label })
+                : m.tickets_section_create_aria_label({ label })
+            }
+            title={
+              creating
+                ? m.tickets_section_create_dismiss_aria_label({ label })
+                : m.tickets_section_create_aria_label({ label })
+            }
+          >
+            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+              <Plus
+                className={cn(
+                  "size-4 transition-transform duration-200 ease-out",
+                  creating && "rotate-45"
+                )}
+                strokeWidth={1.75}
+              />
+            </span>
+          </Hitbox>
+        )}
       </div>
     )
   }
