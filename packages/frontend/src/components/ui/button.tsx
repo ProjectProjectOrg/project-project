@@ -22,7 +22,7 @@ import {
 const buttonVariants = cva(
   [
     "group relative inline-flex items-center justify-center whitespace-nowrap outline-none cursor-pointer",
-    "transition-all duration-100 active:scale-[0.97]",
+    "motion-safe:transition-all motion-safe:duration-100 motion-safe:active:scale-[0.97]",
     "disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100",
     "focus-visible:ring-1 focus-visible:ring-ring"
   ],
