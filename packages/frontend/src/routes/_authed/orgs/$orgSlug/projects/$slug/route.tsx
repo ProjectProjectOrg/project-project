@@ -64,6 +64,7 @@ import { ProjectHeader } from "@/components/ProjectHeader"
 import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
+import { useProjectView } from "@/hooks/useViewPreference"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -553,7 +554,7 @@ function TabsNav({
           )
         }}
       />
-      <SprintViewSwitcher orgSlug={orgSlug} slug={slug} />
+      <ViewSwitcher orgSlug={orgSlug} slug={slug} />
     </div>
   )
 }
@@ -574,56 +575,100 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function SprintViewSwitcher({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const navigate = useNavigate()
   const matches = useMatches()
   const sprintMatch = matches.find(
     (m) =>
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
-  if (!sprintMatch) return null
-  const search = sprintMatch.search as {
-    view?: "list" | "board" | "description"
+  const backlogMatch = matches.find(
+    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/"
+  )
+  const search = (sprintMatch ?? backlogMatch)?.search as
+    | { view?: "list" | "board" | "description" }
+    | undefined
+  const { view, setPreference } = useProjectView(orgSlug, slug, search?.view)
+  if (!sprintMatch && !backlogMatch) return null
+
+  // Flip the view first, then let the URL catch up — a router navigation runs at
+  // transition priority and would otherwise hold the switch for ~50ms.
+  const select = (next: "list" | "board" | "description", to: () => void) => {
+    if (next !== "description") flushSync(() => setPreference(next))
+    startTransition(to)
   }
-  const view: "list" | "board" | "description" = search.view ?? "board"
-  const { groupId } = sprintMatch.params as { groupId: string }
-  const setView = (next: "list" | "board" | "description") => {
-    if (next === view) return
-    void navigate({
-      to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      params: { orgSlug, slug, groupId },
-      search: (prev) => ({ ...prev, view: next })
-    })
+
+  if (sprintMatch) {
+    const { groupId } = sprintMatch.params as { groupId: string }
+    return (
+      <SwitcherTabs
+        ariaLabel={m.sprints_view_tabs_aria_label()}
+        current={view}
+        items={[
+          { key: "list", label: m.sprints_view_list(), icon: Rows3 },
+          { key: "board", label: m.sprints_view_board(), icon: Columns3 },
+          {
+            key: "description",
+            label: m.sprints_view_description(),
+            icon: FileText
+          }
+        ]}
+        onSelect={(next) =>
+          select(next, () => {
+            void navigate({
+              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+              params: { orgSlug, slug, groupId },
+              search: (prev) => ({ ...prev, view: next })
+            })
+          })
+        }
+      />
+    )
   }
-  const items: ReadonlyArray<SegmentedItem<"list" | "board" | "description">> =
-    [
-      { key: "list", label: m.sprints_view_list(), icon: Rows3 },
-      { key: "board", label: m.sprints_view_board(), icon: Columns3 },
-      {
-        key: "description",
-        label: m.sprints_view_description(),
-        icon: FileText
-      }
-    ]
+
   return (
-    <div
-      role="group"
-      aria-label={m.sprints_view_tabs_aria_label()}
-      className="ml-auto"
-    >
+    <SwitcherTabs
+      ariaLabel={m.tickets_view_tabs_aria_label()}
+      current={view === "description" ? "list" : view}
+      items={[
+        { key: "list", label: m.tickets_view_list(), icon: Rows3 },
+        { key: "board", label: m.tickets_view_board(), icon: Columns3 }
+      ]}
+      onSelect={(next) =>
+        select(next, () => {
+          void navigate({
+            to: "/orgs/$orgSlug/projects/$slug",
+            params: { orgSlug, slug },
+            search: (prev) => ({ ...prev, view: next })
+          })
+        })
+      }
+    />
+  )
+}
+
+function SwitcherTabs<K extends string>({
+  ariaLabel,
+  current,
+  items,
+  onSelect
+}: {
+  ariaLabel: string
+  current: K
+  items: ReadonlyArray<SegmentedItem<K>>
+  onSelect: (next: K) => void
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="ml-auto">
       <SegmentedTabs
         items={items}
-        isActive={(k) => k === view}
+        isActive={(k) => k === current}
         renderItem={(item, content, { active }) => (
           <button
             type="button"
-            onClick={() => setView(item.key)}
+            onClick={() => {
+              if (item.key !== current) onSelect(item.key)
+            }}
             aria-pressed={active}
             className={SEGMENTED_ITEM_CLASS(active)}
           >

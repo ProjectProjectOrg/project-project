@@ -35,12 +35,12 @@ export const Route = createFileRoute(
       ticketListQueryFromSearch(search)
     )
     const view =
-      search.view === "list"
-        ? "list"
-        : search.view === "description"
-          ? "description"
-          : "board"
-    return { ...sanitized, view }
+      search.view === "list" ||
+      search.view === "board" ||
+      search.view === "description"
+        ? search.view
+        : undefined
+    return view === undefined ? sanitized : { ...sanitized, view }
   },
   loaderDeps: ({ search }) => search,
   loader: ({
