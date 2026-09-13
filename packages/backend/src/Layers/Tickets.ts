@@ -38,7 +38,8 @@ import {
   type TicketListPage,
   type TicketListQuery,
   type TicketSections,
-  type TicketStatus
+  type TicketStatus,
+  type User
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
 import { FigmaLinks } from "../Services/FigmaLinks"
@@ -61,6 +62,7 @@ import {
   type TicketDocument
 } from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
+import { Users } from "../Services/Users"
 import {
   planAutomaticBranchLinks,
   planTicketGitStates
@@ -74,7 +76,7 @@ const makeTagName = Schema.decodeUnknownSync(TagName)
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 function pendingGitState(
-  document: Omit<TicketDocument, "body" | "commentsRegion">,
+  document: Pick<TicketDocument, "branch" | "pr" | "prState">,
   github: ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
@@ -164,10 +166,14 @@ function ticketPage(
 function documentToDetail(
   document: TicketDocument,
   github: ProjectGithubIntegration | null,
+  creator: User | null,
+  updater: User | null,
   branchDeletedAt: Date | null = null
 ): TicketDetail {
   return {
     ...documentToTicket(document, github, branchDeletedAt),
+    creator,
+    updater,
     body: document.body
   }
 }
@@ -186,6 +192,27 @@ export const TicketsLive = Layer.effect(
     const db = yield* Db
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
+    const users = yield* Users
+
+    const detailOf = (
+      document: TicketDocument,
+      github: ProjectGithubIntegration | null,
+      branchDeletedAt: Date | null = null
+    ): Effect.Effect<TicketDetail> =>
+      users
+        .fullByIds([...new Set([document.createdBy, document.updatedBy])])
+        .pipe(
+          Effect.map((found) => {
+            const byId = new Map(found.map((user) => [user.id, user]))
+            return documentToDetail(
+              document,
+              github,
+              byId.get(document.createdBy) ?? null,
+              byId.get(document.updatedBy) ?? null,
+              branchDeletedAt
+            )
+          })
+        )
 
     const ensureAccess = (
       orgSlug: string,
@@ -481,7 +508,7 @@ export const TicketsLive = Layer.effect(
         )
         return yield* withMissingAttachments(
           orgSlug,
-          documentToDetail(ticket, projectGithub, branchDeletedAt)
+          yield* detailOf(ticket, projectGithub, branchDeletedAt)
         )
       })
 
@@ -686,6 +713,7 @@ export const TicketsLive = Layer.effect(
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
+            updatedBy: ownerId,
             updatedAt: now,
             body: "",
             commentsRegion: ""
@@ -696,7 +724,7 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return documentToDetail(document, projectGithub)
+        return yield* detailOf(document, projectGithub)
       })
 
     const create = (
@@ -743,6 +771,7 @@ export const TicketsLive = Layer.effect(
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
+            updatedBy: ownerId,
             updatedAt: now,
             body: input.body ?? "",
             commentsRegion: ""
@@ -753,7 +782,7 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return documentToDetail(document, projectGithub)
+        return yield* detailOf(document, projectGithub)
       })
 
     const update = (
@@ -819,6 +848,7 @@ export const TicketsLive = Layer.effect(
                     input.assignees !== undefined
                       ? input.assignees
                       : existing.assignees,
+                  updatedBy: ownerId,
                   updatedAt: yield* DateTime.nowAsDate,
                   body: input.body ?? existing.body
                 }
@@ -846,7 +876,7 @@ export const TicketsLive = Layer.effect(
 
           return yield* withMissingAttachments(
             orgSlug,
-            documentToDetail(next, projectGithub)
+            yield* detailOf(next, projectGithub)
           )
         })
       )
@@ -925,7 +955,7 @@ export const TicketsLive = Layer.effect(
             userId,
             slug
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -961,7 +991,7 @@ export const TicketsLive = Layer.effect(
             userId,
             slug
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1131,7 +1161,7 @@ export const TicketsLive = Layer.effect(
               lastTransitionedPr: null
             })
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1191,7 +1221,7 @@ export const TicketsLive = Layer.effect(
               lastTransitionedPr: null
             })
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1281,7 +1311,7 @@ export const TicketsLive = Layer.effect(
             prState: null,
             lastTransitionedPr: null
           })
-          return documentToDetail(next, null)
+          return yield* detailOf(next, null)
         })
       )
 

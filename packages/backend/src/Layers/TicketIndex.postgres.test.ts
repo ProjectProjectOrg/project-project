@@ -62,6 +62,7 @@ const rebuiltDocument: TicketDocument = {
   archivedAt: null,
   createdBy: "test-user",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  updatedBy: "test-user",
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   body: "# Restored ticket\n",
   commentsRegion: ""

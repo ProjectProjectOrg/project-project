@@ -38,6 +38,7 @@ const document: TicketDocument = {
   archivedAt: null,
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  updatedBy: "user-1",
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   body: "# Publish me\n",
   commentsRegion: ""
