@@ -18,12 +18,14 @@ function SprintBoardCardImpl({
   orgSlug,
   slug,
   sprintTicketsKey,
+  ticketSectionsKey,
   ticket,
   members
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey: string
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
   ticket: Ticket
   members: ReadonlyArray<Member>
 }) {
@@ -61,12 +63,14 @@ function SprintBoardCardImpl({
               ticket={visibleTicket}
               iconOnly
               sprintTicketsKey={sprintTicketsKey}
+              ticketSectionsKey={ticketSectionsKey}
             />
           </div>
         </div>
         <div className="flex items-center gap-2">
           <PriorityButton
             sprintTicketsKey={sprintTicketsKey}
+            ticketSectionsKey={ticketSectionsKey}
             orgSlug={orgSlug}
             slug={slug}
             ticket={visibleTicket}
@@ -84,6 +88,7 @@ function SprintBoardCardImpl({
           </div>
           <AssigneeField
             sprintTicketsKey={sprintTicketsKey}
+            ticketSectionsKey={ticketSectionsKey}
             orgSlug={orgSlug}
             slug={slug}
             ticket={visibleTicket}

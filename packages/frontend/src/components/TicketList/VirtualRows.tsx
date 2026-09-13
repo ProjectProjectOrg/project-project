@@ -120,11 +120,13 @@ export function AutoLoad({
   cursor,
   enabled,
   loadMore,
+  rootSelector = "[data-scroll-root]",
   children
 }: {
   cursor: string | null
   enabled: boolean
   loadMore: () => void
+  rootSelector?: string
   children: ReactNode
 }) {
   const sentinel = useRef<HTMLDivElement>(null)
@@ -139,13 +141,13 @@ export function AutoLoad({
         loadMore()
       },
       {
-        root: element.closest("[data-scroll-root]"),
+        root: element.closest(rootSelector),
         rootMargin: "0px 0px 1200px 0px"
       }
     )
     observer.observe(element)
     return () => observer.disconnect()
-  }, [cursor, enabled, loadMore])
+  }, [cursor, enabled, loadMore, rootSelector])
   return (
     <div ref={sentinel} className="flex justify-center py-2">
       {children}

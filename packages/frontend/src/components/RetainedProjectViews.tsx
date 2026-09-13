@@ -64,6 +64,7 @@ export function RetainedProjectViews({
           <BacklogView
             orgSlug={orgSlug}
             slug={slug}
+            view={lastBacklog.view === "board" ? "board" : "list"}
             query={backlogQuery}
             onQueryChange={updateQuery}
           />

@@ -1,7 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue, useAtomSet, useAtomRefresh } from "@effect/atom-react"
 import { motion, Reorder } from "motion/react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -34,6 +34,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { SprintBoardColumn } from "./SprintBoardColumn"
 import { useBoardTickets } from "./useBoardTickets"
+import { useBoardViewport } from "./useBoardViewport"
 
 type SprintBoardProps = {
   orgSlug: string
@@ -104,9 +105,8 @@ function SprintBoardContent({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState<number | null>(null)
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
-  const [hasRightOverflow, setHasRightOverflow] = useState(true)
+  const { height, hasRightOverflow } = useBoardViewport(ref)
 
   useEffect(() => {
     if (reorderMode) {
@@ -116,55 +116,6 @@ function SprintBoardContent({
       setFrozenWidth(null)
     }
   }, [reorderMode])
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const scrollRoot = el.closest("[data-scroll-root]")
-    const scrollContent = el.closest("[data-scroll-content]")
-    const container =
-      scrollRoot instanceof HTMLElement ? scrollRoot : document.body
-    const paddingSource =
-      scrollContent instanceof HTMLElement ? scrollContent : container
-    const update = () => {
-      const rect = el.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const style = window.getComputedStyle(paddingSource)
-      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0
-      setHeight(Math.max(240, containerRect.bottom - rect.top - paddingBottom))
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(container, { box: "border-box" })
-    for (let node: Element | null = el; node && node !== paddingSource;) {
-      for (let prev = node.previousElementSibling; prev;) {
-        ro.observe(prev, { box: "border-box" })
-        prev = prev.previousElementSibling
-      }
-      node = node.parentElement
-    }
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("resize", update)
-    }
-  }, [])
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const update = () => {
-      setHasRightOverflow(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
-    }
-    update()
-    el.addEventListener("scroll", update, { passive: true })
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener("scroll", update)
-      ro.disconnect()
-    }
-  }, [])
 
   useEffect(() => {
     if (!reorderMode) return

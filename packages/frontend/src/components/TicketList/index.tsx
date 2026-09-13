@@ -27,7 +27,8 @@ export function TicketList({
   extraRowActions,
   sprintMembership,
   creator,
-  toolbar
+  toolbar,
+  renderSnapshot
 }: {
   orgSlug: string
   slug: string
@@ -37,6 +38,11 @@ export function TicketList({
   sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
   toolbar: ReactNode
+  renderSnapshot?: (args: {
+    key: string
+    query: TicketListQuery
+    snapshot: TicketSectionsValue
+  }) => ReactNode
 }) {
   const key = ticketsListKey(orgSlug, slug, query)
   const result = useAtomValue(
@@ -63,16 +69,24 @@ export function TicketList({
       : previous
   const renderSections = () =>
     active ? (
-      <SegmentedList
-        key={active.key}
-        orgSlug={orgSlug}
-        slug={slug}
-        query={active.query}
-        snapshot={active.value}
-        members={members}
-        extraRowActions={extraRowActions}
-        sprintMembership={sprintMembership}
-      />
+      renderSnapshot ? (
+        renderSnapshot({
+          key: active.key,
+          query: active.query,
+          snapshot: active.value
+        })
+      ) : (
+        <SegmentedList
+          key={active.key}
+          orgSlug={orgSlug}
+          slug={slug}
+          query={active.query}
+          snapshot={active.value}
+          members={members}
+          extraRowActions={extraRowActions}
+          sprintMembership={sprintMembership}
+        />
+      )
     ) : (
       <div
         aria-busy="true"

@@ -553,7 +553,7 @@ function TabsNav({
           )
         }}
       />
-      <SprintViewSwitcher orgSlug={orgSlug} slug={slug} />
+      <ViewSwitcher orgSlug={orgSlug} slug={slug} />
     </div>
   )
 }
@@ -574,56 +574,89 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function SprintViewSwitcher({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const navigate = useNavigate()
   const matches = useMatches()
   const sprintMatch = matches.find(
     (m) =>
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
-  if (!sprintMatch) return null
-  const search = sprintMatch.search as {
-    view?: "list" | "board" | "description"
+  const backlogMatch = matches.find(
+    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/"
+  )
+  if (!sprintMatch && !backlogMatch) return null
+
+  if (sprintMatch) {
+    const { view = "board" } = sprintMatch.search as {
+      view?: "list" | "board" | "description"
+    }
+    const { groupId } = sprintMatch.params as { groupId: string }
+    return (
+      <SwitcherTabs
+        ariaLabel={m.sprints_view_tabs_aria_label()}
+        current={view}
+        items={[
+          { key: "list", label: m.sprints_view_list(), icon: Rows3 },
+          { key: "board", label: m.sprints_view_board(), icon: Columns3 },
+          {
+            key: "description",
+            label: m.sprints_view_description(),
+            icon: FileText
+          }
+        ]}
+        onSelect={(next) => {
+          void navigate({
+            to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+            params: { orgSlug, slug, groupId },
+            search: (prev) => ({ ...prev, view: next })
+          })
+        }}
+      />
+    )
   }
-  const view: "list" | "board" | "description" = search.view ?? "board"
-  const { groupId } = sprintMatch.params as { groupId: string }
-  const setView = (next: "list" | "board" | "description") => {
-    if (next === view) return
-    void navigate({
-      to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      params: { orgSlug, slug, groupId },
-      search: (prev) => ({ ...prev, view: next })
-    })
-  }
-  const items: ReadonlyArray<SegmentedItem<"list" | "board" | "description">> =
-    [
-      { key: "list", label: m.sprints_view_list(), icon: Rows3 },
-      { key: "board", label: m.sprints_view_board(), icon: Columns3 },
-      {
-        key: "description",
-        label: m.sprints_view_description(),
-        icon: FileText
-      }
-    ]
+
+  const { view = "list" } = backlogMatch!.search as { view?: "list" | "board" }
   return (
-    <div
-      role="group"
-      aria-label={m.sprints_view_tabs_aria_label()}
-      className="ml-auto"
-    >
+    <SwitcherTabs
+      ariaLabel={m.tickets_view_tabs_aria_label()}
+      current={view}
+      items={[
+        { key: "list", label: m.tickets_view_list(), icon: Rows3 },
+        { key: "board", label: m.tickets_view_board(), icon: Columns3 }
+      ]}
+      onSelect={(next) => {
+        void navigate({
+          to: "/orgs/$orgSlug/projects/$slug",
+          params: { orgSlug, slug },
+          search: (prev) => ({ ...prev, view: next })
+        })
+      }}
+    />
+  )
+}
+
+function SwitcherTabs<K extends string>({
+  ariaLabel,
+  current,
+  items,
+  onSelect
+}: {
+  ariaLabel: string
+  current: K
+  items: ReadonlyArray<SegmentedItem<K>>
+  onSelect: (next: K) => void
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="ml-auto">
       <SegmentedTabs
         items={items}
-        isActive={(k) => k === view}
+        isActive={(k) => k === current}
         renderItem={(item, content, { active }) => (
           <button
             type="button"
-            onClick={() => setView(item.key)}
+            onClick={() => {
+              if (item.key !== current) onSelect(item.key)
+            }}
             aria-pressed={active}
             className={SEGMENTED_ITEM_CLASS(active)}
           >

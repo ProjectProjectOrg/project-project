@@ -1,7 +1,7 @@
 import NumberFlow from "@number-flow/react"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { GripVertical } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   draggable,
   dropTargetForElements,
@@ -30,28 +30,38 @@ export function SprintBoardColumn({
   orgSlug,
   slug,
   sprintTicketsKey,
+  ticketSectionsKey,
   status,
   statuses,
   tickets,
+  count,
   members,
   isDraggable,
+  ordered = true,
   overlay,
+  inertTicketIds,
   lastFlash,
   reorderMode,
-  onActivateReorder
+  onActivateReorder,
+  footer
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey: string
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
   status: string
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
+  count?: number
   members: ReadonlyArray<Member>
   isDraggable: boolean
+  ordered?: boolean
   overlay: ReadonlyMap<TicketId, string>
+  inertTicketIds?: ReadonlySet<TicketId>
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
   onActivateReorder: () => void
+  footer?: ReactNode
 }) {
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
@@ -172,7 +182,7 @@ export function SprintBoardColumn({
             aria-hidden={reorderMode}
           >
             <NumberFlow
-              value={tickets.length}
+              value={count ?? tickets.length}
               transformTiming={{ duration: 180, easing: "ease-out" }}
               spinTiming={{ duration: 180, easing: "ease-out" }}
               opacityTiming={{ duration: 180, easing: "ease-out" }}
@@ -204,17 +214,22 @@ export function SprintBoardColumn({
         <VirtualSprintCards
           tickets={tickets}
           isDraggable={isDraggable && !reorderMode}
+          showDropGap={ordered}
           status={status}
+          footer={footer}
         >
           {(ticket) => (
             <CardSlot
               orgSlug={orgSlug}
               slug={slug}
               sprintTicketsKey={sprintTicketsKey}
+              ticketSectionsKey={ticketSectionsKey}
+              ordered={ordered}
               ticket={ticket}
               status={status}
               members={members}
               isDraggable={isDraggable && !reorderMode}
+              inert={inertTicketIds?.has(ticket.id) ?? false}
               pending={overlay.has(ticket.id)}
               flashKey={
                 lastFlash?.id === ticket.id ? lastFlash.tick : undefined
@@ -231,20 +246,26 @@ function CardSlot({
   orgSlug,
   slug,
   sprintTicketsKey,
+  ticketSectionsKey,
   ticket,
   status,
   members,
   isDraggable,
+  ordered,
+  inert,
   pending,
   flashKey
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey: string
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
   ticket: Ticket
   status: string
   members: ReadonlyArray<Member>
   isDraggable: boolean
+  ordered: boolean
+  inert: boolean
   pending: boolean
   flashKey: number | undefined
 }) {
@@ -254,7 +275,7 @@ function CardSlot({
   const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
-    if (!isDraggable) return
+    if (!isDraggable || inert) return
     const el = ref.current
     const card = cardRef.current
     if (!el || !card) return
@@ -284,6 +305,7 @@ function CardSlot({
       onDragStart: () => setDragging(true),
       onDrop: () => setDragging(false)
     })
+    if (!ordered) return cleanupDrag
     const cleanupDrop = dropTargetForElements({
       element: el.closest<HTMLElement>("[data-ticket-id]") ?? el,
       getData: ({ input, element }): CardDropData => {
@@ -297,16 +319,21 @@ function CardSlot({
       cleanupDrag()
       cleanupDrop()
     }
-  }, [ticketId, status, isDraggable])
+  }, [ticketId, status, isDraggable, ordered, inert])
 
   return (
-    <div ref={ref} className="relative px-3 py-1">
+    <div
+      ref={ref}
+      inert={inert}
+      aria-busy={inert}
+      className={cn("relative px-3 py-1", inert && "pointer-events-none")}
+    >
       <div
         ref={cardRef}
         className={cn(
           "rounded-md",
           dragging && "opacity-40",
-          pending && "animate-pulse"
+          (pending || inert) && "animate-pulse"
         )}
       >
         <motion.div
@@ -322,6 +349,7 @@ function CardSlot({
             orgSlug={orgSlug}
             slug={slug}
             sprintTicketsKey={sprintTicketsKey}
+            ticketSectionsKey={ticketSectionsKey}
             ticket={ticket}
             members={members}
           />
