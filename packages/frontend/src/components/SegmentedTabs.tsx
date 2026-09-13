@@ -137,8 +137,17 @@ export function CollapsingLabel({
   const [width, setWidth] = useState<number | "auto">("auto")
 
   useLayoutEffect(() => {
-    if (innerRef.current) {
-      setWidth(innerRef.current.scrollWidth)
+    const el = innerRef.current
+    if (!el) return
+    const measure = () => setWidth(el.getBoundingClientRect().width)
+    measure()
+    if (typeof document === "undefined" || !("fonts" in document)) return
+    let cancelled = false
+    void document.fonts.ready.then(() => {
+      if (!cancelled) measure()
+    })
+    return () => {
+      cancelled = true
     }
   }, [show, contentKey])
 

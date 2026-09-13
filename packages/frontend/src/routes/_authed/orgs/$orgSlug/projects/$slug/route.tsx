@@ -64,6 +64,7 @@ import { ProjectHeader } from "@/components/ProjectHeader"
 import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
+import { useViewPreference } from "@/hooks/useViewPreference"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -577,6 +578,7 @@ function pickSprintNavigationTarget(
 function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const navigate = useNavigate()
   const matches = useMatches()
+  const [preference, setPreference] = useViewPreference(orgSlug, slug)
   const sprintMatch = matches.find(
     (m) =>
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
@@ -587,14 +589,14 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   if (!sprintMatch && !backlogMatch) return null
 
   if (sprintMatch) {
-    const { view = "board" } = sprintMatch.search as {
+    const { view } = sprintMatch.search as {
       view?: "list" | "board" | "description"
     }
     const { groupId } = sprintMatch.params as { groupId: string }
     return (
       <SwitcherTabs
         ariaLabel={m.sprints_view_tabs_aria_label()}
-        current={view}
+        current={view ?? preference}
         items={[
           { key: "list", label: m.sprints_view_list(), icon: Rows3 },
           { key: "board", label: m.sprints_view_board(), icon: Columns3 },
@@ -605,6 +607,7 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           }
         ]}
         onSelect={(next) => {
+          if (next !== "description") setPreference(next)
           void navigate({
             to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
             params: { orgSlug, slug, groupId },
@@ -615,16 +618,17 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
     )
   }
 
-  const { view = "list" } = backlogMatch!.search as { view?: "list" | "board" }
+  const { view } = backlogMatch!.search as { view?: "list" | "board" }
   return (
     <SwitcherTabs
       ariaLabel={m.tickets_view_tabs_aria_label()}
-      current={view}
+      current={view ?? preference}
       items={[
         { key: "list", label: m.tickets_view_list(), icon: Rows3 },
         { key: "board", label: m.tickets_view_board(), icon: Columns3 }
       ]}
       onSelect={(next) => {
+        setPreference(next)
         void navigate({
           to: "/orgs/$orgSlug/projects/$slug",
           params: { orgSlug, slug },

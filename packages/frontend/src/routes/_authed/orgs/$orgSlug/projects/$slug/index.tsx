@@ -30,6 +30,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   },
   validateSearch: (search: Record<string, unknown>): BacklogRouteSearch => ({
     ...ticketListQueryToSearch(ticketListQueryFromSearch(search)),
-    view: search.view === "board" ? "board" : "list"
+    ...(search.view === "board" || search.view === "list"
+      ? { view: search.view }
+      : {})
   })
 })
