@@ -69,7 +69,7 @@ export function BacklogView({
         slug={slug}
         query={query}
         members={project.members}
-        sprintMembership={isBoard ? undefined : sprintMembership}
+        sprintMembership={sprintMembership}
         creator={
           isBoard ? (
             <div className="relative">
@@ -118,25 +118,22 @@ export function BacklogView({
           )
         }
         extraRowActions={rowActions}
-        renderSnapshot={
-          isBoard
-            ? ({ key, query: activeQuery, snapshot }) => (
-                <BacklogBoard
-                  key={key}
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  query={activeQuery}
-                  members={project.members}
-                  snapshot={snapshot}
-                  reorderMode={reorderMode}
-                  onEnterReorder={enterReorder}
-                  onExitReorder={cancelReorder}
-                  dragOrder={dragOrder}
-                  setDragOrder={setDragOrder}
-                />
-              )
-            : undefined
-        }
+        showAlternate={isBoard}
+        alternate={({ key, query: activeQuery, snapshot }) => (
+          <BacklogBoard
+            key={key}
+            orgSlug={orgSlug}
+            slug={slug}
+            query={activeQuery}
+            members={project.members}
+            snapshot={snapshot}
+            reorderMode={reorderMode}
+            onEnterReorder={enterReorder}
+            onExitReorder={cancelReorder}
+            dragOrder={dragOrder}
+            setDragOrder={setDragOrder}
+          />
+        )}
       />
     </PageContainer>
   )

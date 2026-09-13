@@ -64,7 +64,7 @@ import { ProjectHeader } from "@/components/ProjectHeader"
 import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
-import { useViewPreference } from "@/hooks/useViewPreference"
+import { useProjectView } from "@/hooks/useViewPreference"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -578,7 +578,6 @@ function pickSprintNavigationTarget(
 function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const navigate = useNavigate()
   const matches = useMatches()
-  const [preference, setPreference] = useViewPreference(orgSlug, slug)
   const sprintMatch = matches.find(
     (m) =>
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
@@ -586,17 +585,25 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const backlogMatch = matches.find(
     (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/"
   )
+  const search = (sprintMatch ?? backlogMatch)?.search as
+    | { view?: "list" | "board" | "description" }
+    | undefined
+  const { view, setPreference } = useProjectView(orgSlug, slug, search?.view)
   if (!sprintMatch && !backlogMatch) return null
 
+  // Flip the view first, then let the URL catch up — a router navigation runs at
+  // transition priority and would otherwise hold the switch for ~50ms.
+  const select = (next: "list" | "board" | "description", to: () => void) => {
+    if (next !== "description") flushSync(() => setPreference(next))
+    startTransition(to)
+  }
+
   if (sprintMatch) {
-    const { view } = sprintMatch.search as {
-      view?: "list" | "board" | "description"
-    }
     const { groupId } = sprintMatch.params as { groupId: string }
     return (
       <SwitcherTabs
         ariaLabel={m.sprints_view_tabs_aria_label()}
-        current={view ?? preference}
+        current={view}
         items={[
           { key: "list", label: m.sprints_view_list(), icon: Rows3 },
           { key: "board", label: m.sprints_view_board(), icon: Columns3 },
@@ -606,35 +613,36 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
             icon: FileText
           }
         ]}
-        onSelect={(next) => {
-          if (next !== "description") setPreference(next)
-          void navigate({
-            to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-            params: { orgSlug, slug, groupId },
-            search: (prev) => ({ ...prev, view: next })
+        onSelect={(next) =>
+          select(next, () => {
+            void navigate({
+              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+              params: { orgSlug, slug, groupId },
+              search: (prev) => ({ ...prev, view: next })
+            })
           })
-        }}
+        }
       />
     )
   }
 
-  const { view } = backlogMatch!.search as { view?: "list" | "board" }
   return (
     <SwitcherTabs
       ariaLabel={m.tickets_view_tabs_aria_label()}
-      current={view ?? preference}
+      current={view === "description" ? "list" : view}
       items={[
         { key: "list", label: m.tickets_view_list(), icon: Rows3 },
         { key: "board", label: m.tickets_view_board(), icon: Columns3 }
       ]}
-      onSelect={(next) => {
-        setPreference(next)
-        void navigate({
-          to: "/orgs/$orgSlug/projects/$slug",
-          params: { orgSlug, slug },
-          search: (prev) => ({ ...prev, view: next })
+      onSelect={(next) =>
+        select(next, () => {
+          void navigate({
+            to: "/orgs/$orgSlug/projects/$slug",
+            params: { orgSlug, slug },
+            search: (prev) => ({ ...prev, view: next })
+          })
         })
-      }}
+      }
     />
   )
 }

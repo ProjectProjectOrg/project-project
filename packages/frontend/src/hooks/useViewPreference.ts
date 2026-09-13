@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+import { useLayoutEffect, useRef } from "react"
 import { useLocalStorageState } from "./useLocalStorageState"
 
 // Temporary home for this preference. Move it into the URL once the search-param
@@ -19,4 +20,34 @@ export function useViewPreference(
     ViewPreference,
     "list"
   )
+}
+
+export type ProjectView = ViewPreference | "description"
+
+export function useProjectView(
+  orgSlug: string,
+  slug: string,
+  searchView: string | undefined
+): {
+  readonly view: ProjectView
+  readonly setPreference: (next: ViewPreference) => void
+} {
+  const [preference, setPreference] = useViewPreference(orgSlug, slug)
+  const fromSearch: ViewPreference | undefined =
+    searchView === "list" || searchView === "board" ? searchView : undefined
+
+  // Adopt the URL only when it actually changes. Keying off `preference` instead
+  // would let a stale param overwrite the choice the user just made, before the
+  // navigation that carries it has landed.
+  const adopted = useRef<ViewPreference | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (fromSearch === undefined || fromSearch === adopted.current) return
+    adopted.current = fromSearch
+    setPreference(fromSearch)
+  }, [fromSearch, setPreference])
+
+  return {
+    view: searchView === "description" ? "description" : preference,
+    setPreference
+  }
 }

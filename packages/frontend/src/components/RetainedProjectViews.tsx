@@ -2,7 +2,7 @@ import { Activity, useMemo, useState } from "react"
 import { useMatches } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { GroupId, ticketListQueryFromSearch } from "@projectproject/shared"
-import { useViewPreference } from "@/hooks/useViewPreference"
+import { useProjectView } from "@/hooks/useViewPreference"
 import { BacklogView } from "./TicketList/BacklogView"
 import { useUpdateTicketQuery } from "./TicketList/url"
 import { SprintDetail } from "./sprints/SprintDetail"
@@ -46,7 +46,8 @@ export function RetainedProjectViews({
     setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
   }
   const updateQuery = useUpdateTicketQuery()
-  const [preference] = useViewPreference(orgSlug, slug)
+  const backlogView = useProjectView(orgSlug, slug, lastBacklog?.view).view
+  const sprintView = useProjectView(orgSlug, slug, lastSprint?.search.view).view
   const backlogQuery = useMemo(
     () => ticketListQueryFromSearch(lastBacklog ?? {}),
     [lastBacklog]
@@ -66,7 +67,7 @@ export function RetainedProjectViews({
           <BacklogView
             orgSlug={orgSlug}
             slug={slug}
-            view={lastBacklog.view ?? preference}
+            view={backlogView === "board" ? "board" : "list"}
             query={backlogQuery}
             onQueryChange={updateQuery}
           />
@@ -79,7 +80,7 @@ export function RetainedProjectViews({
             orgSlug={orgSlug}
             slug={slug}
             groupId={sprintId}
-            view={lastSprint.search.view ?? preference}
+            view={sprintView}
             listQuery={sprintQuery}
             onQueryChange={updateQuery}
           />
