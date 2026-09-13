@@ -737,6 +737,85 @@ export const GroupsLive = Layer.effect(
         })
       )
 
+    const ensureSprintAssignable = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      sprintIds: ReadonlyArray<GroupId>
+    ): Effect.Effect<
+      void,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
+      Effect.gen(function* () {
+        yield* projects.requireMember(orgSlug, userId, slug)
+        yield* requireKindRole(orgSlug, userId, slug, "sprint")
+        yield* Effect.forEach(
+          [...new Set(sprintIds)],
+          (sprintId) =>
+            Effect.gen(function* () {
+              const group = yield* groupDocs.read(orgSlug, slug, sprintId)
+              if (group.kind !== "sprint") return yield* new NotFound()
+              if (group.completedAt !== null) {
+                return yield* new SprintCompletedImmutable()
+              }
+            }),
+          { discard: true }
+        )
+      })
+
+    const setSprintMembership = (
+      orgSlug: string,
+      slug: string,
+      ticketId: TicketId,
+      sprintId: GroupId | null,
+      options?: { readonly after?: TicketId }
+    ): Effect.Effect<void, MarkdownError> =>
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          const ids = yield* groupDocs.listIds(orgSlug, slug)
+          yield* Effect.forEach(
+            ids,
+            (id) =>
+              Effect.gen(function* () {
+                const group = yield* groupDocs
+                  .read(orgSlug, slug, id)
+                  .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)))
+                if (group === null) return
+                if (group.kind !== "sprint" || group.completedAt !== null) {
+                  return
+                }
+                const present = group.tickets.includes(ticketId)
+                const wanted = group.id === sprintId
+                if (present === wanted) return
+
+                const remaining = group.tickets.filter((t) => t !== ticketId)
+                const anchor = options?.after
+                  ? remaining.indexOf(options.after)
+                  : -1
+                const next: GroupDocument = {
+                  ...group,
+                  tickets: wanted
+                    ? anchor >= 0
+                      ? [
+                          ...remaining.slice(0, anchor + 1),
+                          ticketId,
+                          ...remaining.slice(anchor + 1)
+                        ]
+                      : [...remaining, ticketId]
+                    : remaining,
+                  updatedAt: yield* DateTime.nowAsDate
+                }
+                yield* groupDocs
+                  .writeIfExists(orgSlug, slug, id, next)
+                  .pipe(Effect.catchTag("NotFound", () => Effect.void))
+              }),
+            { concurrency: 1 }
+          )
+        })
+      )
+
     const removeTicketFromAllGroups = (
       orgSlug: string,
       slug: string,
@@ -788,6 +867,8 @@ export const GroupsLive = Layer.effect(
       updateTicketOrder,
       complete,
       remove,
+      ensureSprintAssignable,
+      setSprintMembership,
       removeTicketFromAllGroups
     } satisfies GroupsShape
   })

@@ -3,7 +3,7 @@ import { useCallback } from "react"
 import type { Ticket, TicketListQuery } from "@projectproject/shared"
 import { TicketList } from "@/components/TicketList"
 import { BacklogToolbar } from "@/components/TicketList/toolbars"
-import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
+import { TicketRowActions } from "@/components/TicketList/RowActions"
 import { PageContainer } from "@/components/page"
 import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
@@ -25,7 +25,7 @@ export function BacklogView({
   )
   const rowActions = useCallback(
     (ticket: Ticket) => (
-      <ArchiveTicketControl
+      <TicketRowActions
         orgSlug={orgSlug}
         slug={slug}
         id={ticket.id}
