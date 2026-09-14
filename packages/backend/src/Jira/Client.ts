@@ -504,7 +504,9 @@ export const JiraClientLive = Layer.effect(
           {
             jql: input.jql,
             fields: input.fields,
-            expand: input.expand ?? [],
+            ...(input.expand && input.expand.length > 0
+              ? { expand: input.expand.join(",") }
+              : {}),
             maxResults: 100,
             ...(nextPageToken ? { nextPageToken } : {})
           }

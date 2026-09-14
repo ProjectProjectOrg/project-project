@@ -236,6 +236,55 @@ describe("Jira client", () => {
     ])
   })
 
+  it("omits an empty expand value from enhanced issue search", async () => {
+    const requests: Array<JiraTransportRequest> = []
+    const transport = JiraTransport.of({
+      execute: (request) => {
+        requests.push(request)
+        return Effect.succeed({
+          status: 200,
+          headers: {},
+          json: Effect.succeed({
+            isLast: true,
+            issues: [{ id: "10001", key: "APP-1", fields: {} }]
+          }),
+          stream: Stream.empty
+        })
+      }
+    })
+    const credentials = JiraCredentials.of({
+      status: () => Effect.die("unused"),
+      beginConnect: () => Effect.die("unused"),
+      completeConnect: () => Effect.die("unused"),
+      completeConnectWithReturnPath: () => Effect.die("unused"),
+      returnPathForState: () => Effect.die("unused"),
+      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+      disconnect: () => Effect.die("unused"),
+      markReconnectRequired: () => Effect.void
+    })
+
+    const issues = await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* JiraClient
+        return yield* client.searchIssues("user", "cloud", {
+          jql: 'project = "APP"',
+          fields: ["summary"]
+        })
+      }).pipe(
+        Effect.provide(JiraClientLive),
+        Effect.provide(Layer.succeed(JiraTransport, transport)),
+        Effect.provide(Layer.succeed(JiraCredentials, credentials))
+      )
+    )
+
+    expect(issues.map(({ key }) => key)).toEqual(["APP-1"])
+    expect(requests[0]?.body).toEqual({
+      jql: 'project = "APP"',
+      fields: ["summary"],
+      maxResults: 100
+    })
+  })
+
   it("maps permission failures without reading the upstream body", async () => {
     let bodyRead = false
     const transport = JiraTransport.of({
