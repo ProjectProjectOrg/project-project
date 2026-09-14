@@ -206,7 +206,7 @@ describe("convertAdfToMarkdown", () => {
           ]
         },
         {
-          type: "paragraph",
+          type: "mediaSingle",
           content: [
             {
               type: "media",
@@ -215,8 +215,12 @@ describe("convertAdfToMarkdown", () => {
                 alt: "diagram [final].png",
                 url: "https://jira.example.com/secure/attachment/7/file.png"
               }
-            },
-            { type: "text", text: " " },
+            }
+          ]
+        },
+        {
+          type: "paragraph",
+          content: [
             {
               type: "mention",
               attrs: { id: "account-1", text: "@Ada [Admin]" }
@@ -301,13 +305,21 @@ describe("convertAdfToMarkdown", () => {
             {
               type: "inlineCard",
               attrs: { url: "https://jira.example.com/browse/OTHER-4" }
-            },
-            { type: "text", text: " / " },
+            }
+          ]
+        },
+        {
+          type: "mediaSingle",
+          content: [
             {
               type: "media",
               attrs: { id: "attachment-7", alt: "diagram.png" }
-            },
-            { type: "text", text: " / " },
+            }
+          ]
+        },
+        {
+          type: "paragraph",
+          content: [
             { type: "mention", attrs: { id: "account-1", text: "@Ada" } },
             { type: "text", text: " / " },
             {
@@ -331,8 +343,8 @@ describe("convertAdfToMarkdown", () => {
 
     expect(markdown).toBe(
       "[Moved \\[issue\\]](/orgs/acme/projects/app/tickets/ABC-12) / " +
-        "[OTHER-4](https://jira.example.com/browse/OTHER-4) / " +
-        "[diagram.png](/attachments/a%20\\(1\\)) / " +
+        "[OTHER-4](https://jira.example.com/browse/OTHER-4)\n\n" +
+        "[diagram.png](/attachments/a%20\\(1\\))\n\n" +
         "[@Ada](mention:user/user-1) / @Former User"
     )
     expect(markdown).not.toContain("jira-reference:")
@@ -443,5 +455,170 @@ describe("convertAdfToMarkdown", () => {
       }
     ])
     expect(result.markdown).toContain("<!-- ordinary -->")
+  })
+
+  it("extracts attachments from valid media single and media group blocks", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "mediaSingle",
+          content: [
+            {
+              type: "media",
+              attrs: { id: "one", alt: "one.png", type: "file" }
+            }
+          ]
+        },
+        {
+          type: "mediaGroup",
+          content: [
+            {
+              type: "media",
+              attrs: { id: "two", alt: "two.pdf", type: "file" }
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(
+      result.references.map(({ kind, sourceId, fallbackText }) => ({
+        kind,
+        sourceId,
+        fallbackText
+      }))
+    ).toEqual([
+      { kind: "jira-attachment", sourceId: "one", fallbackText: "one.png" },
+      { kind: "jira-attachment", sourceId: "two", fallbackText: "two.pdf" }
+    ])
+    expect(result.warnings).toEqual([])
+  })
+
+  it("neutralizes reserved markers in every readable fallback path", () => {
+    const marker = "<!-- comments:start -->"
+    const ordinary = "<!-- ordinary -->"
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: `${marker} ${ordinary}`,
+              marks: [
+                {
+                  type: "link",
+                  attrs: { href: "https://jira.example.com/browse/ABC-1" }
+                }
+              ]
+            },
+            { type: "mention", attrs: { id: "user", text: marker } },
+            { type: "emoji", attrs: { shortName: marker } }
+          ]
+        },
+        {
+          type: "mediaSingle",
+          content: [{ type: "media", attrs: { id: "file", alt: marker } }]
+        }
+      ]
+    })
+    const markdown = rewriteJiraReferences(result, new Map())
+
+    expect(markdown).not.toContain(marker)
+    expect(markdown.match(/&lt;!-- comments:start -->/g)).toHaveLength(4)
+    expect(markdown).toContain(ordinary)
+    expect(
+      result.warnings.filter(
+        ({ reason }) => reason === "reserved-marker-neutralized"
+      )
+    ).toHaveLength(4)
+    expect(result.warnings).toHaveLength(5)
+  })
+
+  it("preserves consecutive blank lines inside fenced code", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          content: [{ type: "text", text: "first\n\n\nsecond" }]
+        }
+      ]
+    })
+
+    expect(result.markdown).toBe("```\nfirst\n\n\nsecond\n```")
+  })
+
+  it("preserves raw punctuation and backticks inside inline code", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "a*b", marks: [{ type: "code" }] },
+            { type: "text", text: " and " },
+            { type: "text", text: "`tick`", marks: [{ type: "code" }] }
+          ]
+        }
+      ]
+    })
+
+    expect(result.markdown).toBe("`a*b` and `` `tick` ``")
+  })
+
+  it("uses common readable attributes for unsupported leaves", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "emoji", attrs: { shortName: ":wave:" } }]
+        }
+      ]
+    })
+
+    expect(result.markdown).toBe(":wave:")
+    expect(result.warnings).toEqual([
+      {
+        path: ["content", 0, "content", 0],
+        nodeType: "emoji",
+        reason: "unsupported-node"
+      }
+    ])
+  })
+
+  it("preserves non-link marks on Jira-linked text", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "ABC-1",
+              marks: [
+                { type: "strong" },
+                { type: "em" },
+                { type: "link", attrs: { href: "https://jira/browse/ABC-1" } }
+              ]
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(rewriteJiraReferences(result, new Map())).toBe(
+      "[***ABC-1***](https://jira/browse/ABC-1)"
+    )
   })
 })

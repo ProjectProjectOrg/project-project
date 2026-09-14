@@ -84,14 +84,20 @@ export function rewriteJiraReferences(
 ): string {
   return result.references.reduce((markdown, reference) => {
     const destination = destinations.get(reference.placeholder)
+    const marks = referenceMarks(reference.placeholder)
     const replacement = destination
-      ? markdownLink(
+      ? markdownLinkWithMarks(
           destination.text ?? reference.fallbackText,
-          destination.url
+          destination.url,
+          marks
         )
       : reference.originalUrl
-        ? markdownLink(reference.fallbackText, reference.originalUrl)
-        : escapeText(reference.fallbackText)
+        ? markdownLinkWithMarks(
+            reference.fallbackText,
+            reference.originalUrl,
+            marks
+          )
+        : renderMarkedText(reference.fallbackText, marks)
     return markdown.split(reference.placeholder).join(replacement)
   }, result.markdown)
 }
@@ -105,7 +111,6 @@ function renderBlocks(
     .map((node, index) => renderBlock(node, state, [...path, index]))
     .filter(Boolean)
     .join("\n\n")
-    .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
 
@@ -129,6 +134,11 @@ function renderBlock(
       return renderTaskList(node, state, path, 0)
     case "table":
       return renderTable(node, state, path)
+    case "mediaSingle":
+    case "mediaGroup":
+      return renderMediaContainer(node, state, path)
+    case "media":
+      return renderMedia(node, state, path)
     case "rule":
       return "---"
     case "codeBlock":
@@ -137,7 +147,7 @@ function renderBlock(
       warnUnsupported(state, path, node.type)
       return node.content
         ? renderBlocks(node.content, state, [...path, "content"])
-        : escapeText(readableFallback(node))
+        : escapeText(safeReadableFallback(node, state, path))
     }
   }
 }
@@ -173,70 +183,92 @@ function renderInline(
         })
   }
   if (node.type === "media") {
-    const sourceId = stringAttribute(node, "id")
-    if (sourceId === null) return readableFallback(node)
-    return addReference(state, {
-      kind: "jira-attachment",
-      sourceId,
-      originalUrl: stringAttribute(node, "url"),
-      fallbackText:
-        stringAttribute(node, "alt") ??
-        stringAttribute(node, "filename") ??
-        sourceId
-    })
+    return renderMedia(node, state, path)
   }
   if (node.type === "mention") {
     const sourceId =
       stringAttribute(node, "id") ?? stringAttribute(node, "accountId")
-    if (sourceId === null) return readableFallback(node)
+    if (sourceId === null) return safeReadableFallback(node, state, path)
+    const fallbackText = safeSourceText(
+      stringAttribute(node, "text") ??
+        stringAttribute(node, "displayName") ??
+        `@${sourceId}`,
+      state,
+      path
+    )
     return addReference(state, {
       kind: "jira-user",
       sourceId,
       originalUrl: null,
-      fallbackText:
-        stringAttribute(node, "text") ??
-        stringAttribute(node, "displayName") ??
-        `@${sourceId}`
+      fallbackText
     })
   }
   if (node.type !== "text") {
     warnUnsupported(state, path, node.type)
     return node.content
       ? renderInlineChildren(node, state, path)
-      : escapeText(readableFallback(node))
+      : escapeText(safeReadableFallback(node, state, path))
   }
 
+  const safeText = safeSourceText(node.text ?? "", state, path)
   const jiraLink = jiraLinkReference(node.marks ?? [])
   if (jiraLink !== null) {
-    return addReference(state, {
-      kind: "jira-issue",
-      sourceId: jiraLink.sourceId,
-      originalUrl: jiraLink.url,
-      fallbackText: node.text ?? jiraLink.sourceId
-    })
+    return addReference(
+      state,
+      {
+        kind: "jira-issue",
+        sourceId: jiraLink.sourceId,
+        originalUrl: jiraLink.url,
+        fallbackText: safeText
+      },
+      supportedTextMarks(node.marks ?? [])
+    )
   }
 
-  const safeText = neutralizeReservedMarkers(node.text ?? "", state, path)
-  return (node.marks ?? []).reduce((text, mark) => {
-    switch (mark.type) {
-      case "strong":
-        return `**${text}**`
-      case "em":
-        return `*${text}*`
-      case "strike":
-        return `~~${text}~~`
-      case "code":
-        return inlineCode(text)
-      case "link": {
-        const href = stringAttribute(mark, "href")
-        return href === null
-          ? text
-          : `[${escapeLabel(text)}](${escapeUrl(href)})`
-      }
-      default:
-        return text
-    }
-  }, escapeText(safeText))
+  const rendered = renderMarkedText(
+    safeText,
+    supportedTextMarks(node.marks ?? [])
+  )
+  const link = (node.marks ?? []).find((mark) => mark.type === "link")
+  const href = link ? stringAttribute(link, "href") : null
+  return href === null ? rendered : `[${rendered}](${escapeUrl(href)})`
+}
+
+function renderMediaContainer(
+  node: AdfNode,
+  state: ConversionState,
+  path: ReadonlyArray<string | number>
+): string {
+  return (node.content ?? [])
+    .map((child, index) =>
+      child.type === "media"
+        ? renderMedia(child, state, [...path, "content", index])
+        : renderBlock(child, state, [...path, "content", index])
+    )
+    .filter(Boolean)
+    .join("\n")
+}
+
+function renderMedia(
+  node: AdfNode,
+  state: ConversionState,
+  path: ReadonlyArray<string | number>
+): string {
+  const sourceId = stringAttribute(node, "id")
+  if (sourceId === null) return safeReadableFallback(node, state, path)
+  const fallbackText = safeSourceText(
+    stringAttribute(node, "alt") ??
+      stringAttribute(node, "filename") ??
+      sourceId,
+    state,
+    path
+  )
+  return addReference(state, {
+    kind: "jira-attachment",
+    sourceId,
+    originalUrl: stringAttribute(node, "url"),
+    fallbackText
+  })
 }
 
 function renderList(
@@ -349,11 +381,7 @@ function renderCodeBlock(
 ): string {
   const text = (node.content ?? [])
     .map((child, index) =>
-      neutralizeReservedMarkers(child.text ?? "", state, [
-        ...path,
-        "content",
-        index
-      ])
+      safeSourceText(child.text ?? "", state, [...path, "content", index])
     )
     .join("")
   const language = stringAttribute(node, "language") ?? ""
@@ -363,7 +391,8 @@ function renderCodeBlock(
 
 function inlineCode(text: string): string {
   const fence = "`".repeat(Math.max(1, longestRun(text, "`") + 1))
-  return `${fence}${text}${fence}`
+  const content = /^[` ]|[` ]$/.test(text) ? ` ${text} ` : text
+  return `${fence}${content}${fence}`
 }
 
 function longestRun(value: string, character: string): number {
@@ -392,12 +421,11 @@ function numberAttribute(node: AdfNode, key: string): number | null {
 }
 
 function escapeText(text: string): string {
-  return text.replace(/([\\*_~])/g, "\\$1")
-}
-
-function escapeLabel(text: string): string {
   return text
     .replaceAll("\\", "\\\\")
+    .replaceAll("*", "\\*")
+    .replaceAll("_", "\\_")
+    .replaceAll("~", "\\~")
     .replaceAll("[", "\\[")
     .replaceAll("]", "\\]")
 }
@@ -408,8 +436,12 @@ function escapeUrl(url: string): string {
   )
 }
 
-function markdownLink(text: string, url: string): string {
-  return `[${escapeLabel(text)}](${escapeUrl(url)})`
+function markdownLinkWithMarks(
+  text: string,
+  url: string,
+  marks: ReadonlyArray<TextMark>
+): string {
+  return `[${renderMarkedText(text, marks)}](${escapeUrl(url)})`
 }
 
 function jiraIssueId(url: string): string | null {
@@ -432,23 +464,31 @@ function jiraLinkReference(
 
 function addReference(
   state: ConversionState,
-  reference: Omit<AdfReference, "placeholder">
+  reference: Omit<AdfReference, "placeholder">,
+  marks: ReadonlyArray<TextMark> = []
 ): string {
-  const placeholder = `\uE000jira-reference:${state.references.length
-    .toString()
-    .padStart(6, "0")}\uE001`
+  const markSuffix = marks.length === 0 ? "" : `:${marks.join(",")}`
+  const placeholder = `\uE000jira-reference:${state.references.length.toString().padStart(6, "0")}${markSuffix}\uE001`
   state.references.push({ ...reference, placeholder })
   return placeholder
 }
 
-function readableFallback(node: AdfNode): string {
-  return (
+function safeReadableFallback(
+  node: AdfNode,
+  state: ConversionState,
+  path: ReadonlyArray<string | number>
+): string {
+  const fallback =
     stringAttribute(node, "text") ??
     stringAttribute(node, "alt") ??
     stringAttribute(node, "label") ??
+    stringAttribute(node, "shortName") ??
+    stringAttribute(node, "displayName") ??
+    stringAttribute(node, "name") ??
+    stringAttribute(node, "title") ??
     stringAttribute(node, "url") ??
     ""
-  )
+  return safeSourceText(fallback, state, path)
 }
 
 function warnUnsupported(
@@ -459,7 +499,7 @@ function warnUnsupported(
   state.warnings.push({ path, nodeType, reason: "unsupported-node" })
 }
 
-function neutralizeReservedMarkers(
+function safeSourceText(
   text: string,
   state: ConversionState,
   path: ReadonlyArray<string | number>
@@ -474,6 +514,46 @@ function neutralizeReservedMarkers(
     })
     return `&lt;${marker.slice(1)}`
   })
+}
+
+type TextMark = "strong" | "em" | "strike" | "code"
+
+function supportedTextMarks(marks: ReadonlyArray<AdfMark>): Array<TextMark> {
+  return marks.flatMap((mark) =>
+    mark.type === "strong" ||
+    mark.type === "em" ||
+    mark.type === "strike" ||
+    mark.type === "code"
+      ? [mark.type]
+      : []
+  )
+}
+
+function referenceMarks(placeholder: string): Array<TextMark> {
+  const encoded = /\uE000jira-reference:\d{6}(?::([^\uE001]+))?\uE001/.exec(
+    placeholder
+  )?.[1]
+  if (!encoded) return []
+  return encoded
+    .split(",")
+    .flatMap((mark) =>
+      mark === "strong" || mark === "em" || mark === "strike" || mark === "code"
+        ? [mark]
+        : []
+    )
+}
+
+function renderMarkedText(
+  text: string,
+  marks: ReadonlyArray<TextMark>
+): string {
+  let rendered = marks.includes("code") ? inlineCode(text) : escapeText(text)
+  for (const mark of marks) {
+    if (mark === "strong") rendered = `**${rendered}**`
+    if (mark === "em") rendered = `*${rendered}*`
+    if (mark === "strike") rendered = `~~${rendered}~~`
+  }
+  return rendered
 }
 
 function indent(value: string, amount: number): string {
