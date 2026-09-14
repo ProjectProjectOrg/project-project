@@ -167,7 +167,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           ]
         }
       )
-      const progressTotal = 7 + issues.length * 2
+      const progressTotal = 11 + issues.length * 2
       yield* renew(job, 6, progressTotal)
       const comments = yield* Effect.forEach(
         issues,
@@ -192,11 +192,13 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         job.sourceCloudId,
         job.sourceProjectId
       )
+      yield* renew(job, 7 + issues.length * 2, progressTotal)
       const sprints = yield* Effect.forEach(
         boards,
         (board) => jira.sprints(job.initiatedBy, job.sourceCloudId, board.id),
         { concurrency: 2 }
       ).pipe(Effect.map((pages) => pages.flat()))
+      yield* renew(job, 8 + issues.length * 2, progressTotal)
       const uniqueSprints = [
         ...new Map(sprints.map((sprint) => [sprint.id, sprint])).values()
       ]
@@ -213,6 +215,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
             ),
         { concurrency: 2 }
       )
+      yield* renew(job, 9 + issues.length * 2, progressTotal)
       const identityOptions = yield* db
         .select({
           id: user.id,
@@ -242,6 +245,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         identityOptions,
         scannedAt
       })
+      yield* renew(job, 10 + issues.length * 2, progressTotal)
       const manifestJson = yield* Schema.encodeEffect(
         Schema.fromJsonString(JiraMigrationManifest)
       )(artifacts.manifest)
