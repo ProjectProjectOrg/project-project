@@ -3,6 +3,8 @@
 Date: 2026-09-14
 Status: Published as [T-172](https://projectproject.missler.xyz/orgs/project-project/projects/project-project/tickets/T-172)
 
+Feasibility: [Jira Cloud migration spike](../../spikes/2026-09-14-jira-cloud-migration-feasibility.md)
+
 ## Summary
 
 ProjectProject will offer a one-way, point-in-time migration that creates a new ProjectProject project from a Jira Cloud project. The product language is **Jira migration**, not import, sync, or integration.
@@ -53,7 +55,7 @@ Wizard state is stored server-side so the user can leave and resume. Nothing is 
 
 ## Jira extraction
 
-The primary extraction path is Jira Cloud REST API v3, supplemented by the Jira Software Agile API for boards and sprints. Authentication uses OAuth 2.0 authorization code flow (3LO); API-token basic authentication is not a supported product path.
+The primary extraction path is Jira Cloud REST API v3, supplemented by the Jira Software Agile API for boards and sprints. Authentication uses a resource-level OAuth 2.0 authorization code flow (3LO); API-token basic authentication is not a supported product path. The initial read-only scope set is `read:jira-work`, `read:jira-user`, `read:issue-details:jira`, `read:jql:jira`, `read:project:jira`, `read:board-scope:jira-software`, `read:sprint:jira-software`, and `offline_access`. No Jira write or administration scope is requested.
 
 Extraction includes, when visible and available:
 
@@ -110,7 +112,7 @@ Issue-number gaps are preserved. Keys are not renumbered for cosmetic continuity
 
 ## Identity linking and historical attribution
 
-Account linking is always an explicit wizard step, even when Jira exposes email addresses.
+Account linking is always an explicit wizard step, even when Jira exposes email addresses. Hidden email is the normal case: the real-project spike exposed email for only 1 of 10 referenced Jira accounts.
 
 For each distinct Jira identity, the wizard shows:
 
@@ -126,7 +128,7 @@ Linked identities are used for native assignees and mention rewriting. Unlinked 
 
 The comment model receives one narrow migration-specific extension: an imported comment may have a read-only Jira author snapshot instead of a ProjectProject user. The snapshot retains the Jira display name and account ID. The frontend renders it with an **Imported from Jira** marker and does not offer native edit/delete controls. When a Jira identity is linked, the migrated comment uses the linked ProjectProject user normally.
 
-Before implementation, a feasibility spike must validate the identity APIs against a real Jira Cloud project, including email privacy, inactive/deleted users, service accounts, comments, mentions, and pagination.
+The real-project feasibility spike validated account IDs, hidden email behavior, comments, mentions, pagination, attachment streaming, Jira Software product detection, and rotating refresh tokens. Controlled fixtures must cover inactive/deleted users, app/service accounts, restricted content, and other Jira products before release.
 
 ## Status mapping
 
@@ -163,7 +165,7 @@ Many Jira source values can map to one ProjectProject value. The wizard provides
 - Jira components become tags prefixed with `component:` to avoid collisions with labels.
 - Jira epics become epic groups.
 - Jira versions/releases become milestone groups.
-- Jira sprints become sprint groups, including completed sprint history.
+- Jira sprints become sprint groups, including completed sprint history. The manifest preserves issue-to-sprint membership as many-to-many because Jira retains historical sprint memberships on issues.
 
 Names, descriptions, dates, completion state, and ticket membership are preserved when the destination model supports them. Jira rank and exact cross-board ordering may be approximate and are reported when they cannot be reproduced.
 
@@ -197,7 +199,7 @@ The migration creates native ProjectProject data for:
 - normalized labels and component tags
 - epics, milestones, and sprints
 
-ADF conversion preserves readable headings, lists, tables, links, code, and text. Unsupported constructs degrade to a readable representation, are counted in the report, and retain their original ADF in the archive.
+ADF conversion preserves readable headings, ordered and unordered lists, task lists, tables, links, inline cards, code, rules, mentions, media, hard breaks, and text. Unsupported constructs degrade to a readable representation, are counted in the report, and retain their original ADF in the archive.
 
 Mentions become ProjectProject mentions when the Jira identity is linked. Unlinked mentions become plain display names. Attachment and ticket references are rewritten only when a durable ProjectProject destination exists.
 
@@ -208,6 +210,7 @@ The project-level archive retains:
 - source site/project identifiers and scan metadata
 - original Jira JSON and ADF
 - field definitions and unmapped custom-field values
+- Jira Rank, Development, Start date, and other populated fields without a native destination
 - Jira identities and the accepted linking decisions
 - original values before normalization or mapping
 - status/workflow metadata
