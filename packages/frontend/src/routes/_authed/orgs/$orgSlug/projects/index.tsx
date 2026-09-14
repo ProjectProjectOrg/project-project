@@ -9,6 +9,7 @@ import { ChevronRight, FolderKanban, Plus } from "lucide-react"
 import type { Project } from "@projectproject/shared"
 import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
 import { ProjectTile } from "@/components/ProjectTile"
+import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
 import { errorMessage, type AppError } from "@/lib/errorMessage"
@@ -83,6 +84,20 @@ function Projects() {
         <h1>{m.projects_page_title()}</h1>
         <p>{m.projects_page_subtitle()}</p>
       </PageHeader>
+
+      <div className="flex justify-end">
+        <Button
+          variant="tertiary"
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/migrate/jira"
+              params={{ orgSlug }}
+            />
+          }
+        >
+          {m.jira_migration_projects_entry()}
+        </Button>
+      </div>
 
       {content}
     </PageContainer>
