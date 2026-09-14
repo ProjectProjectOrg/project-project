@@ -1,6 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import * as Layer from "effect/Layer"
+import { FetchHttpClient } from "effect/unstable/http"
 import { AttachmentUploadsLive } from "./Layers/AttachmentUploads"
 import { AttachmentsLive } from "./Layers/Attachments"
 import { AuthenticationLive } from "./Layers/Auth"
@@ -35,6 +36,21 @@ import { TicketIndexLive } from "./Layers/TicketIndex"
 import { TicketDocsLive } from "./Layers/TicketDocs"
 import { TicketsLive } from "./Layers/Tickets"
 import { UsersLive } from "./Layers/Users"
+import { JiraClientLive, JiraTransportLive } from "./Jira/Client"
+import { JiraCredentialsLive } from "./Jira/Credentials"
+import { JiraOAuthConfigLive, JiraTokenEndpointLive } from "./Jira/OAuth"
+
+const JiraServicesLive = JiraClientLive.pipe(
+  Layer.provideMerge(JiraTransportLive),
+  Layer.provideMerge(
+    JiraCredentialsLive.pipe(
+      Layer.provideMerge(
+        JiraTokenEndpointLive.pipe(Layer.provideMerge(JiraOAuthConfigLive))
+      ),
+      Layer.provideMerge(SecretCryptoLive)
+    )
+  )
+)
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   GitHubProjectStateCache.layer,
@@ -42,6 +58,7 @@ export const BackendInfrastructureLive = Layer.mergeAll(
   TicketDocumentLock.layer,
   BetterAuthLive,
   DbLive.pipe(Layer.provideMerge(PgLive)),
+  FetchHttpClient.layer,
   BunFileSystem.layer,
   BunPath.layer
 )
@@ -84,7 +101,8 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(GroupDocsLive),
     Layer.provideMerge(MarkdownLive),
     Layer.provideMerge(OAuthApplicationsLive),
-    Layer.provideMerge(SecretCryptoLive)
+    Layer.provideMerge(SecretCryptoLive),
+    Layer.provideMerge(JiraServicesLive)
   )
   .pipe(
     Layer.provideMerge(S3StorageLive),

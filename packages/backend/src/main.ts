@@ -101,6 +101,8 @@ import { EverhourWebhooksLive } from "./Layers/EverhourWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
 import { AttachmentReaperLive } from "./Layers/AttachmentReaper"
+import { JiraHandlerLive } from "./Jira/Handlers"
+import { jiraOauthRoutes } from "./Jira/OAuthRoutes"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -145,6 +147,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
+  Layer.provide(JiraHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
@@ -412,6 +415,7 @@ const RouteLive = Layer.mergeAll(
   githubIntegrationRoutes,
   everhourIntegrationRoutes,
   figmaOauthRoutes,
+  jiraOauthRoutes,
   HttpRouter.add(
     "GET",
     "/api/figma-thumbnails/:orgSlug/:linkId",

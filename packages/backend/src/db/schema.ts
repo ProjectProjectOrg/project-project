@@ -747,6 +747,64 @@ export const userFigmaOauthState = pgTable(
   (t) => [index("user_figma_oauth_state_user_idx").on(t.userId)]
 )
 
+export const userJiraIntegration = pgTable(
+  "user_jira_integration",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    encryptedAccessToken: text("encrypted_access_token").notNull(),
+    accessTokenNonce: text("access_token_nonce").notNull(),
+    accessTokenTag: text("access_token_tag").notNull(),
+    encryptedRefreshToken: text("encrypted_refresh_token").notNull(),
+    refreshTokenNonce: text("refresh_token_nonce").notNull(),
+    refreshTokenTag: text("refresh_token_tag").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    grantedScopes: jsonb("granted_scopes")
+      .$type<ReadonlyArray<string>>()
+      .notNull(),
+    status: text("status", {
+      enum: ["active", "reconnect_required"]
+    })
+      .notNull()
+      .default("active"),
+    reconnectReason: text("reconnect_reason", {
+      enum: ["invalid_grant", "missing_scopes"]
+    }),
+    connectedAt: timestamp("connected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    refreshLeaseId: uuid("refresh_lease_id"),
+    refreshLeaseExpiresAt: timestamp("refresh_lease_expires_at", {
+      withTimezone: true
+    })
+  },
+  (t) => [
+    index("user_jira_integration_refresh_lease_idx").on(t.refreshLeaseExpiresAt)
+  ]
+)
+
+export const userJiraOauthState = pgTable(
+  "user_jira_oauth_state",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stateHash: text("state_hash").notNull().unique(),
+    returnPath: text("return_path").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [index("user_jira_oauth_state_user_idx").on(t.userId)]
+)
+
 export const projectFigmaIntegration = pgTable(
   "project_figma_integration",
   {
@@ -837,6 +895,8 @@ export const relations = defineRelations(
   {
     ...authSchema,
     userFigmaIntegration,
+    userJiraIntegration,
+    userJiraOauthState,
     projectFigmaIntegration,
     figmaLinkIndex,
     figmaReference,
@@ -991,6 +1051,20 @@ export const relations = defineRelations(
         to: [r.user.id]
       })
     },
+    userJiraIntegration: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userJiraIntegration.userId],
+        to: [r.user.id]
+      })
+    },
+    userJiraOauthState: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userJiraOauthState.userId],
+        to: [r.user.id]
+      })
+    },
     projectEverhourIntegration: {
       projectLink: r.one.projectIntegrationLink({
         optional: false,
@@ -1012,7 +1086,9 @@ export const relations = defineRelations(
       invitations: r.many.invitation(),
       oauthClients: r.many.oauthClient(),
       oauthAccessTokens: r.many.oauthAccessToken(),
-      oauthConsents: r.many.oauthConsent()
+      oauthConsents: r.many.oauthConsent(),
+      jiraIntegration: r.one.userJiraIntegration(),
+      jiraOauthStates: r.many.userJiraOauthState()
     },
     session: {
       user: r.one.user({

@@ -93,6 +93,11 @@ import {
   PersonalFigma
 } from "./schemas/Figma"
 import {
+  JiraConnection,
+  JiraProjectChoice,
+  JiraSite
+} from "./schemas/JiraMigration"
+import {
   CompleteSprintInput,
   CreateGroupInput,
   Group,
@@ -136,6 +141,12 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  JiraAccessDenied,
+  JiraError,
+  JiraNotConnected,
+  JiraRateLimited,
+  JiraReconnectRequired,
+  JiraResourceNotFound,
   MentionInvalid,
   NotFound,
   ProjectOwnerRemovalBlocked,
@@ -753,6 +764,47 @@ const FigmaGroup = HttpApiGroup.make("figma")
   )
   .middleware(Authentication)
 
+const JiraErrors = [
+  Unauthorized,
+  JiraNotConnected,
+  JiraReconnectRequired,
+  JiraAccessDenied,
+  JiraRateLimited,
+  JiraError
+] as const
+
+const JiraGroup = HttpApiGroup.make("jira")
+  .add(
+    HttpApiEndpoint.get("profile", "/integrations/jira/profile", {
+      success: JiraConnection,
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete("disconnectProfile", "/integrations/jira/profile", {
+      success: JiraConnection,
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("sites", "/integrations/jira/sites", {
+      success: Schema.Array(JiraSite),
+      error: JiraErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "projects",
+      "/integrations/jira/sites/:cloudId/projects",
+      {
+        params: Schema.Struct({ cloudId: Schema.String }),
+        success: Schema.Array(JiraProjectChoice),
+        error: [...JiraErrors, JiraResourceNotFound]
+      }
+    )
+  )
+  .middleware(Authentication)
+
 const StorageGroup = HttpApiGroup.make("storage")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage", {
@@ -1359,6 +1411,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
+  .add(JiraGroup)
   .add(StorageGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
