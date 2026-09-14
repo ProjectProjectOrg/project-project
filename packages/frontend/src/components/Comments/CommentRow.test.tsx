@@ -93,7 +93,12 @@ const user: User = {
   }
 }
 
-const comment = (overrides: Partial<Comment>): Comment => ({
+type NativeComment = Extract<Comment, { readonly origin: "native" }>
+type JiraComment = Extract<Comment, { readonly origin: "jira" }>
+
+const nativeComment = (
+  overrides: Partial<NativeComment> = {}
+): NativeComment => ({
   id: "c_comment" as Comment["id"],
   ticketId: "T-1" as Comment["ticketId"],
   projectSlug: "project" as Comment["projectSlug"],
@@ -102,6 +107,12 @@ const comment = (overrides: Partial<Comment>): Comment => ({
   body: "Comment body",
   createdAt: at("2026-01-02T00:00:00.000Z"),
   editedAt: null,
+  ...overrides
+})
+
+const jiraComment = (overrides: Partial<JiraComment> = {}): JiraComment => ({
+  ...nativeComment(),
+  origin: "jira",
   ...overrides
 })
 
@@ -118,13 +129,12 @@ const renderRow = (value: Comment) =>
 describe("CommentRow", () => {
   it("renders Jira snapshot attribution and imported provenance", () => {
     renderRow(
-      comment({
+      jiraComment({
         author: {
           kind: "jira",
           displayName: "Former Jira User",
           accountId: "jira-account-1"
-        },
-        origin: "jira"
+        }
       })
     )
 
@@ -136,7 +146,7 @@ describe("CommentRow", () => {
 
   it("renders linked identity with Jira provenance but no actions", () => {
     state.me = user
-    renderRow(comment({ origin: "jira" }))
+    renderRow(jiraComment())
 
     expect(screen.getByText("Linked User")).not.toBeNull()
     expect(screen.getByLabelText("Avatar for Linked User")).not.toBeNull()
@@ -147,7 +157,7 @@ describe("CommentRow", () => {
 
   it("preserves native author actions without imported provenance", () => {
     state.me = user
-    renderRow(comment({}))
+    renderRow(nativeComment())
 
     expect(screen.getByRole("button", { name: "Edit" })).not.toBeNull()
     expect(

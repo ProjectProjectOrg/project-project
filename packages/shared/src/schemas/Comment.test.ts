@@ -78,6 +78,25 @@ describe("Comment", () => {
     expect(comment.origin).toBe("jira")
     expect(comment.author.kind).toBe("user")
   })
+
+  it("rejects Jira author snapshots on native comments", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(Comment)({
+        id: "c_invalid",
+        ticketId: "T-1",
+        projectSlug: "project",
+        author: {
+          kind: "jira",
+          displayName: "Former Jira User",
+          accountId: "jira-account-1"
+        },
+        origin: "native",
+        body: "Invalid attribution",
+        createdAt: "2026-05-07T10:00:00.000Z",
+        editedAt: null
+      })
+    ).toThrow()
+  })
 })
 
 describe("native comment inputs", () => {

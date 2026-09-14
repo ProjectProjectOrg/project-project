@@ -169,13 +169,28 @@ export const CommentsLive = Layer.effect(
                   } as const)
                 : null
           if (!author) return []
+          if (r.origin === "native") {
+            if (author.kind !== "user") return []
+            return [
+              {
+                id: decodeCommentId(r.id),
+                ticketId,
+                projectSlug: slug,
+                author,
+                origin: "native",
+                body: block.body,
+                createdAt: r.createdAt,
+                editedAt: r.editedAt ?? null
+              }
+            ]
+          }
           return [
             {
               id: decodeCommentId(r.id),
               ticketId,
               projectSlug: slug,
               author,
-              origin: r.origin,
+              origin: "jira",
               body: block.body,
               createdAt: r.createdAt,
               editedAt: r.editedAt ?? null

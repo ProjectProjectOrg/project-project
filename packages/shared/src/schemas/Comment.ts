@@ -9,32 +9,46 @@ export const CommentId = Schema.String.pipe(
 )
 export type CommentId = typeof CommentId.Type
 
+const UserCommentAuthor = Schema.Struct({
+  kind: Schema.Literal("user"),
+  user: User
+})
+const JiraCommentAuthor = Schema.Struct({
+  kind: Schema.Literal("jira"),
+  displayName: Schema.NonEmptyString,
+  accountId: Schema.NonEmptyString
+})
+
 export const CommentAuthor = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("user"),
-    user: User
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("jira"),
-    displayName: Schema.NonEmptyString,
-    accountId: Schema.NonEmptyString
-  })
+  UserCommentAuthor,
+  JiraCommentAuthor
 ])
 export type CommentAuthor = typeof CommentAuthor.Type
 
 export const CommentOrigin = Schema.Literals(["native", "jira"])
 export type CommentOrigin = typeof CommentOrigin.Type
 
-export const Comment = Schema.Struct({
+const CommentFields = {
   id: CommentId,
   ticketId: TicketId,
   projectSlug: Slug,
-  author: CommentAuthor,
-  origin: CommentOrigin,
   body: Schema.String,
   createdAt: Schema.DateFromString,
   editedAt: Schema.NullOr(Schema.DateFromString)
-})
+}
+
+export const Comment = Schema.Union([
+  Schema.Struct({
+    ...CommentFields,
+    author: UserCommentAuthor,
+    origin: Schema.Literal("native")
+  }),
+  Schema.Struct({
+    ...CommentFields,
+    author: CommentAuthor,
+    origin: Schema.Literal("jira")
+  })
+])
 export type Comment = typeof Comment.Type
 
 export const CreateCommentInput = Schema.Struct({
