@@ -115,6 +115,29 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     })
   })
 
+  it("coalesces concurrent creation retries to one job", async () => {
+    const owner = await createOwner()
+    const requestId = randomUUID()
+    const jobs = await Effect.runPromise(
+      Effect.gen(function* () {
+        const migrations = yield* JiraMigrations
+        return yield* Effect.all(
+          Array.from({ length: 6 }, () =>
+            migrations.create(
+              owner.organizationId,
+              owner.userId,
+              requestId,
+              source
+            )
+          ),
+          { concurrency: "unbounded" }
+        )
+      }).pipe(Effect.provide(layer))
+    )
+
+    expect(new Set(jobs.map(({ id }) => id))).toHaveLength(1)
+  })
+
   it("uses expected revisions for lifecycle mutations", async () => {
     const owner = await createOwner()
     const result = await Effect.runPromise(

@@ -401,9 +401,38 @@ export const JiraMigrationsLive = Layer.effect(
                   sourceProjectName: source.projectName,
                   stagingPrefix: `migrations/jira/${id}`
                 })
+                .onConflictDoNothing({
+                  target: [
+                    jiraMigration.initiatedBy,
+                    jiraMigration.organizationId,
+                    jiraMigration.requestId
+                  ]
+                })
                 .returning()
                 .pipe(Effect.orDie)
-              return yield* toDetail(inserted[0])
+              if (inserted[0]) return yield* toDetail(inserted[0])
+              const replay = yield* db
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    eq(jiraMigration.organizationId, organizationId),
+                    eq(jiraMigration.initiatedBy, userId),
+                    eq(jiraMigration.requestId, requestId)
+                  )
+                )
+                .limit(1)
+                .pipe(Effect.orDie)
+              if (
+                !replay[0] ||
+                replay[0].sourceCloudId !== source.cloudId ||
+                replay[0].sourceProjectId !== source.projectId
+              ) {
+                return yield* new Conflict({
+                  reason: "jira_migration_request_conflict"
+                })
+              }
+              return yield* toDetail(replay[0])
             })
           )
           .pipe(Effect.catchTag("SqlError", Effect.die)),
