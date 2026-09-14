@@ -49,7 +49,7 @@ export const JiraIssueType = Schema.Struct({
 export type JiraIssueType = typeof JiraIssueType.Type
 
 export const JiraIssueTypeStatuses = Schema.Struct({
-  issueType: JiraIssueType,
+  ...JiraIssueType.fields,
   statuses: Schema.Array(JiraStatus)
 })
 export type JiraIssueTypeStatuses = typeof JiraIssueTypeStatuses.Type

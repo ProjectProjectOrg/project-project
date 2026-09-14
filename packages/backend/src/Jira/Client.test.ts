@@ -175,6 +175,67 @@ describe("Jira client", () => {
     )
   })
 
+  it("decodes project statuses with top-level issue type fields", async () => {
+    const transport = JiraTransport.of({
+      execute: () =>
+        Effect.succeed({
+          status: 200,
+          headers: {},
+          json: Effect.succeed([
+            {
+              id: "10001",
+              name: "Bug",
+              subtask: false,
+              statuses: [
+                {
+                  id: "3",
+                  name: "In Progress",
+                  statusCategory: { id: 4, key: "indeterminate" }
+                }
+              ]
+            }
+          ]),
+          stream: Stream.empty
+        })
+    })
+    const credentials = JiraCredentials.of({
+      status: () => Effect.die("unused"),
+      beginConnect: () => Effect.die("unused"),
+      completeConnect: () => Effect.die("unused"),
+      completeConnectWithReturnPath: () => Effect.die("unused"),
+      returnPathForState: () => Effect.die("unused"),
+      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+      disconnect: () => Effect.die("unused"),
+      markReconnectRequired: () => Effect.void
+    })
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* JiraClient
+        return yield* client.projectStatuses("user", "cloud", "APP")
+      }).pipe(
+        Effect.provide(JiraClientLive),
+        Effect.provide(Layer.succeed(JiraTransport, transport)),
+        Effect.provide(Layer.succeed(JiraCredentials, credentials))
+      )
+    )
+
+    expect(result).toEqual([
+      {
+        id: "10001",
+        name: "Bug",
+        subtask: false,
+        statuses: [
+          {
+            id: "3",
+            name: "In Progress",
+            statusCategory: { id: 4, key: "indeterminate" }
+          }
+        ]
+      }
+    ])
+  })
+
   it("maps permission failures without reading the upstream body", async () => {
     let bodyRead = false
     const transport = JiraTransport.of({

@@ -156,7 +156,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       ({ id }) => id
     )
     const issueTypes = uniqueBy(
-      input.statuses.map(({ issueType }) => issueType),
+      input.statuses.map(({ id, name, subtask }) => ({ id, name, subtask })),
       ({ id }) => id
     )
     const issues = input.issues.map((issue) => {

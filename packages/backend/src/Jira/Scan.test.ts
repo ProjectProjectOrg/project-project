@@ -19,7 +19,9 @@ describe("buildJiraScanArtifacts", () => {
         },
         statuses: [
           {
-            issueType: { id: "type-1", name: "Bug", subtask: false },
+            id: "type-1",
+            name: "Bug",
+            subtask: false,
             statuses: [
               {
                 id: "status-1",
