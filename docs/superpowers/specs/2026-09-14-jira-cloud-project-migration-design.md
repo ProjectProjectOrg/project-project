@@ -1,7 +1,7 @@
 # Jira Cloud project migration design
 
 Date: 2026-09-14
-Status: Approved design, pending ticket publication
+Status: Published as [T-172](https://projectproject.missler.xyz/orgs/project-project/projects/project-project/tickets/T-172)
 
 ## Summary
 
