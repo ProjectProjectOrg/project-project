@@ -295,3 +295,9 @@ export class JiraError extends Schema.TaggedError<JiraError>()(
   { reason: JiraFailureReason },
   { httpApiStatus: 502 }
 ) {}
+
+export class JiraMigrationUnavailable extends Schema.TaggedError<JiraMigrationUnavailable>()(
+  "JiraMigrationUnavailable",
+  { reason: Schema.Literals(["worker_unavailable", "storage_unavailable"]) },
+  { httpApiStatus: 503 }
+) {}

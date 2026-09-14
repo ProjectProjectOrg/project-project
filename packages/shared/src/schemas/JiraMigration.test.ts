@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import { JiraConnection, JiraProjectChoice, JiraSite } from "./JiraMigration"
+import { TagName } from "./Tag"
+import {
+  JiraConnection,
+  JiraMigrationConfiguration,
+  JiraProjectChoice,
+  JiraSite
+} from "./JiraMigration"
 
 const decodeConnection = Schema.decodeUnknownSync(JiraConnection)
 const connectedAt = DateTime.makeUnsafe("2026-09-14T12:00:00Z")
@@ -89,5 +95,38 @@ describe("JiraMigration schemas", () => {
     ]
   ])("rejects malformed public values", (schema, input) => {
     expect(() => Schema.decodeUnknownSync(schema)(input)).toThrow()
+  })
+
+  it("decodes the approved complete migration configuration", () => {
+    const configuration = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+      destination: { name: "Application", slug: "application", key: "APP" },
+      identities: [{ jiraAccountId: "jira-user", projectProjectUserId: null }],
+      statuses: [{ jiraStatusId: "1", projectStatusSlug: "in_progress" }],
+      issueTypes: [{ jiraIssueTypeId: "2", projectType: "bug" }],
+      priorities: [{ jiraPriorityId: "3", projectPriority: "high" }],
+      tags: [
+        {
+          source: { kind: "component", value: "Payments" },
+          destinationTagName: "component:payments"
+        }
+      ],
+      activeFutureSprintChoices: [{ jiraIssueId: "100", jiraSprintId: null }],
+      restrictedContent: { policy: "exclude" },
+      skippedAttachmentIds: ["200"],
+      attachmentSkipsAccepted: true
+    })
+
+    expect(configuration.destination.key).toBe("APP")
+    expect(configuration.tags[0]?.destinationTagName).toBe("component:payments")
+  })
+
+  it("allows only the reserved component namespace in tag names", () => {
+    expect(
+      Schema.decodeUnknownSync(TagName)("component:payments-platform")
+    ).toBe("component:payments-platform")
+    expect(() => Schema.decodeUnknownSync(TagName)("team:payments")).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(TagName)("component:payments-platform-long")
+    ).toThrow()
   })
 })

@@ -39,6 +39,7 @@ import { UsersLive } from "./Layers/Users"
 import { JiraClientLive, JiraTransportLive } from "./Jira/Client"
 import { JiraCredentialsLive } from "./Jira/Credentials"
 import { JiraOAuthConfigLive, JiraTokenEndpointLive } from "./Jira/OAuth"
+import { JiraMigrationsLive } from "./Jira/Migrations"
 
 const JiraServicesLive = JiraClientLive.pipe(
   Layer.provideMerge(JiraTransportLive),
@@ -102,7 +103,8 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(MarkdownLive),
     Layer.provideMerge(OAuthApplicationsLive),
     Layer.provideMerge(SecretCryptoLive),
-    Layer.provideMerge(JiraServicesLive)
+    Layer.provideMerge(JiraServicesLive),
+    Layer.provideMerge(JiraMigrationsLive)
   )
   .pipe(
     Layer.provideMerge(S3StorageLive),

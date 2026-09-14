@@ -93,7 +93,12 @@ import {
   PersonalFigma
 } from "./schemas/Figma"
 import {
+  ConfigureJiraMigrationInput,
+  CreateJiraMigrationInput,
   JiraConnection,
+  JiraMigrationDetail,
+  JiraMigrationRevisionInput,
+  JiraMigrationSummary,
   JiraProjectChoice,
   JiraSite
 } from "./schemas/JiraMigration"
@@ -143,6 +148,7 @@ import {
   GitHubTokenExpired,
   JiraAccessDenied,
   JiraError,
+  JiraMigrationUnavailable,
   JiraNotConnected,
   JiraRateLimited,
   JiraReconnectRequired,
@@ -805,6 +811,119 @@ const JiraGroup = HttpApiGroup.make("jira")
   )
   .middleware(Authentication)
 
+const JiraMigrationPath = Schema.Struct({
+  orgSlug: Slug,
+  migrationId: Schema.NonEmptyString
+})
+
+const JiraMigrationReadErrors = [
+  Unauthorized,
+  NotFound,
+  Forbidden,
+  JiraError,
+  JiraMigrationUnavailable
+] as const
+
+const JiraMigrationWriteErrors = [
+  ...JiraMigrationReadErrors,
+  Validation,
+  Conflict,
+  JiraNotConnected,
+  JiraReconnectRequired,
+  JiraAccessDenied,
+  JiraResourceNotFound,
+  JiraRateLimited,
+  JiraError
+] as const
+
+const JiraMigrationAcceptedDetail = JiraMigrationDetail.pipe(
+  HttpApiSchema.status(202)
+)
+
+const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
+  .add(
+    HttpApiEndpoint.get("list", "/orgs/:orgSlug/jira-migrations", {
+      params: OrgPath,
+      success: Schema.Array(JiraMigrationSummary),
+      error: JiraMigrationReadErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("create", "/orgs/:orgSlug/jira-migrations", {
+      params: OrgPath,
+      payload: CreateJiraMigrationInput,
+      success: JiraMigrationAcceptedDetail,
+      error: JiraMigrationWriteErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/orgs/:orgSlug/jira-migrations/:migrationId", {
+      params: JiraMigrationPath,
+      success: JiraMigrationDetail,
+      error: JiraMigrationReadErrors
+    })
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "rescan",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/rescan",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "configure",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/configuration",
+      {
+        params: JiraMigrationPath,
+        payload: ConfigureJiraMigrationInput,
+        success: JiraMigrationDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "run",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/run",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "cancel",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/cancel",
+      {
+        params: JiraMigrationPath,
+        payload: JiraMigrationRevisionInput,
+        success: JiraMigrationAcceptedDetail,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "discard",
+      "/orgs/:orgSlug/jira-migrations/:migrationId",
+      {
+        params: JiraMigrationPath,
+        success: HttpApiSchema.NoContent,
+        error: JiraMigrationWriteErrors
+      }
+    )
+  )
+  .middleware(Authentication)
+
 const StorageGroup = HttpApiGroup.make("storage")
   .add(
     HttpApiEndpoint.get("get", "/orgs/:orgSlug/storage", {
@@ -1412,6 +1531,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(EverhourGroup)
   .add(FigmaGroup)
   .add(JiraGroup)
+  .add(JiraMigrationsGroup)
   .add(StorageGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)

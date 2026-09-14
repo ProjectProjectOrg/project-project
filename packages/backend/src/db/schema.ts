@@ -56,7 +56,10 @@ import {
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core"
-import type { OrgEverhourConfig } from "@projectproject/shared"
+import type {
+  JiraMigrationConfiguration,
+  OrgEverhourConfig
+} from "@projectproject/shared"
 
 export * from "./auth-schema"
 import { invitation, organization, user } from "./auth-schema"
@@ -805,6 +808,77 @@ export const userJiraOauthState = pgTable(
   (t) => [index("user_jira_oauth_state_user_idx").on(t.userId)]
 )
 
+export const jiraMigration = pgTable(
+  "jira_migration",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    requestId: text("request_id").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    initiatedBy: text("initiated_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sourceCloudId: text("source_cloud_id").notNull(),
+    sourceSiteName: text("source_site_name").notNull(),
+    sourceSiteUrl: text("source_site_url").notNull(),
+    sourceProjectId: text("source_project_id").notNull(),
+    sourceProjectKey: text("source_project_key").notNull(),
+    sourceProjectName: text("source_project_name").notNull(),
+    status: text("status", {
+      enum: [
+        "scanning",
+        "needs_configuration",
+        "ready",
+        "migrating",
+        "cancelling",
+        "reconnect_required",
+        "failed",
+        "cancelled",
+        "succeeded"
+      ]
+    })
+      .notNull()
+      .default("scanning"),
+    phase: text("phase").notNull().default("queued_scan"),
+    revision: integer("revision").notNull().default(0),
+    manifestVersion: integer("manifest_version").notNull().default(1),
+    stagingPrefix: text("staging_prefix").notNull(),
+    configuration: jsonb("configuration").$type<JiraMigrationConfiguration>(),
+    checkpoint: jsonb("checkpoint").$type<unknown>(),
+    progressDone: integer("progress_done").notNull().default(0),
+    progressTotal: integer("progress_total"),
+    leaseId: uuid("lease_id"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    scanAt: timestamp("scan_at", { withTimezone: true }),
+    destinationProjectId: uuid("destination_project_id"),
+    destinationProjectSlug: text("destination_project_slug"),
+    reportPath: text("report_path"),
+    failureReason: text("failure_reason"),
+    failureRetryable: boolean("failure_retryable"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true })
+  },
+  (t) => [
+    uniqueIndex("jira_migration_request_uidx").on(
+      t.initiatedBy,
+      t.organizationId,
+      t.requestId
+    ),
+    index("jira_migration_initiator_idx").on(
+      t.organizationId,
+      t.initiatedBy,
+      t.createdAt
+    ),
+    index("jira_migration_worker_idx").on(t.status, t.leaseExpiresAt)
+  ]
+)
+
 export const projectFigmaIntegration = pgTable(
   "project_figma_integration",
   {
@@ -897,6 +971,7 @@ export const relations = defineRelations(
     userFigmaIntegration,
     userJiraIntegration,
     userJiraOauthState,
+    jiraMigration,
     projectFigmaIntegration,
     figmaLinkIndex,
     figmaReference,
@@ -934,6 +1009,18 @@ export const relations = defineRelations(
       tags: r.many.projectTag(),
       statuses: r.many.projectStatus(),
       integrationLinks: r.many.projectIntegrationLink()
+    },
+    jiraMigration: {
+      organization: r.one.organization({
+        optional: false,
+        from: [r.jiraMigration.organizationId],
+        to: [r.organization.id]
+      }),
+      initiator: r.one.user({
+        optional: false,
+        from: [r.jiraMigration.initiatedBy],
+        to: [r.user.id]
+      })
     },
     projectMember: {
       project: r.one.projectIndex({

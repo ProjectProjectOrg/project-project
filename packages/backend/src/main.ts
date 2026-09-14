@@ -103,6 +103,7 @@ import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
 import { AttachmentReaperLive } from "./Layers/AttachmentReaper"
 import { JiraHandlerLive } from "./Jira/Handlers"
 import { jiraOauthRoutes } from "./Jira/OAuthRoutes"
+import { JiraMigrationsHandlerLive } from "./Jira/MigrationHandlers"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -148,6 +149,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
   Layer.provide(JiraHandlerLive),
+  Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
