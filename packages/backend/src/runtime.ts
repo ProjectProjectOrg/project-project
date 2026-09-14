@@ -40,6 +40,7 @@ import { JiraClientLive, JiraTransportLive } from "./Jira/Client"
 import { JiraCredentialsLive } from "./Jira/Credentials"
 import { JiraOAuthConfigLive, JiraTokenEndpointLive } from "./Jira/OAuth"
 import { JiraMigrationsLive } from "./Jira/Migrations"
+import { JiraMigrationWorkerLive } from "./Jira/Worker"
 
 const JiraServicesLive = JiraClientLive.pipe(
   Layer.provideMerge(JiraTransportLive),
@@ -124,3 +125,5 @@ export const BackendHttpServicesLive = BackendServicesLive.pipe(
 export const BackendRuntimeLive = BackendServicesLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
+
+export const JiraMigrationBackgroundLive = JiraMigrationWorkerLive

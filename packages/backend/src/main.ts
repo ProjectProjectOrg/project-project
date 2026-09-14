@@ -90,7 +90,11 @@ import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
 import { McpHttp } from "./Services/McpHttp"
 import { McpHttpLive } from "./Layers/McpHttp"
-import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
+import {
+  BackendHttpServicesLive,
+  BackendInfrastructureLive,
+  JiraMigrationBackgroundLive
+} from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
 import { GitHubIntegrations } from "./Services/GitHubIntegrations"
@@ -452,7 +456,17 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
+const JiraWorkerLive = JiraMigrationBackgroundLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
+const AppLive = Layer.mergeAll(
+  ServerLive,
+  ReconcilerLive,
+  ReaperLive,
+  JiraWorkerLive
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we
