@@ -24,7 +24,10 @@ export function JiraSourceStep({
   sitesLoading = false,
   projectsLoading = false,
   migrationApiAvailable,
-  oauthReturnPath = "/"
+  oauthReturnPath = "/",
+  scanWaiting = false,
+  scanError = null,
+  onScan
 }: {
   connection: JiraConnection
   sites: ReadonlyArray<JiraSite>
@@ -37,6 +40,9 @@ export function JiraSourceStep({
   projectsLoading?: boolean
   migrationApiAvailable: boolean
   oauthReturnPath?: string
+  scanWaiting?: boolean
+  scanError?: string | null
+  onScan?: () => void
 }) {
   if (connection.status === "disconnected") {
     return (
@@ -191,10 +197,20 @@ export function JiraSourceStep({
             {m.jira_migration_api_pending()}
           </p>
         ) : null}
+        {scanError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {scanError}
+          </p>
+        ) : null}
       </div>
 
       <StepActions>
-        <Button disabled={!canScan} leadingIcon={ScanSearch}>
+        <Button
+          disabled={!canScan || scanWaiting}
+          loading={scanWaiting}
+          leadingIcon={ScanSearch}
+          onClick={onScan}
+        >
           {m.jira_migration_action_scan()}
         </Button>
       </StepActions>

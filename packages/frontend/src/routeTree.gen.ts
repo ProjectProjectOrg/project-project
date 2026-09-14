@@ -28,13 +28,13 @@ import { Route as AuthedOrgsOrgSlugSettingsDangerRouteImport } from './routes/_a
 import { Route as AuthedOrgsOrgSlugSettingsAttachmentsRouteImport } from './routes/_authed/orgs/$orgSlug/settings/attachments'
 import { Route as AuthedOrgsOrgSlugProjectsSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/index'
+import { Route as AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport } from './routes/_authed/orgs/$orgSlug/migrations/jira/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/about'
+import { Route as AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport } from './routes/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/route'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/route'
-import { Route as AuthedOrgsOrgSlugProjectsMigrateJiraIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/migrate/jira/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/index'
-import { Route as AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/migrate/jira/$migrationId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
@@ -146,11 +146,23 @@ const AuthedOrgsOrgSlugProjectsSlugIndexRoute =
     path: '/',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugMigrationsJiraIndexRoute =
+  AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport.update({
+    id: '/migrations/jira/',
+    path: '/migrations/jira/',
+    getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugAboutRoute =
   AuthedOrgsOrgSlugProjectsSlugAboutRouteImport.update({
     id: '/about',
     path: '/about',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute =
+  AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport.update({
+    id: '/migrations/jira/$migrationId',
+    path: '/migrations/jira/$migrationId',
+    getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugSprintsRouteRoute =
   AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteImport.update({
@@ -164,12 +176,6 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
   } as any)
-const AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute =
-  AuthedOrgsOrgSlugProjectsMigrateJiraIndexRouteImport.update({
-    id: '/projects/migrate/jira/',
-    path: '/projects/migrate/jira/',
-    getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
-  } as any)
 const AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute =
   AuthedOrgsOrgSlugProjectsSlugSprintsIndexRouteImport.update({
     id: '/',
@@ -181,12 +187,6 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
-  } as any)
-const AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute =
-  AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRouteImport.update({
-    id: '/projects/migrate/jira/$migrationId',
-    path: '/projects/migrate/jira/$migrationId',
-    getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute =
   AuthedOrgsOrgSlugProjectsSlugTicketsIdRouteImport.update({
@@ -245,7 +245,9 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
+  '/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
+  '/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
@@ -253,10 +255,8 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
-  '/orgs/$orgSlug/projects/migrate/jira/$migrationId': typeof AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
-  '/orgs/$orgSlug/projects/migrate/jira/': typeof AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute
 }
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
@@ -273,7 +273,9 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/storage': typeof AuthedOrgsOrgSlugSettingsStorageRoute
   '/orgs/$orgSlug/projects': typeof AuthedOrgsOrgSlugProjectsIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsIndexRoute
+  '/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
   '/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
+  '/orgs/$orgSlug/migrations/jira': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
@@ -281,10 +283,8 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
-  '/orgs/$orgSlug/projects/migrate/jira/$migrationId': typeof AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
-  '/orgs/$orgSlug/projects/migrate/jira': typeof AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -308,7 +308,9 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/': typeof AuthedOrgsOrgSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/migrations/jira/$migrationId': typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/about': typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
+  '/_authed/orgs/$orgSlug/migrations/jira/': typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/': typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/general': typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRoute
@@ -316,10 +318,8 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugSprintsGroupIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
-  '/_authed/orgs/$orgSlug/projects/migrate/jira/$migrationId': typeof AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
-  '/_authed/orgs/$orgSlug/projects/migrate/jira/': typeof AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -343,7 +343,9 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/'
     | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/sprints'
+    | '/orgs/$orgSlug/migrations/jira/$migrationId'
     | '/orgs/$orgSlug/projects/$slug/about'
+    | '/orgs/$orgSlug/migrations/jira/'
     | '/orgs/$orgSlug/projects/$slug/'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
@@ -351,10 +353,8 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
-    | '/orgs/$orgSlug/projects/migrate/jira/$migrationId'
     | '/orgs/$orgSlug/projects/$slug/settings/'
     | '/orgs/$orgSlug/projects/$slug/sprints/'
-    | '/orgs/$orgSlug/projects/migrate/jira/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/welcome'
@@ -371,7 +371,9 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/storage'
     | '/orgs/$orgSlug/projects'
     | '/orgs/$orgSlug/settings'
+    | '/orgs/$orgSlug/migrations/jira/$migrationId'
     | '/orgs/$orgSlug/projects/$slug/about'
+    | '/orgs/$orgSlug/migrations/jira'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/projects/$slug/settings/general'
     | '/orgs/$orgSlug/projects/$slug/settings/integrations'
@@ -379,10 +381,8 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
-    | '/orgs/$orgSlug/projects/migrate/jira/$migrationId'
     | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/sprints'
-    | '/orgs/$orgSlug/projects/migrate/jira'
   id:
     | '__root__'
     | '/_authed'
@@ -405,7 +405,9 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints'
+    | '/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
     | '/_authed/orgs/$orgSlug/projects/$slug/about'
+    | '/_authed/orgs/$orgSlug/migrations/jira/'
     | '/_authed/orgs/$orgSlug/projects/$slug/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/general'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
@@ -413,10 +415,8 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/workflow'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
-    | '/_authed/orgs/$orgSlug/projects/migrate/jira/$migrationId'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
-    | '/_authed/orgs/$orgSlug/projects/migrate/jira/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -562,12 +562,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
     }
+    '/_authed/orgs/$orgSlug/migrations/jira/': {
+      id: '/_authed/orgs/$orgSlug/migrations/jira/'
+      path: '/migrations/jira'
+      fullPath: '/orgs/$orgSlug/migrations/jira/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugMigrationsJiraIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/about': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/about'
       path: '/about'
       fullPath: '/orgs/$orgSlug/projects/$slug/about'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/migrations/jira/$migrationId': {
+      id: '/_authed/orgs/$orgSlug/migrations/jira/$migrationId'
+      path: '/migrations/jira/$migrationId'
+      fullPath: '/orgs/$orgSlug/migrations/jira/$migrationId'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/sprints': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/sprints'
@@ -583,13 +597,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
     }
-    '/_authed/orgs/$orgSlug/projects/migrate/jira/': {
-      id: '/_authed/orgs/$orgSlug/projects/migrate/jira/'
-      path: '/projects/migrate/jira'
-      fullPath: '/orgs/$orgSlug/projects/migrate/jira/'
-      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsMigrateJiraIndexRouteImport
-      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
-    }
     '/_authed/orgs/$orgSlug/projects/$slug/sprints/': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
       path: '/'
@@ -603,13 +610,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/projects/$slug/settings/'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
-    }
-    '/_authed/orgs/$orgSlug/projects/migrate/jira/$migrationId': {
-      id: '/_authed/orgs/$orgSlug/projects/migrate/jira/$migrationId'
-      path: '/projects/migrate/jira/$migrationId'
-      fullPath: '/orgs/$orgSlug/projects/migrate/jira/$migrationId'
-      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRouteImport
-      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
@@ -761,8 +761,8 @@ interface AuthedOrgsOrgSlugRouteRouteChildren {
   AuthedOrgsOrgSlugIndexRoute: typeof AuthedOrgsOrgSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsIndexRoute: typeof AuthedOrgsOrgSlugProjectsIndexRoute
-  AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute: typeof AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute
-  AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute: typeof AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute
+  AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute: typeof AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute
+  AuthedOrgsOrgSlugMigrationsJiraIndexRoute: typeof AuthedOrgsOrgSlugMigrationsJiraIndexRoute
 }
 
 const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
@@ -773,10 +773,10 @@ const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
     AuthedOrgsOrgSlugProjectsSlugRouteRoute:
       AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren,
     AuthedOrgsOrgSlugProjectsIndexRoute: AuthedOrgsOrgSlugProjectsIndexRoute,
-    AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute:
-      AuthedOrgsOrgSlugProjectsMigrateJiraMigrationIdRoute,
-    AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute:
-      AuthedOrgsOrgSlugProjectsMigrateJiraIndexRoute,
+    AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute:
+      AuthedOrgsOrgSlugMigrationsJiraMigrationIdRoute,
+    AuthedOrgsOrgSlugMigrationsJiraIndexRoute:
+      AuthedOrgsOrgSlugMigrationsJiraIndexRoute,
   }
 
 const AuthedOrgsOrgSlugRouteRouteWithChildren =

@@ -82,9 +82,8 @@ describe("JiraSourceStep", () => {
     expect(screen.getByRole("combobox", { name: "Project" })).not.toBeNull()
     expect(screen.getByText("Acme Jira")).not.toBeNull()
     expect(screen.getByText("Engineering")).not.toBeNull()
-    expect(
-      screen.getByRole("button", { name: "Scan project" }).disabled
-    ).toBe(true)
+    const scan = screen.getByRole("button", { name: "Scan project" })
+    expect(scan instanceof HTMLButtonElement && scan.disabled).toBe(true)
     expect(
       screen.getByText(
         "Project scanning will be available as soon as the migration service is ready."

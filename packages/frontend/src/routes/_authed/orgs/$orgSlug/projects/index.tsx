@@ -89,10 +89,7 @@ function Projects() {
         <Button
           variant="tertiary"
           render={
-            <Link
-              to="/orgs/$orgSlug/projects/migrate/jira"
-              params={{ orgSlug }}
-            />
+            <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
           }
         >
           {m.jira_migration_projects_entry()}
