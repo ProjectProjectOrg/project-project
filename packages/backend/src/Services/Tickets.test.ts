@@ -286,6 +286,7 @@ const makeRecordingAttachments = () => {
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
   create: () => Effect.succeed({} as never),
+  importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
 } satisfies CommentsShape)

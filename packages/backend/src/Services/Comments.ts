@@ -1,6 +1,7 @@
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import type {
   Comment,
   CommentId,
@@ -17,6 +18,32 @@ import type { MalformedTicketDocument } from "./TicketDocs"
 export class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
   readonly reason: string
 }> {}
+
+export class InvalidCommentAuthor extends Data.TaggedError(
+  "InvalidCommentAuthor"
+)<{
+  readonly reason: string
+}> {}
+
+export const HistoricalCommentAuthor = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("user"),
+    userId: Schema.NonEmptyString
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("jira"),
+    displayName: Schema.NonEmptyString,
+    accountId: Schema.NonEmptyString
+  })
+])
+export type HistoricalCommentAuthor = typeof HistoricalCommentAuthor.Type
+
+export interface HistoricalCommentInput {
+  readonly author: HistoricalCommentAuthor
+  readonly body: string
+  readonly createdAt: Date
+  readonly editedAt: Date | null
+}
 
 export interface CommentsShape {
   readonly list: (
@@ -38,6 +65,21 @@ export interface CommentsShape {
     Comment,
     | NotFound
     | InvalidCommentBody
+    | MentionInvalid
+    | MarkdownError
+    | MalformedTicketDocument
+  >
+  readonly importHistorical: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    ticketId: TicketId,
+    input: ReadonlyArray<HistoricalCommentInput>
+  ) => Effect.Effect<
+    ReadonlyArray<Comment>,
+    | NotFound
+    | InvalidCommentBody
+    | InvalidCommentAuthor
     | MentionInvalid
     | MarkdownError
     | MalformedTicketDocument

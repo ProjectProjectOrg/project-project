@@ -602,15 +602,35 @@ export const commentIndex = pgTable(
     id: text("id").primaryKey(),
     projectSlug: text("project_slug").notNull(),
     ticketId: text("ticket_id").notNull(),
-    authorId: text("author_id")
-      .notNull()
-      .references(() => user.id),
+    origin: text("origin", { enum: ["native", "jira"] }).notNull(),
+    authorKind: text("author_kind", { enum: ["user", "jira"] }).notNull(),
+    authorId: text("author_id").references(() => user.id),
+    jiraDisplayName: text("jira_display_name"),
+    jiraAccountId: text("jira_account_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
     editedAt: timestamp("edited_at", { withTimezone: true })
   },
   (t) => [
+    check(
+      "comment_index_attribution_check",
+      sql`(
+        ${t.authorKind} = 'user'
+        and ${t.authorId} is not null
+        and ${t.jiraDisplayName} is null
+        and ${t.jiraAccountId} is null
+      ) or (
+        ${t.authorKind} = 'jira'
+        and ${t.authorId} is null
+        and ${t.jiraDisplayName} is not null
+        and ${t.jiraAccountId} is not null
+      )`
+    ),
+    check(
+      "comment_index_origin_check",
+      sql`${t.origin} = 'jira' or (${t.origin} = 'native' and ${t.authorKind} = 'user')`
+    ),
     index("comment_index_ticket_idx").on(t.projectSlug, t.ticketId, t.createdAt)
   ]
 )
@@ -980,7 +1000,7 @@ export const relations = defineRelations(
     },
     commentIndex: {
       author: r.one.user({
-        optional: false,
+        optional: true,
         from: [r.commentIndex.authorId],
         to: [r.user.id]
       })

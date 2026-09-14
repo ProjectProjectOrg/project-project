@@ -15,14 +15,20 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const sample = (): ReadonlyArray<CommentBlock> => [
   {
     id: "c_a",
-    author: "github_42",
+    author: { kind: "user", userId: "github_42" },
+    origin: "native",
     createdAt: isoDate("2026-05-07T10:00:00.000Z"),
     editedAt: isoDate("2026-05-07T10:04:00.000Z"),
     body: "Looks good. cc [Wouter](mention:user/github_88)."
   },
   {
     id: "c_b",
-    author: "github_88",
+    author: {
+      kind: "jira",
+      displayName: "Former Jira User",
+      accountId: "jira-account-88"
+    },
+    origin: "jira",
     createdAt: isoDate("2026-05-07T10:06:00.000Z"),
     editedAt: null,
     body: "Yep, on it.\n\nMore details below:\n\n---\n\nA section."
@@ -64,6 +70,30 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(serialized.startsWith(COMMENTS_START)).toBe(true)
     expect(serialized.trimEnd().endsWith(COMMENTS_END)).toBe(true)
     expect(parseCommentsRegion(serialized)).toEqual(blocks)
+    expect(serializeCommentsRegion(parseCommentsRegion(serialized))).toBe(
+      serialized
+    )
+  })
+
+  it("decodes legacy string authors as native users", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_legacy -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nLegacy body.\n${COMMENTS_END}\n`
+
+    expect(parseCommentsRegion(region)).toEqual([
+      {
+        id: "c_legacy",
+        author: { kind: "user", userId: "github_42" },
+        origin: "native",
+        createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+        editedAt: null,
+        body: "Legacy body."
+      }
+    ])
+  })
+
+  it("rejects invalid author and origin combinations", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_invalid -->\n---\nauthor:\n  kind: jira\n  displayName: Former Jira User\norigin: native\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nInvalid attribution.\n${COMMENTS_END}\n`
+
+    expect(parseCommentsRegion(region)).toEqual([])
   })
 
   it("parses a region containing tombstone-style whitespace tolerantly", () => {
@@ -72,6 +102,8 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(parsed).toHaveLength(1)
     expect(parsed[0].id).toBe("c_a")
     expect(parsed[0].editedAt).toBeNull()
+    expect(parsed[0].author).toEqual({ kind: "user", userId: "github_42" })
+    expect(parsed[0].origin).toBe("native")
   })
 
   it("ignores unknown text inside the region (does not crash)", () => {

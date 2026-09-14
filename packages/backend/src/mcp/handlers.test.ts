@@ -346,26 +346,30 @@ describe("MCP dispatcher → write tools", () => {
         ticketId,
         projectSlug: "demo",
         author: {
-          id: "u-1",
-          username: null,
-          name: "User",
-          email: "u@example.com",
-          image: null,
-          createdAt: isoDate("2026-05-01T00:00:00.000Z"),
-          activeOrgSlug: null,
-          personalGithub: {
-            connected: false
-          },
-          editorPreference: "github",
-          personalEverhour: {
-            connected: false,
-            everhourUserId: null,
-            name: null,
-            email: null,
-            lastVerifiedAt: null,
-            lastCheckError: null
+          kind: "user",
+          user: {
+            id: "u-1",
+            username: null,
+            name: "User",
+            email: "u@example.com",
+            image: null,
+            createdAt: isoDate("2026-05-01T00:00:00.000Z"),
+            activeOrgSlug: null,
+            personalGithub: {
+              connected: false
+            },
+            editorPreference: "github",
+            personalEverhour: {
+              connected: false,
+              everhourUserId: null,
+              name: null,
+              email: null,
+              lastVerifiedAt: null,
+              lastCheckError: null
+            }
           }
         },
+        origin: "native",
         body: input.body,
         createdAt: isoDate("2026-05-13T00:00:00.000Z"),
         editedAt: null
