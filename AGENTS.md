@@ -53,16 +53,18 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 
 ### Types: readonly type aliases, never interfaces
 
-Declare object shapes as `type` aliases with `readonly` fields. Never use `interface`.
+Declare object shapes as `type` aliases wrapped in `Readonly<>`. Never use `interface`, and never
+annotate fields with `readonly` one by one.
 
 ```ts
-export type TicketRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type TicketRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; slug: string }>
+}>
 ```
 
-Object fields are `readonly` by default, and array fields are `ReadonlyArray<T>` rather than `T[]`.
-This applies everywhere — request objects, view models, mutation input shapes, component props.
+Nest the wrapper for nested objects. Arrays are `ReadonlyArray<T>` rather than `T[]`; tuples keep
+the `readonly [A, B]` spelling. This applies everywhere — request objects, view models, mutation
+input shapes, component props, and inline annotations.
 
 ### No comments
 
