@@ -28,17 +28,23 @@ export function MappingRow({
 
 export function MappingLabel({
   icon,
+  wrap = false,
   children
 }: {
-  icon: ReactNode
+  icon?: ReactNode
+  wrap?: boolean
   children: ReactNode
 }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="grid size-5 shrink-0 place-items-center text-muted-foreground">
-        {icon}
+      {icon ? (
+        <span className="grid size-5 shrink-0 place-items-center text-muted-foreground">
+          {icon}
+        </span>
+      ) : null}
+      <span className={wrap ? "min-w-0 whitespace-normal" : "truncate"}>
+        {children}
       </span>
-      <span className="truncate">{children}</span>
     </span>
   )
 }

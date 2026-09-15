@@ -44,13 +44,21 @@ const requirements: JiraMigrationRequirements = {
   identityOptions: [],
   statuses: [
     {
+      jiraStatusId: "jira-backlog",
+      name: "Backlog",
+      categoryKey: "new",
+      suggestedProjectStatusSlug: null,
+      createOption: null
+    },
+    {
       jiraStatusId: "jira-status",
       name: "Done elsewhere",
       categoryKey: "done",
       suggestedProjectStatusSlug: null,
       createOption: {
         slug: "done_elsewhere" as JiraMigrationRequirements["statusOptions"][number]["slug"],
-        label: "Done elsewhere",
+        label:
+          "Done elsewhere" as JiraMigrationRequirements["statusOptions"][number]["label"],
         icon: "CircleCheck",
         color:
           "#6B7280" as JiraMigrationRequirements["statusOptions"][number]["color"],
@@ -60,8 +68,18 @@ const requirements: JiraMigrationRequirements = {
   ],
   statusOptions: [
     {
+      slug: "todo" as JiraMigrationRequirements["statusOptions"][number]["slug"],
+      label:
+        "Todo" as JiraMigrationRequirements["statusOptions"][number]["label"],
+      icon: "CircleDashed",
+      color:
+        "#A3A3A3" as JiraMigrationRequirements["statusOptions"][number]["color"],
+      isTerminal: false
+    },
+    {
       slug: "done" as JiraMigrationRequirements["statusOptions"][number]["slug"],
-      label: "Done",
+      label:
+        "Done" as JiraMigrationRequirements["statusOptions"][number]["label"],
       icon: "CircleCheck",
       color:
         "#22C55E" as JiraMigrationRequirements["statusOptions"][number]["color"],
@@ -126,14 +144,18 @@ const detail: JiraMigrationDetail = {
 }
 
 function FormNavigationHarness() {
-  const [step, setStep] = useState<"people" | "statuses">("people")
+  const [step, setStep] = useState<"people" | "statuses" | "types">("people")
   return (
     <JiraMigrationForm
       orgSlug="example"
       detail={detail}
       step={step}
       onStep={(nextStep) => {
-        if (nextStep === "people" || nextStep === "statuses") {
+        if (
+          nextStep === "people" ||
+          nextStep === "statuses" ||
+          nextStep === "types"
+        ) {
           setStep(nextStep)
         }
       }}
@@ -156,13 +178,22 @@ describe("JiraMigrationForm navigation", () => {
       await screen.findByRole("heading", { name: "Map statuses" })
     ).not.toBeNull()
 
+    fireEvent.click(screen.getByRole("combobox", { name: "Backlog" }))
+    fireEvent.click(screen.getByRole("option", { name: "Todo" }))
     fireEvent.click(screen.getByRole("combobox", { name: "Done elsewhere" }))
-    fireEvent.click(
-      screen.getByRole("option", {
-        name: "Create status “Done elsewhere”"
-      })
-    )
+    const createOption = screen.getByRole("option", {
+      name: "Create status “Done elsewhere”"
+    })
+    expect(
+      createOption.querySelector(".lucide-circle-question-mark")
+    ).not.toBeNull()
+    fireEvent.click(createOption)
     expect(screen.getByText(/creates a nonterminal status/)).not.toBeNull()
+    expect(
+      screen
+        .getByRole("combobox", { name: "Done elsewhere" })
+        .querySelector(".lucide-circle-question-mark")
+    ).not.toBeNull()
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }))
     expect(
@@ -179,6 +210,14 @@ describe("JiraMigrationForm navigation", () => {
     expect(
       screen.getByRole("combobox", { name: "Done elsewhere" }).textContent
     ).toContain("Create status “Done elsewhere”")
+    expect(
+      screen.getByRole("combobox", { name: "Backlog" }).textContent
+    ).toContain("Todo")
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    expect(
+      await screen.findByRole("heading", { name: "Map issue types" })
+    ).not.toBeNull()
     expect(mocks.mutate).not.toHaveBeenCalled()
   })
 })

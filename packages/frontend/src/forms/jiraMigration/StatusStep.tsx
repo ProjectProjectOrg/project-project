@@ -1,6 +1,6 @@
 import type { JiraMigrationRequirements } from "@projectproject/shared"
 import { createElement } from "react"
-import { CheckCircle2, CircleDashed, CircleDot } from "lucide-react"
+import { CircleHelp } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -36,11 +36,7 @@ export function StatusStep({
         {requirements.statuses.map((status, index) => (
           <MappingRow
             key={status.jiraStatusId}
-            source={
-              <MappingLabel icon={<SourceStatusIcon status={status} />}>
-                {status.name}
-              </MappingLabel>
-            }
+            source={<MappingLabel>{status.name}</MappingLabel>}
           >
             <form.Field name={`statuses[${index}]`}>
               {(field) => {
@@ -49,7 +45,7 @@ export function StatusStep({
                 )
                 const creating = field.value.createStatus === true
                 return (
-                  <div className="grid gap-1.5">
+                  <div className="grid min-w-0 gap-1.5">
                     <Select
                       value={
                         creating
@@ -83,21 +79,18 @@ export function StatusStep({
                       <SelectTrigger
                         aria-label={status.name}
                         placeholder={m.jira_migration_status_title()}
-                        className="w-full"
+                        className="w-full min-w-0 max-w-full overflow-hidden"
                         selectedLabel={
                           creating && status.createOption ? (
-                            <StatusOptionLabel
+                            <CreateStatusOptionLabel
                               option={status.createOption}
-                              label={m.jira_migration_status_create({
-                                status: status.createOption.label
-                              })}
                             />
                           ) : selected ? (
                             <StatusOptionLabel option={selected} />
                           ) : undefined
                         }
                       />
-                      <SelectContent>
+                      <SelectContent className="max-w-[min(24rem,calc(100vw-1rem))]">
                         {requirements.statusOptions.map(
                           (option, optionIndex) => (
                             <SelectItem
@@ -106,7 +99,7 @@ export function StatusStep({
                               index={optionIndex}
                               aria-label={option.label}
                             >
-                              <StatusOptionLabel option={option} />
+                              <StatusOptionLabel option={option} wrap />
                             </SelectItem>
                           )
                         )}
@@ -118,11 +111,9 @@ export function StatusStep({
                               status: status.createOption.label
                             })}
                           >
-                            <StatusOptionLabel
+                            <CreateStatusOptionLabel
                               option={status.createOption}
-                              label={m.jira_migration_status_create({
-                                status: status.createOption.label
-                              })}
+                              wrap
                             />
                           </SelectItem>
                         ) : null}
@@ -151,13 +142,16 @@ type JiraStatusVisual =
 
 function StatusOptionLabel({
   option,
-  label = option.label
+  label = option.label,
+  wrap = false
 }: {
   option: JiraStatusVisual
   label?: string
+  wrap?: boolean
 }) {
   return (
     <MappingLabel
+      wrap={wrap}
       icon={
         <NativeStatusIcon
           icon={option.icon}
@@ -171,31 +165,27 @@ function StatusOptionLabel({
   )
 }
 
-function SourceStatusIcon({ status }: { status: JiraSourceStatus }) {
-  if (status.createOption) {
-    return (
-      <NativeStatusIcon
-        icon={status.createOption.icon}
-        className="size-4"
-        color={status.createOption.color}
-      />
-    )
-  }
-
-  const { categoryKey: category } = status
-  const Icon =
-    category === "done"
-      ? CheckCircle2
-      : category === "indeterminate"
-        ? CircleDot
-        : CircleDashed
-  const className =
-    category === "done"
-      ? "text-state-success"
-      : category === "indeterminate"
-        ? "text-state-info"
-        : "text-muted-foreground"
-  return <Icon className={`size-4 ${className}`} strokeWidth={1.75} />
+function CreateStatusOptionLabel({
+  option,
+  wrap = false
+}: {
+  option: JiraStatusVisual
+  wrap?: boolean
+}) {
+  return (
+    <MappingLabel
+      wrap={wrap}
+      icon={
+        <CircleHelp
+          className="size-4"
+          strokeWidth={1.75}
+          style={{ color: option.color }}
+        />
+      }
+    >
+      {m.jira_migration_status_create({ status: option.label })}
+    </MappingLabel>
+  )
 }
 
 function NativeStatusIcon({

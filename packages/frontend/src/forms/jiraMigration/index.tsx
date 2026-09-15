@@ -168,6 +168,7 @@ function ConfiguredJiraMigrationForm({
     case "people":
       return (
         <form.FormGroup
+          key="identities"
           name="identities"
           validators={[validateStep(peopleValidator)]}
           onSubmit={() => advance("statuses")}
@@ -186,6 +187,7 @@ function ConfiguredJiraMigrationForm({
     case "statuses":
       return (
         <form.FormGroup
+          key="statuses"
           name="statuses"
           validators={[validateStep(statusesValidator)]}
           onSubmit={() => advance("types")}
@@ -204,6 +206,7 @@ function ConfiguredJiraMigrationForm({
     case "types":
       return (
         <form.FormGroup
+          key="issueTypes"
           name="issueTypes"
           validators={[validateStep(issueTypesValidator)]}
           onSubmit={() => advance("priorities")}
@@ -222,6 +225,7 @@ function ConfiguredJiraMigrationForm({
     case "priorities":
       return (
         <form.FormGroup
+          key="priorities"
           name="priorities"
           validators={[validateStep(prioritiesValidator)]}
           onSubmit={() => advance("planning")}
@@ -240,6 +244,7 @@ function ConfiguredJiraMigrationForm({
     case "planning":
       return (
         <form.FormGroup
+          key="tags"
           name="tags"
           validators={[validateStep(tagsValidator)]}
           onSubmit={() => advance("destination")}
@@ -258,6 +263,7 @@ function ConfiguredJiraMigrationForm({
     case "destination":
       return (
         <form.FormGroup
+          key="destination"
           name="destination"
           validators={[validateStep(destinationValidator)]}
           onSubmit={() => advance("review")}
@@ -279,6 +285,7 @@ function ConfiguredJiraMigrationForm({
     case "review":
       return (
         <form.FormGroup
+          key="restrictedContent"
           name="restrictedContent"
           onSubmit={async () => {
             await form.handleSubmit()

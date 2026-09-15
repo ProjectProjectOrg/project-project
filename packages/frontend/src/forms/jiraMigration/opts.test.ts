@@ -40,7 +40,8 @@ const requirements: JiraMigrationRequirements = {
         slug: "doing" as NonNullable<
           JiraMigrationRequirements["statuses"][number]["createOption"]
         >["slug"],
-        label: "Doing",
+        label:
+          "Doing" as JiraMigrationRequirements["statusOptions"][number]["label"],
         icon: "CircleDot",
         color: "#6B7280" as NonNullable<
           JiraMigrationRequirements["statuses"][number]["createOption"]
@@ -52,7 +53,8 @@ const requirements: JiraMigrationRequirements = {
   statusOptions: [
     {
       slug: "in_progress" as JiraMigrationRequirements["statusOptions"][number]["slug"],
-      label: "In progress",
+      label:
+        "In progress" as JiraMigrationRequirements["statusOptions"][number]["label"],
       icon: "CircleDot",
       color:
         "#6B7280" as JiraMigrationRequirements["statusOptions"][number]["color"],
