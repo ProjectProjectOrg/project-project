@@ -77,7 +77,7 @@ describe("Figma metadata", () => {
       )
       await act(() => vi.advanceTimersByTimeAsync(20_000))
       const requestsAtLimit = requests
-      act(() => document.dispatchEvent(new Event("visibilitychange")))
+      await act(() => document.dispatchEvent(new Event("visibilitychange")))
       await act(() => vi.advanceTimersByTimeAsync(5_000))
       expect(requests).toBe(requestsAtLimit)
     } finally {

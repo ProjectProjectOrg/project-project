@@ -38,7 +38,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   assignees: Schema.optionalKey(Schema.Array(Schema.String)),
-  assignee: Schema.optionalKey(Schema.String),
+  assignee: Schema.optionalKey(Schema.NullOr(Schema.String)),
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -62,7 +62,9 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
         Object.assign(Struct.omit(input, ["assignee", "assignees"]), {
           assignees:
             input.assignees ??
-            (input.assignee === undefined ? [] : [input.assignee])
+            (input.assignee === undefined || input.assignee === null
+              ? []
+              : [input.assignee])
         }),
       encode: (input) =>
         input.branchAutoLinkDisabled

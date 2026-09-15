@@ -117,7 +117,9 @@ describe("tags optimistic updates", () => {
       }
       return Promise.resolve(
         Response.json(
-          String(input).endsWith("/tags")
+          (input instanceof Request ? input.url : String(input)).endsWith(
+            "/tags"
+          )
             ? servedTags.map((tag) => encode(tag))
             : encodeTicket(servedTicket)
         )
@@ -175,7 +177,9 @@ describe("tags optimistic updates", () => {
       }
       return Promise.resolve(
         Response.json(
-          String(input).endsWith("/tags")
+          (input instanceof Request ? input.url : String(input)).endsWith(
+            "/tags"
+          )
             ? servedTags.map((tag) => encode(tag))
             : encodeTicket(servedTicket)
         )

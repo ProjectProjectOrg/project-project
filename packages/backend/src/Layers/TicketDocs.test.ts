@@ -153,4 +153,37 @@ describe("TicketDocs branch matching persistence", () => {
       expect(document.assignees).toEqual(["user-1"])
     }).pipe(Effect.provide(TestLayer))
   )
+
+  it.effect("decodes a null singular assignee field", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-5",
+        {
+          id: "T-5",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          tags: [],
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          assignee: null,
+          archivedAt: null,
+          createdBy: "user-2",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const document = yield* docs.read("acme", "project", "T-5")
+      expect(document.assignees).toEqual([])
+    }).pipe(Effect.provide(TestLayer))
+  )
 })

@@ -67,6 +67,23 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(serialized).not.toContain("editedAt: null")
   })
 
+  it("preserves comments with an explicit null edit timestamp", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\neditedAt: null\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed).toEqual([
+      {
+        id: "c_a",
+        author: "github_42",
+        createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+        editedAt: null,
+        body: "Hello."
+      }
+    ])
+    const serialized = serializeCommentsRegion(parsed)
+    expect(serialized).not.toContain("editedAt:")
+    expect(parseCommentsRegion(serialized)).toEqual(parsed)
+  })
+
   it("accepts quoted ISO timestamps", () => {
     const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: "2026-05-07T10:00:00.000Z"\n---\nHello.\n${COMMENTS_END}\n`
     const parsed = parseCommentsRegion(region)

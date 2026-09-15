@@ -12,7 +12,7 @@ const YamlDate = Schema.Union([Schema.DateFromString, Schema.Date])
 const CommentMetadataOnDisk = Schema.Struct({
   author: Schema.String,
   createdAt: YamlDate,
-  editedAt: Schema.optionalKey(YamlDate)
+  editedAt: Schema.optionalKey(Schema.NullOr(YamlDate))
 })
 const CommentMetadata = CommentMetadataOnDisk.pipe(
   Schema.decodeTo(

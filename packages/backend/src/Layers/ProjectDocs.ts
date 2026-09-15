@@ -79,7 +79,7 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
   members: Schema.Array(ProjectDocMember).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   ),
-  github: Schema.optionalKey(ProjectDocGithub),
+  github: Schema.optionalKey(Schema.NullOr(ProjectDocGithub)),
   setup: ProjectDocSetup.pipe(
     Schema.withDecodingDefaultTypeKey(
       Effect.succeed({
