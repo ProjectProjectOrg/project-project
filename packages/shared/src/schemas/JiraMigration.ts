@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 import { CreatableProjectKey, Slug } from "./Project"
-import { StatusSlug } from "./Status"
+import { StatusColor, StatusIcon, StatusLabel, StatusSlug } from "./Status"
 import { TagName } from "./Tag"
 import { TicketPriority, TicketType } from "./Ticket"
 
@@ -91,7 +91,8 @@ export const JiraMigrationConfiguration = Schema.Struct({
   statuses: Schema.Array(
     Schema.Struct({
       jiraStatusId: Schema.NonEmptyString,
-      projectStatusSlug: StatusSlug
+      projectStatusSlug: StatusSlug,
+      createStatus: Schema.optional(Schema.Literal(true))
     })
   ),
   issueTypes: Schema.Array(
@@ -178,7 +179,9 @@ export type JiraMigrationUserOption = typeof JiraMigrationUserOption.Type
 
 export const JiraMigrationStatusOption = Schema.Struct({
   slug: StatusSlug,
-  label: Schema.NonEmptyString,
+  label: StatusLabel,
+  icon: StatusIcon,
+  color: StatusColor,
   isTerminal: Schema.Boolean
 })
 export type JiraMigrationStatusOption = typeof JiraMigrationStatusOption.Type
@@ -203,7 +206,16 @@ export const JiraMigrationRequirements = Schema.Struct({
       jiraStatusId: Schema.NonEmptyString,
       name: Schema.NonEmptyString,
       categoryKey: Schema.NullOr(Schema.String),
-      suggestedProjectStatusSlug: Schema.NullOr(StatusSlug)
+      suggestedProjectStatusSlug: Schema.NullOr(StatusSlug),
+      createOption: Schema.NullOr(
+        Schema.Struct({
+          slug: StatusSlug,
+          label: StatusLabel,
+          icon: StatusIcon,
+          color: StatusColor,
+          isTerminal: Schema.Literal(false)
+        })
+      )
     })
   ),
   statusOptions: Schema.Array(JiraMigrationStatusOption),

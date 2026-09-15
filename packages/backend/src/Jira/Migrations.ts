@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { jiraMigration } from "../db/schema"
 import { Db } from "../Services/Db"
+import { buildJiraStatusCreateOptions } from "./Mappings"
 
 const PersistedJiraMigrationScanSummary = Schema.Struct({
   ...JiraMigrationScanSummary.fields,
@@ -148,7 +149,9 @@ const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
 const decodeCheckpoint = (value: unknown) =>
   value == null
     ? Effect.succeed<JiraMigrationCheckpoint>({})
-    : Schema.decodeUnknownEffect(JiraMigrationCheckpoint)(value).pipe(
+    : Schema.decodeUnknownEffect(JiraMigrationCheckpoint)(
+        enrichPersistedCheckpoint(value)
+      ).pipe(
         Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
       )
 
@@ -220,9 +223,18 @@ export const isCompleteJiraConfiguration = (
       ({ jiraStatusId }) => jiraStatusId,
       requirements.statuses.map(({ jiraStatusId }) => jiraStatusId)
     ) &&
-    configuration.statuses.every(({ projectStatusSlug }) =>
-      requirements.statusOptions.some(({ slug }) => slug === projectStatusSlug)
-    )
+    configuration.statuses.every((mapping) => {
+      if (mapping.createStatus === true) {
+        return requirements.statuses.some(
+          ({ jiraStatusId, createOption }) =>
+            jiraStatusId === mapping.jiraStatusId &&
+            createOption?.slug === mapping.projectStatusSlug
+        )
+      }
+      return requirements.statusOptions.some(
+        ({ slug }) => slug === mapping.projectStatusSlug
+      )
+    })
   const issueTypesValid = exactlyOne(
     configuration.issueTypes,
     ({ jiraIssueTypeId }) => jiraIssueTypeId,
@@ -278,6 +290,76 @@ export const isCompleteJiraConfiguration = (
     sprintChoicesValid &&
     attachmentsValid
   )
+}
+
+function enrichPersistedCheckpoint(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.scan)) return value
+  const requirements = value.scan.requirements
+  if (!isRecord(requirements)) return value
+  const sourceStatuses = Array.isArray(requirements.statuses)
+    ? requirements.statuses.filter(isRecord).flatMap((status) =>
+        typeof status.jiraStatusId === "string" &&
+        typeof status.name === "string" &&
+        (typeof status.categoryKey === "string" || status.categoryKey === null)
+          ? [
+              {
+                id: status.jiraStatusId,
+                name: status.name,
+                categoryKey: status.categoryKey
+              }
+            ]
+          : []
+      )
+    : []
+  const createOptions = new Map(
+    buildJiraStatusCreateOptions(sourceStatuses).map((candidate) => [
+      candidate.sourceStatusId,
+      candidate.createOption
+    ])
+  )
+  const statuses = Array.isArray(requirements.statuses)
+    ? requirements.statuses.map((status) =>
+        isRecord(status) && !("createOption" in status)
+          ? {
+              ...status,
+              createOption:
+                typeof status.jiraStatusId === "string"
+                  ? (createOptions.get(status.jiraStatusId) ?? null)
+                  : null
+            }
+          : status
+      )
+    : requirements.statuses
+  const statusOptions = Array.isArray(requirements.statusOptions)
+    ? requirements.statusOptions.map((option) => {
+        if (!isRecord(option) || ("icon" in option && "color" in option)) {
+          return option
+        }
+        const style = baselineStatusStyle(option.slug)
+        return { ...option, ...style }
+      })
+    : requirements.statusOptions
+  return {
+    ...value,
+    scan: {
+      ...value.scan,
+      requirements: { ...requirements, statuses, statusOptions }
+    }
+  }
+}
+
+function baselineStatusStyle(slug: unknown) {
+  if (slug === "in_progress") {
+    return { icon: "CircleDot", color: "#3b82f6" }
+  }
+  if (slug === "done") {
+    return { icon: "CircleCheck", color: "#22c55e" }
+  }
+  return { icon: "CircleDashed", color: "#a3a3a3" }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 export const JiraMigrationsLive = Layer.effect(

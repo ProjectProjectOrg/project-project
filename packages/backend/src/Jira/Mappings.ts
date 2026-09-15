@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto"
 import {
   CreatableProjectKey,
+  deriveStatusSlug,
+  isReservedStatusSlug,
   Slug,
+  StatusLabel,
   StatusSlug,
   TicketId,
   TicketPriority,
@@ -33,7 +37,8 @@ export const JiraMigrationMappings = Schema.Struct({
   statuses: Schema.Array(
     Schema.Struct({
       sourceStatusId: Schema.NonEmptyString,
-      destinationStatusSlug: StatusSlug
+      destinationStatusSlug: StatusSlug,
+      createStatus: Schema.optional(Schema.Literal(true))
     })
   ),
   issueTypes: Schema.Array(
@@ -97,6 +102,79 @@ export type JiraTagCollision = {
 export type OpenSprintConflict = {
   readonly sourceIssueId: string
   readonly candidateGroupIds: ReadonlyArray<string>
+}
+
+export type JiraStatusCreateOption = {
+  readonly slug: string
+  readonly label: string
+  readonly icon: "CircleDashed" | "CircleDot" | "CircleCheck"
+  readonly color: "#a3a3a3" | "#3b82f6" | "#22c55e"
+  readonly isTerminal: false
+}
+
+export type JiraStatusCreateCandidate = {
+  readonly sourceStatusId: string
+  readonly createOption: JiraStatusCreateOption | null
+}
+
+export function buildJiraStatusCreateOptions(
+  statuses: ReadonlyArray<
+    Pick<
+      JiraMigrationManifest["statuses"][number],
+      "id" | "name" | "categoryKey"
+    >
+  >
+): ReadonlyArray<JiraStatusCreateCandidate> {
+  const candidates = statuses.map((status) => {
+    const style = statusStyle(status.categoryKey)
+    const derived = deriveStatusSlug(status.name)
+    const slug =
+      Schema.is(StatusSlug)(derived) && Schema.is(StatusLabel)(status.name)
+        ? derived
+        : null
+    return {
+      sourceStatusId: status.id,
+      baseSlug: slug,
+      descriptor: {
+        label: status.name,
+        ...style,
+        isTerminal: false as const
+      }
+    }
+  })
+  const bySlug = new Map<string, Array<(typeof candidates)[number]>>()
+  for (const candidate of candidates) {
+    if (candidate.baseSlug === null) continue
+    const matching = bySlug.get(candidate.baseSlug)
+    if (matching) matching.push(candidate)
+    else bySlug.set(candidate.baseSlug, [candidate])
+  }
+  return candidates
+    .map(({ sourceStatusId, baseSlug, descriptor }) => {
+      if (baseSlug === null) return { sourceStatusId, createOption: null }
+      const matching = bySlug.get(baseSlug) ?? []
+      const descriptors = new Set(
+        matching.map(({ descriptor }) =>
+          JSON.stringify([
+            descriptor.label,
+            descriptor.icon,
+            descriptor.color,
+            descriptor.isTerminal
+          ])
+        )
+      )
+      const slug =
+        isReservedStatusSlug(baseSlug) || descriptors.size > 1
+          ? hashedStatusSlug(baseSlug, sourceStatusId)
+          : baseSlug
+      return {
+        sourceStatusId,
+        createOption: { slug, ...descriptor }
+      }
+    })
+    .toSorted((left, right) =>
+      compareStrings(left.sourceStatusId, right.sourceStatusId)
+    )
 }
 
 export function buildDefaultTicketIdMappings(
@@ -208,6 +286,27 @@ function makeTagCandidate(
     destinationTag,
     changed: destinationTag !== sourceValue
   }
+}
+
+function statusStyle(
+  categoryKey: string | null
+): Pick<JiraStatusCreateOption, "icon" | "color"> {
+  if (categoryKey === "indeterminate") {
+    return { icon: "CircleDot", color: "#3b82f6" }
+  }
+  if (categoryKey === "done") {
+    return { icon: "CircleCheck", color: "#22c55e" }
+  }
+  return { icon: "CircleDashed", color: "#a3a3a3" }
+}
+
+function hashedStatusSlug(baseSlug: string, sourceStatusId: string): string {
+  const hash = createHash("sha256")
+    .update(sourceStatusId)
+    .digest("hex")
+    .slice(0, 8)
+  const prefix = baseSlug.slice(0, 31).replace(/_+$/g, "")
+  return `${prefix}_${hash}`
 }
 
 function compareStrings(left: string, right: string): number {

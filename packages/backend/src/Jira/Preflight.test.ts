@@ -326,4 +326,52 @@ describe("preflightJiraMigration", () => {
       ])
     )
   })
+
+  it("accepts only the server-derived created status and blocks destination collisions", () => {
+    const statusOnlyMappings = (projectStatusSlug: string) =>
+      decodeMappings({
+        project: { slug: "application", key: "APP", name: "Application" },
+        identities: [],
+        statuses: [
+          {
+            sourceStatusId: "status-1",
+            destinationStatusSlug: projectStatusSlug,
+            createStatus: true
+          }
+        ],
+        issueTypes: [],
+        priorities: [],
+        ticketIds: [],
+        restrictions: [],
+        acknowledgedSkippedAttachmentIds: [],
+        tagCollisions: [],
+        openSprintMemberships: []
+      })
+    const candidateSlug = "in_progress_eb9ac9db"
+    const valid = preflightJiraMigration(
+      makeManifest(),
+      statusOnlyMappings(candidateSlug),
+      environment
+    )
+    const tampered = preflightJiraMigration(
+      makeManifest(),
+      statusOnlyMappings("review"),
+      environment
+    )
+    const colliding = preflightJiraMigration(
+      makeManifest(),
+      statusOnlyMappings(candidateSlug),
+      { ...environment, existingStatusSlugs: ["in_progress", candidateSlug] }
+    )
+
+    expect(valid.blockers.map(({ code }) => code)).not.toContain(
+      "invalid-created-status"
+    )
+    expect(tampered.blockers.map(({ code }) => code)).toContain(
+      "invalid-created-status"
+    )
+    expect(colliding.blockers.map(({ code }) => code)).toContain(
+      "created-status-collision"
+    )
+  })
 })

@@ -7,6 +7,7 @@ import type {
 } from "./Manifest"
 import {
   buildOpenSprintConflicts,
+  buildJiraStatusCreateOptions,
   buildTagCandidates,
   type JiraMigrationMappings
 } from "./Mappings"
@@ -90,6 +91,13 @@ export type JiraPublicationPlan = {
   readonly tags: ReadonlyArray<{
     readonly name: string
     readonly sourceIds: ReadonlyArray<string>
+  }>
+  readonly createdStatuses: ReadonlyArray<{
+    readonly slug: string
+    readonly label: string
+    readonly icon: "CircleDashed" | "CircleDot" | "CircleCheck"
+    readonly color: "#a3a3a3" | "#3b82f6" | "#22c55e"
+    readonly isTerminal: false
   }>
   readonly tickets: ReadonlyArray<JiraStagedTicket>
   readonly comments: ReadonlyArray<JiraStagedComment>
@@ -181,6 +189,33 @@ export function createJiraPublicationPlan(
       mapping.sourceStatusId,
       mapping.destinationStatusSlug
     ])
+  )
+  const createOptions = new Map(
+    buildJiraStatusCreateOptions(manifest.statuses).map((candidate) => [
+      candidate.sourceStatusId,
+      candidate.createOption
+    ])
+  )
+  const createdBySlug = new Map<
+    string,
+    NonNullable<ReturnType<typeof createOptions.get>>
+  >()
+  for (const mapping of mappings.statuses.toSorted((left, right) =>
+    compareStrings(left.sourceStatusId, right.sourceStatusId)
+  )) {
+    if (mapping.createStatus !== true) continue
+    const option = createOptions.get(mapping.sourceStatusId)
+    if (
+      option !== null &&
+      option !== undefined &&
+      option.slug === mapping.destinationStatusSlug &&
+      !createdBySlug.has(option.slug)
+    ) {
+      createdBySlug.set(option.slug, option)
+    }
+  }
+  const createdStatuses = [...createdBySlug.values()].toSorted((left, right) =>
+    compareStrings(left.slug, right.slug)
   )
   const typeMappings = new Map(
     mappings.issueTypes.map((mapping) => [
@@ -380,6 +415,7 @@ export function createJiraPublicationPlan(
         jiraSourceUrl: `${manifest.source.siteUrl.replace(/\/$/, "")}/browse/${manifest.source.projectKey}`
       },
       tags,
+      createdStatuses,
       tickets,
       comments,
       attachments,

@@ -87,8 +87,42 @@ describe("buildJiraScanArtifacts", () => {
           suggestedProjectProjectUserId: "user-1"
         }
       ],
-      statuses: [{ suggestedProjectStatusSlug: "in_progress" }]
+      statuses: [
+        {
+          suggestedProjectStatusSlug: "in_progress",
+          createOption: {
+            slug: "in_progress_eb9ac9db",
+            label: "In Progress",
+            icon: "CircleDot",
+            color: "#3b82f6",
+            isTerminal: false
+          }
+        }
+      ]
     })
+    expect(artifacts.requirements.statusOptions).toEqual([
+      {
+        slug: "todo",
+        label: "Todo",
+        icon: "CircleDashed",
+        color: "#a3a3a3",
+        isTerminal: false
+      },
+      {
+        slug: "in_progress",
+        label: "In progress",
+        icon: "CircleDot",
+        color: "#3b82f6",
+        isTerminal: false
+      },
+      {
+        slug: "done",
+        label: "Done",
+        icon: "CircleCheck",
+        color: "#22c55e",
+        isTerminal: true
+      }
+    ])
     expect(artifacts.requirements.identityOptions).toEqual([
       {
         id: "user-1",

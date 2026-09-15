@@ -21,6 +21,7 @@ import type {
   JiraWorklog
 } from "./ClientSchemas"
 import {
+  buildJiraStatusCreateOptions,
   buildOpenSprintConflicts,
   buildTagCandidates,
   findTagCollisions
@@ -413,6 +414,12 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
     const identityOptions = input.identityOptions.map((option) =>
       option.name.length === 0 ? { ...option, name: option.email } : option
     )
+    const statusCreateOptions = new Map(
+      buildJiraStatusCreateOptions(manifest.statuses).map((candidate) => [
+        candidate.sourceStatusId,
+        candidate.createOption
+      ])
+    )
     const requirements = yield* Schema.decodeUnknownEffect(
       JiraMigrationRequirements
     )({
@@ -442,12 +449,31 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
             ? "done"
             : status.name.toLowerCase().includes("progress")
               ? "in_progress"
-              : "todo"
+              : "todo",
+        createOption: statusCreateOptions.get(status.id) ?? null
       })),
       statusOptions: [
-        { slug: "todo", label: "Todo", isTerminal: false },
-        { slug: "in_progress", label: "In progress", isTerminal: false },
-        { slug: "done", label: "Done", isTerminal: true }
+        {
+          slug: "todo",
+          label: "Todo",
+          icon: "CircleDashed",
+          color: "#a3a3a3",
+          isTerminal: false
+        },
+        {
+          slug: "in_progress",
+          label: "In progress",
+          icon: "CircleDot",
+          color: "#3b82f6",
+          isTerminal: false
+        },
+        {
+          slug: "done",
+          label: "Done",
+          icon: "CircleCheck",
+          color: "#22c55e",
+          isTerminal: true
+        }
       ],
       issueTypes: manifest.issueTypes.map((issueType) => ({
         jiraIssueTypeId: issueType.id,

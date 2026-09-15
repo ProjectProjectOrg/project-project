@@ -265,6 +265,7 @@ describe("createJiraPublicationPlan", () => {
     if (result.kind !== "ready") return
     expect(result.plan.visibility).toBe("hidden")
     expect(result.plan.archivePath).toBe("imports/jira/migration-1")
+    expect(result.plan.createdStatuses).toEqual([])
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1", "APP-4"])
     expect(result.plan.tickets[1]).not.toHaveProperty("parentIssueId")
     expect(result.plan.tickets[0]?.tags).toEqual(["component:api", "migration"])
@@ -321,6 +322,68 @@ describe("createJiraPublicationPlan", () => {
     )
 
     expect(result).toEqual({ kind: "blocked", blockers: [blocker] })
+  })
+
+  it("deduplicates identical created status descriptors deterministically", () => {
+    const source = manifest()
+    const withSharedStatus: JiraMigrationManifest = {
+      ...source,
+      statuses: [
+        {
+          id: "status-1",
+          name: "QA Review",
+          categoryKey: "indeterminate",
+          raw: {}
+        },
+        {
+          id: "status-2",
+          name: "QA Review",
+          categoryKey: "indeterminate",
+          raw: {}
+        }
+      ],
+      issues: source.issues.map((issue) =>
+        issue.id === "issue-4" ? { ...issue, statusId: "status-2" } : issue
+      )
+    }
+    const withCreatedMappings: JiraMigrationMappings = {
+      ...mappings(),
+      statuses: [
+        {
+          sourceStatusId: "status-2",
+          destinationStatusSlug: "qa_review" as never,
+          createStatus: true
+        },
+        {
+          sourceStatusId: "status-1",
+          destinationStatusSlug: "qa_review" as never,
+          createStatus: true
+        }
+      ]
+    }
+
+    const result = createJiraPublicationPlan(
+      withSharedStatus,
+      withCreatedMappings,
+      readyPreflight,
+      {}
+    )
+
+    expect(result.kind).toBe("ready")
+    if (result.kind !== "ready") return
+    expect(result.plan.createdStatuses).toEqual([
+      {
+        slug: "qa_review",
+        label: "QA Review",
+        icon: "CircleDot",
+        color: "#3b82f6",
+        isTerminal: false
+      }
+    ])
+    expect(result.plan.tickets.map(({ status }) => status)).toEqual([
+      "qa_review",
+      "qa_review"
+    ])
   })
 
   it("keeps excluded restricted issue metadata out of native staged objects", () => {

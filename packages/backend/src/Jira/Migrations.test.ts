@@ -1,15 +1,21 @@
 import { randomUUID } from "node:crypto"
 import { PgClient } from "@effect/sql-pg"
+import { JiraMigrationRequirements } from "@projectproject/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
+import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { DbLive } from "../Layers/Db"
-import { JiraMigrations, JiraMigrationsLive } from "./Migrations"
+import {
+  isCompleteJiraConfiguration,
+  JiraMigrations,
+  JiraMigrationsLive
+} from "./Migrations"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -194,8 +200,20 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         )
       }).pipe(Effect.provide(layer))
     )
+    const legacyConfiguration = {
+      destination: { name: "Application", slug: "application", key: "APP" },
+      identities: [],
+      statuses: [{ jiraStatusId: "status-1", projectStatusSlug: "done" }],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { policy: "exclude" },
+      skippedAttachmentIds: [],
+      attachmentSkipsAccepted: false
+    }
     await pool.query(
-      'update jira_migration set status = $1, phase = $2, checkpoint = $3::jsonb where id = $4',
+      "update jira_migration set status = $1, phase = $2, checkpoint = $3::jsonb, configuration = $4::jsonb where id = $5",
       [
         "needs_configuration",
         "configuration",
@@ -229,8 +247,17 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               },
               identities: [],
               identityOptions: [],
-              statuses: [],
-              statusOptions: [],
+              statuses: [
+                {
+                  jiraStatusId: "status-1",
+                  name: "Done",
+                  categoryKey: "done",
+                  suggestedProjectStatusSlug: "done"
+                }
+              ],
+              statusOptions: [
+                { slug: "done", label: "Done", isTerminal: true }
+              ],
               issueTypes: [],
               priorities: [],
               tags: [],
@@ -244,6 +271,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
             }
           }
         }),
+        JSON.stringify(legacyConfiguration),
         created.id
       ]
     )
@@ -261,7 +289,126 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
 
     expect(detail.status).toBe("needs_configuration")
     expect(detail.requirements?.destination.suggestedSlug).toBe("application")
+    expect(detail.requirements?.statuses[0]?.createOption).toMatchObject({
+      slug: "done_eb9ac9db",
+      icon: "CircleCheck",
+      color: "#22c55e",
+      isTerminal: false
+    })
+    expect(detail.requirements?.statusOptions[0]).toEqual({
+      slug: "done",
+      label: "Done",
+      icon: "CircleCheck",
+      color: "#22c55e",
+      isTerminal: true
+    })
+    expect(detail.configuration?.statuses[0]).toEqual({
+      jiraStatusId: "status-1",
+      projectStatusSlug: "done"
+    })
     expect(detail.scanSummary).not.toBeNull()
     expect(DateTime.isUtc(detail.scanSummary!.scannedAt)).toBe(true)
+  })
+
+  it("validates legacy status mappings separately from exact create candidates", () => {
+    const requirements = Schema.decodeUnknownSync(JiraMigrationRequirements)({
+      destination: {
+        suggestedName: "Application",
+        suggestedSlug: "application" as never,
+        suggestedKey: "APP" as never
+      },
+      identities: [],
+      identityOptions: [],
+      statuses: [
+        {
+          jiraStatusId: "status-1",
+          name: "Ready for review",
+          categoryKey: "indeterminate",
+          suggestedProjectStatusSlug: "in_progress" as never,
+          createOption: {
+            slug: "ready_for_review" as never,
+            label: "Ready for review",
+            icon: "CircleDot" as const,
+            color: "#3b82f6" as never,
+            isTerminal: false as const
+          }
+        }
+      ],
+      statusOptions: [
+        {
+          slug: "in_progress" as never,
+          label: "In progress",
+          icon: "CircleDot" as const,
+          color: "#3b82f6" as never,
+          isTerminal: false
+        }
+      ],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { issueCount: 0, commentCount: 0, worklogCount: 0 },
+      attachments: []
+    })
+    const base = {
+      destination: {
+        name: "Application",
+        slug: "application" as never,
+        key: "APP" as never
+      },
+      identities: [],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { policy: "exclude" as const },
+      skippedAttachmentIds: [],
+      attachmentSkipsAccepted: false
+    }
+
+    expect(
+      isCompleteJiraConfiguration(
+        {
+          ...base,
+          statuses: [
+            {
+              jiraStatusId: "status-1",
+              projectStatusSlug: "in_progress" as never
+            }
+          ]
+        },
+        requirements
+      )
+    ).toBe(true)
+    expect(
+      isCompleteJiraConfiguration(
+        {
+          ...base,
+          statuses: [
+            {
+              jiraStatusId: "status-1",
+              projectStatusSlug: "ready_for_review" as never,
+              createStatus: true
+            }
+          ]
+        },
+        requirements
+      )
+    ).toBe(true)
+    expect(
+      isCompleteJiraConfiguration(
+        {
+          ...base,
+          statuses: [
+            {
+              jiraStatusId: "status-1",
+              projectStatusSlug: "tampered" as never,
+              createStatus: true
+            }
+          ]
+        },
+        requirements
+      )
+    ).toBe(false)
   })
 })

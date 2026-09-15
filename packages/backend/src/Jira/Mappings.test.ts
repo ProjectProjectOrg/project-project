@@ -4,6 +4,7 @@ import type { JiraMigrationManifest } from "./Manifest"
 import {
   buildDefaultTicketIdMappings,
   buildOpenSprintConflicts,
+  buildJiraStatusCreateOptions,
   buildTagCandidates,
   findTagCollisions,
   JiraMigrationMappings,
@@ -50,7 +51,13 @@ describe("JiraMigrationMappings", () => {
           resolution: { kind: "unlinked" }
         }
       ],
-      statuses: [{ sourceStatusId: "1", destinationStatusSlug: "in_progress" }],
+      statuses: [
+        {
+          sourceStatusId: "1",
+          destinationStatusSlug: "ready_for_review",
+          createStatus: true
+        }
+      ],
       issueTypes: [{ sourceIssueTypeId: "10", destinationType: "feat" }],
       priorities: [{ sourcePriorityId: "1", destinationPriority: "high" }],
       ticketIds: [{ sourceIssueId: "10001", destinationTicketId: "APP-1" }],
@@ -71,7 +78,104 @@ describe("JiraMigrationMappings", () => {
     })
 
     expect(mappings.identities[1]?.resolution.kind).toBe("unlinked")
-    expect(mappings.statuses[0]?.destinationStatusSlug).toBe("in_progress")
+    expect(mappings.statuses[0]).toMatchObject({
+      destinationStatusSlug: "ready_for_review",
+      createStatus: true
+    })
+  })
+})
+
+describe("buildJiraStatusCreateOptions", () => {
+  it("uses canonical baseline styling while keeping created statuses nonterminal", () => {
+    expect(
+      buildJiraStatusCreateOptions([
+        { id: "status-new", name: "Backlog", categoryKey: "new" },
+        {
+          id: "status-progress",
+          name: "Ready for review",
+          categoryKey: "indeterminate"
+        },
+        { id: "status-complete", name: "Released", categoryKey: "done" }
+      ])
+    ).toEqual([
+      {
+        sourceStatusId: "status-complete",
+        createOption: {
+          slug: "released",
+          label: "Released",
+          icon: "CircleCheck",
+          color: "#22c55e",
+          isTerminal: false
+        }
+      },
+      {
+        sourceStatusId: "status-new",
+        createOption: {
+          slug: "backlog",
+          label: "Backlog",
+          icon: "CircleDashed",
+          color: "#a3a3a3",
+          isTerminal: false
+        }
+      },
+      {
+        sourceStatusId: "status-progress",
+        createOption: {
+          slug: "ready_for_review",
+          label: "Ready for review",
+          icon: "CircleDot",
+          color: "#3b82f6",
+          isTerminal: false
+        }
+      }
+    ])
+  })
+
+  it("returns null for empty or overlong labels and hashes reserved or colliding slugs", () => {
+    expect(
+      buildJiraStatusCreateOptions([
+        { id: "status-empty", name: "中文", categoryKey: "new" },
+        { id: "status-long", name: `${"A".repeat(40)}!`, categoryKey: "new" },
+        { id: "status-done", name: "Done", categoryKey: "done" },
+        { id: "status-a", name: "Ready Review!", categoryKey: "new" },
+        {
+          id: "status-b",
+          name: "Ready Review",
+          categoryKey: "indeterminate"
+        }
+      ])
+    ).toEqual([
+      {
+        sourceStatusId: "status-a",
+        createOption: expect.objectContaining({
+          slug: "ready_review_1fa26ffd"
+        })
+      },
+      {
+        sourceStatusId: "status-b",
+        createOption: expect.objectContaining({
+          slug: "ready_review_dd09f7ba"
+        })
+      },
+      {
+        sourceStatusId: "status-done",
+        createOption: expect.objectContaining({ slug: "done_71b51c4b" })
+      },
+      { sourceStatusId: "status-empty", createOption: null },
+      { sourceStatusId: "status-long", createOption: null }
+    ])
+  })
+
+  it("lets identical source labels and descriptors share one candidate", () => {
+    const candidates = buildJiraStatusCreateOptions([
+      { id: "status-1", name: "QA Review", categoryKey: "indeterminate" },
+      { id: "status-2", name: "QA Review", categoryKey: "indeterminate" }
+    ])
+
+    expect(candidates.map(({ createOption }) => createOption?.slug)).toEqual([
+      "qa_review",
+      "qa_review"
+    ])
   })
 })
 

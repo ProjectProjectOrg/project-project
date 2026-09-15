@@ -5,6 +5,7 @@ import { TagName } from "./Tag"
 import {
   JiraConnection,
   JiraMigrationConfiguration,
+  JiraMigrationRequirements,
   JiraProjectChoice,
   JiraSite
 } from "./JiraMigration"
@@ -118,6 +119,81 @@ describe("JiraMigration schemas", () => {
 
     expect(configuration.destination.key).toBe("APP")
     expect(configuration.tags[0]?.destinationTagName).toBe("component:payments")
+  })
+
+  it("keeps legacy status mappings and accepts explicit status creation", () => {
+    const legacy = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+      destination: { name: "Application", slug: "application", key: "APP" },
+      identities: [],
+      statuses: [{ jiraStatusId: "1", projectStatusSlug: "in_progress" }],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { policy: "exclude" },
+      skippedAttachmentIds: [],
+      attachmentSkipsAccepted: false
+    })
+    const created = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+      ...legacy,
+      statuses: [
+        {
+          jiraStatusId: "2",
+          projectStatusSlug: "ready_for_review",
+          createStatus: true
+        }
+      ]
+    })
+
+    expect(legacy.statuses[0]).not.toHaveProperty("createStatus")
+    expect(created.statuses[0]?.createStatus).toBe(true)
+  })
+
+  it("decodes display-ready existing and creatable status metadata", () => {
+    const requirements = Schema.decodeUnknownSync(JiraMigrationRequirements)({
+      destination: {
+        suggestedName: "Application",
+        suggestedSlug: "application",
+        suggestedKey: "APP"
+      },
+      identities: [],
+      identityOptions: [],
+      statuses: [
+        {
+          jiraStatusId: "2",
+          name: "Ready for review",
+          categoryKey: "indeterminate",
+          suggestedProjectStatusSlug: "in_progress",
+          createOption: {
+            slug: "ready_for_review",
+            label: "Ready for review",
+            icon: "CircleDot",
+            color: "#3b82f6",
+            isTerminal: false
+          }
+        }
+      ],
+      statusOptions: [
+        {
+          slug: "done",
+          label: "Done",
+          icon: "CircleCheck",
+          color: "#22c55e",
+          isTerminal: true
+        }
+      ],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { issueCount: 0, commentCount: 0, worklogCount: 0 },
+      attachments: []
+    })
+
+    expect(requirements.statuses[0]?.createOption?.slug).toBe(
+      "ready_for_review"
+    )
+    expect(requirements.statusOptions[0]?.icon).toBe("CircleCheck")
   })
 
   it("allows only the reserved component namespace in tag names", () => {

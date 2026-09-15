@@ -5,6 +5,7 @@ import {
 import type { JiraMigrationManifest } from "./Manifest"
 import {
   buildOpenSprintConflicts,
+  buildJiraStatusCreateOptions,
   buildTagCandidates,
   findTagCollisions,
   type JiraMigrationMappings
@@ -20,6 +21,8 @@ export type JiraPreflightBlockerCode =
   | "invalid-linked-user"
   | "missing-status-mapping"
   | "invalid-destination-status"
+  | "invalid-created-status"
+  | "created-status-collision"
   | "missing-type-mapping"
   | "missing-priority-mapping"
   | "missing-ticket-id-mapping"
@@ -112,12 +115,41 @@ export function preflightJiraMigration(
     ({ sourceStatusId }) => sourceStatusId,
     blockers
   )
+  const statusCreateOptions = new Map(
+    buildJiraStatusCreateOptions(manifest.statuses).map((candidate) => [
+      candidate.sourceStatusId,
+      candidate.createOption
+    ])
+  )
   for (const sourceStatusId of uniqueStrings(
     manifest.issues.map(({ statusId }) => statusId)
   )) {
     const mapping = statusMappings.get(sourceStatusId)
     if (!mapping) {
       addFinding(blockers, "missing-status-mapping", sourceStatusId)
+    } else if (mapping.createStatus === true) {
+      const candidate = statusCreateOptions.get(sourceStatusId)
+      if (
+        candidate === null ||
+        candidate === undefined ||
+        candidate.slug !== mapping.destinationStatusSlug
+      ) {
+        addFinding(
+          blockers,
+          "invalid-created-status",
+          sourceStatusId,
+          mapping.destinationStatusSlug
+        )
+      } else if (
+        environment.existingStatusSlugs.includes(mapping.destinationStatusSlug)
+      ) {
+        addFinding(
+          blockers,
+          "created-status-collision",
+          sourceStatusId,
+          mapping.destinationStatusSlug
+        )
+      }
     } else if (
       !environment.existingStatusSlugs.includes(mapping.destinationStatusSlug)
     ) {
