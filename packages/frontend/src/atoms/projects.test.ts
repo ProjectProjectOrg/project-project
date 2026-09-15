@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
-import { ProjectDetail } from "@projectproject/shared"
+import { Member, ProjectDetail } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import { project, projectRequest, updateMember } from "./projects"
 
@@ -77,6 +77,81 @@ describe("project member mutations", () => {
       }
       finish?.(Response.json(encode(served)))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("keeps a later role change when an earlier response arrives first", async () => {
+    const secondMember = Schema.decodeSync(Member)({
+      ...detail.members[0],
+      id: "user-3",
+      username: "john",
+      name: "John",
+      email: "john@example.com"
+    })
+    const initial = { ...detail, members: [...detail.members, secondMember] }
+    const finishes = new Map<string, (response: Response) => void>()
+    fetchStub.set((input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          const url = new URL(
+            input instanceof Request ? input.url : String(input),
+            "http://localhost"
+          )
+          finishes.set(url.pathname, resolve)
+        })
+      }
+      return Promise.resolve(Response.json(encode(initial)))
+    })
+    const req = projectRequest("acme", "web")
+    const view = project(req)
+    const first = updateMember({ req, id: "user-2" })
+    const second = updateMember({ req, id: "user-3" })
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(first)
+    registry.mount(second)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+
+      registry.set(first, { role: "admin" })
+      registry.set(second, { role: "admin" })
+      await vi.waitFor(() => expect(finishes.size).toBe(2))
+
+      finishes.get("/api/orgs/acme/projects/web/members/user-2")?.(
+        Response.json(
+          encode({
+            ...initial,
+            members: [{ ...detail.members[0], role: "admin" }, secondMember]
+          })
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(first).waiting).toBe(false))
+
+      const afterFirst = registry.get(view)
+      if (!AsyncResult.isSuccess(afterFirst)) {
+        throw new Error("no project after first response")
+      }
+      expect(afterFirst.value.members.map((member) => member.role)).toEqual([
+        "admin",
+        "admin"
+      ])
+
+      finishes.get("/api/orgs/acme/projects/web/members/user-3")?.(
+        Response.json(
+          encode({
+            ...initial,
+            members: [
+              { ...detail.members[0], role: "admin" },
+              { ...secondMember, role: "admin" }
+            ]
+          })
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(second).waiting).toBe(false))
     } finally {
       registry.dispose()
     }

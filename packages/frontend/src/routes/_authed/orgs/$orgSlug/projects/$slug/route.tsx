@@ -45,6 +45,7 @@ import {
   project,
   projectKey,
   projectRequest,
+  updateProject,
   updateProjectSetup
 } from "@/atoms/projects"
 import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
@@ -118,6 +119,7 @@ function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
   const req = projectRequest(orgSlug, slug)
   const projectResult = useAtomValue(project(req))
+  const projectUpdate = useAtomValue(updateProject(req))
   const headerHidden = useMatches({
     select: (matches) =>
       matches.some(
@@ -170,7 +172,7 @@ function ProjectLayout() {
               orgSlug={orgSlug}
               slug={slug}
               banner={value.banner}
-              waiting={waiting}
+              waiting={waiting && projectUpdate.waiting}
             />
             {!headerHidden && (
               <PageContainer className="gap-3">

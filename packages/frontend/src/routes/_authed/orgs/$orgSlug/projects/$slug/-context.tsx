@@ -1,9 +1,3 @@
-// Project detail React context — the layout loads the project once and
-// publishes it for child routes (tickets / about / members) to consume.
-// Files under `_authed/projects/$slug/` prefixed with `-` are excluded from
-// the route tree by TanStack convention; this is a regular module sharing
-// state between the layout and its children.
-
 import { useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import { createContext, useContext } from "react"

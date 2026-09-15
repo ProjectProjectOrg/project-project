@@ -67,11 +67,15 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
       AsyncResult.map(current, (value) => ({ ...value, ...input })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateProjectInput) {
+        Effect.fn(function* (input: UpdateProjectInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.update({ params: req.params, payload: input })
           )
-          set(AsyncResult.success(updated))
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmProjectUpdate(current, updated, input)
+            )
+          )
           yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
           return updated
         })
@@ -88,14 +92,18 @@ export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateProjectSetupInput) {
+        Effect.fn(function* (input: UpdateProjectSetupInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.updateSetup({
               params: req.params,
               payload: input
             })
           )
-          set(AsyncResult.success(updated))
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmSetupUpdate(current, updated, input)
+            )
+          )
           yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
           return updated
         })
@@ -132,6 +140,86 @@ const replaceMember = (
   )
 })
 
+const confirmField = <Value>(
+  current: Value,
+  optimistic: Value | undefined,
+  confirmed: Value
+): Value =>
+  optimistic !== undefined && current === optimistic ? confirmed : current
+
+const confirmProjectUpdate = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  input: UpdateProjectInput
+): ProjectDetail => ({
+  ...current,
+  banner: confirmField(current.banner, input.banner, confirmed.banner),
+  iconImage: confirmField(
+    current.iconImage,
+    input.iconImage,
+    confirmed.iconImage
+  ),
+  name: confirmField(current.name, input.name, confirmed.name),
+  body: confirmField(current.body, input.body, confirmed.body),
+  icon: confirmField(current.icon, input.icon, confirmed.icon),
+  color: confirmField(current.color, input.color, confirmed.color)
+})
+
+const confirmSetupUpdate = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  input: UpdateProjectSetupInput
+): ProjectDetail => ({
+  ...current,
+  setup: {
+    ...current.setup,
+    workflowReviewedAt: confirmField(
+      current.setup.workflowReviewedAt,
+      input.workflowReviewedAt,
+      confirmed.setup.workflowReviewedAt
+    ),
+    invitePeopleDismissedAt: confirmField(
+      current.setup.invitePeopleDismissedAt,
+      input.invitePeopleDismissedAt,
+      confirmed.setup.invitePeopleDismissedAt
+    ),
+    connectGithubDismissedAt: confirmField(
+      current.setup.connectGithubDismissedAt,
+      input.connectGithubDismissedAt,
+      confirmed.setup.connectGithubDismissedAt
+    )
+  }
+})
+
+const sameEmail = (left: string, right: string) =>
+  left.localeCompare(right, undefined, { sensitivity: "accent" }) === 0
+
+const confirmAddedMember = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  email: string
+): ProjectDetail => {
+  const member = confirmed.members.find((item) => sameEmail(item.email, email))
+  const pendingMember = confirmed.pendingMembers.find((item) =>
+    sameEmail(item.email, email)
+  )
+  return {
+    ...current,
+    members: member
+      ? [
+          ...current.members.filter(
+            (item) => item.id !== member.id && !sameEmail(item.email, email)
+          ),
+          member
+        ]
+      : current.members,
+    pendingMembers: [
+      ...current.pendingMembers.filter((item) => !sameEmail(item.email, email)),
+      ...(pendingMember ? [pendingMember] : [])
+    ]
+  }
+}
+
 export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
   Atom.optimisticFn(project(req), {
     reducer: (current, input: AddMemberInput) =>
@@ -153,14 +241,18 @@ export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: AddMemberInput) {
+        Effect.fn(function* (input: AddMemberInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.addMember({
               params: req.params,
               payload: input
             })
           )
-          set(AsyncResult.success(updated))
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmAddedMember(current, updated, input.email)
+            )
+          )
           return updated
         })
       )
@@ -173,14 +265,24 @@ export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       AsyncResult.map(current, (value) => replaceMember(value, id, input)),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateMemberInput) {
+        Effect.fn(function* (input: UpdateMemberInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.updateMember({
               params: { ...req.params, userId: id },
               payload: input
             })
           )
-          set(AsyncResult.success(updated))
+          const member = updated.members.find((item) => item.id === id)
+          set(
+            member
+              ? AsyncResult.map(get(project(req)), (current) => ({
+                  ...current,
+                  members: current.members.map((item) =>
+                    item.id === id && item.role === input.role ? member : item
+                  )
+                }))
+              : get(project(req))
+          )
           return updated
         })
       )
@@ -196,13 +298,18 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn(function* (_input: void, get) {
           const updated = yield* Api.use((client) =>
             client.projects.removeMember({
               params: { ...req.params, userId: id }
             })
           )
-          set(AsyncResult.success(updated))
+          set(
+            AsyncResult.map(get(project(req)), (current) => ({
+              ...current,
+              members: current.members.filter((item) => item.id !== id)
+            }))
+          )
           return updated
         })
       )
@@ -221,13 +328,20 @@ export const cancelPendingMember = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void) {
+          Effect.fn(function* (_input: void, get) {
             const updated = yield* Api.use((client) =>
               client.projects.cancelPendingMember({
                 params: { ...req.params, invitationId: id }
               })
             )
-            set(AsyncResult.success(updated))
+            set(
+              AsyncResult.map(get(project(req)), (current) => ({
+                ...current,
+                pendingMembers: current.pendingMembers.filter(
+                  (item) => item.invitationId !== id
+                )
+              }))
+            )
             return updated
           })
         )

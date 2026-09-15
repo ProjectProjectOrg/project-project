@@ -130,7 +130,7 @@ function StorageConnectForm({
   const [keyPrefix, setKeyPrefix] = useState("")
   const [forcePathStyle, setForcePathStyle] = useState(true)
 
-  const submitting = connectState.waiting
+  const submitting = waiting || connectState.waiting
   const error = Result.matchWithError(connectState, {
     onInitial: () => null,
     onSuccess: () => null,
@@ -293,7 +293,11 @@ function StorageConnectedPanel({
         {m.storage_disconnect_hint()}
       </p>
       <ConfirmButton.Root className="justify-start">
-        <ConfirmButton.Trigger type="button" variant="secondary">
+        <ConfirmButton.Trigger
+          type="button"
+          variant="secondary"
+          disabled={waiting}
+        >
           {m.storage_disconnect_button()}
         </ConfirmButton.Trigger>
         <ConfirmButton.Confirm className="flex-wrap justify-start">
