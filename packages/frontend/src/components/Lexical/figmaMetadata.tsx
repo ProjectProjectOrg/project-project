@@ -33,10 +33,14 @@ export const useFigmaMetadata = (
     let attempts = 0
     let interval: number | undefined
     const refreshIfVisible = () => {
+      if (attempts >= 15) return
       if (document.visibilityState !== "visible") return
       attempts += 1
       refresh()
-      if (attempts >= 15) window.clearInterval(interval)
+      if (attempts >= 15) {
+        window.clearInterval(interval)
+        document.removeEventListener("visibilitychange", refreshIfVisible)
+      }
     }
     refreshIfVisible()
     if (attempts < 15) interval = window.setInterval(refreshIfVisible, 1_000)

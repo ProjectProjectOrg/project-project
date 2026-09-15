@@ -122,9 +122,9 @@ const ticketTimePanelView = (req: TicketTimeRequest) => {
       AsyncResult.map(
         AsyncResult.all([
           get(everhourProfileAtom),
-          get(workTypesQuery(req)),
-          get(ticketTimeQuery(req)),
-          get(activeTimerQuery(timerReq))
+          get(workTypesForTicketAtom(req)),
+          get(ticketTimeAtom(req)),
+          get(activeTimerAtom(timerReq))
         ]),
         ([profile, workTypes, time, activeTimer]): TicketTimePanelValue => ({
           profile,
@@ -135,9 +135,9 @@ const ticketTimePanelView = (req: TicketTimeRequest) => {
       ),
     (refresh) => {
       refresh(everhourProfileAtom)
-      refresh(workTypesQuery(req))
-      refresh(ticketTimeQuery(req))
-      refresh(activeTimerQuery(timerReq))
+      refresh(workTypesForTicketAtom(req))
+      refresh(ticketTimeAtom(req))
+      refresh(activeTimerAtom(timerReq))
     }
   )
 }

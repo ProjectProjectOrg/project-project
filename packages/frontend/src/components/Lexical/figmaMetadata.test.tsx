@@ -1,6 +1,6 @@
-import { cleanup, render } from "@testing-library/react"
+import { act, cleanup, render } from "@testing-library/react"
 import * as Schema from "effect/Schema"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { TicketId, type FigmaRef } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import { figmaTicketLinksRequest } from "@/atoms/figma"
@@ -48,5 +48,41 @@ describe("Figma metadata", () => {
         />
       )
     ).not.toThrow()
+  })
+
+  it("stops polling after fifteen visible attempts", async () => {
+    vi.useFakeTimers()
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("visible")
+    let requests = 0
+    fetchStub.set(() => {
+      requests += 1
+      return Promise.resolve(Response.json([]))
+    })
+    const request = figmaTicketLinksRequest(
+      "acme",
+      "proj",
+      makeTicketId("AB-1")
+    )
+
+    try {
+      render(
+        <FigmaChip
+          request={request}
+          reference={REF}
+          label="Checkout"
+          morphId="figma-test"
+        />
+      )
+      await act(() => vi.advanceTimersByTimeAsync(20_000))
+      const requestsAtLimit = requests
+      act(() => document.dispatchEvent(new Event("visibilitychange")))
+      await act(() => vi.advanceTimersByTimeAsync(5_000))
+      expect(requests).toBe(requestsAtLimit)
+    } finally {
+      visibility.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })
