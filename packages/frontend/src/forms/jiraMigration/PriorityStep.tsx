@@ -9,6 +9,8 @@ import {
   SelectTrigger
 } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
+import { PRIORITY_META } from "@/lib/priority-meta"
+import { MappingLabel, MappingRow } from "./MappingRow"
 import type { JiraMigrationForm } from "./opts"
 import { StepFrame } from "./StepFrame"
 
@@ -40,46 +42,86 @@ export function PriorityStep({
     >
       <div className="divide-y divide-border">
         {requirements.priorities.map((priority, index) => (
-          <div
+          <MappingRow
             key={priority.jiraPriorityId}
-            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span className="text-sm font-medium">{priority.name}</span>
-            <form.Field name={`priorities[${index}].projectPriority`}>
-              {(field) => (
-                <Select
-                  value={field.value ?? ""}
-                  onValueChange={(value) => {
-                    const option = priorityOptions.find(
-                      (candidate) => candidate.value === value
-                    )
-                    if (option) field.handleChange(option.value)
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label={priority.name}
-                    placeholder={m.jira_migration_priorities_title()}
-                    className="w-full sm:w-64"
+            source={
+              <MappingLabel
+                icon={
+                  <MigrationPriorityIcon
+                    priority={priority.suggestedProjectPriority ?? "med"}
                   />
-                  <SelectContent>
-                    {priorityOptions.map((option, optionIndex) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        index={optionIndex}
-                      >
-                        {option.label()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+                }
+              >
+                {priority.name}
+              </MappingLabel>
+            }
+          >
+            <form.Field name={`priorities[${index}].projectPriority`}>
+              {(field) => {
+                const selected = field.value
+                  ? PRIORITY_META[field.value]
+                  : undefined
+                return (
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => {
+                      const option = priorityOptions.find(
+                        (candidate) => candidate.value === value
+                      )
+                      if (option) field.handleChange(option.value)
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-label={priority.name}
+                      placeholder={m.jira_migration_priorities_title()}
+                      className="w-full"
+                      selectedLabel={
+                        selected && field.value ? (
+                          <MappingLabel
+                            icon={
+                              <MigrationPriorityIcon priority={field.value} />
+                            }
+                          >
+                            {priorityOptions
+                              .find((option) => option.value === field.value)
+                              ?.label()}
+                          </MappingLabel>
+                        ) : undefined
+                      }
+                    />
+                    <SelectContent>
+                      {priorityOptions.map((option, optionIndex) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          index={optionIndex}
+                          aria-label={option.label()}
+                        >
+                          <MappingLabel
+                            icon={
+                              <MigrationPriorityIcon priority={option.value} />
+                            }
+                          >
+                            {option.label()}
+                          </MappingLabel>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              }}
             </form.Field>
-          </div>
+          </MappingRow>
         ))}
       </div>
     </StepFrame>
   )
+}
+
+function MigrationPriorityIcon({ priority }: { priority: TicketPriority }) {
+  const meta = PRIORITY_META[priority]
+  const Icon = meta.icon
+  return <Icon className={`size-4 ${meta.className}`} strokeWidth={1.75} />
 }
 
 interface StepProps {

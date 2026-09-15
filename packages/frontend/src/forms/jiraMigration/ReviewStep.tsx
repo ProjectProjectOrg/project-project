@@ -33,7 +33,7 @@ export function ReviewStep({
       onNext={onNext}
     >
       <div className="space-y-7">
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="border-y border-border py-4">
           <div className="text-xs text-muted-foreground">
             {m.jira_migration_destination_name()}
           </div>
@@ -54,6 +54,20 @@ export function ReviewStep({
               attachments: summary.counts.attachments
             })}
           </div>
+          <form.Subscribe selector={(state) => state.values.statuses}>
+            {(statuses) => {
+              const createdCount = statuses.filter(
+                (status) => status.createStatus === true
+              ).length
+              return createdCount > 0 ? (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {m.jira_migration_review_created_statuses({
+                    count: createdCount
+                  })}
+                </div>
+              ) : null
+            }}
+          </form.Subscribe>
         </div>
 
         <div>

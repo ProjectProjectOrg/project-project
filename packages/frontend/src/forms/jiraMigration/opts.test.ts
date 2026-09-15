@@ -35,13 +35,27 @@ const requirements: JiraMigrationRequirements = {
       name: "Doing",
       categoryKey: "indeterminate",
       suggestedProjectStatusSlug:
-        "in-progress" as JiraMigrationRequirements["statuses"][number]["suggestedProjectStatusSlug"]
+        "in_progress" as JiraMigrationRequirements["statuses"][number]["suggestedProjectStatusSlug"],
+      createOption: {
+        slug: "doing" as NonNullable<
+          JiraMigrationRequirements["statuses"][number]["createOption"]
+        >["slug"],
+        label: "Doing",
+        icon: "CircleDot",
+        color: "#6B7280" as NonNullable<
+          JiraMigrationRequirements["statuses"][number]["createOption"]
+        >["color"],
+        isTerminal: false
+      }
     }
   ],
   statusOptions: [
     {
-      slug: "in-progress" as JiraMigrationRequirements["statusOptions"][number]["slug"],
+      slug: "in_progress" as JiraMigrationRequirements["statusOptions"][number]["slug"],
       label: "In progress",
+      icon: "CircleDot",
+      color:
+        "#6B7280" as JiraMigrationRequirements["statusOptions"][number]["color"],
       isTerminal: false
     }
   ],
@@ -107,5 +121,28 @@ describe("Jira migration draft", () => {
     expect(configuration.statuses).toEqual([])
     expect(configuration.skippedAttachmentIds).toEqual(["attachment-1"])
     expect(configuration.attachmentSkipsAccepted).toBe(false)
+  })
+
+  it("preserves an explicit create-status decision across draft rebuilding", () => {
+    const initial = toPartialJiraMigrationConfiguration(
+      buildJiraMigrationDraft(requirements, null)
+    )
+    const configuration = {
+      ...initial,
+      statuses: [
+        {
+          jiraStatusId: "status-1",
+          projectStatusSlug: requirements.statuses[0]!.createOption!.slug,
+          createStatus: true as const
+        }
+      ]
+    }
+
+    const draft = buildJiraMigrationDraft(requirements, configuration)
+
+    expect(draft.statuses[0]).toEqual(configuration.statuses[0])
+    expect(toPartialJiraMigrationConfiguration(draft).statuses).toEqual(
+      configuration.statuses
+    )
   })
 })

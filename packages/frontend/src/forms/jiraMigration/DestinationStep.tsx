@@ -34,11 +34,11 @@ export function DestinationStep({
       onBack={onBack}
       onNext={onNext}
     >
-      <div className="grid max-w-xl gap-5">
+      <div className="grid max-w-[560px] gap-5">
         {fields.map(({ name, label }) => (
           <form.Field key={name} name={name}>
             {(field) => (
-              <label className="grid gap-2 text-sm font-medium">
+              <label className="grid gap-1.5 text-[13px] font-medium">
                 <span>{label}</span>
                 <Input
                   value={field.value}

@@ -9,6 +9,8 @@ import {
   SelectTrigger
 } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
+import { TYPE_META } from "@/lib/ticket-meta"
+import { MappingLabel, MappingRow } from "./MappingRow"
 import type { JiraMigrationForm } from "./opts"
 import { StepFrame } from "./StepFrame"
 
@@ -41,45 +43,96 @@ export function TypeStep({
     >
       <div className="divide-y divide-border">
         {requirements.issueTypes.map((issueType, index) => (
-          <div
+          <MappingRow
             key={issueType.jiraIssueTypeId}
-            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <span className="text-sm font-medium">{issueType.name}</span>
-            <form.Field name={`issueTypes[${index}].projectType`}>
-              {(field) => (
-                <Select
-                  value={field.value ?? ""}
-                  onValueChange={(value) => {
-                    const option = typeOptions.find(
-                      (candidate) => candidate.value === value
-                    )
-                    if (option) field.handleChange(option.value)
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label={issueType.name}
-                    placeholder={m.jira_migration_type_title()}
-                    className="w-full sm:w-64"
+            source={
+              <MappingLabel
+                icon={
+                  <MigrationTypeIcon
+                    type={issueType.suggestedProjectType ?? "other"}
                   />
-                  <SelectContent>
-                    {typeOptions.map((option, optionIndex) => (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        index={optionIndex}
-                      >
-                        {option.label()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+                }
+              >
+                {issueType.name}
+              </MappingLabel>
+            }
+          >
+            <form.Field name={`issueTypes[${index}].projectType`}>
+              {(field) => {
+                const selected = field.value
+                  ? TYPE_META[field.value]
+                  : undefined
+                return (
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => {
+                      const option = typeOptions.find(
+                        (candidate) => candidate.value === value
+                      )
+                      if (option) field.handleChange(option.value)
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-label={issueType.name}
+                      placeholder={m.jira_migration_type_title()}
+                      className="w-full"
+                      selectedLabel={
+                        selected && field.value ? (
+                          <MappingLabel
+                            icon={<MigrationTypeIcon type={field.value} />}
+                          >
+                            {typeOptions
+                              .find((option) => option.value === field.value)
+                              ?.label()}
+                          </MappingLabel>
+                        ) : undefined
+                      }
+                    />
+                    <SelectContent>
+                      {typeOptions.map((option, optionIndex) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          index={optionIndex}
+                          aria-label={option.label()}
+                        >
+                          <MappingLabel
+                            icon={<MigrationTypeIcon type={option.value} />}
+                          >
+                            {option.label()}
+                          </MappingLabel>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              }}
             </form.Field>
-          </div>
+          </MappingRow>
         ))}
       </div>
     </StepFrame>
+  )
+}
+
+function typeColorClass(type: TicketType) {
+  switch (type) {
+    case "feat":
+      return "text-state-success"
+    case "bug":
+      return "text-state-danger"
+    case "chore":
+      return "text-state-warning"
+    case "other":
+      return "text-muted-foreground"
+  }
+  return "text-muted-foreground"
+}
+
+function MigrationTypeIcon({ type }: { type: TicketType }) {
+  const Icon = TYPE_META[type].icon
+  return (
+    <Icon className={`size-4 ${typeColorClass(type)}`} strokeWidth={1.75} />
   )
 }
 

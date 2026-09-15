@@ -228,13 +228,13 @@ function StepSurface({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-[520px] flex-col">
-      <div className="flex flex-1 flex-col gap-7 px-5 py-6 sm:px-8 sm:py-8">
+    <div className="flex min-h-[650px] flex-col">
+      <div className="flex flex-1 flex-col gap-6 pb-8 pt-1">
         <div className="max-w-[65ch]">
-          <h2 className="text-xl font-semibold tracking-tight text-foreground text-balance">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground text-balance">
             {title}
           </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
+          <p className="mt-1.5 text-sm leading-[21px] text-muted-foreground text-pretty">
             {description}
           </p>
         </div>
@@ -246,7 +246,7 @@ function StepSurface({
 
 function StepActions({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-auto flex justify-end border-t border-border px-5 py-4 sm:px-8">
+    <div className="mt-auto flex h-[72px] items-center justify-end border-t border-border px-4">
       {children}
     </div>
   )

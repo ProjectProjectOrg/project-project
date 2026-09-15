@@ -20,6 +20,7 @@ export interface JiraMigrationDraft {
   statuses: ReadonlyArray<{
     jiraStatusId: string
     projectStatusSlug: string | undefined
+    createStatus?: true
   }>
   issueTypes: ReadonlyArray<{
     jiraIssueTypeId: string
@@ -75,7 +76,8 @@ const peopleSchema = Schema.Array(
 const statusesSchema = Schema.Array(
   Schema.Struct({
     jiraStatusId: Schema.NonEmptyString,
-    projectStatusSlug: Schema.UndefinedOr(StatusSlug)
+    projectStatusSlug: Schema.UndefinedOr(StatusSlug),
+    createStatus: Schema.optional(Schema.Literal(true))
   })
 ).pipe(
   Schema.check(
@@ -199,10 +201,7 @@ export function buildJiraMigrationDraft(
     ])
   )
   const statuses = new Map(
-    configuration?.statuses.map((item) => [
-      item.jiraStatusId,
-      item.projectStatusSlug
-    ])
+    configuration?.statuses.map((item) => [item.jiraStatusId, item])
   )
   const issueTypes = new Map(
     configuration?.issueTypes.map((item) => [
@@ -244,10 +243,14 @@ export function buildJiraMigrationDraft(
         ? identities.get(identity.jiraAccountId)
         : undefined
     })),
-    statuses: requirements.statuses.map((status) => ({
-      jiraStatusId: status.jiraStatusId,
-      projectStatusSlug: statuses.get(status.jiraStatusId)
-    })),
+    statuses: requirements.statuses.map((status) => {
+      const configured = statuses.get(status.jiraStatusId)
+      return {
+        jiraStatusId: status.jiraStatusId,
+        projectStatusSlug: configured?.projectStatusSlug,
+        createStatus: configured?.createStatus
+      }
+    }),
     issueTypes: requirements.issueTypes.map((issueType) => ({
       jiraIssueTypeId: issueType.jiraIssueTypeId,
       projectType: issueTypes.get(issueType.jiraIssueTypeId)

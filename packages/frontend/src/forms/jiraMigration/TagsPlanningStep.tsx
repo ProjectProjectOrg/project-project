@@ -1,4 +1,5 @@
 import type { JiraMigrationRequirements } from "@projectproject/shared"
+import { Rows3, Tag } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 import type { JiraMigrationForm } from "./opts"
+import { MappingLabel, MappingRow } from "./MappingRow"
 import { StepFrame } from "./StepFrame"
 
 const backlogValue = "__backlog__"
@@ -33,18 +35,17 @@ export function TagsPlanningStep({
         {requirements.tags.length > 0 ? (
           <div className="divide-y divide-border">
             {requirements.tags.map((tag, index) => (
-              <div
+              <MappingRow
                 key={`${tag.source.kind}:${tag.source.value}`}
-                className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                source={
+                  <MappingLabel
+                    icon={<Tag className="size-4" strokeWidth={1.75} />}
+                  >
                     {tag.source.value}
-                  </div>
-                  <div className="text-xs capitalize text-muted-foreground">
-                    {tag.source.kind}
-                  </div>
-                </div>
+                  </MappingLabel>
+                }
+                detail={tag.source.kind}
+              >
                 <form.Field name={`tags[${index}].destinationTagName`}>
                   {(field) => (
                     <Input
@@ -61,7 +62,7 @@ export function TagsPlanningStep({
                     />
                   )}
                 </form.Field>
-              </div>
+              </MappingRow>
             ))}
           </div>
         ) : null}
@@ -73,18 +74,17 @@ export function TagsPlanningStep({
             </h3>
             <div className="mt-2 divide-y divide-border">
               {requirements.activeFutureSprintChoices.map((choice, index) => (
-                <div
+                <MappingRow
                   key={choice.jiraIssueId}
-                  className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {choice.issueKey}
-                    </div>
-                    <div className="truncate text-sm font-medium">
+                  source={
+                    <MappingLabel
+                      icon={<Rows3 className="size-4" strokeWidth={1.75} />}
+                    >
                       {choice.issueSummary}
-                    </div>
-                  </div>
+                    </MappingLabel>
+                  }
+                  detail={choice.issueKey}
+                >
                   <form.Field
                     name={`activeFutureSprintChoices[${index}].jiraSprintId`}
                   >
@@ -110,6 +110,14 @@ export function TagsPlanningStep({
                           aria-label={choice.issueKey}
                           placeholder={m.jira_migration_planning_choose_sprint()}
                           className="w-full"
+                          selectedLabel={
+                            field.value === null
+                              ? m.jira_migration_backlog()
+                              : choice.options.find(
+                                  (option) =>
+                                    option.jiraSprintId === field.value
+                                )?.name
+                          }
                         />
                         <SelectContent>
                           <SelectItem value={backlogValue} index={0}>
@@ -128,7 +136,7 @@ export function TagsPlanningStep({
                       </Select>
                     )}
                   </form.Field>
-                </div>
+                </MappingRow>
               ))}
             </div>
           </div>

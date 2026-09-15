@@ -1,11 +1,13 @@
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { Check, Circle } from "lucide-react"
+import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type JiraMigrationStep =
+  | "connect"
+  | "choose"
   | "snapshot"
   | "people"
   | "statuses"
@@ -14,84 +16,177 @@ export type JiraMigrationStep =
   | "planning"
   | "destination"
   | "review"
+  | "migrate"
+  | "finish"
 
-const steps: ReadonlyArray<{
-  id: JiraMigrationStep
+export const jiraMigrationStages: ReadonlyArray<{
+  id:
+    | "connect"
+    | "choose"
+    | "snapshot"
+    | "people"
+    | "map"
+    | "review"
+    | "migrate"
+    | "finish"
   label: () => string
 }> = [
-  { id: "snapshot", label: m.jira_migration_step_snapshot },
-  { id: "people", label: m.jira_migration_step_people },
-  { id: "statuses", label: m.jira_migration_step_statuses },
-  { id: "types", label: m.jira_migration_step_types },
-  { id: "priorities", label: m.jira_migration_step_priorities },
-  { id: "planning", label: m.jira_migration_step_planning },
-  { id: "destination", label: m.jira_migration_step_destination },
-  { id: "review", label: m.jira_migration_step_review }
+  { id: "connect", label: m.jira_migration_stage_connect },
+  { id: "choose", label: m.jira_migration_stage_choose },
+  { id: "snapshot", label: m.jira_migration_stage_scan },
+  { id: "people", label: m.jira_migration_stage_link },
+  { id: "map", label: m.jira_migration_stage_map },
+  { id: "review", label: m.jira_migration_stage_review },
+  { id: "migrate", label: m.jira_migration_stage_migrate },
+  { id: "finish", label: m.jira_migration_stage_finish }
 ]
+
+export const jiraMigrationStageForStep = (step: JiraMigrationStep) => {
+  if (
+    step === "statuses" ||
+    step === "types" ||
+    step === "priorities" ||
+    step === "planning" ||
+    step === "destination"
+  ) {
+    return "map"
+  }
+  return step
+}
+
+type NavigableJiraMigrationStage =
+  | "connect"
+  | "choose"
+  | "snapshot"
+  | "people"
+  | "map"
+
+const isNavigableJiraMigrationStage = (
+  stage: (typeof jiraMigrationStages)[number]["id"]
+): stage is NavigableJiraMigrationStage =>
+  stage === "connect" ||
+  stage === "choose" ||
+  stage === "snapshot" ||
+  stage === "people" ||
+  stage === "map"
 
 export function JiraMigrationShell({
   orgSlug,
   currentStep,
+  furthestStep = currentStep,
+  confirmLeave = false,
+  onNavigate,
   children
 }: {
   orgSlug: string
   currentStep?: JiraMigrationStep
+  furthestStep?: JiraMigrationStep
+  confirmLeave?: boolean
+  onNavigate?: (stage: NavigableJiraMigrationStage) => void
   children: ReactNode
 }) {
-  const currentIndex = currentStep
-    ? steps.findIndex((step) => step.id === currentStep)
+  const currentStage = currentStep
+    ? jiraMigrationStageForStep(currentStep)
+    : undefined
+  const currentIndex = currentStage
+    ? jiraMigrationStages.findIndex((stage) => stage.id === currentStage)
     : -1
+  const furthestStage = furthestStep
+    ? jiraMigrationStageForStep(furthestStep)
+    : undefined
+  const furthestIndex = furthestStage
+    ? jiraMigrationStages.findIndex((stage) => stage.id === furthestStage)
+    : currentIndex
 
   return (
-    <div className="flex min-h-full w-full flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-border pb-5">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+    <div className="flex min-h-[calc(100dvh-7.5rem)] w-full flex-col">
+      <header className="flex min-h-12 items-start justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {m.jira_migration_page_title()}
         </h1>
         <Button
           variant="ghost"
-          render={<Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />}
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects"
+              params={{ orgSlug }}
+              onClick={(event) => {
+                if (
+                  confirmLeave &&
+                  !window.confirm(m.jira_migration_leave_confirmation())
+                ) {
+                  event.preventDefault()
+                }
+              }}
+            />
+          }
         >
           {m.jira_migration_action_save_leave()}
         </Button>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1032px] flex-1 flex-col gap-5 py-6 md:flex-row md:items-start md:gap-10">
+      <div className="flex w-full flex-1 flex-col gap-5 pt-3 md:flex-row md:items-stretch md:gap-10">
         {currentStep ? (
           <>
             <div className="flex items-center gap-2 text-[13px] text-muted-foreground md:hidden">
               <span className="font-medium text-foreground">
-                {currentIndex + 1}/{steps.length}
+                {currentIndex + 1}/{jiraMigrationStages.length}
               </span>
-              <span>{steps[currentIndex]?.label()}</span>
+              <span>{jiraMigrationStages[currentIndex]?.label()}</span>
             </div>
             <nav
               aria-label={m.jira_migration_page_title()}
-              className="hidden w-[172px] shrink-0 flex-col gap-1 md:flex"
+              className="hidden w-40 shrink-0 flex-col gap-1 md:flex"
             >
-              {steps.map((step, index) => {
-                const complete = index < currentIndex
+              {jiraMigrationStages.map((stage, index) => {
+                const reachable = index <= furthestIndex
                 const current = index === currentIndex
-                return (
-                  <div
-                    key={step.id}
-                    aria-current={current ? "step" : undefined}
-                    className={cn(
-                      "flex min-h-8 items-center gap-2 rounded-lg px-2 text-[13px]",
-                      current
-                        ? "bg-accent font-medium text-foreground"
-                        : "text-muted-foreground"
-                    )}
-                  >
+                const complete = reachable && !current
+                const navigable =
+                  reachable &&
+                  !current &&
+                  onNavigate !== undefined &&
+                  isNavigableJiraMigrationStage(stage.id)
+                const content = (
+                  <>
                     {complete ? (
                       <Check className="size-3.5" strokeWidth={1.75} />
                     ) : (
-                      <Circle
-                        className={cn("size-3", current && "fill-foreground")}
-                        strokeWidth={1.5}
-                      />
+                      <span className="w-3.5 shrink-0 text-center font-mono text-xs tabular-nums">
+                        {index + 1}
+                      </span>
                     )}
-                    <span>{step.label()}</span>
+                    <span>{stage.label()}</span>
+                  </>
+                )
+                const className = cn(
+                  "flex min-h-8 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px]",
+                  current
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground",
+                  navigable &&
+                    "cursor-pointer transition-colors hover:bg-accent/60 hover:text-foreground active:scale-[0.97] active:transition-transform active:duration-100"
+                )
+                return navigable ? (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    className={className}
+                    onClick={() => {
+                      if (isNavigableJiraMigrationStage(stage.id)) {
+                        onNavigate(stage.id)
+                      }
+                    }}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div
+                    key={stage.id}
+                    aria-current={current ? "step" : undefined}
+                    className={className}
+                  >
+                    {content}
                   </div>
                 )
               })}
@@ -99,9 +194,7 @@ export function JiraMigrationShell({
           </>
         ) : null}
 
-        <section className="min-w-0 flex-1 rounded-2xl border border-border bg-background">
-          {children}
-        </section>
+        <section className="min-w-0 max-w-[820px] flex-1">{children}</section>
       </div>
     </div>
   )

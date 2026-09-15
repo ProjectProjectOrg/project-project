@@ -32,9 +32,13 @@ import { JiraMigrationForm } from "@/forms/jiraMigration"
 import { useJiraMigrationPolling } from "@/hooks/useJiraMigrationPolling"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { JiraMigrationShell } from "./JiraMigrationShell"
+import {
+  jiraMigrationStageForStep,
+  jiraMigrationStages,
+  JiraMigrationShell,
+  type JiraMigrationStep
+} from "./JiraMigrationShell"
 import { JiraProgressStep } from "./JiraProgressStep"
-import { JiraSnapshotStep } from "./JiraSnapshotStep"
 import { JiraSourceStep } from "./JiraSourceStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
 import { jiraMigrationScreen } from "./screen"
@@ -43,16 +47,46 @@ export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
   const profile = useAtomValue(jiraProfileAtom)
   const migrations = useAtomValue(jiraMigrationsAtom(orgSlug))
 
+  return Result.matchWithError(profile, {
+    onInitial: () => (
+      <JiraMigrationStartShell orgSlug={orgSlug} migrations={migrations}>
+        <SourceSkeleton />
+      </JiraMigrationStartShell>
+    ),
+    onError: (error) => (
+      <JiraMigrationStartShell orgSlug={orgSlug} migrations={migrations}>
+        <ErrorPage error={error} contained />
+      </JiraMigrationStartShell>
+    ),
+    onDefect: (defect) => (
+      <JiraMigrationStartShell orgSlug={orgSlug} migrations={migrations}>
+        <ErrorPage error={defect} contained />
+      </JiraMigrationStartShell>
+    ),
+    onSuccess: ({ value }) => (
+      <JiraMigrationShell
+        orgSlug={orgSlug}
+        currentStep={value.status === "connected" ? "choose" : "connect"}
+      >
+        <SourceForConnection orgSlug={orgSlug} connection={value} />
+        <ResumeRegion orgSlug={orgSlug} result={migrations} />
+      </JiraMigrationShell>
+    )
+  })
+}
+
+function JiraMigrationStartShell({
+  orgSlug,
+  migrations,
+  children
+}: {
+  orgSlug: string
+  migrations: Result.AsyncResult<ReadonlyArray<JiraMigrationSummary>, unknown>
+  children: React.ReactNode
+}) {
   return (
-    <JiraMigrationShell orgSlug={orgSlug}>
-      {Result.matchWithError(profile, {
-        onInitial: () => <SourceSkeleton />,
-        onError: (error) => <ErrorPage error={error} contained />,
-        onDefect: (defect) => <ErrorPage error={defect} contained />,
-        onSuccess: ({ value }) => (
-          <SourceForConnection orgSlug={orgSlug} connection={value} />
-        )
-      })}
+    <JiraMigrationShell orgSlug={orgSlug} currentStep="connect">
+      {children}
       <ResumeRegion orgSlug={orgSlug} result={migrations} />
     </JiraMigrationShell>
   )
@@ -292,7 +326,7 @@ function ResumeRegion({
   result: Result.AsyncResult<ReadonlyArray<JiraMigrationSummary>, unknown>
 }) {
   return (
-    <div className="border-t border-border px-5 py-6 sm:px-8">
+    <div className="border-t border-border py-6">
       <h2 className="text-sm font-semibold text-foreground">
         {m.jira_migration_resume_title()}
       </h2>
@@ -408,6 +442,8 @@ function JiraMigrationDetailPage({
     discardState.waiting
   const screen = jiraMigrationScreen(detail.status)
   const [step, setStep] = useState<
+    | "connect"
+    | "choose"
     | "snapshot"
     | "people"
     | "statuses"
@@ -417,6 +453,11 @@ function JiraMigrationDetailPage({
     | "destination"
     | "review"
   >("snapshot")
+  const [lastMappingStep, setLastMappingStep] = useState<
+    "statuses" | "types" | "priorities" | "planning" | "destination"
+  >("statuses")
+  const [furthestStep, setFurthestStep] =
+    useState<JiraMigrationStep>("snapshot")
 
   useJiraMigrationPolling(orgSlug, detail.id, detail.status)
 
@@ -434,7 +475,7 @@ function JiraMigrationDetailPage({
     return (
       <JiraMigrationShell
         orgSlug={orgSlug}
-        currentStep={screen === "scan-progress" ? "snapshot" : "review"}
+        currentStep={screen === "scan-progress" ? "snapshot" : "migrate"}
       >
         <JiraProgressStep
           detail={detail}
@@ -446,21 +487,52 @@ function JiraMigrationDetailPage({
   }
 
   if (screen === "configuration" && detail.scanSummary && detail.requirements) {
+    const navigateWithinJob = (
+      destination: "connect" | "choose" | "snapshot" | "people" | "map"
+    ) => {
+      setStep(destination === "map" ? lastMappingStep : destination)
+    }
     return (
-      <JiraMigrationShell orgSlug={orgSlug} currentStep={step}>
-        {step === "snapshot" ? (
-          <JiraSnapshotStep
-            summary={detail.scanSummary}
-            onContinue={() => setStep("people")}
-          />
-        ) : (
-          <JiraMigrationForm
-            orgSlug={orgSlug}
-            detail={detail}
-            step={step}
-            onStep={setStep}
-          />
-        )}
+      <JiraMigrationShell
+        orgSlug={orgSlug}
+        currentStep={step}
+        furthestStep={furthestStep}
+        confirmLeave
+        onNavigate={navigateWithinJob}
+      >
+        <JiraMigrationForm
+          orgSlug={orgSlug}
+          detail={detail}
+          step={step}
+          onStep={(nextStep) => {
+            if (stageIndex(nextStep) > stageIndex(furthestStep)) {
+              setFurthestStep(nextStep)
+            }
+            if (
+              nextStep === "statuses" ||
+              nextStep === "types" ||
+              nextStep === "priorities" ||
+              nextStep === "planning" ||
+              nextStep === "destination"
+            ) {
+              setLastMappingStep(nextStep)
+            }
+            if (
+              nextStep === "connect" ||
+              nextStep === "choose" ||
+              nextStep === "snapshot" ||
+              nextStep === "people" ||
+              nextStep === "statuses" ||
+              nextStep === "types" ||
+              nextStep === "priorities" ||
+              nextStep === "planning" ||
+              nextStep === "destination" ||
+              nextStep === "review"
+            ) {
+              setStep(nextStep)
+            }
+          }}
+        />
       </JiraMigrationShell>
     )
   }
@@ -472,7 +544,10 @@ function JiraMigrationDetailPage({
     screen === "succeeded"
   ) {
     return (
-      <JiraMigrationShell orgSlug={orgSlug} currentStep="review">
+      <JiraMigrationShell
+        orgSlug={orgSlug}
+        currentStep={screen === "succeeded" ? "finish" : "migrate"}
+      >
         <JiraTerminalStep
           detail={detail}
           orgSlug={orgSlug}
@@ -492,6 +567,11 @@ function JiraMigrationDetailPage({
       </div>
     </JiraMigrationShell>
   )
+}
+
+function stageIndex(step: JiraMigrationStep) {
+  const stage = jiraMigrationStageForStep(step)
+  return jiraMigrationStages.findIndex((candidate) => candidate.id === stage)
 }
 
 function migrationStatusLabel(status: JiraMigrationStatus): string {
@@ -521,7 +601,7 @@ function migrationStatusLabel(status: JiraMigrationStatus): string {
 
 function SourceSkeleton() {
   return (
-    <div className="flex min-h-[520px] flex-col gap-6 px-5 py-6 sm:px-8 sm:py-8">
+    <div className="flex min-h-[520px] flex-col gap-6 py-1">
       <div className="skeleton h-7 w-64 rounded-lg" />
       <div className="skeleton h-4 w-full max-w-lg rounded" />
       <div className="skeleton mt-3 h-24 w-full rounded-xl" />

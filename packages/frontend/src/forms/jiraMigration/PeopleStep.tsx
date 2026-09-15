@@ -1,4 +1,5 @@
 import type { JiraMigrationRequirements } from "@projectproject/shared"
+import { MemberAvatar } from "@/components/MemberAvatar"
 import {
   Select,
   SelectContent,
@@ -7,6 +8,7 @@ import {
 } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 import type { JiraMigrationForm } from "./opts"
+import { MappingLabel, MappingRow } from "./MappingRow"
 import { StepFrame } from "./StepFrame"
 
 const unlinkedValue = "__unlinked__"
@@ -30,57 +32,101 @@ export function PeopleStep({
     >
       <div className="divide-y divide-border">
         {requirements.identities.map((identity, index) => (
-          <div
+          <MappingRow
             key={identity.jiraAccountId}
-            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">
-                {identity.displayName}
-              </div>
-              {identity.email ? (
-                <div className="truncate text-xs text-muted-foreground">
-                  {identity.email}
-                </div>
-              ) : null}
-            </div>
-            <form.Field name={`identities[${index}].projectProjectUserId`}>
-              {(field) => (
-                <Select
-                  value={
-                    field.value === undefined
-                      ? ""
-                      : field.value === null
-                        ? unlinkedValue
-                        : field.value
-                  }
-                  onValueChange={(value) =>
-                    field.handleChange(value === unlinkedValue ? null : value)
-                  }
-                >
-                  <SelectTrigger
-                    aria-label={identity.displayName}
-                    placeholder={m.jira_migration_people_title()}
-                    className="w-full sm:w-64"
+            source={
+              <MappingLabel
+                icon={
+                  <MemberAvatar
+                    member={{
+                      name: identity.displayName
+                    }}
+                    size={20}
                   />
-                  <SelectContent>
-                    <SelectItem value={unlinkedValue} index={0}>
-                      {m.jira_migration_people_dont_link()}
-                    </SelectItem>
-                    {requirements.identityOptions.map((option, optionIndex) => (
-                      <SelectItem
-                        key={option.id}
-                        value={option.id}
-                        index={optionIndex + 1}
-                      >
-                        {option.name}
+                }
+              >
+                {identity.displayName}
+              </MappingLabel>
+            }
+          >
+            <form.Field name={`identities[${index}].projectProjectUserId`}>
+              {(field) => {
+                const selected = requirements.identityOptions.find(
+                  (option) => option.id === field.value
+                )
+                return (
+                  <Select
+                    value={
+                      field.value === undefined
+                        ? ""
+                        : field.value === null
+                          ? unlinkedValue
+                          : field.value
+                    }
+                    onValueChange={(value) =>
+                      field.handleChange(value === unlinkedValue ? null : value)
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label={identity.displayName}
+                      placeholder={m.jira_migration_people_title()}
+                      className="w-full"
+                      selectedLabel={
+                        field.value === null ? (
+                          m.jira_migration_people_dont_link()
+                        ) : selected ? (
+                          <MappingLabel
+                            icon={
+                              <MemberAvatar
+                                member={{
+                                  name: selected.name,
+                                  email: selected.email,
+                                  image: selected.imageUrl
+                                }}
+                                size={20}
+                              />
+                            }
+                          >
+                            {selected.name}
+                          </MappingLabel>
+                        ) : undefined
+                      }
+                    />
+                    <SelectContent>
+                      <SelectItem value={unlinkedValue} index={0}>
+                        {m.jira_migration_people_dont_link()}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+                      {requirements.identityOptions.map(
+                        (option, optionIndex) => (
+                          <SelectItem
+                            key={option.id}
+                            value={option.id}
+                            index={optionIndex + 1}
+                            aria-label={option.name}
+                          >
+                            <MappingLabel
+                              icon={
+                                <MemberAvatar
+                                  member={{
+                                    name: option.name,
+                                    email: option.email,
+                                    image: option.imageUrl
+                                  }}
+                                  size={20}
+                                />
+                              }
+                            >
+                              {option.name}
+                            </MappingLabel>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                )
+              }}
             </form.Field>
-          </div>
+          </MappingRow>
         ))}
       </div>
     </StepFrame>

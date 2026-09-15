@@ -9,6 +9,7 @@ import {
   runJiraMigrationAtom
 } from "@/atoms/jiraMigration"
 import type { JiraMigrationStep } from "@/JiraMigration/JiraMigrationShell"
+import { JiraSnapshotStep } from "@/JiraMigration/JiraSnapshotStep"
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 import { DestinationStep } from "./DestinationStep"
@@ -26,6 +27,7 @@ import {
 } from "./opts"
 import { PeopleStep } from "./PeopleStep"
 import { PriorityStep } from "./PriorityStep"
+import { ReadOnlySourceStep } from "./ReadOnlySourceStep"
 import { ReviewStep } from "./ReviewStep"
 import { StatusStep } from "./StatusStep"
 import { TagsPlanningStep } from "./TagsPlanningStep"
@@ -41,6 +43,12 @@ const configurationSteps = [
   "review"
 ] as const satisfies ReadonlyArray<JiraMigrationStep>
 
+type JiraMigrationFormStep =
+  | "connect"
+  | "choose"
+  | "snapshot"
+  | (typeof configurationSteps)[number]
+
 export function JiraMigrationForm({
   orgSlug,
   detail,
@@ -49,7 +57,7 @@ export function JiraMigrationForm({
 }: {
   orgSlug: string
   detail: JiraMigrationDetail
-  step: (typeof configurationSteps)[number]
+  step: JiraMigrationFormStep
   onStep: (step: JiraMigrationStep) => void
 }) {
   if (!detail.requirements || !detail.scanSummary) return null
@@ -78,7 +86,7 @@ function ConfiguredJiraMigrationForm({
   detail: JiraMigrationDetail
   requirements: NonNullable<JiraMigrationDetail["requirements"]>
   summary: NonNullable<JiraMigrationDetail["scanSummary"]>
-  step: (typeof configurationSteps)[number]
+  step: JiraMigrationFormStep
   onStep: (step: JiraMigrationStep) => void
 }) {
   const key = jiraMigrationKey(orgSlug, detail.id)
@@ -111,19 +119,13 @@ function ConfiguredJiraMigrationForm({
     }
   })
 
-  const saveAndAdvance = async (next: JiraMigrationStep) => {
+  const advance = (next: JiraMigrationStep) => {
     setValidationError(null)
-    const configured = await configure({
-      expectedRevision: revision.current,
-      configuration: toPartialJiraMigrationConfiguration(form.state.values)
-    })
-    if (Exit.isSuccess(configured)) {
-      revision.current = configured.value.revision
-      onStep(next)
-    }
+    onStep(next)
   }
 
   const previous = () => {
+    if (step === "connect" || step === "choose" || step === "snapshot") return
     const index = configurationSteps.indexOf(step)
     onStep(index === 0 ? "snapshot" : configurationSteps[index - 1])
   }
@@ -137,12 +139,38 @@ function ConfiguredJiraMigrationForm({
   }
 
   switch (step) {
+    case "connect":
+      return (
+        <ReadOnlySourceStep
+          screen="connect"
+          summary={summary}
+          onBack={() => {}}
+          onNext={() => advance("choose")}
+        />
+      )
+    case "choose":
+      return (
+        <ReadOnlySourceStep
+          screen="choose"
+          summary={summary}
+          onBack={() => onStep("connect")}
+          onNext={() => advance("snapshot")}
+        />
+      )
+    case "snapshot":
+      return (
+        <JiraSnapshotStep
+          summary={summary}
+          onBack={() => onStep("choose")}
+          onContinue={() => advance("people")}
+        />
+      )
     case "people":
       return (
         <form.FormGroup
           name="identities"
           validators={[validateStep(peopleValidator)]}
-          onSubmit={() => saveAndAdvance("statuses")}
+          onSubmit={() => advance("statuses")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_mapping_required())
           }
@@ -160,7 +188,7 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           name="statuses"
           validators={[validateStep(statusesValidator)]}
-          onSubmit={() => saveAndAdvance("types")}
+          onSubmit={() => advance("types")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_mapping_required())
           }
@@ -178,7 +206,7 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           name="issueTypes"
           validators={[validateStep(issueTypesValidator)]}
-          onSubmit={() => saveAndAdvance("priorities")}
+          onSubmit={() => advance("priorities")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_mapping_required())
           }
@@ -196,7 +224,7 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           name="priorities"
           validators={[validateStep(prioritiesValidator)]}
-          onSubmit={() => saveAndAdvance("planning")}
+          onSubmit={() => advance("planning")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_mapping_required())
           }
@@ -214,7 +242,7 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           name="tags"
           validators={[validateStep(tagsValidator)]}
-          onSubmit={() => saveAndAdvance("destination")}
+          onSubmit={() => advance("destination")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_mapping_required())
           }
@@ -232,7 +260,7 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           name="destination"
           validators={[validateStep(destinationValidator)]}
-          onSubmit={() => saveAndAdvance("review")}
+          onSubmit={() => advance("review")}
           onSubmitInvalid={() =>
             setValidationError(m.jira_migration_destination_invalid())
           }
