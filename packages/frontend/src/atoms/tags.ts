@@ -1,11 +1,9 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
-import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   TagColor,
   type CreateTagInput,
@@ -13,141 +11,146 @@ import {
   type TagName,
   type UpdateTagInput
 } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
 
-export const tagsKey = (orgSlug: string, slug: string) => `${orgSlug}/${slug}`
+export interface TagsRequest {
+  readonly params: { readonly orgSlug: string; readonly slug: string }
+}
+
+export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({
+  params: { orgSlug, slug }
+})
+
+const scopeOf = (req: TagsRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
+
+const tagsQuery = (req: TagsRequest) =>
+  Api.query("tags", "list", {
+    params: req.params,
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.tags(scopeOf(req))]
+  })
+
+export const tagsFor = Atom.family((req: TagsRequest) =>
+  Atom.optimistic(tagsQuery(req))
+)
+
+const tagUsageQuery = (req: TagsRequest) =>
+  Api.query("tags", "usageCounts", {
+    params: req.params,
+    timeToLive: "2 minutes",
+    reactivityKeys: [
+      Keys.tags(scopeOf(req)),
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketLists(scopeOf(req))
+    ]
+  })
+
+export const tagUsage = Atom.family((req: TagsRequest) =>
+  Atom.optimistic(tagUsageQuery(req))
+)
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-const tagsBaseAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.tags.list({ params: { orgSlug, slug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("2 minutes"))
-})
-
-export const tagsAtom = Atom.family((key: string) =>
-  Atom.optimistic(tagsBaseAtom(key))
+export const createTag = Atom.family((req: TagsRequest) =>
+  Atom.optimisticFn(tagsFor(req), {
+    reducer: (current, input: CreateTagInput) =>
+      AsyncResult.map(current, (tags) => {
+        const synthetic: Tag = {
+          name: input.name,
+          color: input.color ?? makeTagColor("#7c3aed"),
+          createdBy: "",
+          createdAt: DateTime.toDate(DateTime.nowUnsafe())
+        }
+        return [...tags, synthetic]
+      }),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: CreateTagInput, get) {
+          const created = yield* Api.use((client) =>
+            client.tags.create({ params: req.params, payload: input })
+          )
+          set(
+            AsyncResult.map(get(tagsFor(req)), (tags) =>
+              tags.map((tag) => (tag.name === input.name ? created : tag))
+            )
+          )
+          yield* Reactivity.invalidate([Keys.tagUsage(scopeOf(req))])
+          return created
+        })
+      )
+  })
 )
 
-export const tagUsageCountsAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.tags.usageCounts({ params: { orgSlug, slug } })
-      })
-    )
-    .pipe(
-      Atom.withReactivity([
-        `tickets/${orgSlug}/${slug}`,
-        `ticket-lists/${orgSlug}/${slug}`
-      ]),
-      Atom.setIdleTTL("2 minutes")
-    )
-})
-
-export const createTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, input: CreateTagInput) => {
-      if (!Result.isSuccess(current)) return current
-      const synthetic: Tag = {
-        name: input.name,
-        color: input.color ?? makeTagColor("#7c3aed"),
-        createdBy: "",
-        createdAt: DateTime.toDate(DateTime.nowUnsafe())
-      }
-      return Result.success([...current.value, synthetic], { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: CreateTagInput, get) {
-        const client = yield* ApiClient
-        const tag = yield* client.tags.create({
-          params: { orgSlug, slug },
-          payload: input
-        })
-        get.refresh(tagsBaseAtom(key))
-        return tag
-      })
-    )
-  })
-})
-
-type RenameInput = {
-  oldName: TagName
-  nextName?: TagName
-  color?: Tag["color"]
-}
-export const renameTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, input: RenameInput) => {
-      if (!Result.isSuccess(current)) return current
-      const next = current.value.map((t) =>
-        t.name === input.oldName
-          ? {
-              ...t,
-              name: input.nextName ?? t.name,
-              color: input.color ?? t.color
+export const updateTag = Atom.family(
+  ({ req, name }: { readonly req: TagsRequest; readonly name: TagName }) =>
+    Atom.optimisticFn(tagsFor(req), {
+      reducer: (current, patch: UpdateTagInput) =>
+        AsyncResult.map(current, (tags) =>
+          tags.map((tag) =>
+            tag.name === name
+              ? {
+                  ...tag,
+                  name: patch.name ?? tag.name,
+                  color: patch.color ?? tag.color
+                }
+              : tag
+          )
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (patch: UpdateTagInput, get) {
+            const updated = yield* Api.use((client) =>
+              client.tags.update({
+                params: { ...req.params, name },
+                payload: patch
+              })
+            )
+            set(
+              AsyncResult.map(get(tagsFor(req)), (tags) =>
+                tags.map((tag) =>
+                  tag.name === name || tag.name === patch.name ? updated : tag
+                )
+              )
+            )
+            if (patch.name !== undefined && patch.name !== name) {
+              yield* Reactivity.invalidate([
+                Keys.ticketsIn(scopeOf(req)),
+                Keys.ticketLists(scopeOf(req)),
+                Keys.ticketPages(scopeOf(req))
+              ])
             }
-          : t
-      )
-      return Result.success(next, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: RenameInput, get) {
-        const client = yield* ApiClient
-        const patch: UpdateTagInput = {
-          ...(input.nextName ? { name: input.nextName } : {}),
-          ...(input.color ? { color: input.color } : {})
-        }
-        const tag = yield* client.tags.update({
-          params: { orgSlug, slug, name: input.oldName },
-          payload: patch
-        })
-        get.refresh(tagsBaseAtom(key))
-        if (input.nextName) {
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-        }
-        return tag
-      })
-    )
-  })
-})
+            return updated
+          })
+        )
+    })
+)
 
-type DeleteInput = { name: TagName }
-export const deleteTagAtom = Atom.family((key: string) => {
-  const idx = key.indexOf("/")
-  const orgSlug = key.slice(0, idx)
-  const slug = key.slice(idx + 1)
-  return Atom.optimisticFn(tagsAtom(key), {
-    reducer: (current, _input: DeleteInput) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: DeleteInput, get) {
-        const client = yield* ApiClient
-        yield* client.tags.delete({
-          params: { orgSlug, slug, name: input.name }
-        })
-        get.refresh(tagsBaseAtom(key))
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-      })
-    )
-  })
-})
+export const deleteTag = Atom.family(
+  ({ req, name }: { readonly req: TagsRequest; readonly name: TagName }) =>
+    Atom.optimisticFn(tagsFor(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (tags) =>
+          tags.filter((tag) => tag.name !== name)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (_input: void, get) {
+            yield* Api.use((client) =>
+              client.tags.delete({ params: { ...req.params, name } })
+            )
+            set(
+              AsyncResult.map(get(tagsFor(req)), (tags) =>
+                tags.filter((tag) => tag.name !== name)
+              )
+            )
+            yield* Reactivity.invalidate([
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.ticketLists(scopeOf(req)),
+              Keys.ticketPages(scopeOf(req))
+            ])
+          })
+        )
+    })
+)

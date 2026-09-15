@@ -2,6 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, Check } from "lucide-react"
+import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
@@ -13,10 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { cn } from "@/lib/utils"
 import type {
@@ -98,9 +96,8 @@ export function StatusBadgeTrigger({
   waiting: boolean
   className?: string
 }) {
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon
@@ -171,9 +168,8 @@ export function StatusButton({
   onPatch: (patch: UpdateTicketInput) => void
   waiting: boolean
 }) {
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(ticket.status, statuses)
   const Icon = meta.icon

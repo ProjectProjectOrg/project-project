@@ -1,0 +1,150 @@
+import * as DateTime from "effect/DateTime"
+import * as Schema from "effect/Schema"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
+import { describe, expect, it, vi } from "vitest"
+import { Tag, TagColor, TagName } from "@projectproject/shared"
+import { stubFetch } from "@/api/testFetch"
+import { deleteTag, tagsFor, tagsRequest, updateTag } from "./tags"
+
+const name = Schema.decodeSync(TagName)("before")
+const nextName = Schema.decodeSync(TagName)("after")
+const color = Schema.decodeSync(TagColor)("#7c3aed")
+const tag = {
+  name,
+  color,
+  createdBy: "user-1",
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
+} satisfies Tag
+const renamed = { ...tag, name: nextName }
+const encode = Schema.encodeSync(Tag)
+const req = tagsRequest("acme", "web")
+const fetchStub = stubFetch()
+
+describe("tags optimistic updates", () => {
+  it("holds a rename until the list refetch lands", async () => {
+    let served: ReadonlyArray<Tag> = [tag]
+    let finish = (_response: Response) => {}
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(Response.json(served.map((tag) => encode(tag))))
+    })
+    const registry = AtomRegistry.make()
+    const view = tagsFor(req)
+    const mutation = updateTag({ req, name })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, { name: nextName })
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.waiting).toBe(true)
+      expect(optimistic.value[0].name).toBe(nextName)
+
+      served = [renamed]
+      finish(Response.json(encode(renamed)))
+
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ waiting: false })
+      )
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(settled.value[0].name).toBe(nextName)
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("removes a deleted tag immediately", async () => {
+    let served: ReadonlyArray<Tag> = [tag]
+    let finish = (_response: Response) => {}
+    fetchStub.set((_input, init) => {
+      if (init?.method === "DELETE") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(Response.json(served.map((tag) => encode(tag))))
+    })
+    const registry = AtomRegistry.make()
+    const view = tagsFor(req)
+    const mutation = deleteTag({ req, name })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, undefined)
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.waiting).toBe(true)
+      expect(optimistic.value).toEqual([])
+
+      served = []
+      finish(new Response(null, { status: 204 }))
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ waiting: false })
+      )
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(settled.value).toEqual([])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("reverts a failed rename", async () => {
+    let finish = (_response: Response) => {}
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(Response.json([encode(tag)]))
+    })
+    const registry = AtomRegistry.make()
+    const view = tagsFor(req)
+    const mutation = updateTag({ req, name })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, { name: nextName })
+      finish(new Response("nope", { status: 500 }))
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(settled.value[0].name).toBe(name)
+    } finally {
+      registry.dispose()
+    }
+  })
+})

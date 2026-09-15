@@ -1,22 +1,29 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import * as Effect from "effect/Effect"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { generateKeyBetween } from "fractional-indexing"
 import { motion } from "motion/react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useContext, useMemo, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  reorderStatusAtom
+  reorderStatus,
+  statusesFor,
+  statusesRequest
 } from "@/atoms/projectStatuses"
 import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
 import { SprintTicketCreator } from "@/components/TicketList/SprintTicketCreator"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
-import { type GroupId, type TicketListQuery } from "@projectproject/shared"
+import {
+  type GroupId,
+  type OrderKey,
+  type StatusSlug,
+  type TicketListQuery
+} from "@projectproject/shared"
 import { ReorderBoardBanner } from "./ReorderBoardBanner"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDescription } from "./SprintDescription"
@@ -40,6 +47,7 @@ export function SprintDetail({
   onQueryChange: (query: TicketListQuery) => void
 }) {
   const project = useProject()
+  const registry = useContext(RegistryContext)
   const req = useMemo(
     () => sprintRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]
@@ -54,9 +62,11 @@ export function SprintDetail({
   const reorderMode = reorder !== null
   const dragOrder = reorder?.order ?? null
 
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const reorderStatus = useAtomSet(reorderStatusAtom(statusKey))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
 
   const enterReorder = useCallback(
     () => setReorder({ key: reorderKey, order: null }),
@@ -97,12 +107,20 @@ export function SprintDetail({
         }
         const newKey = generateKeyBetween(lastKey, nextValid)
         keys.set(slug, newKey)
-        reorderStatus({ statusSlug: slug, orderKey: newKey })
+        const mutation = reorderStatus({
+          req: statusReq,
+          statusSlug: slug as StatusSlug
+        })
+        const unmount = registry.mount(mutation)
+        registry.set(mutation, { orderKey: newKey as OrderKey })
+        void Effect.runPromiseExit(
+          Registry.getResult(registry, mutation, { suspendOnWaiting: true })
+        ).finally(unmount)
         lastKey = newKey
       }
     }
     setReorder(null)
-  }, [dragOrder, statusesResult, reorderStatus])
+  }, [dragOrder, registry, statusReq, statusesResult])
 
   const isBoard = view === "board"
   const isDescription = view === "description"

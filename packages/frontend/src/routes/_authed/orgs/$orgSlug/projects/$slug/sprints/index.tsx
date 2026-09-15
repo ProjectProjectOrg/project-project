@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
-import { projectStatusesAtom, projectKey } from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardRequest, sprintBoard } from "@/atoms/sprintBoard"
 import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
@@ -30,13 +30,15 @@ export const Route = createFileRoute(
     const req = sprintListRequest(orgSlug, slug)
     const result = await Effect.runPromiseExit(
       Registry.getResult(registry, sprintList(req)),
-      { signal: abortController.signal }
+      {
+        signal: abortController.signal
+      }
     )
     if (Exit.isFailure(result)) return
     const target = pickRedirectTarget(result.value)
     if (!target) return
     registry.mount(sprintDetail(sprintRequest(orgSlug, slug, target.id)))()
-    registry.mount(projectStatusesAtom(projectKey(orgSlug, slug)))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(sprintBoard(boardRequest(orgSlug, slug, target.id)))()
     throw redirect({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",

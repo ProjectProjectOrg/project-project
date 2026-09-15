@@ -1,191 +1,218 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
-import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { compareByOrderKey } from "@/components/sprints/board-utils"
-import { projectKey } from "@/atoms/projects"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   deriveStatusSlug,
   pickStatusColor,
   type CreateStatusInput,
+  type DeleteStatusInput,
   type ProjectStatus,
   type ReorderStatusInput,
   type StatusSlug,
   type UpdateStatusInput
 } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
+import { compareByOrderKey } from "@/lib/orderKey"
 
-export { projectKey }
-
-const splitKey = (key: string) => {
-  const idx = key.indexOf("/")
-  return { orgSlug: key.slice(0, idx), slug: key.slice(idx + 1) }
+export interface StatusesRequest {
+  readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 
-export const projectStatusesBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.statuses.list({ params: { orgSlug, slug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("5 minutes"))
+export const statusesRequest = (
+  orgSlug: string,
+  slug: string
+): StatusesRequest => ({
+  params: { orgSlug, slug }
 })
 
-export const projectStatusesAtom = Atom.family((key: string) =>
-  Atom.optimistic(projectStatusesBaseAtom(key))
+const scopeOf = (req: StatusesRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
+
+const statusesQuery = (req: StatusesRequest) =>
+  Api.query("statuses", "list", {
+    params: req.params,
+    timeToLive: "5 minutes",
+    reactivityKeys: [Keys.statuses(scopeOf(req))]
+  })
+
+export const statusesFor = Atom.family((req: StatusesRequest) =>
+  Atom.optimistic(statusesQuery(req))
 )
 
-export const createStatusAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitKey(key)
-  return Atom.optimisticFn(projectStatusesAtom(key), {
-    reducer: (current, input: CreateStatusInput) => {
-      if (!Result.isSuccess(current)) return current
-      const derivedSlug = deriveStatusSlug(input.label)
-      if (derivedSlug.length === 0) return current
-      if (current.value.some((s) => s.slug === derivedSlug)) return current
-      const color =
-        input.color ?? pickStatusColor(current.value.map((s) => s.color))
-      const synthetic: ProjectStatus = {
-        slug: derivedSlug as ProjectStatus["slug"],
-        label: input.label,
-        icon: (input.icon ?? "Circle") as ProjectStatus["icon"],
-        color: color as ProjectStatus["color"],
-        orderKey: "zzz" as ProjectStatus["orderKey"],
-        createdBy: "",
-        createdAt: DateTime.toDate(DateTime.nowUnsafe())
-      }
-      return Result.success([...current.value, synthetic], { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: CreateStatusInput, get) {
-        const client = yield* ApiClient
-        const created = yield* client.statuses.create({
-          params: { orgSlug, slug },
-          payload: input
-        })
-        get.refresh(projectStatusesBaseAtom(key))
-        return created
-      })
-    )
-  })
-})
-
-type UpdateInput = {
-  statusSlug: string
-  patch: UpdateStatusInput
-}
-
-export const updateStatusAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitKey(key)
-  return Atom.optimisticFn(projectStatusesAtom(key), {
-    reducer: (current, input: UpdateInput) => {
-      if (!Result.isSuccess(current)) return current
-      const next = current.value.map((s) =>
-        s.slug === input.statusSlug
-          ? {
-              ...s,
-              label: input.patch.label ?? s.label,
-              icon: input.patch.icon ?? s.icon,
-              color: input.patch.color ?? s.color
-            }
-          : s
-      )
-      return Result.success(next, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: UpdateInput, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.statuses.update({
-          params: {
-            orgSlug,
-            slug,
-            statusSlug: input.statusSlug as StatusSlug
-          },
-          payload: input.patch
-        })
-        get.refresh(projectStatusesBaseAtom(key))
-        if (input.patch.label) {
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+export const createStatus = Atom.family((req: StatusesRequest) =>
+  Atom.optimisticFn(statusesFor(req), {
+    reducer: (current, input: CreateStatusInput) =>
+      AsyncResult.map(current, (statuses) => {
+        const derivedSlug = deriveStatusSlug(input.label)
+        if (derivedSlug.length === 0) return statuses
+        if (statuses.some((status) => status.slug === derivedSlug)) {
+          return statuses
         }
-        return updated
-      })
-    )
-  })
-})
-
-type ReorderInput = {
-  statusSlug: string
-  orderKey: string
-}
-
-export const reorderStatusAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitKey(key)
-  return Atom.optimisticFn(projectStatusesAtom(key), {
-    reducer: (current, input: ReorderInput) => {
-      if (!Result.isSuccess(current)) return current
-      const next = current.value
-        .map((s) =>
-          s.slug === input.statusSlug
-            ? { ...s, orderKey: input.orderKey as ProjectStatus["orderKey"] }
-            : s
-        )
-        .toSorted(compareByOrderKey)
-      return Result.success(next, { waiting: true })
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (input: ReorderInput, get) {
-        const client = yield* ApiClient
-        const reordered = yield* client.statuses.reorder({
-          params: {
-            orgSlug,
-            slug,
-            statusSlug: input.statusSlug as StatusSlug
-          },
-          payload: {
-            orderKey: input.orderKey as ReorderStatusInput["orderKey"]
-          }
-        })
-        get.refresh(projectStatusesBaseAtom(key))
-        return reordered
-      })
-    )
-  })
-})
-
-type DeleteInput = {
-  statusSlug: string
-  reassignTo?: StatusSlug
-}
-
-export const deleteStatusAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitKey(key)
-  return Atom.optimisticFn(projectStatusesAtom(key), {
-    reducer: (current, input: DeleteInput) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            current.value.filter((s) => s.slug !== input.statusSlug),
-            { waiting: true }
+        const synthetic: ProjectStatus = {
+          slug: derivedSlug as ProjectStatus["slug"],
+          label: input.label,
+          icon: input.icon ?? "Circle",
+          color:
+            input.color ??
+            (pickStatusColor(
+              statuses.map((status) => status.color)
+            ) as ProjectStatus["color"]),
+          orderKey: "zzz" as ProjectStatus["orderKey"],
+          createdBy: "",
+          createdAt: DateTime.toDate(DateTime.nowUnsafe())
+        }
+        return [...statuses, synthetic]
+      }),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: CreateStatusInput, get) {
+          const created = yield* Api.use((client) =>
+            client.statuses.create({ params: req.params, payload: input })
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: DeleteInput, get) {
-        const client = yield* ApiClient
-        yield* client.statuses.remove({
-          params: {
-            orgSlug,
-            slug,
-            statusSlug: input.statusSlug as StatusSlug
-          },
-          query: input.reassignTo ? { reassignTo: input.reassignTo } : {}
+          const derivedSlug = deriveStatusSlug(input.label)
+          set(
+            AsyncResult.map(get(statusesFor(req)), (statuses) =>
+              statuses.map((status) =>
+                status.slug === derivedSlug ? created : status
+              )
+            )
+          )
+          return created
         })
-        get.refresh(projectStatusesBaseAtom(key))
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-      })
-    )
+      )
   })
-})
+)
+
+export const updateStatus = Atom.family(
+  ({
+    req,
+    statusSlug
+  }: {
+    readonly req: StatusesRequest
+    readonly statusSlug: StatusSlug
+  }) =>
+    Atom.optimisticFn(statusesFor(req), {
+      reducer: (current, patch: UpdateStatusInput) =>
+        AsyncResult.map(current, (statuses) =>
+          statuses.map((status) =>
+            status.slug === statusSlug
+              ? {
+                  ...status,
+                  label: patch.label ?? status.label,
+                  icon: patch.icon ?? status.icon,
+                  color: patch.color ?? status.color
+                }
+              : status
+          )
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (patch: UpdateStatusInput, get) {
+            const updated = yield* Api.use((client) =>
+              client.statuses.update({
+                params: { ...req.params, statusSlug },
+                payload: patch
+              })
+            )
+            set(
+              AsyncResult.map(get(statusesFor(req)), (statuses) =>
+                statuses.map((status) =>
+                  status.slug === statusSlug ? updated : status
+                )
+              )
+            )
+            if (patch.label !== undefined) {
+              yield* Reactivity.invalidate([
+                Keys.ticketsIn(scopeOf(req)),
+                Keys.ticketLists(scopeOf(req)),
+                Keys.ticketPages(scopeOf(req))
+              ])
+            }
+            return updated
+          })
+        )
+    })
+)
+
+export const reorderStatus = Atom.family(
+  ({
+    req,
+    statusSlug
+  }: {
+    readonly req: StatusesRequest
+    readonly statusSlug: StatusSlug
+  }) =>
+    Atom.optimisticFn(statusesFor(req), {
+      reducer: (current, input: ReorderStatusInput) =>
+        AsyncResult.map(current, (statuses) =>
+          statuses
+            .map((status) =>
+              status.slug === statusSlug
+                ? { ...status, orderKey: input.orderKey }
+                : status
+            )
+            .toSorted(compareByOrderKey)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (input: ReorderStatusInput, get) {
+            const reordered = yield* Api.use((client) =>
+              client.statuses.reorder({
+                params: { ...req.params, statusSlug },
+                payload: input
+              })
+            )
+            set(
+              AsyncResult.map(get(statusesFor(req)), (statuses) =>
+                statuses
+                  .map((status) =>
+                    status.slug === statusSlug ? reordered : status
+                  )
+                  .toSorted(compareByOrderKey)
+              )
+            )
+            return reordered
+          })
+        )
+    })
+)
+
+export const deleteStatus = Atom.family(
+  ({
+    req,
+    statusSlug
+  }: {
+    readonly req: StatusesRequest
+    readonly statusSlug: StatusSlug
+  }) =>
+    Atom.optimisticFn(statusesFor(req), {
+      reducer: (current, _input: DeleteStatusInput) =>
+        AsyncResult.map(current, (statuses) =>
+          statuses.filter((status) => status.slug !== statusSlug)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (input: DeleteStatusInput, get) {
+            yield* Api.use((client) =>
+              client.statuses.remove({
+                params: { ...req.params, statusSlug },
+                query: input
+              })
+            )
+            set(
+              AsyncResult.map(get(statusesFor(req)), (statuses) =>
+                statuses.filter((status) => status.slug !== statusSlug)
+              )
+            )
+            yield* Reactivity.invalidate([
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.ticketLists(scopeOf(req)),
+              Keys.ticketPages(scopeOf(req))
+            ])
+          })
+        )
+    })
+)

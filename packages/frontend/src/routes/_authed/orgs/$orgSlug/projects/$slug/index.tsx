@@ -1,5 +1,5 @@
 import { projectAtom, projectKey } from "@/atoms/projects"
-import { projectStatusesAtom } from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { backlog, backlogRequest } from "@/atoms/backlog"
 import { createFileRoute } from "@tanstack/react-router"
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
     const key = projectKey(orgSlug, slug)
     registry.mount(projectAtom(key))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
-    registry.mount(projectStatusesAtom(key))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
   },
   validateSearch: Schema.toStandardSchemaV1(TicketListQuery)

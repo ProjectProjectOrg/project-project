@@ -11,11 +11,7 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/atoms/sprintBoard"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  projectStatusesBaseAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import type {
   GroupId,
   Member,
@@ -58,10 +54,13 @@ export function SprintBoard(props: SprintBoardProps) {
     [orgSlug, slug, groupId]
   )
   const board = useAtomValue(sprintBoard(req))
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statuses = useAtomValue(projectStatusesAtom(statusKey))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const statuses = useAtomValue(statusesFor(statusReq))
   const refreshBoard = useAtomRefresh(sprintBoard(req))
-  const refreshStatuses = useAtomRefresh(projectStatusesBaseAtom(statusKey))
+  const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
   const refresh = () => {
     if (Result.isFailure(board)) refreshBoard()
     if (Result.isFailure(statuses)) refreshStatuses()

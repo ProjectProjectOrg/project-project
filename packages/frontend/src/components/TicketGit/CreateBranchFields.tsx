@@ -45,10 +45,7 @@ import {
 import { cn } from "@/lib/utils"
 import { slugify } from "@/lib/slug"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { m } from "@/paraglide/messages"
 import type {
@@ -107,9 +104,11 @@ export function CreateBranchFields({
     [orgSlug, slug, ticket.id]
   )
   const updateTicket = useAtomSet(updateTicketDetail(req))
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusesReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
   const errorString =

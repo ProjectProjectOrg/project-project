@@ -14,7 +14,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { RunningTimerIndicator } from "./time/RunningTimerIndicator"
 import { TicketTimeSection } from "./time/TicketTimePanel"
 import { TagEditor } from "./TagEditor"
-import { TagRenamesProvider } from "./TagRenamesProvider"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
@@ -148,9 +147,7 @@ it("loads tag usage counts when management opens", async () => {
   })
   render(
     <RegistryContext.Provider value={registry}>
-      <TagRenamesProvider>
-        <TagEditor orgSlug="org" slug="project" ticket={ticket} canManageTags />
-      </TagRenamesProvider>
+      <TagEditor orgSlug="org" slug="project" ticket={ticket} canManageTags />
     </RegistryContext.Provider>
   )
   const edit = await screen.findByRole("button", { name: "Edit tag test" })

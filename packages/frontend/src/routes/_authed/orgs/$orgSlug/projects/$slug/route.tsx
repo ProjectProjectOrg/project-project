@@ -34,10 +34,7 @@ import {
   type LucideIcon
 } from "lucide-react"
 import { statusMetaFor } from "@/lib/ticket-meta"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
@@ -71,7 +68,6 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
-import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type { FileRouteTypes } from "@/routeTree.gen"
 import type {
@@ -88,7 +84,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     registry.mount(projectAtom(projectKey(orgSlug, slug)))()
     registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
-    registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
     return {
       crumb: [
@@ -156,39 +152,37 @@ function ProjectLayout() {
     ),
     onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={value}>
-        <TagRenamesProvider>
-          <ProjectGitStatePolling
+        <ProjectGitStatePolling
+          orgSlug={orgSlug}
+          slug={slug}
+          enabled={value.github !== null}
+        />
+        <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
+        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+          <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
-            enabled={value.github !== null}
+            banner={value.banner}
+            waiting={waiting}
           />
-          <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
-            <ProjectBanner
-              orgSlug={orgSlug}
-              slug={slug}
-              banner={value.banner}
-              waiting={waiting}
-            />
-            {!headerHidden && (
-              <PageContainer className="gap-3">
-                <ProjectHeader
-                  orgSlug={orgSlug}
-                  slug={value.slug}
-                  name={value.name}
-                  project={value}
-                />
-                <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-              </PageContainer>
-            )}
-            <RetainedProjectViews
-              key={`${orgSlug}/${slug}`}
-              orgSlug={orgSlug}
-              slug={slug}
-            />
-            <Outlet />
-          </div>
-        </TagRenamesProvider>
+          {!headerHidden && (
+            <PageContainer className="gap-3">
+              <ProjectHeader
+                orgSlug={orgSlug}
+                slug={value.slug}
+                name={value.name}
+                project={value}
+              />
+              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+            </PageContainer>
+          )}
+          <RetainedProjectViews
+            key={`${orgSlug}/${slug}`}
+            orgSlug={orgSlug}
+            slug={slug}
+          />
+          <Outlet />
+        </div>
       </ProjectContext.Provider>
     )
   })
@@ -419,9 +413,11 @@ function TabsNav({
   const navigate = useNavigate()
   const isActive = (key: TabKey) => selectedTab === key
 
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const statusSlugs = boardStatusesFor(statuses)
   const byStatusRaw = Result.isSuccess(ticketsResult)

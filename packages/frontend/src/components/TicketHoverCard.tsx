@@ -4,10 +4,7 @@ import type { ComponentProps } from "react"
 import { useMemo } from "react"
 import { Link } from "@tanstack/react-router"
 import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
@@ -60,9 +57,11 @@ export function TicketHoverCard({
     [scope.orgSlug, scope.slug, ticketId]
   )
   const result = useAtomValue(ticketDetail(req))
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
+  const statusesReq = useMemo(
+    () => statusesRequest(scope.orgSlug, scope.slug),
+    [scope.orgSlug, scope.slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult
   )

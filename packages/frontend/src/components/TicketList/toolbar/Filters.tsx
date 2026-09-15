@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TagChip } from "@/components/TagChip"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
-import { tagsAtom, tagsKey } from "@/atoms/tags"
+import { tagsFor, tagsRequest } from "@/atoms/tags"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
@@ -394,7 +394,8 @@ function FilterTags({
   const selectedTags = value ?? []
   const setSelectedTags = (tags: typeof selectedTags) =>
     onChange(tags.length ? tags : undefined)
-  const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
+  const req = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
+  const tags = useAtomValue(tagsFor(req))
   const tagList = Result.isSuccess(tags) ? tags.value : []
   if (tagList.length === 0) return null
   return (

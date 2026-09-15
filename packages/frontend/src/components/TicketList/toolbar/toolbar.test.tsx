@@ -9,8 +9,10 @@ vi.mock("@/atoms/projectStatuses", async () => {
   const Atom = await import("effect/unstable/reactivity/Atom")
   const Result = await import("effect/unstable/reactivity/AsyncResult")
   return {
-    projectKey: (orgSlug: string, slug: string) => `${orgSlug}/${slug}`,
-    projectStatusesAtom: Atom.family(() => Atom.make(Result.success([])))
+    statusesRequest: (orgSlug: string, slug: string) => ({
+      params: { orgSlug, slug }
+    }),
+    statusesFor: Atom.family(() => Atom.make(Result.success([])))
   }
 })
 

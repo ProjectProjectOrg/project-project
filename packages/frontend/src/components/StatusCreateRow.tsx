@@ -2,9 +2,9 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
-import { createStatusAtom, projectKey } from "@/atoms/projectStatuses"
+import { createStatus, statusesRequest } from "@/atoms/projectStatuses"
 import { statusCreateErrorMessage } from "@/lib/errorMessage"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -38,9 +38,10 @@ export function StatusCreateRow({ orgSlug, slug }: Props) {
 }
 
 function CreateFields({ orgSlug, slug }: Props) {
-  const key = projectKey(orgSlug, slug)
-  const create = useAtomSet(createStatusAtom(key), { mode: "promiseExit" })
-  const createState = useAtomValue(createStatusAtom(key))
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const createMutation = createStatus(req)
+  const create = useAtomSet(createMutation, { mode: "promiseExit" })
+  const createState = useAtomValue(createMutation)
   const { close, busy, setBusy } = useInlineForm<"create">()
   const [draft, setDraft] = useState("")
   const [didSubmit, setDidSubmit] = useState(false)

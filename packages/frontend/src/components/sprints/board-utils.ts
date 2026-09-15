@@ -1,4 +1,5 @@
 import type { ProjectStatus, Ticket, TicketId } from "@projectproject/shared"
+import { compareByOrderKey } from "@/lib/orderKey"
 
 export type DragData = {
   type: "card"
@@ -19,11 +20,6 @@ export type ColumnDropData = {
 }
 
 export type DropData = CardDropData | ColumnDropData
-
-export const compareByOrderKey = <T extends { orderKey: string }>(
-  a: T,
-  b: T
-): number => (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0)
 
 export function boardStatusesFor(
   statuses: ReadonlyArray<ProjectStatus>

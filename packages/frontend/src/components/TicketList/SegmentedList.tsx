@@ -16,11 +16,7 @@ import {
   EmptyTitle
 } from "@/components/ui/empty"
 import { ErrorPage } from "@/components/ErrorPage"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  projectStatusesBaseAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import type { BacklogValue } from "@/atoms/backlog"
 import { m } from "@/paraglide/messages"
 import type {
@@ -92,12 +88,12 @@ export function SegmentedList({
     []
   )
 
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
-  const refreshStatuses = useAtomRefresh(
-    projectStatusesBaseAtom(projectStatusKey(orgSlug, slug))
-  )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
+  const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult
   )
