@@ -144,6 +144,8 @@ it("loads tag usage counts when management opens", async () => {
           createdAt: "2026-01-01T00:00:00.000Z"
         }
       ])
+    if (path.endsWith("/tickets/T-1"))
+      return Response.json(Schema.encodeSync(TicketDetail)(ticket))
     throw new Error("Unexpected request: " + path)
   })
   render(
@@ -152,11 +154,15 @@ it("loads tag usage counts when management opens", async () => {
     </RegistryContext.Provider>
   )
   const edit = await screen.findByRole("button", { name: "Edit tag test" })
-  expect(requests).toEqual(["/api/orgs/org/projects/project/tags"])
+  expect(requests.toSorted()).toEqual([
+    "/api/orgs/org/projects/project/tags",
+    "/api/orgs/org/projects/project/tickets/T-1"
+  ])
   fireEvent.click(edit)
   await screen.findByText("Applied to 7 tickets")
-  expect(requests).toEqual([
+  expect(requests.toSorted()).toEqual([
     "/api/orgs/org/projects/project/tags",
-    "/api/orgs/org/projects/project/tags/usage-counts"
+    "/api/orgs/org/projects/project/tags/usage-counts",
+    "/api/orgs/org/projects/project/tickets/T-1"
   ])
 })
