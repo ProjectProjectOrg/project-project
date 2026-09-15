@@ -3,13 +3,8 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
-import { setActiveOrganizationAtom } from "@/atoms/auth"
-import {
-  orgDetailAtom,
-  orgKey,
-  softDeleteOrgAtom,
-  userOrgsAtom
-} from "@/atoms/orgs"
+import { setActiveOrganization } from "@/atoms/auth"
+import { orgDetail, orgRequest, softDeleteOrg, userOrgs } from "@/atoms/orgs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,7 +21,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/danger")({
 
 function DangerSettings() {
   const { orgSlug } = Route.useParams()
-  const result = useAtomValue(orgDetailAtom(orgSlug))
+  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(result, {
     onInitial: () => <DangerSkeleton />,
@@ -45,14 +40,13 @@ function DangerSettings() {
 
 function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const navigate = useNavigate()
-  const softDelete = useAtomSet(softDeleteOrgAtom(orgKey(orgSlug)), {
+  const req = orgRequest(orgSlug)
+  const softDelete = useAtomSet(softDeleteOrg(req), { mode: "promiseExit" })
+  const deleteState = useAtomValue(softDeleteOrg(req))
+  const setActive = useAtomSet(setActiveOrganization, {
     mode: "promiseExit"
   })
-  const deleteState = useAtomValue(softDeleteOrgAtom(orgKey(orgSlug)))
-  const setActive = useAtomSet(setActiveOrganizationAtom("me"), {
-    mode: "promiseExit"
-  })
-  const orgsResult = useAtomValue(userOrgsAtom)
+  const orgsResult = useAtomValue(userOrgs())
   const [confirm, setConfirm] = useState("")
 
   const submitting = deleteState.waiting

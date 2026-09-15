@@ -4,7 +4,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import {
   oauthClientNameAtom,
   oauthClientRequest,
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/(public)/oauth/consent")({
 })
 
 function OauthConsentPage() {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const search = Route.useSearch()
   const oauthQuery =
     typeof window === "undefined"
@@ -40,7 +40,7 @@ function OauthConsentPage() {
     new URLSearchParams(oauthQuery).get("client_id") ??
     undefined
 
-  if (Result.isFailure(me)) {
+  if (Result.isFailure(viewer)) {
     return (
       <Navigate
         to="/login"

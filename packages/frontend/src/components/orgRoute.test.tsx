@@ -11,7 +11,7 @@ import {
   it,
   vi
 } from "vitest"
-import { orgDetailAtom, restoreOrgAtom, softDeleteOrgAtom } from "@/atoms/orgs"
+import { orgDetail, orgRequest, restoreOrg, softDeleteOrg } from "@/atoms/orgs"
 import { stubFetch } from "@/api/testFetch"
 import { Route } from "@/routes/_authed/orgs/$orgSlug/route"
 
@@ -47,7 +47,7 @@ const initialOrg = {
 const fetchStub = stubFetch()
 
 function OrgConsumer() {
-  const org = useAtomValue(orgDetailAtom("test"))
+  const org = useAtomValue(orgDetail(orgRequest("test")))
   return <div>{Result.isSuccess(org) ? org.value.name : "Waiting for org"}</div>
 }
 
@@ -111,7 +111,7 @@ describe("org route data ownership", () => {
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
     const secondLoad = load()
     renderLayout()
-    const release = registry.mount(orgDetailAtom("test"))
+    const release = registry.mount(orgDetail(orgRequest("test")))
     expect(screen.getByText("Loading organization")).toBeTruthy()
     expect(fetch).toHaveBeenCalledTimes(1)
 
@@ -159,13 +159,13 @@ describe("org route data ownership", () => {
     renderLayout()
     expect(await screen.findByText(initialOrg.name)).toBeTruthy()
 
-    registry.mount(softDeleteOrgAtom("test"))
-    registry.mount(restoreOrgAtom("test"))
-    act(() => registry.set(softDeleteOrgAtom("test"), undefined))
+    registry.mount(softDeleteOrg(orgRequest("test")))
+    registry.mount(restoreOrg(orgRequest("test")))
+    act(() => registry.set(softDeleteOrg(orgRequest("test")), undefined))
     expect(await screen.findByText("Deleted organization")).toBeTruthy()
     expect(screen.queryByText(initialOrg.name)).toBeNull()
 
-    act(() => registry.set(restoreOrgAtom("test"), undefined))
+    act(() => registry.set(restoreOrg(orgRequest("test")), undefined))
     expect(await screen.findByText(initialOrg.name)).toBeTruthy()
     expect(screen.queryByText("Deleted organization")).toBeNull()
   })

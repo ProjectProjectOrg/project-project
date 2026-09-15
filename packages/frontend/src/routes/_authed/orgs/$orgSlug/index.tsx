@@ -3,7 +3,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import { ArrowRight, Plus } from "lucide-react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
@@ -22,10 +22,10 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
 
 function Dashboard() {
   const { orgSlug } = Route.useParams()
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
-  const name = Result.isSuccess(me)
-    ? me.value.name.split(" ")[0]
+  const name = Result.isSuccess(viewer)
+    ? viewer.value.name.split(" ")[0]
     : m.org_dashboard_greeting_fallback_name()
   const greeting = greet()
 

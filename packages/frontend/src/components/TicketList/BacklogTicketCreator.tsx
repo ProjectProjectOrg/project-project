@@ -33,7 +33,7 @@ import {
 import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { projectGitStates } from "@/atoms/github"
 import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
@@ -77,8 +77,8 @@ export function BacklogTicketCreator({
   const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
 
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"

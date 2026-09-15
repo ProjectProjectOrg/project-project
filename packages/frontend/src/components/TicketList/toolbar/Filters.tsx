@@ -9,7 +9,7 @@ import {
   UserRound
 } from "lucide-react"
 import { useMemo, useRef, useState, type ComponentProps } from "react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import {
@@ -244,8 +244,8 @@ function FilterAssignee({
   onChange: (value: TicketFilter["assignee"]) => void
   members: ReadonlyArray<Member>
 }) {
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : null
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : null
   const assignees = value
   const assigneeFilter = assignees?.length === 1 ? assignees[0] : "all"
   const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>

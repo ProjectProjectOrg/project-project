@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { CopyButton } from "@/components/ui/copy-button"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { projectGitStates } from "@/atoms/github"
 import { projectRequest } from "@/atoms/projects"
 import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
@@ -512,8 +512,10 @@ function usePreferredBranchLink(
   slug: string,
   name: string
 ): { href: string; target?: "_blank"; rel?: "noreferrer" } {
-  const me = useAtomValue(meAtom)
-  const preference = Result.isSuccess(me) ? me.value.editorPreference : "github"
+  const viewer = useAtomValue(me())
+  const preference = Result.isSuccess(viewer)
+    ? viewer.value.editorPreference
+    : "github"
   const href = branchUrl(preference, slug, name)
   return branchOpensInNewTab(preference)
     ? { href, target: "_blank", rel: "noreferrer" }

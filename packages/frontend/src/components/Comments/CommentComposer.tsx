@@ -9,7 +9,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
 import { commentsRequest, createComment } from "@/atoms/comments"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import type { TicketId, User } from "@projectproject/shared"
@@ -28,14 +28,14 @@ export function CommentComposer({
   slug: string
   ticketId: TicketId
 }) {
-  const me = useAtomValue(meAtom)
-  if (!Result.isSuccess(me)) return null
+  const viewer = useAtomValue(me())
+  if (!Result.isSuccess(viewer)) return null
   return (
     <ReadyCommentComposer
       orgSlug={orgSlug}
       slug={slug}
       ticketId={ticketId}
-      author={me.value}
+      author={viewer.value}
     />
   )
 }

@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useMemo } from "react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { matchesTicketQuery } from "@projectproject/shared"
 import type { Ticket, TicketListQuery } from "@projectproject/shared"
@@ -23,8 +23,8 @@ export function useBoardTickets(
     [orgSlug, slug]
   )
   const statusesResult = useAtomValue(statusesFor(statusReq))
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : undefined
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
 
   const boardQuery = useMemo(() => {
     const {

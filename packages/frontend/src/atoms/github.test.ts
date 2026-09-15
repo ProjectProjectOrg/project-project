@@ -3,7 +3,7 @@ import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
 import type { GitStatesResponse, TicketId } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
-import { disconnectPersonalGithubAtom, meAtom } from "./auth"
+import { disconnectPersonalGithub, me } from "./auth"
 import {
   branches,
   branchesRequest,
@@ -290,7 +290,7 @@ describe("projectGitStates", () => {
   })
 })
 
-describe("disconnectPersonalGithubAtom", () => {
+describe("disconnectPersonalGithub", () => {
   it("refreshes the github reads through the github auth key", async () => {
     let integrationCalls = 0
     listAccounts.mockResolvedValue({
@@ -310,7 +310,7 @@ describe("disconnectPersonalGithubAtom", () => {
 
     const view = githubIntegration(githubOrgRequest("acme"))
     const registry = AtomRegistry.make()
-    registry.mount(meAtom)
+    registry.mount(me())
     registry.mount(view)
     try {
       await vi.waitFor(() => {
@@ -318,7 +318,7 @@ describe("disconnectPersonalGithubAtom", () => {
         expect(integrationCalls).toBe(1)
       })
 
-      registry.set(disconnectPersonalGithubAtom, undefined)
+      registry.set(disconnectPersonalGithub, undefined)
 
       await vi.waitFor(() => expect(unlinkAccount).toHaveBeenCalled())
       await vi.waitFor(() => expect(integrationCalls).toBe(2))

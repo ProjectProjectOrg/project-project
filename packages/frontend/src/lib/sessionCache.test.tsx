@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router"
 import { afterAll, afterEach, expect, it, vi } from "vitest"
 import { createSessionCache } from "./sessionCache"
-import { meAtom, logoutAtom } from "@/atoms/auth"
+import { me, logout } from "@/atoms/auth"
 import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { stubFetch } from "@/api/testFetch"
 import { authClient } from "@/services/AuthClient"
@@ -93,7 +93,7 @@ it("drops both caches on logout and cannot reuse an old user's late response aft
     const alice = cache.getSnapshot()
     alice.registry.mount(projectsFor(projectsRequest("org-a")))
     await vi.waitFor(() => expect(oldSignal).toBeTruthy())
-    alice.registry.set(logoutAtom, undefined)
+    alice.registry.set(logout, undefined)
     await vi.waitFor(() =>
       expect(cache.getSnapshot().registry).not.toBe(alice.registry)
     )
@@ -102,7 +102,7 @@ it("drops both caches on logout and cannot reuse an old user's late response aft
     identity = "bob"
     cache.refreshIdentity()
     await vi.waitFor(() =>
-      expect(cache.getSnapshot().registry.get(meAtom)).toMatchObject({
+      expect(cache.getSnapshot().registry.get(me())).toMatchObject({
         value: { id: "bob" }
       })
     )
@@ -152,7 +152,7 @@ it("retains org-keyed caches on org switching, but replaces them for a direct id
     current = user("alice", "org-b")
     cache.refreshIdentity()
     await vi.waitFor(() =>
-      expect(first.registry.get(meAtom)).toMatchObject({
+      expect(first.registry.get(me())).toMatchObject({
         value: { activeOrgSlug: "org-b" }
       })
     )
@@ -168,7 +168,7 @@ it("retains org-keyed caches on org switching, but replaces them for a direct id
     await vi.waitFor(() =>
       expect(cache.getSnapshot().registry).not.toBe(first.registry)
     )
-    expect(cache.getSnapshot().registry.get(meAtom)).toMatchObject({
+    expect(cache.getSnapshot().registry.get(me())).toMatchObject({
       value: { id: "bob" }
     })
   } finally {

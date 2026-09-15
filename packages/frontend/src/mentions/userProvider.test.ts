@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema"
 import { expect, it, vi } from "vitest"
 import { UserId } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { userProvider } from "./userProvider"
 
 const userId = Schema.decodeSync(UserId)
@@ -50,7 +50,7 @@ it("reuses cached identity for repeated mentions and matches supplied members wi
     role: "member" as const
   }
   try {
-    await Effect.runPromise(Registry.getResult(registry, meAtom))
+    await Effect.runPromise(Registry.getResult(registry, me()))
     expect(await search("lu")).toEqual([
       { id: "user-1", label: "Luuk", image: null }
     ])

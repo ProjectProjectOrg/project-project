@@ -8,7 +8,7 @@ import {
   everhourProjectStatusAtom,
   syncEverhourProjectAtom
 } from "@/atoms/everhour"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { projectRequest, updateProjectSetup } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { GithubChip } from "@/components/GithubChip"
@@ -95,7 +95,7 @@ function EverhourSettingsCard({
 }) {
   const req = everhourProjectRequest(orgSlug, slug)
   const status = useAtomValue(everhourProjectStatusAtom(req))
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
 
   return Result.matchWithError(status, {
     onInitial: () => (
@@ -106,7 +106,7 @@ function EverhourSettingsCard({
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value, waiting }) => {
-      const user = Result.isSuccess(me) ? me.value : null
+      const user = Result.isSuccess(viewer) ? viewer.value : null
       const hasKey = user?.personalEverhour.connected === true
       const canManage = role === "owner" || role === "admin"
       return (

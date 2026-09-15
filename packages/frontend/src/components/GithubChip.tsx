@@ -19,7 +19,7 @@ import {
   startGithubInstall
 } from "@/atoms/github"
 import { projectRequest } from "@/atoms/projects"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,11 +40,11 @@ type Props = {
 }
 
 export function GithubChip({ orgSlug, slug, github, callerRole }: Props) {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const canManage =
     callerRole === "owner" &&
-    Result.isSuccess(me) &&
-    me.value.activeOrgSlug === orgSlug
+    Result.isSuccess(viewer) &&
+    viewer.value.activeOrgSlug === orgSlug
   const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
   const states = useAtomValue(projectGitStates(req))
 

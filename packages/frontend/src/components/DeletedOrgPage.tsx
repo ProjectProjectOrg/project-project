@@ -5,7 +5,7 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import { useState } from "react"
-import { orgDetailAtom, restoreOrgAtom } from "@/atoms/orgs"
+import { orgDetail, orgRequest, restoreOrg } from "@/atoms/orgs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
@@ -17,7 +17,7 @@ const formatDate = (date: Date): string =>
   new Intl.DateTimeFormat(getLocale(), { dateStyle: "long" }).format(date)
 
 export function DeletedOrgPage({ orgSlug }: { orgSlug: string }) {
-  const result = useAtomValue(orgDetailAtom(orgSlug))
+  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(result, {
     onInitial: () => (
@@ -33,8 +33,10 @@ export function DeletedOrgPage({ orgSlug }: { orgSlug: string }) {
 
 function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const router = useRouter()
-  const restore = useAtomSet(restoreOrgAtom(orgSlug), { mode: "promiseExit" })
-  const restoreState = useAtomValue(restoreOrgAtom(orgSlug))
+  const restore = useAtomSet(restoreOrg(orgRequest(orgSlug)), {
+    mode: "promiseExit"
+  })
+  const restoreState = useAtomValue(restoreOrg(orgRequest(orgSlug)))
   const [error, setError] = useState<string | null>(null)
 
   const restoring = restoreState.waiting

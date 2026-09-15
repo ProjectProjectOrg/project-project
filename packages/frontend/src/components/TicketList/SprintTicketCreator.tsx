@@ -36,7 +36,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/atoms/sprintList"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { ticketSearchAtom, ticketSearchKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -85,8 +85,8 @@ export function SprintTicketCreator({
   })
   const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
   const error = Result.isFailure(createState)

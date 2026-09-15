@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/unstable/reactivity/Atom"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import type { MentionProvider, MentionScope } from "./registry"
 
@@ -27,16 +27,16 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
           image: member.image
         }))
       }
-      const me = yield* Atom.getResult(meAtom)
-      const label = me.name ?? me.id
+      const viewer = yield* Atom.getResult(me())
+      const label = viewer.name ?? viewer.id
       if (
         q &&
         !label.toLowerCase().includes(q) &&
-        !me.id.toLowerCase().includes(q)
+        !viewer.id.toLowerCase().includes(q)
       ) {
         return []
       }
-      return [{ id: me.id, label, image: null }]
+      return [{ id: viewer.id, label, image: null }]
     }).pipe(Effect.orElseSucceed(() => [])),
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-center gap-2">

@@ -9,10 +9,10 @@ import {
   FigmaError
 } from "@projectproject/shared"
 import {
-  connectPersonalGithubAtom,
-  disconnectPersonalGithubAtom,
-  meAtom,
-  updateEditorPreferenceAtom
+  connectPersonalGithub,
+  disconnectPersonalGithub,
+  me,
+  updateEditorPreference
 } from "@/atoms/auth"
 import {
   connectEverhourProfileAtom,
@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_authed/profile")({
 function Profile() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
   const figmaOAuthError = useRef(
     figmaOAuthErrorMessage(search.figmaError)
@@ -74,8 +74,8 @@ function Profile() {
     })
   }, [navigate, search.error, search.figmaError])
 
-  if (!Result.isSuccess(me)) return null
-  const user = me.value
+  if (!Result.isSuccess(viewer)) return null
+  const user = viewer.value
 
   return (
     <PageContainer>
@@ -246,12 +246,12 @@ function PersonalGithubCard({
   email: string
   oauthError: string | null
 }) {
-  const connect = useAtomSet(connectPersonalGithubAtom, { mode: "promise" })
-  const disconnect = useAtomSet(disconnectPersonalGithubAtom, {
+  const connect = useAtomSet(connectPersonalGithub, { mode: "promise" })
+  const disconnect = useAtomSet(disconnectPersonalGithub, {
     mode: "promise"
   })
-  const connectState = useAtomValue(connectPersonalGithubAtom)
-  const disconnectState = useAtomValue(disconnectPersonalGithubAtom)
+  const connectState = useAtomValue(connectPersonalGithub)
+  const disconnectState = useAtomValue(disconnectPersonalGithub)
   const connecting = connectState.waiting
   const waiting = connecting || disconnectState.waiting
   const error = Result.isFailure(connectState)
@@ -454,8 +454,8 @@ function EditorPreferenceCard({
 }: {
   preference: EditorPreference
 }) {
-  const update = useAtomSet(updateEditorPreferenceAtom, { mode: "promise" })
-  const updateState = useAtomValue(updateEditorPreferenceAtom)
+  const update = useAtomSet(updateEditorPreference, { mode: "promise" })
+  const updateState = useAtomValue(updateEditorPreference)
   const [selected, setSelected] = useState(preference)
 
   useEffect(() => {

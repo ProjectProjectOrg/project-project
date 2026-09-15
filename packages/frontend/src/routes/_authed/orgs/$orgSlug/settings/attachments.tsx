@@ -1,7 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
-import { orgDetailAtom } from "@/atoms/orgs"
+import { orgDetail, orgRequest } from "@/atoms/orgs"
 import { AttachmentsBrowser } from "@/components/AttachmentsBrowser"
 import { ErrorPage } from "@/components/ErrorPage"
 import { m } from "@/paraglide/messages"
@@ -17,7 +17,7 @@ export const Route = createFileRoute(
 
 function AttachmentsSettings() {
   const { orgSlug } = Route.useParams()
-  const orgResult = useAtomValue(orgDetailAtom(orgSlug))
+  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(orgResult, {
     onInitial: () => <BrowserSkeleton />,

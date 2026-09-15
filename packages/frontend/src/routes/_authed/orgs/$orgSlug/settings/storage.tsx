@@ -4,7 +4,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
-import { orgDetailAtom } from "@/atoms/orgs"
+import { orgDetail, orgRequest } from "@/atoms/orgs"
 import {
   connectStorage,
   disconnectStorage,
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/storage")(
 
 function StorageSettings() {
   const { orgSlug } = Route.useParams()
-  const orgResult = useAtomValue(orgDetailAtom(orgSlug))
+  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
 
   return Result.matchWithError(orgResult, {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { LexicalEditor } from "@/components/LexicalEditor"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import { commentsRequest, deleteComment, editComment } from "@/atoms/comments"
@@ -30,9 +30,11 @@ export function CommentRow({
   slug: string
   ticketId: TicketId
 }) {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const isAuthor =
-    !pending && Result.isSuccess(me) && me.value.id === comment.author.id
+    !pending &&
+    Result.isSuccess(viewer) &&
+    viewer.value.id === comment.author.id
   const req = commentsRequest(orgSlug, slug, ticketId)
   const key = { req, commentId: comment.id }
   const editState = useAtomValue(editComment(key))
