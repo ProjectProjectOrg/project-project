@@ -4,6 +4,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   backlog,
   backlogRequest,
+  encodeTicketListQuery,
   type BacklogRequest,
   type BacklogValue
 } from "@/atoms/backlog"
@@ -62,7 +63,7 @@ export function TicketList({
   const renderSections = () =>
     active ? (
       <SegmentedList
-        key={`${orgSlug}/${slug}/${JSON.stringify(active.query)}`}
+        key={`${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`}
         orgSlug={orgSlug}
         slug={slug}
         query={active.query}

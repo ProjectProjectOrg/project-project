@@ -1,5 +1,6 @@
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
@@ -8,13 +9,17 @@ import {
   type Ticket,
   type TicketCounts,
   type TicketId,
-  type TicketListQuery,
+  TicketListQuery,
   type TicketStatus,
   type UpdateTicketInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applyTicketPatch } from "./ticketPatch"
+
+export const encodeTicketListQuery = Schema.encodeSync(
+  Schema.fromJsonString(TicketListQuery)
+)
 
 export interface BacklogRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }

@@ -6,6 +6,7 @@ import { useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
+  encodeTicketListQuery,
   loadMoreBacklog,
   type BacklogSection
 } from "@/atoms/backlog"
@@ -66,7 +67,7 @@ export function SectionList({
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const sectionKey = `${orgSlug}/${slug}/${status}/${JSON.stringify(req.query)}`
+  const sectionKey = `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
   const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
   const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
   const loadingMore = loadMoreState.waiting
