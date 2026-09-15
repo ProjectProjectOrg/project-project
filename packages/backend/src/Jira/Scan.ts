@@ -410,6 +410,9 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         collision.sourceIds.map((id) => [id, collision.sourceIds] as const)
       )
     )
+    const identityOptions = input.identityOptions.map((option) =>
+      option.name.length === 0 ? { ...option, name: option.email } : option
+    )
     const requirements = yield* Schema.decodeUnknownEffect(
       JiraMigrationRequirements
     )({
@@ -423,13 +426,13 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         displayName: identity.displayName,
         email: identity.emailAddress,
         suggestedProjectProjectUserId:
-          input.identityOptions.find(
+          identityOptions.find(
             ({ email }) =>
               identity.emailAddress !== null &&
               email.toLowerCase() === identity.emailAddress.toLowerCase()
           )?.id ?? null
       })),
-      identityOptions: input.identityOptions,
+      identityOptions,
       statuses: manifest.statuses.map((status) => ({
         jiraStatusId: status.id,
         name: status.name,

@@ -65,7 +65,7 @@ describe("buildJiraScanArtifacts", () => {
         identityOptions: [
           {
             id: "user-1",
-            name: "Ada",
+            name: "",
             email: "ada@example.test",
             imageUrl: null
           }
@@ -89,6 +89,14 @@ describe("buildJiraScanArtifacts", () => {
       ],
       statuses: [{ suggestedProjectStatusSlug: "in_progress" }]
     })
+    expect(artifacts.requirements.identityOptions).toEqual([
+      {
+        id: "user-1",
+        name: "ada@example.test",
+        email: "ada@example.test",
+        imageUrl: null
+      }
+    ])
     expect(
       artifacts.requirements.tags.map(
         ({ suggestedDestinationTagName }) => suggestedDestinationTagName
