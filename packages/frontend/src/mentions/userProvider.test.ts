@@ -1,15 +1,14 @@
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { afterEach, expect, it, vi } from "vitest"
+import { expect, it, vi } from "vitest"
 import { UserId } from "@projectproject/shared"
+import { stubFetch } from "@/api/testFetch"
 import { meAtom } from "@/atoms/auth"
-import { AppLayer } from "@/runtime"
-import { userMentionProvider } from "./userProvider"
-
-afterEach(() => vi.unstubAllGlobals())
+import { userProvider } from "./userProvider"
 
 const userId = Schema.decodeSync(UserId)
+const fetchStub = stubFetch()
 
 it("reuses cached identity for repeated mentions and matches supplied members without requests", async () => {
   const registry = Registry.make()
@@ -34,16 +33,13 @@ it("reuses cached identity for repeated mentions and matches supplied members wi
       }
     })
   )
-  vi.stubGlobal("fetch", fetch)
+  fetchStub.set(fetch)
   const scope = { orgSlug: "org", slug: "project" }
   const search = (q: string, members?: (typeof member)[]) =>
     Effect.runPromise(
-      userMentionProvider
-        .search(q, { ...scope, members })
-        .pipe(
-          Effect.provideService(Registry.AtomRegistry, registry),
-          Effect.provide(AppLayer)
-        )
+      userProvider({ ...scope, members })
+        .search(q)
+        .pipe(Effect.provideService(Registry.AtomRegistry, registry))
     )
   const member = {
     id: userId("member-1"),

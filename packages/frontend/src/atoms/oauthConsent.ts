@@ -1,47 +1,64 @@
-import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { authClient } from "@/services/AuthClient"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 
-export interface SubmitConsentInput {
-  readonly accept: boolean
+export interface OAuthConsentRequest {
   readonly oauthQuery: string
 }
 
-export const submitConsentAtom = Atom.family((oauthQuery: string) =>
-  runtime.fn(
+export const oauthConsentRequest = (
+  oauthQuery: string
+): OAuthConsentRequest => ({ oauthQuery })
+
+export interface SubmitConsentInput {
+  readonly accept: boolean
+}
+
+export const submitConsentAtom = Atom.family((req: OAuthConsentRequest) =>
+  Api.runtime.fn(
     Effect.fn(function* (input: SubmitConsentInput) {
-      const client = yield* ApiClient
-      return yield* client.oauthApplications.consent({
-        payload: {
-          accept: input.accept,
-          oauth_query: oauthQuery
-        }
-      })
+      const result = yield* Api.use((client) =>
+        client.oauthApplications.consent({
+          payload: {
+            accept: input.accept,
+            oauth_query: req.oauthQuery
+          }
+        })
+      )
+      if (input.accept) {
+        yield* Reactivity.invalidate([Keys.oauthApplications()])
+      }
+      return result
     })
   )
 )
 
-const OAuthClientName = Schema.Struct({
-  client_name: Schema.optional(Schema.NullOr(Schema.String))
+export interface OAuthClientRequest {
+  readonly query: { readonly client_id: string } | null
+}
+
+export const oauthClientRequest = (
+  clientId: string | undefined
+): OAuthClientRequest => ({
+  query: clientId ? { client_id: clientId } : null
 })
 
-export const oauthClientNameAtom = Atom.family((clientId: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        if (!clientId) return null
-        const { data, error } = yield* Effect.tryPromise(() =>
-          authClient.$fetch<unknown>("/oauth2/public-client", {
-            query: { client_id: clientId }
-          })
-        )
-        if (error) return yield* Effect.fail(error)
-        const client = yield* Schema.decodeUnknownEffect(OAuthClientName)(data)
-        return client.client_name?.trim() || null
+const missingOAuthClient = Atom.make(
+  AsyncResult.success<{ readonly name: string | null }>({ name: null })
+)
+
+const oauthClientNameQuery = (req: OAuthClientRequest) =>
+  req.query === null
+    ? missingOAuthClient
+    : Api.query("publicOAuth", "publicClient", {
+        query: req.query,
+        timeToLive: "2 minutes",
+        reactivityKeys: [Keys.oauthClient(req.query.client_id)]
       })
-    )
-    .pipe(Atom.setIdleTTL("2 minutes"))
+
+export const oauthClientNameAtom = Atom.family((req: OAuthClientRequest) =>
+  Atom.optimistic(oauthClientNameQuery(req))
 )

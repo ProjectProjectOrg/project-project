@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, expect, it, vi } from "vitest"
+import { stubFetch } from "@/api/testFetch"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { MentionsPlugin } from "./MentionsPlugin"
 
@@ -42,27 +43,26 @@ vi.mock("@lexical/react/LexicalTypeaheadMenuPlugin", async (original) => ({
 
 afterEach(() => {
   cleanup()
-  vi.unstubAllGlobals()
 })
 
-it("debounces mention queries, aborts superseded requests, and rejects late results", async () => {
+const fetchStub = stubFetch()
+
+it("debounces mention queries, cancels superseded searches, and rejects late results", async () => {
   const registry = Registry.make()
+  const abort = vi.spyOn(AbortController.prototype, "abort")
   const requests = new Map<
     string,
     {
-      signal: AbortSignal | null | undefined
       resolve: (response: Response) => void
     }
   >()
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+  fetchStub.set((input: RequestInfo | URL) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
     )
     return new Promise<Response>((resolve) => {
       requests.set(url.searchParams.get("q") ?? "", {
-        signal:
-          init?.signal ?? (input instanceof Request ? input.signal : null),
         resolve
       })
     })
@@ -90,10 +90,9 @@ it("debounces mention queries, aborts superseded requests, and rejects late resu
     fireEvent.change(input, { target: { value: "#early" } })
     expect(requests.size).toBe(0)
     await waitFor(() => expect([...requests.keys()]).toEqual(["early"]))
+    abort.mockClear()
     fireEvent.change(input, { target: { value: "#latest" } })
-    await waitFor(() =>
-      expect(requests.get("early")?.signal?.aborted).toBe(true)
-    )
+    await waitFor(() => expect(abort).toHaveBeenCalled())
     await waitFor(() =>
       expect([...requests.keys()]).toEqual(["early", "latest"])
     )
@@ -116,21 +115,15 @@ it("debounces mention queries, aborts superseded requests, and rejects late resu
       updatedAt: "2026-01-01T00:00:00.000Z"
     })
     await act(async () =>
-      requests.get("latest")?.resolve(
-        Response.json({
-          items: [ticket("T-2", "Latest result")],
-          nextCursor: null
-        })
-      )
+      requests
+        .get("latest")
+        ?.resolve(Response.json([ticket("T-2", "Latest result")]))
     )
     await screen.findByText("ticket:T-2")
     await act(async () =>
-      requests.get("early")?.resolve(
-        Response.json({
-          items: [ticket("T-1", "Early result")],
-          nextCursor: null
-        })
-      )
+      requests
+        .get("early")
+        ?.resolve(Response.json([ticket("T-1", "Early result")]))
     )
     expect(screen.queryByText("ticket:T-1")).toBeNull()
     expect(screen.getByText("ticket:T-2")).toBeTruthy()
@@ -139,5 +132,6 @@ it("debounces mention queries, aborts superseded requests, and rejects late resu
   } finally {
     cleanup()
     registry.dispose()
+    abort.mockRestore()
   }
 })

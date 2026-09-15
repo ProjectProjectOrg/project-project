@@ -5,7 +5,12 @@ import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
 import { meAtom } from "@/atoms/auth"
-import { oauthClientNameAtom, submitConsentAtom } from "@/atoms/oauthConsent"
+import {
+  oauthClientNameAtom,
+  oauthClientRequest,
+  oauthConsentRequest,
+  submitConsentAtom
+} from "@/atoms/oauthConsent"
 import { m } from "@/paraglide/messages"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
@@ -58,14 +63,17 @@ function ConsentForm({
   oauthQuery: string
   clientId: string | undefined
 }) {
-  const submit = useAtomSet(submitConsentAtom(oauthQuery), {
+  const consentReq = oauthConsentRequest(oauthQuery)
+  const clientReq = oauthClientRequest(clientId)
+  const submit = useAtomSet(submitConsentAtom(consentReq), {
     mode: "promiseExit"
   })
-  const submitState = useAtomValue(submitConsentAtom(oauthQuery))
-  const clientName = useAtomValue(oauthClientNameAtom(clientId ?? ""))
+  const submitState = useAtomValue(submitConsentAtom(consentReq))
+  const clientName = useAtomValue(oauthClientNameAtom(clientReq))
   const displayName =
-    (Result.isSuccess(clientName) ? clientName.value : null) ??
-    m.auth_oauth_consent_client_fallback()
+    (Result.isSuccess(clientName)
+      ? clientName.value.name?.trim() || null
+      : null) ?? m.auth_oauth_consent_client_fallback()
   const [pending, setPending] = useState<"accept" | "deny" | null>(null)
   const error = Result.matchWithError(submitState, {
     onInitial: () => null,
@@ -76,7 +84,7 @@ function ConsentForm({
 
   const onSubmit = async (accept: boolean) => {
     setPending(accept ? "accept" : "deny")
-    const exit = await submit({ accept, oauthQuery })
+    const exit = await submit({ accept })
     if (Exit.isSuccess(exit)) {
       window.location.replace(exit.value.redirectURI)
       return

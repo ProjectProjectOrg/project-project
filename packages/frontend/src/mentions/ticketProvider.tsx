@@ -1,35 +1,37 @@
 import * as Effect from "effect/Effect"
-import { ApiClient } from "@/services/ApiClient"
-import { DEFAULT_TICKET_SORT } from "@projectproject/shared"
-import type { MentionProvider } from "./registry"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import type { Ticket } from "@projectproject/shared"
+import { searchRequest, ticketSearch } from "@/atoms/ticketSearch"
+import type { MentionCandidate, MentionProvider } from "./registry"
 
-export const ticketMentionProvider: MentionProvider = {
+const toCandidate = (ticket: Ticket): MentionCandidate => ({
+  id: ticket.id,
+  label: ticket.title
+})
+
+export const ticketProvider = (scope: {
+  readonly orgSlug: string
+  readonly slug: string
+}): MentionProvider => ({
   trigger: "#",
   type: "ticket",
-  search: (query, scope) =>
-    Effect.gen(function* () {
-      if (!scope.orgSlug || !scope.slug) return []
-      const client = yield* ApiClient
-      const page = yield* client.tickets.list({
-        params: { orgSlug: scope.orgSlug, slug: scope.slug },
-        query: {
-          q: query.length > 0 ? query : undefined,
-          sort: DEFAULT_TICKET_SORT
-        }
-      })
-      const q = query.toLowerCase()
-      return page.items
-        .filter(
-          (t) =>
-            t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)
+  search: (query) => {
+    if (!scope.orgSlug || !scope.slug) return Effect.succeed([])
+    return Effect.gen(function* () {
+      const results = yield* Atom.getResult(
+        ticketSearch(
+          searchRequest(scope.orgSlug, scope.slug, { q: query, limit: 8 })
         )
-        .slice(0, 8)
-        .map((t) => ({ id: t.id, label: t.title }))
-    }).pipe(Effect.orElseSucceed(() => [])),
-  renderRow: (c) => (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="font-mono shrink-0 whitespace-nowrap">{c.id}</span>
-      <span className="text-muted-foreground truncate">{c.label}</span>
+      )
+      return results.map(toCandidate)
+    }).pipe(Effect.orElseSucceed(() => []))
+  },
+  renderRow: (candidate) => (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 whitespace-nowrap font-mono">
+        {candidate.id}
+      </span>
+      <span className="text-muted-foreground truncate">{candidate.label}</span>
     </div>
   )
-}
+})
