@@ -112,7 +112,6 @@ export type CompleteSprintInput = typeof CompleteSprintInput.Type
 
 export const CompleteSprintOutput = Schema.Struct({
   target: GroupDetail,
-  stayed: Schema.Array(TicketId),
   carried: Schema.Array(TicketId)
 })
 export type CompleteSprintOutput = typeof CompleteSprintOutput.Type

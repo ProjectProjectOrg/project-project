@@ -717,7 +717,7 @@ export const GroupsLive = Layer.effect(
             updatedAt: now
           }
           yield* groupDocs.write(orgSlug, slug, id, nextSource)
-          return { target: nextSource, stayed: stay, carried: carry }
+          return { target: nextSource, carried: carry }
         })
       )
 

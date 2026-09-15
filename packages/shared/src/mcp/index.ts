@@ -429,8 +429,8 @@ export const McpTools = {
       "`{ kind: 'sprint', groupId: <G-N> }` (move carryover to another " +
       "sprint) or `{ kind: 'backlog' }` (drop carryover off all sprints). " +
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
-      "Returns the now-completed sprint plus the `stayed` and `carried` " +
-      "ticket id partitions the server computed.",
+      "Returns the now-completed sprint plus the `carried` ticket ids the " +
+      "server moved to the destination.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,

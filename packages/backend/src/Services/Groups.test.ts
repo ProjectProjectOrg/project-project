@@ -634,7 +634,6 @@ it.effect(
 
       expect(result.target.completedAt).not.toBeNull()
       expect(result.target.tickets).toEqual(["T-2"])
-      expect(result.stayed).toEqual(["T-2"])
       expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
     }).pipe(
       Effect.provide(
@@ -678,7 +677,6 @@ it.effect(
         destination: { kind: "sprint", groupId: dest.id }
       })
 
-      expect(result.stayed).toEqual(["T-2"])
       expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
 
       const sourceAfter = yield* groups.get("org", "user-1", "p", source.id)

@@ -771,7 +771,6 @@ describe("MCP dispatcher → sprint writes", () => {
             ...baseGroup({ id, kind: options.kind }),
             completedAt: isoDate("2026-05-13T00:00:00.000Z")
           },
-          stayed: [],
           carried: []
         })
       }
