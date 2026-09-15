@@ -48,12 +48,6 @@ export const sprintList = Atom.family((req: SprintListRequest) =>
   Atom.optimistic(sprintListQuery(req))
 )
 
-/**
- * Derived from the optimistic wrapper with `Atom.mapResult`, so it inherits the
- * overlay and the hold for free. This is what retires
- * `pendingSprintAssignmentAtom`: that map existed only because the old
- * derivation read possibly-stale list data after the mutation settled.
- */
 export const sprintMembership = Atom.family((req: SprintListRequest) =>
   Atom.mapResult(sprintList(req), (sprints) => {
     const map = new Map<TicketId, Group>()

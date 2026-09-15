@@ -7,7 +7,7 @@ import {
   type FigmaRef,
   type TicketDetail
 } from "@projectproject/shared"
-import { ticketBodyDraftAtom, ticketKey } from "@/atoms/tickets"
+import { ticketBodyDraft, ticketRequest } from "@/atoms/ticketDetail"
 import { FigmaGlyph, figmaDisplayName } from "@/components/Lexical/FigmaChip"
 import { useFigmaMetadata } from "@/components/Lexical/figmaMetadata"
 import {
@@ -173,9 +173,10 @@ export function TicketDesignLinks({
   slug: string
   ticket: TicketDetail
 }) {
-  const key = ticketKey(orgSlug, slug, ticket.id)
   const figmaRequest = figmaTicketLinksRequest(orgSlug, slug, ticket.id)
-  const bodyDraft = useAtomValue(ticketBodyDraftAtom(key))
+  const bodyDraft = useAtomValue(
+    ticketBodyDraft(ticketRequest(orgSlug, slug, ticket.id))
+  )
   const links = extractTicketDesignLinks(bodyDraft ?? ticket.body)
 
   if (links.length === 0) return null

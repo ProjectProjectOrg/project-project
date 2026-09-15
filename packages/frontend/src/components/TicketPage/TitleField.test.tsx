@@ -10,10 +10,6 @@ vi.mock("@effect/atom-react", () => ({
   useAtomSet: () => mutation.update,
   useAtomValue: () => ({ _tag: "Initial", waiting: false })
 }))
-vi.mock("@/atoms/tickets", () => ({
-  ticketKey: () => "ticket",
-  updateTicketAtom: () => "update"
-}))
 
 const ticket = Schema.decodeSync(TicketDetail)({
   id: "T-1",

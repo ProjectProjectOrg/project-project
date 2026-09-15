@@ -5,7 +5,7 @@ import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
 import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { ErrorPage } from "@/components/ErrorPage"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
@@ -40,7 +40,7 @@ type OrderedProps = Props & {
 }
 
 function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
-  useAtomValue(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))
+  useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
 
   const sorted = useMemo(
     () => [...statuses].toSorted(compareByOrderKey),

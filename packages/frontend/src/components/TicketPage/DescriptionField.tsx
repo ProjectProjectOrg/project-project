@@ -6,8 +6,11 @@ import { Link } from "@tanstack/react-router"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { orgDetail, orgRequest } from "@/atoms/orgs"
 import { orgStorage, storageRequest } from "@/atoms/storage"
-import { ticketBodyDraftAtom, ticketKey } from "@/atoms/tickets"
-import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
+import {
+  ticketBodyDraft,
+  ticketRequest,
+  updateTicketDetail
+} from "@/atoms/ticketDetail"
 import {
   attachmentsForDescription,
   LexicalEditor,
@@ -37,15 +40,14 @@ export function DescriptionField({
   autoFocus: boolean
   onStatusChange: (status: SaveStatus) => void
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
   const req = useMemo(
     () => ticketRequest(orgSlug, slug, ticket.id),
     [orgSlug, slug, ticket.id]
   )
   const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const updateState = useAtomValue(updateTicketDetail(req))
-  const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
-  const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
+  const bodyDraft = useAtomValue(ticketBodyDraft(req))
+  const setBodyDraft = useAtomSet(ticketBodyDraft(req))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const storageActive =

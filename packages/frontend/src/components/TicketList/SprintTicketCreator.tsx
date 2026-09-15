@@ -37,7 +37,7 @@ import {
   sprintListRequest
 } from "@/atoms/sprintList"
 import { me } from "@/atoms/auth"
-import { ticketSearchAtom, ticketSearchKey } from "@/atoms/tickets"
+import { searchRequest, ticketSearch } from "@/atoms/ticketSearch"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -111,8 +111,8 @@ export function SprintTicketCreator({
 
   const [searchQuery, setSearchQuery] = useState("")
   const searchDebouncer = useDebouncer(setSearchQuery, { wait: 200 })
-  const searchAtom = ticketSearchAtom(
-    ticketSearchKey(orgSlug, slug, {
+  const searchAtom = ticketSearch(
+    searchRequest(orgSlug, slug, {
       q: searchQuery || undefined,
       excludeGroupId: groupId,
       limit: 24

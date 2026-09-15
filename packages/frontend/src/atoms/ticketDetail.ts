@@ -46,6 +46,10 @@ export const ticketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimistic(ticketQuery(req))
 )
 
+export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
+  Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
 /** Keys the OTHER views listen to, never ones `ticketQuery` registered. */
 const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
   const scope = scopeOf(req)

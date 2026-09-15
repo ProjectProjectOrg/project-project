@@ -5,7 +5,7 @@ import { Check, ChevronDown, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { ProjectStatus, StatusSlug } from "@projectproject/shared"
 import { deleteStatus, statusesRequest } from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -61,7 +61,7 @@ function ConfirmBody({ status, statuses, orgSlug, slug }: Props) {
   })
 
   const countResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
+    ticketCounts(countsRequest(orgSlug, slug, {}))
   )
   const affectedCount = Result.isSuccess(countResult)
     ? (countResult.value.byStatus[status.slug] ?? 0)

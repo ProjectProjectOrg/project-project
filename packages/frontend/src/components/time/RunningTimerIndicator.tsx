@@ -21,10 +21,7 @@ import {
   everhourProfileAtom,
   everhourProjectStatusAtom
 } from "@/atoms/everhour"
-import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import {
   activeTimerRequest,
   activeTimerAtom,
@@ -241,7 +238,7 @@ function ConnectedProjectTimerIndicator({
 }: ProjectTimerProps) {
   const profileResult = useAtomValue(everhourProfileAtom)
   const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+    sprintList(sprintListRequest(orgSlug, slug))
   )
   const timerReq = activeTimerRequest(orgSlug)
   const ticketReq = ticketTimeRequest(

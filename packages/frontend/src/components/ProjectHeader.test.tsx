@@ -18,10 +18,6 @@ vi.mock("@/atoms/projects", () => ({
   }),
   updateProject: () => "atom"
 }))
-vi.mock("@/atoms/sprints", () => ({
-  projectKey: (org: string, slug: string) => `${org}/${slug}`,
-  sprintsListAtom: () => "atom"
-}))
 vi.mock("@/components/sprints/ActiveSprintLine", () => ({
   ActiveSprintLine: () => <p>/proj</p>
 }))
