@@ -94,7 +94,7 @@ const transferAttachment = (input: UploadAttachmentInput, uploadUrl: string) =>
     })
   })
 
-const aborted = (input: UploadAttachmentInput) =>
+const ensureNotAborted = (input: UploadAttachmentInput) =>
   Effect.suspend(() =>
     input.signal?.aborted === true
       ? Effect.fail(new AttachmentUploadFailed({ reason: "abort" }))
@@ -104,7 +104,7 @@ const aborted = (input: UploadAttachmentInput) =>
 export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
   Api.runtime.fn(
     Effect.fn(function* (input: UploadAttachmentInput) {
-      yield* aborted(input)
+      yield* ensureNotAborted(input)
       const prepared = yield* Api.use((client) =>
         client.attachments.prepare({
           params: req,
@@ -115,9 +115,9 @@ export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
           }
         })
       )
-      yield* aborted(input)
+      yield* ensureNotAborted(input)
       yield* transferAttachment(input, prepared.uploadUrl)
-      yield* aborted(input)
+      yield* ensureNotAborted(input)
       const committed = yield* Api.use((client) =>
         client.attachments.commit({
           params: { ...req, attachmentId: prepared.id }
@@ -138,7 +138,7 @@ export const uploadProjectImage = Atom.family(
   (req: UploadProjectImageRequest) =>
     Api.runtime.fn(
       Effect.fn(function* (input: UploadAttachmentInput) {
-        yield* aborted(input)
+        yield* ensureNotAborted(input)
         const prepared = yield* Api.use((client) =>
           client.attachments.prepareProject({
             params: req,
@@ -149,9 +149,9 @@ export const uploadProjectImage = Atom.family(
             }
           })
         )
-        yield* aborted(input)
+        yield* ensureNotAborted(input)
         yield* transferAttachment(input, prepared.uploadUrl)
-        yield* aborted(input)
+        yield* ensureNotAborted(input)
         const committed = yield* Api.use((client) =>
           client.attachments.commitProject({
             params: { ...req, attachmentId: prepared.id }
@@ -269,35 +269,43 @@ const removeFromSummary = (
   }
 }
 
-export const deleteOrgAttachments = Atom.family((req: OrgAttachmentsRequest) =>
-  Atom.optimisticFn(orgAttachmentsRegion(req), {
-    reducer: (current, ids: ReadonlyArray<string>) =>
-      AsyncResult.map(current, (value) => {
-        const selected = new Set(ids)
-        const removed = value.list.items.filter((row) => selected.has(row.id))
-        return {
-          list: {
-            items: value.list.items.filter((row) => !selected.has(row.id)),
-            total: Math.max(0, value.list.total - removed.length)
-          },
-          summary: removeFromSummary(value.summary, removed)
-        }
-      }),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn(function* (ids: ReadonlyArray<string>, get) {
-          yield* Effect.forEach(
-            ids,
-            (attachmentId) =>
-              Api.use((client) =>
-                client.attachments.remove({
-                  params: { orgSlug: req.params.orgSlug, attachmentId }
-                })
-              ),
-            { concurrency: 4 }
-          )
-          set(AsyncResult.map(get(orgAttachmentsRegion(req)), (value) => value))
-        })
-      )
-  })
+export interface DeleteOrgAttachmentsKey {
+  readonly req: OrgAttachmentsRequest
+  readonly attachmentIds: ReadonlyArray<string>
+}
+
+export const deleteOrgAttachments = Atom.family(
+  ({ req, attachmentIds }: DeleteOrgAttachmentsKey) =>
+    Atom.optimisticFn(orgAttachmentsRegion(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (value) => {
+          const selected = new Set(attachmentIds)
+          const removed = value.list.items.filter((row) => selected.has(row.id))
+          return {
+            list: {
+              items: value.list.items.filter((row) => !selected.has(row.id)),
+              total: Math.max(0, value.list.total - removed.length)
+            },
+            summary: removeFromSummary(value.summary, removed)
+          }
+        }),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (_input: void, get) {
+            yield* Effect.forEach(
+              attachmentIds,
+              (attachmentId) =>
+                Api.use((client) =>
+                  client.attachments.remove({
+                    params: { orgSlug: req.params.orgSlug, attachmentId }
+                  })
+                ),
+              { concurrency: 4 }
+            )
+            set(
+              AsyncResult.map(get(orgAttachmentsRegion(req)), (value) => value)
+            )
+          })
+        )
+    })
 )

@@ -139,6 +139,7 @@ it("updates the attachment list and summary in the same delete tick", async () =
     tickets: []
   }
   let finish = (_response: Response) => {}
+  let attachmentDeleted = false
   const removed = new Promise<Response>((resolve) => {
     finish = resolve
   })
@@ -148,19 +149,27 @@ it("updates the attachment list and summary in the same delete tick", async () =
     if (request.method === "DELETE") return removed
     if (path.endsWith("/summary")) {
       return Response.json({
-        count: 1,
-        bytes: 4,
-        byStatus: [{ status: "orphaned", count: 1, bytes: 4 }]
+        count: attachmentDeleted ? 0 : 1,
+        bytes: attachmentDeleted ? 0 : 4,
+        byStatus: attachmentDeleted
+          ? [{ status: "orphaned", count: 0, bytes: 0 }]
+          : [{ status: "orphaned", count: 1, bytes: 4 }]
       })
     }
-    return Response.json({ total: 1, items: [attachment] })
+    return Response.json({
+      total: attachmentDeleted ? 0 : 1,
+      items: attachmentDeleted ? [] : [attachment]
+    })
   })
 
   const req = orgAttachmentsRequest("org", { page: 1 })
   const registry = Registry.make()
   const list = orgAttachments(req)
   const summary = orgAttachmentsSummary(req)
-  const remove = deleteOrgAttachments(req)
+  const remove = deleteOrgAttachments({
+    req,
+    attachmentIds: [attachment.id]
+  })
   registry.mount(list)
   registry.mount(summary)
   registry.mount(remove)
@@ -170,7 +179,7 @@ it("updates the attachment list and summary in the same delete tick", async () =
       expect(registry.get(list)).toMatchObject({ value: { total: 1 } })
       expect(registry.get(summary)).toMatchObject({ value: { count: 1 } })
     })
-    registry.set(remove, [attachment.id])
+    registry.set(remove, undefined)
     expect(registry.get(list)).toMatchObject({
       waiting: true,
       value: { total: 0, items: [] }
@@ -179,7 +188,22 @@ it("updates the attachment list and summary in the same delete tick", async () =
       waiting: true,
       value: { count: 0, bytes: 0 }
     })
+    attachmentDeleted = true
     finish(new Response(null, { status: 204 }))
+    await vi.waitFor(() => {
+      expect(registry.get(remove)).toMatchObject({
+        _tag: "Success",
+        waiting: false
+      })
+      expect(registry.get(list)).toMatchObject({
+        waiting: false,
+        value: { total: 0, items: [] }
+      })
+      expect(registry.get(summary)).toMatchObject({
+        waiting: false,
+        value: { count: 0, bytes: 0 }
+      })
+    })
   } finally {
     registry.dispose()
   }
