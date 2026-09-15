@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 import {
   DEFAULT_TICKET_SORT,
+  padNumericIdSort,
   Ticket,
   TicketDetail,
   TicketId,
@@ -49,10 +50,27 @@ const encodeUpdateResponse = Schema.encodeSync(TicketDetail)
 const asDetail = (t: Ticket): TicketDetail => ({ ...t, body: "Before" })
 const req = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
 
+const orderKey = (sortValue: string, id: string) => `${sortValue}\u0000${id}`
+
+const idKey = (t: Ticket) => orderKey(padNumericIdSort(t.id) ?? t.id, t.id)
+
+const createdKey = (t: Ticket) => orderKey(t.createdAt.toISOString(), t.id)
+
+const updatedKey = (t: Ticket) => orderKey(t.updatedAt.toISOString(), t.id)
+
+const titleKey = (t: Ticket) => orderKey(t.title.toLowerCase(), t.id)
+
+const serverRow = (t: Ticket, key: string = idKey(t)) => ({
+  ticket: encode(t),
+  orderKey: key
+})
+
 const sections = (items: ReadonlyArray<Ticket>) =>
   Response.json({
     counts: { total: items.length, byStatus: { todo: items.length } },
-    sections: { todo: { items: items.map((t) => encode(t)), nextCursor: null } }
+    sections: {
+      todo: { items: items.map((t) => serverRow(t)), nextCursor: null }
+    }
   })
 
 const fetchStub = stubFetch()
@@ -162,7 +180,7 @@ describe("backlog status move", () => {
         Response.json({
           counts: { total: 1, byStatus: { todo: 1, in_progress: 0 } },
           sections: {
-            todo: { items: [encode(ticket)], nextCursor: null },
+            todo: { items: [serverRow(ticket)], nextCursor: null },
             in_progress: { items: [], nextCursor: null }
           }
         })
@@ -217,7 +235,7 @@ describe("backlog status move", () => {
         Response.json({
           counts: { total: 1, byStatus: { todo: 1, in_progress: 0, done: 0 } },
           sections: {
-            todo: { items: [encode(ticket)], nextCursor: null },
+            todo: { items: [serverRow(ticket)], nextCursor: null },
             in_progress: { items: [], nextCursor: null },
             done: { items: [], nextCursor: null }
           }
@@ -286,7 +304,7 @@ describe("backlog status move", () => {
         Response.json({
           counts: { total: 1, byStatus: { todo: 1, in_progress: 0 } },
           sections: {
-            todo: { items: [encode(ticket)], nextCursor: null },
+            todo: { items: [serverRow(ticket)], nextCursor: null },
             in_progress: { items: [], nextCursor: null }
           }
         })
@@ -339,13 +357,13 @@ describe("backlog pagination", () => {
           Response.json({
             counts: { total: 2, byStatus: { todo: 2 } },
             sections: {
-              todo: { items: [encode(ticket)], nextCursor: "cursor-1" }
+              todo: { items: [serverRow(ticket)], nextCursor: "cursor-1" }
             }
           })
         )
       }
       return Promise.resolve(
-        Response.json({ items: [encode(second)], nextCursor: null })
+        Response.json({ items: [serverRow(second)], nextCursor: null })
       )
     })
     const registry = AtomRegistry.make()
@@ -399,7 +417,7 @@ describe("backlog pagination", () => {
           Response.json({
             counts: { total: 1, byStatus: { todo: 1 } },
             sections: {
-              todo: { items: [encode(ticket)], nextCursor: "cursor-1" }
+              todo: { items: [serverRow(ticket)], nextCursor: "cursor-1" }
             }
           })
         )
@@ -624,9 +642,11 @@ const withTicket = (id: string, fields: Partial<Ticket>): Ticket => ({
 const todoStatus = Schema.decodeSync(TicketStatus)("todo")
 const inProgressStatus = Schema.decodeSync(TicketStatus)("in_progress")
 
+type ServedRow = readonly [Ticket, string]
+
 const orderAfterRoundTrip = async (
   query: TicketListQuery,
-  items: ReadonlyArray<Ticket>,
+  items: ReadonlyArray<ServedRow>,
   movedId: TicketId
 ): Promise<ReadonlyArray<string>> => {
   const pending: Array<(r: Response) => void> = []
@@ -643,7 +663,10 @@ const orderAfterRoundTrip = async (
           byStatus: { todo: items.length, in_progress: 0 }
         },
         sections: {
-          todo: { items: items.map((t) => encode(t)), nextCursor: null },
+          todo: {
+            items: items.map(([t, key]) => serverRow(t, key)),
+            nextCursor: null
+          },
           in_progress: { items: [], nextCursor: null }
         }
       })
@@ -672,9 +695,9 @@ const orderAfterRoundTrip = async (
     const order = optimistic.value.sections.todo.items.map(
       (row) => row.ticket.id
     )
-    const back = items.find((t) => t.id === movedId)!
+    const back = items.find(([t]) => t.id === movedId)!
     for (const resolve of pending) {
-      resolve(Response.json(encodeUpdateResponse(asDetail(back))))
+      resolve(Response.json(encodeUpdateResponse(asDetail(back[0]))))
     }
     await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     return order
@@ -682,6 +705,14 @@ const orderAfterRoundTrip = async (
     registry.dispose()
   }
 }
+
+const createdRow = (t: Ticket): ServedRow => [t, createdKey(t)]
+
+const updatedRow = (t: Ticket): ServedRow => [t, updatedKey(t)]
+
+const titleRow = (t: Ticket): ServedRow => [t, titleKey(t)]
+
+const idRow = (t: Ticket): ServedRow => [t, idKey(t)]
 
 describe("backlog status round trip keeps the section's sort order", () => {
   it("returns the oldest row to the bottom under the default `created desc` sort", async () => {
@@ -701,7 +732,7 @@ describe("backlog status round trip keeps the section's sort order", () => {
     ]
     const order = await orderAfterRoundTrip(
       { sort: DEFAULT_TICKET_SORT },
-      items,
+      items.map(createdRow),
       items[2].id
     )
     expect(order).toEqual(["T-1", "T-2", "T-3"])
@@ -724,7 +755,7 @@ describe("backlog status round trip keeps the section's sort order", () => {
     ]
     const order = await orderAfterRoundTrip(
       { sort: { key: "title", dir: "asc" } },
-      items,
+      items.map(titleRow),
       items[1].id
     )
     expect(order).toEqual(["T-1", "T-2", "T-3"])
@@ -747,9 +778,125 @@ describe("backlog status round trip keeps the section's sort order", () => {
     ]
     const order = await orderAfterRoundTrip(
       { sort: { key: "updated", dir: "desc" } },
-      items,
+      items.map(updatedRow),
       items[2].id
     )
     expect(order).toEqual(["T-3", "T-1", "T-2"])
+  })
+
+  it("inserts the returning row at its exact place under `id asc`", async () => {
+    const items = Array.from({ length: 7 }, (_, index) =>
+      withTicket(`T-${index + 1}`, { title: `Row ${index + 1}` })
+    )
+    const order = await orderAfterRoundTrip(
+      { sort: { key: "id", dir: "asc" } },
+      items.map(idRow),
+      items[3].id
+    )
+    expect(order).toEqual(["T-1", "T-2", "T-3", "T-4", "T-5", "T-6", "T-7"])
+  })
+
+  it("inserts the returning row at its exact place under `id desc`", async () => {
+    const items = Array.from({ length: 7 }, (_, index) =>
+      withTicket(`T-${7 - index}`, { title: `Row ${7 - index}` })
+    )
+    const order = await orderAfterRoundTrip(
+      { sort: { key: "id", dir: "desc" } },
+      items.map(idRow),
+      items[3].id
+    )
+    expect(order).toEqual(["T-7", "T-6", "T-5", "T-4", "T-3", "T-2", "T-1"])
+  })
+
+  it("puts the row at the bottom under `updated asc`, where the server's bump sends it", async () => {
+    const items = [
+      withTicket("T-1", {
+        title: "Alpha",
+        updatedAt: at("2026-01-01T00:00:00.000Z")
+      }),
+      withTicket("T-2", {
+        title: "Beta",
+        updatedAt: at("2026-02-01T00:00:00.000Z")
+      }),
+      withTicket("T-3", {
+        title: "Gamma",
+        updatedAt: at("2026-03-01T00:00:00.000Z")
+      })
+    ]
+    const order = await orderAfterRoundTrip(
+      { sort: { key: "updated", dir: "asc" } },
+      items.map(updatedRow),
+      items[0].id
+    )
+    expect(order).toEqual(["T-2", "T-3", "T-1"])
+  })
+})
+
+describe("backlog status move places the row inside the target section", () => {
+  it("lands between the target section's rows under `title asc`", async () => {
+    const beta = withTicket("T-2", { title: "Beta" })
+    const alpha = withTicket("T-1", {
+      title: "Alpha",
+      status: inProgressStatus
+    })
+    const gamma = withTicket("T-3", {
+      title: "Gamma",
+      status: inProgressStatus
+    })
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(
+        Response.json({
+          counts: { total: 3, byStatus: { todo: 1, in_progress: 2 } },
+          sections: {
+            todo: {
+              items: [beta].map((t) => serverRow(t, titleKey(t))),
+              nextCursor: null
+            },
+            in_progress: {
+              items: [alpha, gamma].map((t) => serverRow(t, titleKey(t))),
+              nextCursor: null
+            }
+          }
+        })
+      )
+    })
+    const request = backlogRequest("acme", "web", {
+      sort: { key: "title", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(request)
+    const mutation = updateBacklogTicket({ req: request, id: beta.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { status: inProgressStatus })
+
+      const moved = registry.get(view)
+      if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+      expect(
+        moved.value.sections.in_progress.items.map((row) => row.ticket.id)
+      ).toEqual(["T-1", "T-2", "T-3"])
+
+      finish(
+        Response.json(
+          encodeUpdateResponse(asDetail({ ...beta, status: inProgressStatus }))
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
   })
 })

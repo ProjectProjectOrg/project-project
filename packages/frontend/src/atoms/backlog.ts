@@ -7,9 +7,9 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   type QuickCreateTicketInput,
   type Ticket,
-  ticketComparator,
   type TicketCounts,
   type TicketId,
+  type TicketListRow,
   TicketListQuery,
   type TicketSort,
   type TicketStatus,
@@ -53,6 +53,8 @@ export type BacklogRow = Readonly<{
   ticket: Ticket
   /** React key. Equals the ticket id except for rows created in this session. */
   key: string
+  /** The server's opaque sort position. `null` for a row the server has not seen. */
+  orderKey: string | null
   pending: boolean
 }>
 
@@ -66,9 +68,10 @@ export type BacklogValue = Readonly<{
   sections: Readonly<Record<string, BacklogSection>>
 }>
 
-const toRow = (ticket: Ticket): BacklogRow => ({
-  ticket,
-  key: ticket.id,
+const toRow = (row: TicketListRow): BacklogRow => ({
+  ticket: row.ticket,
+  key: row.ticket.id,
+  orderKey: row.orderKey,
   pending: false
 })
 
@@ -141,7 +144,7 @@ const backlogView = (req: BacklogRequest) =>
           // A failed page keeps its cursor so the user can retry; it must not
           // fail the whole section.
           if (!AsyncResult.isSuccess(result)) continue
-          for (const ticket of result.value.items) rows.push(toRow(ticket))
+          for (const item of result.value.items) rows.push(toRow(item))
           nextCursor = result.value.nextCursor
         }
         sections[status] = {
@@ -193,18 +196,34 @@ export const loadMoreBacklog = Atom.family(
     )
 )
 
-const insertSorted = (
+const insertByOrderKey = (
+  items: ReadonlyArray<BacklogRow>,
+  row: BacklogRow,
+  dir: TicketSort["dir"]
+): ReadonlyArray<BacklogRow> => {
+  const orderKey = row.orderKey
+  if (orderKey === null) return [row, ...items]
+  let low = 0
+  let high = items.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    const candidate = items[middle]!.orderKey
+    const sortsBefore =
+      candidate === null ||
+      (dir === "asc" ? candidate < orderKey : candidate > orderKey)
+    if (sortsBefore) low = middle + 1
+    else high = middle
+  }
+  return [...items.slice(0, low), row, ...items.slice(low)]
+}
+
+const insertRow = (
   items: ReadonlyArray<BacklogRow>,
   row: BacklogRow,
   sort: TicketSort
 ): ReadonlyArray<BacklogRow> => {
-  const compare = ticketComparator(sort)
-  const index = items.findIndex(
-    (existing) => compare(row.ticket, existing.ticket) < 0
-  )
-  return index < 0
-    ? [...items, row]
-    : [...items.slice(0, index), row, ...items.slice(index)]
+  if (sort.key !== "updated") return insertByOrderKey(items, row, sort.dir)
+  return sort.dir === "desc" ? [row, ...items] : [...items, row]
 }
 
 const patchRow = (
@@ -238,7 +257,7 @@ const patchRow = (
 
   const to = patch.status ?? from
   const target = sections[to] ?? { items: [], nextCursor: null }
-  sections[to] = { ...target, items: insertSorted(target.items, patched, sort) }
+  sections[to] = { ...target, items: insertRow(target.items, patched, sort) }
 
   if (to === from) return { ...value, sections }
 
@@ -371,7 +390,12 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
             [status]: {
               ...section,
               items: [
-                { ticket: predicted, key: input.clientId, pending: true },
+                {
+                  ticket: predicted,
+                  key: input.clientId,
+                  orderKey: null,
+                  pending: true
+                },
                 ...section.items
               ]
             }
