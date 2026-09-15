@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { generateKeyBetween } from "fractional-indexing"
 import { motion } from "motion/react"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -11,21 +11,12 @@ import {
   projectStatusesAtom,
   reorderStatusAtom
 } from "@/atoms/projectStatuses"
-import {
-  projectKey,
-  sprintAtom,
-  sprintKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
 import { SprintTicketCreator } from "@/components/TicketList/SprintTicketCreator"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
-import {
-  type GroupId,
-  type TicketId,
-  type TicketListQuery
-} from "@projectproject/shared"
+import { type GroupId, type TicketListQuery } from "@projectproject/shared"
 import { ReorderBoardBanner } from "./ReorderBoardBanner"
 import { SprintBoard } from "./SprintBoard"
 import { SprintDescription } from "./SprintDescription"
@@ -49,8 +40,11 @@ export function SprintDetail({
   onQueryChange: (query: TicketListQuery) => void
 }) {
   const project = useProject()
-  const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
-  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(
+    () => sprintRequest(orgSlug, slug, groupId),
+    [orgSlug, slug, groupId]
+  )
+  const sprint = useAtomValue(sprintDetail(req))
   const reorderKey = `${orgSlug}/${slug}/${groupId}/${view}`
   const [reorder, setReorder] = useState<{
     key: string
@@ -143,22 +137,8 @@ export function SprintDetail({
       />
     ),
     onSuccess: ({ value }) => {
-      const allSprints = Result.isSuccess(list) ? list.value : []
-      const fromList = allSprints.find((s) => s.id === value.id)
-      const display = fromList
-        ? {
-            ...value,
-            name: fromList.name,
-            color: fromList.color,
-            startsAt: fromList.startsAt,
-            endsAt: fromList.endsAt,
-            completedAt: fromList.completedAt,
-            updatedAt: fromList.updatedAt,
-            tickets: fromList.tickets
-          }
-        : value
-      const isCompleted = display.completedAt !== null
-      const ticketIds = display.tickets as ReadonlyArray<TicketId>
+      const isCompleted = value.completedAt !== null
+      const ticketIds = value.tickets
       const filterIds = new Set(ticketIds)
 
       const creator = isCompleted ? (
@@ -169,7 +149,7 @@ export function SprintDetail({
         <SprintTicketCreator
           orgSlug={orgSlug}
           slug={slug}
-          groupId={display.id}
+          groupId={value.id}
           excludeIds={filterIds}
         />
       )
@@ -203,7 +183,7 @@ export function SprintDetail({
           <SprintDescription
             orgSlug={orgSlug}
             slug={slug}
-            sprint={display}
+            sprint={value}
             disabled={isCompleted}
           />
         </PageContainer>
@@ -222,8 +202,7 @@ export function SprintDetail({
                 onQueryChange={onQueryChange}
                 orgSlug={orgSlug}
                 slug={slug}
-                groupId={display.id}
-                ticketIds={ticketIds}
+                groupId={value.id}
                 query={listQuery}
                 members={project.members}
               />
@@ -231,8 +210,7 @@ export function SprintDetail({
             <SprintBoard
               orgSlug={orgSlug}
               slug={slug}
-              groupId={display.id}
-              ticketIds={ticketIds}
+              groupId={value.id}
               query={listQuery}
               members={project.members}
               isCompleted={isCompleted}

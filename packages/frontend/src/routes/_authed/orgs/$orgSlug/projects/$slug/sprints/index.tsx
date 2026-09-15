@@ -1,8 +1,9 @@
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
-import { projectStatusesAtom } from "@/atoms/projectStatuses"
-import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import { projectStatusesAtom, projectKey } from "@/atoms/projectStatuses"
+import { boardRequest, sprintBoard } from "@/atoms/sprintBoard"
+import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Navigate, createFileRoute, redirect } from "@tanstack/react-router"
@@ -10,13 +11,7 @@ import { SprintDetailSkeleton } from "@/components/sprints/SprintDetailSkeleton"
 import { SprintsEmpty } from "@/components/sprints/SprintsEmpty"
 import { PageContainer } from "@/components/page"
 import { ErrorPage } from "@/components/ErrorPage"
-import {
-  projectKey,
-  sprintAtom,
-  sprintKey,
-  sprintsListAtom,
-  sprintsListBaseAtom
-} from "@/atoms/sprints"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
@@ -32,19 +27,17 @@ export const Route = createFileRoute(
     params: { orgSlug, slug },
     abortController
   }) => {
-    const key = projectKey(orgSlug, slug)
+    const req = sprintListRequest(orgSlug, slug)
     const result = await Effect.runPromiseExit(
-      Registry.getResult(registry, sprintsListAtom(key)),
+      Registry.getResult(registry, sprintList(req)),
       { signal: abortController.signal }
     )
     if (Exit.isFailure(result)) return
     const target = pickRedirectTarget(result.value)
     if (!target) return
-    registry.mount(sprintAtom(sprintKey(orgSlug, slug, target.id)))()
-    registry.mount(projectStatusesAtom(key))()
-    registry.mount(
-      ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, target.id))
-    )()
+    registry.mount(sprintDetail(sprintRequest(orgSlug, slug, target.id)))()
+    registry.mount(projectStatusesAtom(projectKey(orgSlug, slug)))()
+    registry.mount(sprintBoard(boardRequest(orgSlug, slug, target.id)))()
     throw redirect({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId: target.id },
@@ -70,9 +63,10 @@ function pickRedirectTarget(sprints: ReadonlyArray<Group>): Group | null {
 
 function SprintsIndex() {
   const { orgSlug, slug } = Route.useParams()
-  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const req = sprintListRequest(orgSlug, slug)
+  const list = useAtomValue(sprintList(req))
 
-  const refresh = useAtomRefresh(sprintsListBaseAtom(projectKey(orgSlug, slug)))
+  const refresh = useAtomRefresh(sprintList(req))
 
   return Result.matchWithError(list, {
     onInitial: () => (

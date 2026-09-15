@@ -9,12 +9,15 @@ import {
   useReducedMotion
 } from "motion/react"
 import { MoreHorizontal, SlidersHorizontal } from "lucide-react"
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
+import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import {
   SprintDeleteMenu,
@@ -102,9 +105,11 @@ export function ProjectHeader({
     ? (sprintMatch.params as { groupId: string }).groupId
     : null
 
-  const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsLoaded = Result.isSuccess(sprintsResult)
   const sprints = sprintsLoaded ? sprintsResult.value : []
   const sprint = sprintGroupId

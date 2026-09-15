@@ -18,6 +18,7 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { applySprintPatch } from "./sprintPatch"
 
 export interface SprintListRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }
@@ -104,17 +105,6 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
     )
   })
 )
-
-const applySprintPatch = (sprint: Group, patch: UpdateGroupInput): Group => ({
-  ...sprint,
-  name: patch.name ?? sprint.name,
-  color: patch.color ?? sprint.color,
-  startsAt: patch.startsAt !== undefined ? patch.startsAt : sprint.startsAt,
-  endsAt: patch.endsAt !== undefined ? patch.endsAt : sprint.endsAt,
-  completedAt:
-    patch.completedAt !== undefined ? patch.completedAt : sprint.completedAt,
-  updatedAt: DateTime.toDate(DateTime.nowUnsafe())
-})
 
 export const updateSprint = Atom.family(
   ({

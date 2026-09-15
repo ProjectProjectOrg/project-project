@@ -1,7 +1,11 @@
+import * as Effect from "effect/Effect"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
-import type { GroupId } from "@projectproject/shared"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import type { GroupId, UpdateGroupInput } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { applySprintDetailPatch } from "./sprintPatch"
 
 export interface SprintRequest {
   readonly params: {
@@ -29,4 +33,24 @@ export const sprintQuery = (req: SprintRequest) =>
 
 export const sprintDetail = Atom.family((req: SprintRequest) =>
   Atom.optimistic(sprintQuery(req))
+)
+
+export const updateSprintDetail = Atom.family((req: SprintRequest) =>
+  Atom.optimisticFn(sprintDetail(req), {
+    reducer: (current, patch: UpdateGroupInput) =>
+      AsyncResult.map(current, (sprint) =>
+        applySprintDetailPatch(sprint, patch)
+      ),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (patch: UpdateGroupInput) {
+          const updated = yield* Api.use((client) =>
+            client.groups.update({ params: req.params, payload: patch })
+          )
+          set(AsyncResult.success(updated))
+          yield* Reactivity.invalidate([Keys.sprints(scopeOf(req))])
+          return updated
+        })
+      )
+  })
 )

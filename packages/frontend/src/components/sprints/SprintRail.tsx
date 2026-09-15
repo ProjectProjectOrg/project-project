@@ -5,7 +5,7 @@ import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import { motion, useReducedMotion } from "motion/react"
 import { CircleCheck, Plus } from "lucide-react"
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -20,11 +20,7 @@ import { cn } from "@/lib/utils"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  createSprintAtom,
-  projectKey as sprintProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { createSprint, sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { projectAtom, projectKey as projectRouteKey } from "@/atoms/projects"
 import {
   pickActiveSprint,
@@ -68,12 +64,12 @@ export function SprintRail({
   orgSlug: string
   slug: string
 }) {
-  const key = sprintProjectKey(orgSlug, slug)
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
   const project = useAtomValue(projectAtom(projectRouteKey(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
   const projectIcon = Result.isSuccess(project) ? project.value.icon : null
   const reduceMotion = useReducedMotion()
-  const list = useAtomValue(sprintsListAtom(key))
+  const list = useAtomValue(sprintList(req))
   const sprints = Result.isSuccess(list) ? list.value : []
   const params = useParams({ strict: false }) as { groupId?: string }
   const selectedSprintId =
@@ -274,9 +270,9 @@ function CreateSprintFields({
   orgSlug: string
   slug: string
 }) {
-  const key = sprintProjectKey(orgSlug, slug)
-  const create = useAtomSet(createSprintAtom(key), { mode: "promiseExit" })
-  const state = useAtomValue(createSprintAtom(key))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
+  const state = useAtomValue(createSprint(req))
   const error = Result.isFailure(state)
     ? m.sprints_create_error_fallback()
     : null

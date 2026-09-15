@@ -7,7 +7,7 @@ import { Group, GroupDetail, GroupId } from "@projectproject/shared"
 import { Keys, projectScope } from "@/api/keys"
 import { stubFetch } from "@/api/testFetch"
 import { updateSprint } from "./sprintList"
-import { sprintDetail, sprintRequest } from "./sprintDetail"
+import { sprintDetail, sprintRequest, updateSprintDetail } from "./sprintDetail"
 
 const groupId = Schema.decodeSync(GroupId)("G-1")
 
@@ -89,6 +89,55 @@ describe("sprintDetail", () => {
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          waiting: false,
+          value: { body: "After" }
+        })
+      )
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("updateSprintDetail", () => {
+  it("paints a body edit instantly, before the request resolves", async () => {
+    let served = sprintDetailValue
+    let finish = (_r: Response) => {}
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(Response.json(encode(served)))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintDetail(req)
+    const mutation = updateSprintDetail(req)
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false,
+          value: { body: "Before" }
+        })
+      )
+
+      registry.set(mutation, { body: "After" })
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.waiting).toBe(true)
+      expect(optimistic.value.body).toBe("After")
+
+      served = { ...sprintDetailValue, body: "After" }
+      finish(Response.json(encode(served)))
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({
           waiting: false,

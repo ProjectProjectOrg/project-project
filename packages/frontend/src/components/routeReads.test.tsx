@@ -46,10 +46,15 @@ function load<A, R>(
   return loader(args as A)
 }
 
+// `FetchHttpClient.Fetch` memoises `globalThis.fetch` on first read (see api/testFetch.ts); one dispatcher for the file, tests swap the handler behind it.
+let fetchHandler: (input: RequestInfo | URL) => Promise<Response> = () =>
+  new Promise<Response>(() => {})
+vi.stubGlobal("fetch", (input: RequestInfo | URL) => fetchHandler(input))
+
 beforeEach(() => {
   registry = Registry.make()
   requests = []
-  vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+  fetchHandler = (input: RequestInfo | URL) => {
     requests.push(
       new URL(
         input instanceof Request ? input.url : String(input),
@@ -57,14 +62,13 @@ beforeEach(() => {
       )
     )
     return new Promise<Response>(() => {})
-  })
+  }
 })
 
 afterEach(() => {
   cleanup()
   registry.dispose()
   localStorage.clear()
-  vi.unstubAllGlobals()
 })
 
 it("starts backlog sections alongside metadata without waiting, even with collapsed sections", async () => {
@@ -136,7 +140,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
   const list = new Promise<Response>((resolve) => {
     resolveList = resolve
   })
-  vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+  fetchHandler = (input: RequestInfo | URL) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -145,7 +149,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
     return url.pathname.endsWith("/groups")
       ? list
       : new Promise<Response>(() => {})
-  })
+  }
   const loaded = load(SprintIndexRoute.options.loader, {
     context: { registry },
     params,

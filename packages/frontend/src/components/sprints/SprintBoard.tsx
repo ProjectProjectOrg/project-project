@@ -5,12 +5,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
-  pendingTicketStatusAtom,
-  placeTicketAtom,
-  sprintKey
-} from "@/atoms/sprints"
-import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
-import { boardRequest } from "@/atoms/sprintBoard"
+  boardRequest,
+  placeBoardTicket,
+  sprintBoard,
+  type BoardRequest,
+  type BoardValue
+} from "@/atoms/sprintBoard"
 import {
   projectKey as projectStatusKey,
   projectStatusesAtom,
@@ -21,7 +21,8 @@ import type {
   Member,
   ProjectStatus,
   TicketId,
-  TicketListQuery
+  TicketListQuery,
+  TicketStatus
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 import {
@@ -40,7 +41,6 @@ type SprintBoardProps = {
   orgSlug: string
   slug: string
   groupId: GroupId
-  ticketIds: ReadonlyArray<TicketId>
   query: TicketListQuery
   members: ReadonlyArray<Member>
   isCompleted: boolean
@@ -53,18 +53,21 @@ type SprintBoardProps = {
 
 export function SprintBoard(props: SprintBoardProps) {
   const { orgSlug, slug, groupId } = props
-  const atom = ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
-  const list = useAtomValue(atom)
+  const req = useMemo(
+    () => boardRequest(orgSlug, slug, groupId),
+    [orgSlug, slug, groupId]
+  )
+  const board = useAtomValue(sprintBoard(req))
   const statusKey = projectStatusKey(orgSlug, slug)
   const statuses = useAtomValue(projectStatusesAtom(statusKey))
-  const refreshTickets = useAtomRefresh(atom)
+  const refreshBoard = useAtomRefresh(sprintBoard(req))
   const refreshStatuses = useAtomRefresh(projectStatusesBaseAtom(statusKey))
   const refresh = () => {
-    if (Result.isFailure(list)) refreshTickets()
+    if (Result.isFailure(board)) refreshBoard()
     if (Result.isFailure(statuses)) refreshStatuses()
   }
 
-  return Result.matchWithError(Result.all({ tickets: list, statuses }), {
+  return Result.matchWithError(Result.all({ board, statuses }), {
     onInitial: () => (
       <DitherShell contained animated>
         {null}
@@ -77,6 +80,8 @@ export function SprintBoard(props: SprintBoardProps) {
     onSuccess: ({ value, waiting }) => (
       <SprintBoardContent
         {...props}
+        req={req}
+        board={value.board}
         statuses={value.statuses}
         waiting={waiting}
       />
@@ -87,8 +92,7 @@ export function SprintBoard(props: SprintBoardProps) {
 function SprintBoardContent({
   orgSlug,
   slug,
-  groupId,
-  ticketIds,
+  req,
   query,
   members,
   isCompleted,
@@ -97,9 +101,12 @@ function SprintBoardContent({
   onExitReorder,
   dragOrder,
   setDragOrder,
+  board,
   statuses,
   waiting
 }: SprintBoardProps & {
+  req: BoardRequest
+  board: BoardValue
   statuses: ReadonlyArray<ProjectStatus>
   waiting: boolean
 }) {
@@ -176,13 +183,8 @@ function SprintBoardContent({
     return () => document.removeEventListener("keydown", onKey)
   }, [reorderMode, onExitReorder])
 
-  const key = sprintKey(orgSlug, slug, groupId)
-  const overlay = useAtomValue(pendingTicketStatusAtom(key))
-  const place = useAtomSet(placeTicketAtom(key))
-  const req = useMemo(
-    () => boardRequest(orgSlug, slug, groupId),
-    [orgSlug, slug, groupId]
-  )
+  const place = useAtomSet(placeBoardTicket(req))
+  const placeState = useAtomValue(placeBoardTicket(req))
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const order = dragOrder ?? statusSlugs
@@ -194,21 +196,20 @@ function SprintBoardContent({
   const flash = (id: TicketId) =>
     setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
-  const { ticketById, matchingTicketIds } = useBoardTickets(
+  const { matchingTickets } = useBoardTickets(
     orgSlug,
     slug,
-    groupId,
-    ticketIds,
+    board.tickets,
     query
   )
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(matchingTicketIds, ticketById, overlay, order),
-    [matchingTicketIds, ticketById, overlay, order]
+    () => groupTicketsByStatus(matchingTickets, order),
+    [matchingTickets, order]
   )
   const unfilteredGrouped = useMemo(
-    () => groupTicketsByStatus(ticketIds, ticketById, overlay, order),
-    [ticketIds, ticketById, overlay, order]
+    () => groupTicketsByStatus(board.tickets, order),
+    [board.tickets, order]
   )
   const unfilteredGroupedRef = useRef(unfilteredGrouped)
   unfilteredGroupedRef.current = unfilteredGrouped
@@ -248,9 +249,7 @@ function SprintBoardContent({
         }
         if (after === src.id) return
         const status =
-          nextStatus !== src.status
-            ? (nextStatus as import("@projectproject/shared").TicketStatus)
-            : undefined
+          nextStatus !== src.status ? (nextStatus as TicketStatus) : undefined
         place({ ticketId: src.id, status, after })
         flash(src.id)
       }
@@ -294,7 +293,7 @@ function SprintBoardContent({
             tickets={grouped[status] ?? []}
             members={members}
             isDraggable={!isCompleted}
-            overlay={overlay}
+            pending={placeState.waiting}
             lastFlash={lastFlash}
             reorderMode={reorderMode}
             onActivateReorder={onEnterReorder}

@@ -1,18 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { projectStatusesAtom } from "@/atoms/projectStatuses"
-import {
-  projectKey,
-  sprintAtom,
-  sprintKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
-import {
-  ticketsSectionsAtom,
-  ticketsSectionsKey,
-  ticketsInSprintAtom,
-  ticketsInSprintKey
-} from "@/atoms/tickets"
+import { projectStatusesAtom, projectKey } from "@/atoms/projectStatuses"
+import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import { boardRequest, sprintBoard } from "@/atoms/sprintBoard"
+import { backlog, backlogRequest } from "@/atoms/backlog"
 import { GroupId, TicketListQuery } from "@projectproject/shared"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
@@ -36,20 +28,15 @@ export const Route = createFileRoute(
     deps: search
   }) => {
     const id = decodeGroupId(groupId)
-    const key = projectKey(orgSlug, slug)
     const query = sprintListQuery(search, id)
     const view = search.view ?? "board"
-    registry.mount(sprintAtom(sprintKey(orgSlug, slug, id)))()
-    registry.mount(sprintsListAtom(key))()
-    registry.mount(projectStatusesAtom(key))()
+    registry.mount(sprintDetail(sprintRequest(orgSlug, slug, id)))()
+    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
+    registry.mount(projectStatusesAtom(projectKey(orgSlug, slug)))()
     if (view === "list") {
-      registry.mount(
-        ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
-      )()
+      registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     } else if (view === "board") {
-      registry.mount(
-        ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, id))
-      )()
+      registry.mount(sprintBoard(boardRequest(orgSlug, slug, id)))()
     }
 
     return {

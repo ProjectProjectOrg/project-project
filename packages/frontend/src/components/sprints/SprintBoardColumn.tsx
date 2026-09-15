@@ -36,7 +36,7 @@ export function SprintBoardColumn({
   tickets,
   members,
   isDraggable,
-  overlay,
+  pending,
   lastFlash,
   reorderMode,
   onActivateReorder
@@ -49,7 +49,7 @@ export function SprintBoardColumn({
   tickets: ReadonlyArray<Ticket>
   members: ReadonlyArray<Member>
   isDraggable: boolean
-  overlay: ReadonlyMap<TicketId, string>
+  pending: boolean
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
   onActivateReorder: () => void
@@ -216,7 +216,7 @@ export function SprintBoardColumn({
               status={status}
               members={members}
               isDraggable={isDraggable && !reorderMode}
-              pending={overlay.has(ticket.id)}
+              pending={pending}
               flashKey={
                 lastFlash?.id === ticket.id ? lastFlash.tick : undefined
               }
