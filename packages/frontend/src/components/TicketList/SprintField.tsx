@@ -32,10 +32,10 @@ export function SprintField({
 }) {
   const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
   const list = useAtomValue(sprintList(req))
-  const addTickets = useAtomSet(addTicketsToSprint(req))
-  const addState = useAtomValue(addTicketsToSprint(req))
-  const removeTickets = useAtomSet(removeTicketsFromSprint(req))
-  const removeState = useAtomValue(removeTicketsFromSprint(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
+  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
 
   if (!membership) return null
@@ -49,10 +49,8 @@ export function SprintField({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={membership.id}
-      onSelect={(s) => addTickets({ groupId: s.id, ticketIds: [ticketId] })}
-      onClear={() =>
-        removeTickets({ groupId: membership.id, ticketIds: [ticketId] })
-      }
+      onSelect={(s) => addTickets({ groupId: s.id })}
+      onClear={() => removeTickets({ groupId: membership.id })}
       onRequestNewSprint={onRequestNewSprint}
       trigger={
         <Hitbox
@@ -97,10 +95,10 @@ export function SprintBadgeTrigger({
   const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
   const list = useAtomValue(sprintList(req))
   const membership = useAtomValue(sprintMembership(req))
-  const addTickets = useAtomSet(addTicketsToSprint(req))
-  const addState = useAtomValue(addTicketsToSprint(req))
-  const removeTickets = useAtomSet(removeTicketsFromSprint(req))
-  const removeState = useAtomValue(removeTicketsFromSprint(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
+  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)
@@ -120,11 +118,9 @@ export function SprintBadgeTrigger({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={current?.id ?? null}
-      onSelect={(s) => addTickets({ groupId: s.id, ticketIds: [ticketId] })}
+      onSelect={(s) => addTickets({ groupId: s.id })}
       onClear={
-        current
-          ? () => removeTickets({ groupId: current.id, ticketIds: [ticketId] })
-          : undefined
+        current ? () => removeTickets({ groupId: current.id }) : undefined
       }
       trigger={
         <Button

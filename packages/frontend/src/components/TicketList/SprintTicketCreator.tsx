@@ -32,7 +32,7 @@ import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprint,
+  assignTicketToSprint,
   sprintList,
   sprintListRequest
 } from "@/atoms/sprintList"
@@ -119,7 +119,6 @@ export function SprintTicketCreator({
     expanded && trimmed === searchQuery ? searchAtom : idleSearchAtom
   )
   const sprintsResult = useAtomValue(sprintList(sprintReq))
-  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()
@@ -170,7 +169,7 @@ export function SprintTicketCreator({
   async function commit(item: Item | undefined) {
     if (!item) return
     if (item.kind === "existing") {
-      addToSprint({ groupId, ticketIds: [item.ticket.id] })
+      assignTicketToSprint(registry, sprintReq, item.ticket.id, groupId)
       reset()
       return
     }
@@ -182,7 +181,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      addToSprint({ groupId, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)
@@ -203,7 +202,7 @@ export function SprintTicketCreator({
       projectPrefix
     })
     if (Exit.isSuccess(exit)) {
-      addToSprint({ groupId, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, groupId)
       refreshGitStates()
       reset()
       openCreatedTicket(exit.value.id)

@@ -1,11 +1,23 @@
 import * as Random from "effect/Random"
 import * as Effect from "effect/Effect"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import {
+  RegistryContext,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue
+} from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent
+} from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import {
@@ -25,7 +37,7 @@ import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprint,
+  assignTicketToSprint,
   sprintList,
   sprintListRequest
 } from "@/atoms/sprintList"
@@ -45,6 +57,7 @@ export function BacklogTicketCreator({
   slug: string
   query: TicketListQuery
 }) {
+  const registry = useContext(RegistryContext)
   const projKey = projectKey(orgSlug, slug)
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
@@ -77,7 +90,6 @@ export function BacklogTicketCreator({
     [sprintListResult]
   )
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -112,7 +124,7 @@ export function BacklogTicketCreator({
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       if (selectedSprint) {
-        addToSprint({ groupId: selectedSprint.id, ticketIds: [ticket.id] })
+        assignTicketToSprint(registry, sprintReq, ticket.id, selectedSprint.id)
       }
       setTitle("")
       refreshGitStates()

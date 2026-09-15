@@ -1,10 +1,11 @@
 import * as Random from "effect/Random"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
 import {
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -30,7 +31,7 @@ import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { meAtom } from "@/atoms/auth"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  addTicketsToSprint,
+  assignTicketToSprint,
   sprintList,
   sprintListRequest
 } from "@/atoms/sprintList"
@@ -60,6 +61,7 @@ export function SectionTicketCreator({
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
 }) {
+  const registry = useContext(RegistryContext)
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
@@ -88,7 +90,6 @@ export function SectionTicketCreator({
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
-  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const groupIdFilter = query.groupId
   const singleGroupIdFilter =
@@ -194,7 +195,7 @@ export function SectionTicketCreator({
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
     if (attachTo !== null) {
-      addToSprint({ groupId: attachTo, ticketIds: [exit.value.id] })
+      assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
 

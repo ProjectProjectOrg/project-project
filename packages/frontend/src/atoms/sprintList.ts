@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   GroupColor,
@@ -257,125 +258,152 @@ export const completeSprint = Atom.family(
     })
 )
 
-interface TicketMembershipInput {
+interface SprintAssignmentInput {
   readonly groupId: GroupId
-  readonly ticketIds: ReadonlyArray<TicketId>
 }
 
-export const addTicketsToSprint = Atom.family((req: SprintListRequest) =>
-  Atom.optimisticFn(sprintList(req), {
-    reducer: (current, input: TicketMembershipInput) =>
-      AsyncResult.map(current, (sprints) => {
-        const { groupId, ticketIds } = input
-        const incoming = new Set<TicketId>(ticketIds)
-        const now = DateTime.toDate(DateTime.nowUnsafe())
-        return sprints.map((sprint) => {
-          if (sprint.id === groupId) {
-            const merged = [...sprint.tickets]
-            for (const id of ticketIds) {
-              if (!merged.includes(id)) merged.push(id)
-            }
-            return { ...sprint, tickets: merged, updatedAt: now }
-          }
-          if (sprint.completedAt !== null) return sprint
-          const filtered = sprint.tickets.filter((id) => !incoming.has(id))
-          if (filtered.length === sprint.tickets.length) return sprint
-          return { ...sprint, tickets: filtered, updatedAt: now }
-        })
-      }),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn(function* (input: TicketMembershipInput, get) {
-          const { groupId, ticketIds } = input
-          const scope = scopeOf(req)
-          const list = get(sprintList(req))
-          const currentTickets = AsyncResult.isSuccess(list)
-            ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
-              [])
-            : []
-          const union = [...currentTickets]
-          for (const id of ticketIds) {
-            if (!union.includes(id)) union.push(id)
-          }
-          const result = yield* Api.use((client) =>
-            client.groups.updateTickets({
-              params: { ...req.params, id: groupId },
-              payload: { tickets: union }
-            })
-          )
-          set(
-            AsyncResult.map(get(sprintList(req)), (sprints) =>
-              sprints.map((sprint) =>
-                sprint.id === groupId ? result.target : sprint
-              )
-            )
-          )
-          yield* Reactivity.invalidate([
-            Keys.sprintMembership(scope),
-            Keys.sprintMembership(scope, groupId),
-            ...result.evicted.map((evicted) =>
-              Keys.sprintMembership(scope, evicted.groupId)
-            ),
-            Keys.ticketLists(scope)
-          ])
-          return result
-        })
-      )
-  })
-)
-
-export const removeTicketsFromSprint = Atom.family((req: SprintListRequest) =>
-  Atom.optimisticFn(sprintList(req), {
-    reducer: (current, input: TicketMembershipInput) =>
-      AsyncResult.map(current, (sprints) => {
-        const { groupId, ticketIds } = input
-        const drop = new Set<TicketId>(ticketIds)
-        const now = DateTime.toDate(DateTime.nowUnsafe())
-        return sprints.map((sprint) =>
-          sprint.id === groupId
-            ? {
+export const addTicketsToSprint = Atom.family(
+  ({
+    req,
+    ticketId
+  }: {
+    readonly req: SprintListRequest
+    readonly ticketId: TicketId
+  }) =>
+    Atom.optimisticFn(sprintList(req), {
+      reducer: (current, input: SprintAssignmentInput) =>
+        AsyncResult.map(current, (sprints) => {
+          const { groupId } = input
+          const now = DateTime.toDate(DateTime.nowUnsafe())
+          return sprints.map((sprint) => {
+            if (sprint.id === groupId) {
+              if (sprint.tickets.includes(ticketId)) return sprint
+              return {
                 ...sprint,
-                tickets: sprint.tickets.filter((id) => !drop.has(id)),
+                tickets: [...sprint.tickets, ticketId],
                 updatedAt: now
               }
-            : sprint
-        )
-      }),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn(function* (input: TicketMembershipInput, get) {
-          const { groupId, ticketIds } = input
-          const scope = scopeOf(req)
-          const list = get(sprintList(req))
-          const currentTickets = AsyncResult.isSuccess(list)
-            ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
-              [])
-            : []
-          const drop = new Set<TicketId>(ticketIds)
-          const remaining = currentTickets.filter((id) => !drop.has(id))
-          const result = yield* Api.use((client) =>
-            client.groups.updateTickets({
-              params: { ...req.params, id: groupId },
-              payload: { tickets: remaining }
-            })
-          )
-          set(
-            AsyncResult.map(get(sprintList(req)), (sprints) =>
-              sprints.map((sprint) =>
-                sprint.id === groupId ? result.target : sprint
+            }
+            if (sprint.completedAt !== null) return sprint
+            if (!sprint.tickets.includes(ticketId)) return sprint
+            return {
+              ...sprint,
+              tickets: sprint.tickets.filter((id) => id !== ticketId),
+              updatedAt: now
+            }
+          })
+        }),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (input: SprintAssignmentInput, get) {
+            const { groupId } = input
+            const scope = scopeOf(req)
+            const list = get(sprintList(req))
+            const currentTickets = AsyncResult.isSuccess(list)
+              ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
+                [])
+              : []
+            const union = currentTickets.includes(ticketId)
+              ? currentTickets
+              : [...currentTickets, ticketId]
+            const result = yield* Api.use((client) =>
+              client.groups.updateTickets({
+                params: { ...req.params, id: groupId },
+                payload: { tickets: union }
+              })
+            )
+            set(
+              AsyncResult.map(get(sprintList(req)), (sprints) =>
+                sprints.map((sprint) =>
+                  sprint.id === groupId ? result.target : sprint
+                )
               )
             )
+            yield* Reactivity.invalidate([
+              Keys.sprintMembership(scope),
+              Keys.sprintMembership(scope, groupId),
+              ...result.evicted.map((evicted) =>
+                Keys.sprintMembership(scope, evicted.groupId)
+              ),
+              Keys.ticketLists(scope)
+            ])
+            return result
+          })
+        )
+    })
+)
+
+export const assignTicketToSprint = (
+  registry: Registry.AtomRegistry,
+  req: SprintListRequest,
+  ticketId: TicketId,
+  groupId: GroupId
+): void => {
+  const atom = addTicketsToSprint({ req, ticketId })
+  const unmount = registry.mount(atom)
+  registry.set(atom, { groupId })
+  void Effect.runPromiseExit(
+    Registry.getResult(registry, atom, { suspendOnWaiting: true })
+  ).finally(unmount)
+}
+
+export const removeTicketsFromSprint = Atom.family(
+  ({
+    req,
+    ticketId
+  }: {
+    readonly req: SprintListRequest
+    readonly ticketId: TicketId
+  }) =>
+    Atom.optimisticFn(sprintList(req), {
+      reducer: (current, input: SprintAssignmentInput) =>
+        AsyncResult.map(current, (sprints) => {
+          const { groupId } = input
+          const now = DateTime.toDate(DateTime.nowUnsafe())
+          return sprints.map((sprint) =>
+            sprint.id === groupId
+              ? {
+                  ...sprint,
+                  tickets: sprint.tickets.filter((id) => id !== ticketId),
+                  updatedAt: now
+                }
+              : sprint
           )
-          yield* Reactivity.invalidate([
-            Keys.sprintMembership(scope),
-            Keys.sprintMembership(scope, groupId),
-            ...result.evicted.map((evicted) =>
-              Keys.sprintMembership(scope, evicted.groupId)
-            ),
-            Keys.ticketLists(scope)
-          ])
-          return result
-        })
-      )
-  })
+        }),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (input: SprintAssignmentInput, get) {
+            const { groupId } = input
+            const scope = scopeOf(req)
+            const list = get(sprintList(req))
+            const currentTickets = AsyncResult.isSuccess(list)
+              ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
+                [])
+              : []
+            const remaining = currentTickets.filter((id) => id !== ticketId)
+            const result = yield* Api.use((client) =>
+              client.groups.updateTickets({
+                params: { ...req.params, id: groupId },
+                payload: { tickets: remaining }
+              })
+            )
+            set(
+              AsyncResult.map(get(sprintList(req)), (sprints) =>
+                sprints.map((sprint) =>
+                  sprint.id === groupId ? result.target : sprint
+                )
+              )
+            )
+            yield* Reactivity.invalidate([
+              Keys.sprintMembership(scope),
+              Keys.sprintMembership(scope, groupId),
+              ...result.evicted.map((evicted) =>
+                Keys.sprintMembership(scope, evicted.groupId)
+              ),
+              Keys.ticketLists(scope)
+            ])
+            return result
+          })
+        )
+    })
 )

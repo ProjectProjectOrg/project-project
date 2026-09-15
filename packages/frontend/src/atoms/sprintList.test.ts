@@ -15,6 +15,7 @@ import { stubFetch } from "@/api/testFetch"
 import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
+  assignTicketToSprint,
   completeSprint,
   createSprint,
   deleteSprint,
@@ -632,7 +633,7 @@ describe("ticket membership mutations", () => {
     })
     const registry = AtomRegistry.make()
     const view = sprintList(req)
-    const mutation = addTicketsToSprint(req)
+    const mutation = addTicketsToSprint({ req, ticketId: ticketB })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -642,7 +643,7 @@ describe("ticket membership mutations", () => {
           waiting: false
         })
       )
-      registry.set(mutation, { groupId, ticketIds: [ticketB] })
+      registry.set(mutation, { groupId })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic value")
@@ -678,7 +679,7 @@ describe("ticket membership mutations", () => {
     })
     const registry = AtomRegistry.make()
     const view = sprintList(req)
-    const mutation = removeTicketsFromSprint(req)
+    const mutation = removeTicketsFromSprint({ req, ticketId: ticketA })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -688,7 +689,7 @@ describe("ticket membership mutations", () => {
           waiting: false
         })
       )
-      registry.set(mutation, { groupId, ticketIds: [ticketA] })
+      registry.set(mutation, { groupId })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic value")
@@ -707,9 +708,16 @@ describe("ticket membership mutations", () => {
     }
   })
 
-  it("is keyed by request only, so two destination sprints share one mutation atom", () => {
-    expect(addTicketsToSprint(req)).toBe(addTicketsToSprint(req))
-    expect(removeTicketsFromSprint(req)).toBe(removeTicketsFromSprint(req))
+  it("is keyed by request and ticket, so two tickets get independent mutation atoms", () => {
+    expect(addTicketsToSprint({ req, ticketId: ticketA })).toBe(
+      addTicketsToSprint({ req, ticketId: ticketA })
+    )
+    expect(addTicketsToSprint({ req, ticketId: ticketA })).not.toBe(
+      addTicketsToSprint({ req, ticketId: ticketB })
+    )
+    expect(removeTicketsFromSprint({ req, ticketId: ticketA })).not.toBe(
+      removeTicketsFromSprint({ req, ticketId: ticketB })
+    )
   })
 
   it("rolls back and surfaces a failure when the assignment request fails", async () => {
@@ -724,7 +732,7 @@ describe("ticket membership mutations", () => {
     })
     const registry = AtomRegistry.make()
     const view = sprintList(req)
-    const mutation = addTicketsToSprint(req)
+    const mutation = addTicketsToSprint({ req, ticketId: ticketA })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -734,7 +742,7 @@ describe("ticket membership mutations", () => {
           waiting: false
         })
       )
-      registry.set(mutation, { groupId: otherGroupId, ticketIds: [ticketA] })
+      registry.set(mutation, { groupId: otherGroupId })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) {
         throw new Error("no optimistic value")
@@ -752,6 +760,82 @@ describe("ticket membership mutations", () => {
       expect(settled.value.find((s) => s.id === otherGroupId)?.tickets).toEqual(
         []
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("does not mark a second ticket's mutation atom as failed when the first ticket's assignment fails", async () => {
+    let finishFirst = (_r: Response) => {}
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finishFirst = resolve
+        })
+      }
+      return Promise.resolve(listResponse([sprint, otherSprint]))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    const mutationA = addTicketsToSprint({ req, ticketId: ticketA })
+    const mutationB = addTicketsToSprint({ req, ticketId: ticketB })
+    registry.mount(view)
+    registry.mount(mutationA)
+    registry.mount(mutationB)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutationA, { groupId: otherGroupId })
+      finishFirst(new Response("nope", { status: 500 }))
+      await vi.waitFor(() =>
+        expect(registry.get(mutationA).waiting).toBe(false)
+      )
+
+      expect(AsyncResult.isFailure(registry.get(mutationA))).toBe(true)
+      expect(AsyncResult.isFailure(registry.get(mutationB))).toBe(false)
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("assignTicketToSprint", () => {
+  it("mounts the per-ticket mutation atom, dispatches, and unmounts once it settles", async () => {
+    fetchStub.set((_input, init) => {
+      if (init?.method === "PATCH") {
+        return Promise.resolve(
+          Response.json({
+            target: encodeGroupDetail(
+              asDetail({ ...sprint, tickets: [ticketA, ticketB] })
+            ),
+            evicted: []
+          })
+        )
+      }
+      return Promise.resolve(listResponse([sprint]))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      assignTicketToSprint(registry, req, ticketB, groupId)
+
+      await vi.waitFor(() => {
+        const settled = registry.get(view)
+        if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+        expect(settled.value[0].tickets).toContain(ticketB)
+      })
     } finally {
       registry.dispose()
     }
