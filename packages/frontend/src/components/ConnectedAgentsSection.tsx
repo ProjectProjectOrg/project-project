@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/card"
 import { CodeSnippet } from "@/components/ui/code-snippet"
 import {
+  type OAuthApplicationsRequest,
+  oauthApplicationsRequest,
   oauthApplicationsAtom,
   revokeOAuthApplicationAtom
 } from "@/atoms/oauthApplications"
@@ -34,7 +36,8 @@ import { cn } from "@/lib/utils"
 import type { OAuthApplication } from "@projectproject/shared"
 
 export function ConnectedAgentsSection() {
-  const applications = useAtomValue(oauthApplicationsAtom)
+  const req = oauthApplicationsRequest()
+  const applications = useAtomValue(oauthApplicationsAtom(req))
 
   return (
     <Card>
@@ -54,7 +57,7 @@ export function ConnectedAgentsSection() {
             <ul className="divide-y divide-border rounded-xl border border-border bg-background">
               {applications.value.map((app) => (
                 <li key={app.id}>
-                  <AgentRow app={app} />
+                  <AgentRow app={app} req={req} />
                 </li>
               ))}
             </ul>
@@ -67,9 +70,16 @@ export function ConnectedAgentsSection() {
   )
 }
 
-function AgentRow({ app }: { app: OAuthApplication }) {
-  const revoke = useAtomSet(revokeOAuthApplicationAtom(app.id))
-  const revokeState = useAtomValue(revokeOAuthApplicationAtom(app.id))
+function AgentRow({
+  app,
+  req
+}: {
+  app: OAuthApplication
+  req: OAuthApplicationsRequest
+}) {
+  const mutation = revokeOAuthApplicationAtom({ req, id: app.id })
+  const revoke = useAtomSet(mutation)
+  const revokeState = useAtomValue(mutation)
   const busy = revokeState.waiting
   const locale = getLocale()
 
