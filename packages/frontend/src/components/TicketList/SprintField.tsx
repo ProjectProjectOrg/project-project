@@ -1,20 +1,34 @@
+import * as Effect from "effect/Effect"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { Plus } from "lucide-react"
-import { useState } from "react"
+import { useContext, useMemo, useState } from "react"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import { SprintAssignMenu } from "@/components/sprints/SprintAssignMenu"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import { m } from "@/paraglide/messages"
 import {
-  projectKey,
-  sprintMembershipAtom,
-  sprintsListAtom,
-  useAddTicketsToSprint,
-  useRemoveTicketsFromSprint
-} from "@/atoms/sprints"
+  addTicketsToSprint,
+  removeTicketsFromSprint,
+  sprintList,
+  sprintListRequest,
+  sprintMembership
+} from "@/atoms/sprintList"
 import { type Group, type TicketId } from "@projectproject/shared"
+
+function dispatchMembership(
+  registry: Registry.AtomRegistry,
+  atom: ReturnType<typeof addTicketsToSprint>,
+  ticketIds: ReadonlyArray<TicketId>
+) {
+  const unmount = registry.mount(atom)
+  registry.set(atom, { ticketIds })
+  void Effect.runPromiseExit(
+    Registry.getResult(registry, atom, { suspendOnWaiting: true })
+  ).finally(unmount)
+}
 
 export function SprintField({
   orgSlug,
@@ -29,10 +43,9 @@ export function SprintField({
   membership: Group | null
   onRequestNewSprint?: () => void
 }) {
-  const key = projectKey(orgSlug, slug)
-  const list = useAtomValue(sprintsListAtom(key))
-  const addToSprint = useAddTicketsToSprint(key)
-  const removeFromSprint = useRemoveTicketsFromSprint(key)
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const registry = useContext(RegistryContext)
+  const list = useAtomValue(sprintList(req))
   const [open, setOpen] = useState(false)
 
   if (!membership) return null
@@ -45,12 +58,19 @@ export function SprintField({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={membership.id}
-      onSelect={(s) => addToSprint({ groupId: s.id, ticketIds: [ticketId] })}
+      onSelect={(s) =>
+        dispatchMembership(
+          registry,
+          addTicketsToSprint({ req, groupId: s.id }),
+          [ticketId]
+        )
+      }
       onClear={() =>
-        removeFromSprint({
-          groupId: membership.id,
-          ticketIds: [ticketId]
-        })
+        dispatchMembership(
+          registry,
+          removeTicketsFromSprint({ req, groupId: membership.id }),
+          [ticketId]
+        )
       }
       onRequestNewSprint={onRequestNewSprint}
       trigger={
@@ -82,15 +102,16 @@ export function SprintBadgeTrigger({
   ticketId: TicketId
   className?: string
 }) {
-  const key = projectKey(orgSlug, slug)
-  const list = useAtomValue(sprintsListAtom(key))
-  const membership = useAtomValue(sprintMembershipAtom(key))
-  const addToSprint = useAddTicketsToSprint(key)
-  const removeFromSprint = useRemoveTicketsFromSprint(key)
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const registry = useContext(RegistryContext)
+  const list = useAtomValue(sprintList(req))
+  const membership = useAtomValue(sprintMembership(req))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)
-  const current = membership?.get(ticketId) ?? null
+  const current = Result.isSuccess(membership)
+    ? (membership.value.get(ticketId) ?? null)
+    : null
   const label = current?.name ?? m.tickets_assign_sprint_chip()
 
   if (!hasAnyEligible) return null
@@ -101,14 +122,21 @@ export function SprintBadgeTrigger({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={current?.id ?? null}
-      onSelect={(s) => addToSprint({ groupId: s.id, ticketIds: [ticketId] })}
+      onSelect={(s) =>
+        dispatchMembership(
+          registry,
+          addTicketsToSprint({ req, groupId: s.id }),
+          [ticketId]
+        )
+      }
       onClear={
         current
           ? () =>
-              removeFromSprint({
-                groupId: current.id,
-                ticketIds: [ticketId]
-              })
+              dispatchMembership(
+                registry,
+                removeTicketsFromSprint({ req, groupId: current.id }),
+                [ticketId]
+              )
           : undefined
       }
       trigger={

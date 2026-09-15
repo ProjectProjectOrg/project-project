@@ -21,7 +21,7 @@ import {
   projectStatusesAtom,
   projectStatusesBaseAtom
 } from "@/atoms/projectStatuses"
-import type { TicketSectionsValue } from "@/atoms/tickets"
+import type { BacklogValue } from "@/atoms/backlog"
 import { m } from "@/paraglide/messages"
 import type {
   Group,
@@ -53,7 +53,7 @@ export function SegmentedList({
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
-  snapshot: TicketSectionsValue
+  snapshot: BacklogValue
 }) {
   const router = useRouter()
   const navigate = useNavigate()

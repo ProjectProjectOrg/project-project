@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
@@ -36,12 +37,7 @@ import {
   useAddTicketsToSprint
 } from "@/atoms/sprints"
 import { meAtom } from "@/atoms/auth"
-import {
-  quickCreateTicketAtom,
-  ticketSearchAtom,
-  ticketSearchKey,
-  ticketsListKeyForStatus
-} from "@/atoms/tickets"
+import { ticketSearchAtom, ticketSearchKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -49,7 +45,6 @@ import type {
   GroupId,
   Ticket,
   TicketId,
-  TicketStatus,
   TicketType
 } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
@@ -74,17 +69,19 @@ export function SprintTicketCreator({
   const registry = useContext(RegistryContext)
   const projKey = projectKey(orgSlug, slug)
   const sprintProjectKey = sprintsKey(orgSlug, slug)
-  const sectionKey = ticketsListKeyForStatus(
-    orgSlug,
-    slug,
-    { sort: { key: "updated", dir: "desc" }, groupId: [groupId] },
-    "todo" as TicketStatus
+  const req = useMemo(
+    () =>
+      backlogRequest(orgSlug, slug, {
+        sort: { key: "updated", dir: "desc" },
+        groupId: [groupId]
+      }),
+    [orgSlug, slug, groupId]
   )
 
-  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
+  const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
+  const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""

@@ -5,7 +5,7 @@ import {
   projectKey as projectStatusKey,
   projectStatusesAtom
 } from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import type { ProjectStatus, TicketListQuery } from "@projectproject/shared"
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -15,9 +15,11 @@ export function useServerTicketCounts(
   slug: string,
   query: TicketListQuery
 ): Record<string, number> {
-  const countsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, query))
+  const req = useMemo(
+    () => countsRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
+  const countsResult = useAtomValue(ticketCounts(req))
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )

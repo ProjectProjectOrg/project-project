@@ -1,13 +1,12 @@
-import { useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
-  ticketsListKey,
-  ticketsSectionsAtom,
-  ticketsSectionsBaseAtom,
-  ticketsSectionsKey,
-  type TicketSectionsValue
-} from "@/atoms/tickets"
+  backlog,
+  backlogRequest,
+  type BacklogRequest,
+  type BacklogValue
+} from "@/atoms/backlog"
 import { ErrorPage } from "@/components/ErrorPage"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
@@ -38,33 +37,32 @@ export function TicketList({
   creator?: ReactNode
   toolbar: ReactNode
 }) {
-  const key = ticketsListKey(orgSlug, slug, query)
-  const result = useAtomValue(
-    ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
-  const refresh = useAtomRefresh(
-    ticketsSectionsBaseAtom(ticketsSectionsKey(orgSlug, slug, query))
-  )
+  const result = useAtomValue(backlog(req))
+  const refresh = useAtomRefresh(backlog(req))
   const [previous, setPrevious] = useState<{
-    key: string
+    req: BacklogRequest
     query: TicketListQuery
-    value: TicketSectionsValue
+    value: BacklogValue
   } | null>(null)
   if (
     Result.isSuccess(result) &&
-    (previous?.key !== key || previous.value !== result.value)
+    (previous?.req !== req || previous.value !== result.value)
   ) {
-    setPrevious({ key, query, value: result.value })
+    setPrevious({ req, query, value: result.value })
   }
   const active = Result.isSuccess(result)
-    ? { key, query, value: result.value }
-    : Result.isFailure(result) && previous?.key !== key
+    ? { req, query, value: result.value }
+    : Result.isFailure(result) && previous?.req !== req
       ? null
       : previous
   const renderSections = () =>
     active ? (
       <SegmentedList
-        key={active.key}
+        key={`${orgSlug}/${slug}/${JSON.stringify(active.query)}`}
         orgSlug={orgSlug}
         slug={slug}
         query={active.query}

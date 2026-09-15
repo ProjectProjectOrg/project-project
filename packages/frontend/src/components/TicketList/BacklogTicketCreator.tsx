@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
@@ -28,17 +29,11 @@ import {
   sprintsListAtom,
   useAddTicketsToSprint
 } from "@/atoms/sprints"
-import { quickCreateTicketAtom, ticketsListKeyForStatus } from "@/atoms/tickets"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
-  TicketListQuery,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
+import type { Group, TicketListQuery, TicketType } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 
 export function BacklogTicketCreator({
@@ -51,16 +46,14 @@ export function BacklogTicketCreator({
   query: TicketListQuery
 }) {
   const projKey = projectKey(orgSlug, slug)
-  const sectionKey = ticketsListKeyForStatus(
-    orgSlug,
-    slug,
-    query,
-    "todo" as TicketStatus
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
-  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
+  const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
+  const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()

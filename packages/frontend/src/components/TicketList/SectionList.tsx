@@ -5,13 +5,10 @@ import { Loader2 } from "lucide-react"
 import { useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
-  loadMoreTicketsAtom,
-  pendingTicketStatusChangesAtom,
-  ticketsListKeyForStatus,
-  type TicketSectionValue
-} from "@/atoms/tickets"
-import { backlogRequest } from "@/atoms/backlog"
-import { projectKey } from "@/atoms/projects"
+  backlogRequest,
+  loadMoreBacklog,
+  type BacklogSection
+} from "@/atoms/backlog"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type {
@@ -53,7 +50,7 @@ export function SectionList({
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
   count: number
-  page: TicketSectionValue
+  page: BacklogSection
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
@@ -65,16 +62,13 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
-  const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const pendingStatusChanges = useAtomValue(
-    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
-  )
-  const loadMore = useAtomSet(loadMoreTicketsAtom(sectionKey))
-  const loadMoreState = useAtomValue(loadMoreTicketsAtom(sectionKey))
+  const sectionKey = `${orgSlug}/${slug}/${status}/${JSON.stringify(req.query)}`
+  const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
+  const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
   const loadingMore = loadMoreState.waiting
 
   const [creating, setCreating] = useState(false)
@@ -158,8 +152,7 @@ export function SectionList({
                       aria-busy={pending}
                       className={cn(
                         "col-span-full grid grid-cols-subgrid",
-                        pending && "pointer-events-none animate-pulse",
-                        pendingStatusChanges.has(ticket.id) && "animate-pulse"
+                        pending && "pointer-events-none animate-pulse"
                       )}
                     >
                       <Row

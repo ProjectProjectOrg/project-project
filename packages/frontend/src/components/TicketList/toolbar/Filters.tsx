@@ -8,7 +8,7 @@ import {
   SlidersHorizontal,
   UserRound
 } from "lucide-react"
-import { useRef, useState, type ComponentProps } from "react"
+import { useMemo, useRef, useState, type ComponentProps } from "react"
 import { meAtom } from "@/atoms/auth"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
@@ -21,10 +21,7 @@ import {
 import { TagChip } from "@/components/TagChip"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
 import { tagsAtom, tagsKey } from "@/atoms/tags"
-import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -323,9 +320,11 @@ function FilterSprint({
   const sprintFilter = groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
     onChange(sprint === "all" ? undefined : [sprint])
-  const sprintsList = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsList = useAtomValue(sprintList(sprintReq))
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
   const now = DateTime.toDate(DateTime.nowUnsafe())
   const sprintOptions = allSprints.filter((s) => {

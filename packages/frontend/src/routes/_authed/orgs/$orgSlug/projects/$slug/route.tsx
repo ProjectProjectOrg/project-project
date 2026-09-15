@@ -15,6 +15,7 @@ import {
   type MouseEvent,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
@@ -45,11 +46,8 @@ import {
   projectKey,
   updateProjectSetupAtom
 } from "@/atoms/projects"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
-import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { projectGitStatesAtom } from "@/atoms/github"
 import { everhourProjectStatusAtom } from "@/atoms/everhour"
 import {
@@ -88,8 +86,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     const { orgSlug, slug } = params
     const { registry } = context
     registry.mount(projectAtom(projectKey(orgSlug, slug)))()
-    registry.mount(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))()
-    registry.mount(sprintsListAtom(sprintsProjectKey(orgSlug, slug)))()
+    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
+    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
     registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
     return {
@@ -387,15 +385,19 @@ function TabsNav({
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
-  const ticketsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
+  const countsReq = useMemo(
+    () => countsRequest(orgSlug, slug, {}),
+    [orgSlug, slug]
   )
+  const ticketsResult = useAtomValue(ticketCounts(countsReq))
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.total
     : null
-  const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsCount = Result.isSuccess(sprintsResult)
     ? activeAndPlannedCount(sprintsResult.value)
     : null
