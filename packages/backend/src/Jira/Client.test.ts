@@ -11,6 +11,7 @@ import {
   JiraTransport,
   paginateCursor,
   paginateOffset,
+  type JiraClientShape,
   type JiraTransportRequest,
   type JiraTransportResponse
 } from "./Client"
@@ -283,6 +284,93 @@ describe("Jira client", () => {
       fields: ["summary"],
       maxResults: 100
     })
+  })
+
+  it("uses the board-scoped enhanced endpoint for sprint issues", async () => {
+    const requests: Array<JiraTransportRequest> = []
+    const transport = JiraTransport.of({
+      execute: (request) => {
+        requests.push(request)
+        const nextPageToken = new URL(request.url).searchParams.get(
+          "nextPageToken"
+        )
+        return Effect.succeed({
+          status: 200,
+          headers: {},
+          json: Effect.succeed(
+            nextPageToken === null
+              ? {
+                  isLast: false,
+                  nextPageToken: "next",
+                  issues: [{ id: "10001", key: "APP-1", fields: {} }]
+                }
+              : {
+                  isLast: true,
+                  issues: [{ id: "10002", key: "APP-2", fields: {} }]
+                }
+          ),
+          stream: Stream.empty
+        })
+      }
+    })
+    const credentials = JiraCredentials.of({
+      status: () => Effect.die("unused"),
+      beginConnect: () => Effect.die("unused"),
+      completeConnect: () => Effect.die("unused"),
+      completeConnectWithReturnPath: () => Effect.die("unused"),
+      returnPathForState: () => Effect.die("unused"),
+      accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+      disconnect: () => Effect.die("unused"),
+      markReconnectRequired: () => Effect.void
+    })
+
+    const exit = await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* JiraClient
+        const sprintIssues = client.sprintIssues as unknown as (
+          userId: string,
+          cloudId: string,
+          boardId: number,
+          sprintId: number,
+          fields: ReadonlyArray<string>
+        ) => ReturnType<JiraClientShape["sprintIssues"]>
+        return yield* Effect.exit(
+          Effect.suspend(() => sprintIssues("user", "cloud", 84, 37, ["id"]))
+        )
+      }).pipe(
+        Effect.provide(JiraClientLive),
+        Effect.provide(Layer.succeed(JiraTransport, transport)),
+        Effect.provide(Layer.succeed(JiraCredentials, credentials))
+      )
+    )
+
+    expect(exit._tag).toBe("Success")
+    if (exit._tag === "Failure") return
+    expect(exit.value.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
+    expect(
+      requests.map(({ url }) => {
+        const parsed = new URL(url)
+        return {
+          pathname: parsed.pathname,
+          fields: parsed.searchParams.get("fields"),
+          maxResults: parsed.searchParams.get("maxResults"),
+          nextPageToken: parsed.searchParams.get("nextPageToken")
+        }
+      })
+    ).toEqual([
+      {
+        pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
+        fields: "id",
+        maxResults: "100",
+        nextPageToken: null
+      },
+      {
+        pathname: "/ex/jira/cloud/rest/software/1.0/board/84/sprint/37/issue",
+        fields: "id",
+        maxResults: "100",
+        nextPageToken: "next"
+      }
+    ])
   })
 
   it("maps permission failures without reading the upstream body", async () => {

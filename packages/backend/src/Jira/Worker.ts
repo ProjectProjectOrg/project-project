@@ -193,20 +193,35 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         job.sourceProjectId
       )
       yield* renew(job, 7 + issues.length * 2, progressTotal)
-      const sprints = yield* Effect.forEach(
+      const boardSprints = yield* Effect.forEach(
         boards,
-        (board) => jira.sprints(job.initiatedBy, job.sourceCloudId, board.id),
+        (board) =>
+          jira
+            .sprints(job.initiatedBy, job.sourceCloudId, board.id)
+            .pipe(
+              Effect.map((sprints) =>
+                sprints.map((sprint) => ({ boardId: board.id, sprint }))
+              )
+            ),
         { concurrency: 2 }
       ).pipe(Effect.map((pages) => pages.flat()))
       yield* renew(job, 8 + issues.length * 2, progressTotal)
       const uniqueSprints = [
-        ...new Map(sprints.map((sprint) => [sprint.id, sprint])).values()
+        ...new Map(
+          boardSprints.map((entry) => [entry.sprint.id, entry])
+        ).values()
       ]
       const sprintMemberships = yield* Effect.forEach(
         uniqueSprints,
-        (sprint) =>
+        ({ boardId, sprint }) =>
           jira
-            .sprintIssues(job.initiatedBy, job.sourceCloudId, sprint.id, ["id"])
+            .sprintIssues(
+              job.initiatedBy,
+              job.sourceCloudId,
+              boardId,
+              sprint.id,
+              ["id"]
+            )
             .pipe(
               Effect.map((sprintIssues) => ({
                 sprint,

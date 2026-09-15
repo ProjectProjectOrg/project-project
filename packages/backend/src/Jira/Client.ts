@@ -269,6 +269,7 @@ export interface JiraClientShape {
   readonly sprintIssues: (
     userId: string,
     cloudId: string,
+    boardId: number,
     sprintId: number,
     fields: ReadonlyArray<string>
   ) => Effect.Effect<ReadonlyArray<typeof JiraIssue.Type>, JiraCallError>
@@ -289,6 +290,9 @@ const platformBase = (cloudId: string) =>
 
 const agileBase = (cloudId: string) =>
   `https://api.atlassian.com/ex/jira/${encodeURIComponent(cloudId)}/rest/agile/1.0`
+
+const softwareBase = (cloudId: string) =>
+  `https://api.atlassian.com/ex/jira/${encodeURIComponent(cloudId)}/rest/software/1.0`
 
 const pathPart = (value: string | number) => encodeURIComponent(String(value))
 
@@ -688,13 +692,31 @@ export const JiraClientLive = Layer.effect(
           JiraSprint,
           "values"
         ),
-      sprintIssues: (userId, cloudId, sprintId, fields) =>
-        issueOffset(
-          userId,
-          `${agileBase(cloudId)}/sprint/${pathPart(sprintId)}/issue?fields=${fields.map(pathPart).join(",")}`,
-          JiraIssue,
-          "issues"
-        ),
+      sprintIssues: (userId, cloudId, boardId, sprintId, fields) =>
+        paginateCursor((nextPageToken) => {
+          const url = new URL(
+            `${softwareBase(cloudId)}/board/${pathPart(boardId)}/sprint/${pathPart(sprintId)}/issue`
+          )
+          url.searchParams.set("fields", fields.join(","))
+          url.searchParams.set("maxResults", "100")
+          if (nextPageToken) {
+            url.searchParams.set("nextPageToken", nextPageToken)
+          }
+          return requestJson(
+            userId,
+            "GET",
+            url.toString(),
+            Schema.Struct({
+              issues: Schema.Array(JiraIssue),
+              nextPageToken: Schema.optional(Schema.String)
+            })
+          ).pipe(
+            Effect.map((page) => ({
+              values: page.issues,
+              nextPageToken: page.nextPageToken ?? null
+            }))
+          )
+        }),
       attachmentContent
     })
   })
