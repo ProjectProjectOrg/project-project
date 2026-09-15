@@ -14,6 +14,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { RunningTimerIndicator } from "./time/RunningTimerIndicator"
 import { TicketTimeSection } from "./time/TicketTimePanel"
 import { TagEditor } from "./TagEditor"
+import { stubFetch } from "@/api/testFetch"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
@@ -47,6 +48,7 @@ const ticket = Schema.decodeSync(TicketDetail)({
 })
 
 let registry: Registry.AtomRegistry
+const fetchStub = stubFetch()
 
 beforeEach(() => {
   registry = Registry.make()
@@ -55,7 +57,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   registry.dispose()
-  vi.unstubAllGlobals()
 })
 
 it.each(["not_connected", "active", "broken", "failed"] as const)(
@@ -66,7 +67,7 @@ it.each(["not_connected", "active", "broken", "failed"] as const)(
     const statusResponse = new Promise<Response>((resolve) => {
       resolveStatus = resolve
     })
-    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+    fetchStub.set(async (input: RequestInfo | URL) => {
       const path = new URL(
         input instanceof Request ? input.url : String(input),
         "http://localhost"
@@ -127,7 +128,7 @@ it.each(["not_connected", "active", "broken", "failed"] as const)(
 
 it("loads tag usage counts when management opens", async () => {
   const requests: string[] = []
-  vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+  fetchStub.set(async (input: RequestInfo | URL) => {
     const path = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"

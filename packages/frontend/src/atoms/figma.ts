@@ -1,142 +1,139 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import {
-  TicketId,
-  type ConnectFigmaProjectInput,
-  type FigmaLinkMetadata
-} from "@projectproject/shared"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import type { ConnectFigmaProjectInput, TicketId } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
 
-const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
-  const sep = key.indexOf("/")
-  return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
+export interface FigmaProjectRequest {
+  readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 
-const makeTicketId = Schema.decodeUnknownSync(TicketId)
-
-const splitTicketKey = (
-  key: string
-): { orgSlug: string; slug: string; id: TicketId } => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    id: makeTicketId(parts.slice(2).join("/"))
+export interface FigmaTicketLinksRequest {
+  readonly params: {
+    readonly orgSlug: string
+    readonly slug: string
+    readonly id: TicketId
   }
 }
 
-export const figmaProfileBaseAtom = runtime
-  .atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.figma.profile()
-    })
-  )
-  .pipe(Atom.setIdleTTL("1 minute"))
+export const figmaProjectRequest = (
+  orgSlug: string,
+  slug: string
+): FigmaProjectRequest => ({
+  params: { orgSlug, slug }
+})
 
-export const figmaProfileAtom = Atom.optimistic(figmaProfileBaseAtom)
+export const figmaTicketLinksRequest = (
+  orgSlug: string,
+  slug: string,
+  id: TicketId
+): FigmaTicketLinksRequest => ({ params: { orgSlug, slug, id } })
+
+const scopeOf = (req: FigmaProjectRequest | FigmaTicketLinksRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
+
+const figmaProfileQuery = Api.query("figma", "profile", {
+  timeToLive: "1 minute",
+  reactivityKeys: [Keys.figmaProfile()]
+})
+
+export const figmaProfileAtom = Atom.optimistic(figmaProfileQuery)
 
 export const disconnectFigmaProfileAtom = Atom.optimisticFn(figmaProfileAtom, {
-  reducer: (current) =>
-    Result.isSuccess(current)
-      ? Result.success(
-          { ...current.value, connected: false },
-          { waiting: true }
+  reducer: (current, _input: void) =>
+    AsyncResult.map(current, (profile) => ({
+      ...profile,
+      connected: false,
+      figmaUserId: null,
+      handle: null,
+      email: null,
+      lastVerifiedAt: null,
+      lastCheckError: null
+    })),
+  fn: (set) =>
+    Api.runtime.fn(
+      Effect.fn(function* (_input: void) {
+        const profile = yield* Api.use((client) =>
+          client.figma.disconnectProfile()
         )
-      : current,
-  fn: runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const profile = yield* client.figma.disconnectProfile()
-      get.refresh(figmaProfileBaseAtom)
-      return profile
-    })
-  )
-})
-
-export const figmaProjectStatusBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.figma.projectStatus({
-          params: { orgSlug, slug }
-        })
+        set(AsyncResult.success(profile))
+        return profile
       })
     )
-    .pipe(Atom.setIdleTTL("30 seconds"))
 })
 
-export const figmaProjectStatusAtom = Atom.family((key: string) =>
-  Atom.optimistic(figmaProjectStatusBaseAtom(key))
+const figmaProjectQuery = (req: FigmaProjectRequest) =>
+  Api.query("figma", "projectStatus", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.figmaProject(scopeOf(req))]
+  })
+
+export const figmaProjectStatusAtom = Atom.family((req: FigmaProjectRequest) =>
+  Atom.optimistic(figmaProjectQuery(req))
 )
 
-export const connectFigmaProjectAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(figmaProjectStatusAtom(key), {
+export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
+  Atom.optimisticFn(figmaProjectStatusAtom(req), {
     reducer: (current, _input: ConnectFigmaProjectInput) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            { ...current.value, connected: true },
-            { waiting: true }
+      AsyncResult.map(current, (status) => ({
+        ...status,
+        connected: true,
+        lastCheckStatus: "ok" as const,
+        lastCheckError: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: ConnectFigmaProjectInput) {
+          const status = yield* Api.use((client) =>
+            client.figma.connectProject({
+              params: req.params,
+              payload: input
+            })
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: ConnectFigmaProjectInput, get) {
-        const client = yield* ApiClient
-        const status = yield* client.figma.connectProject({
-          params: { orgSlug, slug },
-          payload: input
+          set(AsyncResult.success(status))
+          yield* Reactivity.invalidate([Keys.figmaTicketLinks(scopeOf(req))])
+          return status
         })
-        get.refresh(figmaProjectStatusBaseAtom(key))
-        return status
-      })
-    )
+      )
   })
-})
+)
 
-export const figmaTicketLinksNoTicketKey = ""
-
-export const figmaTicketLinksAtom = Atom.family((key: string) => {
-  if (key === figmaTicketLinksNoTicketKey) {
-    return runtime.atom(Effect.succeed([] as ReadonlyArray<FigmaLinkMetadata>))
-  }
-  const { orgSlug, slug, id } = splitTicketKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.figma.ticketLinks({
-          params: { orgSlug, slug, id }
-        })
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
-})
-
-export const disconnectFigmaProjectAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(figmaProjectStatusAtom(key), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            { ...current.value, connected: false },
-            { waiting: true }
-          )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        const status = yield* client.figma.disconnectProject({
-          params: { orgSlug, slug }
-        })
-        get.refresh(figmaProjectStatusBaseAtom(key))
-        return status
-      })
-    )
+const figmaTicketLinksQuery = (req: FigmaTicketLinksRequest) =>
+  Api.query("figma", "ticketLinks", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.figmaTicketLinks(scopeOf(req))]
   })
-})
+
+export const figmaTicketLinksAtom = Atom.family(
+  (req: FigmaTicketLinksRequest) => Atom.optimistic(figmaTicketLinksQuery(req))
+)
+
+export const disconnectFigmaProjectAtom = Atom.family(
+  (req: FigmaProjectRequest) =>
+    Atom.optimisticFn(figmaProjectStatusAtom(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (status) => ({
+          ...status,
+          connected: false,
+          handle: null,
+          connectedAt: null,
+          lastCheckStatus: null,
+          lastCheckError: null
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (_input: void) {
+            const status = yield* Api.use((client) =>
+              client.figma.disconnectProject({ params: req.params })
+            )
+            set(AsyncResult.success(status))
+            yield* Reactivity.invalidate([Keys.figmaTicketLinks(scopeOf(req))])
+            return status
+          })
+        )
+    })
+)

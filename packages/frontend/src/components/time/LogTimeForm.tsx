@@ -3,8 +3,12 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as DateTime from "effect/DateTime"
 import { useState, type FormEvent } from "react"
 import type { GroupId, TicketId, WorkTypeOption } from "@projectproject/shared"
-import { logTimeAtom } from "@/atoms/timeTracking"
-import { projectKey } from "@/atoms/projects"
+import {
+  logTicketTimeAtom,
+  logTimeAtom,
+  projectTimeRequest,
+  type TicketTimeRequest
+} from "@/atoms/timeTracking"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { WorkTypeSelect } from "@/components/time/WorkTypeSelect"
@@ -43,6 +47,7 @@ export function LogTimeForm({
   groupId,
   options,
   defaultWorkType,
+  request,
   onDone
 }: {
   orgSlug: string
@@ -51,11 +56,16 @@ export function LogTimeForm({
   groupId?: GroupId | null
   options: ReadonlyArray<WorkTypeOption>
   defaultWorkType: string
+  request?: TicketTimeRequest
   onDone?: () => void
 }) {
-  const projKey = projectKey(orgSlug, slug)
-  const logTime = useAtomSet(logTimeAtom(projKey), { mode: "promiseExit" })
-  const logState = useAtomValue(logTimeAtom(projKey))
+  const mutation = request
+    ? logTicketTimeAtom(request)
+    : logTimeAtom(
+        projectTimeRequest(orgSlug, slug, ticketId ?? groupId ?? null)
+      )
+  const logTime = useAtomSet(mutation, { mode: "promiseExit" })
+  const logState = useAtomValue(mutation)
   const submitting = logState.waiting
   const [workType, setWorkType] = useState(defaultWorkType)
   const [duration, setDuration] = useState("")

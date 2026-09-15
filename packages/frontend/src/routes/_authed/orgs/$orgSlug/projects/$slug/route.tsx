@@ -48,7 +48,10 @@ import {
 import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { projectGitStatesAtom } from "@/atoms/github"
-import { everhourProjectStatusAtom } from "@/atoms/everhour"
+import {
+  everhourProjectRequest,
+  everhourProjectStatusAtom
+} from "@/atoms/everhour"
 import {
   activeAndPlannedCount,
   pickActiveSprint,
@@ -87,7 +90,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
-    registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
+    registry.mount(
+      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
+    )()
     return {
       crumb: [
         {
