@@ -20,7 +20,7 @@ export const sprintRequest = (
 const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const sprintQuery = (req: SprintRequest) =>
+export const sprintQuery = (req: SprintRequest) =>
   Api.query("groups", "get", {
     params: req.params,
     timeToLive: "2 minutes",

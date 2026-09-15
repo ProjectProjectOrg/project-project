@@ -11,6 +11,7 @@ import type {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { sprintQuery } from "./sprintDetail"
 import { applyTicketPatch } from "./ticketPatch"
 
 export interface BoardRequest {
@@ -35,13 +36,6 @@ export interface BoardValue {
   readonly tickets: ReadonlyArray<Ticket>
   readonly completedAt: Date | null
 }
-
-const sprintQuery = (req: BoardRequest) =>
-  Api.query("groups", "get", {
-    params: req.params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [Keys.sprint(scopeOf(req), req.params.id)]
-  })
 
 const ticketsQuery = (req: BoardRequest) =>
   Api.query("groups", "listTickets", {

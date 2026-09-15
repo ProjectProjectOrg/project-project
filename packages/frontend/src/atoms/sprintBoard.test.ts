@@ -19,6 +19,7 @@ import {
   sprintBoard,
   updateBoardTicket
 } from "./sprintBoard"
+import { sprintQuery, sprintRequest } from "./sprintDetail"
 
 const groupId = Schema.decodeSync(GroupId)("G-1")
 const ticketAId = Schema.decodeSync(TicketId)("T-1")
@@ -98,6 +99,12 @@ describe("sprintBoard", () => {
     const a = boardRequest("acme", "web", groupId)
     const b = boardRequest("acme", "web", groupId)
     expect(sprintBoard(a)).toBe(sprintBoard(b))
+  })
+
+  it("reads the same group query atom that sprintDetail does", () => {
+    expect(sprintQuery(req)).toBe(
+      sprintQuery(sprintRequest("acme", "web", groupId))
+    )
   })
 
   it("pairs each id from the group's order with its ticket", async () => {
