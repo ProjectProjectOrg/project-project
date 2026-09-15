@@ -3,8 +3,16 @@ import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
-import { Group, GroupDetail, GroupId, TicketId } from "@projectproject/shared"
+import {
+  Group,
+  GroupDetail,
+  GroupId,
+  Ticket,
+  TicketId,
+  TicketStatus
+} from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
+import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
   completeSprint,
@@ -43,8 +51,28 @@ const otherSprint: Group = {
   tickets: []
 }
 
+const makeTicket = (id: TicketId): Ticket => ({
+  id,
+  title: `Ticket ${id}`,
+  status: Schema.decodeSync(TicketStatus)("todo"),
+  type: "chore",
+  priority: "med",
+  tags: [],
+  branch: null,
+  pr: null,
+  prState: null,
+  lastTransitionedPr: null,
+  gitState: { tag: "no_branch", baseBranch: "main" },
+  assignees: [],
+  archivedAt: null,
+  createdBy: "user-1",
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
+})
+
 const encodeGroup = Schema.encodeSync(Group)
 const encodeGroupDetail = Schema.encodeSync(GroupDetail)
+const encodeTicket = Schema.encodeSync(Ticket)
 const asDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 
 const req = sprintListRequest("acme", "web")
@@ -52,14 +80,9 @@ const req = sprintListRequest("acme", "web")
 const listResponse = (groups: ReadonlyArray<Group>) =>
   Response.json(groups.map((group) => encodeGroup(group)))
 
-const completeResponse = (
-  target: Group,
-  stayed: ReadonlyArray<TicketId>,
-  carried: ReadonlyArray<TicketId>
-) =>
+const completeResponse = (target: Group, carried: ReadonlyArray<TicketId>) =>
   Response.json({
     target: encodeGroupDetail(asDetail(target)),
-    stayed,
     carried
   })
 
@@ -354,7 +377,7 @@ describe("completeSprint", () => {
         completedAt: DateTime.toDate(DateTime.nowUnsafe())
       }
       served = [completedSprint, { ...otherSprint, tickets: [ticketA] }]
-      finish(completeResponse(completedSprint, [], [ticketA]))
+      finish(completeResponse(completedSprint, [ticketA]))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
       const settled = registry.get(view)
@@ -405,7 +428,7 @@ describe("completeSprint carryover", () => {
         completedAt: DateTime.toDate(DateTime.nowUnsafe())
       }
       served = [completedSprint, { ...otherSprint, tickets: [ticketB] }]
-      finish(completeResponse(completedSprint, [ticketA], [ticketB]))
+      finish(completeResponse(completedSprint, [ticketB]))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
       const settled = registry.get(view)
@@ -416,6 +439,82 @@ describe("completeSprint carryover", () => {
       expect(source?.completedAt).not.toBeNull()
       expect(dest?.tickets).toContain(ticketB)
       expect(dest?.tickets).not.toContain(ticketA)
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("publishes the destination's own key so a mounted destination board picks up the carried ticket", async () => {
+    const sprintWithBoth: Group = { ...sprint, tickets: [ticketA, ticketB] }
+    let servedList: ReadonlyArray<Group> = [sprintWithBoth, otherSprint]
+    let servedDest: Group = otherSprint
+    let servedDestTickets: ReadonlyArray<Ticket> = []
+    let finish = (_r: Response) => {}
+    fetchStub.set((input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      const method =
+        init?.method ?? (input instanceof Request ? input.method : "GET")
+      if (method === "POST") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      if (url.pathname.endsWith(`/${otherGroupId}/tickets`)) {
+        return Promise.resolve(
+          Response.json(servedDestTickets.map((t) => encodeTicket(t)))
+        )
+      }
+      if (url.pathname.endsWith(`/${otherGroupId}`)) {
+        return Promise.resolve(
+          Response.json(encodeGroupDetail(asDetail(servedDest)))
+        )
+      }
+      return Promise.resolve(listResponse(servedList))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    const destBoard = sprintBoard(boardRequest("acme", "web", otherGroupId))
+    const mutation = completeSprint({ req, groupId })
+    registry.mount(view)
+    registry.mount(destBoard)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      await vi.waitFor(() =>
+        expect(registry.get(destBoard)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      const before = registry.get(destBoard)
+      if (!AsyncResult.isSuccess(before)) throw new Error("not ready")
+      expect(before.value.tickets.map((t) => t.id)).not.toContain(ticketB)
+
+      registry.set(mutation, {
+        destination: { kind: "sprint", groupId: otherGroupId }
+      })
+
+      const completedSprint: Group = {
+        ...sprintWithBoth,
+        tickets: [ticketA],
+        completedAt: DateTime.toDate(DateTime.nowUnsafe())
+      }
+      servedList = [completedSprint, { ...otherSprint, tickets: [ticketB] }]
+      servedDest = { ...otherSprint, tickets: [ticketB] }
+      servedDestTickets = [makeTicket(ticketB)]
+      finish(completeResponse(completedSprint, [ticketB]))
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+
+      await vi.waitFor(() => {
+        const after = registry.get(destBoard)
+        if (!AsyncResult.isSuccess(after)) throw new Error("did not settle")
+        expect(after.value.tickets.map((t) => t.id)).toContain(ticketB)
+      })
     } finally {
       registry.dispose()
     }
@@ -454,7 +553,7 @@ describe("completeSprint carryover", () => {
         completedAt: DateTime.toDate(DateTime.nowUnsafe())
       }
       served = [completedSprint, otherSprint]
-      finish(completeResponse(completedSprint, [ticketA], [ticketB]))
+      finish(completeResponse(completedSprint, [ticketB]))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
       const settled = registry.get(view)
@@ -503,7 +602,7 @@ describe("completeSprint carryover", () => {
         completedAt: DateTime.toDate(DateTime.nowUnsafe())
       }
       served = [completedSprint, { ...otherSprint, tickets: [ticketB] }]
-      finish(completeResponse(completedSprint, [ticketA], [ticketB]))
+      finish(completeResponse(completedSprint, [ticketB]))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
 
       const settled = registry.get(view)

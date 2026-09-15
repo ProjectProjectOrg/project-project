@@ -246,7 +246,10 @@ export const completeSprint = Atom.family(
             yield* Reactivity.invalidate([
               Keys.sprintMembership(scopeOf(req)),
               Keys.ticketsIn(scopeOf(req)),
-              Keys.sprint(scopeOf(req), groupId)
+              Keys.sprint(scopeOf(req), groupId),
+              ...(input.destination.kind === "sprint"
+                ? [Keys.sprint(scopeOf(req), input.destination.groupId)]
+                : [])
             ])
             return result
           })
