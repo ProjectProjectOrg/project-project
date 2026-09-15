@@ -10,7 +10,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 // from the current window origin — single-origin homelab deploys work without
 // edits; dev/split-origin setups can swap the host before pasting.
 
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronRight, KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -23,6 +23,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { CodeSnippet } from "@/components/ui/code-snippet"
+import { ErrorPage } from "@/components/ErrorPage"
 import {
   type OAuthApplicationsRequest,
   oauthApplicationsRequest,
@@ -37,7 +38,9 @@ import type { OAuthApplication } from "@projectproject/shared"
 
 export function ConnectedAgentsSection() {
   const req = oauthApplicationsRequest()
-  const applications = useAtomValue(oauthApplicationsAtom(req))
+  const applicationsAtom = oauthApplicationsAtom(req)
+  const applications = useAtomValue(applicationsAtom)
+  const refresh = useAtomRefresh(applicationsAtom)
 
   return (
     <Card>
@@ -48,21 +51,38 @@ export function ConnectedAgentsSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 text-sm">
-        {Result.isSuccess(applications) ? (
-          applications.value.length === 0 ? (
-            <p className="text-muted-foreground">
-              {m.profile_connected_agents_empty()}
-            </p>
-          ) : (
-            <ul className="divide-y divide-border rounded-xl border border-border bg-background">
-              {applications.value.map((app) => (
-                <li key={app.id}>
-                  <AgentRow app={app} req={req} />
-                </li>
-              ))}
-            </ul>
+        {Result.matchWithError(applications, {
+          onInitial: () => (
+            <div className="h-14 animate-pulse rounded-xl bg-muted/40" />
+          ),
+          onError: (error) => (
+            <ErrorPage error={error} reset={refresh} contained />
+          ),
+          onDefect: (defect) => (
+            <ErrorPage error={defect} reset={refresh} contained />
+          ),
+          onSuccess: ({ value, waiting }) => (
+            <div
+              className={cn(
+                waiting && "animate-pulse motion-reduce:animate-none"
+              )}
+            >
+              {value.length === 0 ? (
+                <p className="text-muted-foreground">
+                  {m.profile_connected_agents_empty()}
+                </p>
+              ) : (
+                <ul className="divide-y divide-border rounded-xl border border-border bg-background">
+                  {value.map((app) => (
+                    <li key={app.id}>
+                      <AgentRow app={app} req={req} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )
-        ) : null}
+        })}
 
         <ConnectMcpDisclosure />
       </CardContent>

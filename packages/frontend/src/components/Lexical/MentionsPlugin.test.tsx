@@ -49,6 +49,7 @@ const fetchStub = stubFetch()
 
 it("debounces mention queries, cancels superseded searches, and rejects late results", async () => {
   const registry = Registry.make()
+  const abort = vi.spyOn(AbortController.prototype, "abort")
   const requests = new Map<
     string,
     {
@@ -89,7 +90,9 @@ it("debounces mention queries, cancels superseded searches, and rejects late res
     fireEvent.change(input, { target: { value: "#early" } })
     expect(requests.size).toBe(0)
     await waitFor(() => expect([...requests.keys()]).toEqual(["early"]))
+    abort.mockClear()
     fireEvent.change(input, { target: { value: "#latest" } })
+    await waitFor(() => expect(abort).toHaveBeenCalled())
     await waitFor(() =>
       expect([...requests.keys()]).toEqual(["early", "latest"])
     )
@@ -129,5 +132,6 @@ it("debounces mention queries, cancels superseded searches, and rejects late res
   } finally {
     cleanup()
     registry.dispose()
+    abort.mockRestore()
   }
 })

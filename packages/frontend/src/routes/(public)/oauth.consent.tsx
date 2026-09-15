@@ -64,7 +64,7 @@ function ConsentForm({
   clientId: string | undefined
 }) {
   const consentReq = oauthConsentRequest(oauthQuery)
-  const clientReq = oauthClientRequest(clientId ?? "")
+  const clientReq = oauthClientRequest(clientId)
   const submit = useAtomSet(submitConsentAtom(consentReq), {
     mode: "promiseExit"
   })
