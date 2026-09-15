@@ -20,10 +20,15 @@ import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { jiraMigration } from "../db/schema"
 import { Db } from "../Services/Db"
 
+const PersistedJiraMigrationScanSummary = Schema.Struct({
+  ...JiraMigrationScanSummary.fields,
+  scannedAt: Schema.DateTimeUtcFromString
+})
+
 const JiraMigrationCheckpoint = Schema.Struct({
   scan: Schema.optional(
     Schema.Struct({
-      summary: JiraMigrationScanSummary,
+      summary: PersistedJiraMigrationScanSummary,
       requirements: JiraMigrationRequirements
     })
   )

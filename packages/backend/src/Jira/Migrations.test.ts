@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { PgClient } from "@effect/sql-pg"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
@@ -178,5 +179,89 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         reason: "jira_migration_revision_conflict"
       }
     })
+  })
+
+  it("decodes a persisted successful scan checkpoint when getting details", async () => {
+    const owner = await createOwner()
+    const created = await Effect.runPromise(
+      Effect.gen(function* () {
+        const migrations = yield* JiraMigrations
+        return yield* migrations.create(
+          owner.organizationId,
+          owner.userId,
+          randomUUID(),
+          source
+        )
+      }).pipe(Effect.provide(layer))
+    )
+    await pool.query(
+      'update jira_migration set status = $1, phase = $2, checkpoint = $3::jsonb where id = $4',
+      [
+        "needs_configuration",
+        "configuration",
+        JSON.stringify({
+          scan: {
+            summary: {
+              siteName: source.siteName,
+              siteUrl: source.siteUrl,
+              projectName: source.projectName,
+              projectKey: source.projectKey,
+              scannedAt: "2026-09-15T12:00:00.000Z",
+              counts: {
+                identities: 0,
+                statuses: 0,
+                issueTypes: 0,
+                priorities: 0,
+                tags: 0,
+                issues: 0,
+                comments: 0,
+                attachments: 0,
+                groups: 0,
+                restrictions: 0
+              },
+              visibilityWarnings: []
+            },
+            requirements: {
+              destination: {
+                suggestedName: source.projectName,
+                suggestedSlug: "application",
+                suggestedKey: source.projectKey
+              },
+              identities: [],
+              identityOptions: [],
+              statuses: [],
+              statusOptions: [],
+              issueTypes: [],
+              priorities: [],
+              tags: [],
+              activeFutureSprintChoices: [],
+              restrictedContent: {
+                issueCount: 0,
+                commentCount: 0,
+                worklogCount: 0
+              },
+              attachments: []
+            }
+          }
+        }),
+        created.id
+      ]
+    )
+
+    const detail = await Effect.runPromise(
+      Effect.gen(function* () {
+        const migrations = yield* JiraMigrations
+        return yield* migrations.get(
+          owner.organizationId,
+          owner.userId,
+          created.id
+        )
+      }).pipe(Effect.provide(layer))
+    )
+
+    expect(detail.status).toBe("needs_configuration")
+    expect(detail.requirements?.destination.suggestedSlug).toBe("application")
+    expect(detail.scanSummary).not.toBeNull()
+    expect(DateTime.isUtc(detail.scanSummary!.scannedAt)).toBe(true)
   })
 })
