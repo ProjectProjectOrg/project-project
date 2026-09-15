@@ -32,10 +32,10 @@ import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
+  addTicketsToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
 import { meAtom } from "@/atoms/auth"
 import { ticketSearchAtom, ticketSearchKey } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
@@ -68,7 +68,10 @@ export function SprintTicketCreator({
 }) {
   const registry = useContext(RegistryContext)
   const projKey = projectKey(orgSlug, slug)
-  const sprintProjectKey = sprintsKey(orgSlug, slug)
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
   const req = useMemo(
     () =>
       backlogRequest(orgSlug, slug, {
@@ -115,8 +118,8 @@ export function SprintTicketCreator({
   const ticketsResult = useAtomValue(
     expanded && trimmed === searchQuery ? searchAtom : idleSearchAtom
   )
-  const sprintsResult = useAtomValue(sprintsListAtom(sprintProjectKey))
-  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
+  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const memberOfOtherSprint = useMemo(() => {
     const map = new Map<string, string>()

@@ -30,10 +30,10 @@ import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { meAtom } from "@/atoms/auth"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
+  addTicketsToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -79,13 +79,16 @@ export function SectionTicketCreator({
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
-  const sprintProjectKey = sprintsKey(orgSlug, slug)
-  const sprintListResult = useAtomValue(sprintsListAtom(sprintProjectKey))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
-  const addToSprint = useAddTicketsToSprint(sprintProjectKey)
+  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const groupIdFilter = query.groupId
   const singleGroupIdFilter =

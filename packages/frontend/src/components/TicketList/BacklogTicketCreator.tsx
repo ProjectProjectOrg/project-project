@@ -25,10 +25,10 @@ import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
+  addTicketsToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
@@ -67,15 +67,17 @@ export function BacklogTicketCreator({
   const project = useAtomValue(projectAtom(projKey))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
-  const sprintListResult = useAtomValue(
-    sprintsListAtom(sprintsKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const addToSprint = useAddTicketsToSprint(sprintsKey(orgSlug, slug))
+  const addToSprint = useAtomSet(addTicketsToSprint(sprintReq))
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
