@@ -103,8 +103,8 @@ const TicketsStub = Layer.succeed(Tickets, {
     capturedListLimits.push(limit)
     capturedListQueries.push(query)
     const all = Array.from({ length: 25 }, (_, i) => ({
-      ...fakeTicket,
-      id: decodeTicketId(`T-${i + 1}`)
+      ticket: { ...fakeTicket, id: decodeTicketId(`T-${i + 1}`) },
+      orderKey: `${i + 1}`.padStart(4, "0")
     }))
     const effective = limit ?? all.length
     return Effect.succeed({

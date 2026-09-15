@@ -219,13 +219,17 @@ const list_tickets = (
     const current = yield* CurrentUser
     const tickets = yield* Tickets
     const query = TicketListQuery.make(input)
-    return yield* tickets.list(
+    const page = yield* tickets.list(
       input.orgSlug,
       current.id,
       input.projectSlug,
       query,
       input.limit
     )
+    return {
+      items: page.items.map((row) => row.ticket),
+      nextCursor: page.nextCursor
+    }
   })
 
 const get_ticket = (input: {

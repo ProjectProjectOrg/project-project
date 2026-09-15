@@ -158,7 +158,10 @@ function ticketPage(
     dir: query.sort.dir
   })
   return {
-    items: page.items.map(({ entry }) => indexEntryToTicket(entry, github)),
+    items: page.items.map(({ entry, orderKey }) => ({
+      ticket: indexEntryToTicket(entry, github),
+      orderKey
+    })),
     nextCursor: page.nextCursor
   }
 }

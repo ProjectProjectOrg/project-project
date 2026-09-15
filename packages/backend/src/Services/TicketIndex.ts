@@ -61,10 +61,11 @@ export interface TicketIndexEntry {
   readonly updatedAt: Date
 }
 
-export interface TicketIndexQueryEntry {
-  readonly entry: TicketIndexEntry
-  readonly sortValue: string
-}
+export type TicketIndexQueryEntry = Readonly<{
+  entry: TicketIndexEntry
+  sortValue: string
+  orderKey: string
+}>
 
 export interface TicketIndexMatch extends TicketIndexProject {
   readonly ticketId: string

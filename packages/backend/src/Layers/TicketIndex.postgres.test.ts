@@ -12,10 +12,11 @@ import {
   TagName,
   TicketId,
   TicketStatus,
-  type TicketFilter
+  type TicketFilter,
+  type TicketSort
 } from "@projectproject/shared"
 import { DbLive, PgLive } from "./Db"
-import { TicketIndexLive } from "./TicketIndex"
+import { TICKET_ORDER_KEY_SEPARATOR, TicketIndexLive } from "./TicketIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -403,8 +404,8 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
           { viewerId: "viewer", limit: 10 }
         )
         expect(unicodeSearch.map(({ entry }) => entry.id)).toEqual([
-          "T-13",
-          "T-14"
+          "T-14",
+          "T-13"
         ])
 
         const firstTitlePage = yield* index.query(
@@ -454,6 +455,143 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
           { viewerId: "viewer", limit: 10 }
         )
         expect(archived.map(({ entry }) => entry.id)).toEqual(["T-12"])
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect("orders rows exactly as a string compare of the order key", () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-order-${suffix}`
+        const orgSlug = `ticket-index-order-${suffix}`
+        const projectSlug = `ticket-index-order-${suffix}`
+        const projectId = randomUUID()
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index order', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          await client.query(
+            `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index order', 'folder', 'blue', 'test-user', now())`,
+            [projectId, projectSlug, organizationId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          )
+        )
+
+        const earlier = DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
+        )
+        const later = DateTime.toDate(
+          DateTime.makeUnsafe("2026-02-02T00:00:00.000Z")
+        )
+        const documents = [
+          indexedDocument("T-1", {
+            title: "ab 1",
+            priority: "med",
+            createdAt: earlier,
+            updatedAt: later
+          }),
+          indexedDocument("T-2", {
+            title: "ab",
+            priority: "med",
+            createdAt: earlier,
+            updatedAt: later
+          }),
+          indexedDocument("T-3", {
+            title: "dup",
+            priority: "high",
+            createdAt: earlier,
+            updatedAt: earlier
+          }),
+          indexedDocument("T-4", {
+            title: "dup",
+            priority: "high",
+            createdAt: later,
+            updatedAt: earlier
+          }),
+          indexedDocument("T-5", {
+            title: "Dup",
+            priority: "low",
+            createdAt: later,
+            updatedAt: earlier
+          }),
+          indexedDocument("T-6", {
+            title: "zz",
+            priority: "low",
+            createdAt: later,
+            updatedAt: later
+          })
+        ]
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(orgSlug, projectSlug)
+        yield* Effect.forEach(documents, (document) =>
+          index.upsertTicket(project, document)
+        )
+
+        const sorts: ReadonlyArray<TicketSort> = [
+          { key: "id", dir: "asc" },
+          { key: "id", dir: "desc" },
+          { key: "created", dir: "asc" },
+          { key: "created", dir: "desc" },
+          { key: "updated", dir: "asc" },
+          { key: "updated", dir: "desc" },
+          { key: "title", dir: "asc" },
+          { key: "title", dir: "desc" },
+          { key: "priority", dir: "asc" },
+          { key: "priority", dir: "desc" }
+        ]
+
+        yield* Effect.forEach(sorts, (sort) =>
+          Effect.gen(function* () {
+            const rows = yield* index.query(
+              project,
+              { sort },
+              { viewerId: "viewer", limit: documents.length }
+            )
+            expect(rows).toHaveLength(documents.length)
+
+            const orderKeys = rows.map((row) => row.orderKey)
+            expect(new Set(orderKeys).size).toBe(orderKeys.length)
+            for (const row of rows) {
+              expect(row.orderKey).toBe(
+                `${row.sortValue}${TICKET_ORDER_KEY_SEPARATOR}${row.entry.id}`
+              )
+            }
+
+            const byOrderKey = [...orderKeys].sort((a, b) =>
+              a < b ? -1 : a > b ? 1 : 0
+            )
+            expect(orderKeys).toEqual(
+              sort.dir === "asc" ? byOrderKey : byOrderKey.toReversed()
+            )
+
+            const walked: Array<string> = []
+            let cursor: string | undefined
+            for (let attempt = 0; attempt < documents.length; attempt++) {
+              const page = yield* index.query(
+                project,
+                { sort, cursor },
+                { viewerId: "viewer", limit: 2 }
+              )
+              if (page.length === 0) break
+              walked.push(...page.map((row) => row.entry.id))
+              const last = page[page.length - 1]!
+              cursor = encodeCursor({
+                id: last.entry.id,
+                sort: last.sortValue
+              })
+            }
+            expect(walked).toEqual(rows.map((row) => row.entry.id))
+          })
+        )
       }).pipe(Effect.provide(TestLayer))
     )
   }

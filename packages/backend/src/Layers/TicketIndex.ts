@@ -97,6 +97,8 @@ const ticketSortExpression = (sort: TicketSort): SQL => {
   throw new Error("unsupported ticket sort key")
 }
 
+export const TICKET_ORDER_KEY_SEPARATOR = "\u0000"
+
 const cursorSortValue = (
   sort: TicketSort,
   value: string
@@ -114,15 +116,17 @@ const cursorCondition = (
   if (!cursor) return undefined
   const value = cursorSortValue(query.sort, cursor.sort)
   if (value === undefined) return undefined
-  const afterPrimary =
-    query.sort.dir === "asc"
-      ? drizzleSql`${expression} > ${value}`
-      : drizzleSql`${expression} < ${value}`
+  const ascending = query.sort.dir === "asc"
+  const afterPrimary = ascending
+    ? drizzleSql`${expression} > ${value}`
+    : drizzleSql`${expression} < ${value}`
   return or(
     afterPrimary,
     and(
       drizzleSql`${expression} = ${value}`,
-      gt(ticketIndex.ticketId, cursor.id)
+      ascending
+        ? gt(ticketIndex.ticketId, cursor.id)
+        : lt(ticketIndex.ticketId, cursor.id)
     )
   )
 }
@@ -491,19 +495,24 @@ export const TicketIndexLive = Layer.effect(
         .from(ticketIndex)
         .where(and(...conditions))
         .orderBy(
-          ticketQuery.sort.dir === "asc" ? asc(expression) : desc(expression),
-          asc(ticketIndex.ticketId)
+          ...(ticketQuery.sort.dir === "asc"
+            ? [asc(expression), asc(ticketIndex.ticketId)]
+            : [desc(expression), desc(ticketIndex.ticketId)])
         )
         .limit(Math.max(1, options.limit))
         .pipe(
           Effect.map((rows) =>
-            rows.map(({ sortValue, ...row }) => ({
-              entry: toEntry(row),
-              sortValue:
+            rows.map(({ sortValue, ...row }) => {
+              const value =
                 sortValue instanceof Date
                   ? sortValue.toISOString()
                   : String(sortValue)
-            }))
+              return {
+                entry: toEntry(row),
+                sortValue: value,
+                orderKey: `${value}${TICKET_ORDER_KEY_SEPARATOR}${row.ticketId}`
+              }
+            })
           ),
           Effect.orDie
         )

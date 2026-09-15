@@ -78,7 +78,13 @@ export const TicketListQuery = TicketFilter.pipe(
 )
 export type TicketListQuery = typeof TicketListQuery.Type
 
-export const TicketListPage = Page(Ticket)
+export const TicketListRow = Schema.Struct({
+  ticket: Ticket,
+  orderKey: Schema.String
+})
+export type TicketListRow = typeof TicketListRow.Type
+
+export const TicketListPage = Page(TicketListRow)
 export type TicketListPage = typeof TicketListPage.Type
 
 export const TicketCounts = Schema.Struct({

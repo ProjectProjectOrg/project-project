@@ -25,6 +25,7 @@ import {
   type TicketListQuery
 } from "@projectproject/shared"
 import { applyPullRequestWebhookToTicket } from "../Layers/GitHubWebhooks"
+import { TICKET_ORDER_KEY_SEPARATOR } from "../Layers/TicketIndex"
 import { TicketsLive } from "../Layers/Tickets"
 import * as TicketDocumentLock from "../ticketDocumentLock"
 import { Attachments, type AttachmentsShape } from "./Attachments"
@@ -400,7 +401,9 @@ const makeFakeTicketIndex = (
           const rightValue = ticketSortValue(right, query)
           if (leftValue < rightValue) return -1 * sign
           if (leftValue > rightValue) return sign
-          return left.id.localeCompare(right.id)
+          if (left.id < right.id) return -1 * sign
+          if (left.id > right.id) return sign
+          return 0
         })
         return paginateSorted(sorted, {
           cursor: tryDecodeCursor(query.cursor),
@@ -408,10 +411,14 @@ const makeFakeTicketIndex = (
           sortKey: (document) => ticketSortValue(document, query),
           id: (document) => document.id,
           dir: query.sort.dir
-        }).items.map((document) => ({
-          entry: entryFromDocument(document),
-          sortValue: ticketSortValue(document, query)
-        }))
+        }).items.map((document) => {
+          const sortValue = ticketSortValue(document, query)
+          return {
+            entry: entryFromDocument(document),
+            sortValue,
+            orderKey: `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${document.id}`
+          }
+        })
       }),
     count: (_project, query: TicketCountQuery, options) =>
       Effect.sync(() => {
@@ -1516,7 +1523,7 @@ it.effect("list reads ticket index rows", () => {
       sort: DEFAULT_TICKET_SORT
     })
 
-    expect(result.items.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.items.map((row) => row.ticket.id)).toEqual(["T-1"])
     expect(result.nextCursor).toBeNull()
   }).pipe(
     Effect.provide(
@@ -1568,7 +1575,7 @@ it.effect(
         groupId: ["ungrouped"]
       })
 
-      expect(result.items.map((ticket) => ticket.id)).toEqual(["T-2"])
+      expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
     }).pipe(
       Effect.provide(
         makeTicketsLayer("T", docs.layer, {
@@ -1610,7 +1617,11 @@ it.effect("list defaults to created desc", () => {
       sort: DEFAULT_TICKET_SORT
     })
 
-    expect(result.items.map((t) => t.title)).toEqual(["new", "mid", "old"])
+    expect(result.items.map((row) => row.ticket.title)).toEqual([
+      "new",
+      "mid",
+      "old"
+    ])
     expect(result.nextCursor).toBeNull()
   }).pipe(Effect.provide(layer))
 })
@@ -1628,7 +1639,7 @@ it.effect("list sorts by title asc", () => {
     }
     const result = yield* tickets.list("org", "user-1", "p", query)
 
-    expect(result.items.map((t) => t.title)).toEqual(["A", "B", "C"])
+    expect(result.items.map((row) => row.ticket.title)).toEqual(["A", "B", "C"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -1655,9 +1666,9 @@ it.effect("list paginates by cursor", () => {
     expect(page2.items.length).toBe(5)
     expect(page2.nextCursor).toBeNull()
 
-    const page1Ids = new Set(page1.items.map((t) => t.id))
-    for (const t of page2.items) {
-      expect(page1Ids.has(t.id)).toBe(false)
+    const page1Ids = new Set(page1.items.map((row) => row.ticket.id))
+    for (const row of page2.items) {
+      expect(page1Ids.has(row.ticket.id)).toBe(false)
     }
   }).pipe(Effect.provide(layer))
 })
@@ -1684,7 +1695,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     })
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
     expect(page1.nextCursor).not.toBeNull()
-    const page1Times = page1.items.map((t) => t.createdAt.getTime())
+    const page1Times = page1.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page1Times.length; i++) {
       expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
     }
@@ -1695,14 +1706,14 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     })
     expect(page2.items.length).toBe(5)
     expect(page2.nextCursor).toBeNull()
-    const page2Times = page2.items.map((t) => t.createdAt.getTime())
+    const page2Times = page2.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page2Times.length; i++) {
       expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
     }
 
-    const seen = new Set(page1.items.map((t) => t.id))
-    for (const t of page2.items) {
-      expect(seen.has(t.id)).toBe(false)
+    const seen = new Set(page1.items.map((row) => row.ticket.id))
+    for (const row of page2.items) {
+      expect(seen.has(row.ticket.id)).toBe(false)
     }
   }).pipe(Effect.provide(layer))
 })
@@ -1744,13 +1755,13 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
       sort: DEFAULT_TICKET_SORT,
       q: "hello"
     })
-    expect(byQ.items.map((t) => t.title)).toEqual(["hello world"])
+    expect(byQ.items.map((row) => row.ticket.title)).toEqual(["hello world"])
 
     const mine = yield* tickets.list("org", "user-1", "p", {
       sort: DEFAULT_TICKET_SORT,
       assignee: ["mine"]
     })
-    expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
+    expect(mine.items.map((row) => row.ticket.title)).toEqual(["hello world"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -2066,14 +2077,19 @@ it.effect(
       expect(todo.items).toHaveLength(50)
       expect(todo.nextCursor).not.toBeNull()
       expect(
-        snapshot.sections[ticketStatus("in_progress")].items.map(({ id }) => id)
+        snapshot.sections[ticketStatus("in_progress")].items.map(
+          ({ ticket }) => ticket.id
+        )
       ).toEqual(["T-53"])
       const next = yield* tickets.list("org", "user-1", "p", {
         ...query,
         status: [ticketStatus("todo")],
         cursor: todo.nextCursor ?? undefined
       })
-      expect(next.items.map(({ id }) => id)).toEqual(["T-51", "T-52"])
+      expect(next.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-51",
+        "T-52"
+      ])
       expect(next.nextCursor).toBeNull()
       const selected = yield* tickets.sections("org", "user-1", "p", {
         ...query,
