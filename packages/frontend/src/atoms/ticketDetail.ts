@@ -78,8 +78,12 @@ export const updateTicketDetail = Atom.family((req: TicketRequest) =>
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(function* (patch: UpdateTicketInput) {
-          const updated = yield* Api.use((client) =>
-            client.tickets.update({ params: req.params, payload: patch })
+          const { ticket: updated } = yield* Api.use((client) =>
+            client.tickets.update({
+              params: req.params,
+              query: {},
+              payload: patch
+            })
           )
           // Show the confirmed server value before the refetch resolves.
           set(AsyncResult.success(updated))

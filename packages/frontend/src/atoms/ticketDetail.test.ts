@@ -7,6 +7,7 @@ import {
   TicketDetail,
   TicketId,
   TicketStatus,
+  TicketUpdateResult,
   type UpdateTicketInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
@@ -35,6 +36,8 @@ const ticket = {
 } satisfies TicketDetail
 
 const encode = Schema.encodeSync(TicketDetail)
+const encodeUpdate = (t: TicketDetail) =>
+  Schema.encodeSync(TicketUpdateResult)({ ticket: t, orderKey: null })
 const req = ticketRequest("acme", "web", ticket.id)
 
 const fetchStub = stubFetch()
@@ -79,7 +82,7 @@ describe("ticket detail optimistic update", () => {
         title: "Renamed by server"
       }
       served = confirmed
-      finish(Response.json(encode(confirmed)))
+      finish(Response.json(encodeUpdate(confirmed)))
 
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({ waiting: false })
@@ -197,7 +200,7 @@ describe("ticket detail invalidation keys", () => {
         "http://localhost"
       )
       if (init?.method === "PATCH") {
-        return Promise.resolve(Response.json(encode(ticket)))
+        return Promise.resolve(Response.json(encodeUpdate(ticket)))
       }
       if (url.pathname.endsWith("/count")) {
         const name = url.searchParams.get("q") ?? ""

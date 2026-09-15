@@ -5,6 +5,7 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
+  padNumericIdSort,
   type QuickCreateTicketInput,
   type Ticket,
   type TicketCounts,
@@ -17,6 +18,7 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { PRIORITY_META } from "@/lib/priority-meta"
 import { applyTicketPatch } from "./ticketPatch"
 
 export const encodeTicketListQuery = Schema.encodeSync(
@@ -217,13 +219,77 @@ const insertByOrderKey = (
   return [...items.slice(0, low), row, ...items.slice(low)]
 }
 
-const insertRow = (
+const compareStrings = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0
+
+const compareSortField: Readonly<
+  Record<TicketSort["key"], (left: Ticket, right: Ticket) => number>
+> = {
+  id: (left, right) =>
+    compareStrings(
+      padNumericIdSort(left.id) ?? left.id,
+      padNumericIdSort(right.id) ?? right.id
+    ),
+  created: (left, right) =>
+    left.createdAt.getTime() - right.createdAt.getTime(),
+  updated: (left, right) =>
+    left.updatedAt.getTime() - right.updatedAt.getTime(),
+  title: (left, right) =>
+    compareStrings(left.title.toLowerCase(), right.title.toLowerCase()),
+  priority: (left, right) =>
+    PRIORITY_META[left.priority].ordinal - PRIORITY_META[right.priority].ordinal
+}
+
+const compareTickets = (
+  left: Ticket,
+  right: Ticket,
+  key: TicketSort["key"]
+): number => {
+  const primary = compareSortField[key](left, right)
+  return primary === 0 ? compareStrings(left.id, right.id) : primary
+}
+
+const insertByFieldValue = (
   items: ReadonlyArray<BacklogRow>,
   row: BacklogRow,
   sort: TicketSort
 ): ReadonlyArray<BacklogRow> => {
-  if (sort.key !== "updated") return insertByOrderKey(items, row, sort.dir)
-  return sort.dir === "desc" ? [row, ...items] : [...items, row]
+  let low = 0
+  let high = items.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    const candidate = items[middle]!
+    const order = compareTickets(candidate.ticket, row.ticket, sort.key)
+    const sortsBefore =
+      candidate.orderKey === null ||
+      (sort.dir === "asc" ? order < 0 : order > 0)
+    if (sortsBefore) low = middle + 1
+    else high = middle
+  }
+  return [...items.slice(0, low), row, ...items.slice(low)]
+}
+
+const patchesSortedField = (
+  patch: UpdateTicketInput,
+  key: TicketSort["key"]
+): boolean => {
+  if (key === "title") return patch.title !== undefined
+  if (key === "priority") return patch.priority !== undefined
+  return false
+}
+
+const insertRow = (
+  items: ReadonlyArray<BacklogRow>,
+  row: BacklogRow,
+  sort: TicketSort,
+  byFieldValue: boolean
+): ReadonlyArray<BacklogRow> => {
+  if (sort.key === "updated") {
+    return sort.dir === "desc" ? [row, ...items] : [...items, row]
+  }
+  return byFieldValue
+    ? insertByFieldValue(items, row, sort)
+    : insertByOrderKey(items, row, sort.dir)
 }
 
 const patchRow = (
@@ -257,7 +323,15 @@ const patchRow = (
 
   const to = patch.status ?? from
   const target = sections[to] ?? { items: [], nextCursor: null }
-  sections[to] = { ...target, items: insertRow(target.items, patched, sort) }
+  sections[to] = {
+    ...target,
+    items: insertRow(
+      target.items,
+      patched,
+      sort,
+      patchesSortedField(patch, sort.key)
+    )
+  }
 
   if (to === from) return { ...value, sections }
 
@@ -268,14 +342,33 @@ const patchRow = (
   return { counts: { total: value.counts.total, byStatus }, sections }
 }
 
-const replaceRow = (value: BacklogValue, ticket: Ticket): BacklogValue => {
+const replaceRow = (
+  value: BacklogValue,
+  ticket: Ticket,
+  orderKey: string | null,
+  sort: TicketSort
+): BacklogValue => {
   const sections: Record<string, BacklogSection> = {}
   for (const [status, section] of Object.entries(value.sections)) {
+    if (orderKey === null) {
+      sections[status] = {
+        ...section,
+        items: section.items.map((row) =>
+          row.ticket.id === ticket.id ? { ...row, ticket } : row
+        )
+      }
+      continue
+    }
+    const items: Array<BacklogRow> = []
+    let moved: BacklogRow | undefined
+    for (const row of section.items) {
+      if (row.ticket.id === ticket.id) moved = { ...row, ticket, orderKey }
+      else items.push(row)
+    }
     sections[status] = {
       ...section,
-      items: section.items.map((row) =>
-        row.ticket.id === ticket.id ? { ...row, ticket } : row
-      )
+      items:
+        moved === undefined ? items : insertByOrderKey(items, moved, sort.dir)
     }
   }
   return { ...value, sections }
@@ -297,15 +390,16 @@ export const updateBacklogTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const updated = yield* Api.use((client) =>
+            const { ticket: updated, orderKey } = yield* Api.use((client) =>
               client.tickets.update({
                 params: { ...req.params, id },
+                query: { sort: req.query.sort },
                 payload: patch
               })
             )
             set(
               AsyncResult.map(get(backlog(req)), (value) =>
-                replaceRow(value, updated)
+                replaceRow(value, updated, orderKey, req.query.sort)
               )
             )
             // Only keys other views listen to. `ticketsIn` is registered by

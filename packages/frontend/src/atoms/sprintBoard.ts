@@ -140,9 +140,10 @@ export const updateBoardTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const updated = yield* Api.use((client) =>
+            const { ticket: updated } = yield* Api.use((client) =>
               client.tickets.update({
                 params: { ...req.params, id },
+                query: {},
                 payload: patch
               })
             )

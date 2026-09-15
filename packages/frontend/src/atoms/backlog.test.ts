@@ -11,7 +11,9 @@ import {
   TicketDetail,
   TicketId,
   type TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  TicketUpdateResult,
+  type UpdateTicketInput
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import {
@@ -22,6 +24,7 @@ import {
   quickCreateBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
+import { applyTicketPatch } from "./ticketPatch"
 
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
@@ -46,8 +49,13 @@ const encode = Schema.encodeSync(Ticket)
 // `tickets.update`'s success schema is `TicketDetail`, so the PATCH mock
 // response must decode as one even though the sections view only ever
 // reads `Ticket` fields off it.
-const encodeUpdateResponse = Schema.encodeSync(TicketDetail)
+const encodeDetail = Schema.encodeSync(TicketDetail)
+const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
 const asDetail = (t: Ticket): TicketDetail => ({ ...t, body: "Before" })
+const asUpdateResult = (
+  t: Ticket,
+  key: string | null = null
+): TicketUpdateResult => ({ ticket: asDetail(t), orderKey: key })
 const req = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
 
 const orderKey = (sortValue: string, id: string) => `${sortValue}\u0000${id}`
@@ -111,7 +119,7 @@ describe("backlog optimistic update", () => {
 
       const confirmed = { ...ticket, priority: "high" as const }
       served = [confirmed]
-      finish(Response.json(encodeUpdateResponse(asDetail(confirmed))))
+      finish(Response.json(encodeUpdateResponse(asUpdateResult(confirmed))))
 
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({ waiting: false })
@@ -212,7 +220,7 @@ describe("backlog status move", () => {
 
       finish(
         Response.json(
-          encodeUpdateResponse(asDetail({ ...ticket, status: doing }))
+          encodeUpdateResponse(asUpdateResult({ ...ticket, status: doing }))
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -279,7 +287,9 @@ describe("backlog status move", () => {
 
       finish(
         Response.json(
-          encodeUpdateResponse(asDetail({ ...ticket, status: doneStatus }))
+          encodeUpdateResponse(
+            asUpdateResult({ ...ticket, status: doneStatus })
+          )
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -388,7 +398,7 @@ describe("backlog pagination", () => {
       registry.set(mutation, { priority: "high" })
       finish(
         Response.json(
-          encodeUpdateResponse(asDetail({ ...ticket, priority: "high" }))
+          encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -445,7 +455,7 @@ describe("backlog pagination", () => {
       registry.set(mutation, { priority: "high" })
       finishPatch(
         Response.json(
-          encodeUpdateResponse(asDetail({ ...ticket, priority: "high" }))
+          encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
@@ -509,7 +519,7 @@ describe("backlog quick create", () => {
       })
 
       served = [created, ticket]
-      finish(Response.json(encodeUpdateResponse(asDetail(created))))
+      finish(Response.json(encodeDetail(asDetail(created))))
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
 
       const settled = registry.get(view)
@@ -697,7 +707,7 @@ const orderAfterRoundTrip = async (
     )
     const back = items.find(([t]) => t.id === movedId)!
     for (const resolve of pending) {
-      resolve(Response.json(encodeUpdateResponse(asDetail(back[0]))))
+      resolve(Response.json(encodeUpdateResponse(asUpdateResult(back[0]))))
     }
     await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     return order
@@ -891,12 +901,173 @@ describe("backlog status move places the row inside the target section", () => {
 
       finish(
         Response.json(
-          encodeUpdateResponse(asDetail({ ...beta, status: inProgressStatus }))
+          encodeUpdateResponse(
+            asUpdateResult({ ...beta, status: inProgressStatus })
+          )
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     } finally {
       registry.dispose()
     }
+  })
+})
+
+const PRIORITY_SORT_VALUE = { high: "03", med: "02", low: "01" } as const
+
+const priorityKey = (t: Ticket) =>
+  orderKey(PRIORITY_SORT_VALUE[t.priority], t.id)
+
+const priorityRow = (t: Ticket): ServedRow => [t, priorityKey(t)]
+
+type EditOutcome = Readonly<{
+  optimistic: ReadonlyArray<string>
+  settled: ReadonlyArray<string>
+  patchUrl: URL
+}>
+
+const orderAfterFieldEdit = async (
+  query: TicketListQuery,
+  items: ReadonlyArray<ServedRow>,
+  editedId: TicketId,
+  patch: UpdateTicketInput,
+  response: (edited: Ticket) => TicketUpdateResult
+): Promise<EditOutcome> => {
+  let sectionsServed = 0
+  let finish = (_r: Response) => {}
+  let patchUrl: URL | undefined
+  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "PATCH") {
+      patchUrl = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      return new Promise<Response>((resolve) => {
+        finish = resolve
+      })
+    }
+    sectionsServed++
+    if (sectionsServed > 1) return new Promise<Response>(() => {})
+    return Promise.resolve(
+      Response.json({
+        counts: { total: items.length, byStatus: { todo: items.length } },
+        sections: {
+          todo: {
+            items: items.map(([t, key]) => serverRow(t, key)),
+            nextCursor: null
+          }
+        }
+      })
+    )
+  })
+  const request = backlogRequest("acme", "web", query)
+  const registry = AtomRegistry.make()
+  const view = backlog(request)
+  const mutation = updateBacklogTicket({ req: request, id: editedId })
+  registry.mount(view)
+  registry.mount(mutation)
+  try {
+    await vi.waitFor(() =>
+      expect(registry.get(view)).toMatchObject({
+        _tag: "Success",
+        waiting: false
+      })
+    )
+    registry.set(mutation, patch)
+    const moved = registry.get(view)
+    if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+    const optimistic = moved.value.sections.todo.items.map(
+      (row) => row.ticket.id
+    )
+
+    const before = items.find(([t]) => t.id === editedId)![0]
+    finish(
+      Response.json(
+        encodeUpdateResponse(response(applyTicketPatch(before, patch)))
+      )
+    )
+    await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    const after = registry.get(view)
+    if (!AsyncResult.isSuccess(after)) throw new Error("no settled value")
+    return {
+      optimistic,
+      settled: after.value.sections.todo.items.map((row) => row.ticket.id),
+      patchUrl: patchUrl!
+    }
+  } finally {
+    registry.dispose()
+  }
+}
+
+describe("backlog edits to the sorted field move the row", () => {
+  it("regroups the row by priority under `priority desc`", async () => {
+    const items = [
+      withTicket("T-1", { title: "Alpha", priority: "high" }),
+      withTicket("T-3", { title: "Gamma", priority: "med" }),
+      withTicket("T-2", { title: "Beta", priority: "med" }),
+      withTicket("T-4", { title: "Delta", priority: "low" })
+    ]
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "priority", dir: "desc" } },
+      items.map(priorityRow),
+      items[3].id,
+      { priority: "high" },
+      (edited) => asUpdateResult(edited, priorityKey(edited))
+    )
+    expect(outcome.optimistic).toEqual(["T-4", "T-1", "T-3", "T-2"])
+    expect(outcome.settled).toEqual(["T-4", "T-1", "T-3", "T-2"])
+    expect(outcome.patchUrl.searchParams.get("sort[key]")).toBe("priority")
+    expect(outcome.patchUrl.searchParams.get("sort[dir]")).toBe("desc")
+  })
+
+  it("re-alphabetizes the row under `title asc`", async () => {
+    const items = [
+      withTicket("T-1", { title: "Alpha" }),
+      withTicket("T-2", { title: "Beta" }),
+      withTicket("T-3", { title: "Gamma" })
+    ]
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "title", dir: "asc" } },
+      items.map(titleRow),
+      items[0].id,
+      { title: "Zulu" },
+      (edited) => asUpdateResult(edited, titleKey(edited))
+    )
+    expect(outcome.optimistic).toEqual(["T-2", "T-3", "T-1"])
+    expect(outcome.settled).toEqual(["T-2", "T-3", "T-1"])
+  })
+
+  it("leaves the row alone when the edit misses the sorted field", async () => {
+    const items = [
+      withTicket("T-1", { title: "Alpha", priority: "low" }),
+      withTicket("T-2", { title: "Beta", priority: "low" }),
+      withTicket("T-3", { title: "Gamma", priority: "low" })
+    ]
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "title", dir: "asc" } },
+      items.map(titleRow),
+      items[1].id,
+      { priority: "high" },
+      (edited) => asUpdateResult(edited, titleKey(edited))
+    )
+    expect(outcome.optimistic).toEqual(["T-1", "T-2", "T-3"])
+    expect(outcome.settled).toEqual(["T-1", "T-2", "T-3"])
+  })
+
+  it("defers to the order key the response carries when it disagrees", async () => {
+    const items = [
+      withTicket("T-1", { title: "Alpha", priority: "high" }),
+      withTicket("T-2", { title: "Beta", priority: "med" }),
+      withTicket("T-3", { title: "Gamma", priority: "low" })
+    ]
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "priority", dir: "desc" } },
+      items.map(priorityRow),
+      items[2].id,
+      { priority: "high" },
+      (edited) => asUpdateResult(edited, orderKey("01", edited.id))
+    )
+    expect(outcome.optimistic).toEqual(["T-3", "T-1", "T-2"])
+    expect(outcome.settled).toEqual(["T-1", "T-2", "T-3"])
   })
 })
