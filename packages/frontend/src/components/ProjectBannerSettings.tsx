@@ -11,7 +11,10 @@ import {
   updateProjectAtom,
   projectBannerPreviewAtom
 } from "@/atoms/projects"
-import { uploadProjectImageAtom } from "@/atoms/attachments"
+import {
+  uploadProjectImage,
+  uploadProjectImageRequest
+} from "@/atoms/attachments"
 import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
 import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
 import { useEffect, useRef, useState } from "react"
@@ -64,11 +67,12 @@ export default function ProjectBannerSettings({
 }) {
   const key = projectKey(orgSlug, slug)
   const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
-  const upload = useAtomSet(uploadProjectImageAtom(key), {
+  const imageRequest = uploadProjectImageRequest(orgSlug, slug)
+  const upload = useAtomSet(uploadProjectImage(imageRequest), {
     mode: "promiseExit"
   })
   const updateState = useAtomValue(updateProjectAtom(key))
-  const uploadState = useAtomValue(uploadProjectImageAtom(key))
+  const uploadState = useAtomValue(uploadProjectImage(imageRequest))
   const storage = useAtomValue(orgStorageAtom(orgSlug))
   const retryStorage = useAtomRefresh(orgStorageBaseAtom(orgSlug))
   const storageAvailable =

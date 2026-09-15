@@ -1,14 +1,23 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import * as Exit from "effect/Exit"
+import * as Random from "effect/Random"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Button } from "@/components/ui/button"
 import { LexicalEditor } from "@/components/LexicalEditor"
-import { commentsKey, createCommentAtom } from "@/atoms/comments"
+import { commentsRequest, createComment } from "@/atoms/comments"
+import { meAtom } from "@/atoms/auth"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import type { TicketId } from "@projectproject/shared"
+import type { TicketId, User } from "@projectproject/shared"
+
+const newCommentIdentity = () => ({
+  clientId: Effect.runSync(Random.next).toString(36),
+  createdAt: DateTime.toDate(DateTime.nowUnsafe())
+})
 
 export function CommentComposer({
   orgSlug,
@@ -19,11 +28,35 @@ export function CommentComposer({
   slug: string
   ticketId: TicketId
 }) {
+  const me = useAtomValue(meAtom)
+  if (!Result.isSuccess(me)) return null
+  return (
+    <ReadyCommentComposer
+      orgSlug={orgSlug}
+      slug={slug}
+      ticketId={ticketId}
+      author={me.value}
+    />
+  )
+}
+
+function ReadyCommentComposer({
+  orgSlug,
+  slug,
+  ticketId,
+  author
+}: {
+  orgSlug: string
+  slug: string
+  ticketId: TicketId
+  author: User
+}) {
   const [body, setBody] = useState("")
   const [expanded, setExpanded] = useState(false)
   const [editorVersion, setEditorVersion] = useState(0)
-  const key = commentsKey(orgSlug, slug, ticketId)
-  const createAtom = createCommentAtom(key)
+  const [identity, setIdentity] = useState(newCommentIdentity)
+  const req = commentsRequest(orgSlug, slug, ticketId)
+  const createAtom = createComment({ req, author, ...identity })
   const create = useAtomSet(createAtom, { mode: "promiseExit" })
   const createState = useAtomValue(createAtom)
   const submitting = createState.waiting
@@ -38,6 +71,7 @@ export function CommentComposer({
       setBody("")
       setEditorVersion((v) => v + 1)
       setExpanded(false)
+      setIdentity(newCommentIdentity())
     }
   }
 

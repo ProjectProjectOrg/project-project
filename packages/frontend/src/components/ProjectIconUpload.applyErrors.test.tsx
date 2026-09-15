@@ -11,7 +11,7 @@ vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => ({ waiting: false })
 }))
 vi.mock("@/atoms/attachments", () => ({
-  uploadProjectImageAtom: () => "upload-atom"
+  uploadProjectImage: () => "upload-atom"
 }))
 vi.mock("@/atoms/projects", () => ({
   projectKey: (org: string, slug: string) => `${org}/${slug}`,

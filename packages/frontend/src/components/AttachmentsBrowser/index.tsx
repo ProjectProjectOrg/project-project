@@ -8,12 +8,12 @@ import type {
   AttachmentSort
 } from "@projectproject/shared"
 import {
-  deleteOrgAttachmentsAtom,
+  deleteOrgAttachments,
   ORG_ATTACHMENTS_PAGE_SIZE,
-  orgAttachmentsAtom,
-  orgAttachmentsSummaryAtom
+  orgAttachments,
+  orgAttachmentsRequest,
+  orgAttachmentsSummary
 } from "@/atoms/attachments"
-import { orgAttachmentsKey } from "@/atoms/orgAttachmentsKey"
 import { orgStorageAtom } from "@/atoms/storage"
 import { projectsListAtom } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
@@ -68,18 +68,17 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
 
-  const key = orgAttachmentsKey({
-    orgSlug,
+  const req = orgAttachmentsRequest(orgSlug, {
     ...(status === "all" ? {} : { status }),
     ...(projectSlug === null ? {} : { projectSlug }),
     sort,
     page
   })
 
-  const listResult = useAtomValue(orgAttachmentsAtom(key))
-  const summaryResult = useAtomValue(orgAttachmentsSummaryAtom(orgSlug))
+  const listResult = useAtomValue(orgAttachments(req))
+  const summaryResult = useAtomValue(orgAttachmentsSummary(req))
   const projectsResult = useAtomValue(projectsListAtom(orgSlug))
-  const remove = useAtomSet(deleteOrgAttachmentsAtom(key), {
+  const remove = useAtomSet(deleteOrgAttachments(req), {
     mode: "promiseExit"
   })
 
