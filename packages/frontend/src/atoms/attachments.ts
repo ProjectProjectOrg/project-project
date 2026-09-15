@@ -1,15 +1,20 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
-import * as Reactivity from "effect/unstable/reactivity/Reactivity"
-import * as Schema from "effect/Schema"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
-import { AttachmentId, ATTACHMENT_PAGE_SIZE } from "@projectproject/shared"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { splitOrgAttachmentsKey } from "./orgAttachmentsKey"
-import { splitProjectKey } from "./projects"
-import { splitTicketKey } from "./tickets"
+import * as Schema from "effect/Schema"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import {
+  AttachmentId,
+  ATTACHMENT_PAGE_SIZE,
+  type AttachmentListPage,
+  type AttachmentSort,
+  type AttachmentStatus,
+  type AttachmentSummary,
+  type TicketId
+} from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 
 export class AttachmentUploadFailed extends Data.TaggedError(
   "AttachmentUploadFailed"
@@ -30,6 +35,28 @@ export interface UploadedAttachment {
   readonly filename: string
   readonly contentType: string
 }
+
+export interface UploadAttachmentRequest {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly id: TicketId
+}
+
+export interface UploadProjectImageRequest {
+  readonly orgSlug: string
+  readonly slug: string
+}
+
+export const uploadAttachmentRequest = (
+  orgSlug: string,
+  slug: string,
+  id: TicketId
+): UploadAttachmentRequest => ({ orgSlug, slug, id })
+
+export const uploadProjectImageRequest = (
+  orgSlug: string,
+  slug: string
+): UploadProjectImageRequest => ({ orgSlug, slug })
 
 const transferAttachment = (input: UploadAttachmentInput, uploadUrl: string) =>
   Effect.callback<void, AttachmentUploadFailed>((resume, signal) => {
@@ -67,40 +94,36 @@ const transferAttachment = (input: UploadAttachmentInput, uploadUrl: string) =>
     })
   })
 
-export const uploadAttachmentAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, id } = splitTicketKey(key)
-  return runtime.fn(
+const ensureNotAborted = (input: UploadAttachmentInput) =>
+  Effect.suspend(() =>
+    input.signal?.aborted === true
+      ? Effect.fail(new AttachmentUploadFailed({ reason: "abort" }))
+      : Effect.void
+  )
+
+export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
+  Api.runtime.fn(
     Effect.fn(function* (input: UploadAttachmentInput) {
-      const aborted = Effect.suspend(() =>
-        input.signal?.aborted === true
-          ? Effect.fail(new AttachmentUploadFailed({ reason: "abort" }))
-          : Effect.void
+      yield* ensureNotAborted(input)
+      const prepared = yield* Api.use((client) =>
+        client.attachments.prepare({
+          params: req,
+          payload: {
+            filename: input.file.name,
+            contentType: input.file.type,
+            byteSize: input.file.size
+          }
+        })
       )
-
-      yield* aborted
-
-      const client = yield* ApiClient
-      const prepared = yield* client.attachments.prepare({
-        params: { orgSlug, slug, id },
-        payload: {
-          filename: input.file.name,
-          contentType: input.file.type,
-          byteSize: input.file.size
-        }
-      })
-
-      yield* aborted
-
+      yield* ensureNotAborted(input)
       yield* transferAttachment(input, prepared.uploadUrl)
-
-      yield* aborted
-
-      const committed = yield* client.attachments.commit({
-        params: { orgSlug, slug, id, attachmentId: prepared.id }
-      })
-
-      yield* Reactivity.invalidate(attachmentsReactivityKey(orgSlug))
-
+      yield* ensureNotAborted(input)
+      const committed = yield* Api.use((client) =>
+        client.attachments.commit({
+          params: { ...req, attachmentId: prepared.id }
+        })
+      )
+      yield* Reactivity.invalidate([Keys.attachments(req.orgSlug)])
       return {
         id: committed.id,
         url: committed.url,
@@ -109,132 +132,180 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
       } satisfies UploadedAttachment
     })
   )
-})
+)
 
-export const uploadProjectImageAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: UploadAttachmentInput) {
-      const aborted = Effect.suspend(() =>
-        input.signal?.aborted === true
-          ? Effect.fail(new AttachmentUploadFailed({ reason: "abort" }))
-          : Effect.void
-      )
-
-      yield* aborted
-
-      const client = yield* ApiClient
-      const prepared = yield* client.attachments.prepareProject({
-        params: { orgSlug, slug },
-        payload: {
-          filename: input.file.name,
-          contentType: input.file.type,
-          byteSize: input.file.size
-        }
+export const uploadProjectImage = Atom.family(
+  (req: UploadProjectImageRequest) =>
+    Api.runtime.fn(
+      Effect.fn(function* (input: UploadAttachmentInput) {
+        yield* ensureNotAborted(input)
+        const prepared = yield* Api.use((client) =>
+          client.attachments.prepareProject({
+            params: req,
+            payload: {
+              filename: input.file.name,
+              contentType: input.file.type,
+              byteSize: input.file.size
+            }
+          })
+        )
+        yield* ensureNotAborted(input)
+        yield* transferAttachment(input, prepared.uploadUrl)
+        yield* ensureNotAborted(input)
+        const committed = yield* Api.use((client) =>
+          client.attachments.commitProject({
+            params: { ...req, attachmentId: prepared.id }
+          })
+        )
+        yield* Reactivity.invalidate([Keys.attachments(req.orgSlug)])
+        return {
+          id: yield* Schema.decodeEffect(AttachmentId)(committed.id).pipe(
+            Effect.orDie
+          ),
+          url: committed.url,
+          filename: committed.filename,
+          contentType: committed.contentType
+        } satisfies UploadedAttachment
       })
-
-      yield* aborted
-
-      yield* transferAttachment(input, prepared.uploadUrl)
-
-      yield* aborted
-
-      const committed = yield* client.attachments.commitProject({
-        params: { orgSlug, slug, attachmentId: prepared.id }
-      })
-
-      return {
-        id: yield* Schema.decodeEffect(AttachmentId)(committed.id).pipe(
-          Effect.orDie
-        ),
-        url: committed.url,
-        filename: committed.filename,
-        contentType: committed.contentType
-      } satisfies UploadedAttachment
-    })
-  )
-})
+    )
+)
 
 export const ORG_ATTACHMENTS_PAGE_SIZE = ATTACHMENT_PAGE_SIZE
 
-const attachmentsReactivityKey = (orgSlug: string) => ["attachments", orgSlug]
+export interface OrgAttachmentsRequest {
+  readonly params: { readonly orgSlug: string }
+  readonly query: {
+    readonly limit: number
+    readonly page: number
+    readonly status?: AttachmentStatus
+    readonly projectSlug?: string
+    readonly sort?: AttachmentSort
+  }
+}
 
-const orgAttachmentsBaseAtom = Atom.family((key: string) => {
-  const query = splitOrgAttachmentsKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.attachments.list({
-          params: { orgSlug: query.orgSlug },
-          query: {
-            limit: ORG_ATTACHMENTS_PAGE_SIZE,
-            page: query.page,
-            ...(query.status ? { status: query.status } : {}),
-            ...(query.projectSlug ? { projectSlug: query.projectSlug } : {}),
-            ...(query.sort ? { sort: query.sort } : {})
-          }
-        })
-      })
-    )
-    .pipe(
-      Atom.withReactivity(attachmentsReactivityKey(query.orgSlug)),
-      Atom.setIdleTTL("30 seconds")
-    )
+export const orgAttachmentsRequest = (
+  orgSlug: string,
+  query: Omit<OrgAttachmentsRequest["query"], "limit">
+): OrgAttachmentsRequest => ({
+  params: { orgSlug },
+  query: { ...query, limit: ORG_ATTACHMENTS_PAGE_SIZE }
 })
 
-export const orgAttachmentsAtom = Atom.family((key: string) =>
-  Atom.optimistic(orgAttachmentsBaseAtom(key))
-)
-
-export const orgAttachmentsSummaryAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.attachments.summary({ params: { orgSlug } })
-      })
-    )
-    .pipe(
-      Atom.withReactivity(attachmentsReactivityKey(orgSlug)),
-      Atom.setIdleTTL("30 seconds")
-    )
-)
-
-export const deleteOrgAttachmentsAtom = Atom.family((key: string) => {
-  const query = splitOrgAttachmentsKey(key)
-  return Atom.optimisticFn(orgAttachmentsAtom(key), {
-    reducer: (current, ids: ReadonlyArray<string>) => {
-      if (!Result.isSuccess(current)) return current
-      const removed = new Set(ids)
-      const items = current.value.items.filter((row) => !removed.has(row.id))
-      return Result.success(
-        {
-          items,
-          total: Math.max(
-            0,
-            current.value.total - (current.value.items.length - items.length)
-          )
-        },
-        { waiting: true }
-      )
-    },
-    fn: runtime.fn(
-      Effect.fn(function* (ids: ReadonlyArray<string>) {
-        const client = yield* ApiClient
-        yield* Effect.forEach(
-          ids,
-          (attachmentId) =>
-            client.attachments.remove({
-              params: { orgSlug: query.orgSlug, attachmentId }
-            }),
-          { concurrency: 4 }
-        ).pipe(
-          Effect.ensuring(
-            Reactivity.invalidate(attachmentsReactivityKey(query.orgSlug))
-          )
-        )
-      })
-    )
+const orgAttachmentsQuery = (req: OrgAttachmentsRequest) =>
+  Api.query("attachments", "list", {
+    params: req.params,
+    query: req.query,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
-})
+
+const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
+  Api.query("attachments", "summary", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.attachments(req.params.orgSlug)]
+  })
+
+interface OrgAttachmentsView {
+  readonly list: AttachmentListPage
+  readonly summary: AttachmentSummary
+}
+
+const orgAttachmentsView = (req: OrgAttachmentsRequest) =>
+  Atom.readable(
+    (get) =>
+      AsyncResult.map(
+        AsyncResult.all([
+          get(orgAttachmentsQuery(req)),
+          get(orgAttachmentsSummaryQuery(req))
+        ]),
+        ([list, summary]): OrgAttachmentsView => ({ list, summary })
+      ),
+    (refresh) => {
+      refresh(orgAttachmentsQuery(req))
+      refresh(orgAttachmentsSummaryQuery(req))
+    }
+  )
+
+const orgAttachmentsRegion = Atom.family((req: OrgAttachmentsRequest) =>
+  Atom.optimistic(orgAttachmentsView(req))
+)
+
+export const orgAttachments = Atom.family((req: OrgAttachmentsRequest) =>
+  Atom.map(orgAttachmentsRegion(req), (result) =>
+    AsyncResult.map(result, (value) => value.list)
+  )
+)
+
+export const orgAttachmentsSummary = Atom.family((req: OrgAttachmentsRequest) =>
+  Atom.map(orgAttachmentsRegion(req), (result) =>
+    AsyncResult.map(result, (value) => value.summary)
+  )
+)
+
+const removeFromSummary = (
+  summary: AttachmentSummary,
+  removed: AttachmentListPage["items"]
+): AttachmentSummary => {
+  const counts = new Map(
+    summary.byStatus.map((total) => [total.status, { ...total }])
+  )
+  for (const attachment of removed) {
+    const total = counts.get(attachment.status)
+    if (!total) continue
+    counts.set(attachment.status, {
+      ...total,
+      count: Math.max(0, total.count - 1),
+      bytes: Math.max(0, total.bytes - attachment.byteSize)
+    })
+  }
+  return {
+    count: Math.max(0, summary.count - removed.length),
+    bytes: Math.max(
+      0,
+      summary.bytes - removed.reduce((sum, row) => sum + row.byteSize, 0)
+    ),
+    byStatus: [...counts.values()]
+  }
+}
+
+export interface DeleteOrgAttachmentsKey {
+  readonly req: OrgAttachmentsRequest
+  readonly attachmentIds: ReadonlyArray<string>
+}
+
+export const deleteOrgAttachments = Atom.family(
+  ({ req, attachmentIds }: DeleteOrgAttachmentsKey) =>
+    Atom.optimisticFn(orgAttachmentsRegion(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (value) => {
+          const selected = new Set(attachmentIds)
+          const removed = value.list.items.filter((row) => selected.has(row.id))
+          return {
+            list: {
+              items: value.list.items.filter((row) => !selected.has(row.id)),
+              total: Math.max(0, value.list.total - removed.length)
+            },
+            summary: removeFromSummary(value.summary, removed)
+          }
+        }),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (_input: void, get) {
+            yield* Effect.forEach(
+              attachmentIds,
+              (attachmentId) =>
+                Api.use((client) =>
+                  client.attachments.remove({
+                    params: { orgSlug: req.params.orgSlug, attachmentId }
+                  })
+                ),
+              { concurrency: 4 }
+            )
+            set(
+              AsyncResult.map(get(orgAttachmentsRegion(req)), (value) => value)
+            )
+          })
+        )
+    })
+)

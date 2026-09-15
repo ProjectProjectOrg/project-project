@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useAtomValue } from "@effect/atom-react"
 import { motion, AnimatePresence } from "motion/react"
 import { ChevronRight } from "lucide-react"
-import { commentsAtom, commentsKey } from "@/atoms/comments"
+import { comments, commentsRequest } from "@/atoms/comments"
 import { transitions } from "@/lib/springs"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { MentionScopeProvider } from "@/mentions/scope"
@@ -23,15 +23,15 @@ export function CommentsSection({
   slug: string
   ticketId: TicketId
 }) {
-  const key = commentsKey(orgSlug, slug, ticketId)
-  const result = useAtomValue(commentsAtom(key))
+  const req = commentsRequest(orgSlug, slug, ticketId)
+  const result = useAtomValue(comments(req))
   const project = useProject()
   const [collapsed, setCollapsed] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
-  const comments = Result.isSuccess(result) ? result.value : []
-  const total = comments.length
-  const ordered = comments.toReversed()
+  const rows = Result.isSuccess(result) ? result.value : []
+  const total = rows.length
+  const ordered = rows.toReversed()
   const visibleSlice =
     showAll || total <= INITIAL_VISIBLE
       ? ordered
@@ -83,10 +83,11 @@ export function CommentsSection({
                     {m.comments_empty()}
                   </p>
                 )}
-                {visibleSlice.map((c) => (
-                  <AnimatePresence key={c.id} initial={true}>
+                {visibleSlice.map((row) => (
+                  <AnimatePresence key={row.key} initial={true}>
                     <CommentRow
-                      comment={c}
+                      comment={row.comment}
+                      pending={row.pending}
                       orgSlug={orgSlug}
                       slug={slug}
                       ticketId={ticketId}

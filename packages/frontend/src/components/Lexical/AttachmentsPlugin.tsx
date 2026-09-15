@@ -21,8 +21,7 @@ import {
   isRasterImageContentType,
   type TicketId
 } from "@projectproject/shared"
-import { uploadAttachmentAtom } from "@/atoms/attachments"
-import { ticketKey } from "@/atoms/tickets"
+import { uploadAttachment, uploadAttachmentRequest } from "@/atoms/attachments"
 import { useMountedRef } from "@/lib/useMountedRef"
 import { m } from "@/paraglide/messages"
 import { AttachmentNode, $createAttachmentNode } from "./AttachmentNode"
@@ -42,7 +41,7 @@ export function AttachmentsPlugin({
 }: AttachmentsPluginProps): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
   const upload = useAtomSet(
-    uploadAttachmentAtom(ticketKey(orgSlug, slug, ticketId)),
+    uploadAttachment(uploadAttachmentRequest(orgSlug, slug, ticketId)),
     { mode: "promiseExit" }
   )
   const [rejection, setRejection] = useState<string | null>(null)

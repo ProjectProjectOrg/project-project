@@ -8,12 +8,12 @@ import type {
   AttachmentSort
 } from "@projectproject/shared"
 import {
-  deleteOrgAttachmentsAtom,
+  deleteOrgAttachments,
   ORG_ATTACHMENTS_PAGE_SIZE,
-  orgAttachmentsAtom,
-  orgAttachmentsSummaryAtom
+  orgAttachments,
+  orgAttachmentsRequest,
+  orgAttachmentsSummary
 } from "@/atoms/attachments"
-import { orgAttachmentsKey } from "@/atoms/orgAttachmentsKey"
 import { orgStorageAtom } from "@/atoms/storage"
 import { projectsListAtom } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
@@ -68,21 +68,16 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
 
-  const key = orgAttachmentsKey({
-    orgSlug,
+  const req = orgAttachmentsRequest(orgSlug, {
     ...(status === "all" ? {} : { status }),
     ...(projectSlug === null ? {} : { projectSlug }),
     sort,
     page
   })
 
-  const listResult = useAtomValue(orgAttachmentsAtom(key))
-  const summaryResult = useAtomValue(orgAttachmentsSummaryAtom(orgSlug))
+  const listResult = useAtomValue(orgAttachments(req))
+  const summaryResult = useAtomValue(orgAttachmentsSummary(req))
   const projectsResult = useAtomValue(projectsListAtom(orgSlug))
-  const remove = useAtomSet(deleteOrgAttachmentsAtom(key), {
-    mode: "promiseExit"
-  })
-
   const projects = Result.isSuccess(projectsResult)
     ? projectsResult.value.map((project) => ({
         slug: project.slug,
@@ -104,7 +99,11 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
           ),
           onError: (error) => <ErrorPage error={error} contained />,
           onDefect: (defect) => <ErrorPage error={defect} contained />,
-          onSuccess: ({ value }) => <Totals summary={value} />
+          onSuccess: ({ value, waiting }) => (
+            <div className={waiting ? "animate-pulse" : undefined}>
+              <Totals summary={value} />
+            </div>
+          )
         })}
 
         <Toolbar
@@ -153,14 +152,10 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
                     : new Set(deletableIds(value.items))
                 )
               }
-              onDelete={async (ids) => {
-                const exit = await remove(ids)
-                if (Exit.isSuccess(exit)) {
-                  setSelected(new Set())
-                  return null
-                }
-                return errorMessage(Cause.squash(exit.cause) as AppError)
+              onDelete={async () => {
+                setSelected(new Set())
               }}
+              request={req}
             />
           )
         })}
@@ -208,7 +203,8 @@ function AttachmentsTable({
   selected,
   onToggle,
   onToggleAll,
-  onDelete
+  onDelete,
+  request
 }: {
   orgSlug: string
   rows: ReadonlyArray<AttachmentRowData>
@@ -220,7 +216,8 @@ function AttachmentsTable({
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onToggleAll: () => void
-  onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
+  onDelete: () => Promise<void>
+  request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   const selectedIds = [...selected]
   const referencedCount = rows.filter(
@@ -287,7 +284,7 @@ function AttachmentsTable({
                 selected={selected.has(row.id)}
                 onToggle={onToggle}
               >
-                <DeleteCell row={row} onDelete={onDelete} />
+                <DeleteCell row={row} onDelete={onDelete} request={request} />
               </Row>
             ))}
           </tbody>
@@ -308,6 +305,7 @@ function AttachmentsTable({
                 })}
                 ids={selectedIds}
                 onDelete={onDelete}
+                request={request}
               />
             </ConfirmButton.Confirm>
           </ConfirmButton.Root>
@@ -343,10 +341,12 @@ function EmptyRows({ filtered }: { filtered: boolean }) {
 
 function DeleteCell({
   row,
-  onDelete
+  onDelete,
+  request
 }: {
   row: AttachmentRowData
-  onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
+  onDelete: () => Promise<void>
+  request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   if (!isDeletable(row)) return <span />
 
@@ -368,6 +368,7 @@ function DeleteCell({
           })}
           ids={[row.id]}
           onDelete={onDelete}
+          request={request}
         />
       </ConfirmButton.Confirm>
     </ConfirmButton.Root>
@@ -377,25 +378,34 @@ function DeleteCell({
 function DeleteConfirm({
   prompt,
   ids,
-  onDelete
+  onDelete,
+  request
 }: {
   prompt: string
   ids: ReadonlyArray<string>
-  onDelete: (ids: ReadonlyArray<string>) => Promise<string | null>
+  onDelete: () => Promise<void>
+  request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   const { close, busy, setBusy } = useConfirmButton()
   const [error, setError] = useState<string | null>(null)
+  const remove = useAtomSet(
+    deleteOrgAttachments({ req: request, attachmentIds: ids }),
+    {
+      mode: "promiseExit"
+    }
+  )
 
   async function run() {
     setBusy(true)
     setError(null)
-    const failure = await onDelete(ids)
-    if (failure === null) {
+    const exit = await remove()
+    if (Exit.isSuccess(exit)) {
+      await onDelete()
       close()
       return
     }
     setBusy(false)
-    setError(failure)
+    setError(errorMessage(Cause.squash(exit.cause) as AppError))
   }
 
   return (
