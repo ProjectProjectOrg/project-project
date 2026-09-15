@@ -64,6 +64,13 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(serialized.startsWith(COMMENTS_START)).toBe(true)
     expect(serialized.trimEnd().endsWith(COMMENTS_END)).toBe(true)
     expect(parseCommentsRegion(serialized)).toEqual(blocks)
+    expect(serialized).not.toContain("editedAt: null")
+  })
+
+  it("accepts quoted ISO timestamps", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: "2026-05-07T10:00:00.000Z"\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed[0].createdAt.toISOString()).toBe("2026-05-07T10:00:00.000Z")
   })
 
   it("parses a region containing tombstone-style whitespace tolerantly", () => {

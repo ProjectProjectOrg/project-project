@@ -1,16 +1,79 @@
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
-import type * as Effect from "effect/Effect"
-import type {
-  NotFound,
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
+import * as Struct from "effect/Struct"
+import {
   PullRequestState,
   TagName,
   TicketId,
   TicketPriority,
   TicketStatus,
-  TicketType
+  TicketType,
+  type NotFound
 } from "@projectproject/shared"
 import type { MarkdownError, TicketIdTaken } from "./Markdown"
+
+const TicketFrontmatterOnDisk = Schema.Struct({
+  id: TicketId,
+  title: Schema.String,
+  status: TicketStatus,
+  type: TicketType,
+  priority: TicketPriority.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("med" as const))
+  ),
+  tags: Schema.Array(TagName).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
+  branch: Schema.NullOr(Schema.String),
+  branchAutoLinkDisabled: Schema.optionalKey(Schema.Boolean),
+  pr: Schema.NullOr(Schema.Finite).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  prState: Schema.NullOr(PullRequestState).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  lastTransitionedPr: Schema.NullOr(Schema.Finite).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  assignees: Schema.optionalKey(Schema.Array(Schema.String)),
+  assignee: Schema.optionalKey(Schema.String),
+  archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  createdBy: Schema.String,
+  createdAt: Schema.DateFromString,
+  updatedAt: Schema.DateFromString
+})
+
+const TicketFrontmatterValue = Schema.Struct(
+  Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
+    branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
+    assignees: () => Schema.Array(Schema.String)
+  })
+)
+
+export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
+  Schema.decodeTo(
+    Schema.toType(TicketFrontmatterValue),
+    SchemaTransformation.transform({
+      decode: (input) =>
+        Object.assign(Struct.omit(input, ["assignee", "assignees"]), {
+          assignees:
+            input.assignees ??
+            (input.assignee === undefined ? [] : [input.assignee])
+        }),
+      encode: (input) =>
+        input.branchAutoLinkDisabled
+          ? Object.assign(Struct.omit(input, ["branchAutoLinkDisabled"]), {
+              branchAutoLinkDisabled: true as const
+            })
+          : Struct.omit(input, ["branchAutoLinkDisabled"])
+    })
+  )
+)
+export type TicketFrontmatter = typeof TicketFrontmatter.Type
 
 export class MalformedTicketDocument extends Data.TaggedError(
   "MalformedTicketDocument"
@@ -23,23 +86,7 @@ export class MalformedTicketDocument extends Data.TaggedError(
   readonly cause: unknown
 }> {}
 
-export interface TicketDocument {
-  readonly id: TicketId
-  readonly title: string
-  readonly status: TicketStatus
-  readonly type: TicketType
-  readonly priority: TicketPriority
-  readonly tags: ReadonlyArray<TagName>
-  readonly branch: string | null
-  readonly branchAutoLinkDisabled?: boolean
-  readonly pr: number | null
-  readonly prState: PullRequestState | null
-  readonly lastTransitionedPr: number | null
-  readonly assignees: ReadonlyArray<string>
-  readonly archivedAt: Date | null
-  readonly createdBy: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
+export interface TicketDocument extends TicketFrontmatter {
   readonly body: string
   readonly commentsRegion: string
 }
