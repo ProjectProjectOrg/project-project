@@ -10,6 +10,7 @@ import {
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { statusMetaFor } from "@/lib/ticket-meta"
+import type { BoardRequest } from "@/atoms/sprintBoard"
 import { cn } from "@/lib/utils"
 import type {
   Member,
@@ -29,7 +30,7 @@ const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 export function SprintBoardColumn({
   orgSlug,
   slug,
-  sprintTicketsKey,
+  req,
   status,
   statuses,
   tickets,
@@ -42,7 +43,7 @@ export function SprintBoardColumn({
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey: string
+  req: BoardRequest
   status: string
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
@@ -210,7 +211,7 @@ export function SprintBoardColumn({
             <CardSlot
               orgSlug={orgSlug}
               slug={slug}
-              sprintTicketsKey={sprintTicketsKey}
+              req={req}
               ticket={ticket}
               status={status}
               members={members}
@@ -230,7 +231,7 @@ export function SprintBoardColumn({
 function CardSlot({
   orgSlug,
   slug,
-  sprintTicketsKey,
+  req,
   ticket,
   status,
   members,
@@ -240,7 +241,7 @@ function CardSlot({
 }: {
   orgSlug: string
   slug: string
-  sprintTicketsKey: string
+  req: BoardRequest
   ticket: Ticket
   status: string
   members: ReadonlyArray<Member>
@@ -321,7 +322,7 @@ function CardSlot({
           <SprintBoardCard
             orgSlug={orgSlug}
             slug={slug}
-            sprintTicketsKey={sprintTicketsKey}
+            req={req}
             ticket={ticket}
             members={members}
           />

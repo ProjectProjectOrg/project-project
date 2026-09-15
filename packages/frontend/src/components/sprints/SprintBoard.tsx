@@ -10,6 +10,7 @@ import {
   sprintKey
 } from "@/atoms/sprints"
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import { boardRequest } from "@/atoms/sprintBoard"
 import {
   projectKey as projectStatusKey,
   projectStatusesAtom,
@@ -178,6 +179,10 @@ function SprintBoardContent({
   const key = sprintKey(orgSlug, slug, groupId)
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
+  const req = useMemo(
+    () => boardRequest(orgSlug, slug, groupId),
+    [orgSlug, slug, groupId]
+  )
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const order = dragOrder ?? statusSlugs
@@ -283,7 +288,7 @@ function SprintBoardContent({
             key={status}
             orgSlug={orgSlug}
             slug={slug}
-            sprintTicketsKey={key}
+            req={req}
             status={status}
             statuses={statuses}
             tickets={grouped[status] ?? []}

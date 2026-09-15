@@ -1,25 +1,15 @@
 import { memo, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Link } from "@tanstack/react-router"
-import { useAtomValue } from "@effect/atom-react"
-import {
-  applyOptimisticTicketPreview,
-  ticketKey,
-  ticketUpdatePreviewAtom,
-  ticketsSectionsKey
-} from "@/atoms/tickets"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { updateBacklogTicket, type BacklogRequest } from "@/atoms/backlog"
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
-import type {
-  Group,
-  Member,
-  Ticket,
-  TicketListQuery
-} from "@projectproject/shared"
+import type { Group, Member, Ticket } from "@projectproject/shared"
 import { AssigneeField } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -32,7 +22,7 @@ function RowImpl({
   orgSlug,
   slug,
   ticket,
-  query,
+  req,
   members,
   showSprintCol,
   showExtraActionsCol,
@@ -46,7 +36,7 @@ function RowImpl({
   orgSlug: string
   slug: string
   ticket: Ticket
-  query: TicketListQuery
+  req: BacklogRequest
   members: ReadonlyArray<Member>
   showSprintCol: boolean
   showExtraActionsCol: boolean
@@ -57,14 +47,8 @@ function RowImpl({
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
 }) {
-  const updatePreview = useAtomValue(
-    ticketUpdatePreviewAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
-  const visibleTicket = applyOptimisticTicketPreview(
-    ticket,
-    updatePreview.input
-  )
-  const ticketSectionsKeyValue = ticketsSectionsKey(orgSlug, slug, query)
+  const update = useAtomSet(updateBacklogTicket({ req, id: ticket.id }))
+  const updateState = useAtomValue(updateBacklogTicket({ req, id: ticket.id }))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -90,7 +74,7 @@ function RowImpl({
             ref={rowElement}
             className={cn(
               "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
-              updatePreview.waiting && "animate-pulse"
+              updateState.waiting && "animate-pulse"
             )}
           >
             <Link
@@ -123,23 +107,23 @@ function RowImpl({
                 )}
               >
                 <span className="min-w-0 truncate text-sm font-medium">
-                  {visibleTicket.title}
+                  {ticket.title}
                 </span>
               </PopoverTrigger>
             </Link>
             <StatusButton
               orgSlug={orgSlug}
               slug={slug}
-              ticket={visibleTicket}
-              query={query}
+              ticket={ticket}
               stopPropagation
+              onPatch={update}
+              waiting={updateState.waiting}
             />
             <PriorityButton
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
+              ticket={ticket}
               stopPropagation
-              ticketSectionsKey={ticketSectionsKeyValue}
+              onPatch={update}
+              waiting={updateState.waiting}
             />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
@@ -159,11 +143,7 @@ function RowImpl({
               </AnimatePresence>
             </span>
             <div className="flex shrink-0 items-center justify-end gap-2">
-              <TicketGitChip
-                orgSlug={orgSlug}
-                slug={slug}
-                ticket={visibleTicket}
-              />
+              <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
               {showSprintCol && (
                 <SprintField
                   orgSlug={orgSlug}
@@ -173,24 +153,22 @@ function RowImpl({
                 />
               )}
               <AssigneeField
-                orgSlug={orgSlug}
-                slug={slug}
-                ticket={visibleTicket}
+                ticket={ticket}
                 members={members}
-                ticketSectionsKey={ticketSectionsKeyValue}
+                onPatch={update}
+                waiting={updateState.waiting}
                 className="hidden sm:inline-flex"
               />
             </div>
             <TypeButton
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
-              ticketSectionsKey={ticketSectionsKeyValue}
+              ticket={ticket}
+              onPatch={update}
+              waiting={updateState.waiting}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (
               <span className="relative z-20 inline-flex shrink-0 items-center">
-                {extraRowActions?.(visibleTicket)}
+                {extraRowActions?.(ticket)}
               </span>
             )}
           </div>

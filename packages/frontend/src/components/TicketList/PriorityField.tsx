@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -14,28 +13,24 @@ import {
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { TicketId, TicketPriority } from "@projectproject/shared"
+import type {
+  TicketId,
+  TicketPriority,
+  UpdateTicketInput
+} from "@projectproject/shared"
 
 export function PriorityButton({
-  orgSlug,
-  slug,
   ticket,
   stopPropagation,
-  sprintTicketsKey,
-  ticketSectionsKey
+  onPatch,
+  waiting
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -53,7 +48,8 @@ export function PriorityButton({
             <span
               className={cn(
                 "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-                meta.className
+                meta.className,
+                waiting && "animate-pulse"
               )}
             >
               <Icon className="size-4" strokeWidth={1.75} />
@@ -75,7 +71,7 @@ export function PriorityButton({
               key={p}
               onClick={() => {
                 if (p === ticket.priority) return
-                update({ priority: p, sprintTicketsKey, ticketSectionsKey })
+                onPatch({ priority: p })
               }}
               className="cursor-pointer"
             >
@@ -96,19 +92,16 @@ export function PriorityButton({
 }
 
 export function PriorityBadgeTrigger({
-  orgSlug,
-  slug,
   ticket,
+  onPatch,
+  waiting,
   className
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; priority: TicketPriority }
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -124,10 +117,16 @@ export function PriorityBadgeTrigger({
             className={className}
           >
             <Icon
-              className={cn("size-3.5", meta.className)}
+              className={cn(
+                "size-3.5",
+                meta.className,
+                waiting && "animate-pulse"
+              )}
               strokeWidth={1.75}
             />
-            <span>{priorityLabel}</span>
+            <span className={cn(waiting && "animate-pulse")}>
+              {priorityLabel}
+            </span>
           </Button>
         }
       />
@@ -146,7 +145,7 @@ export function PriorityBadgeTrigger({
               key={p}
               onClick={() => {
                 if (p === ticket.priority) return
-                update({ priority: p })
+                onPatch({ priority: p })
               }}
               className="cursor-pointer"
             >

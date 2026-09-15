@@ -16,16 +16,19 @@ import {
 } from "@tanstack/react-router"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { TicketDetail, TicketListQuery } from "@projectproject/shared"
+import { GroupId, TicketDetail, TicketListQuery } from "@projectproject/shared"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/sprints/index"
 import { Route as TicketRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
+import { backlogRequest } from "@/atoms/backlog"
+import { boardRequest } from "@/atoms/sprintBoard"
 import { Row } from "./TicketList/Row"
 import { SprintBoardCard } from "./sprints/SprintBoardCard"
 
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
+const decodeGroupId = Schema.decodeSync(GroupId)
 
 vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
   useProject: () => ({ github: null })
@@ -208,7 +211,7 @@ it.each(["row", "card"] as const)(
           <SprintBoardCard
             orgSlug="org"
             slug="project"
-            sprintTicketsKey="org/project/G-1"
+            req={boardRequest("org", "project", decodeGroupId("G-1"))}
             ticket={ticket}
             members={[]}
           />
@@ -217,7 +220,7 @@ it.each(["row", "card"] as const)(
             orgSlug="org"
             slug="project"
             ticket={ticket}
-            query={decodeTicketListQuery({})}
+            req={backlogRequest("org", "project", decodeTicketListQuery({}))}
             members={[]}
             showSprintCol={false}
             showExtraActionsCol={false}

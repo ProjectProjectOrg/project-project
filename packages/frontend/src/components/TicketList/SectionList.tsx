@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/ErrorPage"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Loader2 } from "lucide-react"
-import { useRef, useState, type ReactNode } from "react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   loadMoreTicketsAtom,
@@ -10,6 +10,7 @@ import {
   ticketsListKeyForStatus,
   type TicketSectionValue
 } from "@/atoms/tickets"
+import { backlogRequest } from "@/atoms/backlog"
 import { projectKey } from "@/atoms/projects"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -65,6 +66,10 @@ export function SectionList({
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
   const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
+  )
   const pendingStatusChanges = useAtomValue(
     pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
   )
@@ -161,7 +166,7 @@ export function SectionList({
                         orgSlug={orgSlug}
                         slug={slug}
                         ticket={ticket}
-                        query={query}
+                        req={req}
                         members={members}
                         showSprintCol={showSprintCol}
                         showExtraActionsCol={showExtraActionsCol}
