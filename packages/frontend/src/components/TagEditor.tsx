@@ -23,7 +23,7 @@ import {
   tagsKey,
   tagUsageCountsAtom
 } from "@/atoms/tags"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
@@ -49,9 +49,11 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       ? tagUsageCountsAtom(key)
       : idleUsageCountsAtom
   )
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
   )
+  const updateTicket = useAtomSet(updateTicketDetail(req))
   const createTag = useAtomSet(createTagAtom(key), { mode: "promiseExit" })
   const renameTag = useAtomSet(renameTagAtom(key))
   const deleteTag = useAtomSet(deleteTagAtom(key), { mode: "promiseExit" })

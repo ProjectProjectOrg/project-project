@@ -3,14 +3,11 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Link } from "@tanstack/react-router"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { orgDetailAtom } from "@/atoms/orgs"
 import { orgStorageAtom } from "@/atoms/storage"
-import {
-  ticketBodyDraftAtom,
-  ticketKey,
-  updateTicketAtom
-} from "@/atoms/tickets"
+import { ticketBodyDraftAtom, ticketKey } from "@/atoms/tickets"
+import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import {
   attachmentsForDescription,
   LexicalEditor,
@@ -41,8 +38,12 @@ export function DescriptionField({
   onStatusChange: (status: SaveStatus) => void
 }) {
   const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketAtom(tKey))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
   const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
   const storageResult = useAtomValue(orgStorageAtom(orgSlug))

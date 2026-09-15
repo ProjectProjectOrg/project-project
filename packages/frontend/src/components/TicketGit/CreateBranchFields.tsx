@@ -11,10 +11,10 @@ import {
   CircleCheck,
   GitBranch
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
 import { projectKey } from "@/atoms/projects"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -102,9 +102,11 @@ export function CreateBranchFields({
   const pKey = projectKey(orgSlug, slug)
   const create = useAtomSet(createBranchAtom(pKey), { mode: "promiseExit" })
   const createState = useAtomValue(createBranchAtom(pKey))
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
   )
+  const updateTicket = useAtomSet(updateTicketDetail(req))
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
