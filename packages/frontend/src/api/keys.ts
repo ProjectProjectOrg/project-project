@@ -38,5 +38,62 @@ export const Keys = {
       ? `sprint-membership/${scope}`
       : `sprint-membership/${scope}/${groupId}`,
   /** One sprint's own content, wherever it is shown. */
-  sprint: (scope: string, id: GroupId): string => `sprint/${scope}/${id}`
+  sprint: (scope: string, id: GroupId): string => `sprint/${scope}/${id}`,
+  /** This project's tag definitions. */
+  tags: (scope: string): string => `tags/${scope}`,
+  /** Ticket-derived tag usage in this project. */
+  tagUsage: (scope: string): string => `tag-usage/${scope}`,
+  /** This project's workflow statuses. */
+  statuses: (scope: string): string => `statuses/${scope}`,
+  /** One project's content. */
+  project: (scope: string): string => `project/${scope}`,
+  /** Projects belonging to one organization. */
+  projects: (orgSlug: string): string => `projects/${orgSlug}`,
+  /** One organization's content. */
+  org: (orgSlug: string): string => `org/${orgSlug}`,
+  /** Organizations available to the current user. */
+  orgs: (): string => "orgs",
+  /** Members and invitations for one organization. */
+  orgMembers: (orgSlug: string): string => `org-members/${orgSlug}`,
+  /** Invitations available to the current user. */
+  invitations: (): string => "invitations",
+  /** The current user's session profile. */
+  me: (): string => "me",
+  /** Comments on one ticket. */
+  comments: (scope: string, ticketId: TicketId): string =>
+    `comments/${scope}/${ticketId}`,
+  /** Attachments stored by one organization. */
+  attachments: (orgSlug: string): string => `attachments/${orgSlug}`,
+  /** Storage connection state for one organization. */
+  storage: (orgSlug: string): string => `storage/${orgSlug}`,
+  /** Git state for this project's tickets. */
+  gitStates: (scope: string): string => `git-states/${scope}`,
+  /** Branches available to this project. */
+  branches: (scope: string): string => `branches/${scope}`,
+  /** GitHub integration state for one organization. */
+  githubIntegration: (orgSlug: string): string =>
+    `github-integration/${orgSlug}`,
+  /** GitHub authentication state for one organization. */
+  githubAuth: (orgSlug: string): string => `github-auth/${orgSlug}`,
+  /** The current user's Everhour profile connection. */
+  everhourProfile: (): string => "everhour-profile",
+  /** This project's Everhour connection. */
+  everhourProject: (scope: string): string => `everhour-project/${scope}`,
+  /** The current user's Figma profile connection. */
+  figmaProfile: (): string => "figma-profile",
+  /** This project's Figma connection. */
+  figmaProject: (scope: string): string => `figma-project/${scope}`,
+  /** Figma links resolved for tickets in this project. */
+  figmaTicketLinks: (scope: string): string => `figma-ticket-links/${scope}`,
+  /** The active timer in one organization. */
+  activeTimer: (orgSlug: string): string => `active-timer/${orgSlug}`,
+  /** Tracked time for one ticket. */
+  ticketTime: (scope: string, ticketId: TicketId): string =>
+    `ticket-time/${scope}/${ticketId}`,
+  /** Work types available to tickets in this project. */
+  workTypes: (scope: string): string => `work-types/${scope}`,
+  /** OAuth applications managed by the current user. */
+  oauthApplications: (): string => "oauth-applications",
+  /** One public OAuth client's metadata. */
+  oauthClient: (clientId: string): string => `oauth-client/${clientId}`
 } as const
