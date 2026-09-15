@@ -9,6 +9,7 @@ import {
   NotFound,
   type OrgInvitation,
   type OrgRole,
+  ProjectOwnerRemovalBlocked,
   Validation
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
@@ -68,6 +69,7 @@ const MISSING_CODES = new Set([
 const CONFLICTING_CODES = new Map([
   ["USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION", "already_member"],
   ["USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION", "already_invited"],
+  ["LAST_ORG_OWNER_BLOCKED", "last_owner_removal"],
   ["YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER", "last_owner"],
   ["YOU_CANNOT_LEAVE_THE_ORGANIZATION_WITHOUT_AN_OWNER", "last_owner"],
   ["ORGANIZATION_MEMBERSHIP_LIMIT_REACHED", "membership_limit"],
@@ -142,6 +144,32 @@ export const memberChangeErrorToFailure = (
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Validation: () => new Forbidden() })
   )
+
+const PROJECT_OWNER_REMOVAL_BLOCKED = "PROJECT_OWNER_REMOVAL_BLOCKED"
+
+export const blockingProjectSlugs = (
+  error: BetterAuthError
+): ReadonlyArray<string> | null => {
+  if (!isClientRefusal(error)) return null
+  if (betterAuthErrorCode(error) !== PROJECT_OWNER_REMOVAL_BLOCKED) return null
+  const { cause } = error
+  const slugs = isAPIError(cause) ? cause.body?.projectSlugs : undefined
+  return Array.isArray(slugs)
+    ? slugs.filter((slug) => typeof slug === "string")
+    : []
+}
+
+export const removeMemberErrorToFailure = (
+  error: BetterAuthError
+): Effect.Effect<
+  never,
+  Forbidden | NotFound | Conflict | ProjectOwnerRemovalBlocked
+> => {
+  const projectSlugs = blockingProjectSlugs(error)
+  return projectSlugs === null
+    ? memberChangeErrorToFailure(error)
+    : Effect.fail(new ProjectOwnerRemovalBlocked({ projectSlugs }))
+}
 
 export const leaveErrorToFailure = (
   error: BetterAuthError
@@ -249,7 +277,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         const request = yield* webRequest
         yield* ba
           .removeMember(request, params.orgSlug, params.userId)
-          .pipe(Effect.catchTag("BetterAuthError", memberChangeErrorToFailure))
+          .pipe(Effect.catchTag("BetterAuthError", removeMemberErrorToFailure))
       })
     )
     .handle("cancelInvitation", ({ params }) =>

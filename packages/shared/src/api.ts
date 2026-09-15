@@ -276,7 +276,13 @@ const OrgGroup = HttpApiGroup.make("org")
     HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
       params: OrgMemberPath,
       success: HttpApiSchema.NoContent,
-      error: [Unauthorized, NotFound, Forbidden, Conflict]
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        Conflict,
+        ProjectOwnerRemovalBlocked
+      ]
     })
   )
   .add(

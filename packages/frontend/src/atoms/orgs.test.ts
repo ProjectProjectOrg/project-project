@@ -4,7 +4,13 @@ import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
 import { OrgInvitation, OrgMember, OrgMembers } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
-import { inviteMember, orgMembers, orgRequest, updateMemberRole } from "./orgs"
+import {
+  inviteMember,
+  orgMembers,
+  orgRequest,
+  transferOwnership,
+  updateMemberRole
+} from "./orgs"
 
 const owner = {
   userId: "user-owner",
@@ -19,6 +25,14 @@ const plain = {
   role: "member",
   name: "Bob",
   email: "bob@example.com",
+  image: null
+} satisfies OrgMember
+
+const coOwner = {
+  userId: "user-co-owner",
+  role: "owner",
+  name: "Cy",
+  email: "cy@example.com",
   image: null
 } satisfies OrgMember
 
@@ -78,6 +92,43 @@ describe("org members optimistic updates", () => {
       const settled = registry.get(view)
       if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
       expect(settled.value.invitations).toMatchObject([{ id: "invitation-1" }])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("demotes only the caller when ownership is transferred", async () => {
+    const served: OrgMembers = {
+      members: [owner, coOwner, plain],
+      invitations: []
+    }
+    fetchStub.set((_input, init) => {
+      if (init?.method === "POST") return new Promise<Response>(() => {})
+      return Promise.resolve(Response.json(encodeMembers(served)))
+    })
+    const registry = AtomRegistry.make()
+    const view = orgMembers(req)
+    const mutation = transferOwnership({ req, callerUserId: owner.userId })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, { userId: plain.userId })
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.value.members).toMatchObject([
+        { userId: owner.userId, role: "admin" },
+        { userId: coOwner.userId, role: "owner" },
+        { userId: plain.userId, role: "owner" }
+      ])
     } finally {
       registry.dispose()
     }

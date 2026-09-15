@@ -57,18 +57,23 @@ function WelcomePage() {
 
 function WelcomeContent() {
   const invites = useAtomValue(invitations())
+  const [joining, setJoining] = useState(false)
+  const lastOffered = useRef<ReadonlyArray<UserInvitation>>([])
 
   return (
     <OnboardingShell icon={Inbox}>
       {Result.match(invites, {
         onInitial: () => <WelcomeSkeleton />,
         onFailure: () => <WelcomeNoAccess />,
-        onSuccess: ({ value, waiting }) =>
-          value.length > 0 ? (
-            <WelcomeInviteList invites={value} syncing={waiting} />
+        onSuccess: ({ value }) => {
+          if (value.length > 0) lastOffered.current = value
+          const offered = joining ? lastOffered.current : value
+          return offered.length > 0 ? (
+            <WelcomeInviteList invites={offered} onJoining={setJoining} />
           ) : (
             <WelcomeNoAccess />
           )
+        }
       })}
     </OnboardingShell>
   )
@@ -111,10 +116,10 @@ function WelcomeNoAccess() {
 
 function WelcomeInviteList({
   invites,
-  syncing
+  onJoining
 }: {
   invites: ReadonlyArray<UserInvitation>
-  syncing: boolean
+  onJoining: (joining: boolean) => void
 }) {
   const navigate = useNavigate({ from: Route.fullPath })
   const activateOrg = useAtomSet(setActiveOrganization, {
@@ -137,26 +142,23 @@ function WelcomeInviteList({
   const enterOrg = useCallback(
     async (accepted: ReadonlyArray<UserInvitation>) => {
       const active = pickActiveInvitation(accepted)
-      if (!active) {
-        setPageError(m.auth_invites_accept_all_error())
+      if (active && Exit.isSuccess(await activateOrg(active.orgSlug))) {
+        await navigate({
+          to: "/orgs/$orgSlug",
+          params: { orgSlug: active.orgSlug },
+          replace: true
+        })
         return
       }
-      const activeExit = await activateOrg(active.orgSlug)
-      if (Exit.isFailure(activeExit)) {
-        setPageError(m.auth_invites_accept_all_error())
-        return
-      }
-      await navigate({
-        to: "/orgs/$orgSlug",
-        params: { orgSlug: active.orgSlug },
-        replace: true
-      })
+      setPageError(m.auth_invites_accept_all_error())
+      onJoining(false)
     },
-    [activateOrg, navigate]
+    [activateOrg, navigate, onJoining]
   )
 
   const onAcceptAll = async () => {
     setPageError(null)
+    onJoining(true)
     const entries = [...accepts.current.entries()]
     const exits = await Promise.all(entries.map(([, accept]) => accept()))
     const acceptedIds = new Set(
@@ -177,17 +179,13 @@ function WelcomeInviteList({
           {m.auth_invites_body()}
         </p>
       </div>
-      <ul
-        className={cn(
-          "overflow-hidden rounded-xl border border-border bg-background",
-          syncing && "animate-pulse"
-        )}
-      >
+      <ul className="overflow-hidden rounded-xl border border-border bg-background">
         {invites.map((invite) => (
           <InviteRow
             key={invite.id}
             invite={invite}
             registerAccept={registerAccept}
+            onJoining={onJoining}
             onAccepted={enterOrg}
           />
         ))}
@@ -217,10 +215,12 @@ function WelcomeInviteList({
 function InviteRow({
   invite,
   registerAccept,
+  onJoining,
   onAccepted
 }: {
   invite: UserInvitation
   registerAccept: (invitationId: string, accept: AcceptInvitation) => () => void
+  onJoining: (joining: boolean) => void
   onAccepted: (accepted: ReadonlyArray<UserInvitation>) => Promise<void>
 }) {
   const mutationKey = { invitationId: invite.id }
@@ -251,8 +251,13 @@ function InviteRow({
   )
 
   const onAccept = async () => {
+    onJoining(true)
     const exit = await accept()
-    if (Exit.isSuccess(exit)) await onAccepted([invite])
+    if (Exit.isFailure(exit)) {
+      onJoining(false)
+      return
+    }
+    await onAccepted([invite])
   }
 
   const initial = invite.orgName.trim().charAt(0).toUpperCase() || "·"

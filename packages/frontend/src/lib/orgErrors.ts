@@ -22,24 +22,29 @@ const projectSlugsOf = (error: unknown): ReadonlyArray<string> | undefined => {
   return undefined
 }
 
-const taggedOrgActionError = (error: unknown): OrgActionError | null => {
-  const tagged = Match.value(error).pipe(
-    Match.when({ _tag: "Conflict", reason: "already_member" }, () =>
-      m.org_members_error_already_member()
-    ),
-    Match.when({ _tag: "Conflict", reason: "already_invited" }, () =>
-      m.org_members_error_already_invited()
-    ),
-    Match.when({ _tag: "Conflict", reason: "last_owner" }, () =>
-      m.org_members_error_only_owner_leave()
-    ),
-    Match.when({ _tag: "Validation", reason: "role_not_found" }, () =>
-      m.org_members_error_role_not_allowed()
-    ),
+const taggedOrgActionError = (error: unknown): OrgActionError | null =>
+  Match.value(error).pipe(
+    Match.when({ _tag: "ProjectOwnerRemovalBlocked" }, (blocked) => ({
+      message: m.org_members_project_owner_removal_blocked(),
+      projectSlugs: projectSlugsOf(blocked)
+    })),
+    Match.when({ _tag: "Conflict", reason: "already_member" }, () => ({
+      message: m.org_members_error_already_member()
+    })),
+    Match.when({ _tag: "Conflict", reason: "already_invited" }, () => ({
+      message: m.org_members_error_already_invited()
+    })),
+    Match.when({ _tag: "Conflict", reason: "last_owner_removal" }, () => ({
+      message: m.org_members_error_last_owner()
+    })),
+    Match.when({ _tag: "Conflict", reason: "last_owner" }, () => ({
+      message: m.org_members_error_only_owner_leave()
+    })),
+    Match.when({ _tag: "Validation", reason: "role_not_found" }, () => ({
+      message: m.org_members_error_role_not_allowed()
+    })),
     Match.orElse(() => null)
   )
-  return tagged === null ? null : { message: tagged }
-}
 
 export const orgActionError = (error: unknown): OrgActionError => {
   const tagged = taggedOrgActionError(error)

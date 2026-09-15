@@ -267,40 +267,47 @@ export const cancelInvitation = Atom.family(
 
 const withOwnershipTransferred = (
   value: OrgMembers,
-  userId: string
+  toUserId: string,
+  callerUserId: string
 ): OrgMembers => ({
   ...value,
   members: value.members.map((member) => {
-    if (member.userId === userId) return { ...member, role: "owner" as const }
-    if (member.role === "owner") return { ...member, role: "admin" as const }
+    if (member.userId === toUserId) return { ...member, role: "owner" as const }
+    if (member.userId === callerUserId) {
+      return { ...member, role: "admin" as const }
+    }
     return member
   })
 })
 
-export const transferOwnership = Atom.family((req: OrgRequest) =>
-  Atom.optimisticFn(orgMembers(req), {
-    reducer: (current, input: TransferOrgOwnershipInput) =>
-      AsyncResult.map(current, (value) =>
-        withOwnershipTransferred(value, input.userId)
-      ),
-    fn: (set) =>
-      Api.runtime.fn(
-        Effect.fn(function* (input: TransferOrgOwnershipInput) {
-          const members = yield* Api.use((client) =>
-            client.org.transferOwnership({
-              params: req.params,
-              payload: input
-            })
-          )
-          set(AsyncResult.success(members))
-          yield* Reactivity.invalidate([
-            Keys.org(req.params.orgSlug),
-            Keys.orgs()
-          ])
-          return members
-        })
-      )
-  })
+export const transferOwnership = Atom.family(
+  ({
+    req,
+    callerUserId
+  }: Readonly<{ req: OrgRequest; callerUserId: string }>) =>
+    Atom.optimisticFn(orgMembers(req), {
+      reducer: (current, input: TransferOrgOwnershipInput) =>
+        AsyncResult.map(current, (value) =>
+          withOwnershipTransferred(value, input.userId, callerUserId)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (input: TransferOrgOwnershipInput) {
+            const members = yield* Api.use((client) =>
+              client.org.transferOwnership({
+                params: req.params,
+                payload: input
+              })
+            )
+            set(AsyncResult.success(members))
+            yield* Reactivity.invalidate([
+              Keys.org(req.params.orgSlug),
+              Keys.orgs()
+            ])
+            return members
+          })
+        )
+    })
 )
 
 export const leaveOrg = Atom.family((req: OrgRequest) =>

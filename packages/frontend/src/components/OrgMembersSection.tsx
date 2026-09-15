@@ -105,7 +105,7 @@ export function OrgMembersSection({
               orgName={orgName}
               member={member}
               callerRole={callerRole}
-              isSelf={member.userId === callerUserId}
+              callerUserId={callerUserId}
               ownerCount={ownerCount}
             />
           </li>
@@ -262,18 +262,19 @@ function MemberRow({
   orgName,
   member,
   callerRole,
-  isSelf,
+  callerUserId,
   ownerCount
 }: {
   orgSlug: string
   orgName: string
   member: OrgMember
   callerRole: OrgRole
-  isSelf: boolean
+  callerUserId: string
   ownerCount: number
 }) {
   const meta = ROLE_META[member.role]
   const Icon = meta.icon
+  const isSelf = member.userId === callerUserId
   return (
     <div className="flex items-center gap-3 pl-3 pr-3 py-2.5">
       <MemberAvatar member={member} size={32} />
@@ -299,7 +300,7 @@ function MemberRow({
         orgName={orgName}
         member={member}
         callerRole={callerRole}
-        isSelf={isSelf}
+        callerUserId={callerUserId}
         ownerCount={ownerCount}
       />
     </div>
@@ -434,24 +435,25 @@ function MemberMenu({
   orgName,
   member,
   callerRole,
-  isSelf,
+  callerUserId,
   ownerCount
 }: {
   orgSlug: string
   orgName: string
   member: OrgMember
   callerRole: OrgRole
-  isSelf: boolean
+  callerUserId: string
   ownerCount: number
 }) {
   const req = orgRequest(orgSlug)
   const memberKey = { req, userId: member.userId }
+  const isSelf = member.userId === callerUserId
   const navigate = useNavigate()
   const update = useAtomSet(updateMemberRole(memberKey), {
     mode: "promiseExit"
   })
   const remove = useAtomSet(removeMember(memberKey), { mode: "promiseExit" })
-  const transfer = useAtomSet(transferOwnership(req), {
+  const transfer = useAtomSet(transferOwnership({ req, callerUserId }), {
     mode: "promiseExit"
   })
   const leave = useAtomSet(leaveOrg(req), { mode: "promiseExit" })

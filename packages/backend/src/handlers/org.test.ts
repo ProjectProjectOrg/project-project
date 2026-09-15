@@ -10,6 +10,7 @@ import {
   memberErrorToFailure,
   opaqueErrorToFailure,
   pendingInvitations,
+  removeMemberErrorToFailure,
   transferErrorToFailure
 } from "./org"
 
@@ -25,6 +26,15 @@ const codelessError = (
   status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" = "BAD_REQUEST",
   message = "User not found"
 ) => new BetterAuthError({ cause: new APIError(status, { message }) })
+
+const bodiedError = (
+  status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" | 409,
+  code: string,
+  body: Record<string, unknown>
+) =>
+  new BetterAuthError({
+    cause: new APIError(status, { code, message: code, ...body })
+  })
 
 const failureOf = <E>(effect: Effect.Effect<never, E>) =>
   Effect.runPromise(effect.pipe(Effect.flip))
@@ -167,6 +177,77 @@ it("reports the last-owner refusal as Conflict on member changes too", async () 
       reason: "last_owner"
     })
   }
+})
+
+it("separates the last-owner refusal on remove and demote from leaving", async () => {
+  const removing = await failureOf(
+    removeMemberErrorToFailure(
+      orgError("BAD_REQUEST", "LAST_ORG_OWNER_BLOCKED")
+    )
+  )
+  const demoting = await failureOf(
+    memberChangeErrorToFailure(
+      orgError("BAD_REQUEST", "LAST_ORG_OWNER_BLOCKED")
+    )
+  )
+  const leaving = await failureOf(
+    leaveErrorToFailure(
+      orgError(
+        "BAD_REQUEST",
+        "YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER"
+      )
+    )
+  )
+  expect(removing).toMatchObject({
+    _tag: "Conflict",
+    reason: "last_owner_removal"
+  })
+  expect(demoting).toMatchObject({
+    _tag: "Conflict",
+    reason: "last_owner_removal"
+  })
+  expect(leaving).toMatchObject({ _tag: "Conflict", reason: "last_owner" })
+})
+
+it("carries the blocking project slugs out of a project-owner removal", async () => {
+  const result = await failureOf(
+    removeMemberErrorToFailure(
+      bodiedError(409, "PROJECT_OWNER_REMOVAL_BLOCKED", {
+        projectSlugs: ["alpha", "beta"]
+      })
+    )
+  )
+  expect(result).toMatchObject({
+    _tag: "ProjectOwnerRemovalBlocked",
+    projectSlugs: ["alpha", "beta"]
+  })
+})
+
+it("still reports a project-owner removal when the body carries no slugs", async () => {
+  const result = await failureOf(
+    removeMemberErrorToFailure(
+      orgError("BAD_REQUEST", "PROJECT_OWNER_REMOVAL_BLOCKED")
+    )
+  )
+  expect(result).toMatchObject({
+    _tag: "ProjectOwnerRemovalBlocked",
+    projectSlugs: []
+  })
+})
+
+it("never reports a project-owner removal from a 5xx", async () => {
+  const exit = await Effect.runPromiseExit(
+    removeMemberErrorToFailure(
+      new BetterAuthError({
+        cause: new APIError("INTERNAL_SERVER_ERROR", {
+          code: "PROJECT_OWNER_REMOVAL_BLOCKED",
+          message: "boom"
+        })
+      })
+    )
+  )
+  expect(exit._tag).toBe("Failure")
+  expect(JSON.stringify(exit)).not.toContain("ProjectOwnerRemovalBlocked")
 })
 
 it("keeps an insufficient-rights refusal as Forbidden on member changes", async () => {
