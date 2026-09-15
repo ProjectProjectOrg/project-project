@@ -5,6 +5,9 @@ import type { GitStatesResponse, TicketId } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import { disconnectPersonalGithubAtom, meAtom } from "./auth"
 import {
+  branches,
+  branchesRequest,
+  connectGithub,
   createBranch,
   githubIntegration,
   githubOrgRequest,
@@ -116,6 +119,49 @@ const user = {
     lastVerifiedAt: null,
     lastCheckError: null
   }
+}
+
+const projectDetail = (
+  github: Readonly<{
+    repoId: string
+    repoOwner: string
+    repoName: string
+    defaultBaseBranch: string | null
+  }> | null
+) => ({
+  org: "acme",
+  slug: "app",
+  key: "APP",
+  name: "App",
+  icon: "A",
+  color: "#123456",
+  banner: null,
+  iconImage: null,
+  createdBy: "user-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  github,
+  setup: {
+    workflowReviewedAt: null,
+    invitePeopleDismissedAt: null,
+    connectGithubDismissedAt: null
+  },
+  body: "",
+  members: [],
+  pendingMembers: []
+})
+
+const repoA = {
+  repoId: "repo-a",
+  repoOwner: "acme",
+  repoName: "app",
+  defaultBaseBranch: "main"
+}
+
+const repoB = {
+  repoId: "repo-b",
+  repoOwner: "acme",
+  repoName: "other",
+  defaultBaseBranch: "main"
 }
 
 const integration = {
@@ -276,6 +322,70 @@ describe("disconnectPersonalGithubAtom", () => {
 
       await vi.waitFor(() => expect(unlinkAccount).toHaveBeenCalled())
       await vi.waitFor(() => expect(integrationCalls).toBe(2))
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("branches", () => {
+  it("stops serving the previous repository's branches once the repo changes", async () => {
+    let branchCalls = 0
+    let finishBranches: ((response: Response) => void) | undefined
+    fetchStub.set((input, init) => {
+      const path = pathOf(input)
+      if (path.endsWith("/github/branches")) {
+        branchCalls += 1
+        if (branchCalls === 1) {
+          return Promise.resolve(
+            Response.json({
+              items: [{ name: "feat/only-in-repo-a", isProtected: false }],
+              hasMore: false
+            })
+          )
+        }
+        return new Promise<Response>((resolve) => {
+          finishBranches = resolve
+        })
+      }
+      if (path.endsWith("/github") && init?.method === "POST") {
+        return Promise.resolve(Response.json(projectDetail(repoB)))
+      }
+      if (path.endsWith("/projects/app")) {
+        return Promise.resolve(Response.json(projectDetail(repoA)))
+      }
+      return pending()
+    })
+
+    const view = branches(branchesRequest("acme", "app", ""))
+    const connect = connectGithub(req)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(connect)
+    try {
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no branches")
+        expect(result.value.items).toHaveLength(1)
+      })
+
+      registry.set(connect, {
+        repoId: repoB.repoId,
+        repoOwner: repoB.repoOwner,
+        repoName: repoB.repoName,
+        defaultBaseBranch: repoB.defaultBaseBranch
+      })
+
+      await vi.waitFor(() => expect(finishBranches).toBeDefined())
+      expect(AsyncResult.isWaiting(registry.get(view))).toBe(true)
+
+      finishBranches?.(Response.json({ items: [], hasMore: false }))
+      await vi.waitFor(() => {
+        const settled = registry.get(view)
+        if (!AsyncResult.isSuccess(settled)) throw new Error("no branches")
+        expect(settled.waiting).toBe(false)
+        expect(settled.value.items).toEqual([])
+      })
     } finally {
       registry.dispose()
     }

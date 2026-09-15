@@ -25,12 +25,9 @@ export function useProjectGitStatePolling(
   const refresh = useAtomRefresh(projectGitStates(req))
   const invalidateTickets = useAtomSet(invalidateGitStateTickets(req))
   const reading = useAtomValue(projectGitStatesWaiting(req))
-  const waiting = useRef(false)
+  const waiting = useRef(reading)
   const seen = useRef<GitStatesResponse | undefined>(undefined)
-
-  useEffect(() => {
-    waiting.current = reading
-  }, [reading])
+  waiting.current = reading
 
   useEffect(() => {
     if (!enabled || !AsyncResult.isSuccess(states) || states.waiting) return

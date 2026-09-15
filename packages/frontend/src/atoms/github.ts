@@ -16,7 +16,7 @@ import type {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { mergeStaleGitStateDetails } from "@/lib/gitStateMerge"
-import { project, type ProjectRequest } from "./projects"
+import { confirmedProject, project, type ProjectRequest } from "./projects"
 
 export type GithubOrgRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -83,16 +83,13 @@ type GitStatesSnapshot = Readonly<{
 
 const connectedRepoId = Atom.family((req: ProjectRequest) =>
   Atom.readable((get): string | null | undefined => {
-    const detail = Option.getOrUndefined(AsyncResult.value(get(project(req))))
+    const detail = Option.getOrUndefined(
+      AsyncResult.value(get(confirmedProject(req)))
+    )
     return detail === undefined ? undefined : (detail.github?.repoId ?? null)
   })
 )
 
-/**
- * Holds the merge inputs in the atom's own value: `get.self()` is the last
- * response this read produced, and the repo it described. A stale response is
- * merged against it, a repo change discards it.
- */
 const gitStatesSnapshot = Atom.family((req: ProjectRequest) =>
   Atom.readable(
     (get) => {
@@ -131,11 +128,6 @@ export const projectGitStates = Atom.family((req: ProjectRequest) =>
   )
 )
 
-/**
- * `Atom.optimistic` only forwards settled values, so the wrapper's own
- * `waiting` covers in-flight mutations but never an in-flight read. Polling
- * needs the read's own flag to skip a refresh while one is already running.
- */
 export const projectGitStatesWaiting = Atom.family((req: ProjectRequest) =>
   Atom.readable((get) => get(gitStatesQuery(req)).waiting)
 )
@@ -206,16 +198,16 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
   )
 )
 
-const branchesQuery = (req: BranchesRequest) =>
+export const branches = Atom.family((req: BranchesRequest) =>
   Api.query("projects", "listBranches", {
     params: req.params,
     query: req.query,
     timeToLive: "1 minute",
-    reactivityKeys: [Keys.branches(scopeOf(req))]
+    reactivityKeys: [
+      Keys.branches(scopeOf(req)),
+      Keys.githubAuth(req.params.orgSlug)
+    ]
   })
-
-export const branches = Atom.family((req: BranchesRequest) =>
-  Atom.optimistic(branchesQuery(req))
 )
 
 export const connectGithub = Atom.family((req: ProjectRequest) =>

@@ -1,14 +1,6 @@
 import type { GitStatesResponse } from "@projectproject/shared"
 
-/**
- * Merges a degraded git-states response with a better earlier one.
- *
- * A stale or rate-limited read from GitHub comes back without PR titles and
- * with `checks: "none"`, and can fall all the way back to `branch_pending`.
- * Rendering that verbatim would blank out summaries the user can already see,
- * so the earlier values are carried over until a `fresh` response replaces
- * them. A repository change or a disconnect drops the earlier values entirely.
- */
+/** Carries PR titles and checks from an earlier response through a degraded one, so a stale read does not blank data the user can see. */
 export const mergeStaleGitStateDetails = (
   previous: GitStatesResponse | undefined,
   next: GitStatesResponse,

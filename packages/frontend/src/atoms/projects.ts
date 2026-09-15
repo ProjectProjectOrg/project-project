@@ -50,7 +50,7 @@ export const projectsFor = Atom.family((req: ProjectsRequest) =>
   Atom.optimistic(projectsQuery(req))
 )
 
-const projectQuery = (req: ProjectRequest) =>
+export const confirmedProject = (req: ProjectRequest) =>
   Api.query("projects", "get", {
     params: req.params,
     timeToLive: "2 minutes",
@@ -58,7 +58,7 @@ const projectQuery = (req: ProjectRequest) =>
   })
 
 export const project = Atom.family((req: ProjectRequest) =>
-  Atom.optimistic(projectQuery(req))
+  Atom.optimistic(confirmedProject(req))
 )
 
 export const updateProject = Atom.family((req: ProjectRequest) =>
