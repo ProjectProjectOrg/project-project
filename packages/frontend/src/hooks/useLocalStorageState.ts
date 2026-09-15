@@ -14,13 +14,7 @@ function readFromStorage<
     return initial
   }
   if (raw === null) return initial
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return initial
-  }
-  const decoded = Schema.decodeUnknownResult(schema)(parsed)
+  const decoded = Schema.decodeResult(Schema.fromJsonString(schema))(raw)
   return Result.isSuccess(decoded) ? decoded.success : initial
 }
 
@@ -50,8 +44,8 @@ export function useLocalStorageState<
       setValue(next)
       if (typeof window === "undefined") return
       try {
-        const encoded = Schema.encodeSync(schema)(next)
-        window.localStorage.setItem(key, JSON.stringify(encoded))
+        const encoded = Schema.encodeSync(Schema.fromJsonString(schema))(next)
+        window.localStorage.setItem(key, encoded)
       } catch {
         return
       }

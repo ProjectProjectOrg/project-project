@@ -196,6 +196,11 @@ describe("attachmentViewParams width", () => {
   it("ignores unrelated params", () => {
     expect(widthOf(`/api/attachments/acme/${ID}?v=2`)).toBeNull()
   })
+
+  it("returns defaults for repeated params", () => {
+    const url = `/api/attachments/acme/${ID}?w=256&w=512&d=compact`
+    expect(attachmentViewParams(url)).toEqual({ width: null, density: "rich" })
+  })
 })
 
 describe("withAttachmentParams", () => {

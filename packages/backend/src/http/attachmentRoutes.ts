@@ -1,6 +1,11 @@
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
-import { parseAttachmentUrl } from "@projectproject/shared"
+import {
+  attachmentViewParams,
+  parseAttachmentUrl
+} from "@projectproject/shared"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import sharp from "sharp"
 import { toWebHeaders } from "./toWebHeaders"
@@ -15,6 +20,18 @@ import { BetterAuth } from "../Services/BetterAuth"
 const notFound = HttpServerResponse.text("Not Found", { status: 404 })
 
 const IMMUTABLE_CACHE_CONTROL = "private, max-age=31536000, immutable"
+
+const immutableHeaders = (etag: string | null) =>
+  etag === null
+    ? { "cache-control": IMMUTABLE_CACHE_CONTROL }
+    : { "cache-control": IMMUTABLE_CACHE_CONTROL, etag }
+
+const AttachmentDownloadQuery = Schema.fromURLSearchParams(
+  Schema.Struct({ download: Schema.optionalKey(Schema.Literal("1")) })
+)
+const decodeAttachmentDownloadQuery = Schema.decodeOption(
+  AttachmentDownloadQuery
+)
 
 const attempt = <A>(run: () => Promise<A>) =>
   Effect.tryPromise({ try: run, catch: () => null }).pipe(
@@ -46,23 +63,20 @@ const streamOriginal = (
     }),
     {
       contentType,
-      headers: {
-        "cache-control": IMMUTABLE_CACHE_CONTROL,
-        ...(etag !== null ? { etag } : {})
-      }
+      headers: immutableHeaders(etag)
     }
   )
 }
 
 const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
-  function* (signed: string, contentType: string, rawWidth: string | null) {
+  function* (signed: string, contentType: string, width: number | null) {
     const response = yield* fetchUpstream(signed)
     if (response === null || !response.ok || response.body === null) {
       return notFound
     }
 
     const upstreamEtag = response.headers.get("etag")
-    const rung = resolveAttachmentWidthRung(rawWidth)
+    const rung = resolveAttachmentWidthRung(width)
 
     if (rung === null) {
       return streamOriginal(response.body, contentType, upstreamEtag)
@@ -77,10 +91,7 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
       const etag = deriveAttachmentEtag(upstreamEtag, null)
       return HttpServerResponse.uint8Array(original, {
         contentType,
-        headers: {
-          "cache-control": IMMUTABLE_CACHE_CONTROL,
-          ...(etag !== null ? { etag } : {})
-        }
+        headers: immutableHeaders(etag)
       })
     }
 
@@ -96,10 +107,7 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
     const etag = deriveAttachmentEtag(upstreamEtag, rung)
     return HttpServerResponse.uint8Array(new Uint8Array(resized), {
       contentType,
-      headers: {
-        "cache-control": IMMUTABLE_CACHE_CONTROL,
-        ...(etag !== null ? { etag } : {})
-      }
+      headers: immutableHeaders(etag)
     })
   }
 )
@@ -119,7 +127,11 @@ const serveAttachment = Effect.gen(function* () {
     return HttpServerResponse.text("Unauthorized", { status: 401 })
   }
 
-  const download = url.searchParams.get("download") === "1"
+  const downloadQuery = decodeAttachmentDownloadQuery(url.searchParams)
+  const download = Option.isSome(downloadQuery)
+    ? downloadQuery.value.download === "1"
+    : false
+  const view = attachmentViewParams(webReq.url)
 
   const attachments = yield* Attachments
   const { url: signed, contentType } = yield* attachments.resolveForServing(
@@ -136,7 +148,7 @@ const serveAttachment = Effect.gen(function* () {
     })
   }
 
-  return yield* proxyAttachment(signed, contentType, url.searchParams.get("w"))
+  return yield* proxyAttachment(signed, contentType, view.width)
 }).pipe(
   Effect.catchTags({
     NotFound: () => Effect.succeed(notFound),

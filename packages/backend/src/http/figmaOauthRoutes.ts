@@ -5,12 +5,21 @@ import {
 } from "effect/unstable/http"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import { toWebHeaders } from "./toWebHeaders"
 import { BetterAuth } from "../Services/BetterAuth"
 import { FigmaIntegrations } from "../Services/FigmaIntegrations"
 
 const publicBaseUrl = Config.string("BETTER_AUTH_URL").pipe(
   Config.withDefault("http://localhost:5173")
+)
+
+const FigmaCallbackQuery = Schema.fromURLSearchParams(
+  Schema.Struct({
+    code: Schema.NonEmptyString,
+    state: Schema.NonEmptyString
+  })
 )
 
 const profileSettingsUrl = (params?: Record<string, string>) =>
@@ -72,16 +81,19 @@ const figmaOauthCallbackRoute = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
-  if (!code || !state) {
+  const query = Schema.decodeOption(FigmaCallbackQuery)(url.searchParams)
+  if (Option.isNone(query)) {
     const redirectUrl = yield* profileSettingsUrl({
       figmaError: "figma_oauth_callback_invalid"
     })
     return HttpServerResponse.redirect(redirectUrl, { status: 302 })
   }
   const integrations = yield* FigmaIntegrations
-  yield* integrations.completeProfileConnect(session.user.id, code, state)
+  yield* integrations.completeProfileConnect(
+    session.user.id,
+    query.value.code,
+    query.value.state
+  )
   const redirectUrl = yield* profileSettingsUrl()
   return HttpServerResponse.redirect(redirectUrl, { status: 302 })
 }).pipe(
