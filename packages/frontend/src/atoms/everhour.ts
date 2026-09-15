@@ -7,7 +7,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
 export type EverhourProjectRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const everhourProjectRequest = (

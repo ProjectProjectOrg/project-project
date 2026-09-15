@@ -17,7 +17,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { ticketDetail, ticketRequest } from "./ticketDetail"
 
 export type TagsRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({

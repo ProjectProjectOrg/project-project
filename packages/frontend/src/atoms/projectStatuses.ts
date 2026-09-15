@@ -18,7 +18,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { compareByOrderKey } from "@/lib/orderKey"
 
 export type StatusesRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const statusesRequest = (

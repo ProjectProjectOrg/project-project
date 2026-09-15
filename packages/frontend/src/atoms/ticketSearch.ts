@@ -10,7 +10,7 @@ export type TicketSearchOptions = Readonly<{
 }>
 
 export type SearchRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
   query: TicketSearchQuery
 }>
 

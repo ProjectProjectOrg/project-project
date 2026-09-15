@@ -23,7 +23,7 @@ export const projectsRequest = (orgSlug: string): ProjectsRequest => ({
 })
 
 export type ProjectRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export const projectRequest = (

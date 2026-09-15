@@ -7,7 +7,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
 export type FigmaProjectRequest = Readonly<{
-  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  params: Readonly<{ orgSlug: string; slug: string }>
 }>
 
 export type FigmaTicketLinksRequest = Readonly<{
