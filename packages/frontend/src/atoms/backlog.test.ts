@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 import {
+  DEFAULT_TICKET_SORT,
   Ticket,
   TicketDetail,
   TicketId,
@@ -609,5 +610,146 @@ describe("encodeTicketListQuery", () => {
     const a: TicketListQuery = { sort: { key: "updated", dir: "desc" } }
     const b: TicketListQuery = { sort: { key: "created", dir: "desc" } }
     expect(encodeTicketListQuery(a)).not.toBe(encodeTicketListQuery(b))
+  })
+})
+
+const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
+
+const withTicket = (id: string, fields: Partial<Ticket>): Ticket => ({
+  ...ticket,
+  id: Schema.decodeSync(TicketId)(id),
+  ...fields
+})
+
+const todoStatus = Schema.decodeSync(TicketStatus)("todo")
+const inProgressStatus = Schema.decodeSync(TicketStatus)("in_progress")
+
+const orderAfterRoundTrip = async (
+  query: TicketListQuery,
+  items: ReadonlyArray<Ticket>,
+  movedId: TicketId
+): Promise<ReadonlyArray<string>> => {
+  const pending: Array<(r: Response) => void> = []
+  fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "PATCH") {
+      return new Promise<Response>((resolve) => {
+        pending.push(resolve)
+      })
+    }
+    return Promise.resolve(
+      Response.json({
+        counts: {
+          total: items.length,
+          byStatus: { todo: items.length, in_progress: 0 }
+        },
+        sections: {
+          todo: { items: items.map((t) => encode(t)), nextCursor: null },
+          in_progress: { items: [], nextCursor: null }
+        }
+      })
+    )
+  })
+  const request = backlogRequest("acme", "web", query)
+  const registry = AtomRegistry.make()
+  const view = backlog(request)
+  const mutation = updateBacklogTicket({ req: request, id: movedId })
+  registry.mount(view)
+  registry.mount(mutation)
+  try {
+    await vi.waitFor(() =>
+      expect(registry.get(view)).toMatchObject({
+        _tag: "Success",
+        waiting: false
+      })
+    )
+    registry.set(mutation, { status: inProgressStatus })
+    registry.set(mutation, { status: todoStatus })
+
+    const optimistic = registry.get(view)
+    if (!AsyncResult.isSuccess(optimistic)) {
+      throw new Error("no optimistic value")
+    }
+    const order = optimistic.value.sections.todo.items.map(
+      (row) => row.ticket.id
+    )
+    const back = items.find((t) => t.id === movedId)!
+    for (const resolve of pending) {
+      resolve(Response.json(encodeUpdateResponse(asDetail(back))))
+    }
+    await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    return order
+  } finally {
+    registry.dispose()
+  }
+}
+
+describe("backlog status round trip keeps the section's sort order", () => {
+  it("returns the oldest row to the bottom under the default `created desc` sort", async () => {
+    const items = [
+      withTicket("T-1", {
+        title: "Alpha",
+        createdAt: at("2026-03-01T00:00:00.000Z")
+      }),
+      withTicket("T-2", {
+        title: "Beta",
+        createdAt: at("2026-02-01T00:00:00.000Z")
+      }),
+      withTicket("T-3", {
+        title: "Gamma",
+        createdAt: at("2026-01-01T00:00:00.000Z")
+      })
+    ]
+    const order = await orderAfterRoundTrip(
+      { sort: DEFAULT_TICKET_SORT },
+      items,
+      items[2].id
+    )
+    expect(order).toEqual(["T-1", "T-2", "T-3"])
+  })
+
+  it("returns the row to its alphabetical place under `title asc`", async () => {
+    const items = [
+      withTicket("T-1", {
+        title: "Alpha",
+        createdAt: at("2026-01-01T00:00:00.000Z")
+      }),
+      withTicket("T-2", {
+        title: "Beta",
+        createdAt: at("2026-05-01T00:00:00.000Z")
+      }),
+      withTicket("T-3", {
+        title: "Gamma",
+        createdAt: at("2026-02-01T00:00:00.000Z")
+      })
+    ]
+    const order = await orderAfterRoundTrip(
+      { sort: { key: "title", dir: "asc" } },
+      items,
+      items[1].id
+    )
+    expect(order).toEqual(["T-1", "T-2", "T-3"])
+  })
+
+  it("puts the row at the top under `updated desc`, because the patch bumps updatedAt the way the server does", async () => {
+    const items = [
+      withTicket("T-1", {
+        title: "Alpha",
+        updatedAt: at("2026-03-01T00:00:00.000Z")
+      }),
+      withTicket("T-2", {
+        title: "Beta",
+        updatedAt: at("2026-02-01T00:00:00.000Z")
+      }),
+      withTicket("T-3", {
+        title: "Gamma",
+        updatedAt: at("2026-01-01T00:00:00.000Z")
+      })
+    ]
+    const order = await orderAfterRoundTrip(
+      { sort: { key: "updated", dir: "desc" } },
+      items,
+      items[2].id
+    )
+    expect(order).toEqual(["T-3", "T-1", "T-2"])
   })
 })

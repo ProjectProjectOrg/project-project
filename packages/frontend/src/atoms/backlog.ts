@@ -7,9 +7,11 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   type QuickCreateTicketInput,
   type Ticket,
+  ticketComparator,
   type TicketCounts,
   type TicketId,
   TicketListQuery,
+  type TicketSort,
   type TicketStatus,
   type UpdateTicketInput
 } from "@projectproject/shared"
@@ -191,12 +193,28 @@ export const loadMoreBacklog = Atom.family(
     )
 )
 
+const insertSorted = (
+  items: ReadonlyArray<BacklogRow>,
+  row: BacklogRow,
+  sort: TicketSort
+): ReadonlyArray<BacklogRow> => {
+  const compare = ticketComparator(sort)
+  const index = items.findIndex(
+    (existing) => compare(row.ticket, existing.ticket) < 0
+  )
+  return index < 0
+    ? [...items, row]
+    : [...items.slice(0, index), row, ...items.slice(index)]
+}
+
 const patchRow = (
   value: BacklogValue,
   id: TicketId,
-  patch: UpdateTicketInput
+  patch: UpdateTicketInput,
+  sort: TicketSort,
+  now: Date
 ): BacklogValue => {
-  let moved: BacklogRow | undefined
+  let patched: BacklogRow | undefined
   let from: TicketStatus | undefined
   const sections: Record<string, BacklogSection> = {}
 
@@ -207,31 +225,26 @@ const patchRow = (
         items.push(row)
         continue
       }
-      const next = { ...row, ticket: applyTicketPatch(row.ticket, patch) }
-      // A status patch relocates the row; anything else edits it in place.
-      if (patch.status !== undefined && patch.status !== status) {
-        moved = next
-        from = status as TicketStatus
-      } else {
-        items.push(next)
+      patched = {
+        ...row,
+        ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now }
       }
+      from = status as TicketStatus
     }
     sections[status] = { ...section, items }
   }
 
-  if (!moved || patch.status === undefined) return { ...value, sections }
+  if (!patched || from === undefined) return { ...value, sections }
 
-  const target = sections[patch.status] ?? { items: [], nextCursor: null }
-  sections[patch.status] = {
-    ...target,
-    items: [moved, ...target.items.filter((row) => row.ticket.id !== id)]
-  }
+  const to = patch.status ?? from
+  const target = sections[to] ?? { items: [], nextCursor: null }
+  sections[to] = { ...target, items: insertSorted(target.items, patched, sort) }
+
+  if (to === from) return { ...value, sections }
 
   const byStatus = { ...value.counts.byStatus }
-  if (from !== undefined) {
-    byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
-  }
-  byStatus[patch.status] = (byStatus[patch.status] ?? 0) + 1
+  byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
+  byStatus[to] = (byStatus[to] ?? 0) + 1
 
   return { counts: { total: value.counts.total, byStatus }, sections }
 }
@@ -253,7 +266,15 @@ export const updateBacklogTicket = Atom.family(
   ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
     Atom.optimisticFn(backlog(req), {
       reducer: (current, patch: UpdateTicketInput) =>
-        AsyncResult.map(current, (value) => patchRow(value, id, patch)),
+        AsyncResult.map(current, (value) =>
+          patchRow(
+            value,
+            id,
+            patch,
+            req.query.sort,
+            DateTime.toDate(DateTime.nowUnsafe())
+          )
+        ),
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
