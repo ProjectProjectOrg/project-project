@@ -21,7 +21,7 @@ import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import { createSprint, sprintList, sprintListRequest } from "@/atoms/sprintList"
-import { projectAtom, projectKey as projectRouteKey } from "@/atoms/projects"
+import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
@@ -65,7 +65,7 @@ export function SprintRail({
   slug: string
 }) {
   const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
-  const project = useAtomValue(projectAtom(projectRouteKey(orgSlug, slug)))
+  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
   const projectIcon = Result.isSuccess(project) ? project.value.icon : null
   const reduceMotion = useReducedMotion()

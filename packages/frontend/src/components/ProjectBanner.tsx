@@ -11,10 +11,11 @@ import { useAtomValue } from "@effect/atom-react"
 import { motion, useReducedMotion } from "motion/react"
 import type { ProjectBanner as Banner } from "@projectproject/shared"
 import { projectBannerPreviewAtom, projectKey } from "@/atoms/projects"
+import { bannerSource } from "@/lib/bannerSource"
 import { readBannerRender, type BannerRenderKey } from "@/lib/bannerRenderCache"
-import { isImageLoaded } from "@/lib/imagePreload"
+import { isImageLoaded, preloadImage } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
-import { bannerDefaults, bannerSource } from "./project-banner-presets"
+import { bannerDefaults } from "./project-banner-presets"
 import {
   bannerCropStyle,
   bannerCrossfadeTransitions,
@@ -66,6 +67,10 @@ export function ProjectBanner({
   const [cachedRender, setCachedRender] = useState<string | null>(null)
   const [lookupSettled, setLookupSettled] = useState(false)
   const [measured, setMeasured] = useState(false)
+
+  useEffect(() => {
+    if (source) void preloadImage(source)
+  }, [source])
 
   const cacheKey = useMemo<BannerRenderKey | null>(
     () =>

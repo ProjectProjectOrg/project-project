@@ -1,250 +1,365 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
+import * as Effect from "effect/Effect"
+import * as DateTime from "effect/DateTime"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
-import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { preloadImage } from "@/lib/imagePreload"
-import { bannerSource } from "@/components/project-banner-presets"
 import {
-  attachmentUrl,
-  CreatableProjectKey,
-  type Project,
-  type ProjectSetup,
-  type UpdateProjectInput as UpdateProjectInputShared
+  type AddMemberInput,
+  type CreateProjectInput,
+  type ProjectDetail,
+  type UpdateMemberInput,
+  type UpdateProjectInput,
+  type UpdateProjectSetupInput
 } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
 
-const preloadProjectImages = (orgSlug: string, project: Project) => {
-  const banner = bannerSource(orgSlug, project.banner)
-  if (project.banner?.type === "attachment" && banner) void preloadImage(banner)
-  if (project.iconImage) {
-    const id =
-      project.iconImage.type === "sticker"
-        ? project.iconImage.renderedAttachmentId
-        : project.iconImage.sourceAttachmentId
-    void preloadImage(attachmentUrl(orgSlug, id))
-  }
+export interface ProjectsRequest {
+  readonly params: { readonly orgSlug: string }
 }
 
-// Atom.family keys must compare by value, not reference. Slugs are DNS-safe
-// (no `/`), so a slash is an unambiguous separator between org and project.
+export const projectsRequest = (orgSlug: string): ProjectsRequest => ({
+  params: { orgSlug }
+})
+
+export interface ProjectRequest {
+  readonly params: { readonly orgSlug: string; readonly slug: string }
+}
+
+export const projectRequest = (
+  orgSlug: string,
+  slug: string
+): ProjectRequest => ({
+  params: { orgSlug, slug }
+})
+
 export const projectKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
 
-export const splitProjectKey = (
-  key: string
-): { orgSlug: string; slug: string } => {
-  const sep = key.indexOf("/")
-  return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
-}
+const scopeOf = (req: ProjectRequest) =>
+  projectScope(req.params.orgSlug, req.params.slug)
 
-const projectsListBaseAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        const projects = yield* client.projects.list({ params: { orgSlug } })
-        for (const project of projects) preloadProjectImages(orgSlug, project)
-        return projects
-      })
-    )
-    .pipe(Atom.setIdleTTL("1 minute"))
-)
-
-export const projectsListAtom = projectsListBaseAtom
-
-export const projectBaseAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        const project = yield* client.projects.get({
-          params: { orgSlug, slug }
-        })
-        preloadProjectImages(orgSlug, project)
-        return project
-      })
-    )
-    .pipe(Atom.setIdleTTL("2 minutes"))
-})
-
-export const projectAtom = Atom.family((key: string) =>
-  Atom.optimistic(projectBaseAtom(key))
-)
-
-export const updateProjectAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
-    reducer: (current, input: UpdateProjectInputShared) =>
-      Result.isSuccess(current)
-        ? Result.success({ ...current.value, ...input }, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: UpdateProjectInputShared, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.update({
-          params: { orgSlug, slug },
-          payload: input
-        })
-        get.refresh(projectBaseAtom(key))
-        get.refresh(projectsListBaseAtom(orgSlug))
-        return updated
-      })
-    )
+const projectsQuery = (req: ProjectsRequest) =>
+  Api.query("projects", "list", {
+    params: req.params,
+    timeToLive: "1 minute",
+    reactivityKeys: [Keys.projects(req.params.orgSlug)]
   })
-})
 
-export const updateProjectSetupAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
-    reducer: (
-      current,
-      input: Partial<Record<keyof ProjectSetup, Date | null>>
-    ) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            { ...current.value, setup: { ...current.value.setup, ...input } },
-            { waiting: true }
+export const projectsFor = Atom.family((req: ProjectsRequest) =>
+  Atom.optimistic(projectsQuery(req))
+)
+
+const projectQuery = (req: ProjectRequest) =>
+  Api.query("projects", "get", {
+    params: req.params,
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.project(scopeOf(req))]
+  })
+
+export const project = Atom.family((req: ProjectRequest) =>
+  Atom.optimistic(projectQuery(req))
+)
+
+export const updateProject = Atom.family((req: ProjectRequest) =>
+  Atom.optimisticFn(project(req), {
+    reducer: (current, input: UpdateProjectInput) =>
+      AsyncResult.map(current, (value) => ({ ...value, ...input })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: UpdateProjectInput, get) {
+          const updated = yield* Api.use((client) =>
+            client.projects.update({ params: req.params, payload: input })
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (
-        input: Partial<Record<keyof ProjectSetup, Date | null>>,
-        get
-      ) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.updateSetup({
-          params: { orgSlug, slug },
-          payload: input
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmProjectUpdate(current, updated, input)
+            )
+          )
+          yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
+          return updated
         })
-        get.refresh(projectBaseAtom(key))
-        return updated
-      })
-    )
-  })
-})
-
-export const deleteProjectAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      yield* client.projects.delete({ params: { orgSlug, slug } })
-      get.refresh(projectBaseAtom(key))
-      get.refresh(projectsListBaseAtom(orgSlug))
-      yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-    })
-  )
-})
-
-// --- Members --------------------------------------------------------------
-
-export const addMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
-  return runtime.fn(
-    Effect.fn(function* (
-      input: { email: string; role: "admin" | "member" },
-      get
-    ) {
-      const client = yield* ApiClient
-      const updated = yield* client.projects.addMember({
-        params: { orgSlug, slug },
-        payload: input
-      })
-      get.refresh(projectBaseAtom(key))
-      return updated
-    })
-  )
-})
-
-export const memberKey = (orgSlug: string, slug: string, userId: string) =>
-  `${orgSlug}/${slug}/${userId}`
-
-const splitMemberKey = (
-  key: string
-): { orgSlug: string; slug: string; userId: string } => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    userId: parts.slice(2).join("/")
-  }
-}
-
-export const updateMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, userId } = splitMemberKey(key)
-  return runtime.fn(
-    Effect.fn(function* (input: { role: "admin" | "member" }, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.projects.updateMember({
-        params: { orgSlug, slug, userId },
-        payload: input
-      })
-      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
-      return updated
-    })
-  )
-})
-
-export const removeMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, userId } = splitMemberKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      yield* client.projects.removeMember({ params: { orgSlug, slug, userId } })
-      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
-    })
-  )
-})
-
-export const pendingMemberKey = (
-  orgSlug: string,
-  slug: string,
-  invitationId: string
-) => `${orgSlug}/${slug}/${invitationId}`
-
-const splitPendingMemberKey = (
-  key: string
-): { orgSlug: string; slug: string; invitationId: string } => {
-  const parts = key.split("/")
-  return {
-    orgSlug: parts[0],
-    slug: parts[1],
-    invitationId: parts.slice(2).join("/")
-  }
-}
-
-export const cancelPendingMemberAtom = Atom.family((key: string) => {
-  const { orgSlug, slug, invitationId } = splitPendingMemberKey(key)
-  return runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const updated = yield* client.projects.cancelPendingMember({
-        params: { orgSlug, slug, invitationId }
-      })
-      get.refresh(projectBaseAtom(projectKey(orgSlug, slug)))
-      return updated
-    })
-  )
-})
-
-export const createProjectAtom = Atom.family((orgSlug: string) =>
-  runtime.fn(
-    Effect.fn(function* (input: { name: string; key: string }, get) {
-      const client = yield* ApiClient
-      const key = yield* Schema.decodeUnknownEffect(CreatableProjectKey)(
-        input.key
       )
-      const project = yield* client.projects.create({
-        params: { orgSlug },
-        payload: { name: input.name, key }
-      })
-      get.refresh(projectBaseAtom(projectKey(orgSlug, project.slug)))
-      get.refresh(projectsListBaseAtom(orgSlug))
-      yield* Reactivity.invalidate([`tickets/${orgSlug}/${project.slug}`])
-      return project
+  })
+)
+
+export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
+  Atom.optimisticFn(project(req), {
+    reducer: (current, input: UpdateProjectSetupInput) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        setup: { ...value.setup, ...input }
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: UpdateProjectSetupInput, get) {
+          const updated = yield* Api.use((client) =>
+            client.projects.updateSetup({
+              params: req.params,
+              payload: input
+            })
+          )
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmSetupUpdate(current, updated, input)
+            )
+          )
+          yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])
+          return updated
+        })
+      )
+  })
+)
+
+export const deleteProject = Atom.family((req: ProjectRequest) =>
+  Api.runtime.fn(
+    Effect.fn(function* (_input: void) {
+      yield* Api.use((client) => client.projects.delete({ params: req.params }))
+      yield* Reactivity.invalidate([
+        Keys.project(scopeOf(req)),
+        Keys.projects(req.params.orgSlug),
+        Keys.ticketsIn(scopeOf(req))
+      ])
+    })
+  )
+)
+
+type MemberMutationRequest = {
+  readonly req: ProjectRequest
+  readonly id: string
+}
+
+const replaceMember = (
+  value: ProjectDetail,
+  id: string,
+  input: UpdateMemberInput
+): ProjectDetail => ({
+  ...value,
+  members: value.members.map((member) =>
+    member.id === id ? { ...member, ...input } : member
+  )
+})
+
+const confirmField = <Value>(
+  current: Value,
+  optimistic: Value | undefined,
+  confirmed: Value
+): Value =>
+  optimistic !== undefined && current === optimistic ? confirmed : current
+
+const confirmProjectUpdate = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  input: UpdateProjectInput
+): ProjectDetail => ({
+  ...current,
+  banner: confirmField(current.banner, input.banner, confirmed.banner),
+  iconImage: confirmField(
+    current.iconImage,
+    input.iconImage,
+    confirmed.iconImage
+  ),
+  name: confirmField(current.name, input.name, confirmed.name),
+  body: confirmField(current.body, input.body, confirmed.body),
+  icon: confirmField(current.icon, input.icon, confirmed.icon),
+  color: confirmField(current.color, input.color, confirmed.color)
+})
+
+const confirmSetupUpdate = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  input: UpdateProjectSetupInput
+): ProjectDetail => ({
+  ...current,
+  setup: {
+    ...current.setup,
+    workflowReviewedAt: confirmField(
+      current.setup.workflowReviewedAt,
+      input.workflowReviewedAt,
+      confirmed.setup.workflowReviewedAt
+    ),
+    invitePeopleDismissedAt: confirmField(
+      current.setup.invitePeopleDismissedAt,
+      input.invitePeopleDismissedAt,
+      confirmed.setup.invitePeopleDismissedAt
+    ),
+    connectGithubDismissedAt: confirmField(
+      current.setup.connectGithubDismissedAt,
+      input.connectGithubDismissedAt,
+      confirmed.setup.connectGithubDismissedAt
+    )
+  }
+})
+
+const sameEmail = (left: string, right: string) =>
+  left.localeCompare(right, undefined, { sensitivity: "accent" }) === 0
+
+const confirmAddedMember = (
+  current: ProjectDetail,
+  confirmed: ProjectDetail,
+  email: string
+): ProjectDetail => {
+  const member = confirmed.members.find((item) => sameEmail(item.email, email))
+  const pendingMember = confirmed.pendingMembers.find((item) =>
+    sameEmail(item.email, email)
+  )
+  return {
+    ...current,
+    members: member
+      ? [
+          ...current.members.filter(
+            (item) => item.id !== member.id && !sameEmail(item.email, email)
+          ),
+          member
+        ]
+      : current.members,
+    pendingMembers: [
+      ...current.pendingMembers.filter((item) => !sameEmail(item.email, email)),
+      ...(pendingMember ? [pendingMember] : [])
+    ]
+  }
+}
+
+export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
+  Atom.optimisticFn(project(req), {
+    reducer: (current, input: AddMemberInput) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        pendingMembers: [
+          ...value.pendingMembers.filter(
+            (member) => member.email !== input.email
+          ),
+          {
+            invitationId: `optimistic:${id}`,
+            email: input.email,
+            role: input.role,
+            expiresAt: DateTime.toDate(
+              DateTime.makeUnsafe("1970-01-01T00:00:00.000Z")
+            )
+          }
+        ]
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: AddMemberInput, get) {
+          const updated = yield* Api.use((client) =>
+            client.projects.addMember({
+              params: req.params,
+              payload: input
+            })
+          )
+          set(
+            AsyncResult.map(get(project(req)), (current) =>
+              confirmAddedMember(current, updated, input.email)
+            )
+          )
+          return updated
+        })
+      )
+  })
+)
+
+export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
+  Atom.optimisticFn(project(req), {
+    reducer: (current, input: UpdateMemberInput) =>
+      AsyncResult.map(current, (value) => replaceMember(value, id, input)),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (input: UpdateMemberInput, get) {
+          const updated = yield* Api.use((client) =>
+            client.projects.updateMember({
+              params: { ...req.params, userId: id },
+              payload: input
+            })
+          )
+          const member = updated.members.find((item) => item.id === id)
+          set(
+            member
+              ? AsyncResult.map(get(project(req)), (current) => ({
+                  ...current,
+                  members: current.members.map((item) =>
+                    item.id === id && item.role === input.role ? member : item
+                  )
+                }))
+              : get(project(req))
+          )
+          return updated
+        })
+      )
+  })
+)
+
+export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
+  Atom.optimisticFn(project(req), {
+    reducer: (current, _input: void) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        members: value.members.filter((member) => member.id !== id)
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn(function* (_input: void, get) {
+          const updated = yield* Api.use((client) =>
+            client.projects.removeMember({
+              params: { ...req.params, userId: id }
+            })
+          )
+          set(
+            AsyncResult.map(get(project(req)), (current) => ({
+              ...current,
+              members: current.members.filter((item) => item.id !== id)
+            }))
+          )
+          return updated
+        })
+      )
+  })
+)
+
+export const cancelPendingMember = Atom.family(
+  ({ req, id }: MemberMutationRequest) =>
+    Atom.optimisticFn(project(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (value) => ({
+          ...value,
+          pendingMembers: value.pendingMembers.filter(
+            (member) => member.invitationId !== id
+          )
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn(function* (_input: void, get) {
+            const updated = yield* Api.use((client) =>
+              client.projects.cancelPendingMember({
+                params: { ...req.params, invitationId: id }
+              })
+            )
+            set(
+              AsyncResult.map(get(project(req)), (current) => ({
+                ...current,
+                pendingMembers: current.pendingMembers.filter(
+                  (item) => item.invitationId !== id
+                )
+              }))
+            )
+            return updated
+          })
+        )
+    })
+)
+
+export const createProject = Atom.family((req: ProjectsRequest) =>
+  Api.runtime.fn(
+    Effect.fn(function* (input: CreateProjectInput) {
+      const created = yield* Api.use((client) =>
+        client.projects.create({ params: req.params, payload: input })
+      )
+      yield* Reactivity.invalidate([
+        Keys.projects(req.params.orgSlug),
+        Keys.project(projectScope(req.params.orgSlug, created.slug)),
+        Keys.ticketsIn(projectScope(req.params.orgSlug, created.slug))
+      ])
+      return created
     })
   )
 )

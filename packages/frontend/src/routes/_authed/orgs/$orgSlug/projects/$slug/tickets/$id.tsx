@@ -9,7 +9,7 @@ import { NotFoundPage } from "@/components/NotFoundPage"
 import { TicketId } from "@projectproject/shared"
 import { comments, commentsRequest } from "@/atoms/comments"
 import { orgDetailAtom } from "@/atoms/orgs"
-import { orgStorageAtom } from "@/atoms/storage"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
@@ -33,7 +33,7 @@ export const Route = createFileRoute(
     context.registry.mount(
       comments(commentsRequest(params.orgSlug, params.slug, id))
     )()
-    context.registry.mount(orgStorageAtom(params.orgSlug))()
+    context.registry.mount(orgStorage(storageRequest(params.orgSlug)))()
     context.registry.mount(orgDetailAtom(params.orgSlug))()
     return {
       crumb: {

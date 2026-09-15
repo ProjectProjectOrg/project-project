@@ -14,10 +14,14 @@ vi.mock("@/atoms/attachments", () => ({
 }))
 vi.mock("@/atoms/projects", () => ({
   projectKey: (org: string, slug: string) => `${org}/${slug}`,
-  updateProjectAtom: () => "atom"
+  projectRequest: (orgSlug: string, slug: string) => ({
+    params: { orgSlug, slug }
+  }),
+  updateProject: () => "atom"
 }))
 vi.mock("@/atoms/storage", () => ({
-  orgStorageAtom: () => "atom"
+  orgStorage: () => "atom",
+  storageRequest: (orgSlug: string) => ({ params: { orgSlug } })
 }))
 vi.mock("@/lib/iconCutout", () => ({
   analyzeCutout: () => ({

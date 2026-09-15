@@ -18,7 +18,8 @@ vi.mock("motion/react", async (importOriginal) => {
 
 const cachedUrls = new Set<string>()
 vi.mock("@/lib/imagePreload", () => ({
-  isImageLoaded: (url: string) => cachedUrls.has(url)
+  isImageLoaded: (url: string) => cachedUrls.has(url),
+  preloadImage: () => Promise.resolve()
 }))
 
 const photos: HTMLImageElement[] = []

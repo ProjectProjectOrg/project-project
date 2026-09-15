@@ -2,8 +2,17 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 import { orgDetailAtom, restoreOrgAtom, softDeleteOrgAtom } from "@/atoms/orgs"
+import { stubFetch } from "@/api/testFetch"
 import { Route } from "@/routes/_authed/orgs/$orgSlug/route"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -35,13 +44,15 @@ const initialOrg = {
   purgeAt: null as string | null
 }
 
+const fetchStub = stubFetch()
+
 function OrgConsumer() {
   const org = useAtomValue(orgDetailAtom("test"))
   return <div>{Result.isSuccess(org) ? org.value.name : "Waiting for org"}</div>
 }
 
 function stubOrgFetch(handler: typeof fetch) {
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -83,8 +94,9 @@ afterEach(() => {
   cleanup()
   registry.dispose()
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
+
+afterAll(() => vi.unstubAllGlobals())
 
 describe("org route data ownership", () => {
   it("shares a pending request between the loader, repeated preloads, and consumers", async () => {

@@ -12,19 +12,23 @@ import {
   RouterProvider,
   useParams
 } from "@tanstack/react-router"
-import { afterEach, expect, it, vi } from "vitest"
+import { afterAll, afterEach, expect, it, vi } from "vitest"
 import { createSessionCache } from "./sessionCache"
 import { meAtom, logoutAtom } from "@/atoms/auth"
-import { projectsListAtom } from "@/atoms/projects"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
+import { stubFetch } from "@/api/testFetch"
 import { authClient } from "@/services/AuthClient"
 
 vi.mock("@/services/AuthClient", () => ({ authClient: { signOut: vi.fn() } }))
 
+const fetchStub = stubFetch()
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
+
+afterAll(() => vi.unstubAllGlobals())
 
 const user = (id: string, activeOrgSlug = "org-a") => ({
   id,
@@ -60,7 +64,7 @@ it("drops both caches on logout and cannot reuse an old user's late response aft
   let identity: string | null = "alice"
   let finishOld: (response: Response) => void = vi.fn()
   let oldSignal: AbortSignal | null | undefined
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -87,7 +91,7 @@ it("drops both caches on logout and cannot reuse an old user's late response aft
   try {
     await vi.waitFor(() => expect(cache.getSnapshot().ready).toBe(true))
     const alice = cache.getSnapshot()
-    alice.registry.mount(projectsListAtom("org-a"))
+    alice.registry.mount(projectsFor(projectsRequest("org-a")))
     await vi.waitFor(() => expect(oldSignal).toBeTruthy())
     alice.registry.set(logoutAtom, undefined)
     await vi.waitFor(() =>
@@ -120,7 +124,7 @@ it("drops both caches on logout and cannot reuse an old user's late response aft
     )
     expect(
       await Effect.runPromise(
-        Registry.getResult(bob.registry, projectsListAtom("org-a"))
+        Registry.getResult(bob.registry, projectsFor(projectsRequest("org-a")))
       )
     ).toEqual([])
   } finally {
@@ -137,13 +141,13 @@ it("retains org-keyed caches on org switching, but replaces them for a direct id
     )
     return Response.json(url.pathname.endsWith("/me") ? current : [])
   })
-  vi.stubGlobal("fetch", fetch)
+  fetchStub.set(fetch)
   const cache = sessions()
   try {
     await vi.waitFor(() => expect(cache.getSnapshot().ready).toBe(true))
     const first = cache.getSnapshot()
     await Effect.runPromise(
-      Registry.getResult(first.registry, projectsListAtom("org-a"))
+      Registry.getResult(first.registry, projectsFor(projectsRequest("org-a")))
     )
     current = user("alice", "org-b")
     cache.refreshIdentity()
@@ -156,7 +160,7 @@ it("retains org-keyed caches on org switching, but replaces them for a direct id
     expect(cache.getSnapshot().router).toBe(first.router)
     const count = fetch.mock.calls.length
     await Effect.runPromise(
-      Registry.getResult(first.registry, projectsListAtom("org-a"))
+      Registry.getResult(first.registry, projectsFor(projectsRequest("org-a")))
     )
     expect(fetch.mock.calls.length).toBe(count)
     current = user("bob", "org-b")
@@ -215,13 +219,13 @@ it("switches the visible sidebar and list together and clears page drafts while 
     if (url.pathname.endsWith("/timer/current")) return Response.json(null)
     return Response.json([])
   })
-  vi.stubGlobal("fetch", fetch)
+  fetchStub.set(fetch)
   const registry = Registry.make()
   const Layout = AuthedRoute.options.component
   if (!Layout) throw new Error("Missing authenticated layout")
   function Page() {
     const { orgSlug } = useParams({ strict: false })
-    const projects = useAtomValue(projectsListAtom(orgSlug ?? ""))
+    const projects = useAtomValue(projectsFor(projectsRequest(orgSlug ?? "")))
     return (
       <div>
         <input aria-label="Page draft" defaultValue="" />

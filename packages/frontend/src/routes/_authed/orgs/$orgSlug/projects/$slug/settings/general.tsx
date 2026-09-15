@@ -3,11 +3,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react"
-import {
-  deleteProjectAtom,
-  projectKey,
-  updateProjectAtom
-} from "@/atoms/projects"
+import { deleteProject, projectRequest, updateProject } from "@/atoms/projects"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { Markdown } from "@/components/Markdown"
@@ -32,11 +28,11 @@ export const Route = createFileRoute(
 function GeneralSettings() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
-  const key = projectKey(orgSlug, project.slug)
-  const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateProjectAtom(key))
-  const remove = useAtomSet(deleteProjectAtom(key), { mode: "promiseExit" })
-  const removeState = useAtomValue(deleteProjectAtom(key))
+  const req = projectRequest(orgSlug, project.slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateProject(req))
+  const remove = useAtomSet(deleteProject(req), { mode: "promiseExit" })
+  const removeState = useAtomValue(deleteProject(req))
   const navigate = useNavigate()
   const { role } = useProjectRole()
   const canEdit = role === "owner" || role === "admin"
@@ -80,7 +76,7 @@ function GeneralSettings() {
               />
               <Suspense fallback={null}>
                 <BannerSettings
-                  key={key}
+                  key={`${orgSlug}/${project.slug}`}
                   orgSlug={orgSlug}
                   slug={project.slug}
                   banner={project.banner}

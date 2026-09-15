@@ -14,8 +14,8 @@ import {
   orgAttachmentsRequest,
   orgAttachmentsSummary
 } from "@/atoms/attachments"
-import { orgStorageAtom } from "@/atoms/storage"
-import { projectsListAtom } from "@/atoms/projects"
+import { orgStorage, storageRequest } from "@/atoms/storage"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
@@ -77,7 +77,7 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
 
   const listResult = useAtomValue(orgAttachments(req))
   const summaryResult = useAtomValue(orgAttachmentsSummary(req))
-  const projectsResult = useAtomValue(projectsListAtom(orgSlug))
+  const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult)
     ? projectsResult.value.map((project) => ({
         slug: project.slug,
@@ -171,7 +171,7 @@ function AttachmentStorageGate({
   orgSlug: string
   children: ReactNode
 }) {
-  const storage = useAtomValue(orgStorageAtom(orgSlug))
+  const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
   return Result.matchWithError(storage, {
     onInitial: () => <TableSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,

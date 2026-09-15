@@ -1,17 +1,13 @@
+import type { ProjectBannerPreset } from "@projectproject/shared"
 import {
-  attachmentUrl,
-  type ProjectBanner,
-  type ProjectBannerPreset,
-  withAttachmentParams
-} from "@projectproject/shared"
+  bannerPresetSources,
+  bannerSource,
+  BANNER_ATTACHMENT_WIDTH
+} from "@/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
-import sunsetUrl from "./project-banner-monet-sunset.png"
-import water_lily_pondUrl from "./project-banner-monet-87088.jpg"
-import wheat_stacksUrl from "./project-banner-monet-64818.jpg"
-import cliff_walkUrl from "./project-banner-monet-14620.jpg"
-import saint_lazareUrl from "./project-banner-monet-16571.jpg"
-import bordigheraUrl from "./project-banner-monet-81537.jpg"
+
+export { bannerSource, BANNER_ATTACHMENT_WIDTH }
 
 export type BannerPreset = {
   id: ProjectBannerPreset
@@ -27,7 +23,7 @@ export type BannerPreset = {
 export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "sunset",
-    src: sunsetUrl,
+    src: bannerPresetSources.sunset,
     label: () => m.project_banner_template_sunset(),
     artist: "Claude Monet",
     provider: m.project_banner_template_user_provided(),
@@ -37,7 +33,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "water_lily_pond",
-    src: water_lily_pondUrl,
+    src: bannerPresetSources.water_lily_pond,
     label: () => m.project_banner_template_water_lily_pond(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -47,7 +43,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "wheat_stacks",
-    src: wheat_stacksUrl,
+    src: bannerPresetSources.wheat_stacks,
     label: () => m.project_banner_template_wheat_stacks(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -57,7 +53,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "cliff_walk",
-    src: cliff_walkUrl,
+    src: bannerPresetSources.cliff_walk,
     label: () => m.project_banner_template_cliff_walk(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -67,7 +63,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "saint_lazare",
-    src: saint_lazareUrl,
+    src: bannerPresetSources.saint_lazare,
     label: () => m.project_banner_template_saint_lazare(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -77,7 +73,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "bordighera",
-    src: bordigheraUrl,
+    src: bannerPresetSources.bordighera,
     label: () => m.project_banner_template_bordighera(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -100,18 +96,4 @@ export const bannerDefaults: BannerPrototypeSettings = {
   zoom: 1,
   x: 0.5,
   y: 0.65
-}
-
-export const BANNER_ATTACHMENT_WIDTH = 1024
-
-export const bannerSource = (
-  orgSlug: string,
-  banner: ProjectBanner | null
-): string | null => {
-  if (banner === null) return null
-  return banner.type === "preset"
-    ? (bannerPresets.find((preset) => preset.id === banner.preset)?.src ?? null)
-    : withAttachmentParams(attachmentUrl(orgSlug, banner.attachmentId), {
-        width: BANNER_ATTACHMENT_WIDTH
-      })
 }

@@ -16,7 +16,7 @@ import {
   type KeyboardEvent,
   type ReactNode
 } from "react"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import { projectRequest, updateProject } from "@/atoms/projects"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import {
@@ -249,9 +249,9 @@ function NameField({
   name: string
   canEdit: boolean
 }) {
-  const pKey = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(pKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateProjectAtom(pKey))
+  const req = projectRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateProject(req))
   const saving = updateState.waiting
   const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)

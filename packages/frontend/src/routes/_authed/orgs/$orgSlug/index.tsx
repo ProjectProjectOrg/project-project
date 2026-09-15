@@ -5,7 +5,7 @@ import * as DateTime from "effect/DateTime"
 import { ArrowRight, Plus } from "lucide-react"
 import { meAtom } from "@/atoms/auth"
 import { ProjectBanner } from "@/components/ProjectBanner"
-import { projectsListAtom } from "@/atoms/projects"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectTile as ProjectIconTile } from "@/components/ProjectTile"
 import { formatRelative } from "@/lib/relative-time"
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
 function Dashboard() {
   const { orgSlug } = Route.useParams()
   const me = useAtomValue(meAtom)
-  const list = useAtomValue(projectsListAtom(orgSlug))
+  const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const name = Result.isSuccess(me)
     ? me.value.name.split(" ")[0]
     : m.org_dashboard_greeting_fallback_name()

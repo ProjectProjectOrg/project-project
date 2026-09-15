@@ -4,11 +4,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useState, type FormEvent } from "react"
-import { orgDetailAtom, orgKey } from "@/atoms/orgs"
+import { orgDetailAtom } from "@/atoms/orgs"
 import {
-  connectStorageAtom,
-  disconnectStorageAtom,
-  orgStorageAtom
+  connectStorage,
+  disconnectStorage,
+  orgStorage,
+  storageRequest
 } from "@/atoms/storage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { StorageCorsPanel } from "@/components/StorageCorsPanel"
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/storage")(
 function StorageSettings() {
   const { orgSlug } = Route.useParams()
   const orgResult = useAtomValue(orgDetailAtom(orgSlug))
-  const storageResult = useAtomValue(orgStorageAtom(orgSlug))
+  const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
 
   return Result.matchWithError(orgResult, {
     onInitial: () => <StorageSkeleton />,
@@ -117,9 +118,9 @@ function StorageConnectForm({
   orgSlug: string
   waiting: boolean
 }) {
-  const key = orgKey(orgSlug)
-  const connect = useAtomSet(connectStorageAtom(key), { mode: "promiseExit" })
-  const connectState = useAtomValue(connectStorageAtom(key))
+  const req = storageRequest(orgSlug)
+  const connect = useAtomSet(connectStorage(req), { mode: "promiseExit" })
+  const connectState = useAtomValue(connectStorage(req))
 
   const [endpoint, setEndpoint] = useState("")
   const [bucket, setBucket] = useState("")
@@ -129,7 +130,7 @@ function StorageConnectForm({
   const [keyPrefix, setKeyPrefix] = useState("")
   const [forcePathStyle, setForcePathStyle] = useState(true)
 
-  const submitting = connectState.waiting
+  const submitting = waiting || connectState.waiting
   const error = Result.matchWithError(connectState, {
     onInitial: () => null,
     onSuccess: () => null,
@@ -280,8 +281,7 @@ function StorageConnectedPanel({
   status: OrgStorageStatus
   waiting: boolean
 }) {
-  const key = orgKey(orgSlug)
-  const disconnect = useAtomSet(disconnectStorageAtom(key), {
+  const disconnect = useAtomSet(disconnectStorage(storageRequest(orgSlug)), {
     mode: "promiseExit"
   })
 
@@ -293,7 +293,11 @@ function StorageConnectedPanel({
         {m.storage_disconnect_hint()}
       </p>
       <ConfirmButton.Root className="justify-start">
-        <ConfirmButton.Trigger type="button" variant="secondary">
+        <ConfirmButton.Trigger
+          type="button"
+          variant="secondary"
+          disabled={waiting}
+        >
           {m.storage_disconnect_button()}
         </ConfirmButton.Trigger>
         <ConfirmButton.Confirm className="flex-wrap justify-start">

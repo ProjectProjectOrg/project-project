@@ -51,6 +51,19 @@ When you hit one of these, **stop and ask**. Present the options with tradeoffs;
 - **Fluid Functionalism components** from <https://www.fluidfunctionalism.com>, installed through the shadcn registry (`npx shadcn@latest registry add @fluid`). Also Radix-backed, so they coexist cleanly with shadcn defaults. Prefer these where they exist for richer motion-aware primitives before reaching for something custom.
 - Don't add other UI libraries (Headless UI, Mantine, Chakra, etc.) without asking — see the architecture rule above.
 
+### Types: readonly type aliases, never interfaces
+
+Declare object shapes as `type` aliases with `readonly` fields. Never use `interface`.
+
+```ts
+export type TicketRequest = {
+  readonly params: { readonly orgSlug: string; readonly slug: string }
+}
+```
+
+Object fields are `readonly` by default, and array fields are `ReadonlyArray<T>` rather than `T[]`.
+This applies everywhere — request objects, view models, mutation input shapes, component props.
+
 ### No comments
 
 Default: write zero comments. Self-explanatory names, clean structure, and small functions carry the meaning. Inline comments are noise — they distract during review, rot independently of the code, and signal a missing abstraction.

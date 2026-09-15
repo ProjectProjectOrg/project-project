@@ -5,7 +5,7 @@ import * as Exit from "effect/Exit"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { orgDetailAtom } from "@/atoms/orgs"
-import { orgStorageAtom } from "@/atoms/storage"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import { ticketBodyDraftAtom, ticketKey } from "@/atoms/tickets"
 import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import {
@@ -46,7 +46,7 @@ export function DescriptionField({
   const updateState = useAtomValue(updateTicketDetail(req))
   const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
   const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
-  const storageResult = useAtomValue(orgStorageAtom(orgSlug))
+  const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const orgResult = useAtomValue(orgDetailAtom(orgSlug))
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"

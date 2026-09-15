@@ -13,6 +13,8 @@ import * as Option from "effect/Option"
 
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import * as Effect from "effect/Effect"
+import { Api } from "@/api/Api"
+import { Keys, projectScope } from "@/api/keys"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import type {
@@ -21,10 +23,11 @@ import type {
   CreateBranchInput,
   GitState,
   GitStatesResponse,
+  ProjectDetail,
   TicketId,
   Slug
 } from "@projectproject/shared"
-import { projectAtom, projectBaseAtom } from "./projects"
+import { project as projectView, projectRequest } from "./projects"
 
 export const githubAuthEpochAtom = Atom.make(0)
 
@@ -34,6 +37,13 @@ const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
 }
+
+const confirmedProjectQuery = (orgSlug: string, slug: string) =>
+  Api.query("projects", "get", {
+    params: { orgSlug, slug },
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.project(projectScope(orgSlug, slug))]
+  })
 
 export const shouldInvalidateTicketsForGitStates = (
   states: Pick<GitStatesResponse, "transitioned"> &
@@ -131,7 +141,7 @@ export const projectGitStatesBaseAtom = Atom.family((key: string) => {
   return runtime
     .atom((get) => {
       get(githubAuthEpochAtom)
-      const projectResult = get(projectBaseAtom(key))
+      const projectResult = get(confirmedProjectQuery(orgSlug, slug))
       const project = Option.getOrUndefined(Result.value(projectResult))
       const repoId =
         project === undefined ? undefined : (project.github?.repoId ?? null)
@@ -155,7 +165,9 @@ export const projectGitStatesBaseAtom = Atom.family((key: string) => {
           shouldInvalidateTicketsForGitStates(response) ||
           changedStateIds.length > 0
         if (shouldInvalidate) {
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+          yield* Reactivity.invalidate([
+            Keys.ticketsIn(projectScope(orgSlug, slug))
+          ])
         }
         return states
       })
@@ -267,7 +279,7 @@ export const branchesAtom = Atom.family((key: string) => {
   return runtime
     .atom((get) => {
       get(githubAuthEpochAtom)
-      get(projectBaseAtom(projKey))
+      get(confirmedProjectQuery(orgSlug, slug))
       return Effect.gen(function* () {
         const q = key.slice(secondSep + 1)
         const client = yield* ApiClient
@@ -278,7 +290,7 @@ export const branchesAtom = Atom.family((key: string) => {
       })
     })
     .pipe(
-      Atom.withReactivity(["branches", orgSlug, slug]),
+      Atom.withReactivity([Keys.branches(projectScope(orgSlug, slug))]),
       Atom.setIdleTTL("1 minute")
     )
 })
@@ -287,7 +299,8 @@ export const branchesAtom = Atom.family((key: string) => {
 
 export const connectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  return Atom.optimisticFn(projectView(req), {
     reducer: (current, input: ConnectGithubInput) =>
       Result.isSuccess(current)
         ? Result.success(
@@ -303,19 +316,30 @@ export const connectGithubAtom = Atom.family((key: string) => {
             { waiting: true }
           )
         : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: ConnectGithubInput, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.connectGithub({
-          params: { orgSlug, slug },
-          payload: input
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (input: ConnectGithubInput, get) {
+          const client = yield* ApiClient
+          const updated = yield* client.projects.connectGithub({
+            params: { orgSlug, slug },
+            payload: input
+          })
+          set(
+            Result.map(get(projectView(req)), (current: ProjectDetail) => ({
+              ...current,
+              github:
+                current.github?.repoId === input.repoId
+                  ? updated.github
+                  : current.github
+            }))
+          )
+          get.refresh(projectGitStatesBaseAtom(key))
+          yield* Reactivity.invalidate([
+            Keys.branches(projectScope(orgSlug, slug))
+          ])
+          return updated
         })
-        get.refresh(projectBaseAtom(key))
-        get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate(["branches", orgSlug, slug])
-        return updated
-      })
-    )
+      )
   })
 })
 
@@ -335,23 +359,32 @@ export const startGithubInstallAtom = Atom.family((orgSlug: string) =>
 
 export const disconnectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  return Atom.optimisticFn(projectView(req), {
     reducer: (current) =>
       Result.isSuccess(current)
         ? Result.success({ ...current.value, github: null }, { waiting: true })
         : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.disconnectGithub({
-          params: { orgSlug, slug }
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (_input: void, get) {
+          const client = yield* ApiClient
+          const updated = yield* client.projects.disconnectGithub({
+            params: { orgSlug, slug }
+          })
+          set(
+            Result.map(get(projectView(req)), (current: ProjectDetail) => ({
+              ...current,
+              github: current.github === null ? updated.github : current.github
+            }))
+          )
+          get.refresh(projectGitStatesBaseAtom(key))
+          yield* Reactivity.invalidate([
+            Keys.branches(projectScope(orgSlug, slug))
+          ])
+          return updated
         })
-        get.refresh(projectBaseAtom(key))
-        get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate(["branches", orgSlug, slug])
-        return updated
-      })
-    )
+      )
   })
 })
 
@@ -391,8 +424,10 @@ export const createBranchAtom = Atom.family((key: string) => {
           payload: { name: input.name, baseBranch: input.baseBranch }
         })
         get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-        yield* Reactivity.invalidate(["branches", orgSlug, slug])
+        yield* Reactivity.invalidate([
+          Keys.ticketsIn(projectScope(orgSlug, slug)),
+          Keys.branches(projectScope(orgSlug, slug))
+        ])
         return updated
       })
     )
@@ -438,7 +473,9 @@ export const attachBranchAtom = Atom.family((key: string) => {
           payload: { name: input.name }
         })
         get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+        yield* Reactivity.invalidate([
+          Keys.ticketsIn(projectScope(orgSlug, slug))
+        ])
         return updated
       })
     )
@@ -468,7 +505,9 @@ export const clearBranchAtom = Atom.family((key: string) => {
         const updated = yield* client.tickets.clearBranch({
           params: { orgSlug, slug, id: input.id }
         })
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+        yield* Reactivity.invalidate([
+          Keys.ticketsIn(projectScope(orgSlug, slug))
+        ])
         get.refresh(projectGitStatesBaseAtom(key))
         return updated
       })

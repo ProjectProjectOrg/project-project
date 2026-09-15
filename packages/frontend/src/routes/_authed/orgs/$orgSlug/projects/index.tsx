@@ -4,11 +4,12 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
 import { useRef, useState, type FormEvent } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { ChevronRight, FolderKanban, Plus } from "lucide-react"
-import type { Project } from "@projectproject/shared"
-import { createProjectAtom, projectsListAtom } from "@/atoms/projects"
+import { CreatableProjectKey, type Project } from "@projectproject/shared"
+import { createProject, projectsFor, projectsRequest } from "@/atoms/projects"
 import { ProjectTile } from "@/components/ProjectTile"
 import { Kbd } from "@/components/ui/kbd"
 import { PageContainer, PageHeader } from "@/components/page"
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/")({
 
 function Projects() {
   const { orgSlug } = Route.useParams()
-  const list = useAtomValue(projectsListAtom(orgSlug))
+  const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const [creating, setCreating] = useState(false)
 
   const content = Result.matchWithError(list, {
@@ -97,11 +98,12 @@ function CreateRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const create = useAtomSet(createProjectAtom(orgSlug), {
+  const req = projectsRequest(orgSlug)
+  const create = useAtomSet(createProject(req), {
     mode: "promiseExit"
   })
-  const resetCreate = useAtomSet(createProjectAtom(orgSlug))
-  const createState = useAtomValue(createProjectAtom(orgSlug))
+  const resetCreate = useAtomSet(createProject(req))
+  const createState = useAtomValue(createProject(req))
   const submitting = createState.waiting
   const error = Result.matchWithError(createState, {
     onInitial: () => null,
@@ -152,7 +154,10 @@ function CreateRow({
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canSubmit || submitting) return
-    const exit = await create({ name: trimmed, key: effectiveKey })
+    const exit = await create({
+      name: trimmed,
+      key: Schema.decodeSync(CreatableProjectKey)(effectiveKey)
+    })
     if (Exit.isSuccess(exit)) {
       const activeElement = document.activeElement
       if (
