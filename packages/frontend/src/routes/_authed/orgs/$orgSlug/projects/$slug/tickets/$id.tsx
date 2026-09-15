@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { TicketPage, TicketPageSkeleton } from "@/components/TicketPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
@@ -10,7 +10,7 @@ import { TicketId } from "@projectproject/shared"
 import { commentsAtom, commentsKey } from "@/atoms/comments"
 import { orgDetailAtom } from "@/atoms/orgs"
 import { orgStorageAtom } from "@/atoms/storage"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
 
@@ -28,7 +28,7 @@ export const Route = createFileRoute(
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(
-      ticketAtom(ticketKey(params.orgSlug, params.slug, id))
+      ticketDetail(ticketRequest(params.orgSlug, params.slug, id))
     )()
     context.registry.mount(
       commentsAtom(commentsKey(params.orgSlug, params.slug, id))
@@ -51,7 +51,11 @@ function TicketDetailRoute() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const ticketId = decodeTicketId(id)
-  const result = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, ticketId)))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticketId),
+    [orgSlug, slug, ticketId]
+  )
+  const result = useAtomValue(ticketDetail(req))
   const project = useProject()
   const autoFocusBody = useRef(search.focusBody === 1).current
 

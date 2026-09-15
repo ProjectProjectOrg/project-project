@@ -1,8 +1,9 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import type { ComponentProps } from "react"
+import { useMemo } from "react"
 import { Link } from "@tanstack/react-router"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import {
   projectKey as projectStatusKey,
   projectStatusesAtom
@@ -54,9 +55,11 @@ export function TicketHoverCard({
   anchor?: ComponentProps<typeof PopoverContent>["anchor"]
   interactive?: boolean
 }) {
-  const result = useAtomValue(
-    ticketAtom(ticketKey(scope.orgSlug, scope.slug, ticketId))
+  const req = useMemo(
+    () => ticketRequest(scope.orgSlug, scope.slug, ticketId),
+    [scope.orgSlug, scope.slug, ticketId]
   )
+  const result = useAtomValue(ticketDetail(req))
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
   )

@@ -25,8 +25,14 @@ import { TitleField } from "@/components/TicketPage/TitleField"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { deleteTicketAtom, ticketKey } from "@/atoms/tickets"
-import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import {
+  archiveTicket,
+  deleteTicket,
+  ticketRequest,
+  unarchiveTicket,
+  updateTicketDetail
+} from "@/atoms/ticketDetail"
 import type {
   GithubConnection,
   Member,
@@ -48,14 +54,17 @@ export function TicketPage({
   github: GithubConnection | null
   autoFocusBody?: boolean
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const remove = useAtomSet(deleteTicketAtom(tKey), { mode: "promiseExit" })
   const req = useMemo(
     () => ticketRequest(orgSlug, slug, ticket.id),
     [orgSlug, slug, ticket.id]
   )
+  const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const updateTicketState = useAtomValue(updateTicketDetail(req))
+  const archiveTicketSet = useAtomSet(archiveTicket(req))
+  const archiveState = useAtomValue(archiveTicket(req))
+  const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
+  const unarchiveState = useAtomValue(unarchiveTicket(req))
   const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
@@ -74,10 +83,19 @@ export function TicketPage({
         <div className="flex items-center gap-2">
           <MarkdownSaveIndicator status={bodyStatus} />
           <ArchiveTicketControl
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
             archived={ticket.archivedAt !== null}
+            onArchive={archiveTicketSet}
+            onUnarchive={unarchiveTicketSet}
+            waiting={
+              ticket.archivedAt !== null
+                ? unarchiveState.waiting
+                : archiveState.waiting
+            }
+            failed={
+              ticket.archivedAt !== null
+                ? Result.isFailure(unarchiveState)
+                : Result.isFailure(archiveState)
+            }
           />
           <ConfirmDeleteIcon
             ariaLabel={m.tickets_detail_delete_aria_label()}
