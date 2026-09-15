@@ -594,5 +594,194 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
         )
       }).pipe(Effect.provide(TestLayer))
     )
+
+    it.effect("sorts titles by code point, not by the server's locale", () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-collate-${suffix}`
+        const orgSlug = `ticket-index-collate-${suffix}`
+        const projectSlug = `ticket-index-collate-${suffix}`
+        const projectId = randomUUID()
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index collate', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          await client.query(
+            `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index collate', 'folder', 'blue', 'test-user', now())`,
+            [projectId, projectSlug, organizationId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          )
+        )
+
+        const documents = [
+          indexedDocument("T-1", { title: "Ecole" }),
+          indexedDocument("T-2", { title: "École" }),
+          indexedDocument("T-3", { title: "Edgar" }),
+          indexedDocument("T-4", { title: "a b" }),
+          indexedDocument("T-5", { title: "ab" }),
+          indexedDocument("T-6", { title: "Z zz" })
+        ]
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(orgSlug, projectSlug)
+        yield* Effect.forEach(documents, (document) =>
+          index.upsertTicket(project, document)
+        )
+
+        const ascending = yield* index.query(
+          project,
+          { sort: { key: "title", dir: "asc" } },
+          { viewerId: "viewer", limit: documents.length }
+        )
+        expect(ascending.map(({ entry }) => entry.id)).toEqual([
+          "T-4",
+          "T-5",
+          "T-1",
+          "T-3",
+          "T-6",
+          "T-2"
+        ])
+
+        const byCodePoint = [...documents]
+          .sort((a, b) => {
+            const left = a.title.toLowerCase()
+            const right = b.title.toLowerCase()
+            return left < right ? -1 : left > right ? 1 : 0
+          })
+          .map((document) => document.id)
+        expect(ascending.map(({ entry }) => entry.id)).toEqual(byCodePoint)
+
+        const descending = yield* index.query(
+          project,
+          { sort: { key: "title", dir: "desc" } },
+          { viewerId: "viewer", limit: documents.length }
+        )
+        expect(descending.map(({ entry }) => entry.id)).toEqual(
+          byCodePoint.toReversed()
+        )
+
+        const localeOrder = yield* withClient(async (client) => {
+          const available = await client.query(
+            "select 1 from pg_collation where collname = 'en-US-x-icu'"
+          )
+          if (available.rowCount === 0) return null
+          const rows = await client.query<{ ticket_id: string }>(
+            `select ticket_id from ticket_index
+             where project_id = $1
+             order by lower(title) collate "en-US-x-icu", ticket_id`,
+            [projectId]
+          )
+          return rows.rows.map((row) => row.ticket_id)
+        })
+        if (localeOrder !== null) {
+          expect(localeOrder).not.toEqual(byCodePoint)
+        }
+
+        const walked: Array<string> = []
+        let cursor: string | undefined
+        for (let attempt = 0; attempt < documents.length; attempt++) {
+          const page = yield* index.query(
+            project,
+            { sort: { key: "title", dir: "asc" }, cursor },
+            { viewerId: "viewer", limit: 2 }
+          )
+          if (page.length === 0) break
+          walked.push(...page.map((row) => row.entry.id))
+          const last = page[page.length - 1]!
+          cursor = encodeCursor({ id: last.entry.id, sort: last.sortValue })
+        }
+        expect(walked).toEqual(byCodePoint)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect(
+      "reads a single row's order key from the list query's own key",
+      () =>
+        Effect.gen(function* () {
+          const suffix = randomUUID()
+          const organizationId = `ticket-index-single-${suffix}`
+          const orgSlug = `ticket-index-single-${suffix}`
+          const projectSlug = `ticket-index-single-${suffix}`
+          const projectId = randomUUID()
+          yield* withClient(async (client) => {
+            await client.query(
+              `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index single', $2, now())`,
+              [organizationId, orgSlug]
+            )
+            await client.query(
+              `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index single', 'folder', 'blue', 'test-user', now())`,
+              [projectId, projectSlug, organizationId]
+            )
+          })
+          yield* Effect.addFinalizer(() =>
+            withClient((client) =>
+              client.query("delete from organization where id = $1", [
+                organizationId
+              ])
+            )
+          )
+
+          const documents = [
+            indexedDocument("T-1", { title: "École", priority: "high" }),
+            indexedDocument("T-2", { title: "ab 1", priority: "low" }),
+            indexedDocument("T-30", { title: "dup", priority: "med" })
+          ]
+          const index = yield* TicketIndex
+          const project = yield* index.projectFor(orgSlug, projectSlug)
+          yield* Effect.forEach(documents, (document) =>
+            index.upsertTicket(project, document)
+          )
+
+          const sorts: ReadonlyArray<TicketSort> = [
+            { key: "id", dir: "asc" },
+            { key: "id", dir: "desc" },
+            { key: "created", dir: "asc" },
+            { key: "updated", dir: "desc" },
+            { key: "title", dir: "asc" },
+            { key: "title", dir: "desc" },
+            { key: "priority", dir: "asc" },
+            { key: "priority", dir: "desc" }
+          ]
+
+          yield* Effect.forEach(sorts, (sort) =>
+            Effect.gen(function* () {
+              const rows = yield* index.query(
+                project,
+                { sort },
+                { viewerId: "viewer", limit: documents.length }
+              )
+              yield* Effect.forEach(rows, (row) =>
+                Effect.gen(function* () {
+                  const single = yield* index.orderKeyFor(
+                    project,
+                    row.entry.id,
+                    sort
+                  )
+                  expect(single).toBe(row.orderKey)
+                })
+              )
+            })
+          )
+
+          expect(
+            yield* index.orderKeyFor(project, "T-nope", {
+              key: "title",
+              dir: "asc"
+            })
+          ).toBeNull()
+        }).pipe(Effect.provide(TestLayer))
+    )
   }
 )

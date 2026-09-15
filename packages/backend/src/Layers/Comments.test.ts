@@ -84,6 +84,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   projectFor: () => unexpected("TicketIndex.projectFor"),
   list: () => unexpected("TicketIndex.list"),
   query: () => unexpected("TicketIndex.query"),
+  orderKeyFor: () => unexpected("TicketIndex.orderKeyFor"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
   existingIds: () => unexpected("TicketIndex.existingIds"),

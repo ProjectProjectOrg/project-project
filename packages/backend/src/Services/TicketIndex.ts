@@ -9,7 +9,8 @@ import type {
   TicketStatus,
   TicketType,
   TicketCountQuery,
-  TicketListQuery
+  TicketListQuery,
+  TicketSort
 } from "@projectproject/shared"
 import type { NotFound } from "@projectproject/shared"
 import type { MarkdownError } from "./Markdown"
@@ -119,6 +120,11 @@ export interface TicketIndexShape {
     query: TicketListQuery,
     options: TicketIndexQueryOptions
   ) => Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>>
+  readonly orderKeyFor: (
+    project: TicketIndexProject,
+    ticketId: string,
+    sort: TicketSort
+  ) => Effect.Effect<string | null>
   readonly count: (
     project: TicketIndexProject,
     query: TicketCountQuery,

@@ -27,6 +27,8 @@ import type {
   TicketListPage,
   TicketListQuery,
   TicketSections,
+  TicketSort,
+  TicketUpdateResult,
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
@@ -99,9 +101,10 @@ export interface TicketsShape {
     ownerId: string,
     slug: string,
     id: string,
-    input: UpdateTicketInput
+    input: UpdateTicketInput,
+    sort?: TicketSort
   ) => Effect.Effect<
-    TicketDetail,
+    TicketUpdateResult,
     TicketReadError | Validation | MentionInvalid
   >
   readonly remove: (

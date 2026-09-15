@@ -39,7 +39,9 @@ import {
   type TicketListQuery,
   type TicketSearchQuery,
   type TicketSections,
+  type TicketSort,
   type TicketStatus,
+  type TicketUpdateResult,
   sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
@@ -758,9 +760,10 @@ export const TicketsLive = Layer.effect(
       ownerId: string,
       slug: string,
       id: string,
-      input: UpdateTicketInput
+      input: UpdateTicketInput,
+      sort?: TicketSort
     ): Effect.Effect<
-      TicketDetail,
+      TicketUpdateResult,
       TicketReadError | Validation | MentionInvalid
     > =>
       withTicketDocumentLock(
@@ -841,10 +844,15 @@ export const TicketsLive = Layer.effect(
               )
           )
 
-          return yield* withMissingAttachments(
+          const ticket = yield* withMissingAttachments(
             orgSlug,
             documentToDetail(next, projectGithub)
           )
+          const orderKey =
+            sort === undefined
+              ? null
+              : yield* ticketIndex.orderKeyFor(indexProject, id, sort)
+          return { ticket, orderKey }
         })
       )
 

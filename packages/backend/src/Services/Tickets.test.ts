@@ -420,6 +420,13 @@ const makeFakeTicketIndex = (
           }
         })
       }),
+    orderKeyFor: (_project, ticketId, sort) =>
+      Effect.sync(() => {
+        const document = documents.get(ticketId)
+        if (document === undefined) return null
+        const sortValue = ticketSortValue(document, { sort })
+        return `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
+      }),
     count: (_project, query: TicketCountQuery, options) =>
       Effect.sync(() => {
         const byStatus: Record<string, number> = {}
@@ -1973,6 +1980,52 @@ for (const scenario of [
     }
   )
 }
+
+it.effect(
+  "hands back the order key the list query gives the ticket it just wrote",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const sort = { key: "title", dir: "asc" } as const
+      const updated = yield* tickets.update(
+        "org",
+        "user-1",
+        "p",
+        "T-2",
+        { title: "Zulu" },
+        sort
+      )
+      expect(updated.ticket.title).toBe("Zulu")
+
+      const page = yield* tickets.list("org", "user-1", "p", { sort })
+      const row = page.items.find((item) => item.ticket.id === "T-2")
+      expect(updated.orderKey).toBe(row?.orderKey)
+      expect(page.items.map((item) => item.ticket.id)).toEqual([
+        "T-1",
+        "T-3",
+        "T-2"
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("omits the order key when no sort is asked for", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const updated = yield* tickets.update("org", "user-1", "p", "T-1", {
+      title: "Quiet"
+    })
+    expect(updated.orderKey).toBeNull()
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect(
   "metadata edits skip attachment reconciliation while body edits retain it",

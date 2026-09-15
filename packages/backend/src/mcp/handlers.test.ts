@@ -334,9 +334,12 @@ describe("MCP dispatcher → write tools", () => {
     update: (_o: any, _u: any, _s: any, _id: any, input: any) => {
       captured.update = input
       return Effect.succeed({
-        ...fakeTicketDetail,
-        tags: input.tags ?? fakeTicketDetail.tags,
-        assignees: input.assignees ?? fakeTicketDetail.assignees
+        ticket: {
+          ...fakeTicketDetail,
+          tags: input.tags ?? fakeTicketDetail.tags,
+          assignees: input.assignees ?? fakeTicketDetail.assignees
+        },
+        orderKey: null
       })
     },
     attachBranch: (_o: any, _u: any, _s: any, _id: any, input: any) => {

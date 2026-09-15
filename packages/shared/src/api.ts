@@ -120,8 +120,10 @@ import {
   TicketCounts,
   TicketListPage,
   TicketListQuery,
+  TicketOrderKeyQuery,
   TicketSearchQuery,
-  TicketSections
+  TicketSections,
+  TicketUpdateResult
 } from "./filters/Ticket"
 import {
   Attachment,
@@ -1120,8 +1122,9 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
       {
         params: TicketPath,
+        query: TicketOrderKeyQuery,
         payload: UpdateTicketInput,
-        success: TicketDetail,
+        success: TicketUpdateResult,
         error: [Unauthorized, NotFound, Validation, MentionInvalid]
       }
     )

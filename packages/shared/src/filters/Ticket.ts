@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import { TicketStatus, TicketType } from "../schemas/Ticket"
 import { TagName } from "../schemas/Tag"
 import { GroupId } from "../schemas/Group"
-import { Ticket } from "../schemas/Ticket"
+import { Ticket, TicketDetail } from "../schemas/Ticket"
 import { UserId } from "../schemas/User"
 import { Page } from "../Pagination"
 
@@ -86,6 +86,17 @@ export type TicketListRow = typeof TicketListRow.Type
 
 export const TicketListPage = Page(TicketListRow)
 export type TicketListPage = typeof TicketListPage.Type
+
+export const TicketOrderKeyQuery = Schema.Struct({
+  sort: Schema.optional(TicketSort)
+})
+export type TicketOrderKeyQuery = typeof TicketOrderKeyQuery.Type
+
+export const TicketUpdateResult = Schema.Struct({
+  ticket: TicketDetail,
+  orderKey: Schema.NullOr(Schema.String)
+})
+export type TicketUpdateResult = typeof TicketUpdateResult.Type
 
 export const TicketCounts = Schema.Struct({
   total: Schema.Finite,

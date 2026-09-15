@@ -350,7 +350,14 @@ const update_ticket = (
     const current = yield* CurrentUser
     const tickets = yield* Tickets
     const { orgSlug, projectSlug, id, ...payload } = input
-    return yield* tickets.update(orgSlug, current.id, projectSlug, id, payload)
+    const updated = yield* tickets.update(
+      orgSlug,
+      current.id,
+      projectSlug,
+      id,
+      payload
+    )
+    return updated.ticket
   })
 
 const prepare_ticket_attachment = Effect.fn("prepare_ticket_attachment")(

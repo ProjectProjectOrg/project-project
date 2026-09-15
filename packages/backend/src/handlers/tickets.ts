@@ -95,7 +95,7 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
-      .handle("update", ({ params, payload }) =>
+      .handle("update", ({ params, payload, query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const currentOrg = yield* CurrentOrg
@@ -106,7 +106,8 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
             user.id,
             params.slug,
             params.id,
-            payload
+            payload,
+            query.sort
           )
         }).pipe(dieOnMarkdown)
       )
