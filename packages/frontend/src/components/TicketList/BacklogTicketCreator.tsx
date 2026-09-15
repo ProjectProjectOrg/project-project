@@ -34,12 +34,8 @@ import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
 import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { meAtom } from "@/atoms/auth"
-import { projectGitStatesBaseAtom } from "@/atoms/github"
-import {
-  project as projectView,
-  projectKey,
-  projectRequest
-} from "@/atoms/projects"
+import { projectGitStates } from "@/atoms/github"
+import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
   assignTicketToSprint,
   sprintList,
@@ -62,7 +58,6 @@ export function BacklogTicketCreator({
   query: TicketListQuery
 }) {
   const registry = useContext(RegistryContext)
-  const projKey = projectKey(orgSlug, slug)
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
@@ -75,7 +70,11 @@ export function BacklogTicketCreator({
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
-  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
   const me = useAtomValue(meAtom)

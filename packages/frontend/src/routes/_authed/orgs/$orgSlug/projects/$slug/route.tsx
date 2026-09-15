@@ -40,14 +40,13 @@ import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
   project,
-  projectKey,
   projectRequest,
   updateProject,
   updateProjectSetup
 } from "@/atoms/projects"
 import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
-import { projectGitStatesAtom } from "@/atoms/github"
+import { projectGitStates } from "@/atoms/github"
 import {
   everhourProjectRequest,
   everhourProjectStatusAtom
@@ -248,8 +247,7 @@ function ProjectSetupRail({
   canManage: boolean
 }) {
   const req = projectRequest(orgSlug, slug)
-  const key = projectKey(orgSlug, slug)
-  const gitStates = useAtomValue(projectGitStatesAtom(key))
+  const gitStates = useAtomValue(projectGitStates(req))
   const updateSetup = useAtomSet(updateProjectSetup(req))
   if (!canManage) return null
 

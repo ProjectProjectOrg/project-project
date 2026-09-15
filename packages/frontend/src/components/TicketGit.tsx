@@ -1,6 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Option from "effect/Option"
 import { useAtomValue } from "@effect/atom-react"
+import { useMemo } from "react"
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -15,8 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import { CopyButton } from "@/components/ui/copy-button"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { meAtom } from "@/atoms/auth"
-import { projectGitStatesAtom } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
+import { projectGitStates } from "@/atoms/github"
+import { projectRequest } from "@/atoms/projects"
 import { branchOpensInNewTab, branchUrl } from "@/lib/branchUrl"
 import { ClearBranchFields } from "@/components/TicketGit/ClearBranchFields"
 import { ConnectBranchFields } from "@/components/TicketGit/ConnectBranchFields"
@@ -37,7 +38,8 @@ function useGitState(
   slug: string,
   ticket: Pick<Ticket, "id" | "gitState">
 ): { state: GitState | null; waiting: boolean } {
-  const states = useAtomValue(projectGitStatesAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const states = useAtomValue(projectGitStates(req))
   const value = Option.getOrUndefined(Result.value(states))
   const entry = value?.states[ticket.id]
   return {

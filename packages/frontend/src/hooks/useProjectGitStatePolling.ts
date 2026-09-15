@@ -1,7 +1,17 @@
-import { RegistryContext, useAtomRefresh } from "@effect/atom-react"
-import { useContext, useEffect } from "react"
-import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import { useEffect, useMemo, useRef } from "react"
+import {
+  invalidateGitStateTickets,
+  projectGitStates,
+  projectGitStatesWaiting
+} from "@/atoms/github"
+import { projectRequest } from "@/atoms/projects"
+import {
+  changedGitStateTicketIds,
+  shouldInvalidateTicketsForGitStates
+} from "@/lib/gitStateChanges"
+import type { GitStatesResponse } from "@projectproject/shared"
 
 const POLL_INTERVAL_MS = 60_000
 
@@ -10,9 +20,31 @@ export function useProjectGitStatePolling(
   slug: string,
   enabled: boolean
 ) {
-  const registry = useContext(RegistryContext)
-  const atom = projectGitStatesBaseAtom(projectKey(orgSlug, slug))
-  const refresh = useAtomRefresh(atom)
+  const req = useMemo(() => projectRequest(orgSlug, slug), [orgSlug, slug])
+  const states = useAtomValue(projectGitStates(req))
+  const refresh = useAtomRefresh(projectGitStates(req))
+  const invalidateTickets = useAtomSet(invalidateGitStateTickets(req))
+  const reading = useAtomValue(projectGitStatesWaiting(req))
+  const waiting = useRef(false)
+  const seen = useRef<GitStatesResponse | undefined>(undefined)
+
+  useEffect(() => {
+    waiting.current = reading
+  }, [reading])
+
+  useEffect(() => {
+    if (!enabled || !AsyncResult.isSuccess(states) || states.waiting) return
+    const previous = seen.current
+    if (previous === states.value) return
+    seen.current = states.value
+    if (previous === undefined) return
+    if (
+      shouldInvalidateTicketsForGitStates(states.value) ||
+      changedGitStateTicketIds(previous, states.value).length > 0
+    ) {
+      invalidateTickets()
+    }
+  }, [enabled, states, invalidateTickets])
 
   useEffect(() => {
     if (!enabled || typeof document === "undefined") return
@@ -23,11 +55,9 @@ export function useProjectGitStatePolling(
         return
       scheduled = window.setTimeout(() => {
         scheduled = undefined
-        if (
-          document.visibilityState === "visible" &&
-          !registry.get(atom).waiting
-        )
+        if (document.visibilityState === "visible" && !waiting.current) {
           refresh()
+        }
       }, 50)
     }
 
@@ -41,5 +71,5 @@ export function useProjectGitStatePolling(
       document.removeEventListener("visibilitychange", refreshIfVisible)
       window.removeEventListener("focus", refreshIfVisible)
     }
-  }, [enabled, refresh, registry, atom])
+  }, [enabled, refresh])
 }

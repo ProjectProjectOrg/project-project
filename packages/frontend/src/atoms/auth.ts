@@ -102,15 +102,16 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import type { EditorPreference } from "@projectproject/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   filterActionableInvitations,
   toPendingInvite,
   type PendingInvite
 } from "@/lib/invitations"
+import { Keys } from "@/api/keys"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
-import { githubAuthEpochAtom } from "./github"
 
 export const meAtom = runtime.atom(
   Effect.gen(function* () {
@@ -125,8 +126,18 @@ export const logoutAtom = runtime.fn(
   })
 )
 
+const publishGithubAuth = Effect.fn(function* (get: Atom.FnContext) {
+  const orgSlug = yield* get.result(meAtom).pipe(
+    Effect.map((user) => user.activeOrgSlug),
+    Effect.orElseSucceed(() => null)
+  )
+  if (orgSlug !== null) {
+    yield* Reactivity.invalidate([Keys.githubAuth(orgSlug)])
+  }
+})
+
 export const connectPersonalGithubAtom = runtime.fn(
-  Effect.fn(function* (_: void) {
+  Effect.fn(function* (_: void, get) {
     yield* Effect.tryPromise(() =>
       authData(
         authClient.linkSocial({
@@ -137,6 +148,7 @@ export const connectPersonalGithubAtom = runtime.fn(
         })
       )
     )
+    yield* publishGithubAuth(get)
   })
 )
 
@@ -152,7 +164,7 @@ export const disconnectPersonalGithubAtom = runtime.fn(
     yield* Effect.tryPromise(() =>
       authData(authClient.unlinkAccount({ accountId: githubAccount.id }))
     )
-    get.set(githubAuthEpochAtom, get(githubAuthEpochAtom) + 1)
+    yield* publishGithubAuth(get)
     get.refresh(meAtom)
   })
 )
