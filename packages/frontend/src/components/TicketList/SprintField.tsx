@@ -14,7 +14,7 @@ import {
   useAddTicketsToSprint,
   useRemoveTicketsFromSprint
 } from "@/atoms/sprints"
-import { type Group, type TicketId } from "@projectproject/shared"
+import { type Group, type GroupId, type TicketId } from "@projectproject/shared"
 
 export function SprintField({
   orgSlug,
@@ -64,6 +64,63 @@ export function SprintField({
           <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
             <SprintStateIcon sprint={membership} size="xs" />
             <span className="truncate">{membership.name}</span>
+          </span>
+        </Hitbox>
+      }
+    />
+  )
+}
+
+export function SprintSelect({
+  orgSlug,
+  slug,
+  value,
+  onChange
+}: {
+  orgSlug: string
+  slug: string
+  value: GroupId | null
+  onChange: (groupId: GroupId | null) => void
+}) {
+  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const [open, setOpen] = useState(false)
+  const sprints = Result.isSuccess(list) ? list.value : []
+  const current = sprints.find((sprint) => sprint.id === value) ?? null
+  const label = current?.name ?? m.tickets_assign_sprint_chip()
+
+  if (
+    !sprints.some((sprint) => sprint.completedAt === null) &&
+    value === null
+  ) {
+    return null
+  }
+
+  return (
+    <SprintAssignMenu
+      open={open}
+      onOpenChange={setOpen}
+      sprints={sprints}
+      selectedId={current?.id ?? null}
+      onSelect={(sprint) => onChange(sprint.id)}
+      onClear={value !== null ? () => onChange(null) : undefined}
+      trigger={
+        <Hitbox
+          mode="inline"
+          margin="2"
+          aria-label={
+            current
+              ? m.tickets_sprint_chip_aria({ name: current.name })
+              : m.tickets_assign_sprint_chip()
+          }
+          className="min-w-0"
+        >
+          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
+            {current ? (
+              <SprintStateIcon sprint={current} size="xs" />
+            ) : (
+              <Plus className="size-3.5" strokeWidth={1.75} />
+            )}
+            <span className="truncate">{label}</span>
           </span>
         </Hitbox>
       }

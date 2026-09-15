@@ -96,7 +96,7 @@ function ArchivePopover({ tKey }: { tKey: string }) {
   )
 }
 
-function ArchiveForm({
+export function ArchiveForm({
   tKey,
   reason,
   onReasonChange,

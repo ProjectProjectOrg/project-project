@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import type { Member, Ticket } from "@projectproject/shared"
 import { AssigneeField } from "@/components/TicketList/AssigneeField"
 import { PriorityButton } from "@/components/TicketList/PriorityField"
+import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { TypeButton } from "@/components/TicketList/TypeField"
 
 function SprintBoardCardImpl({
@@ -82,6 +83,13 @@ function SprintBoardCardImpl({
               ticket={visibleTicket}
             />
           </div>
+          <SplitTicketControl
+            orgSlug={orgSlug}
+            slug={slug}
+            id={visibleTicket.id}
+            size="icon-xs"
+            className="opacity-0 group-hover/reveal:opacity-100 group-focus-within/reveal:opacity-100"
+          />
           <AssigneeField
             sprintTicketsKey={sprintTicketsKey}
             orgSlug={orgSlug}

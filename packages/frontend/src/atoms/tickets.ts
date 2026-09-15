@@ -14,6 +14,7 @@ import {
   ticketListQueryToSearch,
   type GroupId,
   type QuickCreateTicketInput,
+  type SplitTicketInput,
   type Ticket,
   type TicketDetail,
   type TicketCounts,
@@ -885,6 +886,24 @@ export const unarchiveTicketAtom = Atom.family((key: string) => {
       })
     )
   })
+})
+
+export const ticketSplitAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id } = splitTicketKey(key)
+  return runtime.fn(
+    Effect.fn(function* (input: SplitTicketInput) {
+      const client = yield* ApiClient
+      const result = yield* client.tickets.split({
+        params: { orgSlug, slug, id },
+        payload: input
+      })
+      yield* Reactivity.invalidate([
+        `tickets/${orgSlug}/${slug}`,
+        `sprint-membership/${orgSlug}/${slug}`
+      ])
+      return result
+    })
+  )
 })
 
 export const deleteTicketAtom = Atom.family((key: string) => {

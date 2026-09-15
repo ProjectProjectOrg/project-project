@@ -138,42 +138,28 @@ function Trigger({
   )
 }
 
-export function AssigneeField({
-  orgSlug,
-  slug,
-  ticket,
+export function AssigneeSelect({
+  value,
+  onChange,
   members,
-  sprintTicketsKey,
-  ticketSectionsKey,
   variant = "row",
   className
 }: {
-  orgSlug: string
-  slug: string
-  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  value: ReadonlyArray<string>
+  onChange: (assignees: ReadonlyArray<string>) => void
   members: ReadonlyArray<Member>
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
   variant?: AssigneeVariant
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
-  const assignees = ticket.assignees
-  const resolved = resolveAssignees(assignees, members)
-
-  const setAssignees = (next: ReadonlyArray<string>) => {
-    update({ assignees: next, sprintTicketsKey, ticketSectionsKey })
-  }
+  const resolved = resolveAssignees(value, members)
   const toggle = (memberId: string) =>
-    setAssignees(
-      assignees.includes(memberId)
-        ? assignees.filter((a) => a !== memberId)
-        : [...assignees, memberId]
+    onChange(
+      value.includes(memberId)
+        ? value.filter((a) => a !== memberId)
+        : [...value, memberId]
     )
   const clear = () => {
-    if (assignees.length > 0) setAssignees([])
+    if (value.length > 0) onChange([])
   }
 
   const label =
@@ -209,13 +195,13 @@ export function AssigneeField({
         >
           <UserRound className="size-4" strokeWidth={1.75} />
           {m.tickets_assignee_unassigned()}
-          {assignees.length === 0 && (
+          {value.length === 0 && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {members.length > 0 && <div className="my-1 h-px bg-border" />}
         {members.map((member) => {
-          const selected = assignees.includes(member.id)
+          const selected = value.includes(member.id)
           return (
             <DropdownMenuItem
               key={member.id}
@@ -240,6 +226,41 @@ export function AssigneeField({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function AssigneeField({
+  orgSlug,
+  slug,
+  ticket,
+  members,
+  sprintTicketsKey,
+  ticketSectionsKey,
+  variant = "row",
+  className
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  members: ReadonlyArray<Member>
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
+  variant?: AssigneeVariant
+  className?: string
+}) {
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+  return (
+    <AssigneeSelect
+      value={ticket.assignees}
+      onChange={(assignees) =>
+        update({ assignees, sprintTicketsKey, ticketSectionsKey })
+      }
+      members={members}
+      variant={variant}
+      className={className}
+    />
   )
 }
 

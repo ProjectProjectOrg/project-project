@@ -25,7 +25,7 @@ export const Hitbox = forwardRef<HTMLButtonElement, HitboxProps>(
         ref={ref}
         type="button"
         className={cn(
-          "group/hitbox cursor-pointer outline-none before:absolute before:content-[''] focus-visible:ring-1 focus-visible:ring-ring",
+          "group/hitbox cursor-pointer outline-none before:absolute before:content-[''] focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default",
           shape.button,
           mode === "absolute"
             ? "absolute inset-0"
