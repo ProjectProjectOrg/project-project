@@ -5,7 +5,7 @@ import type { ConnectStorageInput } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export interface StorageRequest {
+export type StorageRequest = {
   readonly params: { readonly orgSlug: string }
 }
 

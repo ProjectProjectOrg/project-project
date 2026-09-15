@@ -14,7 +14,7 @@ import {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export interface CommentsRequest {
+export type CommentsRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string
@@ -31,7 +31,7 @@ export const commentsRequest = (
 const scopeOf = (req: CommentsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export interface CommentViewRow {
+export type CommentViewRow = {
   readonly comment: Comment
   readonly key: string
   readonly pending: boolean
@@ -69,7 +69,7 @@ export const comments = Atom.family((req: CommentsRequest) =>
   Atom.optimistic(commentsView(req))
 )
 
-export interface CreateCommentKey {
+export type CreateCommentKey = {
   readonly req: CommentsRequest
   readonly clientId: string
   readonly createdAt: Date

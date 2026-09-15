@@ -3,7 +3,7 @@ import type { TicketCountQuery } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export interface CountsRequest {
+export type CountsRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
   readonly query: TicketCountQuery
 }

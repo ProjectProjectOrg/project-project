@@ -4,7 +4,7 @@ import type { MentionType } from "@projectproject/shared"
 import type { AtomRegistry } from "effect/unstable/reactivity/AtomRegistry"
 import type { MentionScope } from "./scope"
 
-export interface MentionCandidate {
+export type MentionCandidate = {
   readonly id: string
   readonly label: string
   readonly secondary?: string
@@ -13,7 +13,7 @@ export interface MentionCandidate {
 
 export type { MentionScope }
 
-export interface MentionProvider {
+export type MentionProvider = {
   readonly trigger: string
   readonly type: MentionType
   readonly search: (

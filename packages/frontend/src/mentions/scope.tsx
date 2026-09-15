@@ -1,10 +1,10 @@
 import { createContext, useContext, type ReactNode } from "react"
 import type { Member } from "@projectproject/shared"
 
-export interface MentionScope {
-  orgSlug: string
-  slug: string
-  members?: ReadonlyArray<Member>
+export type MentionScope = {
+  readonly orgSlug: string
+  readonly slug: string
+  readonly members?: ReadonlyArray<Member>
 }
 
 const Ctx = createContext<MentionScope | null>(null)

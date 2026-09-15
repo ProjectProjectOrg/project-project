@@ -19,11 +19,11 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { everhourProfileAtom } from "./everhour"
 
-export interface ActiveTimerRequest {
+export type ActiveTimerRequest = {
   readonly params: { readonly orgSlug: string }
 }
 
-export interface TicketTimeRequest {
+export type TicketTimeRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string
@@ -31,7 +31,7 @@ export interface TicketTimeRequest {
   }
 }
 
-export interface SprintTimerRequest {
+export type SprintTimerRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string
@@ -39,7 +39,7 @@ export interface SprintTimerRequest {
   }
 }
 
-export interface ProjectTimeRequest {
+export type ProjectTimeRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
   readonly entityId: TicketId | GroupId | null
 }
@@ -108,7 +108,7 @@ export const ticketTimeAtom = Atom.family((req: TicketTimeRequest) =>
   Atom.optimistic(ticketTimeQuery(req))
 )
 
-export interface TicketTimePanelValue {
+export type TicketTimePanelValue = {
   readonly profile: PersonalEverhour
   readonly workTypes: ReadonlyArray<WorkTypeOption>
   readonly time: TicketTimeSummary

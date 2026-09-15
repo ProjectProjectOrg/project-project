@@ -5,7 +5,7 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export interface OAuthConsentRequest {
+export type OAuthConsentRequest = {
   readonly oauthQuery: string
 }
 
@@ -13,7 +13,7 @@ export const oauthConsentRequest = (
   oauthQuery: string
 ): OAuthConsentRequest => ({ oauthQuery })
 
-export interface SubmitConsentInput {
+export type SubmitConsentInput = {
   readonly accept: boolean
 }
 
@@ -36,7 +36,7 @@ export const submitConsentAtom = Atom.family((req: OAuthConsentRequest) =>
   )
 )
 
-export interface OAuthClientRequest {
+export type OAuthClientRequest = {
   readonly query: { readonly client_id: string } | null
 }
 

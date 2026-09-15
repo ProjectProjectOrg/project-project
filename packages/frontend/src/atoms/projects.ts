@@ -14,7 +14,7 @@ import {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export interface ProjectsRequest {
+export type ProjectsRequest = {
   readonly params: { readonly orgSlug: string }
 }
 
@@ -22,7 +22,7 @@ export const projectsRequest = (orgSlug: string): ProjectsRequest => ({
   params: { orgSlug }
 })
 
-export interface ProjectRequest {
+export type ProjectRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 

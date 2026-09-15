@@ -6,7 +6,7 @@ import type { ConnectEverhourProfileInput } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export interface EverhourProjectRequest {
+export type EverhourProjectRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 

@@ -17,7 +17,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export interface StatusesRequest {
+export type StatusesRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 
@@ -180,7 +180,7 @@ export const reorderStatus = Atom.family(
     })
 )
 
-export interface StatusReorder {
+export type StatusReorder = {
   readonly statusSlug: StatusSlug
   readonly orderKey: ReorderStatusInput["orderKey"]
 }

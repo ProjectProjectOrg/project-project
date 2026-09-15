@@ -23,26 +23,26 @@ export class AttachmentUploadFailed extends Data.TaggedError(
   readonly status?: number
 }> {}
 
-export interface UploadAttachmentInput {
+export type UploadAttachmentInput = {
   readonly file: File
   readonly signal?: AbortSignal
   readonly onProgress?: (fraction: number) => void
 }
 
-export interface UploadedAttachment {
+export type UploadedAttachment = {
   readonly id: string
   readonly url: string
   readonly filename: string
   readonly contentType: string
 }
 
-export interface UploadAttachmentRequest {
+export type UploadAttachmentRequest = {
   readonly orgSlug: string
   readonly slug: string
   readonly id: TicketId
 }
 
-export interface UploadProjectImageRequest {
+export type UploadProjectImageRequest = {
   readonly orgSlug: string
   readonly slug: string
 }
@@ -172,7 +172,7 @@ export const uploadProjectImage = Atom.family(
 
 export const ORG_ATTACHMENTS_PAGE_SIZE = ATTACHMENT_PAGE_SIZE
 
-export interface OrgAttachmentsRequest {
+export type OrgAttachmentsRequest = {
   readonly params: { readonly orgSlug: string }
   readonly query: {
     readonly limit: number
@@ -206,7 +206,7 @@ const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
 
-interface OrgAttachmentsView {
+type OrgAttachmentsView = {
   readonly list: AttachmentListPage
   readonly summary: AttachmentSummary
 }
@@ -269,7 +269,7 @@ const removeFromSummary = (
   }
 }
 
-export interface DeleteOrgAttachmentsKey {
+export type DeleteOrgAttachmentsKey = {
   readonly req: OrgAttachmentsRequest
   readonly attachmentIds: ReadonlyArray<string>
 }

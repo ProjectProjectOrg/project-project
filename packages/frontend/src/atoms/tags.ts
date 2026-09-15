@@ -16,7 +16,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { ticketDetail, ticketRequest } from "./ticketDetail"
 
-export interface TagsRequest {
+export type TagsRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 
@@ -56,7 +56,7 @@ export const tagUsage = Atom.family((req: TagsRequest) =>
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-export interface TagEditorRequest {
+export type TagEditorRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string
@@ -64,12 +64,12 @@ export interface TagEditorRequest {
   }
 }
 
-export interface AppliedTag {
+export type AppliedTag = {
   readonly key: TagName
   readonly name: TagName
 }
 
-export interface TagEditorValue {
+export type TagEditorValue = {
   readonly tags: ReadonlyArray<Tag>
   readonly applied: ReadonlyArray<AppliedTag>
 }

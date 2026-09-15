@@ -4,7 +4,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export interface OAuthApplicationsRequest {}
+export type OAuthApplicationsRequest = {}
 
 export const oauthApplicationsRequest = (): OAuthApplicationsRequest => ({})
 

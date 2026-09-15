@@ -20,7 +20,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applySprintPatch } from "./sprintPatch"
 
-export interface SprintListRequest {
+export type SprintListRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
 }
 
@@ -248,7 +248,7 @@ export const completeSprint = Atom.family(
     })
 )
 
-interface SprintAssignmentInput {
+type SprintAssignmentInput = {
   readonly groupId: GroupId
 }
 

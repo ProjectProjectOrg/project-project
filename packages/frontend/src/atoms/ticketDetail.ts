@@ -12,7 +12,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applyTicketDetailPatch } from "./ticketPatch"
 
-export interface TicketRequest {
+export type TicketRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string

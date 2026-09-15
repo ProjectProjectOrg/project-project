@@ -21,7 +21,7 @@ export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
 )
 
-export interface BacklogRequest {
+export type BacklogRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
   readonly query: TicketListQuery
 }
@@ -47,19 +47,19 @@ export const backlogRequest = (
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export interface BacklogRow {
+export type BacklogRow = {
   readonly ticket: Ticket
   /** React key. Equals the ticket id except for rows created in this session. */
   readonly key: string
   readonly pending: boolean
 }
 
-export interface BacklogSection {
+export type BacklogSection = {
   readonly items: ReadonlyArray<BacklogRow>
   readonly nextCursor: string | null
 }
 
-export interface BacklogValue {
+export type BacklogValue = {
   readonly counts: TicketCounts
   readonly sections: Readonly<Record<string, BacklogSection>>
 }
@@ -292,7 +292,7 @@ const createdKeysAtom = Atom.family((_scope: string) =>
   )
 )
 
-export interface QuickCreateArg {
+export type QuickCreateArg = {
   readonly ticket: QuickCreateTicketInput
   readonly viewerId: string
   readonly projectPrefix: string

@@ -14,7 +14,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { sprintQuery } from "./sprintDetail"
 import { applyTicketPatch } from "./ticketPatch"
 
-export interface BoardRequest {
+export type BoardRequest = {
   readonly params: {
     readonly orgSlug: string
     readonly slug: string
@@ -31,7 +31,7 @@ export const boardRequest = (
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export interface BoardValue {
+export type BoardValue = {
   /** Ticket order as the group defines it, resolved to full tickets. */
   readonly tickets: ReadonlyArray<Ticket>
   readonly completedAt: Date | null

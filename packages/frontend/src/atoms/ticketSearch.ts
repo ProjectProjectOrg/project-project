@@ -3,13 +3,13 @@ import type { GroupId, TicketSearchQuery } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export interface TicketSearchOptions {
+export type TicketSearchOptions = {
   readonly q?: string
   readonly excludeGroupId?: GroupId
   readonly limit?: number
 }
 
-export interface SearchRequest {
+export type SearchRequest = {
   readonly params: { readonly orgSlug: string; readonly slug: string }
   readonly query: TicketSearchQuery
 }
