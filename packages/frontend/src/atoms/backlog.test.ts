@@ -13,7 +13,7 @@ import {
   type TicketListQuery,
   TicketStatus,
   TicketUpdateResult,
-  type UpdateTicketInput
+  UpdateTicketInput
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import {
@@ -46,9 +46,6 @@ const ticket = {
 } satisfies Ticket
 
 const encode = Schema.encodeSync(Ticket)
-// `tickets.update`'s success schema is `TicketDetail`, so the PATCH mock
-// response must decode as one even though the sections view only ever
-// reads `Ticket` fields off it.
 const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
 const asDetail = (t: Ticket): TicketDetail => ({ ...t, body: "Before" })
@@ -128,6 +125,151 @@ describe("backlog optimistic update", () => {
       if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
       // Never observed "med" again between paint and settle.
       expect(settled.value.sections.todo.items[0].ticket.priority).toBe("high")
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("merges a canceled rapid edit into the surviving request", async () => {
+    const bodies: Array<UpdateTicketInput> = []
+    const pending: Array<(response: Response) => void> = []
+    fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        bodies.push(
+          Schema.decodeUnknownSync(UpdateTicketInput)(
+            await new Response(init.body).json()
+          )
+        )
+        return new Promise<Response>((resolve) => pending.push(resolve))
+      }
+      return Promise.resolve(sections([ticket]))
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { priority: "high" })
+      await vi.waitFor(() => expect(bodies).toHaveLength(1))
+      registry.set(mutation, { type: "bug" })
+      await vi.waitFor(() => expect(bodies).toHaveLength(2))
+      expect(bodies[1]).toEqual({ priority: "high", type: "bug" })
+
+      pending[1]!(
+        Response.json(
+          encodeUpdateResponse(
+            asUpdateResult({ ...ticket, priority: "high", type: "bug" })
+          )
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("keeps another pending row ordered when one response lands", async () => {
+    const alpha = withTicket("T-1", { title: "Alpha" })
+    const beta = withTicket("T-2", { title: "Beta" })
+    const gamma = withTicket("T-3", { title: "Gamma" })
+    let served = [alpha, beta, gamma]
+    const pending = new Map<string, (response: Response) => void>()
+    fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        const body = Schema.decodeUnknownSync(UpdateTicketInput)(
+          await new Response(init.body).json()
+        )
+        return new Promise<Response>((resolve) =>
+          pending.set(body.title ?? "", resolve)
+        )
+      }
+      return Promise.resolve(
+        Response.json({
+          counts: { total: 3, byStatus: { todo: 3 } },
+          sections: {
+            todo: {
+              items: served.map((row) => serverRow(row, titleKey(row))),
+              nextCursor: null
+            }
+          }
+        })
+      )
+    })
+    const request = backlogRequest("acme", "web", {
+      sort: { key: "title", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(request)
+    const alphaMutation = updateBacklogTicket({ req: request, id: alpha.id })
+    const betaMutation = updateBacklogTicket({ req: request, id: beta.id })
+    registry.mount(view)
+    registry.mount(alphaMutation)
+    registry.mount(betaMutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(alphaMutation, { title: "Zulu" })
+      registry.set(betaMutation, { priority: "high" })
+      await vi.waitFor(() => {
+        expect(pending.has("Zulu")).toBe(true)
+        expect(pending.has("")).toBe(true)
+      })
+      const pendingOrder = registry.get(view)
+      if (!AsyncResult.isSuccess(pendingOrder))
+        throw new Error("no pending view")
+      expect(
+        pendingOrder.value.sections.todo.items.map(({ ticket }) => ticket.id)
+      ).toEqual(["T-2", "T-3", "T-1"])
+      served = [alpha, { ...beta, priority: "high" }, gamma]
+      pending.get("")!(
+        Response.json(
+          encodeUpdateResponse(
+            asUpdateResult({ ...beta, priority: "high" }, titleKey(beta))
+          )
+        )
+      )
+      await vi.waitFor(() =>
+        expect(registry.get(betaMutation).waiting).toBe(false)
+      )
+      const afterBeta = registry.get(view)
+      if (!AsyncResult.isSuccess(afterBeta)) throw new Error("no beta view")
+      expect(
+        afterBeta.value.sections.todo.items.map(({ ticket }) => ticket.id)
+      ).toEqual(["T-2", "T-3", "T-1"])
+      served = [
+        { ...beta, priority: "high" },
+        gamma,
+        { ...alpha, title: "Zulu" }
+      ]
+      pending.get("Zulu")!(
+        Response.json(
+          encodeUpdateResponse(
+            asUpdateResult(
+              { ...alpha, title: "Zulu" },
+              titleKey({ ...alpha, title: "Zulu" })
+            )
+          )
+        )
+      )
+      await vi.waitFor(() =>
+        expect(registry.get(alphaMutation).waiting).toBe(false)
+      )
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("no settled view")
+      expect(
+        settled.value.sections.todo.items.map(({ ticket }) => ticket.id)
+      ).toEqual(["T-2", "T-3", "T-1"])
     } finally {
       registry.dispose()
     }
@@ -356,7 +498,10 @@ describe("backlog pagination", () => {
     const second = { ...ticket, id: Schema.decodeSync(TicketId)("T-2") }
     let finish = (_r: Response) => {}
     fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(input instanceof Request ? input.url : String(input))
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
           finish = resolve
@@ -416,7 +561,10 @@ describe("backlog pagination", () => {
   it("does not drop the optimistic overlay early when a load-more page has not settled yet", async () => {
     let finishPatch = (_r: Response) => {}
     fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(input instanceof Request ? input.url : String(input))
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
           finishPatch = resolve
@@ -467,6 +615,165 @@ describe("backlog pagination", () => {
         _tag: "Success",
         waiting: true
       })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("surfaces a failed page and retries the same cursor", async () => {
+    let pageAttempts = 0
+    fetchStub.set((input: RequestInfo | URL) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (url.pathname.endsWith("/sections")) {
+        return Promise.resolve(
+          Response.json({
+            counts: { total: 2, byStatus: { todo: 2 } },
+            sections: {
+              todo: { items: [serverRow(ticket)], nextCursor: "cursor-1" }
+            }
+          })
+        )
+      }
+      pageAttempts++
+      if (pageAttempts === 1)
+        return Promise.resolve(new Response("nope", { status: 500 }))
+      return Promise.resolve(
+        Response.json({
+          items: [
+            serverRow({ ...ticket, id: Schema.decodeSync(TicketId)("T-2") })
+          ],
+          nextCursor: null
+        })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const loadMore = loadMoreBacklog({ req, status: "todo" })
+    registry.mount(view)
+    registry.mount(loadMore)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() =>
+        expect(registry.get(loadMore)).toMatchObject({
+          _tag: "Failure",
+          waiting: false
+        })
+      )
+      expect(registry.get(view)).toMatchObject({
+        value: { sections: { todo: { nextCursor: "cursor-1" } } }
+      })
+
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() =>
+        expect(registry.get(loadMore)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      expect(pageAttempts).toBe(2)
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no view")
+        expect(
+          result.value.sections.todo.items.map(({ ticket }) => ticket.id)
+        ).toEqual(["T-1", "T-2"])
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("regenerates loaded cursor pages after the first page boundary moves", async () => {
+    const all = Array.from({ length: 100 }, (_, index) =>
+      withTicket(`T-${index + 1}`, {
+        title: String(index + 1).padStart(3, "0")
+      })
+    )
+    const moved = withTicket("T-70", { title: "000" })
+    let sectionsCalls = 0
+    const requestedCursors: Array<string | null> = []
+    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (init?.method === "PATCH") {
+        return Promise.resolve(
+          Response.json(
+            encodeUpdateResponse(asUpdateResult(moved, titleKey(moved)))
+          )
+        )
+      }
+      if (url.pathname.endsWith("/sections")) {
+        sectionsCalls++
+        const first =
+          sectionsCalls === 1 ? all.slice(0, 50) : [moved, ...all.slice(0, 49)]
+        return Promise.resolve(
+          Response.json({
+            counts: { total: 100, byStatus: { todo: 100 } },
+            sections: {
+              todo: {
+                items: first.map((row) => serverRow(row, titleKey(row))),
+                nextCursor: sectionsCalls === 1 ? "cursor-50" : "cursor-49"
+              }
+            }
+          })
+        )
+      }
+      const cursor = url.searchParams.get("cursor")
+      requestedCursors.push(cursor)
+      const page =
+        cursor === "cursor-50"
+          ? all.slice(50)
+          : [...all.slice(49, 69), ...all.slice(70)]
+      return Promise.resolve(
+        Response.json({
+          items: page.map((row) => serverRow(row, titleKey(row))),
+          nextCursor: null
+        })
+      )
+    })
+    const request = backlogRequest("acme", "web", {
+      sort: { key: "title", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(request)
+    const loadMore = loadMoreBacklog({ req: request, status: "todo" })
+    const mutation = updateBacklogTicket({ req: request, id: moved.id })
+    registry.mount(view)
+    registry.mount(loadMore)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no view")
+        expect(result.value.sections.todo.items).toHaveLength(100)
+      })
+
+      registry.set(mutation, { title: "000" })
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result) || result.waiting)
+          throw new Error("view is still refreshing")
+        const ids = result.value.sections.todo.items.map(
+          ({ ticket }) => ticket.id
+        )
+        expect(ids).toHaveLength(100)
+        expect(ids).toContain("T-50")
+        expect(ids).toContain("T-70")
+      })
+      expect(requestedCursors).toContain("cursor-49")
     } finally {
       registry.dispose()
     }
@@ -537,6 +844,116 @@ describe("backlog quick create", () => {
       registry.dispose()
     }
   })
+
+  it("refreshes retained sibling sort variants after creation", async () => {
+    const created = {
+      ...ticket,
+      id: Schema.decodeSync(TicketId)("T-9"),
+      title: "Created"
+    }
+    let createdVisible = false
+    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        createdVisible = true
+        return Promise.resolve(Response.json(encodeDetail(asDetail(created))))
+      }
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      const query = url.searchParams.get("q")
+      const visible =
+        createdVisible &&
+        (query === null ||
+          created.title.toLowerCase().includes(query.toLowerCase()))
+      return Promise.resolve(visible ? sections([created]) : sections([]))
+    })
+    const titleRequest = backlogRequest("acme", "web", {
+      sort: { key: "title", dir: "asc" }
+    })
+    const idRequest = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const matchingRequest = backlogRequest("acme", "web", {
+      q: "Created",
+      sort: { key: "title", dir: "asc" }
+    })
+    const nonmatchingRequest = backlogRequest("acme", "web", {
+      q: "Other",
+      sort: { key: "title", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const titleView = backlog(titleRequest)
+    const idView = backlog(idRequest)
+    const matchingView = backlog(matchingRequest)
+    const nonmatchingView = backlog(nonmatchingRequest)
+    const create = quickCreateBacklogTicket(titleRequest)
+    registry.mount(titleView)
+    const stopIdView = registry.mount(idView)
+    registry.mount(matchingView)
+    registry.mount(nonmatchingView)
+    registry.mount(create)
+    try {
+      await vi.waitFor(() => {
+        expect(registry.get(titleView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(idView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(matchingView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(nonmatchingView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      })
+      stopIdView()
+      registry.set(create, {
+        ticket: { title: created.title, status: ticket.status },
+        viewerId: "user-1",
+        projectPrefix: "T",
+        clientId: "creation-sibling"
+      })
+      await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
+      registry.mount(idView)
+      await vi.waitFor(() => {
+        const titleResult = registry.get(titleView)
+        const idResult = registry.get(idView)
+        const matchingResult = registry.get(matchingView)
+        const nonmatchingResult = registry.get(nonmatchingView)
+        if (!AsyncResult.isSuccess(titleResult) || titleResult.waiting)
+          throw new Error("title view is still refreshing")
+        if (!AsyncResult.isSuccess(idResult) || idResult.waiting)
+          throw new Error("id view is still refreshing")
+        if (!AsyncResult.isSuccess(matchingResult) || matchingResult.waiting)
+          throw new Error("matching view is still refreshing")
+        if (
+          !AsyncResult.isSuccess(nonmatchingResult) ||
+          nonmatchingResult.waiting
+        )
+          throw new Error("nonmatching view is still refreshing")
+        expect(titleResult.value.sections.todo.items[0]?.key).toBe(
+          "creation-sibling"
+        )
+        expect(idResult.value.sections.todo.items[0]?.ticket.id).toBe("T-9")
+        expect(matchingResult.value.sections.todo.items[0]?.ticket.id).toBe(
+          "T-9"
+        )
+        expect(nonmatchingResult.value.sections.todo.items).toHaveLength(0)
+        expect(idResult.value.counts.total).toBe(1)
+        expect(matchingResult.value.counts.total).toBe(1)
+        expect(nonmatchingResult.value.counts.total).toBe(0)
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("removes the optimistic row and restores the counts when creation fails", async () => {
     let finish = (_r: Response) => {}
     // The sections refetch is made to hang after the initial load, so the row
@@ -1016,8 +1433,9 @@ describe("backlog edits to the sorted field move the row", () => {
     )
     expect(outcome.optimistic).toEqual(["T-4", "T-1", "T-3", "T-2"])
     expect(outcome.settled).toEqual(["T-4", "T-1", "T-3", "T-2"])
-    expect(outcome.patchUrl.searchParams.get("sort[key]")).toBe("priority")
-    expect(outcome.patchUrl.searchParams.get("sort[dir]")).toBe("desc")
+    expect(outcome.patchUrl.searchParams.get("sort")).toBe(
+      '{"key":"priority","dir":"desc"}'
+    )
   })
 
   it("re-alphabetizes the row under `title asc`", async () => {
@@ -1069,5 +1487,19 @@ describe("backlog edits to the sorted field move the row", () => {
     )
     expect(outcome.optimistic).toEqual(["T-3", "T-1", "T-2"])
     expect(outcome.settled).toEqual(["T-1", "T-2", "T-3"])
+  })
+
+  it("keeps supplementary characters in server order during a local title edit", async () => {
+    const fullwidth = withTicket("T-2", { title: "ｚ" })
+    const emoji = withTicket("T-1", { title: "😀" })
+    const outcome = await orderAfterFieldEdit(
+      { sort: { key: "title", dir: "asc" } },
+      [fullwidth, emoji].map(titleRow),
+      emoji.id,
+      { title: "😀" },
+      (edited) => asUpdateResult(edited, titleKey(edited))
+    )
+    expect(outcome.optimistic).toEqual(["T-2", "T-1"])
+    expect(outcome.settled).toEqual(["T-2", "T-1"])
   })
 })

@@ -9,9 +9,11 @@ import {
   GroupId,
   Ticket,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  UpdateGroupTicketsInput
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
+import { backlog, backlogRequest } from "./backlog"
 import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
@@ -620,6 +622,139 @@ describe("completeSprint carryover", () => {
 })
 
 describe("ticket membership mutations", () => {
+  it("refreshes source and destination boards and filtered backlogs after assignment and removal", async () => {
+    let groups: ReadonlyArray<Group> = [sprint, otherSprint]
+    fetchStub.set(async (input, init) => {
+      const request = new Request(input, init)
+      const url = new URL(request.url)
+      const selected = groups.find((group) =>
+        url.pathname.includes(`/groups/${group.id}`)
+      )
+      if (request.method === "PATCH" && selected) {
+        const payload = Schema.decodeUnknownSync(UpdateGroupTicketsInput)(
+          await request.json()
+        )
+        const target = { ...selected, tickets: payload.tickets }
+        const evicted = groups.flatMap((group) => {
+          if (group.id === target.id) return []
+          const ticketIds = group.tickets.filter((id) =>
+            payload.tickets.includes(id)
+          )
+          return ticketIds.length > 0 ? [{ groupId: group.id, ticketIds }] : []
+        })
+        groups = groups.map((group) =>
+          group.id === target.id
+            ? target
+            : {
+                ...group,
+                tickets: group.tickets.filter(
+                  (id) => !payload.tickets.includes(id)
+                )
+              }
+        )
+        return Response.json({
+          target: encodeGroupDetail(asDetail(target)),
+          evicted
+        })
+      }
+      if (url.pathname.endsWith("/sections")) {
+        const target = groups.find((group) => group.id === otherGroupId)!
+        return Response.json({
+          counts: {
+            total: target.tickets.length,
+            byStatus: { todo: target.tickets.length }
+          },
+          sections: {
+            todo: {
+              items: target.tickets.map((id) => ({
+                ticket: encodeTicket(makeTicket(id)),
+                orderKey: id
+              })),
+              nextCursor: null
+            }
+          }
+        })
+      }
+      if (selected) {
+        return url.pathname.endsWith("/tickets")
+          ? Response.json(
+              selected.tickets.map((id) => encodeTicket(makeTicket(id)))
+            )
+          : Response.json(encodeGroupDetail(asDetail(selected)))
+      }
+      return listResponse(groups)
+    })
+    const registry = AtomRegistry.make()
+    const source = sprintBoard(boardRequest("acme", "web", groupId))
+    const destination = sprintBoard(boardRequest("acme", "web", otherGroupId))
+    const filtered = backlog(
+      backlogRequest("acme", "web", {
+        groupId: [otherGroupId],
+        sort: { key: "id", dir: "asc" }
+      })
+    )
+    const add = addTicketsToSprint({ req, ticketId: ticketA })
+    const remove = removeTicketsFromSprint({ req, ticketId: ticketA })
+    registry.mount(sprintList(req))
+    registry.mount(source)
+    registry.mount(destination)
+    registry.mount(filtered)
+    registry.mount(add)
+    registry.mount(remove)
+    try {
+      await vi.waitFor(() => {
+        expect(registry.get(source)).toMatchObject({
+          waiting: false,
+          value: { tickets: [{ id: ticketA }] }
+        })
+        expect(registry.get(destination)).toMatchObject({
+          waiting: false,
+          value: { tickets: [] }
+        })
+        expect(registry.get(filtered)).toMatchObject({
+          waiting: false,
+          value: { counts: { total: 0 } }
+        })
+      })
+      registry.set(add, { groupId: otherGroupId })
+      await vi.waitFor(() => {
+        expect(registry.get(add)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(source)).toMatchObject({
+          waiting: false,
+          value: { tickets: [] }
+        })
+        expect(registry.get(destination)).toMatchObject({
+          waiting: false,
+          value: { tickets: [{ id: ticketA }] }
+        })
+        expect(registry.get(filtered)).toMatchObject({
+          waiting: false,
+          value: { counts: { total: 1 } }
+        })
+      })
+      registry.set(remove, { groupId: otherGroupId })
+      await vi.waitFor(() => {
+        expect(registry.get(remove)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(destination)).toMatchObject({
+          waiting: false,
+          value: { tickets: [] }
+        })
+        expect(registry.get(filtered)).toMatchObject({
+          waiting: false,
+          value: { counts: { total: 0 } }
+        })
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("adds tickets to the target sprint and evicts them from other open sprints", async () => {
     const withTicketB: Group = { ...otherSprint, tickets: [ticketB] }
     let finish = (_r: Response) => {}

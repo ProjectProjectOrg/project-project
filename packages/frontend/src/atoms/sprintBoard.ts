@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Effect from "effect/Effect"
@@ -101,6 +102,15 @@ const placeTicket = (
   }
 }
 
+type BoardTicketUpdateKey = Readonly<{
+  req: BoardRequest
+  id: TicketId
+}>
+
+const unsavedBoardTicketPatch = Atom.family((_key: BoardTicketUpdateKey) =>
+  Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
 /** Drag: reorder within a column, or move across columns (which changes status). */
 export const placeBoardTicket = Atom.family((req: BoardRequest) =>
   Atom.optimisticFn(sprintBoard(req), {
@@ -117,8 +127,10 @@ export const placeBoardTicket = Atom.family((req: BoardRequest) =>
         if (input.status !== undefined) {
           yield* Reactivity.invalidate([
             Keys.ticket(scopeOf(req), input.ticketId),
+            Keys.ticketsIn(scopeOf(req)),
             Keys.ticketLists(scopeOf(req)),
-            Keys.ticketPages(scopeOf(req))
+            Keys.ticketPages(scopeOf(req)),
+            Keys.ticketUpdatedQuery(scopeOf(req))
           ])
         }
       })
@@ -128,7 +140,7 @@ export const placeBoardTicket = Atom.family((req: BoardRequest) =>
 
 /** Editing a card's fields from the board. */
 export const updateBoardTicket = Atom.family(
-  ({ req, id }: Readonly<{ req: BoardRequest; id: TicketId }>) =>
+  ({ req, id }: BoardTicketUpdateKey) =>
     Atom.optimisticFn(sprintBoard(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) => ({
@@ -140,25 +152,44 @@ export const updateBoardTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const { ticket: updated } = yield* Api.use((client) =>
-              client.tickets.update({
-                params: { ...req.params, id },
-                query: {},
-                payload: patch
-              })
+            const unsaved = unsavedBoardTicketPatch({ req, id })
+            const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
+            get.set(unsaved, payload)
+            const updated = yield* Effect.catchCause(
+              Api.use((client) =>
+                client.tickets.update({
+                  params: { ...req.params, id },
+                  query: {},
+                  payload
+                })
+              ),
+              (cause) => {
+                if (
+                  !Cause.hasInterruptsOnly(cause) &&
+                  get(unsaved) === payload
+                ) {
+                  get.set(unsaved, {})
+                }
+                return Effect.failCause(cause)
+              }
             )
+            if (get(unsaved) === payload) get.set(unsaved, {})
             set(
               AsyncResult.map(get(sprintBoard(req)), (value) => ({
                 ...value,
-                tickets: value.tickets.map((t) => (t.id === id ? updated : t))
+                tickets: value.tickets.map((t) =>
+                  t.id === id ? updated.ticket : t
+                )
               }))
             )
             yield* Reactivity.invalidate([
               Keys.ticket(scopeOf(req), id),
+              Keys.ticketsIn(scopeOf(req)),
               Keys.ticketLists(scopeOf(req)),
-              Keys.ticketPages(scopeOf(req))
+              Keys.ticketPages(scopeOf(req)),
+              Keys.ticketUpdatedQuery(scopeOf(req))
             ])
-            return updated
+            return updated.ticket
           })
         )
     })

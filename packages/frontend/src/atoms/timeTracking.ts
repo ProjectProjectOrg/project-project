@@ -168,9 +168,12 @@ const optimisticTimer = (
 const previousTicketKey = (
   orgSlug: string,
   timer: ActiveTimer | null,
-  except?: TicketId
+  except?: Readonly<{ slug: string; id: TicketId }>
 ): string | null =>
-  timer?.ticketId && timer.ticketId !== except
+  timer?.ticketId &&
+  (except === undefined ||
+    timer.slug !== except.slug ||
+    timer.ticketId !== except.id)
     ? Keys.ticketTime(projectScope(orgSlug, timer.slug), timer.ticketId)
     : null
 
@@ -189,7 +192,7 @@ export const startTicketTimerAtom = Atom.family((req: TicketTimeRequest) => {
           const keyToInvalidate = previousTicketKey(
             req.params.orgSlug,
             AsyncResult.isSuccess(previous) ? previous.value : null,
-            req.params.id
+            { slug: req.params.slug, id: req.params.id }
           )
           const timer = yield* Api.use((client) =>
             client.everhour.startTicketTimer({
@@ -232,7 +235,7 @@ export const startActiveTicketTimerAtom = Atom.family(
             const keyToInvalidate = previousTicketKey(
               timerReq.params.orgSlug,
               AsyncResult.isSuccess(previous) ? previous.value : null,
-              ticketReq.params.id
+              { slug: ticketReq.params.slug, id: ticketReq.params.id }
             )
             const timer = yield* Api.use((client) =>
               client.everhour.startTicketTimer({
@@ -338,7 +341,7 @@ export const stopTicketTimerAtom = Atom.family((req: TicketTimeRequest) =>
           const keyToInvalidate = previousTicketKey(
             req.params.orgSlug,
             stopped,
-            req.params.id
+            { slug: req.params.slug, id: req.params.id }
           )
           if (keyToInvalidate) {
             yield* Reactivity.invalidate([keyToInvalidate])

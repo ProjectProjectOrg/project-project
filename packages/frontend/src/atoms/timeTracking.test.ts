@@ -18,7 +18,9 @@ import {
   activeTimerRequest,
   logTicketTimeAtom,
   optimisticStopTimer,
+  startActiveTicketTimerAtom,
   stopTimerAtom,
+  ticketTimeAtom,
   ticketTimePanelAtom,
   ticketTimeRequest
 } from "./timeTracking"
@@ -170,6 +172,57 @@ describe("time tracking views", () => {
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({ waiting: false })
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("refreshes a previous project when ticket ids overlap", async () => {
+    const previous = { ...timer, slug: "other" }
+    let active = previous
+    let previousTimeFetches = 0
+    fetchStub.set((input, init) => {
+      const request =
+        input instanceof Request ? input : new Request(input, init)
+      const url = new URL(request.url, "http://localhost")
+      if (request.method === "POST") {
+        active = { ...timer, slug: "project" }
+        return Promise.resolve(Response.json(encodeTimer(active)))
+      }
+      if (url.pathname.endsWith("/integrations/everhour/profile")) {
+        return Promise.resolve(Response.json(encodeProfile(profile)))
+      }
+      if (url.pathname.endsWith("/everhour/work-types")) {
+        return Promise.resolve(Response.json(encodeWorkTypes(workTypes)))
+      }
+      if (url.pathname.endsWith("/everhour/time")) {
+        if (url.pathname.includes("/projects/other/")) previousTimeFetches++
+        return Promise.resolve(Response.json(encodeTime(time)))
+      }
+      return Promise.resolve(Response.json(encodeTimer(active)))
+    })
+    const registry = AtomRegistry.make()
+    const previousView = ticketTimeAtom(
+      ticketTimeRequest("acme", "other", ticketId)
+    )
+    const activeView = activeTimerAtom(activeTimerRequest("acme"))
+    const mutation = startActiveTicketTimerAtom({
+      timerReq: activeTimerRequest("acme"),
+      ticketReq: ticketTimeRequest("acme", "project", ticketId)
+    })
+    registry.mount(previousView)
+    registry.mount(activeView)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(previousView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { workTypeKey: "development" })
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      expect(previousTimeFetches).toBeGreaterThan(1)
     } finally {
       registry.dispose()
     }

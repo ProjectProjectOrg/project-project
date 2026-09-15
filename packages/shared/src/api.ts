@@ -22,6 +22,7 @@ import {
   OpenApi
 } from "effect/unstable/httpapi"
 import * as Schema from "effect/Schema"
+import * as Effect from "effect/Effect"
 import { User } from "./schemas/User"
 import {
   InviteMemberInput,
@@ -116,6 +117,8 @@ import {
   UpdateTicketOrderInput
 } from "./schemas/Group"
 import {
+  DEFAULT_TICKET_SORT,
+  TicketSort,
   TicketCountQuery,
   TicketCounts,
   TicketListPage,
@@ -1044,6 +1047,20 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
   )
   .middleware(Authentication)
 
+const TicketListHttpQuery = TicketListQuery.pipe(
+  Schema.fieldsAssign({
+    sort: Schema.fromJsonString(TicketSort).pipe(
+      Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
+    )
+  })
+)
+
+const TicketOrderKeyHttpQuery = TicketOrderKeyQuery.pipe(
+  Schema.fieldsAssign({
+    sort: Schema.optional(Schema.fromJsonString(TicketSort))
+  })
+)
+
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get(
@@ -1051,7 +1068,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/sections",
       {
         params: ProjectPath,
-        query: TicketListQuery,
+        query: TicketListHttpQuery,
         success: TicketSections,
         error: [Unauthorized, NotFound]
       }
@@ -1060,7 +1077,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
-      query: TicketListQuery,
+      query: TicketListHttpQuery,
       success: TicketListPage,
       error: [Unauthorized, NotFound]
     })
@@ -1122,7 +1139,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
       {
         params: TicketPath,
-        query: TicketOrderKeyQuery,
+        query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
         success: TicketUpdateResult,
         error: [Unauthorized, NotFound, Validation, MentionInvalid]

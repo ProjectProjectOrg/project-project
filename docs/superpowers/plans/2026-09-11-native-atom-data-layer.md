@@ -36,7 +36,7 @@ Phases C, E and F do not depend on each other, except that Task 22 depends on Ph
 - Mutation input types are the payload schemas from `@projectproject/shared`, unchanged. Path params come from the atom's family key.
 - Reactivity keys use **array form** (`["tickets/acme/web"]`), never record form. Record form hashes the bare top-level key as well, so `{ tickets: [...] }` fires every atom registered under `tickets` and precision is impossible.
 - All reactivity keys come from `src/api/keys.ts`. Never write a key string inline.
-- **A mutation publishes only keys that other views registered.** The optimistic wrapper already refreshes its own source on commit, so publishing a key your own view listens to costs a second refetch per edit.
+- **Publish keys for every affected view.** Avoid redundant self-invalidation where possible, but publish shared keys when sibling views need them. Every affected source of a composed view must refresh.
 - Build every atom layer before rewiring any component. Do not write a temporary shim to keep a half-migrated component compiling; if a component cannot be rewired yet, its task has not come up.
 - Tests are Vitest at registry level. Install the fetch stub with `stubFetch()` from
   `packages/frontend/src/api/testFetch.ts` — one dispatcher per file, handler swapped per test.
@@ -2976,19 +2976,11 @@ plugin methods are `getFullOrganization`, `updateOrganization`, `createInvitatio
 `rejectInvitation`. Confirm each name against the installed version before
 writing; do not trust this list blind.
 
-`transferOwnership` is the one that is not a single better-auth call. Implement
-it as the two role changes inside one `Effect.gen`, promoting the target before
-demoting the caller, so a mid-way failure leaves an org with two owners rather
-than none:
-
-```ts
-transferOwnership: (request, orgSlug, toUserId, selfUserId) =>
-  Effect.gen(function* () {
-    yield* setRole(request, orgSlug, toUserId, "owner")
-    yield* setRole(request, orgSlug, selfUserId, "admin")
-    return yield* getMembers(request, orgSlug)
-  })
-```
+`transferOwnership` changes both roles atomically. Validate the caller's owner
+role and the target's membership inside the same database transaction that
+promotes the target and demotes the caller. Preserve the last-owner invariant.
+An `Effect.gen` containing two independent better-auth calls is not a transaction;
+a failure must leave both roles unchanged. Test rollback and rejected callers.
 
 Map better-auth's comma-separated role string through `collapseRole` in every
 method that returns a member.
@@ -3656,8 +3648,8 @@ view they fire from. Rules and worked examples:
 4. **Mutation input equals the API payload.** Path params come from the family
    key. Never put cache keys, settle targets or view metadata in the input.
 5. **Reactivity keys are array form, built in `src/api/keys.ts`,** and published
-   inside the atom module. A mutation publishes only keys that OTHER views
-   registered; publishing your own view's key costs a second refetch per edit.
+   inside the atom module. A mutation publishes keys for all affected views. Avoid redundant
+   self-invalidation only when sibling views still receive every needed refresh.
 6. **Never hold a transition open** with `get.result(x, { suspendOnWaiting: true })`,
    a pending map, a preview merge or a React context. The wrapper holds until its
    own source refetches.

@@ -158,6 +158,7 @@ export const deleteSprint = Atom.family(
           )
           yield* Reactivity.invalidate([
             Keys.sprintMembership(scopeOf(req)),
+            Keys.ticketsIn(scopeOf(req)),
             Keys.sprint(scopeOf(req), groupId)
           ])
         })
@@ -306,9 +307,14 @@ export const addTicketsToSprint = Atom.family(
             yield* Reactivity.invalidate([
               Keys.sprintMembership(scope),
               Keys.sprintMembership(scope, groupId),
+              Keys.sprint(scope, groupId),
               ...result.evicted.map((evicted) =>
                 Keys.sprintMembership(scope, evicted.groupId)
               ),
+              ...result.evicted.map((evicted) =>
+                Keys.sprint(scope, evicted.groupId)
+              ),
+              Keys.ticketsIn(scope),
               Keys.ticketLists(scope)
             ])
             return result
@@ -381,9 +387,14 @@ export const removeTicketsFromSprint = Atom.family(
             yield* Reactivity.invalidate([
               Keys.sprintMembership(scope),
               Keys.sprintMembership(scope, groupId),
+              Keys.sprint(scope, groupId),
               ...result.evicted.map((evicted) =>
                 Keys.sprintMembership(scope, evicted.groupId)
               ),
+              ...result.evicted.map((evicted) =>
+                Keys.sprint(scope, evicted.groupId)
+              ),
+              Keys.ticketsIn(scope),
               Keys.ticketLists(scope)
             ])
             return result

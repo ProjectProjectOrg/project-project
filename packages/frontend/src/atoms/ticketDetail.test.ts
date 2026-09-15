@@ -8,7 +8,7 @@ import {
   TicketId,
   TicketStatus,
   TicketUpdateResult,
-  type UpdateTicketInput
+  UpdateTicketInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
@@ -56,8 +56,9 @@ describe("ticket detail optimistic update", () => {
     })
     const registry = AtomRegistry.make()
     const view = ticketDetail(req)
+    const mutation = updateTicketDetail(req)
     registry.mount(view)
-    registry.mount(updateTicketDetail(req))
+    registry.mount(mutation)
     try {
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({
@@ -66,7 +67,7 @@ describe("ticket detail optimistic update", () => {
         })
       )
 
-      registry.set(updateTicketDetail(req), { priority: "high" })
+      registry.set(mutation, { priority: "high" })
       expect(registry.get(view)).toMatchObject({
         waiting: true,
         value: { priority: "high" }
@@ -108,8 +109,9 @@ describe("ticket detail optimistic update", () => {
     })
     const registry = AtomRegistry.make()
     const view = ticketDetail(req)
+    const mutation = updateTicketDetail(req)
     registry.mount(view)
-    registry.mount(updateTicketDetail(req))
+    registry.mount(mutation)
     try {
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({
@@ -131,18 +133,23 @@ describe("ticket detail optimistic update", () => {
     }
   })
 
-  it("stacks two rapid edits", async () => {
-    const pending: Array<(r: Response) => void> = []
-    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+  it("does not carry a failed patch into a later edit", async () => {
+    const payloads: Array<unknown> = []
+    fetchStub.set(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
-        return new Promise<Response>((resolve) => pending.push(resolve))
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        payloads.push(await request.json())
+        if (payloads.length === 1) return new Response("nope", { status: 500 })
+        return Response.json(encodeUpdate({ ...ticket, title: "After" }))
       }
-      return Promise.resolve(Response.json(encode(ticket)))
+      return Response.json(encode(ticket))
     })
     const registry = AtomRegistry.make()
     const view = ticketDetail(req)
+    const mutation = updateTicketDetail(req)
     registry.mount(view)
-    registry.mount(updateTicketDetail(req))
+    registry.mount(mutation)
     try {
       await vi.waitFor(() =>
         expect(registry.get(view)).toMatchObject({
@@ -150,8 +157,61 @@ describe("ticket detail optimistic update", () => {
           waiting: false
         })
       )
-      registry.set(updateTicketDetail(req), { priority: "high" })
-      registry.set(updateTicketDetail(req), { type: "bug" })
+      registry.set(mutation, { priority: "high" })
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      registry.set(mutation, { title: "After" })
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      expect(payloads).toEqual([{ priority: "high" }, { title: "After" }])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("stacks two rapid edits", async () => {
+    const payloads: Array<unknown> = []
+    let served: TicketDetail = ticket
+    const confirmed = {
+      ...ticket,
+      priority: "high" as const,
+      type: "bug" as const
+    }
+    fetchStub.set(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        const payload = Schema.decodeUnknownSync(UpdateTicketInput)(
+          await request.json()
+        )
+        payloads.push(payload)
+        if (payload.type !== undefined) {
+          served = confirmed
+          return Response.json(encodeUpdate(confirmed))
+        }
+        return new Promise<Response>(() => {})
+      }
+      return Promise.resolve(Response.json(encode(served)))
+    })
+    const registry = AtomRegistry.make()
+    const view = ticketDetail(req)
+    const mutation = updateTicketDetail(req)
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { priority: "high" })
+      registry.set(mutation, { type: "bug" })
+      expect(registry.get(view)).toMatchObject({
+        value: { priority: "high", type: "bug" }
+      })
+      await vi.waitFor(() =>
+        expect(payloads).toContainEqual({ priority: "high", type: "bug" })
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
       expect(registry.get(view)).toMatchObject({
         value: { priority: "high", type: "bug" }
       })
@@ -266,12 +326,16 @@ describe("ticket detail invalidation keys", () => {
     }
   })
 
-  it("publishes only the updated query for a body-only edit", async () => {
+  it("publishes the ticket list and updated query for a body-only edit", async () => {
     const { registry, publishedBy } = await setup()
     try {
-      const published = await publishedBy({ body: "After" }, ["updatedQuery"])
-      expect(published).toEqual(new Set<ProbeName>(["updatedQuery"]))
-      expect(published.has("ticketsIn")).toBe(false)
+      const published = await publishedBy({ body: "After" }, [
+        "ticketsIn",
+        "updatedQuery"
+      ])
+      expect(published).toEqual(
+        new Set<ProbeName>(["ticketsIn", "updatedQuery"])
+      )
       expect(published.has("titleQuery")).toBe(false)
       expect(published.has("self")).toBe(false)
     } finally {

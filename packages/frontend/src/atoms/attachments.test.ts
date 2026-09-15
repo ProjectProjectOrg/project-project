@@ -163,14 +163,17 @@ it("updates the attachment list and summary in the same delete tick", async () =
   })
 
   const req = orgAttachmentsRequest("org", { page: 1 })
+  const siblingReq = orgAttachmentsRequest("org", { page: 2 })
   const registry = Registry.make()
   const list = orgAttachments(req)
+  const sibling = orgAttachments(siblingReq)
   const summary = orgAttachmentsSummary(req)
   const remove = deleteOrgAttachments({
     req,
     attachmentIds: [attachment.id]
   })
   registry.mount(list)
+  registry.mount(sibling)
   registry.mount(summary)
   registry.mount(remove)
 
@@ -203,7 +206,104 @@ it("updates the attachment list and summary in the same delete tick", async () =
         waiting: false,
         value: { count: 0, bytes: 0 }
       })
+      expect(registry.get(sibling)).toMatchObject({
+        waiting: false,
+        value: { total: 0, items: [] }
+      })
     })
+  } finally {
+    registry.dispose()
+  }
+})
+
+it("reconciles partial deletion failure across cached views", async () => {
+  const first = {
+    id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    url: "https://storage.test/one.png",
+    filename: "one.png",
+    contentType: "image/png",
+    byteSize: 4,
+    status: "orphaned",
+    uploadedBy: "user-1",
+    createdAt: "2026-09-09T00:00:00.000Z",
+    projectSlug: "project",
+    ticketId: "T-1",
+    tickets: []
+  }
+  const second = {
+    ...first,
+    id: "01ARZ3NDEKTSV4RRFFQ69G5FB",
+    filename: "two.png"
+  }
+  let listFetches = 0
+  let remaining = [first, second]
+  fetchStub.set(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const path = new URL(request.url, "http://localhost").pathname
+    if (request.method === "DELETE") {
+      if (path.endsWith(first.id)) {
+        remaining = [second]
+        return new Response(null, { status: 204 })
+      }
+      return new Response("nope", { status: 500 })
+    }
+    if (path.endsWith("/summary")) {
+      return Response.json({
+        count: remaining.length,
+        bytes: remaining.reduce(
+          (total, attachment) => total + attachment.byteSize,
+          0
+        ),
+        byStatus: [
+          {
+            status: "orphaned",
+            count: remaining.length,
+            bytes: remaining.length * 4
+          }
+        ]
+      })
+    }
+    listFetches++
+    return Response.json({ total: remaining.length, items: remaining })
+  })
+  const req = orgAttachmentsRequest("org", { page: 1 })
+  const siblingReq = orgAttachmentsRequest("org", { page: 2 })
+  const registry = Registry.make()
+  const list = orgAttachments(req)
+  const sibling = orgAttachments(siblingReq)
+  const summary = orgAttachmentsSummary(req)
+  const remove = deleteOrgAttachments({
+    req,
+    attachmentIds: [first.id, second.id]
+  })
+  registry.mount(list)
+  registry.mount(sibling)
+  registry.mount(summary)
+  registry.mount(remove)
+  try {
+    await vi.waitFor(() =>
+      expect(registry.get(list)).toMatchObject({ value: { total: 2 } })
+    )
+    await vi.waitFor(() =>
+      expect(registry.get(sibling)).toMatchObject({ value: { total: 2 } })
+    )
+    registry.set(remove, undefined)
+    expect(registry.get(list)).toMatchObject({
+      waiting: true,
+      value: { total: 0, items: [] }
+    })
+    await vi.waitFor(() => expect(registry.get(remove).waiting).toBe(false))
+    expect(registry.get(remove)).toMatchObject({ _tag: "Failure" })
+    expect(registry.get(list)).toMatchObject({
+      value: { total: 1, items: [{ id: second.id }] }
+    })
+    expect(registry.get(summary)).toMatchObject({
+      value: { count: 1, bytes: 4 }
+    })
+    expect(registry.get(sibling)).toMatchObject({
+      value: { total: 1, items: [{ id: second.id }] }
+    })
+    expect(listFetches).toBeGreaterThan(1)
   } finally {
     registry.dispose()
   }

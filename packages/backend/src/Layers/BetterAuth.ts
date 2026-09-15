@@ -1,7 +1,9 @@
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as DateTime from "effect/DateTime"
+import { APIError } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, isNull } from "drizzle-orm"
 import { auth } from "../auth"
 import * as schema from "../db/schema"
 import { member, oauthClient, organization, user } from "../db/schema"
@@ -99,12 +101,14 @@ export const BetterAuthLive = Layer.effect(
       Effect.gen(function* () {
         const full = yield* attempt(() =>
           auth.api.getFullOrganization({
+            asResponse: false,
             query: { organizationSlug: orgSlug },
             headers: request.headers,
             request
           })
         )
         if (!full) return yield* new NotFound()
+        const now = DateTime.toDate(yield* DateTime.now)
         return {
           members: full.members.map((row) => ({
             userId: row.userId,
@@ -113,8 +117,67 @@ export const BetterAuthLive = Layer.effect(
             email: row.user.email,
             image: row.user.image ?? null
           })),
-          invitations: pendingInvitations(full.invitations)
+          invitations: pendingInvitations(
+            full.invitations.filter((invitation) => invitation.expiresAt > now)
+          )
         } satisfies OrgMembers
+      })
+
+    const transferRoles = (
+      orgSlug: string,
+      toUserId: string,
+      selfUserId: string
+    ) =>
+      attempt(async () => {
+        if (toUserId === selfUserId) return "invalid" as const
+
+        return db.transaction(async (tx) => {
+          const rows = await tx
+            .select({
+              organizationId: organization.id,
+              userId: member.userId,
+              role: member.role
+            })
+            .from(organization)
+            .innerJoin(member, eq(member.organizationId, organization.id))
+            .where(
+              and(
+                eq(organization.slug, orgSlug),
+                isNull(organization.deletedAt),
+                inArray(member.userId, [selfUserId, toUserId])
+              )
+            )
+            .for("update")
+
+          const organizationId = rows[0]?.organizationId
+          const self = rows.find((row) => row.userId === selfUserId)
+          const target = rows.find((row) => row.userId === toUserId)
+
+          if (!organizationId || !self || !target) return "not_found" as const
+          if (collapseRole(self.role) !== "owner") return "forbidden" as const
+          if (collapseRole(target.role) !== "admin") return "invalid" as const
+
+          await tx
+            .update(member)
+            .set({ role: "owner" })
+            .where(
+              and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, toUserId)
+              )
+            )
+          await tx
+            .update(member)
+            .set({ role: "admin" })
+            .where(
+              and(
+                eq(member.organizationId, organizationId),
+                eq(member.userId, selfUserId)
+              )
+            )
+
+          return "ok" as const
+        })
       })
 
     const setRole = (
@@ -398,8 +461,50 @@ export const BetterAuthLive = Layer.effect(
         }),
       transferOwnership: (request, orgSlug, toUserId, selfUserId) =>
         Effect.gen(function* () {
-          yield* setRole(request, orgSlug, toUserId, "owner")
-          yield* setRole(request, orgSlug, selfUserId, "admin")
+          const session = yield* attempt(() =>
+            auth.api.getSession({
+              asResponse: false,
+              headers: request.headers,
+              request
+            })
+          )
+          if (!session || session.user.id !== selfUserId) {
+            return yield* new BetterAuthError({
+              cause: new APIError("FORBIDDEN", {
+                code: "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER",
+                message: "The transfer caller does not match the session"
+              })
+            })
+          }
+          const authorization = yield* attempt(() =>
+            auth.api.getFullOrganization({
+              asResponse: false,
+              query: { organizationSlug: orgSlug },
+              headers: request.headers,
+              request
+            })
+          )
+          if (!authorization) return yield* new NotFound()
+
+          const state = yield* transferRoles(orgSlug, toUserId, selfUserId)
+          if (state === "not_found") return yield* new NotFound()
+          if (state === "forbidden") {
+            return yield* new BetterAuthError({
+              cause: new APIError("FORBIDDEN", {
+                code: "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER",
+                message: "Only an organization owner can transfer ownership"
+              })
+            })
+          }
+          if (state === "invalid") {
+            return yield* new BetterAuthError({
+              cause: new APIError("BAD_REQUEST", {
+                code: "ROLE_NOT_FOUND",
+                message:
+                  "Ownership can only be transferred to an organization admin"
+              })
+            })
+          }
           return yield* readMembers(request, orgSlug)
         }),
       leaveOrg: (request, orgSlug) =>
@@ -417,13 +522,18 @@ export const BetterAuthLive = Layer.effect(
         Effect.gen(function* () {
           const invitations = yield* attempt(() =>
             auth.api.listUserInvitations({
+              asResponse: false,
               headers: request.headers,
               request
             })
           )
-          if (invitations.length === 0) return []
-          const orgIds = [...new Set(invitations.map((i) => i.organizationId))]
-          const inviterIds = [...new Set(invitations.map((i) => i.inviterId))]
+          const now = DateTime.toDate(yield* DateTime.now)
+          const actionable = invitations.filter(
+            (invitation) => invitation.expiresAt > now
+          )
+          if (actionable.length === 0) return []
+          const orgIds = [...new Set(actionable.map((i) => i.organizationId))]
+          const inviterIds = [...new Set(actionable.map((i) => i.inviterId))]
           const orgs = yield* attempt(() =>
             db
               .select({
@@ -442,7 +552,7 @@ export const BetterAuthLive = Layer.effect(
           )
           const orgById = new Map(orgs.map((o) => [o.id, o]))
           const inviterById = new Map(inviters.map((u) => [u.id, u.email]))
-          return invitations.flatMap((i) => {
+          return actionable.flatMap((i) => {
             const org = orgById.get(i.organizationId)
             if (!org) return []
             return [

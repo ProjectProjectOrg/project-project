@@ -303,6 +303,10 @@ export const deleteOrgAttachments = Atom.family(
                   })
                 ),
               { concurrency: 4 }
+            ).pipe(
+              Effect.ensuring(
+                Reactivity.invalidate([Keys.attachments(req.params.orgSlug)])
+              )
             )
             set(
               AsyncResult.map(get(orgAttachmentsRegion(req)), (value) => value)

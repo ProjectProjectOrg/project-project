@@ -10,7 +10,9 @@ import {
   Ticket,
   TicketDetail,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  TicketUpdateResult,
+  UpdateTicketInput
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import {
@@ -65,7 +67,8 @@ const group: Group = {
 
 const encodeGroup = Schema.encodeSync(GroupDetail)
 const encodeTicket = Schema.encodeSync(Ticket)
-const encodeTicketDetail = Schema.encodeSync(TicketDetail)
+const encodeTicketUpdate = (ticket: TicketDetail) =>
+  Schema.encodeSync(TicketUpdateResult)({ ticket, orderKey: null })
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 const asTicketDetail = (t: Ticket): TicketDetail => ({ ...t, body: "" })
 
@@ -446,10 +449,71 @@ describe("updateBoardTicket", () => {
 
       finishPatch(
         Response.json(
-          encodeTicketDetail(asTicketDetail({ ...ticketA, title: "Renamed" }))
+          encodeTicketUpdate(asTicketDetail({ ...ticketA, title: "Renamed" }))
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("merges rapid card edits into the successor request", async () => {
+    const payloads: Array<unknown> = []
+    let served = ticketA
+    const confirmed = { ...ticketA, title: "Renamed", type: "bug" as const }
+    fetchStub.set(async (input, init) => {
+      const request =
+        input instanceof Request ? input : new Request(input, init)
+      if (request.method === "PATCH") {
+        const payload = Schema.decodeUnknownSync(UpdateTicketInput)(
+          await request.json()
+        )
+        payloads.push(payload)
+        if (payload.type !== undefined) {
+          served = confirmed
+          return Response.json(encodeTicketUpdate(asTicketDetail(confirmed)))
+        }
+        return new Promise<Response>(() => {})
+      }
+      if (request.url.endsWith("/tickets")) {
+        return Response.json([encodeTicket(served), encodeTicket(ticketB)])
+      }
+      return Response.json(encodeGroup(asGroupDetail(group)))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintBoard(req)
+    const mutation = updateBoardTicket({ req, id: ticketAId })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { title: "Renamed" })
+      registry.set(mutation, { type: "bug" })
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) throw new Error("not ready")
+      expect(optimistic.value.tickets[0]).toMatchObject({
+        title: "Renamed",
+        type: "bug"
+      })
+      await vi.waitFor(() =>
+        expect(payloads).toContainEqual({ title: "Renamed", type: "bug" })
+      )
+      await vi.waitFor(() => {
+        expect(registry.get(mutation)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(registry.get(view)).toMatchObject({
+          waiting: false,
+          value: { tickets: [confirmed, ticketB] }
+        })
+      })
     } finally {
       registry.dispose()
     }

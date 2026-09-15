@@ -1,7 +1,7 @@
 # Native atom data layer — design
 
-Status: proposed, 2026-09-11. Supersedes the optimistic-mutation section of
-`AGENTS.md` and extends `docs/data-fetching-policy.md` once accepted.
+Status: implemented, 2026-09-11; review corrections applied 2026-09-15.
+The conventions are recorded in `AGENTS.md` and `docs/data-fetching-policy.md`.
 
 ## Problem
 
@@ -41,7 +41,7 @@ it, and never flickers back. Components render the value they are given and
 call a mutation with the API payload. One convention covers all seventeen
 modules. Nothing is invented on top of Effect Atom: the design uses
 `AtomHttpApi.Service`, `Atom.optimistic`, `Atom.optimisticFn`, `Atom.mapResult`,
-`Atom.readable` with a refresh function, and record-form reactivity keys.
+`Atom.readable` with a refresh function, and array-form reactivity keys.
 
 ## Decision
 
@@ -141,9 +141,10 @@ other correctly while the migration is in progress.
 Queries declare the keys they listen to at definition. Mutations declare the
 keys they publish inside the atom module. Components never see a key.
 
-**A mutation publishes only keys that other views registered.** Publishing a key
-its own view's query listens to causes that view to refetch twice per edit,
-because the optimistic wrapper already refreshes its own source on commit.
+**A mutation publishes keys for every affected view.** Avoid redundant
+self-invalidation where possible, but publish shared keys when sibling views need
+them. For composed views, invalidate each source whose data changed; refreshing
+ticket content alone does not refresh the group that supplies membership/order.
 
 ### 3. Reads are wrappers over their own query
 
@@ -152,10 +153,10 @@ the key; there are no string keys and no key parsers.
 
 ```ts
 // packages/frontend/src/atoms/tickets/backlog.ts
-export interface BacklogRequest {
-  readonly params: { orgSlug: string; slug: string }
-  readonly query: TicketListSearch          // encoded TicketListQuery
-}
+export type BacklogRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; slug: string }>
+  query: TicketListQuery
+}>
 
 const backlogQuery = (req: BacklogRequest) =>
   Api.query("tickets", "sections", {
@@ -187,23 +188,26 @@ holds as one unit.
 ```ts
 const boardView = (req: BoardRequest) =>
   Atom.readable(
-    (get) => combineResults(get(sprintQuery(req)), get(sprintTicketsQuery(req)), toBoard),
+    (get) => AsyncResult.map(
+      AsyncResult.all([get(sprintQuery(req)), get(sprintTicketsQuery(req))]),
+      ([sprint, tickets]) => toBoard(sprint, tickets)
+    ),
     (refresh) => { refresh(sprintQuery(req)); refresh(sprintTicketsQuery(req)) }
   )
 
 export const board = Atom.family((req: BoardRequest) => Atom.optimistic(boardView(req)))
 ```
 
-`combineResults` is a small pure helper in `src/atoms/lib/results.ts`: Success
-only when all inputs are Success, `waiting` if any input is waiting, timestamp
-is the maximum, first Failure wins. It is a derived-read helper, not an
-optimistic layer.
+`AsyncResult.all` composes required sources and propagates their waiting state;
+`AsyncResult.map` preserves result metadata. No custom result-composition helper
+is needed. A paginated region handles page failures separately so existing rows
+stay visible while the failed page exposes retry.
 
 The same pattern serves pagination. Cursor pages are their own `Api.query`
-atoms, a small state atom per request lists the loaded cursors, the section
-readable concatenates first page plus loaded pages, and its refresh forwards to
-all of them. Loaded pages therefore survive a commit refresh and the whole
-section holds as one wrapper.
+atoms, a small state atom per request records loaded depth, and the section
+readable follows the latest cursor from each preceding page. Refreshing must
+rebuild that chain when an edit changes a page boundary. Loaded depth survives
+a commit refresh and the whole section holds as one wrapper.
 
 ### 5. Mutations are per view, per entity, payload only
 
@@ -216,12 +220,18 @@ export const updateBacklogTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const ticket = yield* Api.use((c) =>
-              c.tickets.update({ params: { ...req.params, id }, payload: patch })
+            const { ticket } = yield* Api.use((c) =>
+              c.tickets.update({
+                params: { ...req.params, id },
+                query: { sort: req.query.sort },
+                payload: patch
+              })
             )
             set(Result.map(get(backlog(req)), (s) => replaceTicket(s, ticket)))
             yield* Reactivity.invalidate([
               Keys.ticket(project(req), id),
+              Keys.ticketsIn(project(req)),
+              Keys.ticketPages(project(req)),
               Keys.ticketLists(project(req))
             ])
             return ticket
@@ -243,8 +253,9 @@ Rules:
   to hold the transition open. `Api.mutation(group, endpoint)` may be used as
   `fn` directly when no `set` is needed, wrapped so that keys are bound in the
   module rather than at the call site.
-- Coalescing of rapid edits on one row, today's `unsaved` merge, stays inside
-  `fn` as an implementation detail of the ticket update mutation.
+- Coalescing of rapid edits on one row stays inside the mutation. A replacement
+  request includes the prior request's unconfirmed fields. Bookkeeping is scoped
+  to the registry and affected resource and never feeds a separate UI overlay.
 
 Commit refresh plus key invalidation can restart the local view's fetch once.
 Effect Atom cancels and restarts the in-flight read, so this costs latency

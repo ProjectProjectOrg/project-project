@@ -90,8 +90,9 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   const sections = requests.find((url) => url.pathname.endsWith("/sections"))
   expect(sections?.searchParams.get("q")).toBe("search")
   expect(sections?.searchParams.has("status")).toBe(false)
-  expect(sections?.searchParams.get("sort[key]")).toBe("title")
-  expect(sections?.searchParams.get("sort[dir]")).toBe("desc")
+  expect(sections?.searchParams.get("sort")).toBe(
+    '{"key":"title","dir":"desc"}'
+  )
   expect(requests.map((url) => url.pathname)).toContain(
     "/api/orgs/org/projects/project/statuses"
   )

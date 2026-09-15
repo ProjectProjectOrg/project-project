@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -62,12 +63,16 @@ const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
       Keys.ticketPages(scope)
     ]
   }
-  const keys = [Keys.ticketUpdatedQuery(scope)]
+  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
   if (patch.title !== undefined) {
-    keys.push(Keys.ticketsIn(scope), Keys.ticketTitleQuery(scope))
+    keys.push(Keys.ticketTitleQuery(scope))
   }
   return keys
 }
+
+const unsavedTicketPatch = Atom.family((_req: TicketRequest) =>
+  Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
+)
 
 export const updateTicketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimisticFn(ticketDetail(req), {
@@ -77,17 +82,28 @@ export const updateTicketDetail = Atom.family((req: TicketRequest) =>
       ),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (patch: UpdateTicketInput) {
-          const { ticket: updated } = yield* Api.use((client) =>
-            client.tickets.update({
-              params: req.params,
-              query: {},
-              payload: patch
-            })
+        Effect.fn(function* (patch: UpdateTicketInput, get) {
+          const unsaved = unsavedTicketPatch(req)
+          const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
+          get.set(unsaved, payload)
+          const { ticket: updated } = yield* Effect.catchCause(
+            Api.use((client) =>
+              client.tickets.update({
+                params: req.params,
+                query: {},
+                payload
+              })
+            ),
+            (cause) => {
+              if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
+                get.set(unsaved, {})
+              }
+              return Effect.failCause(cause)
+            }
           )
-          // Show the confirmed server value before the refetch resolves.
+          if (get(unsaved) === payload) get.set(unsaved, {})
           set(AsyncResult.success(updated))
-          yield* Reactivity.invalidate(publishFor(req, patch))
+          yield* Reactivity.invalidate(publishFor(req, payload))
           return updated
         })
       )

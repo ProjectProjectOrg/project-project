@@ -1,4 +1,5 @@
 import * as DateTime from "effect/DateTime"
+import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -14,10 +15,13 @@ import {
   TicketListQuery,
   type TicketSort,
   type TicketStatus,
+  type Unauthorized,
+  type NotFound,
   type UpdateTicketInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { compareCodePoints } from "@/lib/orderKey"
 import { PRIORITY_META } from "@/lib/priority-meta"
 import { applyTicketPatch } from "./ticketPatch"
 
@@ -55,7 +59,7 @@ export type BacklogRow = Readonly<{
   ticket: Ticket
   /** React key. Equals the ticket id except for rows created in this session. */
   key: string
-  /** The server's opaque sort position. `null` for a row the server has not seen. */
+  /** Server sort position, or the matching local position while an edit is pending. */
   orderKey: string | null
   pending: boolean
 }>
@@ -85,9 +89,8 @@ const sectionsQuery = (req: BacklogRequest) =>
     reactivityKeys: [Keys.ticketsIn(scopeOf(req))]
   })
 
-/** Cursors the user has loaded, per status. Client view state, not cache. */
 const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
-  Atom.make<Readonly<Record<string, ReadonlyArray<string>>>>({}).pipe(
+  Atom.make<Readonly<Record<string, number>>>({}).pipe(
     Atom.setIdleTTL("2 minutes")
   )
 )
@@ -140,12 +143,13 @@ const backlogView = (req: BacklogRequest) =>
       for (const [status, page] of Object.entries(base.value.sections)) {
         const rows: Array<BacklogRow> = page.items.map(toRow)
         let nextCursor = page.nextCursor
-        for (const cursor of loaded[status] ?? []) {
+        const depth = loaded[status] ?? 0
+        for (let index = 0; index < depth; index++) {
+          if (nextCursor === null) break
+          const cursor = nextCursor
           const result = get(pageQuery(req, status, cursor))
           parts.push(result)
-          // A failed page keeps its cursor so the user can retry; it must not
-          // fail the whole section.
-          if (!AsyncResult.isSuccess(result)) continue
+          if (!AsyncResult.isSuccess(result)) break
           for (const item of result.value.items) rows.push(toRow(item))
           nextCursor = result.value.nextCursor
         }
@@ -182,17 +186,49 @@ export const loadMoreBacklog = Atom.family(
     status: string
   }>) =>
     Api.runtime.fn((_input: void, get: Atom.FnContext) =>
-      Effect.sync(() => {
+      Effect.gen(function* () {
         const current = get(backlog(req))
-        if (!AsyncResult.isSuccess(current)) return
+        if (!AsyncResult.isSuccess(current)) return yield* Effect.void
         const cursor = current.value.sections[status]?.nextCursor
-        if (!cursor) return
+        if (!cursor) return yield* Effect.void
         const loaded = get(loadedPagesAtom(req))
-        const cursors = loaded[status] ?? []
-        if (cursors.includes(cursor)) return
-        get.set(loadedPagesAtom(req), {
-          ...loaded,
-          [status]: [...cursors, cursor]
+        const depth = loaded[status] ?? 0
+        const base = get(sectionsQuery(req))
+        if (!AsyncResult.isSuccess(base)) return yield* Effect.void
+        let pageCursor: string | null =
+          base.value.sections[status as TicketStatus]?.nextCursor ?? null
+        for (let index = 0; index < depth; index++) {
+          if (pageCursor === null) break
+          const page = pageQuery(req, status, pageCursor)
+          if (pageCursor === cursor) {
+            return yield* Effect.callback<unknown, NotFound | Unauthorized>(
+              (resume) => {
+                let cancel: (() => void) | undefined
+                cancel = get.registry.subscribe(
+                  page,
+                  (result) => {
+                    if (result._tag === "Success" && !result.waiting) {
+                      cancel?.()
+                      resume(Effect.succeed(result.value))
+                    } else if (result._tag === "Failure" && !result.waiting) {
+                      cancel?.()
+                      resume(Effect.failCause(result.cause))
+                    }
+                  },
+                  { immediate: false }
+                )
+                get.refresh(page)
+                return Effect.sync(() => cancel?.())
+              }
+            )
+          }
+          const result = get(page)
+          if (!AsyncResult.isSuccess(result)) return yield* Effect.void
+          pageCursor = result.value.nextCursor
+        }
+        get.set(loadedPagesAtom(req), { ...loaded, [status]: depth + 1 })
+        return yield* get.result(pageQuery(req, status, cursor), {
+          suspendOnWaiting: true
         })
       })
     )
@@ -212,57 +248,9 @@ const insertByOrderKey = (
     const candidate = items[middle]!.orderKey
     const sortsBefore =
       candidate === null ||
-      (dir === "asc" ? candidate < orderKey : candidate > orderKey)
-    if (sortsBefore) low = middle + 1
-    else high = middle
-  }
-  return [...items.slice(0, low), row, ...items.slice(low)]
-}
-
-const compareStrings = (left: string, right: string): number =>
-  left < right ? -1 : left > right ? 1 : 0
-
-const compareSortField: Readonly<
-  Record<TicketSort["key"], (left: Ticket, right: Ticket) => number>
-> = {
-  id: (left, right) =>
-    compareStrings(
-      padNumericIdSort(left.id) ?? left.id,
-      padNumericIdSort(right.id) ?? right.id
-    ),
-  created: (left, right) =>
-    left.createdAt.getTime() - right.createdAt.getTime(),
-  updated: (left, right) =>
-    left.updatedAt.getTime() - right.updatedAt.getTime(),
-  title: (left, right) =>
-    compareStrings(left.title.toLowerCase(), right.title.toLowerCase()),
-  priority: (left, right) =>
-    PRIORITY_META[left.priority].ordinal - PRIORITY_META[right.priority].ordinal
-}
-
-const compareTickets = (
-  left: Ticket,
-  right: Ticket,
-  key: TicketSort["key"]
-): number => {
-  const primary = compareSortField[key](left, right)
-  return primary === 0 ? compareStrings(left.id, right.id) : primary
-}
-
-const insertByFieldValue = (
-  items: ReadonlyArray<BacklogRow>,
-  row: BacklogRow,
-  sort: TicketSort
-): ReadonlyArray<BacklogRow> => {
-  let low = 0
-  let high = items.length
-  while (low < high) {
-    const middle = (low + high) >>> 1
-    const candidate = items[middle]!
-    const order = compareTickets(candidate.ticket, row.ticket, sort.key)
-    const sortsBefore =
-      candidate.orderKey === null ||
-      (sort.dir === "asc" ? order < 0 : order > 0)
+      (dir === "asc"
+        ? compareCodePoints(candidate, orderKey) < 0
+        : compareCodePoints(candidate, orderKey) > 0)
     if (sortsBefore) low = middle + 1
     else high = middle
   }
@@ -278,18 +266,29 @@ const patchesSortedField = (
   return false
 }
 
-const insertRow = (
-  items: ReadonlyArray<BacklogRow>,
-  row: BacklogRow,
-  sort: TicketSort,
-  byFieldValue: boolean
-): ReadonlyArray<BacklogRow> => {
-  if (sort.key === "updated") {
-    return sort.dir === "desc" ? [row, ...items] : [...items, row]
+const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
+  let value: string
+  switch (sort.key) {
+    case "id":
+      value = padNumericIdSort(ticket.id) ?? ticket.id
+      break
+    case "created":
+      value = ticket.createdAt.toISOString()
+      break
+    case "updated":
+      value = ticket.updatedAt.toISOString()
+      break
+    case "title":
+      value = ticket.title.toLowerCase()
+      break
+    case "priority":
+      value = String(PRIORITY_META[ticket.priority].ordinal + 1).padStart(
+        2,
+        "0"
+      )
+      break
   }
-  return byFieldValue
-    ? insertByFieldValue(items, row, sort)
-    : insertByOrderKey(items, row, sort.dir)
+  return `${value}\u0000${ticket.id}`
 }
 
 const patchRow = (
@@ -314,6 +313,9 @@ const patchRow = (
         ...row,
         ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now }
       }
+      if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
+        patched = { ...patched, orderKey: localOrderKey(patched.ticket, sort) }
+      }
       from = status as TicketStatus
     }
     sections[status] = { ...section, items }
@@ -325,12 +327,7 @@ const patchRow = (
   const target = sections[to] ?? { items: [], nextCursor: null }
   sections[to] = {
     ...target,
-    items: insertRow(
-      target.items,
-      patched,
-      sort,
-      patchesSortedField(patch, sort.key)
-    )
+    items: insertByOrderKey(target.items, patched, sort.dir)
   }
 
   if (to === from) return { ...value, sections }
@@ -374,6 +371,11 @@ const replaceRow = (
   return { ...value, sections }
 }
 
+const unsavedPatchAtom = Atom.family(
+  (_key: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+    Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("2 minutes"))
+)
+
 export const updateBacklogTicket = Atom.family(
   ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
     Atom.optimisticFn(backlog(req), {
@@ -390,25 +392,39 @@ export const updateBacklogTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const { ticket: updated, orderKey } = yield* Api.use((client) =>
-              client.tickets.update({
-                params: { ...req.params, id },
-                query: { sort: req.query.sort },
-                payload: patch
-              })
+            const unsaved = unsavedPatchAtom({ req, id })
+            const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
+            get.set(unsaved, payload)
+            const { ticket: updated, orderKey } = yield* Effect.catchCause(
+              Api.use((client) =>
+                client.tickets.update({
+                  params: { ...req.params, id },
+                  query: { sort: req.query.sort },
+                  payload
+                })
+              ),
+              (cause) => {
+                if (
+                  !Cause.hasInterruptsOnly(cause) &&
+                  get(unsaved) === payload
+                ) {
+                  get.set(unsaved, {})
+                }
+                return Effect.failCause(cause)
+              }
             )
             set(
               AsyncResult.map(get(backlog(req)), (value) =>
                 replaceRow(value, updated, orderKey, req.query.sort)
               )
             )
-            // Only keys other views listen to. `ticketsIn` is registered by
-            // this view's own query, so publishing it here would refetch twice.
             yield* Reactivity.invalidate([
+              Keys.ticketsIn(scopeOf(req)),
               Keys.ticket(scopeOf(req), id),
               Keys.ticketLists(scopeOf(req)),
               Keys.ticketPages(scopeOf(req))
             ])
+            if (get(unsaved) === payload) get.set(unsaved, {})
             return updated
           })
         )
@@ -507,6 +523,7 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
         const index = createdKeysAtom(scopeOf(req))
         get.set(index, new Map(get(index)).set(created.id, input.clientId))
         yield* Reactivity.invalidate([
+          Keys.ticketsIn(scopeOf(req)),
           Keys.ticketLists(scopeOf(req)),
           Keys.ticketPages(scopeOf(req))
         ])
