@@ -2,6 +2,7 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type {
   CompleteSprintInput,
+  CompleteSprintOutput,
   CreateGroupInput,
   CursorPayload,
   Forbidden,
@@ -107,7 +108,7 @@ export interface GroupsShape {
     id: string,
     input: CompleteSprintInput
   ) => Effect.Effect<
-    GroupDetail,
+    CompleteSprintOutput,
     NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
   >
   readonly remove: (

@@ -6,6 +6,7 @@ import * as Semaphore from "effect/Semaphore"
 import {
   ADMIN_GATED_KINDS,
   CompleteSprintInput,
+  type CompleteSprintOutput,
   CreateGroupInput,
   Forbidden,
   Group,
@@ -634,7 +635,7 @@ export const GroupsLive = Layer.effect(
       id: string,
       input: CompleteSprintInput
     ): Effect.Effect<
-      GroupDetail,
+      CompleteSprintOutput,
       | NotFound
       | Forbidden
       | SprintCompletedImmutable
@@ -716,7 +717,7 @@ export const GroupsLive = Layer.effect(
             updatedAt: now
           }
           yield* groupDocs.write(orgSlug, slug, id, nextSource)
-          return nextSource
+          return { target: nextSource, stayed: stay, carried: carry }
         })
       )
 

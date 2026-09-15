@@ -632,8 +632,10 @@ it.effect(
         destination: { kind: "backlog" }
       })
 
-      expect(result.completedAt).not.toBeNull()
-      expect(result.tickets).toEqual(["T-2"])
+      expect(result.target.completedAt).not.toBeNull()
+      expect(result.target.tickets).toEqual(["T-2"])
+      expect(result.stayed).toEqual(["T-2"])
+      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
     }).pipe(
       Effect.provide(
         makeGroupsLayer(
@@ -672,9 +674,12 @@ it.effect(
         tickets: [ticketId("T-3"), ticketId("T-4")]
       })
 
-      yield* groups.complete("org", "user-1", "p", source.id, {
+      const result = yield* groups.complete("org", "user-1", "p", source.id, {
         destination: { kind: "sprint", groupId: dest.id }
       })
+
+      expect(result.stayed).toEqual(["T-2"])
+      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
 
       const sourceAfter = yield* groups.get("org", "user-1", "p", source.id)
       expect(sourceAfter.tickets).toEqual(["T-2"])

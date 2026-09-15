@@ -767,8 +767,12 @@ describe("MCP dispatcher → sprint writes", () => {
           return Effect.fail(new SprintCompletedImmutable())
         }
         return Effect.succeed({
-          ...baseGroup({ id, kind: options.kind }),
-          completedAt: isoDate("2026-05-13T00:00:00.000Z")
+          target: {
+            ...baseGroup({ id, kind: options.kind }),
+            completedAt: isoDate("2026-05-13T00:00:00.000Z")
+          },
+          stayed: [],
+          carried: []
         })
       }
     } as any)

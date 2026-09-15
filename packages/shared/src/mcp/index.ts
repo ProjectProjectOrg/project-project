@@ -29,6 +29,7 @@ import { Org } from "../schemas/Org"
 import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import {
   CompleteSprintInput,
+  CompleteSprintOutput,
   CreateGroupInput,
   Group,
   GroupDetail,
@@ -428,14 +429,15 @@ export const McpTools = {
       "`{ kind: 'sprint', groupId: <G-N> }` (move carryover to another " +
       "sprint) or `{ kind: 'backlog' }` (drop carryover off all sprints). " +
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
-      "Returns the now-completed sprint.",
+      "Returns the now-completed sprint plus the `stayed` and `carried` " +
+      "ticket id partitions the server computed.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
       id: GroupId,
       ...CompleteSprintInput.fields
     }),
-    output: GroupDetail,
+    output: CompleteSprintOutput,
     errors: [
       Unauthorized,
       NotFound,

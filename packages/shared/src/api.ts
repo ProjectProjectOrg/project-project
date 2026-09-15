@@ -105,6 +105,7 @@ import {
 } from "./schemas/Figma"
 import {
   CompleteSprintInput,
+  CompleteSprintOutput,
   CreateGroupInput,
   Group,
   GroupDetail,
@@ -1479,7 +1480,7 @@ const GroupsGroup = HttpApiGroup.make("groups")
       {
         params: GroupPath,
         payload: CompleteSprintInput,
-        success: GroupDetail,
+        success: CompleteSprintOutput,
         error: [
           Unauthorized,
           NotFound,
