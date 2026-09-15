@@ -24,6 +24,7 @@ import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projec
 import { Route as TicketRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
 import { backlogRequest } from "@/atoms/backlog"
 import { boardRequest } from "@/atoms/sprintBoard"
+import { stubFetch } from "@/api/testFetch"
 import { Row } from "./TicketList/Row"
 import { SprintBoardCard } from "./sprints/SprintBoardCard"
 
@@ -46,15 +47,12 @@ function load<A, R>(
   return loader(args as A)
 }
 
-// `FetchHttpClient.Fetch` memoises `globalThis.fetch` on first read (see api/testFetch.ts); one dispatcher for the file, tests swap the handler behind it.
-let fetchHandler: (input: RequestInfo | URL) => Promise<Response> = () =>
-  new Promise<Response>(() => {})
-vi.stubGlobal("fetch", (input: RequestInfo | URL) => fetchHandler(input))
+const fetchStub = stubFetch()
 
 beforeEach(() => {
   registry = Registry.make()
   requests = []
-  fetchHandler = (input: RequestInfo | URL) => {
+  fetchStub.set((input) => {
     requests.push(
       new URL(
         input instanceof Request ? input.url : String(input),
@@ -62,7 +60,7 @@ beforeEach(() => {
       )
     )
     return new Promise<Response>(() => {})
-  }
+  })
 })
 
 afterEach(() => {
@@ -140,7 +138,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
   const list = new Promise<Response>((resolve) => {
     resolveList = resolve
   })
-  fetchHandler = (input: RequestInfo | URL) => {
+  fetchStub.set((input) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -149,7 +147,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
     return url.pathname.endsWith("/groups")
       ? list
       : new Promise<Response>(() => {})
-  }
+  })
   const loaded = load(SprintIndexRoute.options.loader, {
     context: { registry },
     params,

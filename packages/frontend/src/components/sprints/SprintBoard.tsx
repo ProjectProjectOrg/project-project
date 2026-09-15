@@ -196,6 +196,9 @@ function SprintBoardContent({
   const flash = (id: TicketId) =>
     setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
+  const [dragTargetId, setDragTargetId] = useState<TicketId | null>(null)
+  const pendingId = placeState.waiting ? dragTargetId : null
+
   const { matchingTickets } = useBoardTickets(
     orgSlug,
     slug,
@@ -250,6 +253,7 @@ function SprintBoardContent({
         if (after === src.id) return
         const status =
           nextStatus !== src.status ? (nextStatus as TicketStatus) : undefined
+        setDragTargetId(src.id)
         place({ ticketId: src.id, status, after })
         flash(src.id)
       }
@@ -293,7 +297,7 @@ function SprintBoardContent({
             tickets={grouped[status] ?? []}
             members={members}
             isDraggable={!isCompleted}
-            pending={placeState.waiting}
+            pendingId={pendingId}
             lastFlash={lastFlash}
             reorderMode={reorderMode}
             onActivateReorder={onEnterReorder}
