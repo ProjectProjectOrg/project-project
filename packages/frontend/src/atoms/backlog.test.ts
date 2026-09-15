@@ -508,6 +508,86 @@ describe("backlog quick create", () => {
       registry.dispose()
     }
   })
+  it("removes the optimistic row and restores the counts when creation fails", async () => {
+    let finish = (_r: Response) => {}
+    // The sections refetch is made to hang after the initial load, so the row
+    // can only disappear by the overlay being dropped, never by server truth
+    // arriving. A commit path would leave the row on screen, waiting.
+    let stallReads = false
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      if (stallReads) return new Promise<Response>(() => {})
+      return Promise.resolve(sections([ticket]))
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const create = quickCreateBacklogTicket(req)
+    registry.mount(view)
+    registry.mount(create)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      const before = registry.get(view)
+      if (!AsyncResult.isSuccess(before)) throw new Error("no server value")
+      expect(before.value.sections.todo.items).toHaveLength(1)
+      expect(before.value.counts).toEqual({ total: 1, byStatus: { todo: 1 } })
+
+      stallReads = true
+      registry.set(create, {
+        ticket: { title: "Doomed", status: ticket.status },
+        viewerId: "user-1",
+        projectPrefix: "T",
+        clientId: "creation-doomed"
+      })
+
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.value.sections.todo.items[0]).toMatchObject({
+        key: "creation-doomed",
+        pending: true
+      })
+      expect(optimistic.value.counts).toEqual({
+        total: 2,
+        byStatus: { todo: 2 }
+      })
+
+      finish(new Response("nope", { status: 500 }))
+      await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
+
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(
+        settled.value.sections.todo.items.map(({ key, pending }) => ({
+          key,
+          pending
+        }))
+      ).toEqual([{ key: "T-1", pending: false }])
+      expect(
+        settled.value.sections.todo.items.some(
+          (row) => row.key === "creation-doomed"
+        )
+      ).toBe(false)
+      expect(
+        settled.value.sections.todo.items.some(
+          (row) => row.ticket.title === "Doomed"
+        )
+      ).toBe(false)
+      expect(settled.value.counts).toEqual({ total: 1, byStatus: { todo: 1 } })
+      expect(settled.waiting).toBe(false)
+    } finally {
+      registry.dispose()
+    }
+  })
 })
 
 describe("encodeTicketListQuery", () => {
