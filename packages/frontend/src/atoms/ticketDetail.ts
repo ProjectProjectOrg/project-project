@@ -12,13 +12,13 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applyTicketDetailPatch } from "./ticketPatch"
 
-export type TicketRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-}
+export type TicketRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+}>
 
 export const ticketRequest = (
   orgSlug: string,

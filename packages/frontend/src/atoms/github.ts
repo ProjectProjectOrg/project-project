@@ -197,10 +197,8 @@ const splitOrgRepoKey = (key: string): { orgSlug: string; query: string } => {
   return { orgSlug: key.slice(0, sep), query: key.slice(sep + 1) }
 }
 
-type CreateBranchMutationInput = { id: TicketId } & Omit<
-  CreateBranchInput,
-  "baseBranch"
-> & {
+type CreateBranchMutationInput = Readonly<{ id: TicketId }> &
+  Omit<CreateBranchInput, "baseBranch"> & {
     baseBranch: string
   }
 

@@ -7,13 +7,13 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applySprintDetailPatch } from "./sprintPatch"
 
-export type SprintRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: GroupId
-  }
-}
+export type SprintRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: GroupId
+  }>
+}>
 
 export const sprintRequest = (
   orgSlug: string,

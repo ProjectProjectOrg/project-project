@@ -4,7 +4,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export type OAuthApplicationsRequest = {}
+export type OAuthApplicationsRequest = Readonly<{}>
 
 export const oauthApplicationsRequest = (): OAuthApplicationsRequest => ({})
 
@@ -23,10 +23,10 @@ export const revokeOAuthApplicationAtom = Atom.family(
   ({
     req,
     id
-  }: {
-    readonly req: OAuthApplicationsRequest
-    readonly id: string
-  }) =>
+  }: Readonly<{
+    req: OAuthApplicationsRequest
+    id: string
+  }>) =>
     Atom.optimisticFn(oauthApplicationsAtom(req), {
       reducer: (current, _input: void) =>
         AsyncResult.map(current, (applications) =>

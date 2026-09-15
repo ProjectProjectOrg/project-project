@@ -4,23 +4,23 @@ import type { MentionType } from "@projectproject/shared"
 import type { AtomRegistry } from "effect/unstable/reactivity/AtomRegistry"
 import type { MentionScope } from "./scope"
 
-export type MentionCandidate = {
-  readonly id: string
-  readonly label: string
-  readonly secondary?: string
-  readonly image?: string | null
-}
+export type MentionCandidate = Readonly<{
+  id: string
+  label: string
+  secondary?: string
+  image?: string | null
+}>
 
 export type { MentionScope }
 
-export type MentionProvider = {
-  readonly trigger: string
-  readonly type: MentionType
-  readonly search: (
+export type MentionProvider = Readonly<{
+  trigger: string
+  type: MentionType
+  search: (
     query: string
   ) => Effect.Effect<ReadonlyArray<MentionCandidate>, never, AtomRegistry>
-  readonly renderRow: (candidate: MentionCandidate) => ReactNode
-}
+  renderRow: (candidate: MentionCandidate) => ReactNode
+}>
 
 import { userProvider } from "./userProvider"
 import { ticketProvider } from "./ticketProvider"

@@ -17,9 +17,9 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { compareByOrderKey } from "@/lib/orderKey"
 
-export type StatusesRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type StatusesRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
 export const statusesRequest = (
   orgSlug: string,
@@ -90,10 +90,10 @@ export const updateStatus = Atom.family(
   ({
     req,
     statusSlug
-  }: {
-    readonly req: StatusesRequest
-    readonly statusSlug: StatusSlug
-  }) =>
+  }: Readonly<{
+    req: StatusesRequest
+    statusSlug: StatusSlug
+  }>) =>
     Atom.optimisticFn(statusesFor(req), {
       reducer: (current, patch: UpdateStatusInput) =>
         AsyncResult.map(current, (statuses) =>
@@ -141,10 +141,10 @@ export const reorderStatus = Atom.family(
   ({
     req,
     statusSlug
-  }: {
-    readonly req: StatusesRequest
-    readonly statusSlug: StatusSlug
-  }) =>
+  }: Readonly<{
+    req: StatusesRequest
+    statusSlug: StatusSlug
+  }>) =>
     Atom.optimisticFn(statusesFor(req), {
       reducer: (current, input: ReorderStatusInput) =>
         AsyncResult.map(current, (statuses) =>
@@ -180,10 +180,10 @@ export const reorderStatus = Atom.family(
     })
 )
 
-export type StatusReorder = {
-  readonly statusSlug: StatusSlug
-  readonly orderKey: ReorderStatusInput["orderKey"]
-}
+export type StatusReorder = Readonly<{
+  statusSlug: StatusSlug
+  orderKey: ReorderStatusInput["orderKey"]
+}>
 
 export const dispatchStatusReorders = Atom.family((req: StatusesRequest) =>
   Atom.fnSync((reorders: ReadonlyArray<StatusReorder>, get) => {
@@ -199,10 +199,10 @@ export const deleteStatus = Atom.family(
   ({
     req,
     statusSlug
-  }: {
-    readonly req: StatusesRequest
-    readonly statusSlug: StatusSlug
-  }) =>
+  }: Readonly<{
+    req: StatusesRequest
+    statusSlug: StatusSlug
+  }>) =>
     Atom.optimisticFn(statusesFor(req), {
       reducer: (current, _input: DeleteStatusInput) =>
         AsyncResult.map(current, (statuses) =>

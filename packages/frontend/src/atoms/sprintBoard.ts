@@ -14,13 +14,13 @@ import { Keys, projectScope } from "@/api/keys"
 import { sprintQuery } from "./sprintDetail"
 import { applyTicketPatch } from "./ticketPatch"
 
-export type BoardRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: GroupId
-  }
-}
+export type BoardRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: GroupId
+  }>
+}>
 
 export const boardRequest = (
   orgSlug: string,
@@ -31,11 +31,11 @@ export const boardRequest = (
 const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type BoardValue = {
+export type BoardValue = Readonly<{
   /** Ticket order as the group defines it, resolved to full tickets. */
-  readonly tickets: ReadonlyArray<Ticket>
-  readonly completedAt: Date | null
-}
+  tickets: ReadonlyArray<Ticket>
+  completedAt: Date | null
+}>
 
 const ticketsQuery = (req: BoardRequest) =>
   Api.query("groups", "listTickets", {
@@ -128,7 +128,7 @@ export const placeBoardTicket = Atom.family((req: BoardRequest) =>
 
 /** Editing a card's fields from the board. */
 export const updateBoardTicket = Atom.family(
-  ({ req, id }: { readonly req: BoardRequest; readonly id: TicketId }) =>
+  ({ req, id }: Readonly<{ req: BoardRequest; id: TicketId }>) =>
     Atom.optimisticFn(sprintBoard(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) => ({

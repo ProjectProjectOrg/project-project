@@ -14,13 +14,13 @@ import {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type CommentsRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-}
+export type CommentsRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+}>
 
 export const commentsRequest = (
   orgSlug: string,
@@ -31,11 +31,11 @@ export const commentsRequest = (
 const scopeOf = (req: CommentsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type CommentViewRow = {
-  readonly comment: Comment
-  readonly key: string
-  readonly pending: boolean
-}
+export type CommentViewRow = Readonly<{
+  comment: Comment
+  key: string
+  pending: boolean
+}>
 
 const createdKeys = Atom.family((_req: CommentsRequest) =>
   Atom.make<ReadonlyMap<CommentId, string>>(new Map()).pipe(
@@ -69,12 +69,12 @@ export const comments = Atom.family((req: CommentsRequest) =>
   Atom.optimistic(commentsView(req))
 )
 
-export type CreateCommentKey = {
-  readonly req: CommentsRequest
-  readonly clientId: string
-  readonly createdAt: Date
-  readonly author: User
-}
+export type CreateCommentKey = Readonly<{
+  req: CommentsRequest
+  clientId: string
+  createdAt: Date
+  author: User
+}>
 
 const decodeCommentId = Schema.decodeUnknownSync(CommentId)
 const decodeSlug = Schema.decodeUnknownSync(Slug)
@@ -138,10 +138,10 @@ export const editComment = Atom.family(
   ({
     req,
     commentId
-  }: {
-    readonly req: CommentsRequest
-    readonly commentId: CommentId
-  }) =>
+  }: Readonly<{
+    req: CommentsRequest
+    commentId: CommentId
+  }>) =>
     Atom.optimisticFn(comments(req), {
       reducer: (current, input: UpdateCommentInput) =>
         AsyncResult.map(current, (value) =>
@@ -179,10 +179,10 @@ export const deleteComment = Atom.family(
   ({
     req,
     commentId
-  }: {
-    readonly req: CommentsRequest
-    readonly commentId: CommentId
-  }) =>
+  }: Readonly<{
+    req: CommentsRequest
+    commentId: CommentId
+  }>) =>
     Atom.optimisticFn(comments(req), {
       reducer: (current, _input: void) =>
         AsyncResult.map(current, (value) =>

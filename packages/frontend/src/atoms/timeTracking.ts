@@ -19,30 +19,30 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { everhourProfileAtom } from "./everhour"
 
-export type ActiveTimerRequest = {
-  readonly params: { readonly orgSlug: string }
-}
+export type ActiveTimerRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
 
-export type TicketTimeRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-}
+export type TicketTimeRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+}>
 
-export type SprintTimerRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: GroupId
-  }
-}
+export type SprintTimerRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: GroupId
+  }>
+}>
 
-export type ProjectTimeRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-  readonly entityId: TicketId | GroupId | null
-}
+export type ProjectTimeRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  entityId: TicketId | GroupId | null
+}>
 
 export const activeTimerRequest = (orgSlug: string): ActiveTimerRequest => ({
   params: { orgSlug }
@@ -108,12 +108,12 @@ export const ticketTimeAtom = Atom.family((req: TicketTimeRequest) =>
   Atom.optimistic(ticketTimeQuery(req))
 )
 
-export type TicketTimePanelValue = {
-  readonly profile: PersonalEverhour
-  readonly workTypes: ReadonlyArray<WorkTypeOption>
-  readonly time: TicketTimeSummary
-  readonly activeTimer: ActiveTimer | null
-}
+export type TicketTimePanelValue = Readonly<{
+  profile: PersonalEverhour
+  workTypes: ReadonlyArray<WorkTypeOption>
+  time: TicketTimeSummary
+  activeTimer: ActiveTimer | null
+}>
 
 const ticketTimePanelView = (req: TicketTimeRequest) => {
   const timerReq = activeTimerRequest(req.params.orgSlug)
@@ -148,11 +148,11 @@ export const ticketTimePanelAtom = Atom.family((req: TicketTimeRequest) =>
 
 const optimisticTimer = (
   current: ActiveTimer | null,
-  params: {
-    readonly slug: string
-    readonly id?: TicketId
-    readonly groupId?: GroupId
-  },
+  params: Readonly<{
+    slug: string
+    id?: TicketId
+    groupId?: GroupId
+  }>,
   input: StartTimerInput | StartSprintTimerInput
 ): ActiveTimer => ({
   slug: params.slug,
@@ -216,10 +216,10 @@ export const startActiveTicketTimerAtom = Atom.family(
   ({
     timerReq,
     ticketReq
-  }: {
-    readonly timerReq: ActiveTimerRequest
-    readonly ticketReq: TicketTimeRequest
-  }) =>
+  }: Readonly<{
+    timerReq: ActiveTimerRequest
+    ticketReq: TicketTimeRequest
+  }>) =>
     Atom.optimisticFn(activeTimerAtom(timerReq), {
       reducer: (current, input: StartTimerInput) =>
         AsyncResult.map(current, (timer) =>
@@ -255,10 +255,10 @@ export const startSprintTimerAtom = Atom.family(
   ({
     timerReq,
     sprintReq
-  }: {
-    readonly timerReq: ActiveTimerRequest
-    readonly sprintReq: SprintTimerRequest
-  }) =>
+  }: Readonly<{
+    timerReq: ActiveTimerRequest
+    sprintReq: SprintTimerRequest
+  }>) =>
     Atom.optimisticFn(activeTimerAtom(timerReq), {
       reducer: (current, input: StartSprintTimerInput) =>
         AsyncResult.map(current, (timer) =>

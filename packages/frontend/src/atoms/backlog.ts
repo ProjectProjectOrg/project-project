@@ -21,10 +21,10 @@ export const encodeTicketListQuery = Schema.encodeSync(
   Schema.fromJsonString(TicketListQuery)
 )
 
-export type BacklogRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-  readonly query: TicketListQuery
-}
+export type BacklogRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  query: TicketListQuery
+}>
 
 /**
  * Build the request that identifies one backlog. Status filter and cursor are
@@ -47,22 +47,22 @@ export const backlogRequest = (
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type BacklogRow = {
-  readonly ticket: Ticket
+export type BacklogRow = Readonly<{
+  ticket: Ticket
   /** React key. Equals the ticket id except for rows created in this session. */
-  readonly key: string
-  readonly pending: boolean
-}
+  key: string
+  pending: boolean
+}>
 
-export type BacklogSection = {
-  readonly items: ReadonlyArray<BacklogRow>
-  readonly nextCursor: string | null
-}
+export type BacklogSection = Readonly<{
+  items: ReadonlyArray<BacklogRow>
+  nextCursor: string | null
+}>
 
-export type BacklogValue = {
-  readonly counts: TicketCounts
-  readonly sections: Readonly<Record<string, BacklogSection>>
-}
+export type BacklogValue = Readonly<{
+  counts: TicketCounts
+  sections: Readonly<Record<string, BacklogSection>>
+}>
 
 const toRow = (ticket: Ticket): BacklogRow => ({
   ticket,
@@ -170,10 +170,10 @@ export const loadMoreBacklog = Atom.family(
   ({
     req,
     status
-  }: {
-    readonly req: BacklogRequest
-    readonly status: string
-  }) =>
+  }: Readonly<{
+    req: BacklogRequest
+    status: string
+  }>) =>
     Api.runtime.fn((_input: void, get: Atom.FnContext) =>
       Effect.sync(() => {
         const current = get(backlog(req))
@@ -250,7 +250,7 @@ const replaceRow = (value: BacklogValue, ticket: Ticket): BacklogValue => {
 }
 
 export const updateBacklogTicket = Atom.family(
-  ({ req, id }: { readonly req: BacklogRequest; readonly id: TicketId }) =>
+  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
     Atom.optimisticFn(backlog(req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) => patchRow(value, id, patch)),
@@ -292,12 +292,12 @@ const createdKeysAtom = Atom.family((_scope: string) =>
   )
 )
 
-export type QuickCreateArg = {
-  readonly ticket: QuickCreateTicketInput
-  readonly viewerId: string
-  readonly projectPrefix: string
-  readonly clientId: string
-}
+export type QuickCreateArg = Readonly<{
+  ticket: QuickCreateTicketInput
+  viewerId: string
+  projectPrefix: string
+  clientId: string
+}>
 
 const placeholderId = (
   taken: ReadonlyArray<BacklogRow>,

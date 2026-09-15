@@ -16,9 +16,9 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { ticketDetail, ticketRequest } from "./ticketDetail"
 
-export type TagsRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type TagsRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
 export const tagsRequest = (orgSlug: string, slug: string): TagsRequest => ({
   params: { orgSlug, slug }
@@ -56,23 +56,23 @@ export const tagUsage = Atom.family((req: TagsRequest) =>
 
 const makeTagColor = Schema.decodeUnknownSync(TagColor)
 
-export type TagEditorRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-}
+export type TagEditorRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+}>
 
-export type AppliedTag = {
-  readonly key: TagName
-  readonly name: TagName
-}
+export type AppliedTag = Readonly<{
+  key: TagName
+  name: TagName
+}>
 
-export type TagEditorValue = {
-  readonly tags: ReadonlyArray<Tag>
-  readonly applied: ReadonlyArray<AppliedTag>
-}
+export type TagEditorValue = Readonly<{
+  tags: ReadonlyArray<Tag>
+  applied: ReadonlyArray<AppliedTag>
+}>
 
 export const tagEditorRequest = (
   orgSlug: string,
@@ -206,7 +206,7 @@ export const createTagInEditor = Atom.family((req: TagEditorRequest) =>
 )
 
 export const updateTagInEditor = Atom.family(
-  ({ req, name }: { readonly req: TagEditorRequest; readonly name: TagName }) =>
+  ({ req, name }: Readonly<{ req: TagEditorRequest; name: TagName }>) =>
     Atom.optimisticFn(tagEditor(req), {
       reducer: (current, patch: UpdateTagInput) =>
         AsyncResult.map(current, (value) =>
@@ -246,7 +246,7 @@ export const updateTagInEditor = Atom.family(
 )
 
 export const deleteTagInEditor = Atom.family(
-  ({ req, name }: { readonly req: TagEditorRequest; readonly name: TagName }) =>
+  ({ req, name }: Readonly<{ req: TagEditorRequest; name: TagName }>) =>
     Atom.optimisticFn(tagEditor(req), {
       reducer: (current, _input: void) =>
         AsyncResult.map(current, (value) => deleteEditorTag(value, name)),
@@ -310,7 +310,7 @@ export const createTag = Atom.family((req: TagsRequest) =>
 )
 
 export const updateTag = Atom.family(
-  ({ req, name }: { readonly req: TagsRequest; readonly name: TagName }) =>
+  ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
     Atom.optimisticFn(tagsFor(req), {
       reducer: (current, patch: UpdateTagInput) =>
         AsyncResult.map(current, (tags) =>
@@ -355,7 +355,7 @@ export const updateTag = Atom.family(
 )
 
 export const deleteTag = Atom.family(
-  ({ req, name }: { readonly req: TagsRequest; readonly name: TagName }) =>
+  ({ req, name }: Readonly<{ req: TagsRequest; name: TagName }>) =>
     Atom.optimisticFn(tagsFor(req), {
       reducer: (current, _input: void) =>
         AsyncResult.map(current, (tags) =>

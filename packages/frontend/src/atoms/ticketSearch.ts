@@ -3,16 +3,16 @@ import type { GroupId, TicketSearchQuery } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type TicketSearchOptions = {
-  readonly q?: string
-  readonly excludeGroupId?: GroupId
-  readonly limit?: number
-}
+export type TicketSearchOptions = Readonly<{
+  q?: string
+  excludeGroupId?: GroupId
+  limit?: number
+}>
 
-export type SearchRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-  readonly query: TicketSearchQuery
-}
+export type SearchRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  query: TicketSearchQuery
+}>
 
 export const searchRequest = (
   orgSlug: string,

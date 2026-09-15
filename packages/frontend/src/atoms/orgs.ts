@@ -23,25 +23,25 @@ const splitOrgSubKey = (key: string) => {
   }
 }
 
-export type OrgMember = {
-  readonly id: string
-  readonly userId: string
-  readonly role: OrgRole
-  readonly name: string
-  readonly email: string
-  readonly image: string | null
-}
+export type OrgMember = Readonly<{
+  id: string
+  userId: string
+  role: OrgRole
+  name: string
+  email: string
+  image: string | null
+}>
 
-export type OrgInvitation = {
-  readonly id: string
-  readonly email: string
-  readonly role: OrgRole
-}
+export type OrgInvitation = Readonly<{
+  id: string
+  email: string
+  role: OrgRole
+}>
 
-export type OrgMembers = {
-  readonly members: ReadonlyArray<OrgMember>
-  readonly invitations: ReadonlyArray<OrgInvitation>
-}
+export type OrgMembers = Readonly<{
+  members: ReadonlyArray<OrgMember>
+  invitations: ReadonlyArray<OrgInvitation>
+}>
 
 const toOrgRole = (role: string): OrgRole => {
   const roles = role.split(",")

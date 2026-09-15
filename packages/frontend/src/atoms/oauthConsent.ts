@@ -5,17 +5,17 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export type OAuthConsentRequest = {
-  readonly oauthQuery: string
-}
+export type OAuthConsentRequest = Readonly<{
+  oauthQuery: string
+}>
 
 export const oauthConsentRequest = (
   oauthQuery: string
 ): OAuthConsentRequest => ({ oauthQuery })
 
-export type SubmitConsentInput = {
-  readonly accept: boolean
-}
+export type SubmitConsentInput = Readonly<{
+  accept: boolean
+}>
 
 export const submitConsentAtom = Atom.family((req: OAuthConsentRequest) =>
   Api.runtime.fn(
@@ -36,9 +36,9 @@ export const submitConsentAtom = Atom.family((req: OAuthConsentRequest) =>
   )
 )
 
-export type OAuthClientRequest = {
-  readonly query: { readonly client_id: string } | null
-}
+export type OAuthClientRequest = Readonly<{
+  query: Readonly<{ client_id: string }> | null
+}>
 
 export const oauthClientRequest = (
   clientId: string | undefined
@@ -47,7 +47,7 @@ export const oauthClientRequest = (
 })
 
 const missingOAuthClient = Atom.make(
-  AsyncResult.success<{ readonly name: string | null }>({ name: null })
+  AsyncResult.success<Readonly<{ name: string | null }>>({ name: null })
 )
 
 const oauthClientNameQuery = (req: OAuthClientRequest) =>

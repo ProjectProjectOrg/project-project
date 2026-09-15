@@ -20,9 +20,9 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { applySprintPatch } from "./sprintPatch"
 
-export type SprintListRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type SprintListRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
 export const sprintListRequest = (
   orgSlug: string,
@@ -110,10 +110,10 @@ export const updateSprint = Atom.family(
   ({
     req,
     groupId
-  }: {
-    readonly req: SprintListRequest
-    readonly groupId: GroupId
-  }) =>
+  }: Readonly<{
+    req: SprintListRequest
+    groupId: GroupId
+  }>) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, patch: UpdateGroupInput) =>
         AsyncResult.map(current, (sprints) =>
@@ -148,10 +148,10 @@ export const deleteSprint = Atom.family(
   ({
     req,
     groupId
-  }: {
-    readonly req: SprintListRequest
-    readonly groupId: GroupId
-  }) =>
+  }: Readonly<{
+    req: SprintListRequest
+    groupId: GroupId
+  }>) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, _input: void) =>
         AsyncResult.map(current, (sprints) =>
@@ -199,10 +199,10 @@ export const completeSprint = Atom.family(
   ({
     req,
     groupId
-  }: {
-    readonly req: SprintListRequest
-    readonly groupId: GroupId
-  }) =>
+  }: Readonly<{
+    req: SprintListRequest
+    groupId: GroupId
+  }>) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, _input: CompleteSprintInput) =>
         AsyncResult.map(current, (sprints) =>
@@ -248,18 +248,18 @@ export const completeSprint = Atom.family(
     })
 )
 
-type SprintAssignmentInput = {
-  readonly groupId: GroupId
-}
+type SprintAssignmentInput = Readonly<{
+  groupId: GroupId
+}>
 
 export const addTicketsToSprint = Atom.family(
   ({
     req,
     ticketId
-  }: {
-    readonly req: SprintListRequest
-    readonly ticketId: TicketId
-  }) =>
+  }: Readonly<{
+    req: SprintListRequest
+    ticketId: TicketId
+  }>) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, input: SprintAssignmentInput) =>
         AsyncResult.map(current, (sprints) => {
@@ -341,10 +341,10 @@ export const removeTicketsFromSprint = Atom.family(
   ({
     req,
     ticketId
-  }: {
-    readonly req: SprintListRequest
-    readonly ticketId: TicketId
-  }) =>
+  }: Readonly<{
+    req: SprintListRequest
+    ticketId: TicketId
+  }>) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, input: SprintAssignmentInput) =>
         AsyncResult.map(current, (sprints) => {

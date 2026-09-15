@@ -14,17 +14,17 @@ import {
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type ProjectsRequest = {
-  readonly params: { readonly orgSlug: string }
-}
+export type ProjectsRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
 
 export const projectsRequest = (orgSlug: string): ProjectsRequest => ({
   params: { orgSlug }
 })
 
-export type ProjectRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type ProjectRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
 export const projectRequest = (
   orgSlug: string,
@@ -124,10 +124,10 @@ export const deleteProject = Atom.family((req: ProjectRequest) =>
   )
 )
 
-type MemberMutationRequest = {
-  readonly req: ProjectRequest
-  readonly id: string
-}
+type MemberMutationRequest = Readonly<{
+  req: ProjectRequest
+  id: string
+}>
 
 const replaceMember = (
   value: ProjectDetail,

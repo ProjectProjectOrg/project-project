@@ -18,34 +18,36 @@ import { Keys } from "@/api/keys"
 
 export class AttachmentUploadFailed extends Data.TaggedError(
   "AttachmentUploadFailed"
-)<{
-  readonly reason: "status" | "network" | "abort"
-  readonly status?: number
-}> {}
+)<
+  Readonly<{
+    reason: "status" | "network" | "abort"
+    status?: number
+  }>
+> {}
 
-export type UploadAttachmentInput = {
-  readonly file: File
-  readonly signal?: AbortSignal
-  readonly onProgress?: (fraction: number) => void
-}
+export type UploadAttachmentInput = Readonly<{
+  file: File
+  signal?: AbortSignal
+  onProgress?: (fraction: number) => void
+}>
 
-export type UploadedAttachment = {
-  readonly id: string
-  readonly url: string
-  readonly filename: string
-  readonly contentType: string
-}
+export type UploadedAttachment = Readonly<{
+  id: string
+  url: string
+  filename: string
+  contentType: string
+}>
 
-export type UploadAttachmentRequest = {
-  readonly orgSlug: string
-  readonly slug: string
-  readonly id: TicketId
-}
+export type UploadAttachmentRequest = Readonly<{
+  orgSlug: string
+  slug: string
+  id: TicketId
+}>
 
-export type UploadProjectImageRequest = {
-  readonly orgSlug: string
-  readonly slug: string
-}
+export type UploadProjectImageRequest = Readonly<{
+  orgSlug: string
+  slug: string
+}>
 
 export const uploadAttachmentRequest = (
   orgSlug: string,
@@ -172,16 +174,16 @@ export const uploadProjectImage = Atom.family(
 
 export const ORG_ATTACHMENTS_PAGE_SIZE = ATTACHMENT_PAGE_SIZE
 
-export type OrgAttachmentsRequest = {
-  readonly params: { readonly orgSlug: string }
-  readonly query: {
-    readonly limit: number
-    readonly page: number
-    readonly status?: AttachmentStatus
-    readonly projectSlug?: string
-    readonly sort?: AttachmentSort
-  }
-}
+export type OrgAttachmentsRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+  query: Readonly<{
+    limit: number
+    page: number
+    status?: AttachmentStatus
+    projectSlug?: string
+    sort?: AttachmentSort
+  }>
+}>
 
 export const orgAttachmentsRequest = (
   orgSlug: string,
@@ -206,10 +208,10 @@ const orgAttachmentsSummaryQuery = (req: OrgAttachmentsRequest) =>
     reactivityKeys: [Keys.attachments(req.params.orgSlug)]
   })
 
-type OrgAttachmentsView = {
-  readonly list: AttachmentListPage
-  readonly summary: AttachmentSummary
-}
+type OrgAttachmentsView = Readonly<{
+  list: AttachmentListPage
+  summary: AttachmentSummary
+}>
 
 const orgAttachmentsView = (req: OrgAttachmentsRequest) =>
   Atom.readable(
@@ -269,10 +271,10 @@ const removeFromSummary = (
   }
 }
 
-export type DeleteOrgAttachmentsKey = {
-  readonly req: OrgAttachmentsRequest
-  readonly attachmentIds: ReadonlyArray<string>
-}
+export type DeleteOrgAttachmentsKey = Readonly<{
+  req: OrgAttachmentsRequest
+  attachmentIds: ReadonlyArray<string>
+}>
 
 export const deleteOrgAttachments = Atom.family(
   ({ req, attachmentIds }: DeleteOrgAttachmentsKey) =>

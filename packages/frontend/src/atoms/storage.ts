@@ -5,9 +5,9 @@ import type { ConnectStorageInput } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export type StorageRequest = {
-  readonly params: { readonly orgSlug: string }
-}
+export type StorageRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
 
 export const storageRequest = (orgSlug: string): StorageRequest => ({
   params: { orgSlug }

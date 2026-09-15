@@ -3,10 +3,10 @@ import type { TicketCountQuery } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type CountsRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-  readonly query: TicketCountQuery
-}
+export type CountsRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+  query: TicketCountQuery
+}>
 
 export const countsRequest = (
   orgSlug: string,

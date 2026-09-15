@@ -6,9 +6,9 @@ import type { ConnectEverhourProfileInput } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type EverhourProjectRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type EverhourProjectRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
 export const everhourProjectRequest = (
   orgSlug: string,

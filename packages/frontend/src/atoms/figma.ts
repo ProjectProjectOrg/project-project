@@ -6,17 +6,17 @@ import type { ConnectFigmaProjectInput, TicketId } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type FigmaProjectRequest = {
-  readonly params: { readonly orgSlug: string; readonly slug: string }
-}
+export type FigmaProjectRequest = Readonly<{
+  params: Readonly<{ orgSlug: string; readonly slug: string }>
+}>
 
-export type FigmaTicketLinksRequest = {
-  readonly params: {
-    readonly orgSlug: string
-    readonly slug: string
-    readonly id: TicketId
-  }
-}
+export type FigmaTicketLinksRequest = Readonly<{
+  params: Readonly<{
+    orgSlug: string
+    slug: string
+    id: TicketId
+  }>
+}>
 
 export const figmaProjectRequest = (
   orgSlug: string,

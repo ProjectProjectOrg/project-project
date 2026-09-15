@@ -9,10 +9,12 @@ const toCandidate = (ticket: Ticket): MentionCandidate => ({
   label: ticket.title
 })
 
-export const ticketProvider = (scope: {
-  readonly orgSlug: string
-  readonly slug: string
-}): MentionProvider => ({
+export const ticketProvider = (
+  scope: Readonly<{
+    orgSlug: string
+    slug: string
+  }>
+): MentionProvider => ({
   trigger: "#",
   type: "ticket",
   search: (query) => {
