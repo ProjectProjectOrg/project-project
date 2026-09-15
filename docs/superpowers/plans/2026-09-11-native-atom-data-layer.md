@@ -1917,7 +1917,7 @@ keys, which removes those calls.
 | `createSprint(req)` | `CreateGroupInput` | `groups` / `create` | `Keys.sprints(scope)` is this view's own key, so publish nothing | prepend a synthetic sprint; id from a module counter as today |
 | `updateSprint({ req, groupId })` | `UpdateGroupInput` | `groups` / `update` | nothing | patch name, color, dates **and `body`** |
 | `deleteSprint({ req, groupId })` | `void` | `groups` / `delete` | `Keys.sprintMembership(scope)` | filter the sprint out |
-| `completeSprint({ req, groupId })` | `CompleteSprintInput` | `groups` / `complete` | `Keys.sprintMembership(scope)`, `Keys.ticketsIn(scope)` | mark complete, move carryover ids to the destination sprint |
+| `completeSprint({ req, groupId })` | `CompleteSprintInput` | `groups` / `complete` | `Keys.sprintMembership(scope)`, `Keys.ticketsIn(scope)`, `Keys.sprint(scope, groupId)`, and `Keys.sprint(scope, destination.groupId)` when the destination is a sprint | reducer only paints `completedAt`; once the response lands, `set()` applies the server's exact `target`/`carried` partition to source and destination — the client never predicts which tickets move |
 
 - [ ] **Step 1: Add the sprint keys**
 
