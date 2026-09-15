@@ -7,14 +7,17 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   GroupColor,
   GroupId,
+  type CompleteSprintDestination,
   type CompleteSprintInput,
   type CreateGroupInput,
   type Group,
   type TicketId,
+  type TicketStatus,
   type UpdateGroupInput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { boardRequest, sprintBoard } from "./sprintBoard"
 
 export interface SprintListRequest {
   readonly params: { readonly orgSlug: string; readonly slug: string }
@@ -178,6 +181,46 @@ export const deleteSprint = Atom.family(
     })
 )
 
+const splitCarryover = (
+  ticketIds: ReadonlyArray<TicketId>,
+  statuses: ReadonlyMap<TicketId, TicketStatus> | null
+) => {
+  if (!statuses)
+    return { stay: [] as ReadonlyArray<TicketId>, carry: ticketIds }
+  const stay: Array<TicketId> = []
+  const carry: Array<TicketId> = []
+  for (const id of ticketIds) {
+    if (statuses.get(id) === "done") stay.push(id)
+    else carry.push(id)
+  }
+  return { stay, carry }
+}
+
+const applyCompleteSprint = (
+  sprints: ReadonlyArray<Group>,
+  groupId: GroupId,
+  destination: CompleteSprintDestination,
+  statuses: ReadonlyMap<TicketId, TicketStatus> | null
+): Array<Group> => {
+  const source = sprints.find((sprint) => sprint.id === groupId)
+  if (!source) return [...sprints]
+  const now = DateTime.toDate(DateTime.nowUnsafe())
+  const { stay, carry } = splitCarryover(source.tickets, statuses)
+  return sprints.map((sprint) => {
+    if (sprint.id === groupId) {
+      return { ...sprint, tickets: stay, completedAt: now, updatedAt: now }
+    }
+    if (destination.kind === "sprint" && sprint.id === destination.groupId) {
+      const merged = [...sprint.tickets]
+      for (const id of carry) {
+        if (!merged.includes(id)) merged.push(id)
+      }
+      return { ...sprint, tickets: merged, updatedAt: now }
+    }
+    return sprint
+  })
+}
+
 export const completeSprint = Atom.family(
   ({
     req,
@@ -188,37 +231,30 @@ export const completeSprint = Atom.family(
   }) =>
     Atom.optimisticFn(sprintList(req), {
       reducer: (current, input: CompleteSprintInput) =>
-        AsyncResult.map(current, (sprints) => {
-          const source = sprints.find((sprint) => sprint.id === groupId)
-          if (!source) return sprints
-          const now = DateTime.toDate(DateTime.nowUnsafe())
-          const carryover = source.tickets
-          const destination = input.destination
-          return sprints.map((sprint) => {
-            if (sprint.id === groupId) {
-              return {
-                ...sprint,
-                tickets: [],
-                completedAt: now,
-                updatedAt: now
-              }
-            }
-            if (
-              destination.kind === "sprint" &&
-              sprint.id === destination.groupId
-            ) {
-              const merged = [...sprint.tickets]
-              for (const id of carryover) {
-                if (!merged.includes(id)) merged.push(id)
-              }
-              return { ...sprint, tickets: merged, updatedAt: now }
-            }
-            return sprint
-          })
-        }),
+        AsyncResult.map(current, (sprints) =>
+          applyCompleteSprint(sprints, groupId, input.destination, null)
+        ),
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (input: CompleteSprintInput, get) {
+            const board = get(
+              sprintBoard(
+                boardRequest(req.params.orgSlug, req.params.slug, groupId)
+              )
+            )
+            const statuses = AsyncResult.isSuccess(board)
+              ? new Map(board.value.tickets.map((t) => [t.id, t.status]))
+              : null
+            set(
+              AsyncResult.map(get(sprintList(req)), (sprints) =>
+                applyCompleteSprint(
+                  sprints,
+                  groupId,
+                  input.destination,
+                  statuses
+                )
+              )
+            )
             const completed = yield* Api.use((client) =>
               client.groups.complete({
                 params: { ...req.params, id: groupId },

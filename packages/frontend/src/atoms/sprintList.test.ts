@@ -3,8 +3,16 @@ import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
-import { Group, GroupDetail, GroupId, TicketId } from "@projectproject/shared"
+import {
+  Group,
+  GroupDetail,
+  GroupId,
+  Ticket,
+  TicketId,
+  TicketStatus
+} from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
+import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
   completeSprint,
@@ -43,8 +51,31 @@ const otherSprint: Group = {
   tickets: []
 }
 
+const todo = Schema.decodeSync(TicketStatus)("todo")
+const done = Schema.decodeSync(TicketStatus)("done")
+
+const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
+  id,
+  title: `Ticket ${id}`,
+  status,
+  type: "chore",
+  priority: "med",
+  tags: [],
+  branch: null,
+  pr: null,
+  prState: null,
+  lastTransitionedPr: null,
+  gitState: { tag: "no_branch", baseBranch: "main" },
+  assignees: [],
+  archivedAt: null,
+  createdBy: "user-1",
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
+})
+
 const encodeGroup = Schema.encodeSync(Group)
 const encodeGroupDetail = Schema.encodeSync(GroupDetail)
+const encodeTicket = Schema.encodeSync(Ticket)
 const asDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 
 const req = sprintListRequest("acme", "web")
@@ -53,6 +84,27 @@ const listResponse = (groups: ReadonlyArray<Group>) =>
   Response.json(groups.map((group) => encodeGroup(group)))
 
 const fetchStub = stubFetch()
+
+const routeByPath = (
+  input: RequestInfo | URL,
+  matchers: ReadonlyArray<
+    readonly [
+      (url: URL, method: string | undefined) => boolean,
+      () => Promise<Response>
+    ]
+  >,
+  init?: RequestInit
+): Promise<Response> => {
+  const url = new URL(input instanceof Request ? input.url : String(input))
+  const method =
+    init?.method ?? (input instanceof Request ? input.method : "GET")
+  for (const [match, handler] of matchers) {
+    if (match(url, method)) return handler()
+  }
+  return Promise.reject(
+    new Error(`unmatched request: ${method} ${url.pathname}`)
+  )
+}
 
 describe("sprintList", () => {
   it("shares one atom between structurally equal requests", () => {
@@ -342,6 +394,105 @@ describe("completeSprint", () => {
             asDetail({
               ...sprint,
               tickets: [],
+              completedAt: DateTime.toDate(DateTime.nowUnsafe())
+            })
+          )
+        )
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("completeSprint carryover", () => {
+  it("splits carryover using ticket statuses read from the board wrapper, without a second fetch", async () => {
+    const sprintWithBoth: Group = { ...sprint, tickets: [ticketA, ticketB] }
+    const board = boardRequest("acme", "web", groupId)
+    let finishComplete = (_r: Response) => {}
+    fetchStub.set((input, init) =>
+      routeByPath(
+        input,
+        [
+          [
+            (_url, method) => method === "POST",
+            () =>
+              new Promise<Response>((resolve) => {
+                finishComplete = resolve
+              })
+          ],
+          [
+            (url, method) =>
+              method === "GET" && url.pathname.endsWith("/tickets"),
+            () =>
+              Promise.resolve(
+                Response.json([
+                  encodeTicket(makeTicket(ticketA, done)),
+                  encodeTicket(makeTicket(ticketB, todo))
+                ])
+              )
+          ],
+          [
+            (url, method) =>
+              method === "GET" && /\/groups\/[^/]+$/.test(url.pathname),
+            () =>
+              Promise.resolve(
+                Response.json(encodeGroupDetail(asDetail(sprintWithBoth)))
+              )
+          ],
+          [
+            (url, method) =>
+              method === "GET" && url.pathname.endsWith("/groups"),
+            () => Promise.resolve(listResponse([sprintWithBoth, otherSprint]))
+          ]
+        ],
+        init
+      )
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    const boardView = sprintBoard(board)
+    const mutation = completeSprint({ req, groupId })
+    registry.mount(view)
+    registry.mount(boardView)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      await vi.waitFor(() =>
+        expect(registry.get(boardView)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, {
+        destination: { kind: "sprint", groupId: otherGroupId }
+      })
+
+      await vi.waitFor(() => {
+        const optimistic = registry.get(view)
+        if (!AsyncResult.isSuccess(optimistic)) {
+          throw new Error("no optimistic value")
+        }
+        const source = optimistic.value.find((s) => s.id === groupId)
+        const dest = optimistic.value.find((s) => s.id === otherGroupId)
+        expect(source?.tickets).toEqual([ticketA])
+        expect(dest?.tickets).toContain(ticketB)
+        expect(dest?.tickets).not.toContain(ticketA)
+      })
+
+      finishComplete(
+        Response.json(
+          encodeGroupDetail(
+            asDetail({
+              ...sprintWithBoth,
+              tickets: [ticketA],
               completedAt: DateTime.toDate(DateTime.nowUnsafe())
             })
           )
