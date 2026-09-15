@@ -30,6 +30,7 @@ import {
   JiraComponent,
   JiraField,
   JiraIssue,
+  JiraIssueReference,
   JiraIssueSearchInput,
   JiraIssueTypeStatuses,
   JiraPriority,
@@ -272,7 +273,10 @@ export interface JiraClientShape {
     boardId: number,
     sprintId: number,
     fields: ReadonlyArray<string>
-  ) => Effect.Effect<ReadonlyArray<typeof JiraIssue.Type>, JiraCallError>
+  ) => Effect.Effect<
+    ReadonlyArray<typeof JiraIssueReference.Type>,
+    JiraCallError
+  >
   readonly attachmentContent: (
     userId: string,
     cloudId: string,
@@ -707,7 +711,7 @@ export const JiraClientLive = Layer.effect(
             "GET",
             url.toString(),
             Schema.Struct({
-              issues: Schema.Array(JiraIssue),
+              issues: Schema.Array(JiraIssueReference),
               nextPageToken: Schema.optional(Schema.String)
             })
           ).pipe(

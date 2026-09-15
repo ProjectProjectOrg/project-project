@@ -98,6 +98,12 @@ export const JiraIssue = Schema.Struct({
 })
 export type JiraIssue = typeof JiraIssue.Type
 
+export const JiraIssueReference = Schema.Struct({
+  id: Schema.String,
+  key: Schema.String
+})
+export type JiraIssueReference = typeof JiraIssueReference.Type
+
 export const JiraComment = Schema.Struct({
   id: Schema.String,
   body: Schema.Unknown,

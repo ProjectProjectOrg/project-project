@@ -302,11 +302,25 @@ describe("Jira client", () => {
               ? {
                   isLast: false,
                   nextPageToken: "next",
-                  issues: [{ id: "10001", key: "APP-1", fields: {} }]
+                  issues: [
+                    {
+                      expand: "",
+                      id: "10001",
+                      key: "APP-1",
+                      self: "https://example.test/issue/10001"
+                    }
+                  ]
                 }
               : {
                   isLast: true,
-                  issues: [{ id: "10002", key: "APP-2", fields: {} }]
+                  issues: [
+                    {
+                      expand: "",
+                      id: "10002",
+                      key: "APP-2",
+                      self: "https://example.test/issue/10002"
+                    }
+                  ]
                 }
           ),
           stream: Stream.empty
