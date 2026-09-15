@@ -8,7 +8,11 @@ import {
   syncEverhourProjectAtom
 } from "@/atoms/everhour"
 import { meAtom } from "@/atoms/auth"
-import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
+import {
+  projectKey,
+  projectRequest,
+  updateProjectSetup
+} from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { GithubChip } from "@/components/GithubChip"
 import { FigmaProjectSettings } from "@/components/settings/FigmaProjectSettings"
@@ -35,8 +39,8 @@ export const Route = createFileRoute(
 function IntegrationsSettings() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
-  const key = projectKey(orgSlug, project.slug)
-  const update = useAtomSet(updateProjectSetupAtom(key))
+  const req = projectRequest(orgSlug, project.slug)
+  const update = useAtomSet(updateProjectSetup(req))
   const { role } = useProjectRole()
 
   return (

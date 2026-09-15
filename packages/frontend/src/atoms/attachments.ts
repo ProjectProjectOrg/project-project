@@ -8,7 +8,6 @@ import { AttachmentId, ATTACHMENT_PAGE_SIZE } from "@projectproject/shared"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { splitOrgAttachmentsKey } from "./orgAttachmentsKey"
-import { splitProjectKey } from "./projects"
 import { splitTicketKey } from "./tickets"
 
 export class AttachmentUploadFailed extends Data.TaggedError(
@@ -112,7 +111,9 @@ export const uploadAttachmentAtom = Atom.family((key: string) => {
 })
 
 export const uploadProjectImageAtom = Atom.family((key: string) => {
-  const { orgSlug, slug } = splitProjectKey(key)
+  const separator = key.indexOf("/")
+  const orgSlug = key.slice(0, separator)
+  const slug = key.slice(separator + 1)
   return runtime.fn(
     Effect.fn(function* (input: UploadAttachmentInput) {
       const aborted = Effect.suspend(() =>

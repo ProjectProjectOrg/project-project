@@ -23,7 +23,7 @@ import {
   useReducedMotion
 } from "motion/react"
 import { logoutAtom, meAtom } from "@/atoms/auth"
-import { projectsListAtom } from "@/atoms/projects"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
@@ -215,7 +215,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
   const projectsBase = `/orgs/${orgSlug}/projects`
   const expanded =
     pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
-  const listResult = useAtomValue(projectsListAtom(orgSlug))
+  const listResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(listResult)
     ? [...listResult.value].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })

@@ -21,7 +21,7 @@ import { useAtomValue } from "@effect/atom-react"
 import { Link, useMatches } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { Fragment, useMemo } from "react"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { project, projectRequest } from "@/atoms/projects"
 import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
 import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { cn } from "@/lib/utils"
@@ -178,7 +178,7 @@ function ProjectCrumb({
   slug: string
   isLast: boolean
 }) {
-  const result = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const result = useAtomValue(project(projectRequest(orgSlug, slug)))
   if (!Result.isSuccess(result)) {
     return (
       <span

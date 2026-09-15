@@ -42,9 +42,10 @@ import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
-  projectAtom,
+  project,
   projectKey,
-  updateProjectSetupAtom
+  projectRequest,
+  updateProjectSetup
 } from "@/atoms/projects"
 import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
@@ -85,7 +86,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
     const { registry } = context
-    registry.mount(projectAtom(projectKey(orgSlug, slug)))()
+    registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
@@ -115,7 +116,8 @@ const PROJECT_SETTINGS_ROUTE_ID: FileRouteTypes["id"] =
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const req = projectRequest(orgSlug, slug)
+  const projectResult = useAtomValue(project(req))
   const headerHidden = useMatches({
     select: (matches) =>
       matches.some(
@@ -125,7 +127,7 @@ function ProjectLayout() {
       )
   })
 
-  return Result.matchWithError(project, {
+  return Result.matchWithError(projectResult, {
     onInitial: () => (
       <PageContainer>
         <Skeleton />
@@ -155,7 +157,7 @@ function ProjectLayout() {
       />
     ),
     onSuccess: ({ value, waiting }) => (
-      <ProjectContext.Provider value={value}>
+      <ProjectContext.Provider value={req}>
         <TagRenamesProvider>
           <ProjectGitStatePolling
             orgSlug={orgSlug}
@@ -244,9 +246,10 @@ function ProjectSetupRail({
   project: ProjectDetailType
   canManage: boolean
 }) {
+  const req = projectRequest(orgSlug, slug)
   const key = projectKey(orgSlug, slug)
   const gitStates = useAtomValue(projectGitStatesAtom(key))
-  const updateSetup = useAtomSet(updateProjectSetupAtom(key))
+  const updateSetup = useAtomSet(updateProjectSetup(req))
   if (!canManage) return null
 
   const brokenGithub =

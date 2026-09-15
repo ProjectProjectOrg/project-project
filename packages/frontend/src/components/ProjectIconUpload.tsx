@@ -8,8 +8,8 @@ import {
   type ProjectIconImage
 } from "@projectproject/shared"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
-import { orgStorageAtom } from "@/atoms/storage"
+import { projectKey, projectRequest, updateProject } from "@/atoms/projects"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import {
   compressImage,
   type CompressImageOptions
@@ -170,13 +170,14 @@ export function ProjectIconUpload({
   iconImage: ProjectIconImage | null
 }) {
   const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
+  const req = projectRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
   const upload = useAtomSet(uploadProjectImageAtom(key), {
     mode: "promiseExit"
   })
-  const updateState = useAtomValue(updateProjectAtom(key))
+  const updateState = useAtomValue(updateProject(req))
   const uploadState = useAtomValue(uploadProjectImageAtom(key))
-  const storage = useAtomValue(orgStorageAtom(orgSlug))
+  const storage = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const storageAvailable =
     AsyncResult.isSuccess(storage) && storage.value.status === "active"
   const submitting = updateState.waiting || uploadState.waiting

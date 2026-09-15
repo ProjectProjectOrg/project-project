@@ -35,7 +35,11 @@ import { Kbd } from "@/components/ui/kbd"
 import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { meAtom } from "@/atoms/auth"
 import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import {
+  project as projectView,
+  projectKey,
+  projectRequest
+} from "@/atoms/projects"
 import {
   assignTicketToSprint,
   sprintList,
@@ -77,7 +81,7 @@ export function BacklogTicketCreator({
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
 
-  const project = useAtomValue(projectAtom(projKey))
+  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
   const sprintReq = useMemo(

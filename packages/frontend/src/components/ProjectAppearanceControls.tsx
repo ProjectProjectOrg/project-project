@@ -7,7 +7,7 @@ import {
   ProjectIcon,
   type ProjectIconImage
 } from "@projectproject/shared"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import { projectRequest, updateProject } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
 import { ProjectIconUpload } from "@/components/ProjectIconUpload"
 import { ProjectTile } from "@/components/ProjectTile"
@@ -33,9 +33,9 @@ type SharedProps = {
 }
 
 function useProjectUpdate(orgSlug: string, slug: string) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key))
-  const updateState = useAtomValue(updateProjectAtom(key))
+  const req = projectRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req))
+  const updateState = useAtomValue(updateProject(req))
   return {
     update,
     waiting: updateState.waiting,

@@ -1,4 +1,4 @@
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { project, projectRequest } from "@/atoms/projects"
 import { projectStatusesAtom } from "@/atoms/projectStatuses"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { backlog, backlogRequest } from "@/atoms/backlog"
@@ -14,10 +14,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
     params: { orgSlug, slug },
     deps: query
   }) => {
-    const key = projectKey(orgSlug, slug)
-    registry.mount(projectAtom(key))()
+    registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
-    registry.mount(projectStatusesAtom(key))()
+    registry.mount(projectStatusesAtom(`${orgSlug}/${slug}`))()
     registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
   },
   validateSearch: Schema.toStandardSchemaV1(TicketListQuery)

@@ -24,7 +24,7 @@ import type {
   TicketId,
   Slug
 } from "@projectproject/shared"
-import { projectAtom, projectBaseAtom } from "./projects"
+import { project as projectView, projectRequest } from "./projects"
 
 export const githubAuthEpochAtom = Atom.make(0)
 
@@ -126,12 +126,13 @@ export const changedGitStateTicketIds = (
 
 export const projectGitStatesBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
+  const req = projectRequest(orgSlug, slug)
   let lastRepoId: string | null | undefined
   let previous: GitStatesResponse | undefined
   return runtime
     .atom((get) => {
       get(githubAuthEpochAtom)
-      const projectResult = get(projectBaseAtom(key))
+      const projectResult = get(projectView(req))
       const project = Option.getOrUndefined(Result.value(projectResult))
       const repoId =
         project === undefined ? undefined : (project.github?.repoId ?? null)
@@ -264,10 +265,11 @@ export const branchesAtom = Atom.family((key: string) => {
   const secondSep = key.indexOf(" ", firstSep + 1)
   const projKey = key.slice(0, firstSep)
   const { orgSlug, slug } = splitProjectKey(projKey)
+  const req = projectRequest(orgSlug, slug)
   return runtime
     .atom((get) => {
       get(githubAuthEpochAtom)
-      get(projectBaseAtom(projKey))
+      get(projectView(req))
       return Effect.gen(function* () {
         const q = key.slice(secondSep + 1)
         const client = yield* ApiClient
@@ -287,7 +289,8 @@ export const branchesAtom = Atom.family((key: string) => {
 
 export const connectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  return Atom.optimisticFn(projectView(req), {
     reducer: (current, input: ConnectGithubInput) =>
       Result.isSuccess(current)
         ? Result.success(
@@ -303,19 +306,20 @@ export const connectGithubAtom = Atom.family((key: string) => {
             { waiting: true }
           )
         : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: ConnectGithubInput, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.connectGithub({
-          params: { orgSlug, slug },
-          payload: input
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (input: ConnectGithubInput, get) {
+          const client = yield* ApiClient
+          const updated = yield* client.projects.connectGithub({
+            params: { orgSlug, slug },
+            payload: input
+          })
+          set(Result.success(updated))
+          get.refresh(projectGitStatesBaseAtom(key))
+          yield* Reactivity.invalidate(["branches", orgSlug, slug])
+          return updated
         })
-        get.refresh(projectBaseAtom(key))
-        get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate(["branches", orgSlug, slug])
-        return updated
-      })
-    )
+      )
   })
 })
 
@@ -335,23 +339,25 @@ export const startGithubInstallAtom = Atom.family((orgSlug: string) =>
 
 export const disconnectGithubAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
-  return Atom.optimisticFn(projectAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  return Atom.optimisticFn(projectView(req), {
     reducer: (current) =>
       Result.isSuccess(current)
         ? Result.success({ ...current.value, github: null }, { waiting: true })
         : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        const client = yield* ApiClient
-        const updated = yield* client.projects.disconnectGithub({
-          params: { orgSlug, slug }
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (_input: void, get) {
+          const client = yield* ApiClient
+          const updated = yield* client.projects.disconnectGithub({
+            params: { orgSlug, slug }
+          })
+          set(Result.success(updated))
+          get.refresh(projectGitStatesBaseAtom(key))
+          yield* Reactivity.invalidate(["branches", orgSlug, slug])
+          return updated
         })
-        get.refresh(projectBaseAtom(key))
-        get.refresh(projectGitStatesBaseAtom(key))
-        yield* Reactivity.invalidate(["branches", orgSlug, slug])
-        return updated
-      })
-    )
+      )
   })
 })
 

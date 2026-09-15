@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { meAtom } from "@/atoms/auth"
-import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
+import { projectRequest, updateProjectSetup } from "@/atoms/projects"
 import { MembersSection } from "@/components/MembersSection"
 import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
@@ -23,7 +23,7 @@ function TeamSettings() {
   const project = useProject()
   const me = useAtomValue(meAtom)
   const setup = useAtomSet(
-    updateProjectSetupAtom(projectKey(orgSlug, project.slug))
+    updateProjectSetup(projectRequest(orgSlug, project.slug))
   )
   if (!Result.isSuccess(me)) return null
   const callerId = me.value.id

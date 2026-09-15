@@ -13,13 +13,11 @@ import {
   UserRound
 } from "lucide-react"
 import {
-  cancelPendingMemberAtom,
-  addMemberAtom,
-  memberKey,
-  pendingMemberKey,
-  projectKey,
-  removeMemberAtom,
-  updateMemberAtom
+  addMember,
+  cancelPendingMember,
+  projectRequest,
+  removeMember,
+  updateMember
 } from "@/atoms/projects"
 import {
   DropdownMenu,
@@ -136,17 +134,18 @@ function AddMemberRow({
   callerRole: Role
   onFocusChange?: (focused: boolean) => void
 }) {
-  const pKey = projectKey(orgSlug, slug)
-  const add = useAtomSet(addMemberAtom(pKey), { mode: "promiseExit" })
-  const addState = useAtomValue(addMemberAtom(pKey))
-  const submitting = addState.waiting
-  const error = Result.isFailure(addState)
-    ? m.members_add_error_fallback()
-    : null
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
   const [submitted, setSubmitted] = useState(false)
   const trimmed = email.trim()
+  const req = projectRequest(orgSlug, slug)
+  const memberMutation = addMember({ req, id: trimmed })
+  const add = useAtomSet(memberMutation, { mode: "promiseExit" })
+  const addState = useAtomValue(memberMutation)
+  const submitting = addState.waiting
+  const error = Result.isFailure(addState)
+    ? m.members_add_error_fallback()
+    : null
   const availableRoles =
     callerRole === "owner"
       ? ASSIGNABLE_ROLES
@@ -366,11 +365,14 @@ function PendingMemberMenu({
   member: PendingProjectMember
   callerRole: Role
 }) {
-  const pKey = pendingMemberKey(orgSlug, slug, member.invitationId)
-  const cancel = useAtomSet(cancelPendingMemberAtom(pKey), {
+  const mutation = cancelPendingMember({
+    req: projectRequest(orgSlug, slug),
+    id: member.invitationId
+  })
+  const cancel = useAtomSet(mutation, {
     mode: "promiseExit"
   })
-  const cancelState = useAtomValue(cancelPendingMemberAtom(pKey))
+  const cancelState = useAtomValue(mutation)
   const canceling = cancelState.waiting
   const [confirming, setConfirming] = useState(false)
   const canCancel =
@@ -453,10 +455,12 @@ function MemberMenu({
   member: Member
   callerRole: Role
 }) {
-  const mKey = memberKey(orgSlug, slug, member.id)
-  const update = useAtomSet(updateMemberAtom(mKey))
-  const remove = useAtomSet(removeMemberAtom(mKey), { mode: "promiseExit" })
-  const removeState = useAtomValue(removeMemberAtom(mKey))
+  const mutationKey = { req: projectRequest(orgSlug, slug), id: member.id }
+  const update = useAtomSet(updateMember(mutationKey))
+  const remove = useAtomSet(removeMember(mutationKey), {
+    mode: "promiseExit"
+  })
+  const removeState = useAtomValue(removeMember(mutationKey))
   const removing = removeState.waiting
   const [confirming, setConfirming] = useState(false)
 

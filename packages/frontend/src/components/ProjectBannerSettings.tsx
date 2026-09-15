@@ -8,11 +8,12 @@ import {
 } from "@projectproject/shared"
 import {
   projectKey,
-  updateProjectAtom,
+  projectRequest,
+  updateProject,
   projectBannerPreviewAtom
 } from "@/atoms/projects"
 import { uploadProjectImageAtom } from "@/atoms/attachments"
-import { orgStorageAtom, orgStorageBaseAtom } from "@/atoms/storage"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import { compressBanner, type CompressedBanner } from "@/lib/imageCompression"
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
@@ -63,14 +64,16 @@ export default function ProjectBannerSettings({
   banner: ProjectBanner | null
 }) {
   const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
+  const req = projectRequest(orgSlug, slug)
+  const storageReq = storageRequest(orgSlug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
   const upload = useAtomSet(uploadProjectImageAtom(key), {
     mode: "promiseExit"
   })
-  const updateState = useAtomValue(updateProjectAtom(key))
+  const updateState = useAtomValue(updateProject(req))
   const uploadState = useAtomValue(uploadProjectImageAtom(key))
-  const storage = useAtomValue(orgStorageAtom(orgSlug))
-  const retryStorage = useAtomRefresh(orgStorageBaseAtom(orgSlug))
+  const storage = useAtomValue(orgStorage(storageReq))
+  const retryStorage = useAtomRefresh(orgStorage(storageReq))
   const storageAvailable =
     AsyncResult.isSuccess(storage) && storage.value.status === "active"
   const submitting = updateState.waiting || uploadState.waiting

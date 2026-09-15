@@ -1,5 +1,6 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { attachmentUrl, type ProjectIconImage } from "@projectproject/shared"
+import { preloadImage } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 
 export function ProjectIconDisplay({
@@ -23,6 +24,11 @@ export function ProjectIconDisplay({
     iconImage?.type === "sticker"
       ? iconImage.renderedAttachmentId
       : (iconImage?.sourceAttachmentId ?? null)
+  const source = id === null ? null : attachmentUrl(orgSlug, id)
+
+  useEffect(() => {
+    if (source) void preloadImage(source)
+  }, [source])
 
   const previousId = useRef(id)
   if (previousId.current !== id) {
@@ -44,12 +50,7 @@ export function ProjectIconDisplay({
       style={{ width: size, height: size }}
     >
       <img
-        src={attachmentUrl(
-          orgSlug,
-          iconImage.type === "sticker"
-            ? iconImage.renderedAttachmentId
-            : iconImage.sourceAttachmentId
-        )}
+        src={source ?? undefined}
         alt=""
         onError={() => setFailed(true)}
         className={cn(
