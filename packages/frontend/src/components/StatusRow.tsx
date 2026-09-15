@@ -50,6 +50,7 @@ export function StatusRow({
   const updateState = useAtomValue(updateMutation)
   const reorder = useAtomSet(reorderMutation)
   const reorderState = useAtomValue(reorderMutation)
+  const dataWaiting = updateState.waiting || reorderState.waiting
   const controls = useDragControls()
   const [draftLabel, setDraftLabel] = useState<string>(status.label)
   const [isDragging, setIsDragging] = useState(false)
@@ -102,7 +103,6 @@ export function StatusRow({
       <div
         className={cn(
           "flex items-center gap-2 rounded-md px-1 py-1 transition-colors duration-150",
-          (updateState.waiting || reorderState.waiting) && "animate-pulse",
           isDragging ? "bg-card" : "hover:bg-accent/40"
         )}
       >
@@ -130,7 +130,10 @@ export function StatusRow({
         {baseline && baselineMeta && BaselineIcon ? (
           <>
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center"
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center",
+                dataWaiting && "animate-pulse"
+              )}
               aria-hidden
             >
               <BaselineIcon
@@ -141,7 +144,12 @@ export function StatusRow({
                 strokeWidth={1.75}
               />
             </div>
-            <span className="flex-1 truncate px-1 text-sm text-muted-foreground">
+            <span
+              className={cn(
+                "flex-1 truncate px-1 text-sm text-muted-foreground",
+                dataWaiting && "animate-pulse"
+              )}
+            >
               {displayLabel}
             </span>
             <div
@@ -155,12 +163,18 @@ export function StatusRow({
         ) : (
           <>
             <StatusIconPicker
+              className={cn(dataWaiting && "animate-pulse")}
               value={status.icon}
               color={status.color}
               onOpenChange={setIconMenuOpen}
               onChange={(icon) => update({ icon: icon as StatusIconName })}
             />
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+            <div
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center",
+                dataWaiting && "animate-pulse"
+              )}
+            >
               <ColorPicker
                 value={status.color}
                 onOpenChange={setColorMenuOpen}
@@ -180,7 +194,10 @@ export function StatusRow({
                   ;(e.target as HTMLInputElement).blur()
                 }
               }}
-              className="h-8 flex-1 rounded-md"
+              className={cn(
+                "h-8 flex-1 rounded-md",
+                dataWaiting && "animate-pulse"
+              )}
             />
             <StatusDeleteConfirm
               status={status}

@@ -180,6 +180,21 @@ export const reorderStatus = Atom.family(
     })
 )
 
+export interface StatusReorder {
+  readonly statusSlug: StatusSlug
+  readonly orderKey: ReorderStatusInput["orderKey"]
+}
+
+export const dispatchStatusReorders = Atom.family((req: StatusesRequest) =>
+  Atom.fnSync((reorders: ReadonlyArray<StatusReorder>, get) => {
+    for (const { statusSlug, orderKey } of reorders) {
+      const mutation = reorderStatus({ req, statusSlug })
+      get.mount(mutation)
+      get.set(mutation, { orderKey })
+    }
+  })
+)
+
 export const deleteStatus = Atom.family(
   ({
     req,

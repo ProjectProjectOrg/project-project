@@ -1,15 +1,13 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { RegistryContext, useAtomValue } from "@effect/atom-react"
-import * as Effect from "effect/Effect"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { generateKeyBetween } from "fractional-indexing"
 import { motion } from "motion/react"
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 import {
-  reorderStatus,
+  dispatchStatusReorders,
   statusesFor,
   statusesRequest
 } from "@/atoms/projectStatuses"
@@ -20,7 +18,7 @@ import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import {
   type GroupId,
-  type OrderKey,
+  type ProjectStatus,
   type StatusSlug,
   type TicketListQuery
 } from "@projectproject/shared"
@@ -47,7 +45,6 @@ export function SprintDetail({
   onQueryChange: (query: TicketListQuery) => void
 }) {
   const project = useProject()
-  const registry = useContext(RegistryContext)
   const req = useMemo(
     () => sprintRequest(orgSlug, slug, groupId),
     [orgSlug, slug, groupId]
@@ -67,6 +64,7 @@ export function SprintDetail({
     [orgSlug, slug]
   )
   const statusesResult = useAtomValue(statusesFor(statusReq))
+  const reorderStatuses = useAtomSet(dispatchStatusReorders(statusReq))
 
   const enterReorder = useCallback(
     () => setReorder({ key: reorderKey, order: null }),
@@ -85,6 +83,10 @@ export function SprintDetail({
     if (!Result.isSuccess(statusesResult)) return
     const statuses = statusesResult.value
     if (dragOrder && statuses.length > 0) {
+      const reorders: Array<{
+        statusSlug: StatusSlug
+        orderKey: ProjectStatus["orderKey"]
+      }> = []
       const keys = new Map<string, string>(
         statuses.map((s) => [s.slug as string, s.orderKey as string])
       )
@@ -107,20 +109,16 @@ export function SprintDetail({
         }
         const newKey = generateKeyBetween(lastKey, nextValid)
         keys.set(slug, newKey)
-        const mutation = reorderStatus({
-          req: statusReq,
-          statusSlug: slug as StatusSlug
+        reorders.push({
+          statusSlug: slug as StatusSlug,
+          orderKey: newKey as ProjectStatus["orderKey"]
         })
-        const unmount = registry.mount(mutation)
-        registry.set(mutation, { orderKey: newKey as OrderKey })
-        void Effect.runPromiseExit(
-          Registry.getResult(registry, mutation, { suspendOnWaiting: true })
-        ).finally(unmount)
         lastKey = newKey
       }
+      reorderStatuses(reorders)
     }
     setReorder(null)
-  }, [dragOrder, registry, statusReq, statusesResult])
+  }, [dragOrder, reorderStatuses, statusesResult])
 
   const isBoard = view === "board"
   const isDescription = view === "description"
