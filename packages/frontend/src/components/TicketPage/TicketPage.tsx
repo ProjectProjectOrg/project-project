@@ -61,7 +61,9 @@ export function TicketPage({
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const updateTicketState = useAtomValue(updateTicketDetail(req))
-  const archiveTicketSet = useAtomSet(archiveTicket(req))
+  const archiveTicketSet = useAtomSet(archiveTicket(req), {
+    mode: "promiseExit"
+  })
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))

@@ -29,7 +29,9 @@ function ArchiveRowAction({
     () => ticketRequest(orgSlug, slug, ticketId),
     [orgSlug, slug, ticketId]
   )
-  const archiveTicketSet = useAtomSet(archiveTicket(req))
+  const archiveTicketSet = useAtomSet(archiveTicket(req), {
+    mode: "promiseExit"
+  })
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))

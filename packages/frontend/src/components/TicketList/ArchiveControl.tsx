@@ -1,5 +1,6 @@
+import * as Exit from "effect/Exit"
 import { Archive, ArchiveRestore } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -9,6 +10,8 @@ import {
 import { m } from "@/paraglide/messages"
 import type { ArchiveTicketInput } from "@projectproject/shared"
 
+type ArchiveExit = Exit.Exit<unknown, unknown>
+
 export function ArchiveTicketControl({
   archived,
   onArchive,
@@ -17,7 +20,7 @@ export function ArchiveTicketControl({
   failed
 }: {
   archived: boolean
-  onArchive: (input: ArchiveTicketInput) => void
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
   onUnarchive: () => void
   waiting: boolean
   failed: boolean
@@ -71,7 +74,7 @@ function ArchivePopover({
   waiting,
   failed
 }: {
-  onArchive: (input: ArchiveTicketInput) => void
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
   waiting: boolean
   failed: boolean
 }) {
@@ -118,23 +121,20 @@ function ArchiveForm({
 }: {
   reason: string
   onReasonChange: (reason: string) => void
-  onArchive: (input: ArchiveTicketInput) => void
+  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
   waiting: boolean
   failed: boolean
   onClose: () => void
 }) {
-  const wasWaitingRef = useRef(false)
-  useEffect(() => {
-    if (wasWaitingRef.current && !waiting && !failed) {
+  const submit = async () => {
+    const trimmed = reason.trim()
+    const exit = await onArchive({
+      reason: trimmed.length > 0 ? trimmed : undefined
+    })
+    if (Exit.isSuccess(exit)) {
       onReasonChange("")
       onClose()
     }
-    wasWaitingRef.current = waiting
-  }, [waiting, failed, onReasonChange, onClose])
-
-  const submit = () => {
-    const trimmed = reason.trim()
-    onArchive({ reason: trimmed.length > 0 ? trimmed : undefined })
   }
 
   return (
@@ -166,7 +166,12 @@ function ArchiveForm({
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           {m.tickets_archive_cancel()}
         </Button>
-        <Button type="button" size="sm" disabled={waiting} onClick={submit}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={waiting}
+          onClick={() => void submit()}
+        >
           {m.tickets_archive_submit()}
         </Button>
       </div>
