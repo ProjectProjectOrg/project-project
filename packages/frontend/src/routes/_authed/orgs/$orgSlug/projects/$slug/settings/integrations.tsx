@@ -4,6 +4,7 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import {
   connectEverhourProjectAtom,
   disconnectEverhourProjectAtom,
+  everhourProjectRequest,
   everhourProjectStatusAtom,
   syncEverhourProjectAtom
 } from "@/atoms/everhour"
@@ -92,8 +93,8 @@ function EverhourSettingsCard({
   slug: string
   role: "owner" | "admin" | "member"
 }) {
-  const key = projectKey(orgSlug, slug)
-  const status = useAtomValue(everhourProjectStatusAtom(key))
+  const req = everhourProjectRequest(orgSlug, slug)
+  const status = useAtomValue(everhourProjectStatusAtom(req))
   const me = useAtomValue(meAtom)
 
   return Result.matchWithError(status, {
@@ -145,17 +146,17 @@ function EverhourSettingsContent({
   hasKey: boolean
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const connect = useAtomSet(connectEverhourProjectAtom(key), {
+  const req = everhourProjectRequest(orgSlug, slug)
+  const connect = useAtomSet(connectEverhourProjectAtom(req), {
     mode: "promise"
   })
-  const sync = useAtomSet(syncEverhourProjectAtom(key), { mode: "promise" })
-  const disconnect = useAtomSet(disconnectEverhourProjectAtom(key), {
+  const sync = useAtomSet(syncEverhourProjectAtom(req), { mode: "promise" })
+  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req), {
     mode: "promise"
   })
-  const connectState = useAtomValue(connectEverhourProjectAtom(key))
-  const syncState = useAtomValue(syncEverhourProjectAtom(key))
-  const disconnectState = useAtomValue(disconnectEverhourProjectAtom(key))
+  const connectState = useAtomValue(connectEverhourProjectAtom(req))
+  const syncState = useAtomValue(syncEverhourProjectAtom(req))
+  const disconnectState = useAtomValue(disconnectEverhourProjectAtom(req))
   const busy =
     waiting ||
     connectState.waiting ||

@@ -1,6 +1,6 @@
 import { TableExtension } from "@lexical/table"
 import { createTableTransformer } from "./Lexical/tableTransformer"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import * as Effect from "effect/Effect"
 import { useDebouncer } from "@tanstack/react-pacer"
 import {
@@ -52,7 +52,7 @@ import { ATTACHMENT_TRANSFORMER } from "./Lexical/attachmentTransformer"
 import { FigmaExtension } from "./Lexical/FigmaExtension"
 import { FigmaPlugin } from "./Lexical/FigmaPlugin"
 import { FIGMA_TRANSFORMER } from "./Lexical/figmaTransformer"
-import { FigmaTicketProvider } from "./Lexical/figmaMetadata"
+import { figmaTicketLinksRequest } from "@/atoms/figma"
 import { PaperExtension } from "./Lexical/PaperExtension"
 import { PaperPlugin } from "./Lexical/PaperPlugin"
 import { PAPER_TRANSFORMER } from "./Lexical/paperTransformer"
@@ -468,14 +468,22 @@ export function LexicalEditor({
     </div>
   ))
 
-  const figmaTarget =
-    attachments === undefined
-      ? null
-      : {
-          orgSlug: attachments.orgSlug,
-          slug: attachments.slug,
-          ticketId: attachments.ticketId
-        }
+  const figmaOrgSlug = attachments?.orgSlug
+  const figmaProjectSlug = attachments?.slug
+  const figmaTicketId = attachments?.ticketId
+  const figmaTarget = useMemo(
+    () =>
+      figmaOrgSlug === undefined ||
+      figmaProjectSlug === undefined ||
+      figmaTicketId === undefined
+        ? null
+        : figmaTicketLinksRequest(
+            figmaOrgSlug,
+            figmaProjectSlug,
+            figmaTicketId
+          ),
+    [figmaOrgSlug, figmaProjectSlug, figmaTicketId]
+  )
 
   return (
     <div ref={wrapperRef} className={cn("group/editing prose-md", className)}>
@@ -483,35 +491,33 @@ export function LexicalEditor({
         extension={extension}
         contentEditable={contentEditable}
       >
-        <FigmaTicketProvider target={figmaTarget}>
-          <MentionsPlugin />
-          <FigmaPlugin />
-          <PaperPlugin />
-          {attachments !== undefined && attachments.uploadsEnabled ? (
-            <AttachmentsPlugin
-              orgSlug={attachments.orgSlug}
-              slug={attachments.slug}
-              ticketId={attachments.ticketId}
-            />
-          ) : null}
-          <LinkBlurActivationPlugin />
-          <MarkdownShortcutPlugin transformers={transformers} />
-          <OnChangePlugin
-            onChange={(editorState) => {
-              editorState.read(() => {
-                const next = $convertToMarkdownString(transformers)
-                const changed = nextMarkdownChange(liveRef.current, next)
-                if (changed === null) return
-                liveRef.current = changed
-                onDraftChange?.(next)
-                saveQueue.enqueue(changed)
-                setStatus("dirty")
-                scheduleRef.current()
-              })
-            }}
-            ignoreSelectionChange
+        <MentionsPlugin />
+        <FigmaPlugin request={figmaTarget} />
+        <PaperPlugin />
+        {attachments !== undefined && attachments.uploadsEnabled ? (
+          <AttachmentsPlugin
+            orgSlug={attachments.orgSlug}
+            slug={attachments.slug}
+            ticketId={attachments.ticketId}
           />
-        </FigmaTicketProvider>
+        ) : null}
+        <LinkBlurActivationPlugin />
+        <MarkdownShortcutPlugin transformers={transformers} />
+        <OnChangePlugin
+          onChange={(editorState) => {
+            editorState.read(() => {
+              const next = $convertToMarkdownString(transformers)
+              const changed = nextMarkdownChange(liveRef.current, next)
+              if (changed === null) return
+              liveRef.current = changed
+              onDraftChange?.(next)
+              saveQueue.enqueue(changed)
+              setStatus("dirty")
+              scheduleRef.current()
+            })
+          }}
+          ignoreSelectionChange
+        />
       </LexicalExtensionComposer>
     </div>
   )

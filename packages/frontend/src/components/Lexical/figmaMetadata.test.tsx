@@ -2,13 +2,12 @@ import { cleanup, render } from "@testing-library/react"
 import * as Schema from "effect/Schema"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { TicketId, type FigmaRef } from "@projectproject/shared"
-import {
-  FigmaTicketProvider,
-  useFigmaMetadata,
-  type FigmaTicketTarget
-} from "./figmaMetadata"
+import { stubFetch } from "@/api/testFetch"
+import { figmaTicketLinksRequest } from "@/atoms/figma"
+import { FigmaChip } from "./FigmaChip"
 
-const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeTicketId = Schema.decodeSync(TicketId)
+const fetchStub = stubFetch()
 
 const REF: FigmaRef = {
   kind: "design",
@@ -17,61 +16,36 @@ const REF: FigmaRef = {
   slug: "checkout"
 }
 
-function Probe({ reference }: { reference: FigmaRef }) {
-  const metadata = useFigmaMetadata(reference)
-  return <span>{metadata?.name ?? "unresolved"}</span>
-}
-
 afterEach(() => {
   cleanup()
 })
 
-describe("useFigmaMetadata", () => {
+describe("Figma metadata", () => {
   it("does not throw when the ticket target resolves from null to non-null", () => {
+    fetchStub.set(() => Promise.resolve(Response.json([])))
     const { rerender } = render(
-      <FigmaTicketProvider target={null}>
-        <Probe reference={REF} />
-      </FigmaTicketProvider>
+      <FigmaChip
+        request={null}
+        reference={REF}
+        label="Checkout"
+        morphId="figma-test"
+      />
     )
 
-    const target: FigmaTicketTarget = {
-      orgSlug: "acme",
-      slug: "proj",
-      ticketId: makeTicketId("AB-1")
-    }
-
-    expect(() =>
-      rerender(
-        <FigmaTicketProvider target={target}>
-          <Probe reference={REF} />
-        </FigmaTicketProvider>
-      )
-    ).not.toThrow()
-  })
-
-  it("does not throw when a ref resolves from null to non-null", () => {
-    const target: FigmaTicketTarget = {
-      orgSlug: "acme",
-      slug: "proj",
-      ticketId: makeTicketId("AB-1")
-    }
-
-    function OptionalProbe({ reference }: { reference: FigmaRef | null }) {
-      const metadata = useFigmaMetadata(reference)
-      return <span>{metadata?.name ?? "unresolved"}</span>
-    }
-
-    const { rerender } = render(
-      <FigmaTicketProvider target={target}>
-        <OptionalProbe reference={null} />
-      </FigmaTicketProvider>
+    const request = figmaTicketLinksRequest(
+      "acme",
+      "proj",
+      makeTicketId("AB-1")
     )
 
     expect(() =>
       rerender(
-        <FigmaTicketProvider target={target}>
-          <OptionalProbe reference={REF} />
-        </FigmaTicketProvider>
+        <FigmaChip
+          request={request}
+          reference={REF}
+          label="Checkout"
+          morphId="figma-test"
+        />
       )
     ).not.toThrow()
   })

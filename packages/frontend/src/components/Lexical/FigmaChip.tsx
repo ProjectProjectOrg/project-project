@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import type { FigmaRef } from "@projectproject/shared"
+import type { FigmaTicketLinksRequest } from "@/atoms/figma"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -62,17 +63,40 @@ export const figmaDisplayName = (input: {
 }
 
 export function FigmaChip({
+  request,
+  ...props
+}: FigmaChipProps & { request: FigmaTicketLinksRequest | null }) {
+  return request === null ? (
+    <FigmaChipContent {...props} metadata={null} />
+  ) : (
+    <ResolvedFigmaChip {...props} request={request} />
+  )
+}
+
+interface FigmaChipProps {
+  readonly reference: FigmaRef | null
+  readonly url?: string
+  readonly label: string
+  readonly morphId: string
+}
+
+function ResolvedFigmaChip({
+  request,
+  ...props
+}: FigmaChipProps & { request: FigmaTicketLinksRequest }) {
+  const metadata = useFigmaMetadata(props.reference, request)
+  return <FigmaChipContent {...props} metadata={metadata} />
+}
+
+function FigmaChipContent({
   reference,
   url,
   label,
-  morphId
-}: {
-  reference: FigmaRef | null
-  url?: string
-  label: string
-  morphId: string
+  morphId,
+  metadata
+}: FigmaChipProps & {
+  metadata: ReturnType<typeof useFigmaMetadata>
 }) {
-  const metadata = useFigmaMetadata(reference)
   const [broken, setBroken] = useState(false)
 
   if (reference === null) {
