@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto"
 import {
+  BASELINE_STATUS_COLORS,
   CreatableProjectKey,
+  pickStatusColor,
   deriveStatusSlug,
   isReservedStatusSlug,
   Slug,
@@ -11,6 +13,7 @@ import {
   TicketType
 } from "@projectproject/shared"
 import * as Schema from "effect/Schema"
+import type { JiraMigrationConfiguration } from "@projectproject/shared"
 import type { JiraMigrationManifest } from "./Manifest"
 
 export const JiraIdentityResolution = Schema.Union([
@@ -78,6 +81,15 @@ export const JiraMigrationMappings = Schema.Struct({
       sourceIssueId: Schema.NonEmptyString,
       selectedGroupId: Schema.NullOr(Schema.String)
     })
+  ),
+  tagOverrides: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        sourceKind: Schema.Literals(["label", "component"]),
+        sourceValue: Schema.NonEmptyString,
+        destinationTag: Schema.NonEmptyString
+      })
+    )
   )
 })
 export type JiraMigrationMappings = typeof JiraMigrationMappings.Type
@@ -108,7 +120,7 @@ export type JiraStatusCreateOption = {
   readonly slug: string
   readonly label: string
   readonly icon: "CircleDashed" | "CircleDot" | "CircleCheck"
-  readonly color: "#a3a3a3" | "#3b82f6" | "#22c55e"
+  readonly color: string
   readonly isTerminal: false
 }
 
@@ -138,6 +150,7 @@ export function buildJiraStatusCreateOptions(
       descriptor: {
         label: status.name,
         ...style,
+        color: "",
         isTerminal: false as const
       }
     }
@@ -149,16 +162,17 @@ export function buildJiraStatusCreateOptions(
     if (matching) matching.push(candidate)
     else bySlug.set(candidate.baseSlug, [candidate])
   }
-  return candidates
-    .map(({ sourceStatusId, baseSlug, descriptor }) => {
-      if (baseSlug === null) return { sourceStatusId, createOption: null }
+  const resolved = candidates.map(
+    ({ sourceStatusId, baseSlug, descriptor }) => {
+      if (baseSlug === null) {
+        return { sourceStatusId, slug: null, descriptor }
+      }
       const matching = bySlug.get(baseSlug) ?? []
       const descriptors = new Set(
         matching.map(({ descriptor }) =>
           JSON.stringify([
             descriptor.label,
             descriptor.icon,
-            descriptor.color,
             descriptor.isTerminal
           ])
         )
@@ -167,11 +181,32 @@ export function buildJiraStatusCreateOptions(
         isReservedStatusSlug(baseSlug) || descriptors.size > 1
           ? hashedStatusSlug(baseSlug, sourceStatusId)
           : baseSlug
-      return {
-        sourceStatusId,
-        createOption: { slug, ...descriptor }
-      }
-    })
+      return { sourceStatusId, slug, descriptor }
+    }
+  )
+
+  const usedColors: Array<string> = [...BASELINE_STATUS_COLORS]
+  const colorBySlug = new Map<string, string>()
+  for (const { slug } of resolved) {
+    if (slug === null || colorBySlug.has(slug)) continue
+    const color = pickStatusColor(usedColors)
+    usedColors.push(color)
+    colorBySlug.set(slug, color)
+  }
+
+  return resolved
+    .map(({ sourceStatusId, slug, descriptor }) =>
+      slug === null
+        ? { sourceStatusId, createOption: null }
+        : {
+            sourceStatusId,
+            createOption: {
+              ...descriptor,
+              slug,
+              color: colorBySlug.get(slug) ?? descriptor.color
+            }
+          }
+    )
     .toSorted((left, right) =>
       compareStrings(left.sourceStatusId, right.sourceStatusId)
     )
@@ -290,14 +325,14 @@ function makeTagCandidate(
 
 function statusStyle(
   categoryKey: string | null
-): Pick<JiraStatusCreateOption, "icon" | "color"> {
+): Pick<JiraStatusCreateOption, "icon"> {
   if (categoryKey === "indeterminate") {
-    return { icon: "CircleDot", color: "#3b82f6" }
+    return { icon: "CircleDot" }
   }
   if (categoryKey === "done") {
-    return { icon: "CircleCheck", color: "#22c55e" }
+    return { icon: "CircleCheck" }
   }
-  return { icon: "CircleDashed", color: "#a3a3a3" }
+  return { icon: "CircleDashed" }
 }
 
 function hashedStatusSlug(baseSlug: string, sourceStatusId: string): string {
@@ -311,4 +346,98 @@ function hashedStatusSlug(baseSlug: string, sourceStatusId: string): string {
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
+}
+
+export function jiraConfigurationToMappings(
+  manifest: JiraMigrationManifest,
+  configuration: JiraMigrationConfiguration
+): JiraMigrationMappings {
+  const restrictionResolution =
+    configuration.restrictedContent.policy === "include"
+      ? ("include_acknowledged" as const)
+      : ("exclude" as const)
+  const candidates = buildTagCandidates(manifest)
+  const collisions = findTagCollisions(candidates)
+  return {
+    project: {
+      slug: configuration.destination.slug,
+      key: configuration.destination.key,
+      name: configuration.destination.name
+    },
+    identities: configuration.identities.map(
+      ({ jiraAccountId, projectProjectUserId }) => ({
+        sourceAccountId: jiraAccountId,
+        resolution:
+          projectProjectUserId === null
+            ? ({ kind: "unlinked" } as const)
+            : ({ kind: "link", userId: projectProjectUserId } as const)
+      })
+    ),
+    statuses: configuration.statuses.map(
+      ({ jiraStatusId, projectStatusSlug, createStatus }) =>
+        createStatus === true
+          ? {
+              sourceStatusId: jiraStatusId,
+              destinationStatusSlug: projectStatusSlug,
+              createStatus: true as const
+            }
+          : {
+              sourceStatusId: jiraStatusId,
+              destinationStatusSlug: projectStatusSlug
+            }
+    ),
+    issueTypes: configuration.issueTypes.map(
+      ({ jiraIssueTypeId, projectType }) => ({
+        sourceIssueTypeId: jiraIssueTypeId,
+        destinationType: projectType
+      })
+    ),
+    priorities: configuration.priorities.map(
+      ({ jiraPriorityId, projectPriority }) => ({
+        sourcePriorityId: jiraPriorityId,
+        destinationPriority: projectPriority
+      })
+    ),
+    ticketIds: buildDefaultTicketIdMappings(manifest),
+    restrictions: manifest.restrictions.map(({ id }) => ({
+      restrictionId: id,
+      resolution: restrictionResolution
+    })),
+    acknowledgedSkippedAttachmentIds: configuration.skippedAttachmentIds,
+    tagCollisions: collisions.map(({ destinationTag, sourceIds }) => ({
+      destinationTag,
+      sourceIds,
+      resolution: "merge" as const
+    })),
+    openSprintMemberships: configuration.activeFutureSprintChoices.map(
+      ({ jiraIssueId, jiraSprintId }) => ({
+        sourceIssueId: jiraIssueId,
+        selectedGroupId: jiraSprintId
+      })
+    ),
+    tagOverrides: configuration.tags.map(({ source, destinationTagName }) => ({
+      sourceKind: source.kind,
+      sourceValue: source.value,
+      destinationTag: destinationTagName
+    }))
+  }
+}
+
+export function resolveTagDestinations(
+  manifest: JiraMigrationManifest,
+  mappings: JiraMigrationMappings
+): ReadonlyMap<string, string | null> {
+  const overrides = new Map(
+    (mappings.tagOverrides ?? []).map((override) => [
+      `${override.sourceKind}:${override.sourceValue}`,
+      override.destinationTag
+    ])
+  )
+  return new Map(
+    buildTagCandidates(manifest).map((candidate) => [
+      candidate.sourceId,
+      overrides.get(`${candidate.sourceKind}:${candidate.sourceValue}`) ??
+        candidate.destinationTag
+    ])
+  )
 }

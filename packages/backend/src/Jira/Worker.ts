@@ -1,4 +1,13 @@
-import { and, asc, eq, isNull, lt, or, sql as drizzleSql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  eq,
+  isNull,
+  lt,
+  or,
+  sql as drizzleSql,
+  type SQL
+} from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -9,7 +18,23 @@ import { jiraMigration, member, organization, user } from "../db/schema"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { S3Storage } from "../Services/S3Storage"
+import { GroupDocs } from "../Services/GroupDocs"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import { TicketDocs } from "../Services/TicketDocs"
+import { TicketIndex } from "../Services/TicketIndex"
+import { JiraMigrationBlocked } from "./Blocked"
+import { JiraMigrationReport } from "./Report"
 import { JiraClient } from "./Client"
+import {
+  buildJiraImportPlan,
+  copyJiraAttachments,
+  jiraImportEnvironment,
+  markJiraAttachmentsLive,
+  publishJiraMigration,
+  resolveJiraImportMembers,
+  writeJiraStagedDocuments,
+  type JiraImportDependencies
+} from "./Import"
 import { JiraMigrationManifest } from "./Manifest"
 import { buildJiraScanArtifacts } from "./Scan"
 
@@ -34,16 +59,28 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
     const jira = yield* JiraClient
     const orgStorage = yield* OrgStorage
     const s3 = yield* S3Storage
+    const projectDocs = yield* ProjectDocs
+    const ticketDocs = yield* TicketDocs
+    const groupDocs = yield* GroupDocs
+    const ticketIndex = yield* TicketIndex
+    const importDeps: JiraImportDependencies = {
+      db,
+      projectDocs,
+      ticketDocs,
+      groupDocs,
+      ticketIndex
+    }
 
-    const claimNext = Effect.fn("JiraMigrationWorker.claimNext")(function* () {
+    const claimNext = Effect.fn("JiraMigrationWorker.claimNext")(function* (
+      match: SQL
+    ) {
       const now = yield* DateTime.nowAsDate
       const candidate = yield* db
         .select()
         .from(jiraMigration)
         .where(
           and(
-            eq(jiraMigration.status, "scanning"),
-            eq(jiraMigration.phase, "queued_scan"),
+            match,
             or(
               isNull(jiraMigration.leaseExpiresAt),
               lt(jiraMigration.leaseExpiresAt, now)
@@ -66,8 +103,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         .where(
           and(
             eq(jiraMigration.id, candidate[0].id),
-            eq(jiraMigration.status, "scanning"),
-            eq(jiraMigration.phase, "queued_scan"),
+            match,
             or(
               isNull(jiraMigration.leaseExpiresAt),
               lt(jiraMigration.leaseExpiresAt, now)
@@ -104,6 +140,36 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         .pipe(Effect.orDie)
       if (!rows[0]) return yield* Effect.interrupt
     })
+
+    const renewMigrating = Effect.fn("JiraMigrationWorker.renewMigrating")(
+      function* (
+        job: ClaimedMigration,
+        progressDone: number,
+        progressTotal: number | null = null
+      ) {
+        const now = yield* DateTime.nowAsDate
+        const leaseExpiresAt = DateTime.toDate(
+          DateTime.add(DateTime.fromDateUnsafe(now), { seconds: LEASE_SECONDS })
+        )
+        const rows = yield* db
+          .update(jiraMigration)
+          .set(
+            progressTotal === null
+              ? { progressDone, leaseExpiresAt, updatedAt: now }
+              : { progressDone, progressTotal, leaseExpiresAt, updatedAt: now }
+          )
+          .where(
+            and(
+              eq(jiraMigration.id, job.id),
+              eq(jiraMigration.leaseId, job.leaseId),
+              eq(jiraMigration.status, "migrating")
+            )
+          )
+          .returning({ id: jiraMigration.id })
+          .pipe(Effect.orDie)
+        if (!rows[0]) return yield* Effect.interrupt
+      }
+    )
 
     const scan = Effect.fn("JiraMigrationWorker.scan")(function* (
       job: ClaimedMigration
@@ -301,6 +367,140 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         .pipe(Effect.orDie)
     })
 
+    const migrate = Effect.fn("JiraMigrationWorker.migrate")(function* (
+      job: ClaimedMigration
+    ) {
+      const org = yield* db
+        .select({ slug: organization.slug })
+        .from(organization)
+        .where(eq(organization.id, job.organizationId))
+        .limit(1)
+        .pipe(Effect.orDie)
+      if (!org[0]) return yield* Effect.interrupt
+      const orgSlug = org[0].slug
+      const connection = yield* orgStorage.requireConnection(orgSlug)
+
+      const raw = yield* s3.getObject(
+        connection,
+        objectKey(connection.keyPrefix, `${job.stagingPrefix}/manifest.json`)
+      )
+      if (!raw) return yield* new JiraMigrationBlocked({ blockers: [] })
+      const manifest = yield* Schema.decodeEffect(
+        Schema.fromJsonString(JiraMigrationManifest)
+      )(new TextDecoder().decode(raw)).pipe(Effect.orDie)
+
+      yield* renewMigrating(job, 0, manifest.issues.length + 2)
+      const environment = yield* jiraImportEnvironment(
+        importDeps,
+        job.organizationId,
+        job.destinationProjectSlug
+      )
+      const probe = buildJiraImportPlan(
+        manifest,
+        job.configuration,
+        environment,
+        {}
+      )
+      if (probe.kind === "blocked") {
+        return yield* new JiraMigrationBlocked({
+          blockers: probe.blockers.map(({ code, subjectId }) => ({
+            code,
+            subjectId
+          }))
+        })
+      }
+
+      const acceptedAttachmentIds = new Set(
+        probe.plan.attachments.map(
+          ({ sourceAttachmentId }) => sourceAttachmentId
+        )
+      )
+      const ticketIdBySourceIssueId = new Map(
+        probe.plan.tickets.map((ticket) => [ticket.sourceIssueId, ticket.id])
+      )
+      const attachmentUrls = yield* copyJiraAttachments(importDeps, jira, s3, {
+        organizationId: job.organizationId,
+        orgSlug,
+        projectSlug: probe.plan.project.slug,
+        userId: job.initiatedBy,
+        cloudId: job.sourceCloudId,
+        connection,
+        ticketIdBySourceIssueId,
+        attachments: manifest.attachments.filter(({ id }) =>
+          acceptedAttachmentIds.has(id)
+        )
+      })
+
+      const planResult = buildJiraImportPlan(
+        manifest,
+        job.configuration,
+        environment,
+        attachmentUrls
+      )
+      if (planResult.kind === "blocked") {
+        return yield* new JiraMigrationBlocked({
+          blockers: planResult.blockers.map(({ code, subjectId }) => ({
+            code,
+            subjectId
+          }))
+        })
+      }
+
+      const members = yield* resolveJiraImportMembers(
+        importDeps,
+        job.initiatedBy,
+        planResult.plan
+      )
+
+      yield* writeJiraStagedDocuments(
+        importDeps,
+        orgSlug,
+        job.initiatedBy,
+        planResult.plan,
+        members
+      )
+      yield* renewMigrating(job, manifest.issues.length + 1)
+
+      const reportPath = `${job.stagingPrefix}/report.json`
+      const report = yield* Schema.encodeEffect(
+        Schema.fromJsonString(JiraMigrationReport)
+      )({
+        migrationId: job.id,
+        projectSlug: planResult.plan.project.slug,
+        tickets: planResult.plan.tickets.length,
+        comments: planResult.plan.comments.length,
+        groups: planResult.plan.groups.length,
+        createdStatuses: planResult.plan.createdStatuses.map(
+          ({ slug }) => slug
+        ),
+        tags: planResult.plan.tags.map(({ name }) => name),
+        attachmentsPending: planResult.plan.attachments.length
+      }).pipe(Effect.orDie)
+      yield* s3.putObject(
+        connection,
+        objectKey(connection.keyPrefix, reportPath),
+        "application/json",
+        new TextEncoder().encode(report)
+      )
+
+      yield* markJiraAttachmentsLive(
+        importDeps,
+        job.organizationId,
+        planResult.plan.project.slug
+      )
+
+      yield* publishJiraMigration(importDeps, {
+        migrationId: job.id,
+        organizationId: job.organizationId,
+        orgSlug,
+        ownerId: job.initiatedBy,
+        leaseId: job.leaseId,
+        reportPath,
+        plan: planResult.plan,
+        members
+      })
+    })
+
     const updateFailure = (
       job: ClaimedMigration,
       values: Partial<typeof jiraMigration.$inferInsert>,
@@ -335,8 +535,83 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           .pipe(Effect.orDie)
       })
 
+    const scanMatch = and(
+      eq(jiraMigration.status, "scanning"),
+      eq(jiraMigration.phase, "queued_scan")
+    ) as SQL
+    const migrateMatch = eq(jiraMigration.status, "migrating") as SQL
+    const cancelMatch = eq(jiraMigration.status, "cancelling") as SQL
+
+    const finishCancellation = Effect.fn("JiraMigrationWorker.finishCancel")(
+      function* (job: ClaimedMigration) {
+        const now = yield* DateTime.nowAsDate
+        yield* db
+          .update(jiraMigration)
+          .set({
+            status: "cancelled",
+            phase: "cancelled",
+            finishedAt: now,
+            leaseId: null,
+            leaseExpiresAt: null,
+            revision: drizzleSql`${jiraMigration.revision} + 1`,
+            updatedAt: now
+          })
+          .where(
+            and(
+              eq(jiraMigration.id, job.id),
+              eq(jiraMigration.leaseId, job.leaseId)
+            )
+          )
+          .pipe(Effect.orDie)
+      }
+    )
+
     const workOnce = Effect.gen(function* () {
-      const job = yield* claimNext()
+      const cancelling = yield* claimNext(cancelMatch)
+      if (cancelling) return yield* finishCancellation(cancelling)
+
+      const migrating = yield* claimNext(migrateMatch)
+      if (migrating) {
+        const outcome = yield* Effect.result(migrate(migrating))
+        if (outcome._tag === "Success") return
+        yield* Effect.logError("Jira migration migrate failed", outcome.failure)
+        const failure = outcome.failure
+        if (failure._tag === "JiraReconnectRequired") {
+          return yield* updateFailure(
+            migrating,
+            { status: "reconnect_required", phase: "migrate" },
+            true
+          )
+        }
+        if (
+          failure._tag === "JiraRateLimited" ||
+          (failure._tag === "JiraError" &&
+            ["network", "timeout", "server_error"].includes(failure.reason))
+        ) {
+          return yield* updateFailure(migrating, {})
+        }
+        const storage =
+          failure._tag === "S3Unavailable" ||
+          failure._tag === "StorageNotConnected" ||
+          failure._tag === "StorageConfigMissing"
+        return yield* updateFailure(
+          migrating,
+          {
+            status: "failed",
+            phase: "migrate",
+            failureReason: storage
+              ? "storage_unavailable"
+              : failure._tag === "JiraMigrationBlocked"
+                ? "preflight_blocked"
+                : failure._tag,
+            failureRetryable: storage,
+            finishedAt: yield* DateTime.nowAsDate
+          },
+          true
+        )
+      }
+
+      const job = yield* claimNext(scanMatch)
       if (!job) return
       const result = yield* Effect.result(scan(job))
       if (result._tag === "Success") return

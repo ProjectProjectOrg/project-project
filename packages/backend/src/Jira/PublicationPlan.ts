@@ -8,7 +8,7 @@ import type {
 import {
   buildOpenSprintConflicts,
   buildJiraStatusCreateOptions,
-  buildTagCandidates,
+  resolveTagDestinations,
   type JiraMigrationMappings
 } from "./Mappings"
 import type {
@@ -96,7 +96,7 @@ export type JiraPublicationPlan = {
     readonly slug: string
     readonly label: string
     readonly icon: "CircleDashed" | "CircleDot" | "CircleCheck"
-    readonly color: "#a3a3a3" | "#3b82f6" | "#22c55e"
+    readonly color: string
     readonly isTerminal: false
   }>
   readonly tickets: ReadonlyArray<JiraStagedTicket>
@@ -235,12 +235,7 @@ export function createJiraPublicationPlan(
       mapping.resolution
     ])
   )
-  const tagCandidates = new Map(
-    buildTagCandidates(manifest).map((candidate) => [
-      candidate.sourceId,
-      candidate.destinationTag
-    ])
-  )
+  const tagCandidates = resolveTagDestinations(manifest, mappings)
 
   const tickets = manifest.issues
     .filter((issue) => !excluded.issues.has(issue.id))
@@ -378,16 +373,14 @@ export function createJiraPublicationPlan(
           )
       )
   )
-  for (const candidate of buildTagCandidates(manifest)) {
-    if (
-      candidate.destinationTag === null ||
-      !includedTagSourceIds.has(candidate.sourceId)
-    ) {
-      continue
-    }
-    const sources = groupedTags.get(candidate.destinationTag)
-    if (sources) sources.push(candidate.sourceId)
-    else groupedTags.set(candidate.destinationTag, [candidate.sourceId])
+  for (const [sourceId, destinationTag] of resolveTagDestinations(
+    manifest,
+    mappings
+  )) {
+    if (destinationTag === null || !includedTagSourceIds.has(sourceId)) continue
+    const sources = groupedTags.get(destinationTag)
+    if (sources) sources.push(sourceId)
+    else groupedTags.set(destinationTag, [sourceId])
   }
   const tags = [...groupedTags]
     .map(([name, sourceIds]) => ({

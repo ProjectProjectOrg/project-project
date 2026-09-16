@@ -371,15 +371,13 @@ describe("createJiraPublicationPlan", () => {
 
     expect(result.kind).toBe("ready")
     if (result.kind !== "ready") return
-    expect(result.plan.createdStatuses).toEqual([
-      {
-        slug: "qa_review",
-        label: "QA Review",
-        icon: "CircleDot",
-        color: "#3b82f6",
-        isTerminal: false
-      }
-    ])
+    expect(result.plan.createdStatuses).toHaveLength(1)
+    expect(result.plan.createdStatuses[0]).toMatchObject({
+      slug: "qa_review",
+      label: "QA Review",
+      icon: "CircleDot",
+      isTerminal: false
+    })
     expect(result.plan.tickets.map(({ status }) => status)).toEqual([
       "qa_review",
       "qa_review"

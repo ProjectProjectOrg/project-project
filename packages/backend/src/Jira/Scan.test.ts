@@ -94,7 +94,6 @@ describe("buildJiraScanArtifacts", () => {
             slug: "in_progress_eb9ac9db",
             label: "In Progress",
             icon: "CircleDot",
-            color: "#3b82f6",
             isTerminal: false
           }
         }

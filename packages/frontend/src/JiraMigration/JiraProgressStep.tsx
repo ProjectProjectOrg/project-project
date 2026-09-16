@@ -69,8 +69,8 @@ export function JiraProgressStep({
               style={ratio === null ? undefined : { width: `${ratio * 100}%` }}
             />
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {detail.progress.phase}
+          <span className="text-xs text-muted-foreground">
+            {phaseLabel(detail.progress.phase)}
           </span>
         </div>
       </div>
@@ -84,4 +84,17 @@ export function JiraProgressStep({
       ) : null}
     </div>
   )
+}
+
+const phaseLabels: Record<string, () => string> = {
+  queued_scan: m.jira_migration_phase_queued_scan,
+  scan: m.jira_migration_phase_scan,
+  configuration: m.jira_migration_phase_configuration,
+  ready: m.jira_migration_phase_ready,
+  migrate: m.jira_migration_phase_migrate,
+  cancelling: m.jira_migration_phase_cancelling
+}
+
+function phaseLabel(phase: string): string {
+  return phaseLabels[phase]?.() ?? ""
 }

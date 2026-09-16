@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 import * as Schema from "effect/Schema"
+import {
+  BASELINE_STATUS_COLORS,
+  TAG_DEFAULT_PALETTE
+} from "@projectproject/shared"
 import type { JiraMigrationManifest } from "./Manifest"
 import {
   buildDefaultTicketIdMappings,
@@ -7,6 +11,7 @@ import {
   buildJiraStatusCreateOptions,
   buildTagCandidates,
   findTagCollisions,
+  jiraConfigurationToMappings,
   JiraMigrationMappings,
   normalizeJiraTag
 } from "./Mappings"
@@ -86,49 +91,52 @@ describe("JiraMigrationMappings", () => {
 })
 
 describe("buildJiraStatusCreateOptions", () => {
-  it("uses canonical baseline styling while keeping created statuses nonterminal", () => {
+  it("uses canonical baseline icons while keeping created statuses nonterminal", () => {
+    const options = buildJiraStatusCreateOptions([
+      { id: "status-new", name: "Backlog", categoryKey: "new" },
+      {
+        id: "status-progress",
+        name: "Ready for review",
+        categoryKey: "indeterminate"
+      },
+      { id: "status-complete", name: "Released", categoryKey: "done" }
+    ])
+
     expect(
-      buildJiraStatusCreateOptions([
-        { id: "status-new", name: "Backlog", categoryKey: "new" },
-        {
-          id: "status-progress",
-          name: "Ready for review",
-          categoryKey: "indeterminate"
-        },
-        { id: "status-complete", name: "Released", categoryKey: "done" }
-      ])
+      options.map(({ sourceStatusId, createOption }) => ({
+        sourceStatusId,
+        slug: createOption?.slug,
+        label: createOption?.label,
+        icon: createOption?.icon,
+        isTerminal: createOption?.isTerminal
+      }))
     ).toEqual([
       {
         sourceStatusId: "status-complete",
-        createOption: {
-          slug: "released",
-          label: "Released",
-          icon: "CircleCheck",
-          color: "#22c55e",
-          isTerminal: false
-        }
+        slug: "released",
+        label: "Released",
+        icon: "CircleCheck",
+        isTerminal: false
       },
       {
         sourceStatusId: "status-new",
-        createOption: {
-          slug: "backlog",
-          label: "Backlog",
-          icon: "CircleDashed",
-          color: "#a3a3a3",
-          isTerminal: false
-        }
+        slug: "backlog",
+        label: "Backlog",
+        icon: "CircleDashed",
+        isTerminal: false
       },
       {
         sourceStatusId: "status-progress",
-        createOption: {
-          slug: "ready_for_review",
-          label: "Ready for review",
-          icon: "CircleDot",
-          color: "#3b82f6",
-          isTerminal: false
-        }
+        slug: "ready_for_review",
+        label: "Ready for review",
+        icon: "CircleDot",
+        isTerminal: false
       }
     ])
+
+    for (const { createOption } of options) {
+      expect(TAG_DEFAULT_PALETTE).toContain(createOption?.color)
+    }
   })
 
   it("returns null for empty or overlong labels and hashes reserved or colliding slugs", () => {
@@ -354,6 +362,165 @@ describe("buildOpenSprintConflicts", () => {
 
     expect(buildOpenSprintConflicts(manifest)).toEqual([
       { sourceIssueId: "10001", candidateGroupIds: ["active", "future"] }
+    ])
+  })
+})
+
+describe("jiraConfigurationToMappings", () => {
+  const manifest: JiraMigrationManifest = {
+    ...emptyManifest(),
+    restrictions: [
+      {
+        id: "restriction-1",
+        targetKind: "issue",
+        targetId: "10001",
+        source: "security",
+        raw: {}
+      }
+    ],
+    issues: [
+      {
+        id: "10001",
+        key: "APP-1",
+        issueNumber: 1,
+        summary: "First",
+        description: null,
+        statusId: "1",
+        issueTypeId: "10",
+        priorityId: "3",
+        assigneeAccountId: null,
+        labels: [],
+        componentIds: [],
+        groupIds: [],
+        parentIssueId: null,
+        attachmentIds: [],
+        restricted: true,
+        createdAt: "2026-09-01T10:00:00Z",
+        updatedAt: "2026-09-01T10:00:00Z",
+        raw: {}
+      }
+    ]
+  }
+
+  const baseConfiguration = {
+    destination: { name: "Application", slug: "application", key: "APP" },
+    identities: [
+      { jiraAccountId: "acct-linked", projectProjectUserId: "user-1" },
+      { jiraAccountId: "acct-unlinked", projectProjectUserId: null }
+    ],
+    statuses: [
+      { jiraStatusId: "1", projectStatusSlug: "todo" },
+      { jiraStatusId: "2", projectStatusSlug: "on_hold", createStatus: true }
+    ],
+    issueTypes: [{ jiraIssueTypeId: "10", projectType: "feat" }],
+    priorities: [{ jiraPriorityId: "3", projectPriority: "med" }],
+    tags: [],
+    activeFutureSprintChoices: [
+      { jiraIssueId: "10001", jiraSprintId: "sprint-2" },
+      { jiraIssueId: "10002", jiraSprintId: null }
+    ],
+    restrictedContent: { policy: "exclude" as const },
+    skippedAttachmentIds: ["att-1"],
+    attachmentSkipsAccepted: true
+  }
+
+  it("produces mappings the plan schema accepts", () => {
+    const mappings = jiraConfigurationToMappings(
+      manifest,
+      baseConfiguration as never
+    )
+
+    expect(Schema.is(JiraMigrationMappings)(mappings)).toBe(true)
+    expect(mappings.project.slug).toBe("application")
+    expect(mappings.identities).toEqual([
+      {
+        sourceAccountId: "acct-linked",
+        resolution: { kind: "link", userId: "user-1" }
+      },
+      { sourceAccountId: "acct-unlinked", resolution: { kind: "unlinked" } }
+    ])
+    expect(mappings.ticketIds).toEqual([
+      { sourceIssueId: "10001", destinationTicketId: "APP-1" }
+    ])
+  })
+
+  it("keeps create-status intent and omits it otherwise", () => {
+    const mappings = jiraConfigurationToMappings(
+      manifest,
+      baseConfiguration as never
+    )
+
+    expect(mappings.statuses[0]).toEqual({
+      sourceStatusId: "1",
+      destinationStatusSlug: "todo"
+    })
+    expect(mappings.statuses[1]).toEqual({
+      sourceStatusId: "2",
+      destinationStatusSlug: "on_hold",
+      createStatus: true
+    })
+  })
+
+  it("maps the restricted-content policy onto every manifest restriction", () => {
+    expect(
+      jiraConfigurationToMappings(manifest, baseConfiguration as never)
+        .restrictions
+    ).toEqual([{ restrictionId: "restriction-1", resolution: "exclude" }])
+
+    expect(
+      jiraConfigurationToMappings(manifest, {
+        ...baseConfiguration,
+        restrictedContent: { policy: "include", disclosureAccepted: true }
+      } as never).restrictions
+    ).toEqual([
+      { restrictionId: "restriction-1", resolution: "include_acknowledged" }
+    ])
+  })
+
+  it("carries sprint choices and acknowledged attachment skips", () => {
+    const mappings = jiraConfigurationToMappings(
+      manifest,
+      baseConfiguration as never
+    )
+
+    expect(mappings.openSprintMemberships).toEqual([
+      { sourceIssueId: "10001", selectedGroupId: "sprint-2" },
+      { sourceIssueId: "10002", selectedGroupId: null }
+    ])
+    expect(mappings.acknowledgedSkippedAttachmentIds).toEqual(["att-1"])
+  })
+})
+
+describe("created status colours", () => {
+  it("gives every created status a distinct colour from the wheel", () => {
+    const options = buildJiraStatusCreateOptions([
+      { id: "1", name: "Development", categoryKey: "indeterminate" },
+      { id: "2", name: "On hold", categoryKey: "indeterminate" },
+      { id: "3", name: "Templates", categoryKey: "indeterminate" }
+    ])
+    const colors = options.flatMap(({ createOption }) =>
+      createOption ? [createOption.color] : []
+    )
+
+    expect(colors).toHaveLength(3)
+    expect(new Set(colors).size).toBe(3)
+    for (const color of colors) {
+      expect(TAG_DEFAULT_PALETTE).toContain(color)
+      expect(BASELINE_STATUS_COLORS).not.toContain(color)
+    }
+  })
+
+  it("still derives the icon from the Jira status category", () => {
+    const options = buildJiraStatusCreateOptions([
+      { id: "1", name: "Shipped", categoryKey: "done" },
+      { id: "2", name: "Doing", categoryKey: "indeterminate" },
+      { id: "3", name: "Fresh", categoryKey: "new" }
+    ])
+
+    expect(options.map(({ createOption }) => createOption?.icon)).toEqual([
+      "CircleCheck",
+      "CircleDot",
+      "CircleDashed"
     ])
   })
 })
