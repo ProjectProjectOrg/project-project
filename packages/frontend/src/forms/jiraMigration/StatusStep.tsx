@@ -79,7 +79,7 @@ export function StatusStep({
                       <SelectTrigger
                         aria-label={status.name}
                         placeholder={m.jira_migration_status_title()}
-                        className="w-full min-w-0 max-w-full overflow-hidden"
+                        className="w-full"
                         selectedLabel={
                           creating && status.createOption ? (
                             <CreateStatusOptionLabel

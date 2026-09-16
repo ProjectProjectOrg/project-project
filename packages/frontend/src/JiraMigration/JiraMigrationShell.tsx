@@ -99,7 +99,7 @@ export function JiraMigrationShell({
     : currentIndex
 
   return (
-    <div className="flex min-h-[calc(100dvh-7.5rem)] w-full flex-col">
+    <div className="mx-auto flex min-h-[calc(100dvh-7.5rem)] w-full max-w-[1020px] flex-col">
       <header className="flex min-h-12 items-start justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {m.jira_migration_page_title()}
