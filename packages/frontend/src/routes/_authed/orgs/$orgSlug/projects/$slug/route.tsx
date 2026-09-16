@@ -172,7 +172,7 @@ function ProjectLayout() {
               BannerPrototype && bannerPrototype && "relative isolate"
             )}
           >
-            {BannerPrototype && bannerPrototype && (
+            {BannerPrototype && bannerPrototype && !onSettings && (
               <Suspense fallback={null}>
                 <BannerPrototype
                   key={`${orgSlug}/${slug}`}

@@ -93,8 +93,10 @@ const initialSettings: BannerPrototypeSettings = {
 }
 
 export default function ProjectBannerPrototype({
-  mode
+  mode,
+  embedded = false
 }: {
+  embedded?: boolean
   mode: "image" | "mask"
 }) {
   const navigate = useNavigate()
@@ -103,6 +105,20 @@ export default function ProjectBannerPrototype({
   const [error, setError] = useState(false)
   const [settings, setSettings] = useState(initialSettings)
   const [expanded, setExpanded] = useState(false)
+  const [removed, setRemoved] = useState(false)
+  const [saved, setSaved] = useState({
+    source: sampleUrl,
+    settings: initialSettings,
+    removed: false
+  })
+  const objectUrls = useRef<string[]>([])
+  const cancel = () => {
+    setSource(saved.source)
+    setSettings(saved.settings)
+    setRemoved(saved.removed)
+    setError(false)
+    setExpanded(false)
+  }
   const selectedTemplate = templates.find((template) => template.src === source)
   const fileRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<{
@@ -137,11 +153,18 @@ export default function ProjectBannerPrototype({
     photo.src = source
     return () => {
       cancelled = true
-      if (source.startsWith("blob:")) URL.revokeObjectURL(source)
     }
   }, [source])
 
+  useEffect(
+    () => () => {
+      objectUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    },
+    []
+  )
+
   useEffect(() => {
+    if (embedded) return undefined
     const handleKey = (event: KeyboardEvent) => {
       if (
         event.target instanceof Element &&
@@ -164,7 +187,7 @@ export default function ProjectBannerPrototype({
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [mode, navigate])
+  }, [mode, navigate, embedded])
 
   const sliders: {
     key: keyof BannerPrototypeSettings
@@ -268,7 +291,7 @@ export default function ProjectBannerPrototype({
           opacity: settings.overallOpacity ?? initialSettings.overallOpacity
         }}
       >
-        {image && (
+        {image && !removed && (
           <ProjectBannerPrototypeShader
             image={image}
             settings={settings}
@@ -277,16 +300,63 @@ export default function ProjectBannerPrototype({
           />
         )}
       </div>
+      {embedded && !expanded && (
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">
+            {m.project_banner_settings_label()}
+          </span>
+          <div className="w-48">
+            <Button
+              variant="image-option"
+              size="image-option"
+              aria-label={m.project_banner_settings_preview()}
+              onClick={() => setExpanded(true)}
+            >
+              {removed ? (
+                <span className="text-xs">
+                  {m.project_banner_settings_add()}
+                </span>
+              ) : (
+                <img
+                  src={source}
+                  alt=""
+                  className="size-full object-cover"
+                  style={{
+                    objectPosition: `${settings.x * 100}% ${settings.y * 100}%`
+                  }}
+                />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onClick={() => setExpanded(true)}
+          >
+            {removed
+              ? m.project_banner_settings_add()
+              : m.project_banner_settings_change()}
+          </Button>
+        </div>
+      )}
       <section
+        hidden={embedded && !expanded}
         aria-label={m.project_banner_prototype_title()}
-        className="fixed bottom-4 left-1/2 z-50 w-[min(640px,calc(100vw-32px))] -translate-x-1/2 rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-md"
+        className={
+          embedded
+            ? "col-span-full w-full max-w-2xl rounded-xl border border-border bg-popover p-4 text-popover-foreground"
+            : "fixed bottom-4 left-1/2 z-50 w-[min(640px,calc(100vw-32px))] -translate-x-1/2 rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-md"
+        }
       >
         {expanded && (
           <div className="mb-3 flex max-h-[min(65vh,600px)] flex-col gap-4 overflow-auto border-b border-border pb-4 [&>*]:shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">
-                  {m.project_banner_prototype_title()}
+                  {embedded
+                    ? m.project_banner_settings_label()
+                    : m.project_banner_prototype_title()}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {m.project_banner_prototype_local_notice()}
@@ -296,7 +366,7 @@ export default function ProjectBannerPrototype({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={m.project_banner_prototype_close_controls()}
-                onClick={() => setExpanded(false)}
+                onClick={() => (embedded ? cancel() : setExpanded(false))}
               >
                 <X />
               </Button>
@@ -318,6 +388,7 @@ export default function ProjectBannerPrototype({
                       aria-pressed={source === template.src}
                       onClick={() => {
                         setError(false)
+                        setRemoved(false)
                         setSource(template.src)
                         setSettings((current) => ({
                           ...current,
@@ -344,7 +415,7 @@ export default function ProjectBannerPrototype({
                 ))}
               </div>
             </div>
-            {image && (
+            {image && !removed && (
               <div
                 role="group"
                 aria-label={m.project_banner_prototype_crop()}
@@ -412,13 +483,17 @@ export default function ProjectBannerPrototype({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              {m.project_banner_prototype_crop_hint()}
+              {embedded
+                ? m.project_banner_settings_crop_hint()
+                : m.project_banner_prototype_crop_hint()}
             </p>
             <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
               {sliders
-                .filter(
-                  ({ key }) =>
-                    mode === "mask" || (key !== "noise" && key !== "noiseScale")
+                .filter(({ key }) =>
+                  embedded
+                    ? ["zoom", "x", "y"].includes(key)
+                    : mode === "mask" ||
+                      (key !== "noise" && key !== "noiseScale")
                 )
                 .map(({ key, label, min, max, step }) => (
                   <label key={key} className="flex flex-col gap-2 text-xs">
@@ -474,33 +549,35 @@ export default function ProjectBannerPrototype({
           </div>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={m.project_banner_prototype_previous()}
-              onClick={switchMode}
-            >
-              <ChevronLeft />
-            </Button>
-            <span
-              aria-live="polite"
-              className="min-w-0 text-xs font-medium sm:min-w-40 sm:text-sm"
-            >
-              {mode === "image"
-                ? m.project_banner_prototype_image()
-                : m.project_banner_prototype_mask()}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={m.project_banner_prototype_next()}
-              onClick={switchMode}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-          <div className="flex items-center gap-1">
+          {!embedded && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={m.project_banner_prototype_previous()}
+                onClick={switchMode}
+              >
+                <ChevronLeft />
+              </Button>
+              <span
+                aria-live="polite"
+                className="min-w-0 text-xs font-medium sm:min-w-40 sm:text-sm"
+              >
+                {mode === "image"
+                  ? m.project_banner_prototype_image()
+                  : m.project_banner_prototype_mask()}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={m.project_banner_prototype_next()}
+                onClick={switchMode}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-1">
             <Button
               variant="tertiary"
               size="sm"
@@ -509,15 +586,43 @@ export default function ProjectBannerPrototype({
             >
               {m.project_banner_prototype_upload()}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={m.project_banner_prototype_controls()}
-              aria-expanded={expanded}
-              onClick={() => setExpanded(!expanded)}
-            >
-              <SlidersHorizontal />
-            </Button>
+            {!embedded && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={m.project_banner_prototype_controls()}
+                aria-expanded={expanded}
+                onClick={() => setExpanded(!expanded)}
+              >
+                <SlidersHorizontal />
+              </Button>
+            )}
+            {embedded && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setRemoved(true)
+                  }}
+                >
+                  {m.project_banner_settings_remove()}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={cancel}>
+                  {m.common_cancel_button()}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={error || (!removed && !image)}
+                  onClick={() => {
+                    setSaved({ source, settings, removed })
+                    setExpanded(false)
+                  }}
+                >
+                  {m.project_banner_settings_apply()}
+                </Button>
+              </>
+            )}
           </div>
         </div>
         <input
@@ -529,7 +634,10 @@ export default function ProjectBannerPrototype({
             const file = event.target.files?.[0]
             if (!file) return
             setError(false)
-            setSource(URL.createObjectURL(file))
+            const url = URL.createObjectURL(file)
+            objectUrls.current.push(url)
+            setSource(url)
+            setRemoved(false)
             setSettings((current) => ({ ...current, zoom: 1, x: 0.5, y: 0.5 }))
             setExpanded(true)
             event.target.value = ""
