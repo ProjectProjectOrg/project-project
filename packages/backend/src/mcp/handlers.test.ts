@@ -25,6 +25,10 @@ import { Tickets, type TicketsShape } from "../Services/Tickets"
 import { Projects, type ProjectsShape } from "../Services/Projects"
 import { Groups } from "../Services/Groups"
 import { Tags } from "../Services/Tags"
+import {
+  ProjectStatuses,
+  type ProjectStatusesShape
+} from "../Services/ProjectStatuses"
 import { Users } from "../Services/Users"
 import { BetterAuth } from "../Services/BetterAuth"
 import { ProjectDocs, type ProjectDocsShape } from "../Services/ProjectDocs"
@@ -169,6 +173,23 @@ const TicketDocsStub = Layer.succeed(TicketDocs, {
     })
 } as unknown as TicketDocsShape)
 
+const ProjectStatusesStub = Layer.succeed(ProjectStatuses, {
+  list: (_o: string, _u: string, _s: string) =>
+    Effect.succeed(
+      Schema.decodeSync(McpTools.list_statuses.output)([
+        {
+          slug: "code_test",
+          label: "Code Test",
+          icon: "ShieldCheck",
+          color: "#3b82f6",
+          orderKey: "a0",
+          createdBy: "u-1",
+          createdAt: "2026-05-01T00:00:00.000Z"
+        }
+      ])
+    )
+} as unknown as ProjectStatusesShape)
+
 const TestLayer = Layer.mergeAll(
   TicketsStub,
   ProjectsStub,
@@ -180,7 +201,8 @@ const TestLayer = Layer.mergeAll(
   ProjectDocsStub,
   GroupDocsStub,
   TicketDocsStub,
-  TicketIndexStub
+  TicketIndexStub,
+  ProjectStatusesStub
 )
 
 describe("MCP dispatcher → list_tickets", () => {
@@ -223,6 +245,37 @@ describe("MCP dispatcher → list_tickets", () => {
     expect(payload.items).toHaveLength(10)
     expect(payload.items[0].id).toBe("T-1")
     expect(payload.nextCursor).toBe("cursor-next")
+
+    await runtime.dispose()
+  })
+})
+
+describe("MCP dispatcher → list_statuses", () => {
+  test("returns both the stable slug and user-facing label", async () => {
+    const runtime = ManagedRuntime.make(TestLayer)
+    const registered = new Map<
+      string,
+      (input: unknown) => Promise<ToolResult>
+    >()
+    const fakeServer = captureToolCalls(registered)
+
+    registerAllTools(
+      fakeServer as Parameters<typeof registerAllTools>[0],
+      runtime,
+      handlers
+    )
+
+    const result = await withFakeUser(() =>
+      registered.get("list_statuses")!({
+        orgSlug: "acme",
+        projectSlug: "demo"
+      })
+    )
+
+    expect(result.isError).toBeUndefined()
+    expect(JSON.parse(result.content[0].text)).toEqual([
+      expect.objectContaining({ slug: "code_test", label: "Code Test" })
+    ])
 
     await runtime.dispose()
   })

@@ -3,8 +3,7 @@ import sharp from "sharp"
 import { BANNER_PLACEHOLDER_BUDGET } from "@projectproject/shared"
 import {
   bannerNeedsPlaceholder,
-  encodeBannerPlaceholder,
-  normalizeBanner
+  encodeBannerPlaceholder
 } from "./bannerPlaceholder"
 
 const photo = (width: number, height: number) => {
@@ -14,21 +13,6 @@ const photo = (width: number, height: number) => {
     .jpeg()
     .toBuffer()
 }
-
-describe("normalizeBanner", () => {
-  it("fills a missing placeholder key with null", () => {
-    const stored = {
-      type: "attachment",
-      attachmentId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-      crop: { x: 0.5, y: 0.5, zoom: 1 }
-    } as never
-    expect(normalizeBanner(stored)).toMatchObject({ placeholder: null })
-  })
-
-  it("leaves a null banner null", () => {
-    expect(normalizeBanner(null)).toBeNull()
-  })
-})
 
 describe("bannerNeedsPlaceholder", () => {
   it("is true only for an attachment banner missing its placeholder", () => {

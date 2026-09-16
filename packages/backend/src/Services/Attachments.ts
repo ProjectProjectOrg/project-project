@@ -51,22 +51,6 @@ export const attachmentServesInline = (input: {
   readonly download: boolean
 }): boolean => !input.download && isRasterImageContentType(input.contentType)
 
-export const ATTACHMENT_WIDTH_RUNGS = [64, 128, 256, 512, 1024, 2048] as const
-
-export const resolveAttachmentWidthRung = (
-  width: number | null
-): number | null => {
-  if (
-    width === null ||
-    !Number.isInteger(width) ||
-    width <= 0 ||
-    width > 2048
-  ) {
-    return null
-  }
-  return ATTACHMENT_WIDTH_RUNGS.find((rung) => rung >= width) ?? null
-}
-
 export const deriveAttachmentEtag = (
   upstreamEtag: string | null,
   servedRung: number | null

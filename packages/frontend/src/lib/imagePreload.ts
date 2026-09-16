@@ -17,11 +17,12 @@ export const preloadImage = (url: string): Promise<void> => {
       if (success) loaded.add(url)
       resolve()
     }
+    img.crossOrigin = "anonymous"
     img.onload = () => {
       if (typeof img.decode === "function") {
         img.decode().then(
           () => finish(true),
-          () => finish(true)
+          () => finish(false)
         )
       } else finish(true)
     }

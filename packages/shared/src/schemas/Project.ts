@@ -159,13 +159,13 @@ export const ProjectBanner = Schema.Union([
     type: Schema.Literal("preset"),
     preset: ProjectBannerPreset,
     crop: ProjectBannerCrop,
-    placeholder: ProjectBannerPlaceholder
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
   }),
   Schema.Struct({
     type: Schema.Literal("attachment"),
     attachmentId: AttachmentId,
     crop: ProjectBannerCrop,
-    placeholder: ProjectBannerPlaceholder
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
   })
 ])
 export type ProjectBanner = typeof ProjectBanner.Type

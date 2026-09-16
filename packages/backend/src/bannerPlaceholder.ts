@@ -11,11 +11,6 @@ export const BANNER_PLACEHOLDER_QUALITY_LADDER = [50, 35, 20, 10] as const
 
 export type AttachmentBanner = Extract<ProjectBanner, { type: "attachment" }>
 
-export const normalizeBanner = (
-  banner: ProjectBanner | null | undefined
-): ProjectBanner | null =>
-  banner ? { ...banner, placeholder: banner.placeholder ?? null } : null
-
 export const bannerNeedsPlaceholder = (
   banner: ProjectBanner | null | undefined
 ): banner is AttachmentBanner =>

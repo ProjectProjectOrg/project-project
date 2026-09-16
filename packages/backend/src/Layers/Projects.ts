@@ -52,7 +52,7 @@ import {
   projectMember,
   projectStatus
 } from "../db/schema"
-import { normalizeBanner } from "../bannerPlaceholder"
+import { bannerNeedsPlaceholder } from "../bannerPlaceholder"
 import {
   iconImageSlots,
   replaceProjectImageReference
@@ -457,8 +457,17 @@ export const ProjectsLive = Layer.effect(
                   .where(eq(projectIndex.organizationId, organizationId))
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
+          const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
+          if (healable.length > 0)
+            yield* Effect.forkDetach(
+              Effect.forEach(
+                healable,
+                (r) => bannerPlaceholders.ensure(orgSlug, r.slug, r.banner),
+                { concurrency: 2, discard: true }
+              )
+            )
           return rows.map((r) => ({
-            banner: normalizeBanner(r.banner),
+            banner: r.banner ?? null,
             iconImage: r.iconImage ?? null,
             org: orgSlug,
             slug: r.slug,
@@ -856,8 +865,8 @@ export const ProjectsLive = Layer.effect(
 
           const nextBanner =
             input.banner === undefined
-              ? normalizeBanner(indexRow.banner)
-              : normalizeBanner(input.banner)
+              ? (indexRow.banner ?? null)
+              : (input.banner ?? null)
           if (input.banner !== undefined) {
             yield* replaceProjectImageReference(db, {
               orgSlug,
@@ -999,7 +1008,7 @@ export const ProjectsLive = Layer.effect(
             createdAt: indexRow.createdAt,
             github: connection,
             setup,
-            banner: normalizeBanner(indexRow.banner),
+            banner: indexRow.banner ?? null,
             iconImage: indexRow.iconImage ?? null,
             body: file.body,
             members,
@@ -1061,7 +1070,7 @@ export const ProjectsLive = Layer.effect(
           createdBy: indexRow.createdBy,
           createdAt: indexRow.createdAt,
           github: connection,
-          banner: normalizeBanner(indexRow.banner),
+          banner: indexRow.banner ?? null,
           iconImage: indexRow.iconImage ?? null,
           setup: file.setup,
           body: file.body,

@@ -22,7 +22,7 @@ import {
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import { cn } from "@/lib/utils"
 import { useSizeVariant, type SizeVariant } from "@/lib/size-context"
-import { spring } from "@/lib/springs"
+import { sliderSprings as spring } from "@/lib/springs"
 import { fontWeights } from "@/lib/font-weight"
 import { useShape } from "@/lib/shape-context"
 

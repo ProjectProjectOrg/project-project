@@ -5,6 +5,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { clearBannerRenderCache } from "@/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
 const meQuery = Api.query("auth", "me", {
@@ -18,6 +19,7 @@ export const me = () => meAtom
 export const logout = Api.runtime.fn(
   Effect.fn("logout")(function* (_: void) {
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
+    yield* Effect.promise(() => clearBannerRenderCache())
   })
 )
 

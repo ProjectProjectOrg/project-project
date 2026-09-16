@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import {
   writeBannerRender,
   type BannerRenderKey
 } from "@/lib/bannerRenderCache"
-import {
-  ProjectBannerPrototypeShader,
-  type BannerPrototypeSettings
-} from "./ProjectBannerPrototypeShader"
+import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
+
+const ProjectBannerPrototypeShader = lazy(() =>
+  import("./ProjectBannerPrototypeShader").then((module) => ({
+    default: module.ProjectBannerPrototypeShader
+  }))
+)
 import { m } from "@/paraglide/messages"
 
 const RENDER_QUALITY = 0.9
@@ -55,6 +58,18 @@ export function CachedShaderBanner({
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    setRendered(null)
+  }, [cacheKey])
+
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
   useEffect(
     () => () => {
       if (rendered) URL.revokeObjectURL(rendered.src)
@@ -72,10 +87,12 @@ export function CachedShaderBanner({
         size.height <= 0
       )
         return
+      if (!cacheKey) return
       void toBlob(canvas).then((blob) => {
         if (!blob) return
+        void writeBannerRender(cacheKey, blob)
+        if (!mounted.current) return
         setRendered({ src: URL.createObjectURL(blob), ...size })
-        if (cacheKey) void writeBannerRender(cacheKey, blob)
       })
     },
     [size, onFirstRender, cacheKey]
@@ -91,13 +108,15 @@ export function CachedShaderBanner({
       ) : (
         size.width > 0 &&
         size.height > 0 && (
-          <ProjectBannerPrototypeShader
-            image={image}
-            settings={settings}
-            mode="mask"
-            label={m.project_banner_settings_live_preview()}
-            onRender={capture}
-          />
+          <Suspense fallback={null}>
+            <ProjectBannerPrototypeShader
+              image={image}
+              settings={settings}
+              mode="mask"
+              label={m.project_banner_settings_live_preview()}
+              onRender={capture}
+            />
+          </Suspense>
         )
       )}
     </div>

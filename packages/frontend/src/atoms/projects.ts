@@ -4,8 +4,12 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
+  attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
   type AddMemberInput,
   type CreateProjectInput,
+  type Project,
   type ProjectDetail,
   type UpdateMemberInput,
   type UpdateProjectInput,
@@ -13,6 +17,9 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { bannerSource } from "@/lib/bannerSource"
+import { evictBannerRenders } from "@/lib/bannerRenderCache"
+import { preloadImage } from "@/lib/imagePreload"
 
 export type ProjectsRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -36,26 +43,71 @@ export const projectRequest = (
 export const projectKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
 
+const ICON_PRELOAD_CSS_SIZE = 40
+
+const preloadProjectImages = (orgSlug: string, project: Project) => {
+  if (project.banner?.type === "attachment") {
+    const source = bannerSource(
+      orgSlug,
+      project.banner,
+      typeof window === "undefined" ? undefined : window.innerWidth
+    )
+    if (source) void preloadImage(source)
+  }
+  if (project.iconImage) {
+    const id =
+      project.iconImage.type === "sticker"
+        ? project.iconImage.renderedAttachmentId
+        : project.iconImage.sourceAttachmentId
+    void preloadImage(
+      withAttachmentParams(attachmentUrl(orgSlug, id), {
+        width: attachmentWidthForCss(
+          ICON_PRELOAD_CSS_SIZE * project.iconImage.crop.zoom,
+          typeof window === "undefined" ? 1 : window.devicePixelRatio
+        )
+      })
+    )
+  }
+}
+
 const scopeOf = (req: ProjectRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const projectsQuery = (req: ProjectsRequest) =>
-  Api.query("projects", "list", {
-    params: req.params,
-    timeToLive: "1 minute",
-    reactivityKeys: [Keys.projects(req.params.orgSlug)]
-  })
+  Atom.map(
+    Api.query("projects", "list", {
+      params: req.params,
+      timeToLive: "1 minute",
+      reactivityKeys: [Keys.projects(req.params.orgSlug)]
+    }),
+    (result) => {
+      if (AsyncResult.isSuccess(result) && !result.waiting) {
+        for (const project of result.value) {
+          preloadProjectImages(req.params.orgSlug, project)
+        }
+      }
+      return result
+    }
+  )
 
 export const projectsFor = Atom.family((req: ProjectsRequest) =>
   Atom.optimistic(projectsQuery(req))
 )
 
 export const confirmedProject = (req: ProjectRequest) =>
-  Api.query("projects", "get", {
-    params: req.params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [Keys.project(scopeOf(req))]
-  })
+  Atom.map(
+    Api.query("projects", "get", {
+      params: req.params,
+      timeToLive: "2 minutes",
+      reactivityKeys: [Keys.project(scopeOf(req))]
+    }),
+    (result) => {
+      if (AsyncResult.isSuccess(result) && !result.waiting) {
+        preloadProjectImages(req.params.orgSlug, result.value)
+      }
+      return result
+    }
+  )
 
 export const project = Atom.family((req: ProjectRequest) =>
   Atom.optimistic(confirmedProject(req))
@@ -71,6 +123,13 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
           const updated = yield* Api.use((client) =>
             client.projects.update({ params: req.params, payload: input })
           )
+          if ("banner" in input) {
+            yield* Effect.promise(() =>
+              evictBannerRenders(
+                projectKey(req.params.orgSlug, req.params.slug)
+              )
+            )
+          }
           set(
             AsyncResult.map(get(project(req)), (current) =>
               confirmProjectUpdate(current, updated, input)

@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { attachmentUrl, type ProjectIconImage } from "@projectproject/shared"
+import {
+  attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
+  type ProjectIconImage
+} from "@projectproject/shared"
 import { preloadImage } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 
@@ -24,7 +29,15 @@ export function ProjectIconDisplay({
     iconImage?.type === "sticker"
       ? iconImage.renderedAttachmentId
       : (iconImage?.sourceAttachmentId ?? null)
-  const source = id === null ? null : attachmentUrl(orgSlug, id)
+  const source =
+    id === null || iconImage === null
+      ? null
+      : withAttachmentParams(attachmentUrl(orgSlug, id), {
+          width: attachmentWidthForCss(
+            size * iconImage.crop.zoom,
+            typeof window === "undefined" ? 1 : window.devicePixelRatio
+          )
+        })
 
   useEffect(() => {
     if (source) void preloadImage(source)
@@ -58,14 +71,10 @@ export function ProjectIconDisplay({
           iconImage.type === "sticker" &&
             "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
         )}
-        style={
-          iconImage.type === "full_bleed"
-            ? {
-                objectPosition: `${iconImage.crop.x * 100}% ${iconImage.crop.y * 100}%`,
-                scale: String(iconImage.crop.zoom)
-              }
-            : undefined
-        }
+        style={{
+          objectPosition: `${iconImage.crop.x * 100}% ${iconImage.crop.y * 100}%`,
+          scale: String(iconImage.crop.zoom)
+        }}
       />
     </span>
   )

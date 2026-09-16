@@ -45,6 +45,7 @@ import {
   UpdateTicketInput
 } from "../schemas/Ticket"
 import { Tag } from "../schemas/Tag"
+import { ProjectStatus } from "../schemas/Status"
 import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { DocFile } from "./DocFile"
@@ -152,7 +153,9 @@ export const McpTools = {
   },
   list_tickets: {
     description:
-      "List tickets in a project with optional server-side filtering.",
+      "List tickets in a project with optional server-side filtering. Ticket " +
+      "`status` values are stable slugs; resolve them through `list_statuses` " +
+      "and use the corresponding label in conversation.",
     input: TicketListQuery.pipe(
       Schema.fieldsAssign({
         orgSlug: Slug,
@@ -164,9 +167,21 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   get_ticket: {
-    description: "Fetch one ticket including raw markdown body.",
+    description:
+      "Fetch one ticket including raw markdown body. Its `status` is a stable " +
+      "slug; resolve it through `list_statuses` and use the corresponding " +
+      "label in conversation.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: TicketId }),
     output: TicketDetail,
+    errors: [Unauthorized, NotFound] as const
+  },
+  list_statuses: {
+    description:
+      "List the project's ticket statuses. Each status has a stable `slug` " +
+      "used by ticket tools and a user-facing `label`. Use the label when " +
+      "referring to a status in conversation.",
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: Schema.Array(ProjectStatus),
     errors: [Unauthorized, NotFound] as const
   },
   list_tags: {
@@ -232,8 +247,9 @@ export const McpTools = {
   create_ticket: {
     description:
       "Create a new ticket in a project. `title` is required; everything " +
-      "else falls back to sensible defaults. `status` is one of " +
-      "`todo` | `in_progress` | `done` (default `todo`). `type` is one of " +
+      "else falls back to sensible defaults. `status` is a status slug from " +
+      "`list_statuses` (default `todo`); use its corresponding label when " +
+      "referring to the status in conversation. `type` is one of " +
       "`feat` | `bug` | `chore` | `other` (default `other`). `priority` is " +
       "one of `low` | `med` | `high` (default `med`). `tags` is an array of " +
       "tag names that must already exist on the project — discover them via " +
@@ -258,7 +274,9 @@ export const McpTools = {
     description:
       "Update an existing ticket. Every field is optional; omitted fields " +
       "are left unchanged. Pass `tags: []` or `assignees: []` to clear the " +
-      "list. `status` is one of `todo` | `in_progress` | `done`. `type` is " +
+      "list. `status` is a status slug from `list_statuses`; use its " +
+      "corresponding label when referring to the status in conversation. " +
+      "`type` is " +
       "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
       "`low` | `med` | `high`. `tags` entries must already exist on the " +
       "project; `assignees` entries must be project members. `body` is " +

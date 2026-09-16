@@ -1,13 +1,9 @@
 import type { ProjectBannerPreset } from "@projectproject/shared"
-import {
-  bannerPresetSources,
-  bannerSource,
-  BANNER_ATTACHMENT_WIDTH
-} from "@/lib/bannerSource"
+import { bannerPresetSources, bannerSource } from "@/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
 
-export { bannerSource, BANNER_ATTACHMENT_WIDTH }
+export { bannerSource }
 
 export type BannerPreset = {
   id: ProjectBannerPreset

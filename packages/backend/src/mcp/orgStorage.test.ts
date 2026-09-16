@@ -24,6 +24,7 @@ import * as ProjectDocs from "../Services/ProjectDocs"
 import * as GroupDocs from "../Services/GroupDocs"
 import * as TicketDocs from "../Services/TicketDocs"
 import * as TicketIndex from "../Services/TicketIndex"
+import * as ProjectStatuses from "../Services/ProjectStatuses"
 import { handlers } from "./handlers"
 
 const user = Schema.decodeSync(User)({
@@ -73,7 +74,8 @@ const unused = Layer.mergeAll(
   Layer.mock(ProjectDocs.ProjectDocs, {}),
   Layer.mock(GroupDocs.GroupDocs, {}),
   Layer.mock(TicketDocs.TicketDocs, {}),
-  Layer.mock(TicketIndex.TicketIndex, {})
+  Layer.mock(TicketIndex.TicketIndex, {}),
+  Layer.mock(ProjectStatuses.ProjectStatuses, {})
 )
 
 const fixture = (
