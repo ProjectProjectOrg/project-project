@@ -8,7 +8,7 @@ import {
   reorderStatusAtom
 } from "@/atoms/projectStatuses"
 
-export interface StatusReorder {
+export type StatusReorder = {
   readonly reorderMode: boolean
   readonly dragOrder: ReadonlyArray<string> | null
   readonly enterReorder: () => void

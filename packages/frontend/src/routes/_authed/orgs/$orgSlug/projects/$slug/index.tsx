@@ -28,10 +28,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
       ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
     )()
   },
-  validateSearch: (search: Record<string, unknown>): BacklogRouteSearch => ({
-    ...ticketListQueryToSearch(ticketListQueryFromSearch(search)),
-    ...(search.view === "board" || search.view === "list"
-      ? { view: search.view }
-      : {})
-  })
+  validateSearch: (search: Record<string, unknown>): BacklogRouteSearch => {
+    const sanitized = ticketListQueryToSearch(ticketListQueryFromSearch(search))
+    if (search.view !== "board" && search.view !== "list") return sanitized
+    return { ...sanitized, view: search.view }
+  }
 })
