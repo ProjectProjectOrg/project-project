@@ -49,5 +49,6 @@ function sprintListQuery(
   search: SprintRouteSearch,
   id: GroupId
 ): TicketListQuery {
-  return { ...search, groupId: [id] }
+  const { view: _view, ...query } = search
+  return { ...query, groupId: [id] }
 }

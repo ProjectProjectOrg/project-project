@@ -37,6 +37,13 @@ export type BacklogRequest = Readonly<{
   query: TicketListQuery
 }>
 
+type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
+
+const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
+  const { view: _view, ...rest } = query
+  return rest
+}
+
 /**
  * Build the request that identifies one backlog. Status filter and cursor are
  * dropped because the sections endpoint returns every status with its own first
@@ -45,11 +52,11 @@ export type BacklogRequest = Readonly<{
 export const backlogRequest = (
   orgSlug: string,
   slug: string,
-  query: TicketListQuery
+  query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
   query: {
-    ...query,
+    ...ticketListQueryOf(query),
     status: undefined,
     cursor: undefined
   }
@@ -560,10 +567,10 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
 export const flatBacklogRequest = (
   orgSlug: string,
   slug: string,
-  query: TicketListQuery
+  query: QueryWithView
 ): BacklogRequest => ({
   params: { orgSlug, slug },
-  query: { ...query, cursor: undefined }
+  query: { ...ticketListQueryOf(query), cursor: undefined }
 })
 
 export type FlatBacklogValue = Readonly<{
@@ -850,7 +857,7 @@ export const quickCreateFlatBacklogTicket = Atom.family((req: BacklogRequest) =>
                 row.key === input.clientId
                   ? {
                       ticket: created,
-                      key: created.id,
+                      key: row.key,
                       orderKey: row.orderKey,
                       pending: false
                     }

@@ -73,15 +73,17 @@ export function RetainedProjectViews({
   }
   const backlogView = useProjectView(orgSlug, slug, lastBacklog?.view).view
   const sprintView = useProjectView(orgSlug, slug, lastSprint?.search.view).view
-  const backlogQuery = useMemo(
-    () => lastBacklog ?? defaultTicketListQuery,
-    [lastBacklog]
-  )
+  const backlogQuery = useMemo(() => {
+    if (!lastBacklog) return defaultTicketListQuery
+    const { view: _view, ...query } = lastBacklog
+    return query
+  }, [lastBacklog])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
-    const query = lastSprint?.search ?? defaultTicketListQuery
+    if (!lastSprint) return defaultTicketListQuery
+    const { view: _view, ...query } = lastSprint.search
     return sprintId ? { ...query, groupId: [sprintId] } : query
-  }, [lastSprint?.search, sprintId])
+  }, [lastSprint, sprintId])
 
   return (
     <>

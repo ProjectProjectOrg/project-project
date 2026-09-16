@@ -127,6 +127,8 @@ function WelcomeInviteList({
   })
   const signOut = useAtomSet(logout)
   const [pageError, setPageError] = useState<string | null>(null)
+  const [acceptingAll, setAcceptingAll] = useState(false)
+  const acceptingAllRef = useRef(false)
   const accepts = useRef(new Map<string, AcceptInvitation>())
 
   const registerAccept = useCallback(
@@ -157,16 +159,24 @@ function WelcomeInviteList({
   )
 
   const onAcceptAll = async () => {
+    if (acceptingAllRef.current) return
+    acceptingAllRef.current = true
+    setAcceptingAll(true)
     setPageError(null)
     onJoining(true)
-    const entries = [...accepts.current.entries()]
-    const exits = await Promise.all(entries.map(([, accept]) => accept()))
-    const acceptedIds = new Set(
-      entries.flatMap(([invitationId], index) =>
-        Exit.isSuccess(exits[index]) ? [invitationId] : []
+    try {
+      const entries = [...accepts.current.entries()]
+      const exits = await Promise.all(entries.map(([, accept]) => accept()))
+      const acceptedIds = new Set(
+        entries.flatMap(([invitationId], index) =>
+          Exit.isSuccess(exits[index]) ? [invitationId] : []
+        )
       )
-    )
-    await enterOrg(invites.filter((invite) => acceptedIds.has(invite.id)))
+      await enterOrg(invites.filter((invite) => acceptedIds.has(invite.id)))
+    } finally {
+      acceptingAllRef.current = false
+      setAcceptingAll(false)
+    }
   }
 
   return (
@@ -195,7 +205,13 @@ function WelcomeInviteList({
       ) : null}
       <div className="flex flex-wrap gap-2">
         {invites.length > 1 ? (
-          <Button type="button" leadingIcon={MailCheck} onClick={onAcceptAll}>
+          <Button
+            type="button"
+            leadingIcon={MailCheck}
+            loading={acceptingAll}
+            disabled={acceptingAll}
+            onClick={onAcceptAll}
+          >
             {m.auth_invites_accept_all_button()}
           </Button>
         ) : null}

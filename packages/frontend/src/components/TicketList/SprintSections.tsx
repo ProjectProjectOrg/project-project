@@ -330,7 +330,6 @@ function FlatSectionPagination({
 }) {
   const loadMore = useAtomSet(loadMoreFlatBacklog(req))
   const state = useAtomValue(loadMoreFlatBacklog(req))
-  const refresh = useAtomRefresh(flatBacklog(req))
   return (
     <TicketPagination
       nextCursor={nextCursor}
@@ -338,7 +337,7 @@ function FlatSectionPagination({
       collapsed={collapsed}
       loadingMore={state.waiting}
       failed={Result.isFailure(state)}
-      loadMore={() => (Result.isFailure(state) ? refresh() : loadMore())}
+      loadMore={() => loadMore()}
     />
   )
 }

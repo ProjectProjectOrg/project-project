@@ -20,8 +20,11 @@ import {
   backlog,
   backlogRequest,
   encodeTicketListQuery,
+  flatBacklog,
+  flatBacklogRequest,
   loadMoreBacklog,
   quickCreateBacklogTicket,
+  quickCreateFlatBacklogTicket,
   updateBacklogTicket
 } from "./backlog"
 import { applyTicketPatch } from "./ticketPatch"
@@ -318,6 +321,17 @@ describe("backlog optimistic update", () => {
     const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
     const b = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
     expect(backlog(a)).toBe(backlog(b))
+  })
+
+  it("shares one atom when the search includes a view field", () => {
+    const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
+    const b = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" },
+      view: "board"
+    })
+    expect(backlog(a)).toBe(backlog(b))
+    expect(a.query).not.toHaveProperty("view")
+    expect(b.query).not.toHaveProperty("view")
   })
 })
 
@@ -845,6 +859,90 @@ describe("backlog quick create", () => {
         { key: "creation-1", pending: false },
         { key: "T-1", pending: false }
       ])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("keeps the caller's row key on the flat list after confirmation", async () => {
+    const created = {
+      ...ticket,
+      id: Schema.decodeSync(TicketId)("T-9"),
+      title: "Created"
+    }
+    let served = [ticket]
+    let finish = (_r: Response) => {}
+    let stallReads = false
+    fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      if (stallReads) return new Promise<Response>(() => {})
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      if (url.pathname.endsWith("/tickets/count")) {
+        return Promise.resolve(
+          Response.json({
+            total: served.length,
+            byStatus: { todo: served.length }
+          })
+        )
+      }
+      return Promise.resolve(
+        Response.json({
+          items: served.map((item) => serverRow(item)),
+          nextCursor: null
+        })
+      )
+    })
+    const request = flatBacklogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const view = flatBacklog(request)
+    const create = quickCreateFlatBacklogTicket(request)
+    registry.mount(view)
+    registry.mount(create)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      stallReads = true
+      registry.set(create, {
+        ticket: { title: "Created", status: ticket.status },
+        viewerId: "user-1",
+        projectPrefix: "T",
+        clientId: "creation-flat"
+      })
+
+      const optimistic = registry.get(view)
+      if (!AsyncResult.isSuccess(optimistic)) {
+        throw new Error("no optimistic value")
+      }
+      expect(optimistic.value.items[0]).toMatchObject({
+        key: "creation-flat",
+        pending: true
+      })
+
+      finish(Response.json(encodeDetail(asDetail(created))))
+      await vi.waitFor(() => {
+        const confirmed = registry.get(view)
+        if (!AsyncResult.isSuccess(confirmed)) {
+          throw new Error("did not confirm")
+        }
+        expect(confirmed.value.items[0]).toMatchObject({
+          key: "creation-flat",
+          pending: false,
+          ticket: { id: "T-9" }
+        })
+      })
     } finally {
       registry.dispose()
     }
