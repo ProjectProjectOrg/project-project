@@ -10,6 +10,7 @@ import {
   NotFound,
   type Role
 } from "@projectproject/shared"
+import { projectImageReference } from "../db/schema"
 import { Attachments } from "../Services/Attachments"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
@@ -23,6 +24,7 @@ import {
   attachmentServesInline,
   attachmentPageOffset,
   attachmentSortPlan,
+  deriveAttachmentEtag,
   isServableStatus,
   ORPHAN_GRACE_MS,
   planReap,
@@ -463,6 +465,7 @@ describe("resolveForServing beyond project membership", () => {
 const deletionHarness = (input: {
   readonly status: "pending" | "live" | "orphaned"
   readonly role: Role
+  readonly imageSlot?: string
   readonly rowVanished?: boolean
   readonly sharers?: ReadonlyArray<{
     readonly id: string
@@ -476,16 +479,20 @@ const deletionHarness = (input: {
     Layer.provide(
       Layer.succeed(Db, {
         select: (shape?: Record<string, unknown>) => ({
-          from: () => ({
+          from: (table: unknown) => ({
             where: (cond: unknown) => {
               void cond
               const isSharerQuery = shape !== undefined
               return {
                 limit: () =>
                   Effect.succeed(
-                    isSharerQuery
-                      ? (input.sharers ?? [])
-                      : [{ ...servingRow, status: input.status }]
+                    table === projectImageReference
+                      ? input.imageSlot
+                        ? [{ slot: input.imageSlot }]
+                        : []
+                      : isSharerQuery
+                        ? (input.sharers ?? [])
+                        : [{ ...servingRow, status: input.status }]
                   )
               }
             }
@@ -947,6 +954,21 @@ describe("attachmentServesInline", () => {
   })
 })
 
+describe("deriveAttachmentEtag", () => {
+  it("returns null when there is no upstream etag", () => {
+    expect(deriveAttachmentEtag(null, null)).toBeNull()
+    expect(deriveAttachmentEtag(null, 256)).toBeNull()
+  })
+
+  it("passes the upstream etag through unchanged when serving the original", () => {
+    expect(deriveAttachmentEtag('"abc123"', null)).toBe('"abc123"')
+  })
+
+  it("qualifies the etag with the rung when serving a resized image", () => {
+    expect(deriveAttachmentEtag('"abc123"', 256)).toBe('"abc123-w256"')
+  })
+})
+
 describe("planDedupe", () => {
   const row = (input: {
     id: string
@@ -1199,3 +1221,22 @@ describe("missingIds", () => {
       })
   )
 })
+
+for (const imageSlot of ["banner", "icon"]) {
+  it.effect(
+    `protects attachments used by the project ${imageSlot} slot`,
+    () => {
+      const harness = deletionHarness({
+        status: "live",
+        role: "owner",
+        imageSlot
+      })
+      return Effect.gen(function* () {
+        const result = yield* harness.run
+        expect(result._tag).toBe("Failure")
+        expect(harness.deletedRows).toHaveLength(0)
+        expect(harness.deletedKeys).toHaveLength(0)
+      })
+    }
+  )
+}

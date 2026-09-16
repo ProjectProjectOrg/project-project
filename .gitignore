@@ -34,8 +34,9 @@ storage/
 # packages/frontend/messages/*.json on each dev/build.
 packages/frontend/src/paraglide/
 
-# Claude Code local state
-.claude/
+# Claude Code local state (project skills are committed)
+.claude/*
+!.claude/skills/
 
 # Impeccable live helper local state
 .impeccable/

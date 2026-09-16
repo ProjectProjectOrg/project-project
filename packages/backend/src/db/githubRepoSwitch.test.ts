@@ -14,6 +14,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { Slug, TicketId, TicketStatus } from "@projectproject/shared"
 import { DbLive } from "../Layers/Db"
+import { BannerPlaceholders } from "../Services/BannerPlaceholders"
 import { ProjectsLive } from "../Layers/Projects"
 import { TicketIndexLive } from "../Layers/TicketIndex"
 import { GitHub } from "../Services/GitHub"
@@ -54,9 +55,16 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     archivedAt: null,
     createdBy: userId,
     createdAt,
+    updatedBy: userId,
     updatedAt: createdAt,
     commentsRegion: "",
     body: "Ticket body"
+  }
+  const banner = {
+    type: "preset" as const,
+    preset: "sunset" as const,
+    crop: { x: 0.5, y: 0.65, zoom: 1 },
+    placeholder: null
   }
   let ticket = initialTicket
   let failWrite = false
@@ -90,8 +98,8 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       [randomUUID(), organizationId, userId]
     )
     await pool.query(
-      "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'T','Switch','folder','#3b82f6',$4)",
-      [projectId, slug, organizationId, userId]
+      "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by,banner) VALUES ($1,$2,$3,'T','Switch','folder','#3b82f6',$4,$5)",
+      [projectId, slug, organizationId, userId, JSON.stringify(banner)]
     )
     await pool.query(
       "INSERT INTO organization_integration (id,organization_id,provider,status) VALUES ($1,$2,'github','active')",
@@ -181,6 +189,11 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         Layer.provide(lock),
         Layer.provide(db),
         Layer.provide(
+          Layer.succeed(BannerPlaceholders, {
+            ensure: (_org, _slug, current) => Effect.succeed(current)
+          })
+        ),
+        Layer.provide(
           Layer.succeed(ProjectDocs, {
             read: () =>
               Effect.succeed({
@@ -267,6 +280,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     failWrite = false
     const result = await connect()
     expect(result.github?.repoId).toBe("new-repo")
+    expect(result.banner).toEqual(banner)
     expect(lockChecks).toBe(2)
     expect(ticket).toMatchObject({
       branch: "feat/T-1",

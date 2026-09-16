@@ -1,16 +1,9 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { generateKeyBetween } from "fractional-indexing"
+import { useAtomValue } from "@effect/atom-react"
 import { motion } from "motion/react"
-import { useCallback, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  reorderStatusAtom
-} from "@/atoms/projectStatuses"
 import {
   projectKey,
   sprintAtom,
@@ -31,70 +24,35 @@ import { SprintBoard } from "./SprintBoard"
 import { SprintDescription } from "./SprintDescription"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
+import { SprintBoardToolbar } from "./SprintBoardToolbar"
+import { useStatusReorder } from "./useStatusReorder"
 
 export function SprintDetail({
   orgSlug,
   slug,
   groupId,
   view,
-  listQuery
+  listQuery,
+  onQueryChange
 }: {
   orgSlug: string
   slug: string
   groupId: GroupId
   view: "list" | "board" | "description"
   listQuery: TicketListQuery
+  onQueryChange: (query: TicketListQuery) => void
 }) {
   const project = useProject()
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
-  const [reorderMode, setReorderMode] = useState(false)
-  const [dragOrder, setDragOrder] = useState<ReadonlyArray<string> | null>(null)
-
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const reorderStatus = useAtomSet(reorderStatusAtom(statusKey))
-
-  const enterReorder = useCallback(() => setReorderMode(true), [])
-
-  const cancelReorder = useCallback(() => {
-    setDragOrder(null)
-    setReorderMode(false)
-  }, [])
-
-  const saveReorder = useCallback(() => {
-    if (!Result.isSuccess(statusesResult)) return
-    const statuses = statusesResult.value
-    if (dragOrder && statuses.length > 0) {
-      const keys = new Map<string, string>(
-        statuses.map((s) => [s.slug as string, s.orderKey as string])
-      )
-      let lastKey: string | null = null
-      for (let i = 0; i < dragOrder.length; i++) {
-        const slug = dragOrder[i]
-        const myKey = keys.get(slug)
-        if (!myKey) continue
-        if (lastKey === null || myKey > lastKey) {
-          lastKey = myKey
-          continue
-        }
-        let nextValid: string | null = null
-        for (let j = i + 1; j < dragOrder.length; j++) {
-          const k = keys.get(dragOrder[j])
-          if (k && k > lastKey) {
-            nextValid = k
-            break
-          }
-        }
-        const newKey = generateKeyBetween(lastKey, nextValid)
-        keys.set(slug, newKey)
-        reorderStatus({ statusSlug: slug, orderKey: newKey })
-        lastKey = newKey
-      }
-    }
-    setDragOrder(null)
-    setReorderMode(false)
-  }, [dragOrder, statusesResult, reorderStatus])
+  const {
+    reorderMode,
+    dragOrder,
+    enterReorder,
+    cancelReorder,
+    setDragOrder,
+    saveReorder
+  } = useStatusReorder(orgSlug, slug, `${orgSlug}/${slug}/${groupId}/${view}`)
 
   const isBoard = view === "board"
   const isDescription = view === "description"
@@ -161,14 +119,14 @@ export function SprintDetail({
       )
 
       const boardSlot = (
-        <div className="grid">
+        <div className="relative">
           <motion.div
             initial={false}
             animate={{ opacity: reorderMode ? 1 : 0 }}
             transition={transitions.fade}
             inert={!reorderMode}
             aria-hidden={!reorderMode}
-            className="col-start-1 row-start-1"
+            className="absolute inset-x-0 top-1/2 -translate-y-1/2"
           >
             <ReorderBoardBanner onSave={saveReorder} onCancel={cancelReorder} />
           </motion.div>
@@ -178,7 +136,6 @@ export function SprintDetail({
             transition={transitions.fade}
             inert={reorderMode}
             aria-hidden={reorderMode}
-            className="col-start-1 row-start-1 self-center"
           >
             {creator}
           </motion.div>
@@ -195,24 +152,46 @@ export function SprintDetail({
           />
         </PageContainer>
       ) : isBoard ? (
-        <PageContainer>
-          <SprintBoard
-            orgSlug={orgSlug}
-            slug={slug}
-            groupId={display.id}
-            ticketIds={ticketIds}
-            members={project.members}
-            isCompleted={isCompleted}
-            reorderMode={reorderMode}
-            onEnterReorder={enterReorder}
-            onExitReorder={cancelReorder}
-            dragOrder={dragOrder}
-            setDragOrder={setDragOrder}
-          />
+        <PageContainer className="group/list gap-3">
+          {boardSlot}
+          <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
+            <motion.div
+              initial={false}
+              animate={{ opacity: reorderMode ? 0.35 : 1 }}
+              transition={transitions.fade}
+              inert={reorderMode}
+              aria-hidden={reorderMode}
+            >
+              <SprintBoardToolbar
+                onQueryChange={onQueryChange}
+                orgSlug={orgSlug}
+                slug={slug}
+                groupId={display.id}
+                ticketIds={ticketIds}
+                query={listQuery}
+                members={project.members}
+              />
+            </motion.div>
+            <SprintBoard
+              orgSlug={orgSlug}
+              slug={slug}
+              groupId={display.id}
+              ticketIds={ticketIds}
+              query={listQuery}
+              members={project.members}
+              isCompleted={isCompleted}
+              reorderMode={reorderMode}
+              onEnterReorder={enterReorder}
+              onExitReorder={cancelReorder}
+              dragOrder={dragOrder}
+              setDragOrder={setDragOrder}
+            />
+          </div>
         </PageContainer>
       ) : (
         <PageContainer>
           <SprintTicketList
+            onQueryChange={onQueryChange}
             orgSlug={orgSlug}
             slug={slug}
             query={listQuery}
@@ -222,12 +201,7 @@ export function SprintDetail({
         </PageContainer>
       )
 
-      return (
-        <div className="flex flex-col gap-4">
-          {isBoard && <PageContainer>{boardSlot}</PageContainer>}
-          {body}
-        </div>
-      )
+      return body
     }
   })
 }

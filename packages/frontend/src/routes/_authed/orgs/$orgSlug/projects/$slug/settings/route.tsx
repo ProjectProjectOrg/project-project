@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "motion/react"
 import { GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
 import { projectAtom, projectKey } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
+import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RailBackLink } from "@/components/RailBackLink"
 import { useSidebarSlot } from "@/components/SidebarSlot"
 import { transitions } from "@/lib/springs"
@@ -99,6 +100,9 @@ function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const projectName = Result.isSuccess(project) ? project.value.name : slug
   const projectIcon = Result.isSuccess(project) ? project.value.icon : null
+  const projectIconImage = Result.isSuccess(project)
+    ? project.value.iconImage
+    : null
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -118,9 +122,14 @@ function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           {projectIcon ? (
             <span
               aria-hidden
-              className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none"
+              className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] corner-squircle text-[13px] leading-none"
             >
-              {projectIcon}
+              <ProjectIconDisplay
+                orgSlug={orgSlug}
+                icon={projectIcon}
+                iconImage={projectIconImage}
+                size={16}
+              />
             </span>
           ) : null}
           <span className="min-w-0 flex-1 truncate font-medium">

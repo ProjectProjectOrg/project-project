@@ -10,7 +10,11 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vite-plus/test"
-import { ProjectKey, type TicketStatus } from "@projectproject/shared"
+import {
+  ProjectKey,
+  type TicketStatus,
+  type User
+} from "@projectproject/shared"
 import { Attachments, type AttachmentsShape } from "../Services/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../Services/FigmaLinks"
 import { Db } from "../Services/Db"
@@ -20,6 +24,7 @@ import { Groups, type GroupsShape } from "../Services/Groups"
 import { Projects, type ProjectsShape } from "../Services/Projects"
 import { TicketIndex, type TicketIndexShape } from "../Services/TicketIndex"
 import { Tickets } from "../Services/Tickets"
+import { Users, type UsersShape } from "../Services/Users"
 import { MarkdownLive } from "./Markdown"
 import { Markdown } from "../Services/Markdown"
 import {
@@ -72,6 +77,8 @@ const FakeGroups = Layer.succeed(Groups, {
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
+  ensureSprintAssignable: () => Effect.void,
+  setSprintMembership: () => Effect.void,
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
@@ -89,6 +96,32 @@ const FakeGitHub = Layer.succeed(GitHub, {
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
 } satisfies GitHubShape)
+
+const fakeUser = (id: string): User => ({
+  id,
+  email: `${id}@example.com`,
+  name: id,
+  username: null,
+  image: null,
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  activeOrgSlug: null,
+  personalGithub: { connected: false },
+  editorPreference: "github",
+  personalEverhour: {
+    connected: false,
+    everhourUserId: null,
+    name: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }
+})
+
+const FakeUsers = Layer.succeed(Users, {
+  findByEmail: () => unexpected("Users.findByEmail"),
+  findManyByIds: () => unexpected("Users.findManyByIds"),
+  fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
+} satisfies UsersShape)
 
 const recordedCommentBodies: Array<string> = []
 
@@ -220,6 +253,7 @@ const TestLayer = Layer.unwrap(
       Layer.provide(FakeProjects),
       Layer.provide(FakeGroups),
       Layer.provide(FakeComments),
+      Layer.provide(FakeUsers),
       Layer.provide(FakeGitHub),
       Layer.provide(FakeTicketIndex),
       Layer.provide(FakeDb),

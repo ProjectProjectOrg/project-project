@@ -1,8 +1,16 @@
-import type { ReactNode } from "react"
+import { Activity, useState, type ReactNode } from "react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import {
+  ticketsListKey,
+  ticketsSectionsAtom,
+  ticketsSectionsBaseAtom,
+  ticketsSectionsKey,
+  type TicketSectionsValue
+} from "@/atoms/tickets"
+import { ErrorPage } from "@/components/ErrorPage"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
-import { Toolbar } from "./Toolbar"
-import { queryHasActiveFilter } from "./url"
 import type {
   Group,
   Member,
@@ -11,16 +19,7 @@ import type {
   TicketListQuery
 } from "@projectproject/shared"
 
-export function TicketList({
-  orgSlug,
-  slug,
-  query,
-  members,
-  extraRowActions,
-  sprintMembership,
-  creator,
-  showSprintFilter
-}: {
+type TicketListProps = {
   orgSlug: string
   slug: string
   query: TicketListQuery
@@ -28,35 +27,126 @@ export function TicketList({
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
   creator?: ReactNode
-  showSprintFilter?: boolean
-}) {
-  const hasActiveFilter = queryHasActiveFilter(query)
+  toolbar: ReactNode
+  sections?: ReactNode
+  alternate?: (args: {
+    key: string
+    query: TicketListQuery
+    snapshot: TicketSectionsValue
+  }) => ReactNode
+  showAlternate?: boolean
+}
 
+export function TicketList({
+  creator,
+  toolbar,
+  sections,
+  ...props
+}: TicketListProps) {
   return (
     <div className="group/list flex flex-col gap-3">
       {creator ?? (
-        <BacklogTicketCreator orgSlug={orgSlug} slug={slug} query={query} />
+        <BacklogTicketCreator
+          orgSlug={props.orgSlug}
+          slug={props.slug}
+          query={props.query}
+        />
       )}
-
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
-        <Toolbar
-          orgSlug={orgSlug}
-          slug={slug}
-          query={query}
-          members={members}
-          showSprintFilter={showSprintFilter}
-        />
-
-        <SegmentedList
-          orgSlug={orgSlug}
-          slug={slug}
-          query={query}
-          members={members}
-          extraRowActions={extraRowActions}
-          sprintMembership={sprintMembership}
-          hasActiveFilter={hasActiveFilter}
-        />
+        {toolbar}
+        {sections ?? <StatusSections {...props} />}
       </div>
+    </div>
+  )
+}
+
+function StatusSections({
+  orgSlug,
+  slug,
+  query,
+  members,
+  extraRowActions,
+  sprintMembership,
+  alternate,
+  showAlternate = false
+}: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
+  const key = ticketsListKey(orgSlug, slug, query)
+  const result = useAtomValue(
+    ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
+  )
+  const refresh = useAtomRefresh(
+    ticketsSectionsBaseAtom(ticketsSectionsKey(orgSlug, slug, query))
+  )
+  const [previous, setPrevious] = useState<{
+    key: string
+    query: TicketListQuery
+    value: TicketSectionsValue
+  } | null>(null)
+  if (
+    Result.isSuccess(result) &&
+    (previous?.key !== key || previous.value !== result.value)
+  ) {
+    setPrevious({ key, query, value: result.value })
+  }
+  const active = Result.isSuccess(result)
+    ? { key, query, value: result.value }
+    : Result.isFailure(result) && previous?.key !== key
+      ? null
+      : previous
+  const renderSections = () =>
+    active ? (
+      <>
+        <Activity mode={showAlternate ? "hidden" : "visible"}>
+          <SegmentedList
+            key={active.key}
+            orgSlug={orgSlug}
+            slug={slug}
+            query={active.query}
+            members={members}
+            snapshot={active.value}
+            extraRowActions={extraRowActions}
+            sprintMembership={sprintMembership}
+          />
+        </Activity>
+        {alternate && (
+          <Activity mode={showAlternate ? "visible" : "hidden"}>
+            {alternate({
+              key: active.key,
+              query: active.query,
+              snapshot: active.value
+            })}
+          </Activity>
+        )}
+      </>
+    ) : (
+      <div
+        aria-busy="true"
+        className="h-96 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
+      />
+    )
+
+  const renderFailure = (error: unknown) => (
+    <>
+      <ErrorPage error={error} reset={refresh} contained />
+      {active && renderSections()}
+    </>
+  )
+
+  return (
+    <div
+      aria-busy={result.waiting || Result.isInitial(result)}
+      className={
+        !Result.isFailure(result) && result.waiting && active
+          ? "animate-pulse motion-reduce:animate-none"
+          : undefined
+      }
+    >
+      {Result.matchWithError(result, {
+        onInitial: renderSections,
+        onError: renderFailure,
+        onDefect: renderFailure,
+        onSuccess: renderSections
+      })}
     </div>
   )
 }

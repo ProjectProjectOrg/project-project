@@ -5,18 +5,54 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
+import { evictBannerRenders } from "@/lib/bannerRenderCache"
+import { preloadImage } from "@/lib/imagePreload"
+import { bannerSource } from "@/components/project-banner-presets"
 import {
+  attachmentUrl,
+  attachmentWidthForCss,
+  withAttachmentParams,
   CreatableProjectKey,
+  type Project,
   type ProjectSetup,
   type UpdateProjectInput as UpdateProjectInputShared
 } from "@projectproject/shared"
+
+const ICON_PRELOAD_CSS_SIZE = 40
+
+const preloadProjectImages = (orgSlug: string, project: Project) => {
+  if (project.banner?.type === "attachment") {
+    const source = bannerSource(
+      orgSlug,
+      project.banner,
+      typeof window === "undefined" ? undefined : window.innerWidth
+    )
+    if (source) void preloadImage(source)
+  }
+  if (project.iconImage) {
+    const id =
+      project.iconImage.type === "sticker"
+        ? project.iconImage.renderedAttachmentId
+        : project.iconImage.sourceAttachmentId
+    void preloadImage(
+      withAttachmentParams(attachmentUrl(orgSlug, id), {
+        width: attachmentWidthForCss(
+          ICON_PRELOAD_CSS_SIZE * project.iconImage.crop.zoom,
+          typeof window === "undefined" ? 1 : window.devicePixelRatio
+        )
+      })
+    )
+  }
+}
 
 // Atom.family keys must compare by value, not reference. Slugs are DNS-safe
 // (no `/`), so a slash is an unambiguous separator between org and project.
 export const projectKey = (orgSlug: string, slug: string) =>
   `${orgSlug}/${slug}`
 
-const splitProjectKey = (key: string): { orgSlug: string; slug: string } => {
+export const splitProjectKey = (
+  key: string
+): { orgSlug: string; slug: string } => {
   const sep = key.indexOf("/")
   return { orgSlug: key.slice(0, sep), slug: key.slice(sep + 1) }
 }
@@ -26,7 +62,9 @@ const projectsListBaseAtom = Atom.family((orgSlug: string) =>
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.list({ params: { orgSlug } })
+        const projects = yield* client.projects.list({ params: { orgSlug } })
+        for (const project of projects) preloadProjectImages(orgSlug, project)
+        return projects
       })
     )
     .pipe(Atom.setIdleTTL("1 minute"))
@@ -40,7 +78,11 @@ export const projectBaseAtom = Atom.family((key: string) => {
     .atom(
       Effect.gen(function* () {
         const client = yield* ApiClient
-        return yield* client.projects.get({ params: { orgSlug, slug } })
+        const project = yield* client.projects.get({
+          params: { orgSlug, slug }
+        })
+        preloadProjectImages(orgSlug, project)
+        return project
       })
     )
     .pipe(Atom.setIdleTTL("2 minutes"))
@@ -64,6 +106,8 @@ export const updateProjectAtom = Atom.family((key: string) => {
           params: { orgSlug, slug },
           payload: input
         })
+        if ("banner" in input)
+          yield* Effect.promise(() => evictBannerRenders(key))
         get.refresh(projectBaseAtom(key))
         get.refresh(projectsListBaseAtom(orgSlug))
         return updated
@@ -223,4 +267,11 @@ export const createProjectAtom = Atom.family((orgSlug: string) =>
       return project
     })
   )
+)
+
+export const projectBannerPreviewAtom = Atom.family((_key: string) =>
+  Atom.make<{
+    source: string | null
+    crop: { x: number; y: number; zoom: number }
+  } | null>(null)
 )

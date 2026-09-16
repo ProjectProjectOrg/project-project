@@ -1,8 +1,7 @@
 import NumberFlow from "@number-flow/react"
-import { useAutoAnimate } from "@formkit/auto-animate/react"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { GripVertical } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   draggable,
   dropTargetForElements,
@@ -18,6 +17,7 @@ import type {
   Ticket,
   TicketId
 } from "@projectproject/shared"
+import { VirtualSprintCards } from "./VirtualSprintCards"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { useLongPress } from "./BoardReorderMode"
 import type { CardDropData, ColumnDropData, DragData } from "./board-utils"
@@ -29,29 +29,40 @@ const REORDER_EASE = [0.32, 0.72, 0, 1] as const
 export function SprintBoardColumn({
   orgSlug,
   slug,
+  sprintTicketsKey,
+  ticketSectionsKey,
   status,
   statuses,
   tickets,
+  count,
   members,
   isDraggable,
+  ordered = true,
   overlay,
+  inertTicketIds,
   lastFlash,
   reorderMode,
-  onActivateReorder
+  onActivateReorder,
+  footer
 }: {
   orgSlug: string
   slug: string
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
   status: string
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
+  count?: number
   members: ReadonlyArray<Member>
   isDraggable: boolean
+  ordered?: boolean
   overlay: ReadonlyMap<TicketId, string>
+  inertTicketIds?: ReadonlySet<TicketId>
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
   onActivateReorder: () => void
+  footer?: ReactNode
 }) {
-  const [listRef] = useAutoAnimate({ duration: 180, easing: "ease-out" })
   const meta = statusMetaFor(status, statuses)
   const Icon = meta.icon
   const [columnEl, setColumnEl] = useState<HTMLElement | null>(null)
@@ -138,17 +149,19 @@ export function SprintBoardColumn({
           headerHoldable ? longPressHandlers.onPointerLeave : undefined
         }
         className={cn(
-          "relative flex items-center justify-between px-6 pt-3 pb-2 select-none",
+          "relative flex items-center justify-between px-3.5 pt-3 pb-2 select-none",
           (headerHoldable || reorderMode) &&
             "touch-none cursor-grab active:cursor-grabbing"
         )}
       >
-        <span className="inline-flex items-center gap-2 text-sm font-medium">
-          <Icon
-            className={cn("size-4", meta.className)}
-            style={meta.color ? { color: meta.color } : undefined}
-            strokeWidth={1.75}
-          />
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+          <span className="grid size-6 shrink-0 place-items-center">
+            <Icon
+              className={cn("size-4", meta.className)}
+              style={meta.color ? { color: meta.color } : undefined}
+              strokeWidth={1.75}
+            />
+          </span>
           {meta.label}
         </span>
         <span className="grid shrink-0 place-items-center">
@@ -169,7 +182,7 @@ export function SprintBoardColumn({
             aria-hidden={reorderMode}
           >
             <NumberFlow
-              value={tickets.length}
+              value={count ?? tickets.length}
               transformTiming={{ duration: 180, easing: "ease-out" }}
               spinTiming={{ duration: 180, easing: "ease-out" }}
               opacityTiming={{ duration: 180, easing: "ease-out" }}
@@ -194,28 +207,36 @@ export function SprintBoardColumn({
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute inset-x-2 inset-y-3 z-0 rounded-md border border-dashed border-transparent transition-colors duration-150",
+            "pointer-events-none absolute inset-x-2 top-0 bottom-2 z-0 rounded-md border border-dashed border-transparent transition-colors duration-150",
             dragOver && "border-border bg-accent/40"
           )}
         />
-        <div
-          ref={listRef}
-          className="relative z-10 flex min-h-0 flex-col overflow-y-auto py-2"
+        <VirtualSprintCards
+          tickets={tickets}
+          isDraggable={isDraggable && !reorderMode}
+          showDropGap={ordered}
+          status={status}
+          footer={footer}
         >
-          {tickets.map((t) => (
+          {(ticket) => (
             <CardSlot
-              key={t.id}
               orgSlug={orgSlug}
               slug={slug}
-              ticket={t}
+              sprintTicketsKey={sprintTicketsKey}
+              ticketSectionsKey={ticketSectionsKey}
+              ordered={ordered}
+              ticket={ticket}
               status={status}
               members={members}
               isDraggable={isDraggable && !reorderMode}
-              pending={overlay.has(t.id)}
-              flashKey={lastFlash?.id === t.id ? lastFlash.tick : undefined}
+              inert={inertTicketIds?.has(ticket.id) ?? false}
+              pending={overlay.has(ticket.id)}
+              flashKey={
+                lastFlash?.id === ticket.id ? lastFlash.tick : undefined
+              }
             />
-          ))}
-        </div>
+          )}
+        </VirtualSprintCards>
       </motion.div>
     </Reorder.Item>
   )
@@ -224,19 +245,27 @@ export function SprintBoardColumn({
 function CardSlot({
   orgSlug,
   slug,
+  sprintTicketsKey,
+  ticketSectionsKey,
   ticket,
   status,
   members,
   isDraggable,
+  ordered,
+  inert,
   pending,
   flashKey
 }: {
   orgSlug: string
   slug: string
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
   ticket: Ticket
   status: string
   members: ReadonlyArray<Member>
   isDraggable: boolean
+  ordered: boolean
+  inert: boolean
   pending: boolean
   flashKey: number | undefined
 }) {
@@ -244,10 +273,9 @@ function CardSlot({
   const ref = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
-  const [edge, setEdge] = useState<"top" | "bottom" | null>(null)
 
   useEffect(() => {
-    if (!isDraggable) return
+    if (!isDraggable || inert) return
     const el = ref.current
     const card = cardRef.current
     if (!el || !card) return
@@ -277,42 +305,35 @@ function CardSlot({
       onDragStart: () => setDragging(true),
       onDrop: () => setDragging(false)
     })
+    if (!ordered) return cleanupDrag
     const cleanupDrop = dropTargetForElements({
-      element: el,
+      element: el.closest<HTMLElement>("[data-ticket-id]") ?? el,
       getData: ({ input, element }): CardDropData => {
         const rect = element.getBoundingClientRect()
         const e: "top" | "bottom" =
           input.clientY < rect.top + rect.height / 2 ? "top" : "bottom"
         return { type: "card", id: ticketId, status, edge: e }
-      },
-      onDragEnter: ({ self, source }) => {
-        const data = source.data as unknown as DragData
-        if (data.id === ticketId) return
-        setEdge((self.data as unknown as CardDropData).edge)
-      },
-      onDrag: ({ self, source }) => {
-        const data = source.data as unknown as DragData
-        if (data.id === ticketId) return
-        const next = (self.data as unknown as CardDropData).edge
-        setEdge((prev) => (prev === next ? prev : next))
-      },
-      onDragLeave: () => setEdge(null),
-      onDrop: () => setEdge(null)
+      }
     })
     return () => {
       cleanupDrag()
       cleanupDrop()
     }
-  }, [ticketId, status, isDraggable])
+  }, [ticketId, status, isDraggable, ordered, inert])
 
   return (
-    <div ref={ref} className="relative px-2 py-1">
+    <div
+      ref={ref}
+      inert={inert}
+      aria-busy={inert}
+      className={cn("relative px-3 py-1", inert && "pointer-events-none")}
+    >
       <div
         ref={cardRef}
         className={cn(
           "rounded-md",
           dragging && "opacity-40",
-          pending && "animate-pulse"
+          (pending || inert) && "animate-pulse"
         )}
       >
         <motion.div
@@ -327,22 +348,13 @@ function CardSlot({
           <SprintBoardCard
             orgSlug={orgSlug}
             slug={slug}
+            sprintTicketsKey={sprintTicketsKey}
+            ticketSectionsKey={ticketSectionsKey}
             ticket={ticket}
             members={members}
           />
         </motion.div>
       </div>
-      {edge && (
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-x-3 z-10 h-0.5 rounded-full bg-foreground/70",
-            edge === "top"
-              ? "top-0 -translate-y-1/2"
-              : "bottom-0 translate-y-1/2"
-          )}
-        />
-      )}
     </div>
   )
 }

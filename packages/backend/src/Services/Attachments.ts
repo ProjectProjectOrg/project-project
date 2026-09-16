@@ -51,6 +51,18 @@ export const attachmentServesInline = (input: {
   readonly download: boolean
 }): boolean => !input.download && isRasterImageContentType(input.contentType)
 
+export const deriveAttachmentEtag = (
+  upstreamEtag: string | null,
+  servedRung: number | null
+): string | null => {
+  if (upstreamEtag === null) return null
+  if (servedRung === null) return upstreamEtag
+  const trimmed = upstreamEtag.endsWith('"')
+    ? upstreamEtag.slice(0, -1)
+    : upstreamEtag
+  return `${trimmed}-w${servedRung}"`
+}
+
 export const DEFAULT_ATTACHMENT_LIMIT = ATTACHMENT_PAGE_SIZE
 
 export const attachmentPageOffset = (
@@ -181,7 +193,7 @@ export interface AttachmentsShape {
   readonly prepare: (
     orgSlug: string,
     slug: string,
-    ticketId: string,
+    ticketId: string | null,
     userId: string,
     input: Omit<PrepareAttachmentInput, "byteSize"> & {
       readonly byteSize?: number
@@ -190,7 +202,7 @@ export interface AttachmentsShape {
   readonly commit: (
     orgSlug: string,
     slug: string,
-    ticketId: string,
+    ticketId: string | null,
     userId: string,
     attachmentId: string
   ) => Effect.Effect<Attachment, AttachmentUploadError | AttachmentNotUploaded>
@@ -200,7 +212,7 @@ export interface AttachmentsShape {
     userId: string,
     options?: { readonly download?: boolean }
   ) => Effect.Effect<
-    { readonly url: string },
+    { readonly url: string; readonly contentType: string },
     | NotFound
     | Forbidden
     | StorageNotConnected

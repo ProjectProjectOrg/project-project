@@ -1,7 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomValue, useAtomSet } from "@effect/atom-react"
+import { useAtomValue, useAtomSet, useAtomRefresh } from "@effect/atom-react"
 import { motion, Reorder } from "motion/react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -12,14 +12,15 @@ import {
 import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
 import {
   projectKey as projectStatusKey,
-  projectStatusesAtom
+  projectStatusesAtom,
+  projectStatusesBaseAtom
 } from "@/atoms/projectStatuses"
 import type {
   GroupId,
   Member,
   ProjectStatus,
-  Ticket,
-  TicketId
+  TicketId,
+  TicketListQuery
 } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 import {
@@ -29,27 +30,18 @@ import {
   type ColumnDropData,
   type DragData
 } from "./board-utils"
+import { ErrorPage } from "@/components/ErrorPage"
+import { DitherShell } from "@/components/ui/dither-shell"
 import { SprintBoardColumn } from "./SprintBoardColumn"
+import { useBoardTickets } from "./useBoardTickets"
+import { useBoardViewport } from "./useBoardViewport"
 
-const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
-
-export function SprintBoard({
-  orgSlug,
-  slug,
-  groupId,
-  ticketIds,
-  members,
-  isCompleted,
-  reorderMode,
-  onEnterReorder,
-  onExitReorder,
-  dragOrder,
-  setDragOrder
-}: {
+type SprintBoardProps = {
   orgSlug: string
   slug: string
   groupId: GroupId
   ticketIds: ReadonlyArray<TicketId>
+  query: TicketListQuery
   members: ReadonlyArray<Member>
   isCompleted: boolean
   reorderMode: boolean
@@ -57,12 +49,64 @@ export function SprintBoard({
   onExitReorder: () => void
   dragOrder: ReadonlyArray<string> | null
   setDragOrder: (next: ReadonlyArray<string> | null) => void
+}
+
+export function SprintBoard(props: SprintBoardProps) {
+  const { orgSlug, slug, groupId } = props
+  const atom = ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
+  const list = useAtomValue(atom)
+  const statusKey = projectStatusKey(orgSlug, slug)
+  const statuses = useAtomValue(projectStatusesAtom(statusKey))
+  const refreshTickets = useAtomRefresh(atom)
+  const refreshStatuses = useAtomRefresh(projectStatusesBaseAtom(statusKey))
+  const refresh = () => {
+    if (Result.isFailure(list)) refreshTickets()
+    if (Result.isFailure(statuses)) refreshStatuses()
+  }
+
+  return Result.matchWithError(Result.all({ tickets: list, statuses }), {
+    onInitial: () => (
+      <DitherShell contained animated>
+        {null}
+      </DitherShell>
+    ),
+    onError: (error) => <ErrorPage error={error} reset={refresh} contained />,
+    onDefect: (defect) => (
+      <ErrorPage error={defect} reset={refresh} contained />
+    ),
+    onSuccess: ({ value, waiting }) => (
+      <SprintBoardContent
+        {...props}
+        statuses={value.statuses}
+        waiting={waiting}
+      />
+    )
+  })
+}
+
+function SprintBoardContent({
+  orgSlug,
+  slug,
+  groupId,
+  ticketIds,
+  query,
+  members,
+  isCompleted,
+  reorderMode,
+  onEnterReorder,
+  onExitReorder,
+  dragOrder,
+  setDragOrder,
+  statuses,
+  waiting
+}: SprintBoardProps & {
+  statuses: ReadonlyArray<ProjectStatus>
+  waiting: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState<number | null>(null)
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
-  const [hasRightOverflow, setHasRightOverflow] = useState(true)
+  const { height, hasRightOverflow } = useBoardViewport(ref)
 
   useEffect(() => {
     if (reorderMode) {
@@ -72,48 +116,6 @@ export function SprintBoard({
       setFrozenWidth(null)
     }
   }, [reorderMode])
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const scrollRoot = el.closest("[data-scroll-root]")
-    const scrollContent = el.closest("[data-scroll-content]")
-    const container =
-      scrollRoot instanceof HTMLElement ? scrollRoot : document.body
-    const paddingSource =
-      scrollContent instanceof HTMLElement ? scrollContent : container
-    const update = () => {
-      const rect = el.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
-      const style = window.getComputedStyle(paddingSource)
-      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0
-      setHeight(Math.max(240, containerRect.bottom - rect.top - paddingBottom))
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(container)
-    window.addEventListener("resize", update)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener("resize", update)
-    }
-  }, [])
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const update = () => {
-      setHasRightOverflow(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
-    }
-    update()
-    el.addEventListener("scroll", update, { passive: true })
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener("scroll", update)
-      ro.disconnect()
-    }
-  }, [])
 
   useEffect(() => {
     if (!reorderMode) return
@@ -125,18 +127,8 @@ export function SprintBoard({
   }, [reorderMode, onExitReorder])
 
   const key = sprintKey(orgSlug, slug, groupId)
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const list = useAtomValue(
-    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
-  )
   const overlay = useAtomValue(pendingTicketStatusAtom(key))
   const place = useAtomSet(placeTicketAtom(key))
-  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
-    statusesResult
-  )
-    ? statusesResult.value
-    : EMPTY_STATUSES
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const order = dragOrder ?? statusSlugs
@@ -148,25 +140,32 @@ export function SprintBoard({
   const flash = (id: TicketId) =>
     setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
 
-  const ticketById = useMemo(() => {
-    const m = new Map<TicketId, Ticket>()
-    if (Result.isSuccess(list)) {
-      for (const t of list.value) m.set(t.id, t)
-    }
-    return m
-  }, [list])
+  const { ticketById, matchingTicketIds } = useBoardTickets(
+    orgSlug,
+    slug,
+    groupId,
+    ticketIds,
+    query
+  )
 
   const grouped = useMemo(
+    () => groupTicketsByStatus(matchingTicketIds, ticketById, overlay, order),
+    [matchingTicketIds, ticketById, overlay, order]
+  )
+  const unfilteredGrouped = useMemo(
     () => groupTicketsByStatus(ticketIds, ticketById, overlay, order),
     [ticketIds, ticketById, overlay, order]
   )
-  const groupedRef = useRef(grouped)
-  groupedRef.current = grouped
+  const unfilteredGroupedRef = useRef(unfilteredGrouped)
+  unfilteredGroupedRef.current = unfilteredGrouped
 
   useEffect(() => {
     const el = ref.current
     if (!el || isCompleted || reorderMode) return
-    const cleanupAutoScroll = autoScrollForElements({ element: el })
+    const cleanupAutoScroll = autoScrollForElements({
+      element: el,
+      getAllowedAxis: () => "horizontal"
+    })
     const cleanupMonitor = monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
@@ -176,7 +175,7 @@ export function SprintBoard({
         if (src.type !== "card") return
         if (dst.type === "card" && dst.id === src.id) return
 
-        const current = groupedRef.current
+        const current = unfilteredGroupedRef.current
         let after: TicketId | null
         let nextStatus: string
         if (dst.type === "card") {
@@ -212,9 +211,11 @@ export function SprintBoard({
     <motion.div
       ref={ref}
       layoutScroll
-      style={{ height: height ? `${height}px` : undefined }}
+      aria-busy={waiting}
+      style={{ height: height ?? 240 }}
       className={cn(
-        "overflow-x-auto pt-2 pb-4",
+        "overflow-x-auto",
+        waiting && "animate-pulse motion-reduce:animate-none",
         hasRightOverflow &&
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}
@@ -233,6 +234,7 @@ export function SprintBoard({
             key={status}
             orgSlug={orgSlug}
             slug={slug}
+            sprintTicketsKey={key}
             status={status}
             statuses={statuses}
             tickets={grouped[status] ?? []}

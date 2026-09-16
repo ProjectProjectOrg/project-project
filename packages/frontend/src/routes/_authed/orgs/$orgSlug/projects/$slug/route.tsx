@@ -5,16 +5,12 @@ import {
   createFileRoute,
   Link,
   Outlet,
-  retainSearchParams,
-  useLocation,
   useMatches,
   useNavigate
 } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import {
   startTransition,
-  lazy,
-  Suspense,
   useOptimistic,
   type MouseEvent,
   useCallback,
@@ -55,6 +51,7 @@ import {
   sprintsListAtom
 } from "@/atoms/sprints"
 import { projectGitStatesAtom } from "@/atoms/github"
+import { everhourProjectStatusAtom } from "@/atoms/everhour"
 import {
   activeAndPlannedCount,
   pickActiveSprint,
@@ -62,11 +59,12 @@ import {
   sprintState
 } from "@projectproject/shared"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
-import { motion } from "motion/react"
+import { ProjectBanner } from "@/components/ProjectBanner"
 import { ProjectHeader } from "@/components/ProjectHeader"
+import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
 import { cn } from "@/lib/utils"
-import { springs } from "@/lib/springs"
+import { useProjectView } from "@/hooks/useViewPreference"
 import {
   SEGMENTED_ITEM_CLASS,
   SegmentedTabs,
@@ -78,54 +76,53 @@ import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
 import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
+import type { FileRouteTypes } from "@/routeTree.gen"
 import type {
   Group,
   ProjectDetail as ProjectDetailType,
   ProjectStatus
 } from "@projectproject/shared"
 
-const BannerPrototype = import.meta.env.DEV
-  ? lazy(() => import("@/components/ProjectBannerPrototype"))
-  : null
-
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
-  validateSearch: (
-    search: Record<string, unknown>
-  ): { bannerPrototype?: "image" | "mask" } =>
-    import.meta.env.DEV &&
-    (search.bannerPrototype === "image" || search.bannerPrototype === "mask")
-      ? { bannerPrototype: search.bannerPrototype }
-      : {},
-  search: { middlewares: [retainSearchParams(["bannerPrototype"])] },
   component: ProjectLayout,
-  loader: ({ params }) => ({
-    crumb: [
-      {
-        type: "static" as const,
-        label: m.chrome_sidebar_projects(),
-        to: "/orgs/$orgSlug/projects",
-        params: { orgSlug: params.orgSlug }
-      },
-      {
-        type: "project" as const,
-        orgSlug: params.orgSlug,
-        slug: params.slug
-      }
-    ]
-  })
+  loader: ({ context, params }) => {
+    const { orgSlug, slug } = params
+    const { registry } = context
+    registry.mount(projectAtom(projectKey(orgSlug, slug)))()
+    registry.mount(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))()
+    registry.mount(sprintsListAtom(sprintsProjectKey(orgSlug, slug)))()
+    registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
+    registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
+    return {
+      crumb: [
+        {
+          type: "static" as const,
+          label: m.chrome_sidebar_projects(),
+          to: "/orgs/$orgSlug/projects",
+          params: { orgSlug }
+        },
+        {
+          type: "project" as const,
+          orgSlug,
+          slug
+        }
+      ]
+    }
+  }
 })
+
+const HEADERLESS_ROUTE_IDS: ReadonlyArray<FileRouteTypes["id"]> = [
+  "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id",
+  "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split",
+  "/_authed/orgs/$orgSlug/projects/$slug/settings"
+]
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const { bannerPrototype } = Route.useSearch()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
-  const onTicketDetail = useLocation({
-    select: (location) =>
-      location.pathname.startsWith(`/orgs/${orgSlug}/projects/${slug}/tickets/`)
-  })
-  const onSettings = useLocation({
-    select: (location) =>
-      location.pathname.startsWith(`/orgs/${orgSlug}/projects/${slug}/settings`)
+  const headerHidden = useMatches({
+    select: (matches) =>
+      matches.some((match) => HEADERLESS_ROUTE_IDS.includes(match.routeId))
   })
 
   return Result.matchWithError(project, {
@@ -157,7 +154,7 @@ function ProjectLayout() {
         body={m.project_detail_load_error_body()}
       />
     ),
-    onSuccess: ({ value }) => (
+    onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={value}>
         <TagRenamesProvider>
           <ProjectGitStatePolling
@@ -166,22 +163,15 @@ function ProjectLayout() {
             enabled={value.github !== null}
           />
           <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div
-            className={cn(
-              "flex flex-1 flex-col gap-6",
-              BannerPrototype && bannerPrototype && "relative isolate"
-            )}
-          >
-            {BannerPrototype && bannerPrototype && (
-              <Suspense fallback={null}>
-                <BannerPrototype
-                  key={`${orgSlug}/${slug}`}
-                  mode={bannerPrototype}
-                />
-              </Suspense>
-            )}
-            {!onTicketDetail && !onSettings && (
-              <PageContainer>
+          <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+            <ProjectBanner
+              orgSlug={orgSlug}
+              slug={slug}
+              banner={value.banner}
+              waiting={waiting}
+            />
+            {!headerHidden && (
+              <PageContainer className="gap-3">
                 <ProjectHeader
                   orgSlug={orgSlug}
                   slug={value.slug}
@@ -191,6 +181,11 @@ function ProjectLayout() {
                 <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
               </PageContainer>
             )}
+            <RetainedProjectViews
+              key={`${orgSlug}/${slug}`}
+              orgSlug={orgSlug}
+              slug={slug}
+            />
             <Outlet />
           </div>
         </TagRenamesProvider>
@@ -453,7 +448,6 @@ function TabsNav({
     <div className="flex flex-wrap items-center gap-3">
       <SegmentedTabs
         items={items}
-        layoutId={`project-tabs-${slug}`}
         className="project-tabs"
         isActive={isActive}
         renderItem={(item, content, { active }) => {
@@ -478,12 +472,7 @@ function TabsNav({
             event.preventDefault()
             startTransition(async () => {
               flushSync(() => selectTab(item.key))
-              await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => window.setTimeout(resolve, 0))
-                })
-              })
-              await navigate(destination)
+              await navigate({ ...destination, viewTransition: false })
             })
           }
 
@@ -494,13 +483,6 @@ function TabsNav({
                 {...destination}
                 className={SEGMENTED_ITEM_CLASS(active)}
               >
-                {active && (
-                  <motion.span
-                    layoutId={`project-tabs-${slug}-active`}
-                    transition={springs.moderate}
-                    className="absolute inset-0 z-0 rounded-lg bg-accent"
-                  />
-                )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
                   <ListChecks className="size-3.5" strokeWidth={1.75} />
                   <span>{m.project_detail_tab_backlog()}</span>
@@ -529,13 +511,6 @@ function TabsNav({
           if (item.key === "sprints" && sprintsCount !== null) {
             const children = (
               <>
-                {active && (
-                  <motion.span
-                    layoutId={`project-tabs-${slug}-active`}
-                    transition={springs.moderate}
-                    className="absolute inset-0 z-0 rounded-lg bg-accent"
-                  />
-                )}
                 <span className="relative z-10 inline-flex items-center gap-1.5 transition-opacity group-hover/seg-item:opacity-0 group-hover/seg-item:duration-0">
                   <CalendarRange className="size-3.5" strokeWidth={1.75} />
                   <span>{m.project_detail_tab_sprints()}</span>
@@ -576,7 +551,7 @@ function TabsNav({
           )
         }}
       />
-      <SprintViewSwitcher orgSlug={orgSlug} slug={slug} />
+      <ViewSwitcher orgSlug={orgSlug} slug={slug} />
     </div>
   )
 }
@@ -597,57 +572,98 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function SprintViewSwitcher({
-  orgSlug,
-  slug
-}: {
-  orgSlug: string
-  slug: string
-}) {
+function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const navigate = useNavigate()
   const matches = useMatches()
   const sprintMatch = matches.find(
     (m) =>
       m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
   )
-  if (!sprintMatch) return null
-  const search = sprintMatch.search as {
-    view?: "list" | "board" | "description"
+  const backlogMatch = matches.find(
+    (m) => m.routeId === "/_authed/orgs/$orgSlug/projects/$slug/"
+  )
+  const search = (sprintMatch ?? backlogMatch)?.search as
+    | { view?: "list" | "board" | "description" }
+    | undefined
+  const { view, setPreference } = useProjectView(orgSlug, slug, search?.view)
+  if (!sprintMatch && !backlogMatch) return null
+
+  const select = (next: "list" | "board" | "description", to: () => void) => {
+    if (next !== "description") flushSync(() => setPreference(next))
+    startTransition(to)
   }
-  const view: "list" | "board" | "description" = search.view ?? "board"
-  const { groupId } = sprintMatch.params as { groupId: string }
-  const setView = (next: "list" | "board" | "description") => {
-    if (next === view) return
-    void navigate({
-      to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      params: { orgSlug, slug, groupId },
-      search: (prev) => ({ ...prev, view: next })
-    })
+
+  if (sprintMatch) {
+    const { groupId } = sprintMatch.params as { groupId: string }
+    return (
+      <SwitcherTabs
+        ariaLabel={m.sprints_view_tabs_aria_label()}
+        current={view}
+        items={[
+          { key: "list", label: m.sprints_view_list(), icon: Rows3 },
+          { key: "board", label: m.sprints_view_board(), icon: Columns3 },
+          {
+            key: "description",
+            label: m.sprints_view_description(),
+            icon: FileText
+          }
+        ]}
+        onSelect={(next) =>
+          select(next, () => {
+            void navigate({
+              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+              params: { orgSlug, slug, groupId },
+              search: (prev) => ({ ...prev, view: next })
+            })
+          })
+        }
+      />
+    )
   }
-  const items: ReadonlyArray<SegmentedItem<"list" | "board" | "description">> =
-    [
-      { key: "list", label: m.sprints_view_list(), icon: Rows3 },
-      { key: "board", label: m.sprints_view_board(), icon: Columns3 },
-      {
-        key: "description",
-        label: m.sprints_view_description(),
-        icon: FileText
-      }
-    ]
+
   return (
-    <div
-      role="group"
-      aria-label={m.sprints_view_tabs_aria_label()}
-      className="ml-auto"
-    >
+    <SwitcherTabs
+      ariaLabel={m.tickets_view_tabs_aria_label()}
+      current={view === "description" ? "list" : view}
+      items={[
+        { key: "list", label: m.tickets_view_list(), icon: Rows3 },
+        { key: "board", label: m.tickets_view_board(), icon: Columns3 }
+      ]}
+      onSelect={(next) =>
+        select(next, () => {
+          void navigate({
+            to: "/orgs/$orgSlug/projects/$slug",
+            params: { orgSlug, slug },
+            search: (prev) => ({ ...prev, view: next })
+          })
+        })
+      }
+    />
+  )
+}
+
+function SwitcherTabs<K extends string>({
+  ariaLabel,
+  current,
+  items,
+  onSelect
+}: {
+  ariaLabel: string
+  current: K
+  items: ReadonlyArray<SegmentedItem<K>>
+  onSelect: (next: K) => void
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="ml-auto">
       <SegmentedTabs
         items={items}
-        layoutId={`sprint-view-${groupId}`}
-        isActive={(k) => k === view}
+        isActive={(k) => k === current}
         renderItem={(item, content, { active }) => (
           <button
             type="button"
-            onClick={() => setView(item.key)}
+            onClick={() => {
+              if (item.key !== current) onSelect(item.key)
+            }}
             aria-pressed={active}
             className={SEGMENTED_ITEM_CLASS(active)}
           >

@@ -1,3 +1,4 @@
+import { ProjectBanner } from "@/components/ProjectBanner"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
@@ -325,12 +326,20 @@ function ProjectRow({
       to="/orgs/$orgSlug/projects/$slug"
       params={{ orgSlug, slug: project.slug }}
       className={cn(
-        "group flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-colors",
+        "group relative isolate flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-background px-4 py-3 transition-colors",
         "hover:bg-accent/40 hover:border-border/80"
       )}
     >
+      <ProjectBanner
+        orgSlug={orgSlug}
+        slug={project.slug}
+        banner={project.banner}
+        variant="row"
+      />
       <ProjectTile
+        orgSlug={orgSlug}
         icon={project.icon}
+        iconImage={project.iconImage}
         color={project.color}
         size="sm"
         seed={project.slug}

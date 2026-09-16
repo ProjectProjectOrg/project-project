@@ -1,14 +1,15 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react"
+import { useShape } from "@/lib/shape-context"
 import { cn } from "@/lib/utils"
 
 type Margin = "1" | "2" | "3" | "4"
 type Mode = "inline" | "absolute"
 
 const MARGIN: Record<Margin, string> = {
-  "1": "-m-1 p-1",
-  "2": "-m-2 p-2",
-  "3": "-m-3 p-3",
-  "4": "-m-4 p-4"
+  "1": "before:-inset-1",
+  "2": "before:-inset-2",
+  "3": "before:-inset-3",
+  "4": "before:-inset-4"
 }
 
 interface HitboxProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,20 +18,26 @@ interface HitboxProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Hitbox = forwardRef<HTMLButtonElement, HitboxProps>(
-  ({ mode = "inline", margin = "2", className, children, ...rest }, ref) => (
-    <button
-      ref={ref}
-      type="button"
-      className={cn(
-        "group/hitbox cursor-pointer",
-        mode === "absolute" ? "absolute inset-0" : "inline-flex items-center",
-        MARGIN[margin],
-        className
-      )}
-      {...rest}
-    >
-      {children}
-    </button>
-  )
+  ({ mode = "inline", margin = "2", className, children, ...rest }, ref) => {
+    const shape = useShape()
+    return (
+      <button
+        ref={ref}
+        type="button"
+        className={cn(
+          "group/hitbox cursor-pointer outline-none before:absolute before:content-[''] focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default",
+          shape.button,
+          mode === "absolute"
+            ? "absolute inset-0"
+            : "relative inline-flex items-center",
+          MARGIN[margin],
+          className
+        )}
+        {...rest}
+      >
+        {children}
+      </button>
+    )
+  }
 )
 Hitbox.displayName = "Hitbox"

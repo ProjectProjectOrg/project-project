@@ -13,23 +13,20 @@ import { m } from "@/paraglide/messages"
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import type { TicketId, TicketType } from "@projectproject/shared"
 
-export function TypeBadgeTrigger({
-  orgSlug,
-  slug,
-  ticket,
+export function TypeSelect({
+  value,
+  onChange,
+  ariaLabel,
   className
 }: {
-  orgSlug: string
-  slug: string
-  ticket: { id: TicketId; type: TicketType }
+  value: TicketType
+  onChange: (type: TicketType) => void
+  ariaLabel?: string
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
-  const meta = TYPE_META[ticket.type]
+  const meta = TYPE_META[value]
   const Icon = meta.icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
+  const typeLabel = TYPE_LABELS[value]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -38,7 +35,9 @@ export function TypeBadgeTrigger({
             type="button"
             variant="chip"
             onClick={(e) => e.stopPropagation()}
-            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+            aria-label={
+              ariaLabel ?? m.tickets_type_aria_label({ label: typeLabel })
+            }
             className={className}
           >
             <Icon className="size-3.5" strokeWidth={1.75} />
@@ -60,14 +59,14 @@ export function TypeBadgeTrigger({
             <DropdownMenuItem
               key={t}
               onClick={() => {
-                if (t === ticket.type) return
-                update({ type: t })
+                if (t === value) return
+                onChange(t)
               }}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
               {TYPE_LABELS[t]()}
-              {t === ticket.type && (
+              {t === value && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
             </DropdownMenuItem>
@@ -78,18 +77,47 @@ export function TypeBadgeTrigger({
   )
 }
 
+export function TypeBadgeTrigger({
+  orgSlug,
+  slug,
+  ticket,
+  className
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; type: TicketType }
+  className?: string
+}) {
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+  return (
+    <TypeSelect
+      value={ticket.type}
+      onChange={(type) => update({ type })}
+      className={className}
+    />
+  )
+}
+
 export function TypeButton({
   orgSlug,
   slug,
   ticket,
   className,
-  iconOnly
+  iconOnly,
+  sprintTicketsKey,
+  ticketSectionsKey,
+  onChange
 }: {
   orgSlug: string
   slug: string
   ticket: { id: TicketId; type: TicketType }
   className?: string
   iconOnly?: boolean
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
+  onChange?: (value: TicketType) => void
 }) {
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -123,7 +151,18 @@ export function TypeButton({
             >
               <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
                 <Icon className="size-3.5" strokeWidth={1.75} />
-                <span>{typeLabel}</span>
+                <span className="grid justify-items-start whitespace-nowrap">
+                  {Object.entries(TYPE_LABELS).map(([type, label]) => (
+                    <span
+                      key={type}
+                      aria-hidden="true"
+                      className="invisible col-start-1 row-start-1"
+                    >
+                      {label()}
+                    </span>
+                  ))}
+                  <span className="col-start-1 row-start-1">{typeLabel}</span>
+                </span>
               </span>
             </Hitbox>
           )
@@ -143,7 +182,8 @@ export function TypeButton({
               key={t}
               onClick={() => {
                 if (t === ticket.type) return
-                update({ type: t })
+                if (onChange) onChange(t)
+                else update({ type: t, sprintTicketsKey, ticketSectionsKey })
               }}
               className="cursor-pointer"
             >

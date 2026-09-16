@@ -3,6 +3,7 @@ import { expect } from "vitest"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
+import { BannerPlaceholders } from "../Services/BannerPlaceholders"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
@@ -72,6 +73,7 @@ for (const scenario of [
               })
             } as never),
             Layer.succeed(SqlClient.SqlClient, {} as never),
+            Layer.mock(BannerPlaceholders, {}),
             Layer.mock(ProjectDocs, {}),
             Layer.mock(TicketDocs, {}),
             Layer.mock(TicketIndex, {}),

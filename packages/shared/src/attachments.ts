@@ -31,6 +31,29 @@ export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   return { orgSlug, id }
 }
 
+export const ATTACHMENT_WIDTH_RUNGS = [
+  64, 128, 256, 512, 1024, 2048, 2560
+] as const
+
+const TOP_RUNG = ATTACHMENT_WIDTH_RUNGS[ATTACHMENT_WIDTH_RUNGS.length - 1]
+
+export const resolveAttachmentWidthRung = (
+  raw: string | number | null
+): number | null => {
+  if (raw === null) return null
+  const parsed = typeof raw === "number" ? raw : Number(raw)
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > TOP_RUNG) return null
+  return ATTACHMENT_WIDTH_RUNGS.find((rung) => rung >= parsed) ?? null
+}
+
+export const attachmentWidthForCss = (
+  cssWidth: number,
+  devicePixelRatio: number
+): number | null =>
+  resolveAttachmentWidthRung(
+    Math.min(TOP_RUNG, Math.ceil(cssWidth * Math.max(1, devicePixelRatio)))
+  )
+
 const WIDTH_PARAM = "w"
 
 const DENSITY_PARAM = "d"
@@ -58,7 +81,17 @@ export const attachmentViewParams = (url: string): AttachmentViewParams => {
   }
 }
 
-export const attachmentSrc = (url: string): string => stripQuery(url)
+export const attachmentSrc = (url: string): string => {
+  const base = stripQuery(url)
+  const params = searchParams(url)
+  const width = params.get(WIDTH_PARAM)
+  return width === null
+    ? base
+    : `${base}?${WIDTH_PARAM}=${encodeURIComponent(width)}`
+}
+
+export const attachmentDownloadSrc = (url: string): string =>
+  `${stripQuery(url)}?download=1`
 
 export const withAttachmentParams = (
   url: string,
@@ -71,12 +104,29 @@ export const withAttachmentParams = (
   const query: Array<string> = []
   const width = params.width ?? null
   if (width !== null && Number.isFinite(width) && width > 0) {
-    query.push(`${WIDTH_PARAM}=${Math.max(1, Math.round(width))}`)
+    query.push(
+      `${WIDTH_PARAM}=${encodeURIComponent(Math.max(1, Math.round(width)))}`
+    )
   }
   if (params.density === "compact") {
     query.push(`${DENSITY_PARAM}=compact`)
   }
   return query.length === 0 ? base : `${base}?${query.join("&")}`
+}
+
+export const formatAttachmentMarkdown = (input: {
+  readonly kind: "image" | "file"
+  readonly alt: string
+  readonly url: string
+  readonly width?: number | null
+  readonly density?: AttachmentDensity
+}): string => {
+  const alt = input.alt.replace(/([[\]\\*_`~&<>])/g, "\\$1")
+  const url = withAttachmentParams(input.url, {
+    width: input.width,
+    density: input.density
+  })
+  return `${input.kind === "image" ? "!" : ""}[${alt}](${url})`
 }
 
 const unanchored = (pattern: RegExp) => pattern.source.replace(/^\^|\$$/g, "")

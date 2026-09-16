@@ -1,111 +1,36 @@
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
-import * as Effect from "effect/Effect"
 import { projectAtom } from "@/atoms/projects"
 import { projectStatusesAtom } from "@/atoms/projectStatuses"
-import { sprintsListAtom } from "@/atoms/sprints"
-import {
-  ticketsCountAtom,
-  ticketsCountKey,
-  ticketsListAtom,
-  ticketsListKeyForStatus
-} from "@/atoms/tickets"
-import { useMemo } from "react"
+import { sprintsListAtom, projectKey } from "@/atoms/sprints"
+import { ticketsSectionsAtom, ticketsSectionsKey } from "@/atoms/tickets"
 import { createFileRoute } from "@tanstack/react-router"
-import { useAtomValue } from "@effect/atom-react"
 import {
   ticketListQueryFromSearch,
   ticketListQueryToSearch
 } from "@projectproject/shared"
-import { TicketList } from "@/components/TicketList"
-import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
-import { PageContainer } from "@/components/page"
-import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
-import { useProject } from "./-context"
+
+type BacklogRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
+  view?: "list" | "board"
+}
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
-  component: TicketsTab,
+  component: () => null,
   loaderDeps: ({ search }) => ticketListQueryFromSearch(search),
-  loader: async ({
+  loader: ({
     context: { registry },
     params: { orgSlug, slug },
-    deps: query,
-    abortController
+    deps: query
   }) => {
     const key = projectKey(orgSlug, slug)
-    await Effect.runPromiseExit(
-      Effect.all(
-        [
-          Registry.getResult(registry, projectAtom(key)),
-          Registry.getResult(registry, sprintsListAtom(key)),
-          Registry.getResult(
-            registry,
-            ticketsCountAtom(
-              ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
-                q: query.q
-              })
-            )
-          ),
-          Effect.gen(function* () {
-            const statuses = yield* Registry.getResult(
-              registry,
-              projectStatusesAtom(key)
-            )
-            yield* Effect.forEach(
-              statuses.filter(
-                (status) =>
-                  !query.filter?.status?.length ||
-                  query.filter.status.includes(status.slug)
-              ),
-              (status) =>
-                Effect.exit(
-                  // @effect-diagnostics-next-line anyUnknownInErrorContext:off
-                  Registry.getResult(
-                    registry,
-                    ticketsListAtom(
-                      ticketsListKeyForStatus(orgSlug, slug, query, status.slug)
-                    )
-                  )
-                ),
-              { concurrency: 4 }
-            )
-          })
-        ],
-        { concurrency: "unbounded", discard: true }
-      ),
-      { signal: abortController.signal }
-    )
+    registry.mount(projectAtom(key))()
+    registry.mount(sprintsListAtom(key))()
+    registry.mount(projectStatusesAtom(key))()
+    registry.mount(
+      ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
+    )()
   },
-  validateSearch: (search: Record<string, unknown>) =>
-    ticketListQueryToSearch(ticketListQueryFromSearch(search))
+  validateSearch: (search: Record<string, unknown>): BacklogRouteSearch => {
+    const sanitized = ticketListQueryToSearch(ticketListQueryFromSearch(search))
+    if (search.view !== "board" && search.view !== "list") return sanitized
+    return { ...sanitized, view: search.view }
+  }
 })
-
-function TicketsTab() {
-  const { orgSlug, slug } = Route.useParams()
-  const search = Route.useSearch({ structuralSharing: true })
-  const project = useProject()
-  const query = useMemo(() => ticketListQueryFromSearch(search), [search])
-  const sprintMembership = useAtomValue(
-    sprintMembershipAtom(projectKey(orgSlug, slug))
-  )
-  return (
-    <PageContainer>
-      <TicketList
-        orgSlug={orgSlug}
-        slug={slug}
-        query={query}
-        members={project.members}
-        sprintMembership={sprintMembership}
-        showSprintFilter
-        extraRowActions={(ticket) => (
-          <ArchiveTicketControl
-            orgSlug={orgSlug}
-            slug={slug}
-            id={ticket.id}
-            archived={ticket.archivedAt !== null}
-          />
-        )}
-      />
-    </PageContainer>
-  )
-}

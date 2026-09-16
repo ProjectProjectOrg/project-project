@@ -2,9 +2,14 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   attachmentDownloadUrl,
   attachmentFileFormat,
+  attachmentSrc,
+  attachmentDownloadSrc,
   attachmentUrl,
   attachmentViewParams,
+  attachmentWidthForCss,
   extractAttachmentRefs,
+  resolveAttachmentWidthRung,
+  ATTACHMENT_WIDTH_RUNGS,
   parseAttachmentUrl,
   withAttachmentParams
 } from "./attachments"
@@ -375,6 +380,38 @@ describe("attachmentFileFormat", () => {
   })
 })
 
+describe("attachmentSrc", () => {
+  it("preserves the width param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?w=256`)).toBe(
+      `/api/attachments/acme/${ID}?w=256`
+    )
+  })
+
+  it("drops the density param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?d=compact`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
+  })
+
+  it("drops the density param but keeps the width param", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?w=256&d=compact`)).toBe(
+      `/api/attachments/acme/${ID}?w=256`
+    )
+  })
+
+  it("drops unrelated params such as download", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}?download=1`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
+  })
+
+  it("returns the base url unchanged with no query", () => {
+    expect(attachmentSrc(`/api/attachments/acme/${ID}`)).toBe(
+      `/api/attachments/acme/${ID}`
+    )
+  })
+})
+
 describe("attachmentDownloadUrl", () => {
   it("marks the serving url as a download", () => {
     expect(attachmentDownloadUrl("acme", "01M1H0S8X5DJTNBSAZSA1BZD2B")).toBe(
@@ -388,5 +425,73 @@ describe("attachmentDownloadUrl", () => {
         attachmentDownloadUrl("acme", "01M1H0S8X5DJTNBSAZSA1BZD2B")
       )
     ).toEqual({ orgSlug: "acme", id: "01M1H0S8X5DJTNBSAZSA1BZD2B" })
+  })
+})
+
+describe("resolveAttachmentWidthRung", () => {
+  it("returns null when no width is requested", () => {
+    expect(resolveAttachmentWidthRung(null)).toBeNull()
+  })
+
+  it("returns null for a non-numeric width", () => {
+    expect(resolveAttachmentWidthRung("wide")).toBeNull()
+  })
+
+  it("returns null for a zero or negative width", () => {
+    expect(resolveAttachmentWidthRung("0")).toBeNull()
+    expect(resolveAttachmentWidthRung("-64")).toBeNull()
+  })
+
+  it("returns null for a width larger than the top rung", () => {
+    expect(resolveAttachmentWidthRung("2561")).toBeNull()
+    expect(resolveAttachmentWidthRung("10000")).toBeNull()
+  })
+
+  it("rounds up to the nearest rung", () => {
+    expect(resolveAttachmentWidthRung("1")).toBe(64)
+    expect(resolveAttachmentWidthRung("65")).toBe(128)
+    expect(resolveAttachmentWidthRung("200")).toBe(256)
+    expect(resolveAttachmentWidthRung("513")).toBe(1024)
+  })
+
+  it("reaches the 2560 rung a compressed banner is stored at", () => {
+    expect(resolveAttachmentWidthRung("2049")).toBe(2560)
+    expect(resolveAttachmentWidthRung(2560)).toBe(2560)
+  })
+
+  it("leaves an exact rung unchanged", () => {
+    for (const rung of ATTACHMENT_WIDTH_RUNGS) {
+      expect(resolveAttachmentWidthRung(String(rung))).toBe(rung)
+    }
+  })
+})
+
+describe("attachmentWidthForCss", () => {
+  it("scales a css width by the device pixel ratio before snapping", () => {
+    expect(attachmentWidthForCss(48, 1)).toBe(64)
+    expect(attachmentWidthForCss(48, 2)).toBe(128)
+    expect(attachmentWidthForCss(256, 2)).toBe(512)
+  })
+
+  it("treats a sub-1 ratio as 1 so it never under-serves", () => {
+    expect(attachmentWidthForCss(200, 0.5)).toBe(256)
+  })
+
+  it("clamps to the top rung instead of falling back to the original", () => {
+    expect(attachmentWidthForCss(2000, 3)).toBe(2560)
+  })
+})
+
+describe("attachmentDownloadSrc", () => {
+  it("drops a width so a download never gets a resized re-encode", () => {
+    expect(attachmentDownloadSrc(`/api/attachments/acme/${ID}?w=320`)).toBe(
+      `/api/attachments/acme/${ID}?download=1`
+    )
+  })
+
+  it("adds download=1 to a bare url", () => {
+    expect(attachmentDownloadSrc(`/api/attachments/acme/${ID}`)).toBe(
+      `/api/attachments/acme/${ID}?download=1`
+    )
   })
 })

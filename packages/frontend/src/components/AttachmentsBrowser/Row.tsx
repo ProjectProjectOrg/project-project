@@ -5,7 +5,7 @@ import {
   isRasterImageContentType
 } from "@projectproject/shared"
 import type { AttachmentRow, AttachmentTicketRef } from "@projectproject/shared"
-import { formatAttachmentMarkdown } from "@/components/Lexical/attachmentTransformer"
+import { formatAttachmentMarkdown } from "@projectproject/shared"
 import { CopyButton } from "@/components/ui/copy-button"
 import {
   Tooltip,
@@ -161,6 +161,17 @@ function TicketCell({
   row: AttachmentRow
   onOpen: (ref: AttachmentTicketRef) => void
 }) {
+  if (row.ticketId === null) {
+    return (
+      <Link
+        to="/orgs/$orgSlug/projects/$slug/settings/general"
+        params={{ orgSlug, slug: row.projectSlug }}
+        className="text-[13px] transition-colors hover:text-foreground"
+      >
+        {m.attachments_project_image()}
+      </Link>
+    )
+  }
   if (row.tickets.length === 0) {
     return (
       <span

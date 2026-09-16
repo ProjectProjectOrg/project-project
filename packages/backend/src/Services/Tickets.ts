@@ -2,6 +2,8 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type {
   AttachBranchInput,
+  Forbidden,
+  SprintCompletedImmutable,
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -18,6 +20,8 @@ import type {
   OpenPrResult,
   QuickCreateTicketInput,
   RateLimited,
+  SplitTicketInput,
+  SplitTicketResult,
   RepoGone,
   Ticket,
   TicketCountQuery,
@@ -25,6 +29,7 @@ import type {
   TicketDetail,
   TicketListPage,
   TicketListQuery,
+  TicketSections,
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
@@ -35,6 +40,12 @@ import type { MalformedTicketDocument } from "./TicketDocs"
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 export interface TicketsShape {
+  readonly sections: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    query: TicketListQuery
+  ) => Effect.Effect<TicketSections, NotFound | MarkdownError>
   readonly list: (
     orgSlug: string,
     userId: string,
@@ -99,6 +110,20 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Validation | MentionInvalid
+  >
+  readonly split: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: SplitTicketInput
+  ) => Effect.Effect<
+    SplitTicketResult,
+    | TicketReadError
+    | Validation
+    | MentionInvalid
+    | Forbidden
+    | SprintCompletedImmutable
   >
   readonly remove: (
     orgSlug: string,

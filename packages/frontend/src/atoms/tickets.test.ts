@@ -4,7 +4,13 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import { TicketId, TicketStatus, TicketDetail } from "@projectproject/shared"
+import {
+  Ticket,
+  TicketId,
+  TicketStatus,
+  TicketDetail,
+  TagName
+} from "@projectproject/shared"
 import {
   applyOptimisticTicketPreview,
   applyOptimisticTicketUpdate,
@@ -12,8 +18,10 @@ import {
   ticketAtom,
   ticketKey,
   ticketsCountKey,
-  ticketsListAtom,
-  ticketsListKey,
+  ticketsCountAtom,
+  ticketsSectionsAtom,
+  ticketsSectionsKey,
+  ticketsInSprintAtom,
   ticketsListKeyForStatus,
   ticketUpdatePreviewAtom,
   updateTicketAtom,
@@ -37,6 +45,8 @@ const ticket = {
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  creator: null,
+  updater: null,
   body: "Before"
 } satisfies TicketDetail
 
@@ -171,12 +181,16 @@ describe("applyOptimisticTicketUpdate", () => {
               Response.json({ total: 1, byStatus: { [server.status]: 1 } })
             )
           }
-          if (url.pathname.endsWith("/tickets")) {
-            const matches = url.searchParams.get("status") === server.status
+          if (url.pathname.endsWith("/sections")) {
             return Promise.resolve(
               Response.json({
-                items: matches ? [Schema.encodeSync(TicketDetail)(server)] : [],
-                nextCursor: null
+                counts: { total: 1, byStatus: { [server.status]: 1 } },
+                sections: {
+                  [server.status]: {
+                    items: [Schema.encodeSync(TicketDetail)(server)],
+                    nextCursor: null
+                  }
+                }
               })
             )
           }
@@ -266,6 +280,181 @@ describe("applyOptimisticTicketUpdate", () => {
           waiting: false
         })
         expect(registry.get(preview)).toEqual({ input: {}, waiting: false })
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
+  it.each(["board type", "board priority", "board assignees"] as const)(
+    "keeps %s optimistic until its list finishes refreshing",
+    async (scenario) => {
+      const registry = AtomRegistry.make()
+      const key = ticketKey("org", "project", ticket.id)
+      const sprintTicketsKey = "org/project/G-1"
+      const list = ticketsInSprintAtom(sprintTicketsKey)
+      const preview = ticketUpdatePreviewAtom(key)
+      const patch =
+        scenario === "board type"
+          ? { type: "bug" as const }
+          : scenario === "board priority"
+            ? { priority: "high" as const }
+            : { assignees: ["user-2"] }
+      const updated = { ...ticket, ...patch } satisfies TicketDetail
+      let saved = false
+      let finishRefresh: ((response: Response) => void) | undefined
+      const encoded = Schema.encodeSync(TicketDetail)
+      const listResponse = (value: TicketDetail) =>
+        Response.json([encoded(value)])
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === "PATCH") {
+            expect(await new Response(init.body).json()).toEqual(patch)
+            saved = true
+            return Response.json(encoded(updated))
+          }
+          const url = new URL(
+            input instanceof Request ? input.url : String(input)
+          )
+          if (url.pathname.endsWith("/tickets")) {
+            if (saved)
+              return new Promise<Response>((resolve) => {
+                finishRefresh = resolve
+              })
+            return listResponse(ticket)
+          }
+          return Response.json(encoded(saved ? updated : ticket))
+        })
+      )
+      try {
+        registry.mount(list)
+        registry.mount(preview)
+        await vi.waitFor(() =>
+          expect(Result.isSuccess(registry.get(list))).toBe(true)
+        )
+        registry.set(updateTicketAtom(key), { ...patch, sprintTicketsKey })
+        await vi.waitFor(() =>
+          expect(registry.get(ticketAtom(key))).toMatchObject({
+            _tag: "Success",
+            value: patch
+          })
+        )
+        expect(registry.get(preview)).toEqual({ input: patch, waiting: true })
+        const stale = registry.get(list)
+        expect(stale).toMatchObject({
+          value: [{ type: "chore", priority: "med" }]
+        })
+        if (Result.isSuccess(stale)) {
+          expect(
+            applyOptimisticTicketPreview(
+              stale.value[0],
+              registry.get(preview).input
+            )
+          ).toMatchObject(patch)
+        }
+        const resolveRefresh = await vi.waitFor(() => {
+          if (!finishRefresh) throw new Error("List refresh has not started")
+          return finishRefresh
+        })
+        resolveRefresh(listResponse(updated))
+        await vi.waitFor(() =>
+          expect(registry.get(preview)).toEqual({ input: {}, waiting: false })
+        )
+        expect(registry.get(list)).toMatchObject({
+          value: [patch],
+          waiting: false
+        })
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
+
+  it.each(["backlog type", "backlog priority", "backlog assignees"] as const)(
+    "keeps %s optimistic until its sections finish refreshing",
+    async (scenario) => {
+      const registry = AtomRegistry.make()
+      const key = ticketKey("org", "project", ticket.id)
+      const query = { sort: { key: "id", dir: "asc" } } as const
+      const sectionsKey = ticketsSectionsKey("org", "project", query)
+      const sections = ticketsSectionsAtom(sectionsKey)
+      const preview = ticketUpdatePreviewAtom(key)
+      const patch =
+        scenario === "backlog type"
+          ? { type: "bug" as const }
+          : scenario === "backlog priority"
+            ? { priority: "high" as const }
+            : { assignees: ["user-2"] }
+      const updated = { ...ticket, ...patch } satisfies TicketDetail
+      let saved = false
+      let finishRefresh: ((response: Response) => void) | undefined
+      const encoded = Schema.encodeSync(TicketDetail)
+      const sectionsResponse = (value: TicketDetail) =>
+        Response.json({
+          counts: { total: 1, byStatus: { todo: 1 } },
+          sections: {
+            todo: { items: [encoded(value)], nextCursor: null }
+          }
+        })
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          if (init?.method === "PATCH") {
+            expect(await new Response(init.body).json()).toEqual(patch)
+            saved = true
+            return Response.json(encoded(updated))
+          }
+          const url = new URL(
+            input instanceof Request ? input.url : String(input)
+          )
+          if (url.pathname.endsWith("/sections")) {
+            if (saved)
+              return new Promise<Response>((resolve) => {
+                finishRefresh = resolve
+              })
+            return sectionsResponse(ticket)
+          }
+          return Response.json(encoded(saved ? updated : ticket))
+        })
+      )
+      try {
+        registry.mount(sections)
+        registry.mount(preview)
+        await vi.waitFor(() =>
+          expect(Result.isSuccess(registry.get(sections))).toBe(true)
+        )
+        registry.set(updateTicketAtom(key), {
+          ...patch,
+          ticketSectionsKey: sectionsKey
+        })
+        await vi.waitFor(() =>
+          expect(registry.get(ticketAtom(key))).toMatchObject({
+            _tag: "Success",
+            value: patch
+          })
+        )
+        expect(registry.get(preview)).toEqual({ input: patch, waiting: true })
+        const stale = registry.get(sections)
+        expect(Result.isSuccess(stale)).toBe(true)
+        if (Result.isSuccess(stale)) {
+          expect(stale.value.sections.todo?.items[0]?.ticket).toEqual(
+            Schema.decodeSync(Ticket)(Schema.encodeSync(Ticket)(ticket))
+          )
+        }
+        const resolveRefresh = await vi.waitFor(() => {
+          if (!finishRefresh)
+            throw new Error("Sections refresh has not started")
+          return finishRefresh
+        })
+        resolveRefresh(sectionsResponse(updated))
+        await vi.waitFor(() =>
+          expect(registry.get(preview)).toEqual({ input: {}, waiting: false })
+        )
+        expect(registry.get(sections)).toMatchObject({
+          value: { sections: { todo: { items: [{ ticket: patch }] } } },
+          waiting: false
+        })
       } finally {
         registry.dispose()
       }
@@ -388,11 +577,16 @@ it("refreshes one edited detail and its project lists without refetching unrelat
       const url = new URL(input instanceof Request ? input.url : String(input))
       requests.push(`${init?.method ?? "GET"} ${url.pathname}`)
       if (init?.method === "PATCH") server = { ...server, title: "Updated" }
-      if (url.pathname.endsWith("/tickets"))
+      if (url.pathname.endsWith("/sections"))
         return Promise.resolve(
           Response.json({
-            items: [Schema.encodeSync(TicketDetail)(server)],
-            nextCursor: null
+            counts: { total: 1, byStatus: { [server.status]: 1 } },
+            sections: {
+              [server.status]: {
+                items: [Schema.encodeSync(TicketDetail)(server)],
+                nextCursor: null
+              }
+            }
           })
         )
       const id = url.pathname.endsWith("T-2")
@@ -410,11 +604,11 @@ it("refreshes one edited detail and its project lists without refetching unrelat
       ticketKey("org", "project", Schema.decodeUnknownSync(TicketId)("T-2"))
     ),
     ticketAtom(ticketKey("org", "other", ticket.id)),
-    ticketsListAtom(
-      ticketsListKey("org", "project", { sort: { key: "id", dir: "asc" } })
+    ticketsSectionsAtom(
+      ticketsSectionsKey("org", "project", { sort: { key: "id", dir: "asc" } })
     ),
-    ticketsListAtom(
-      ticketsListKey("org", "other", { sort: { key: "id", dir: "asc" } })
+    ticketsSectionsAtom(
+      ticketsSectionsKey("org", "other", { sort: { key: "id", dir: "asc" } })
     )
   ]
   try {
@@ -436,7 +630,9 @@ it("refreshes one edited detail and its project lists without refetching unrelat
     )
     await vi.waitFor(() =>
       expect(
-        requests.filter((request) => request.endsWith("/project/tickets"))
+        requests.filter((request) =>
+          request.endsWith("/project/tickets/sections")
+        )
       ).toHaveLength(1)
     )
     expect(
@@ -455,3 +651,89 @@ it("refreshes one edited detail and its project lists without refetching unrelat
     registry.dispose()
   }
 })
+
+it.each(["title", "body"] as const)(
+  "bounds %s edit reads while retaining search invalidation",
+  async (field) => {
+    const registry = AtomRegistry.make()
+    const requests: string[] = []
+    let current: TicketDetail = ticket
+    const encode = Schema.encodeSync(TicketDetail)
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+          "http://localhost"
+        )
+        if (init?.method === "PATCH") {
+          current = { ...ticket, [field]: "After" }
+          return Response.json(encode(current))
+        }
+        requests.push(url.pathname + url.search)
+        if (url.pathname.endsWith("/count"))
+          return Response.json({ total: 1, byStatus: { todo: 1 } })
+        if (url.pathname.endsWith("/sections")) {
+          const row = url.searchParams.has("tags")
+            ? { ...ticket, id: Schema.decodeSync(TicketId)("T-2") }
+            : current
+          return Response.json({
+            counts: { total: 1, byStatus: { todo: 1 } },
+            sections: { todo: { items: [encode(row)], nextCursor: null } }
+          })
+        }
+        return Response.json(encode(current))
+      }
+    )
+    const query = { sort: { key: "id", dir: "asc" } } as const
+    const detail = ticketAtom(ticketKey("org", "project", ticket.id))
+    const own = ticketsSectionsAtom(ticketsSectionsKey("org", "project", query))
+    const unrelated = ticketsSectionsAtom(
+      ticketsSectionsKey("org", "project", {
+        ...query,
+        filter: { tags: [Schema.decodeSync(TagName)("other")] }
+      })
+    )
+    const counts = ticketsCountAtom(ticketsCountKey("org", "project", {}))
+    const searchedCounts = ticketsCountAtom(
+      ticketsCountKey("org", "project", { q: "After" })
+    )
+    const update = updateTicketAtom(ticketKey("org", "project", ticket.id))
+    registry.mount(detail)
+    registry.mount(own)
+    registry.mount(unrelated)
+    registry.mount(counts)
+    registry.mount(searchedCounts)
+    registry.mount(update)
+    try {
+      await vi.waitFor(() => {
+        expect(registry.get(detail)).toMatchObject({ _tag: "Success" })
+        expect(registry.get(own)).toMatchObject({ _tag: "Success" })
+        expect(registry.get(unrelated)).toMatchObject({ _tag: "Success" })
+        expect(registry.get(counts)).toMatchObject({ _tag: "Success" })
+        expect(registry.get(searchedCounts)).toMatchObject({ _tag: "Success" })
+      })
+      requests.length = 0
+      registry.set(update, { [field]: "After" })
+      await vi.waitFor(() =>
+        expect(registry.get(update)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      expect(requests.filter((path) => path.includes("tags="))).toEqual([])
+      expect(requests.filter((path) => path.endsWith("/count"))).toEqual([])
+      expect(
+        requests.filter((path) => path.includes("/sections"))
+      ).toHaveLength(field === "title" ? 1 : 0)
+      expect(
+        requests.filter((path) => path.includes("/count?q=After"))
+      ).toHaveLength(field === "title" ? 1 : 0)
+      expect(
+        requests.filter((path) => path.endsWith("/tickets/T-1"))
+      ).toHaveLength(1)
+    } finally {
+      registry.dispose()
+    }
+  }
+)

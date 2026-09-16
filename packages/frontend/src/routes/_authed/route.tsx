@@ -5,7 +5,8 @@ import {
   Link,
   Navigate,
   Outlet,
-  useLocation
+  useLocation,
+  useParams
 } from "@tanstack/react-router"
 import {
   FolderKanban,
@@ -28,6 +29,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
 import { Logo, Wordmark } from "@/components/Logo"
 import { OrgSwitcher } from "@/components/OrgSwitcher"
+import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RunningTimerIndicator } from "@/components/time/RunningTimerIndicator"
 import {
   SidebarDrawerAutoCloseProvider,
@@ -51,14 +53,12 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { usePrefetch } from "@/hooks/usePrefetch"
 import { authedRouteRedirect } from "@/lib/authRedirect"
-import { projectPrefetchAtoms } from "@/lib/prefetch"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import type { User } from "@projectproject/shared"
+import type { ProjectIconImage, User } from "@projectproject/shared"
 import type { LucideIcon } from "lucide-react"
 
 export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
@@ -66,6 +66,7 @@ export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
 function AuthedLayout() {
   const me = useAtomValue(meAtom)
   const { pathname } = useLocation()
+  const { orgSlug } = useParams({ strict: false })
 
   return Result.matchWithError(me, {
     onInitial: () => <LoaderOverlay active />,
@@ -80,8 +81,10 @@ function AuthedLayout() {
         return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
       }
       return (
-        <SidebarSlotProvider>
-          <Shell user={value} />
+        <SidebarSlotProvider key={orgSlug ?? value.activeOrgSlug}>
+          <Shell
+            user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
+          />
         </SidebarSlotProvider>
       )
     }
@@ -120,7 +123,8 @@ function Sidebar({ user }: { user: User }) {
 }
 
 function SidebarContent({ user }: { user: User }) {
-  const orgSlug = user.activeOrgSlug
+  const { orgSlug: routeOrgSlug } = useParams({ strict: false })
+  const orgSlug = routeOrgSlug ?? user.activeOrgSlug
   const slot = useSidebarSlotContent()
   const section = useSidebarSectionContent()
   const reduceMotion = useReducedMotion()
@@ -247,6 +251,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
                   slug={p.slug}
                   name={p.name}
                   icon={p.icon}
+                  iconImage={p.iconImage}
                   active={p.slug === activeSlug}
                 />
               ))}
@@ -267,19 +272,18 @@ function ProjectsGroupRow({
   slug,
   name,
   icon,
+  iconImage,
   active
 }: {
   orgSlug: string
   slug: string
   name: string
   icon: string
+  iconImage: ProjectIconImage | null
   active: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const settingsLabel = m.project_sidebar_settings_aria_label({ name })
-  const prefetch = usePrefetch(
-    useCallback(() => projectPrefetchAtoms(orgSlug, slug), [orgSlug, slug])
-  )
 
   return (
     <motion.li
@@ -292,7 +296,6 @@ function ProjectsGroupRow({
       <Link
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
-        {...prefetch}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-2 pl-3 pr-1 text-[13px] transition-colors",
           active
@@ -303,11 +306,16 @@ function ProjectsGroupRow({
         <span
           aria-hidden
           className={cn(
-            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden text-[13px] leading-none transition-[filter,opacity] duration-150",
+            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] corner-squircle text-[13px] leading-none transition-[filter,opacity] duration-150",
             !active && "opacity-60 grayscale"
           )}
         >
-          {icon}
+          <ProjectIconDisplay
+            orgSlug={orgSlug}
+            icon={icon}
+            iconImage={iconImage}
+            size={16}
+          />
         </span>
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>

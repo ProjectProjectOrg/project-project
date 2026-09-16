@@ -48,6 +48,7 @@ const document: TicketDocument = {
   archivedAt: null,
   createdBy: "user-1",
   createdAt: at("2026-01-01T00:00:00.000Z"),
+  updatedBy: "user-1",
   updatedAt: at("2026-01-01T00:00:00.000Z"),
   body: "# Comments\n",
   commentsRegion: ""

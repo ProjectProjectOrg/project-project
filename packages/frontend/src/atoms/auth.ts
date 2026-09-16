@@ -110,6 +110,7 @@ import {
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import { authClient } from "@/services/AuthClient"
+import { clearBannerRenderCache } from "@/lib/bannerRenderCache"
 import { githubAuthEpochAtom } from "./github"
 
 export const meAtom = runtime.atom(
@@ -119,11 +120,10 @@ export const meAtom = runtime.atom(
   })
 )
 
-// Sign out, then refresh meAtom so the gate flips to redirect on the next render.
 export const logoutAtom = runtime.fn(
-  Effect.fn(function* (_: void, get) {
-    yield* Effect.tryPromise(() => authClient.signOut())
-    get.refresh(meAtom)
+  Effect.fn(function* (_: void) {
+    yield* Effect.tryPromise(() => authData(authClient.signOut()))
+    yield* Effect.promise(() => clearBannerRenderCache())
   })
 )
 

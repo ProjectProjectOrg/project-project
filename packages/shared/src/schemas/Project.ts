@@ -8,6 +8,7 @@
 // `Project` is the full record (used by list responses for now; later by /get).
 
 import * as Schema from "effect/Schema"
+import { AttachmentId } from "./Attachment"
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
@@ -117,7 +118,82 @@ export const ProjectSetup = Schema.Struct({
 })
 export type ProjectSetup = typeof ProjectSetup.Type
 
+export const ProjectBannerPreset = Schema.Literals([
+  "sunset",
+  "water_lily_pond",
+  "wheat_stacks",
+  "cliff_walk",
+  "saint_lazare",
+  "bordighera"
+])
+export type ProjectBannerPreset = typeof ProjectBannerPreset.Type
+
+export const ProjectBannerCrop = Schema.Struct({
+  x: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
+  ),
+  y: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
+  ),
+  zoom: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 1, maximum: 4 }))
+  )
+})
+
+export const BANNER_PLACEHOLDER_BUDGET = 1536
+
+export const BANNER_PLACEHOLDER_MAX_LENGTH = 4096
+
+export const ProjectBannerPlaceholder = Schema.NullOr(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/)
+    ),
+    Schema.check(Schema.isMaxLength(BANNER_PLACEHOLDER_MAX_LENGTH))
+  )
+)
+
+export const ProjectBanner = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("preset"),
+    preset: ProjectBannerPreset,
+    crop: ProjectBannerCrop,
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
+  }),
+  Schema.Struct({
+    type: Schema.Literal("attachment"),
+    attachmentId: AttachmentId,
+    crop: ProjectBannerCrop,
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
+  })
+])
+export type ProjectBanner = typeof ProjectBanner.Type
+
+export const ProjectIconCrop = ProjectBannerCrop
+
+export const ProjectIconTolerance = Schema.Int.pipe(
+  Schema.check(Schema.isBetween({ minimum: 0, maximum: 160 }))
+)
+
+export const ProjectIconImage = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("sticker"),
+    sourceAttachmentId: AttachmentId,
+    renderedAttachmentId: AttachmentId,
+    cutoutTolerance: Schema.NullOr(ProjectIconTolerance),
+    crop: ProjectIconCrop
+  }),
+  Schema.Struct({
+    type: Schema.Literal("full_bleed"),
+    sourceAttachmentId: AttachmentId,
+    crop: ProjectIconCrop
+  })
+])
+export type ProjectIconImage = typeof ProjectIconImage.Type
+
 export const Project = Schema.Struct({
+  banner: Schema.NullOr(ProjectBanner),
+  iconImage: Schema.NullOr(ProjectIconImage),
   org: Slug,
   slug: Slug,
   key: ProjectKey,
@@ -177,6 +253,8 @@ export type TransferOwnershipInput = typeof TransferOwnershipInput.Type
 // Partial update payload. Both fields optional — the client sends only what
 // changed. Empty object is allowed but a no-op on the server.
 export const UpdateProjectInput = Schema.Struct({
+  banner: Schema.optional(Schema.NullOr(ProjectBanner)),
+  iconImage: Schema.optional(Schema.NullOr(ProjectIconImage)),
   name: Schema.optional(
     Schema.String.pipe(
       Schema.check(Schema.isMinLength(1)),

@@ -44,6 +44,8 @@ import {
   ArchiveTicketInput,
   CreateTicketInput,
   QuickCreateTicketInput,
+  SplitTicketInput,
+  SplitTicketResult,
   Ticket,
   TicketDetail,
   TicketId,
@@ -113,7 +115,7 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
-import { TicketCounts, TicketListPage } from "./filters/Ticket"
+import { TicketCounts, TicketListPage, TicketSections } from "./filters/Ticket"
 import { TicketCountParams, TicketListParams } from "./filters/url"
 import {
   Attachment,
@@ -1000,6 +1002,51 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
     )
   )
   .add(
+    HttpApiEndpoint.post(
+      "prepareProject",
+      "/orgs/:orgSlug/projects/:slug/attachments/prepare",
+      {
+        params: ProjectPath,
+        payload: PrepareAttachmentInput,
+        success: PrepareAttachmentResult,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          AttachmentTooLarge,
+          AttachmentTypeRejected,
+          StorageNotConnected,
+          StorageConfigMissing,
+          StorageError
+        ]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "commitProject",
+      "/orgs/:orgSlug/projects/:slug/attachments/:attachmentId/commit",
+      {
+        params: Schema.Struct({
+          ...ProjectPath.fields,
+          attachmentId: Schema.String
+        }),
+        success: Attachment,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          AttachmentNotUploaded,
+          AttachmentTooLarge,
+          AttachmentTypeRejected,
+          StorageNotConnected,
+          StorageConfigMissing,
+          StorageError
+        ]
+      }
+    )
+  )
+  .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/attachments", {
       params: OrgPath,
       query: AttachmentListParams,
@@ -1041,6 +1088,18 @@ const TicketSearchParams = Schema.Struct({
 })
 
 const TicketsGroup = HttpApiGroup.make("tickets")
+  .add(
+    HttpApiEndpoint.get(
+      "sections",
+      "/orgs/:orgSlug/projects/:slug/tickets/sections",
+      {
+        params: ProjectPath,
+        query: TicketListParams,
+        success: TicketSections,
+        error: [Unauthorized, NotFound]
+      }
+    )
+  )
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
@@ -1198,6 +1257,25 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         success: TicketDetail,
         error: [Unauthorized, NotFound]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "split",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/split",
+      {
+        params: TicketPath,
+        payload: SplitTicketInput,
+        success: SplitTicketResult,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          SprintCompletedImmutable
+        ]
       }
     )
   )

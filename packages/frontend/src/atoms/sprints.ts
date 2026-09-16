@@ -56,7 +56,7 @@ const splitSprintKey = (
   }
 }
 
-const sprintsListBaseAtom = Atom.family((key: string) => {
+export const sprintsListBaseAtom = Atom.family((key: string) => {
   const { orgSlug, slug } = splitProjectKey(key)
   return runtime
     .atom(
@@ -66,7 +66,10 @@ const sprintsListBaseAtom = Atom.family((key: string) => {
         return all.filter((g) => g.kind === "sprint")
       })
     )
-    .pipe(Atom.setIdleTTL("1 minute"))
+    .pipe(
+      Atom.withReactivity([`sprints/${orgSlug}/${slug}`]),
+      Atom.setIdleTTL("1 minute")
+    )
 })
 
 export const sprintsListAtom = Atom.family((key: string) =>
@@ -123,7 +126,7 @@ export const createSprintAtom = Atom.family((key: string) => {
       return Result.success([synthetic, ...current.value], { waiting: true })
     },
     fn: runtime.fn(
-      Effect.fn(function* (input: CreateSprintReducerInput, get) {
+      Effect.fn(function* (input: CreateSprintReducerInput) {
         const client = yield* ApiClient
         const payload: CreateGroupInput = {
           name: input.name,
@@ -135,7 +138,6 @@ export const createSprintAtom = Atom.family((key: string) => {
           params: { orgSlug, slug },
           payload
         })
-        get.refresh(sprintsListBaseAtom(key))
         return created
       })
     )
@@ -180,7 +182,6 @@ export const updateSprintAtom = Atom.family((key: string) => {
           params: { orgSlug, slug, id: input.groupId },
           payload: input.patch
         })
-        get.refresh(sprintsListBaseAtom(key))
         get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
         return updated
       })
@@ -275,15 +276,17 @@ export const addTicketsToSprintAtom = Atom.family((key: string) => {
               params: { orgSlug, slug, id: input.groupId },
               payload: { tickets: union }
             })
-          get.refresh(sprintsListBaseAtom(key))
           get.refresh(sprintBaseAtom(targetKey))
           for (const ev of result.evicted) {
             get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, ev.groupId)))
           }
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-          yield* get.result(sprintsListBaseAtom(key), {
-            suspendOnWaiting: true
-          })
+          yield* Reactivity.invalidate([
+            `sprint-membership/${orgSlug}/${slug}`,
+            `sprint-membership/${orgSlug}/${slug}/${input.groupId}`,
+            ...result.evicted.map(
+              (ev) => `sprint-membership/${orgSlug}/${slug}/${ev.groupId}`
+            )
+          ])
           yield* get.result(
             ticketsInSprintAtom(
               ticketsInSprintKey(orgSlug, slug, input.groupId)
@@ -355,12 +358,11 @@ export const removeTicketsFromSprintAtom = Atom.family((key: string) => {
             params: { orgSlug, slug, id: input.groupId },
             payload: { tickets: remaining }
           })
-          get.refresh(sprintsListBaseAtom(key))
           get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-          yield* get.result(sprintsListBaseAtom(key), {
-            suspendOnWaiting: true
-          })
+          yield* Reactivity.invalidate([
+            `sprint-membership/${orgSlug}/${slug}`,
+            `sprint-membership/${orgSlug}/${slug}/${input.groupId}`
+          ])
           yield* get.result(
             ticketsInSprintAtom(
               ticketsInSprintKey(orgSlug, slug, input.groupId)
@@ -479,14 +481,21 @@ export const completeSprintAtom = Atom.family((key: string) => {
           payload: { destination: input.destination }
         })
 
-        get.refresh(sprintsListBaseAtom(key))
         get.refresh(sprintBaseAtom(sprintKey(orgSlug, slug, input.groupId)))
         if (input.destination.kind === "sprint") {
           get.refresh(
             sprintBaseAtom(sprintKey(orgSlug, slug, input.destination.groupId))
           )
         }
-        yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+        yield* Reactivity.invalidate([
+          `sprint-membership/${orgSlug}/${slug}`,
+          `sprint-membership/${orgSlug}/${slug}/${input.groupId}`,
+          ...(input.destination.kind === "sprint"
+            ? [
+                `sprint-membership/${orgSlug}/${slug}/${input.destination.groupId}`
+              ]
+            : [])
+        ])
         return completed
       })
     )
@@ -572,11 +581,12 @@ export const placeTicketAtom = Atom.family((key: string) => {
             params: { orgSlug, slug, id: groupId },
             payload: input
           })
-          get.refresh(sprintsListBaseAtom(project))
-          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
-          yield* get.result(sprintsListBaseAtom(project), {
-            suspendOnWaiting: true
-          })
+          get.refresh(sprintBaseAtom(key))
+          yield* Reactivity.invalidate(
+            input.status !== undefined
+              ? [`tickets/${orgSlug}/${slug}`]
+              : [`sprint-membership/${orgSlug}/${slug}/${groupId}`]
+          )
           const tickets = yield* get.result(sprintTickets, {
             suspendOnWaiting: true
           })

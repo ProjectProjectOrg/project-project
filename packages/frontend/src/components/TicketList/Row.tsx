@@ -1,35 +1,27 @@
-import {
-  memo,
-  useCallback,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode
-} from "react"
+import { memo, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
-import { useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { useAtomValue } from "@effect/atom-react"
 import {
   applyOptimisticTicketPreview,
   ticketKey,
-  ticketUpdatePreviewAtom
+  ticketUpdatePreviewAtom,
+  ticketsSectionsKey
 } from "@/atoms/tickets"
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
-import { ticketPrefetchAtoms } from "@/lib/prefetch"
-import { usePrefetch } from "@/hooks/usePrefetch"
 import { cn } from "@/lib/utils"
 import type {
   Group,
   Member,
   Ticket,
-  TicketListQuery
+  TicketListQuery,
+  UpdateTicketInput
 } from "@projectproject/shared"
-import { AssigneeRowTrigger } from "./AssigneeField"
+import { AssigneeField } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
@@ -50,8 +42,10 @@ function RowImpl({
   pending,
   previewOpen,
   onPreviewPointerEnter,
-  onPreviewOpenChange
+  onPreviewOpenChange,
+  onUpdate
 }: {
+  onUpdate?: (patch: UpdateTicketInput) => void
   orgSlug: string
   slug: string
   ticket: Ticket
@@ -69,38 +63,15 @@ function RowImpl({
   const updatePreview = useAtomValue(
     ticketUpdatePreviewAtom(ticketKey(orgSlug, slug, ticket.id))
   )
-  const visibleTicket = applyOptimisticTicketPreview(
-    ticket,
-    updatePreview.input
-  )
+  const visibleTicket = onUpdate
+    ? ticket
+    : applyOptimisticTicketPreview(ticket, updatePreview.input)
+  const ticketSectionsKeyValue = ticketsSectionsKey(orgSlug, slug, query)
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
   const [previewMounted, setPreviewMounted] = useState(false)
-  const prefetch = usePrefetch(
-    useCallback(
-      () => ticketPrefetchAtoms(orgSlug, slug, ticket.id),
-      [orgSlug, slug, ticket.id]
-    )
-  )
-  const open = () => {
-    void navigate({
-      to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-      params: { orgSlug, slug, id: ticket.id }
-    })
-  }
-  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (isInteractiveTarget(e.target, e.currentTarget)) return
-    open()
-  }
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Enter") return
-    if (isInteractiveTarget(e.target, e.currentTarget)) return
-    e.preventDefault()
-    open()
-  }
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
   }
@@ -118,48 +89,19 @@ function RowImpl({
           }}
         >
           <div
-            {...prefetch}
             ref={rowElement}
-            role="link"
-            tabIndex={0}
-            onClick={handleClick}
-            onKeyDown={handleKeyDown}
             className={cn(
-              "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-1 focus-visible:ring-ring",
-              updatePreview.waiting && "animate-pulse"
+              "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
+              !onUpdate && updatePreview.waiting && "animate-pulse"
             )}
           >
-            <StatusButton
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
-              query={query}
-              stopPropagation
-            />
-            <PriorityButton
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
-              stopPropagation
-            />
-            <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
-              <span>{idPrefix}-</span>
-              <AnimatePresence initial={false} mode="popLayout">
-                {!pending && (
-                  <motion.span
-                    key={idTail}
-                    initial={{ opacity: 0, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, filter: "blur(4px)" }}
-                    transition={transitions.presence}
-                    className="inline-block"
-                  >
-                    {idTail}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </span>
-            <div className="flex min-w-0 items-center">
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: ticket.id }}
+              preload="intent"
+              data-row-link
+              className="col-start-4 row-start-1 flex min-w-0 self-stretch items-center outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+            >
               <PopoverTrigger
                 openOnHover
                 delay={TICKET_PREVIEW_DELAY_MS}
@@ -178,7 +120,7 @@ function RowImpl({
                     onKeyDown={undefined}
                     onKeyUp={undefined}
                     onPointerDown={undefined}
-                    className="flex min-w-0 flex-1 self-stretch items-center"
+                    className="relative z-20 flex min-w-0 flex-1 self-stretch items-center"
                   />
                 )}
               >
@@ -186,43 +128,81 @@ function RowImpl({
                   {visibleTicket.title}
                 </span>
               </PopoverTrigger>
-              <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
-                <TicketGitChip
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticket={visibleTicket}
-                />
-                {showSprintCol && (
-                  <SprintField
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    ticketId={ticket.id}
-                    membership={sprintMembership}
-                  />
-                )}
-                <AssigneeRowTrigger
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  ticket={visibleTicket}
-                  members={members}
-                  className="hidden sm:inline-flex"
-                />
-              </div>
-            </div>
-            <TypeButton
+            </Link>
+            <StatusButton
               orgSlug={orgSlug}
               slug={slug}
               ticket={visibleTicket}
+              query={query}
+              stopPropagation
+              onChange={onUpdate ? (status) => onUpdate({ status }) : undefined}
+            />
+            <PriorityButton
+              onChange={
+                onUpdate ? (priority) => onUpdate({ priority }) : undefined
+              }
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={visibleTicket}
+              stopPropagation
+              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
+            />
+            <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+              <span>{idPrefix}-</span>
+              <AnimatePresence initial={false} mode="popLayout">
+                {!pending && (
+                  <motion.span
+                    key={idTail}
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(4px)" }}
+                    transition={transitions.presence}
+                    className="inline-block"
+                  >
+                    {idTail}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </span>
+            <div className="flex shrink-0 items-center justify-end gap-2">
+              <TicketGitChip
+                orgSlug={orgSlug}
+                slug={slug}
+                ticket={visibleTicket}
+              />
+              {showSprintCol && (
+                <SprintField
+                  variant="responsive"
+                  orgSlug={orgSlug}
+                  slug={slug}
+                  ticketId={ticket.id}
+                  membership={sprintMembership}
+                />
+              )}
+              <AssigneeField
+                onChange={
+                  onUpdate ? (assignees) => onUpdate({ assignees }) : undefined
+                }
+                orgSlug={orgSlug}
+                slug={slug}
+                ticket={visibleTicket}
+                members={members}
+                ticketSectionsKey={
+                  onUpdate ? undefined : ticketSectionsKeyValue
+                }
+                className="hidden sm:inline-flex"
+              />
+            </div>
+            <TypeButton
+              onChange={onUpdate ? (type) => onUpdate({ type }) : undefined}
+              orgSlug={orgSlug}
+              slug={slug}
+              ticket={visibleTicket}
+              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (
-              <span
-                className="inline-flex shrink-0 items-center"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  e.preventDefault()
-                }}
-              >
+              <span className="relative z-20 inline-flex shrink-0 items-center">
                 {extraRowActions?.(visibleTicket)}
               </span>
             )}
@@ -239,17 +219,6 @@ function RowImpl({
       </DeferredDropdownMenus>
     </div>
   )
-}
-
-function isInteractiveTarget(
-  target: EventTarget,
-  row: HTMLDivElement
-): boolean {
-  if (!(target instanceof Element)) return false
-  const interactive = target.closest(
-    "a,button,input,select,textarea,[role='button'],[role='menuitem']"
-  )
-  return interactive !== null && row.contains(interactive)
 }
 
 export const Row = memo(RowImpl)

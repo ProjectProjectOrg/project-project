@@ -44,6 +44,7 @@ import {
   UpdateTicketInput
 } from "../schemas/Ticket"
 import { Tag } from "../schemas/Tag"
+import { ProjectStatus } from "../schemas/Status"
 import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
 import { Comment, CreateCommentInput } from "../schemas/Comment"
 import { DocFile } from "./DocFile"
@@ -151,7 +152,9 @@ export const McpTools = {
   },
   list_tickets: {
     description:
-      "List tickets in a project with optional server-side filtering.",
+      "List tickets in a project with optional server-side filtering. Ticket " +
+      "`status` values are stable slugs; resolve them through `list_statuses` " +
+      "and use the corresponding label in conversation.",
     input: Schema.Struct({
       orgSlug: Slug,
       projectSlug: Slug,
@@ -162,9 +165,21 @@ export const McpTools = {
     errors: [Unauthorized, NotFound] as const
   },
   get_ticket: {
-    description: "Fetch one ticket including raw markdown body.",
+    description:
+      "Fetch one ticket including raw markdown body. Its `status` is a stable " +
+      "slug; resolve it through `list_statuses` and use the corresponding " +
+      "label in conversation.",
     input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug, id: TicketId }),
     output: TicketDetail,
+    errors: [Unauthorized, NotFound] as const
+  },
+  list_statuses: {
+    description:
+      "List the project's ticket statuses. Each status has a stable `slug` " +
+      "used by ticket tools and a user-facing `label`. Use the label when " +
+      "referring to a status in conversation.",
+    input: Schema.Struct({ orgSlug: Slug, projectSlug: Slug }),
+    output: Schema.Array(ProjectStatus),
     errors: [Unauthorized, NotFound] as const
   },
   list_tags: {
@@ -230,8 +245,9 @@ export const McpTools = {
   create_ticket: {
     description:
       "Create a new ticket in a project. `title` is required; everything " +
-      "else falls back to sensible defaults. `status` is one of " +
-      "`todo` | `in_progress` | `done` (default `todo`). `type` is one of " +
+      "else falls back to sensible defaults. `status` is a status slug from " +
+      "`list_statuses` (default `todo`); use its corresponding label when " +
+      "referring to the status in conversation. `type` is one of " +
       "`feat` | `bug` | `chore` | `other` (default `other`). `priority` is " +
       "one of `low` | `med` | `high` (default `med`). `tags` is an array of " +
       "tag names that must already exist on the project — discover them via " +
@@ -256,7 +272,9 @@ export const McpTools = {
     description:
       "Update an existing ticket. Every field is optional; omitted fields " +
       "are left unchanged. Pass `tags: []` or `assignees: []` to clear the " +
-      "list. `status` is one of `todo` | `in_progress` | `done`. `type` is " +
+      "list. `status` is a status slug from `list_statuses`; use its " +
+      "corresponding label when referring to the status in conversation. " +
+      "`type` is " +
       "one of `feat` | `bug` | `chore` | `other`. `priority` is one of " +
       "`low` | `med` | `high`. `tags` entries must already exist on the " +
       "project; `assignees` entries must be project members. `body` is " +
@@ -280,14 +298,17 @@ export const McpTools = {
       "Prepare an attachment upload for an existing ticket. Requires organization storage " +
       `and project membership. Accepts non-empty files up to ${ATTACHMENT_MAX_BYTES / (1024 * 1024)} MiB: PNG, JPEG, GIF, ` +
       "WebP, AVIF, PDF, ZIP, gzip, or tar. Supply filename and contentType; the server measures the file size. " +
+      "Optional density is rich (default, expanded) or compact (inline chip). Optional width is a positive integer " +
+      "in pixels for expanded images; compact images retain it for later expansion. Width has no effect on files. " +
+      "Returns ready-to-paste markdown using the filename as its label and the permanent URL with display parameters. " +
       "POST the local file to the returned uploadUrl: curl --fail-with-body --request POST " +
       "--data-binary '@/path/to/file' --header 'Content-Type: <contentType>' '<uploadUrl>'. " +
       "The HTTP response returns the committed id, permanent url, filename, and contentType; " +
       "no separate commit call is needed. The uploadUrl is a temporary credential: " +
       "use it only for the upload, and prepare again if it expires. Retrying a completed " +
       "upload returns its metadata without replacing its bytes. After a successful upload, " +
-      "read the current ticket and use update_ticket to insert ![alt](url) for images or " +
-      "[filename](url) for files, preserving existing content. Never save uploadUrl in markdown. " +
+      "read the current ticket and use update_ticket to insert the returned markdown, preserving existing content. " +
+      "Only insert markdown after the upload succeeds. Never save uploadUrl in markdown. " +
       "Does not modify the description automatically. Do not send file paths or base64 as " +
       "file content. If storage is not connected, connect it in organization settings and retry.",
     input: Schema.Struct({
@@ -295,9 +316,19 @@ export const McpTools = {
       projectSlug: Slug,
       ticketId: TicketId,
       filename: PrepareAttachmentInput.fields.filename,
-      contentType: PrepareAttachmentInput.fields.contentType
+      contentType: PrepareAttachmentInput.fields.contentType,
+      density: Schema.optional(Schema.Literals(["rich", "compact"])),
+      width: Schema.optional(
+        Schema.Finite.pipe(
+          Schema.check(Schema.isInt()),
+          Schema.check(Schema.isGreaterThan(0))
+        )
+      )
     }),
-    output: PrepareAttachmentResult,
+    output: Schema.Struct({
+      ...PrepareAttachmentResult.fields,
+      markdown: Schema.String
+    }),
     errors: [
       Unauthorized,
       NotFound,

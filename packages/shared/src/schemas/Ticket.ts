@@ -7,9 +7,11 @@
 
 import * as Schema from "effect/Schema"
 import { GitState } from "./GitState"
+import { GroupId } from "./GroupId"
 import { ProjectKey } from "./Project"
 import { StatusSlug } from "./Status"
 import { TagName } from "./Tag"
+import { User } from "./User"
 
 export const TicketId = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/)),
@@ -68,6 +70,9 @@ export type Ticket = typeof Ticket.Type
 
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
+  splitFrom: Schema.optional(Schema.NullOr(TicketId)),
+  creator: Schema.NullOr(User),
+  updater: Schema.NullOr(User),
   body: Schema.String,
   missingAttachments: Schema.optional(Schema.Array(Schema.String))
 })
@@ -119,3 +124,33 @@ export const UpdateTicketInput = Schema.Struct({
   body: Schema.optional(Schema.String)
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
+
+export const SplitTicketResultInput = Schema.Struct({
+  title: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(200))
+  ),
+  type: TicketType,
+  status: TicketStatus,
+  priority: TicketPriority,
+  sprintId: Schema.NullOr(GroupId),
+  assignees: Schema.Array(Schema.String)
+})
+export type SplitTicketResultInput = typeof SplitTicketResultInput.Type
+
+export const SPLIT_TICKET_MIN_RESULTS = 2
+export const SPLIT_TICKET_MAX_RESULTS = 10
+
+export const SplitTicketInput = Schema.Struct({
+  results: Schema.Array(SplitTicketResultInput).pipe(
+    Schema.check(Schema.isMinLength(SPLIT_TICKET_MIN_RESULTS)),
+    Schema.check(Schema.isMaxLength(SPLIT_TICKET_MAX_RESULTS))
+  )
+})
+export type SplitTicketInput = typeof SplitTicketInput.Type
+
+export const SplitTicketResult = Schema.Struct({
+  retained: TicketDetail,
+  created: Schema.Array(TicketDetail)
+})
+export type SplitTicketResult = typeof SplitTicketResult.Type

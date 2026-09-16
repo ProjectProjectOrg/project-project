@@ -4,6 +4,12 @@
 
 This repo builds **ProjectProject**, a markdown-first project management tool described in `docs/PROJECTPROJECT.md`. **Read that file first** before any non-trivial response — it is the spec we're building toward.
 
+### What lives in markdown, what lives in Postgres
+
+Markdown holds what is **portable and cheap**: anything a human would write or read, anything another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque, or meaningless outside this instance. Losing the Postgres half costs a re-upload, not information.
+
+A project's `icon` (emoji) and `color` (hex) stay in frontmatter; its `banner`, `iconImage`, and banner `placeholder` live only in `project_index`. An attachment id is meaningless copied into another workspace; a hex colour survives that copy. See `docs/superpowers/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
+
 **For any UI/frontend work**, also read `PRODUCT.md` (strategic design context — users, brand personality, aesthetic direction, design principles) and `DESIGN.md` (visual system — color tokens, typography hierarchy, elevation, component primitives, named rules, do's and don'ts). Both are binding for visual and interaction decisions. Use the project UI quality checklist when working on UI so the change is reviewed against the product and design rules.
 
 The project started as a structured Effect-learning curriculum (chapter-by-chapter exercises in `docs/chapters/`). Wouter has now absorbed enough Effect to shift to a **normal collaborative implementation workflow**. The chapter docs stay in the repo for reference, but the chapter-viewer app is gone and we no longer follow the stub-and-exercise pattern.
@@ -108,7 +114,6 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 | `packages/frontend/messages/en/sprints.json`  | `sprints_`, `error_sprint_`                            |
 | `packages/frontend/messages/en/time.json`     | `time_`                                                |
 | `packages/frontend/messages/en/figma.json`    | `figma_`                                               |
-| `packages/frontend/messages/en/jira.json`     | `jira_`                                                |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
@@ -116,7 +121,7 @@ Within each message file, group keys by prefix in the order listed above, then s
 
 Multi-field and multi-step forms use **TanStack Form** (`@tanstack/react-form`, currently the v2 alpha). Setup follows the conventions in the `omgevingschat-platform` web app:
 
-- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
+- `packages/frontend/src/lib/form.ts` builds the hook via `createFormHook` and exports `useAppForm`, `useFormContext`, `appFormOptions`, `defineAppFieldGroup`, plus `useFormValues`. In v2 `createFormHook` no longer takes contexts, so there is no `form-context.ts`.
 - A form lives in `packages/frontend/src/forms/<name>/`, with shared options and schemas in `opts.ts` and the form in `index.tsx`. Multi-step forms get one file per step beside them.
 
 **Validators are Effect Schema, not zod.** TanStack Form accepts any Standard Schema, and `Schema.toStandardSchemaV1` (Effect v4) produces one — so `@projectproject/shared` schemas can be used directly. Do not add zod; it is not a dependency and a second schema library is not wanted.
@@ -142,7 +147,7 @@ Never disable a control on `isSubmitting` when an atom is doing the work — pas
 ### Notes on the v2 alpha
 
 - Validators are an array of `{ run, triggers, runOnMount }`. There is no `onChange`/`onMount` key and no `revalidateLogic` — that was the v1 model.
-- **`group.state` is not reactive.** Read group state through `group.Subscribe`.
+- **Neither `form.state` nor `group.state` is reactive.** Both are snapshots. Read group state through `group.Subscribe`; read form values through `useFormValues(form)`, which selects off `form.atom`. Fields subscribe for themselves, so a component reading `form.state.values` during render silently freezes at whatever the values were when it last rendered for some other reason — live previews and step summaries drawn that way never update.
 - Range checks are `Schema.isBetween({ minimum, maximum })` in Effect v4, not `Schema.between`.
 
 ## Mutations and optimistic updates

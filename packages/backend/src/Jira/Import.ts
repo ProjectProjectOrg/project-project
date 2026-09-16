@@ -185,6 +185,7 @@ export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
           assignees: ticket.assignees,
           archivedAt: null,
           createdBy: ownerId,
+          updatedBy: ownerId,
           createdAt: toDate(ticket.createdAt),
           updatedAt: toDate(ticket.updatedAt),
           body: ticket.body,

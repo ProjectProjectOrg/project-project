@@ -19,7 +19,8 @@ import {
   TicketStatus,
   tryDecodeCursor,
   type TicketCountQuery,
-  type TicketListQuery
+  type TicketListQuery,
+  type User
 } from "@projectproject/shared"
 import { applyPullRequestWebhookToTicket } from "../Layers/GitHubWebhooks"
 import { TicketsLive } from "../Layers/Tickets"
@@ -47,6 +48,7 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 import { Tickets } from "./Tickets"
+import { Users, type UsersShape } from "./Users"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -94,6 +96,7 @@ function makeTicketDocument(
     archivedAt: null,
     createdBy: "user-1",
     createdAt: now,
+    updatedBy: "user-1",
     updatedAt: now,
     body: "",
     commentsRegion: "",
@@ -215,6 +218,8 @@ const FakeGroups = Layer.succeed(Groups, {
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
+  ensureSprintAssignable: () => Effect.void,
+  setSprintMembership: () => Effect.void,
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 
@@ -282,6 +287,32 @@ const makeRecordingAttachments = () => {
     })
   }
 }
+
+const fakeUser = (id: string): User => ({
+  id,
+  email: `${id}@example.com`,
+  name: id,
+  username: null,
+  image: null,
+  createdAt: isoDate("2026-01-01T00:00:00.000Z"),
+  activeOrgSlug: null,
+  personalGithub: { connected: false },
+  editorPreference: "github",
+  personalEverhour: {
+    connected: false,
+    everhourUserId: null,
+    name: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }
+})
+
+const FakeUsers = Layer.succeed(Users, {
+  findByEmail: () => unexpected("Users.findByEmail"),
+  findManyByIds: () => unexpected("Users.findManyByIds"),
+  fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
+} satisfies UsersShape)
 
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
@@ -557,6 +588,7 @@ function makeTicketsLayer(
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
+    Layer.provide(FakeUsers),
     Layer.provide(options.attachments ?? makeFakeAttachments()),
     Layer.provide(options.figmaLinks ?? makeFakeFigmaLinks()),
     Layer.provide(options.github ?? makeFakeGitHub()),
@@ -592,6 +624,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     ),
     Layer.provide(FakeGroups),
     Layer.provide(FakeComments),
+    Layer.provide(FakeUsers),
     Layer.provide(makeFakeAttachments()),
     Layer.provide(makeFakeFigmaLinks()),
     Layer.provide(
@@ -654,6 +687,7 @@ it.effect(
       ),
       Layer.provide(FakeGroups),
       Layer.provide(FakeComments),
+      Layer.provide(FakeUsers),
       Layer.provide(makeFakeAttachments()),
       Layer.provide(makeFakeFigmaLinks()),
       Layer.provide(
@@ -1962,6 +1996,64 @@ it.effect(
         branch: "feat/T-1",
         commentsRegion: "Concurrent comment"
       })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "sections returns matching counts and independently paginated status pages",
+  () => {
+    const { documents, layer } = makeTicketsFixture("T", [])
+    for (let index = 1; index <= 52; index++) {
+      documents.set(
+        `T-${index}`,
+        makeTicketDocument(`T-${index}`, {
+          title: `needle ${index}`,
+          status: ticketStatus("todo")
+        })
+      )
+    }
+    documents.set(
+      "T-53",
+      makeTicketDocument("T-53", {
+        title: "needle in progress",
+        status: ticketStatus("in_progress")
+      })
+    )
+    documents.set(
+      "T-54",
+      makeTicketDocument("T-54", {
+        title: "unrelated",
+        status: ticketStatus("done")
+      })
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const query = { q: "needle", sort: { key: "id", dir: "asc" } } as const
+      const snapshot = yield* tickets.sections("org", "user-1", "p", query)
+      expect(snapshot.counts).toEqual({
+        total: 53,
+        byStatus: { todo: 52, in_progress: 1 }
+      })
+      const todo = snapshot.sections[ticketStatus("todo")]
+      expect(todo.items).toHaveLength(50)
+      expect(todo.nextCursor).not.toBeNull()
+      expect(
+        snapshot.sections[ticketStatus("in_progress")].items.map(({ id }) => id)
+      ).toEqual(["T-53"])
+      const next = yield* tickets.list("org", "user-1", "p", {
+        ...query,
+        filter: { status: [ticketStatus("todo")] },
+        cursor: todo.nextCursor ?? undefined
+      })
+      expect(next.items.map(({ id }) => id)).toEqual(["T-51", "T-52"])
+      expect(next.nextCursor).toBeNull()
+      const selected = yield* tickets.sections("org", "user-1", "p", {
+        ...query,
+        filter: { status: [ticketStatus("in_progress")] }
+      })
+      expect(Object.keys(selected.sections)).toEqual(["in_progress"])
+      expect(selected.counts).toEqual(snapshot.counts)
     }).pipe(Effect.provide(layer))
   }
 )

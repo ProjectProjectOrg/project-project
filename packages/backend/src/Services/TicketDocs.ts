@@ -32,6 +32,7 @@ export interface TicketDocument {
   readonly tags: ReadonlyArray<TagName>
   readonly branch: string | null
   readonly branchAutoLinkDisabled?: boolean
+  readonly splitFrom?: TicketId | null
   readonly pr: number | null
   readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null
@@ -39,6 +40,7 @@ export interface TicketDocument {
   readonly archivedAt: Date | null
   readonly createdBy: string
   readonly createdAt: Date
+  readonly updatedBy: string
   readonly updatedAt: Date
   readonly body: string
   readonly commentsRegion: string
