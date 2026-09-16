@@ -9,7 +9,6 @@ import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
-import { MemberAvatar } from "@/components/MemberAvatar"
 import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
@@ -23,9 +22,9 @@ import { DescriptionField } from "@/components/TicketPage/DescriptionField"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { TicketDesignLinks } from "@/components/TicketPage/TicketDesignLinks"
 import { TitleField } from "@/components/TicketPage/TitleField"
+import { UserTimestamp } from "@/components/TicketPage/UserTimestamp"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 import { deleteTicketAtom, ticketKey } from "@/atoms/tickets"
 import type {
   GithubConnection,
@@ -54,7 +53,6 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const { canManageTags } = useProjectRole()
-  const locale = getLocale()
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
@@ -189,50 +187,10 @@ export function TicketPage({
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <MetaRow label={m.tickets_page_meta_created()}>
-            <div className="flex min-w-0 items-center gap-2">
-              {ticket.creator && (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <MemberAvatar member={ticket.creator} size={18} />
-                  <span className="truncate text-xs">
-                    {ticket.creator.name || ticket.creator.email}
-                  </span>
-                </span>
-              )}
-              <time
-                dateTime={ticket.createdAt.toISOString()}
-                title={ticket.createdAt.toLocaleString(locale)}
-                className="shrink-0 text-xs"
-              >
-                {ticket.createdAt.toLocaleDateString(locale, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric"
-                })}
-              </time>
-            </div>
+            <UserTimestamp user={ticket.creator} timestamp={ticket.createdAt} />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_updated()}>
-            <div className="flex min-w-0 items-center gap-2">
-              {ticket.updater && (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <MemberAvatar member={ticket.updater} size={18} />
-                  <span className="truncate text-xs">
-                    {ticket.updater.name || ticket.updater.email}
-                  </span>
-                </span>
-              )}
-              <time
-                dateTime={ticket.updatedAt.toISOString()}
-                title={ticket.updatedAt.toLocaleString(locale)}
-                className="shrink-0 text-xs"
-              >
-                {ticket.updatedAt.toLocaleDateString(locale, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric"
-                })}
-              </time>
-            </div>
+            <UserTimestamp user={ticket.updater} timestamp={ticket.updatedAt} />
           </MetaRow>
         </aside>
       </div>
