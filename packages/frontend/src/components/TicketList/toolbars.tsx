@@ -1,4 +1,5 @@
 import type { Member, TicketListQuery } from "@projectproject/shared"
+import type { ReactNode } from "react"
 import { TicketToolbar, useServerTicketCounts } from "./toolbar"
 
 type ToolbarVariantProps = {
@@ -14,8 +15,9 @@ export function BacklogToolbar({
   slug,
   query,
   onQueryChange,
-  members
-}: ToolbarVariantProps) {
+  members,
+  children
+}: ToolbarVariantProps & { children?: ReactNode }) {
   const counts = useServerTicketCounts(orgSlug, slug, query)
   return (
     <TicketToolbar
@@ -27,7 +29,9 @@ export function BacklogToolbar({
       counts={counts}
       filters={["archived", "type", "assignee", "sprint", "tags"]}
       showSort
-    />
+    >
+      {children}
+    </TicketToolbar>
   )
 }
 

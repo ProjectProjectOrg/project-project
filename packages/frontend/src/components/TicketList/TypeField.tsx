@@ -85,7 +85,8 @@ export function TypeButton({
   className,
   iconOnly,
   sprintTicketsKey,
-  ticketSectionsKey
+  ticketSectionsKey,
+  onChange
 }: {
   orgSlug: string
   slug: string
@@ -94,6 +95,7 @@ export function TypeButton({
   iconOnly?: boolean
   sprintTicketsKey?: string
   ticketSectionsKey?: string
+  onChange?: (value: TicketType) => void
 }) {
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -158,7 +160,8 @@ export function TypeButton({
               key={t}
               onClick={() => {
                 if (t === ticket.type) return
-                update({ type: t, sprintTicketsKey, ticketSectionsKey })
+                if (onChange) onChange(t)
+                else update({ type: t, sprintTicketsKey, ticketSectionsKey })
               }}
               className="cursor-pointer"
             >

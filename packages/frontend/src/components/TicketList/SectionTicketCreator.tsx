@@ -33,7 +33,12 @@ import {
   sprintsListAtom,
   useAddTicketsToSprint
 } from "@/atoms/sprints"
-import { quickCreateTicketAtom, ticketsListKeyForStatus } from "@/atoms/tickets"
+import {
+  quickCreateTicketAtom,
+  quickCreateFlatTicketAtom,
+  ticketsListKey,
+  ticketsListKeyForStatus
+} from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
@@ -50,6 +55,7 @@ export function SectionTicketCreator({
   slug,
   status,
   query,
+  variant = "status",
   containerRef,
   onDone
 }: {
@@ -57,18 +63,25 @@ export function SectionTicketCreator({
   slug: string
   status: TicketStatus
   query: TicketListQuery
+  variant?: "status" | "flat"
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
 }) {
   const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
-  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
-    mode: "promiseExit"
-  })
-  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
+  const mutation =
+    variant === "flat"
+      ? quickCreateFlatTicketAtom(ticketsListKey(orgSlug, slug, query))
+      : quickCreateTicketAtom(sectionKey)
+  const create = useAtomSet(mutation, { mode: "promiseExit" })
+  const createState = useAtomValue(mutation)
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
-    : null
+    : Result.isSuccess(createState) &&
+        "sprintAssignmentFailed" in createState.value &&
+        createState.value.sprintAssignmentFailed
+      ? m.tickets_create_sprint_assignment_failed()
+      : null
 
   const me = useAtomValue(meAtom)
   const viewerId = Result.isSuccess(me) ? me.value.id : ""
@@ -187,7 +200,7 @@ export function SectionTicketCreator({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null) {
+    if (attachTo !== null && variant !== "flat") {
       addToSprint({ groupId: attachTo, ticketIds: [exit.value.id] })
     }
   }

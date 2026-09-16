@@ -66,7 +66,10 @@ export const sprintsListBaseAtom = Atom.family((key: string) => {
         return all.filter((g) => g.kind === "sprint")
       })
     )
-    .pipe(Atom.setIdleTTL("1 minute"))
+    .pipe(
+      Atom.withReactivity([`sprints/${orgSlug}/${slug}`]),
+      Atom.setIdleTTL("1 minute")
+    )
 })
 
 export const sprintsListAtom = Atom.family((key: string) =>

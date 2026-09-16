@@ -5,6 +5,9 @@ import * as Data from "effect/Data"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
+import * as Option from "effect/Option"
+import * as Exit from "effect/Exit"
 import { runtime } from "@/runtime"
 import { ApiClient } from "@/services/ApiClient"
 import {
@@ -652,28 +655,10 @@ export const quickCreateTicketAtom = Atom.family((sectionKey: string) => {
         items: [],
         nextCursor: null
       }
-      const now = DateTime.toDate(DateTime.nowUnsafe())
-      const predicted: Ticket = {
-        id: optimisticTicketId(
-          page.items.map(({ ticket }) => ticket),
-          input.projectPrefix
-        ),
-        title: input.ticket.title,
-        status,
-        type: input.ticket.type ?? "other",
-        priority: "med",
-        tags: [],
-        branch: null,
-        pr: null,
-        prState: null,
-        lastTransitionedPr: null,
-        gitState: { tag: "no_branch", baseBranch: "" },
-        assignees: [],
-        archivedAt: null,
-        createdBy: input.viewerId,
-        createdAt: now,
-        updatedAt: now
-      }
+      const predicted = makeOptimisticTicket(
+        input,
+        page.items.map(({ ticket }) => ticket)
+      )
       return Result.success(
         {
           counts: {
@@ -955,5 +940,250 @@ export const updateTicketStatusAtom = Atom.family((key: string) => {
         }).pipe(Effect.ensuring(clearPending))
       })
     )
+  })
+})
+
+export interface FlatTicketsValue extends TicketSectionValue {
+  readonly count: number
+}
+
+const flatTicketPagesAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
+  const query = decodeStoredQuery(queryJson)
+  return runtime
+    .pull((get) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const client = yield* ApiClient
+          const track = yield* watchTicketContent(get, orgSlug, slug, query)
+          const loaded: Ticket[] = []
+          return Stream.paginate(undefined as string | undefined, (cursor) =>
+            Effect.gen(function* () {
+              const page = yield* client.tickets.list({
+                params: { orgSlug, slug },
+                query: ticketListQueryToSearch({ ...query, cursor })
+              })
+              loaded.push(...page.items)
+              track(loaded, page.nextCursor !== null)
+              return [
+                [
+                  {
+                    items: page.items.map((ticket) => ({
+                      ticket,
+                      key: ticket.id,
+                      pending: false
+                    })),
+                    nextCursor: page.nextCursor
+                  }
+                ],
+                Option.fromNullishOr(page.nextCursor)
+              ] as const
+            })
+          )
+        })
+      )
+    )
+    .pipe(
+      Atom.withReactivity([
+        `tickets/${orgSlug}/${slug}`,
+        `ticket-lists/${orgSlug}/${slug}`,
+        `sprint-membership/${orgSlug}/${slug}`
+      ]),
+      Atom.setIdleTTL("2 minutes")
+    )
+})
+
+export const flatTicketsBaseAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
+  const query = decodeStoredQuery(queryJson)
+  const pages = flatTicketPagesAtom(key)
+  const counts = ticketsCountBaseAtom(ticketsCountKey(orgSlug, slug, query))
+  return Atom.readable(
+    (get) => {
+      const combined = Result.all({ pages: get(pages), counts: get(counts) })
+      const next: Result.AsyncResult<
+        FlatTicketsValue,
+        Result.AsyncResult.Failure<typeof combined>
+      > = Result.isSuccess(combined)
+        ? Result.success(
+            {
+              items: combined.value.pages.items.flatMap((page) => page.items),
+              nextCursor:
+                combined.value.pages.items[
+                  combined.value.pages.items.length - 1
+                ].nextCursor,
+              count: combined.value.counts.total
+            },
+            { waiting: combined.waiting, timestamp: combined.timestamp }
+          )
+        : Result.isFailure(combined)
+          ? Result.failure(combined.cause, { waiting: combined.waiting })
+          : Result.initial(combined.waiting)
+      return Result.replacePrevious(next, get.self<typeof next>())
+    },
+    (refresh) => {
+      refresh(pages)
+      refresh(counts)
+    }
+  )
+})
+
+export const flatTicketsAtom = Atom.family((key: string) =>
+  Atom.optimistic(flatTicketsBaseAtom(key))
+)
+
+export const loadMoreFlatTicketsAtom = Atom.family((key: string) =>
+  Atom.writable(
+    (get) => get(flatTicketPagesAtom(key)),
+    (ctx, _: void) => {
+      const current = ctx.get(flatTicketPagesAtom(key))
+      if (current.waiting || !Result.isSuccess(current)) return
+      if (
+        current.value.items[current.value.items.length - 1].nextCursor === null
+      )
+        return
+      ctx.set(flatTicketPagesAtom(key), undefined)
+    }
+  )
+)
+
+export const flatTicketMutationKey = (listKey: string, id: TicketId) =>
+  `${id}/${listKey}`
+
+const splitFlatTicketMutationKey = (key: string) => {
+  const separator = key.indexOf("/")
+  const id = makeTicketId(key.slice(0, separator))
+  const listKey = key.slice(separator + 1)
+  return { id, listKey, ...splitFamilyKey(listKey) }
+}
+
+export const updateFlatTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, id, listKey } = splitFlatTicketMutationKey(key)
+  const view = flatTicketsAtom(listKey)
+  return Atom.optimisticFn(view, {
+    reducer: (current, patch: UpdateTicketInput) =>
+      Result.map(current, (value) => ({
+        ...value,
+        items: value.items.map((row) =>
+          row.ticket.id === id
+            ? {
+                ...row,
+                ticket: applyOptimisticTicketPreview(row.ticket, patch)
+              }
+            : row
+        )
+      })),
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (patch: UpdateTicketInput, get) {
+          const client = yield* ApiClient
+          const updated = yield* client.tickets.update({
+            params: { orgSlug, slug, id },
+            payload: patch
+          })
+          set(
+            Result.map(get(view), (value) => ({
+              ...value,
+              items: value.items.map((row) =>
+                row.ticket.id === id ? { ...row, ticket: updated } : row
+              )
+            }))
+          )
+          yield* Reactivity.invalidate([`tickets/${orgSlug}/${slug}`])
+          return updated
+        })
+      )
+  })
+})
+
+function makeOptimisticTicket(
+  input: QuickCreateTicketArg,
+  items: ReadonlyArray<Ticket>
+): Ticket {
+  const now = DateTime.toDate(DateTime.nowUnsafe())
+  return {
+    id: optimisticTicketId(items, input.projectPrefix),
+    title: input.ticket.title,
+    status: input.ticket.status ?? Schema.decodeSync(TicketStatus)("todo"),
+    type: input.ticket.type ?? "other",
+    priority: "med",
+    tags: [],
+    branch: null,
+    pr: null,
+    prState: null,
+    lastTransitionedPr: null,
+    gitState: { tag: "no_branch", baseBranch: "" },
+    assignees: [],
+    archivedAt: null,
+    createdBy: input.viewerId,
+    createdAt: now,
+    updatedAt: now
+  }
+}
+
+export const quickCreateFlatTicketAtom = Atom.family((key: string) => {
+  const { orgSlug, slug, queryJson } = splitFamilyKey(key)
+  const query = decodeStoredQuery(queryJson)
+  const groupId = query.filter?.groupId?.[0]
+  const view = flatTicketsAtom(key)
+  return Atom.optimisticFn(view, {
+    reducer: (current, input: QuickCreateTicketArg) =>
+      Result.map(current, (value) => ({
+        ...value,
+        count: value.count + 1,
+        items: [
+          {
+            ticket: makeOptimisticTicket(
+              input,
+              value.items.map((row) => row.ticket)
+            ),
+            key: input.clientId,
+            pending: true
+          },
+          ...value.items
+        ]
+      })),
+    fn: (set) =>
+      runtime.fn(
+        Effect.fn(function* (input: QuickCreateTicketArg, get) {
+          const client = yield* ApiClient
+          const created = yield* client.tickets.quickCreate({
+            params: { orgSlug, slug },
+            payload: input.ticket
+          })
+          const assignment = yield* Effect.exit(
+            groupId
+              ? Effect.gen(function* () {
+                  const sprint = yield* client.groups.get({
+                    params: { orgSlug, slug, id: groupId }
+                  })
+                  yield* client.groups.updateTickets({
+                    params: { orgSlug, slug, id: groupId },
+                    payload: { tickets: [...sprint.tickets, created.id] }
+                  })
+                })
+              : Effect.void
+          )
+          set(
+            Result.map(get(view), (value) => ({
+              ...value,
+              items: value.items.map((row) =>
+                row.key === input.clientId
+                  ? { ticket: created, key: created.id, pending: false }
+                  : row
+              )
+            }))
+          )
+          yield* Reactivity.invalidate([
+            `tickets/${orgSlug}/${slug}`,
+            `sprints/${orgSlug}/${slug}`,
+            `sprint-membership/${orgSlug}/${slug}`
+          ])
+          return {
+            ...created,
+            sprintAssignmentFailed: Exit.isFailure(assignment)
+          }
+        })
+      )
   })
 })
