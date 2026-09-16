@@ -1,16 +1,9 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { generateKeyBetween } from "fractional-indexing"
+import { useAtomValue } from "@effect/atom-react"
 import { motion } from "motion/react"
-import { useCallback, useState } from "react"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  reorderStatusAtom
-} from "@/atoms/projectStatuses"
 import {
   projectKey,
   sprintAtom,
@@ -32,6 +25,7 @@ import { SprintDescription } from "./SprintDescription"
 import { SprintDetailSkeleton } from "./SprintDetailSkeleton"
 import { SprintTicketList } from "./SprintTicketList"
 import { SprintBoardToolbar } from "./SprintBoardToolbar"
+import { useStatusReorder } from "./useStatusReorder"
 
 export function SprintDetail({
   orgSlug,
@@ -51,64 +45,14 @@ export function SprintDetail({
   const project = useProject()
   const sprint = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
   const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
-  const reorderKey = `${orgSlug}/${slug}/${groupId}/${view}`
-  const [reorder, setReorder] = useState<{
-    key: string
-    order: ReadonlyArray<string> | null
-  } | null>(null)
-  if (reorder !== null && reorder.key !== reorderKey) setReorder(null)
-  const reorderMode = reorder !== null
-  const dragOrder = reorder?.order ?? null
-
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const reorderStatus = useAtomSet(reorderStatusAtom(statusKey))
-
-  const enterReorder = useCallback(
-    () => setReorder({ key: reorderKey, order: null }),
-    [reorderKey]
-  )
-
-  const cancelReorder = useCallback(() => setReorder(null), [])
-
-  const setDragOrder = useCallback(
-    (next: ReadonlyArray<string> | null) =>
-      setReorder({ key: reorderKey, order: next }),
-    [reorderKey]
-  )
-
-  const saveReorder = useCallback(() => {
-    if (!Result.isSuccess(statusesResult)) return
-    const statuses = statusesResult.value
-    if (dragOrder && statuses.length > 0) {
-      const keys = new Map<string, string>(
-        statuses.map((s) => [s.slug as string, s.orderKey as string])
-      )
-      let lastKey: string | null = null
-      for (let i = 0; i < dragOrder.length; i++) {
-        const slug = dragOrder[i]
-        const myKey = keys.get(slug)
-        if (!myKey) continue
-        if (lastKey === null || myKey > lastKey) {
-          lastKey = myKey
-          continue
-        }
-        let nextValid: string | null = null
-        for (let j = i + 1; j < dragOrder.length; j++) {
-          const k = keys.get(dragOrder[j])
-          if (k && k > lastKey) {
-            nextValid = k
-            break
-          }
-        }
-        const newKey = generateKeyBetween(lastKey, nextValid)
-        keys.set(slug, newKey)
-        reorderStatus({ statusSlug: slug, orderKey: newKey })
-        lastKey = newKey
-      }
-    }
-    setReorder(null)
-  }, [dragOrder, statusesResult, reorderStatus])
+  const {
+    reorderMode,
+    dragOrder,
+    enterReorder,
+    cancelReorder,
+    setDragOrder,
+    saveReorder
+  } = useStatusReorder(orgSlug, slug, `${orgSlug}/${slug}/${groupId}/${view}`)
 
   const isBoard = view === "board"
   const isDescription = view === "description"

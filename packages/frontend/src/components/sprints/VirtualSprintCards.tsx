@@ -18,11 +18,15 @@ export function VirtualSprintCards({
   tickets,
   isDraggable,
   status,
+  showDropGap = true,
+  footer,
   children
 }: {
   tickets: ReadonlyArray<Ticket>
   isDraggable: boolean
   status: string
+  showDropGap?: boolean
+  footer?: ReactNode
   children: (ticket: Ticket) => ReactNode
 }) {
   "use no memo"
@@ -113,7 +117,7 @@ export function VirtualSprintCards({
     : -1
   const rows = virtualizer.getVirtualItems()
   const gapStart =
-    drag?.index != null
+    showDropGap && drag?.index != null
       ? (rows.find((row) => row.index === drag.index)?.start ??
           virtualizer.getTotalSize()) -
         (sourceIndex >= 0 && sourceIndex < drag.index ? drag.height : 0)
@@ -136,7 +140,9 @@ export function VirtualSprintCards({
         style={{
           height:
             virtualizer.getTotalSize() +
-            (drag?.index != null && sourceIndex < 0 ? drag.height : 0)
+            (showDropGap && drag?.index != null && sourceIndex < 0
+              ? drag.height
+              : 0)
         }}
       >
         {gapStart !== null && drag && (
@@ -166,7 +172,7 @@ export function VirtualSprintCards({
             <SprintCardMotion
               start={row.start}
               offset={
-                drag && row.index !== sourceIndex
+                showDropGap && drag && row.index !== sourceIndex
                   ? (sourceIndex >= 0 && row.index > sourceIndex
                       ? -drag.height
                       : 0) +
@@ -183,6 +189,7 @@ export function VirtualSprintCards({
           </div>
         ))}
       </div>
+      {footer}
     </div>
   )
 }

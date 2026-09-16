@@ -229,5 +229,8 @@
   "tickets_type_other": "Other",
   "tickets_unarchive_action_aria_label": "Unarchive ticket",
   "tickets_unarchive_button": "Unarchive",
-  "tickets_unarchive_error_fallback": "Failed to unarchive ticket"
+  "tickets_unarchive_error_fallback": "Failed to unarchive ticket",
+  "tickets_view_board": "Board",
+  "tickets_view_list": "List",
+  "tickets_view_tabs_aria_label": "Switch view"
 }

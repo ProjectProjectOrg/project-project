@@ -8,6 +8,10 @@ import {
   ticketListQueryToSearch
 } from "@projectproject/shared"
 
+type BacklogRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
+  view?: "list" | "board"
+}
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   component: () => null,
   loaderDeps: ({ search }) => ticketListQueryFromSearch(search),
@@ -24,6 +28,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
       ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
     )()
   },
-  validateSearch: (search: Record<string, unknown>) =>
-    ticketListQueryToSearch(ticketListQueryFromSearch(search))
+  validateSearch: (search: Record<string, unknown>): BacklogRouteSearch => {
+    const sanitized = ticketListQueryToSearch(ticketListQueryFromSearch(search))
+    if (search.view !== "board" && search.view !== "list") return sanitized
+    return { ...sanitized, view: search.view }
+  }
 })

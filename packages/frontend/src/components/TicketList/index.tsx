@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { Activity, useState, type ReactNode } from "react"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
@@ -29,6 +29,12 @@ type TicketListProps = {
   creator?: ReactNode
   toolbar: ReactNode
   sections?: ReactNode
+  alternate?: (args: {
+    key: string
+    query: TicketListQuery
+    snapshot: TicketSectionsValue
+  }) => ReactNode
+  showAlternate?: boolean
 }
 
 export function TicketList({
@@ -60,7 +66,9 @@ function StatusSections({
   query,
   members,
   extraRowActions,
-  sprintMembership
+  sprintMembership,
+  alternate,
+  showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
   const key = ticketsListKey(orgSlug, slug, query)
   const result = useAtomValue(
@@ -87,16 +95,29 @@ function StatusSections({
       : previous
   const renderSections = () =>
     active ? (
-      <SegmentedList
-        key={active.key}
-        orgSlug={orgSlug}
-        slug={slug}
-        query={active.query}
-        snapshot={active.value}
-        members={members}
-        extraRowActions={extraRowActions}
-        sprintMembership={sprintMembership}
-      />
+      <>
+        <Activity mode={showAlternate ? "hidden" : "visible"}>
+          <SegmentedList
+            key={active.key}
+            orgSlug={orgSlug}
+            slug={slug}
+            query={active.query}
+            members={members}
+            snapshot={active.value}
+            extraRowActions={extraRowActions}
+            sprintMembership={sprintMembership}
+          />
+        </Activity>
+        {alternate && (
+          <Activity mode={showAlternate ? "visible" : "hidden"}>
+            {alternate({
+              key: active.key,
+              query: active.query,
+              snapshot: active.value
+            })}
+          </Activity>
+        )}
+      </>
     ) : (
       <div
         aria-busy="true"
