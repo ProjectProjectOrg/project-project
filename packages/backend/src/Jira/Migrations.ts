@@ -17,8 +17,16 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
-import { jiraMigration } from "../db/schema"
+import {
+  attachmentIndex,
+  jiraMigration,
+  organization,
+  projectIndex
+} from "../db/schema"
 import { Db } from "../Services/Db"
+import { OrgStorage } from "../Services/OrgStorage"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import { S3Storage } from "../Services/S3Storage"
 import { buildJiraStatusCreateOptions } from "./Mappings"
 
 const PersistedJiraMigrationScanSummary = Schema.Struct({
@@ -370,6 +378,79 @@ export const JiraMigrationsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
+    const orgStorage = yield* OrgStorage
+    const s3 = yield* S3Storage
+    const projectDocs = yield* ProjectDocs
+
+    const discardStagedArtifacts = Effect.fn(
+      "JiraMigrations.discardStagedArtifacts"
+    )(function* (row: JiraMigrationRow, orgSlug: string) {
+      const connection = yield* orgStorage.requireConnection(orgSlug)
+      const objectKey = (path: string) => {
+        const prefix = (connection.keyPrefix ?? "").replace(/^\/+|\/+$/g, "")
+        return prefix === "" ? path : `${prefix}/${path}`
+      }
+      yield* Effect.forEach(
+        ["manifest.json", "archive.json", "report.md"].map(
+          (name) => `${row.stagingPrefix}/${name}`
+        ),
+        (path) => s3.deleteObject(connection, objectKey(path)),
+        { discard: true }
+      )
+
+      const configuration = yield* decodeConfiguration(row.configuration).pipe(
+        Effect.orElseSucceed(() => null)
+      )
+      const stagedSlug =
+        row.destinationProjectSlug ?? configuration?.destination.slug ?? null
+      if (stagedSlug === null) return
+
+      const published = yield* db
+        .select({ id: projectIndex.id })
+        .from(projectIndex)
+        .where(eq(projectIndex.slug, stagedSlug))
+        .limit(1)
+        .pipe(Effect.orDie)
+      if (published[0]) return
+
+      const staged = yield* db
+        .select({
+          id: attachmentIndex.id,
+          objectKey: attachmentIndex.objectKey
+        })
+        .from(attachmentIndex)
+        .where(
+          and(
+            eq(attachmentIndex.organizationId, row.organizationId),
+            eq(attachmentIndex.projectSlug, stagedSlug)
+          )
+        )
+        .pipe(Effect.orDie)
+      yield* Effect.forEach(
+        staged,
+        (attachment) => s3.deleteObject(connection, attachment.objectKey),
+        { concurrency: 4, discard: true }
+      )
+      if (staged.length > 0) {
+        yield* db
+          .delete(attachmentIndex)
+          .where(
+            and(
+              eq(attachmentIndex.organizationId, row.organizationId),
+              eq(attachmentIndex.projectSlug, stagedSlug)
+            )
+          )
+          .pipe(Effect.orDie)
+      }
+      if (row.reportPath !== null) {
+        yield* s3.deleteObject(connection, objectKey(row.reportPath))
+        yield* s3.deleteObject(
+          connection,
+          objectKey(row.reportPath.replace(/report\.md$/, "archive.json"))
+        )
+      }
+      yield* projectDocs.removeDir(orgSlug, stagedSlug)
+    })
 
     const ownedRow = (
       organizationId: string,
@@ -647,6 +728,22 @@ export const JiraMigrationsLive = Layer.effect(
             return yield* new Validation({
               reason: "jira_migration_discard_not_allowed"
             })
+          }
+          const org = yield* db
+            .select({ slug: organization.slug })
+            .from(organization)
+            .where(eq(organization.id, row.organizationId))
+            .limit(1)
+            .pipe(Effect.orDie)
+          if (org[0]) {
+            yield* discardStagedArtifacts(row, org[0].slug).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning(
+                  "Jira migration discard left staging artifacts behind",
+                  cause
+                )
+              )
+            )
           }
           yield* db
             .delete(jiraMigration)

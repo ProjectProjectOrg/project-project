@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -29,6 +29,7 @@ import {
   user as userTable
 } from "../db/schema"
 import { serializeCommentsRegion, type CommentBlock } from "../comments-region"
+import { JiraMigrationBlocked } from "./Blocked"
 import type { Db } from "../Services/Db"
 import {
   attachmentObjectKey,
@@ -94,7 +95,7 @@ export const groupColors = (
   })
 }
 
-export const buildJiraImportPlan = (
+export const buildJiraImportContext = (
   manifest: JiraMigrationManifest,
   rawConfiguration: unknown,
   environment: JiraPreflightEnvironment,
@@ -103,13 +104,27 @@ export const buildJiraImportPlan = (
   const configuration = decodeConfiguration(rawConfiguration)
   const mappings = jiraConfigurationToMappings(manifest, configuration)
   const preflight = preflightJiraMigration(manifest, mappings, environment)
-  return createJiraPublicationPlan(
+  const result = createJiraPublicationPlan(
     manifest,
     mappings,
     preflight,
     attachmentUrlsBySourceId
   )
+  return { mappings, preflight, result }
 }
+
+export const buildJiraImportPlan = (
+  manifest: JiraMigrationManifest,
+  rawConfiguration: unknown,
+  environment: JiraPreflightEnvironment,
+  attachmentUrlsBySourceId: Readonly<Record<string, string>>
+) =>
+  buildJiraImportContext(
+    manifest,
+    rawConfiguration,
+    environment,
+    attachmentUrlsBySourceId
+  ).result
 
 const commentBlocksFor = (
   plan: JiraPublicationPlan,
@@ -252,27 +267,27 @@ export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
     readonly ownerId: string
     readonly leaseId: string
     readonly reportPath: string
+    readonly priorDestinationProjectId: string | null
     readonly plan: JiraPublicationPlan
     readonly members: ReadonlyArray<JiraImportMember>
   }
 ) {
   const now = yield* DateTime.nowAsDate
   const identity = deriveProjectIdentity(input.plan.project.slug)
-  const projectId = yield* deps.db
+  const publication = yield* deps.db
     .transaction((tx) =>
       Effect.gen(function* () {
         const existing = yield* tx
           .select({ id: projectIndex.id })
           .from(projectIndex)
-          .where(
-            and(
-              eq(projectIndex.slug, input.plan.project.slug),
-              eq(projectIndex.organizationId, input.organizationId)
-            )
-          )
+          .where(eq(projectIndex.slug, input.plan.project.slug))
           .limit(1)
-        const inserted = existing[0]
-          ? existing
+        const claimed = existing[0]
+        if (claimed && claimed.id !== input.priorDestinationProjectId) {
+          return "slug-taken" as const
+        }
+        const inserted = claimed
+          ? [claimed]
           : yield* tx
               .insert(projectIndex)
               .values({
@@ -338,15 +353,6 @@ export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
             .onConflictDoNothing()
         }
 
-        yield* tx
-          .update(jiraMigration)
-          .set({
-            destinationProjectId: id,
-            destinationProjectSlug: input.plan.project.slug,
-            updatedAt: now
-          })
-          .where(eq(jiraMigration.id, input.migrationId))
-
         const usedTagColors: Array<string> = []
         for (const tag of input.plan.tags) {
           const tagColor = pickStatusColor(usedTagColors)
@@ -363,43 +369,54 @@ export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
             .onConflictDoNothing()
         }
 
+        yield* deps.ticketIndex.rebuildProject({
+          orgSlug: input.orgSlug,
+          organizationId: input.organizationId,
+          projectId: id,
+          projectSlug: input.plan.project.slug
+        })
+
+        const published = yield* tx
+          .update(jiraMigration)
+          .set({
+            status: "succeeded",
+            phase: "succeeded",
+            destinationProjectId: id,
+            destinationProjectSlug: input.plan.project.slug,
+            reportPath: input.reportPath,
+            failureReason: null,
+            failureRetryable: null,
+            finishedAt: now,
+            leaseId: null,
+            leaseExpiresAt: null,
+            revision: drizzleSql`${jiraMigration.revision} + 1`,
+            updatedAt: now
+          })
+          .where(
+            and(
+              eq(jiraMigration.id, input.migrationId),
+              eq(jiraMigration.leaseId, input.leaseId),
+              eq(jiraMigration.status, "migrating")
+            )
+          )
+          .returning({ id: jiraMigration.id })
+        if (!published[0]) return yield* Effect.interrupt
+
         return id
       })
     )
-    .pipe(Effect.orDie)
+    .pipe(Effect.catchTag("SqlError", Effect.die))
 
-  yield* deps.ticketIndex
-    .rebuildProject({
-      orgSlug: input.orgSlug,
-      organizationId: input.organizationId,
-      projectId,
-      projectSlug: input.plan.project.slug
+  if (publication === "slug-taken") {
+    return yield* new JiraMigrationBlocked({
+      blockers: [
+        {
+          code: "project-slug-collision",
+          subjectId: input.plan.project.slug
+        }
+      ]
     })
-    .pipe(Effect.orDie)
-
-  yield* deps.db
-    .update(jiraMigration)
-    .set({
-      status: "succeeded",
-      phase: "succeeded",
-      destinationProjectId: projectId,
-      destinationProjectSlug: input.plan.project.slug,
-      reportPath: input.reportPath,
-      failureReason: null,
-      failureRetryable: null,
-      finishedAt: now,
-      leaseId: null,
-      leaseExpiresAt: null,
-      updatedAt: now
-    })
-    .where(
-      and(
-        eq(jiraMigration.id, input.migrationId),
-        eq(jiraMigration.leaseId, input.leaseId),
-        eq(jiraMigration.status, "migrating")
-      )
-    )
-    .pipe(Effect.orDie)
+  }
 
   return {
     kind: "published" as const,

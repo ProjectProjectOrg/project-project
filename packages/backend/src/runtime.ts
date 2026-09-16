@@ -100,14 +100,14 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(BannerPlaceholdersLive),
     Layer.provideMerge(UsersLive),
     Layer.provideMerge(TicketIndexLive),
+    Layer.provideMerge(JiraMigrationsLive),
     Layer.provideMerge(ProjectDocsLive),
     Layer.provideMerge(TicketDocsLive),
     Layer.provideMerge(GroupDocsLive),
     Layer.provideMerge(MarkdownLive),
     Layer.provideMerge(OAuthApplicationsLive),
     Layer.provideMerge(SecretCryptoLive),
-    Layer.provideMerge(JiraServicesLive),
-    Layer.provideMerge(JiraMigrationsLive)
+    Layer.provideMerge(JiraServicesLive)
   )
   .pipe(
     Layer.provideMerge(S3StorageLive),

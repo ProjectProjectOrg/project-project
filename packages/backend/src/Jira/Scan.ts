@@ -250,6 +250,12 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         ]
       })
     )
+    const restrictedWorklogs = Object.entries(input.worklogsByIssue).flatMap(
+      ([issueId, worklogs]) =>
+        worklogs
+          .filter(({ visibility }) => visibility !== undefined)
+          .map((worklog) => ({ issueId, worklog }))
+    )
     const restrictions = [
       ...issues
         .filter(({ restricted }) => restricted)
@@ -268,7 +274,14 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
           targetId: comment.id,
           source: "comment-visibility",
           raw: comment.raw
-        }))
+        })),
+      ...restrictedWorklogs.map(({ issueId, worklog }) => ({
+        id: `worklog:${worklog.id}`,
+        targetKind: "worklog" as const,
+        targetId: worklog.id,
+        source: "worklog-visibility",
+        raw: { issueId, worklog }
+      }))
     ]
     const scannedIssueIds = new Set(issues.map(({ id }) => id))
     const manifestRaw = {

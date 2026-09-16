@@ -134,12 +134,14 @@ export const JiraCredentialsLive = Layer.effect(
         return yield* new JiraError({ reason: "invalid_response" })
       }
       const state = randomBytes(32).toString("base64url")
+      const codeVerifier = randomBytes(32).toString("base64url")
       const now = yield* DateTime.now
       yield* db
         .insert(userJiraOauthState)
         .values({
           userId,
           stateHash: hashState(state),
+          codeVerifier,
           returnPath: safeReturnPath,
           expiresAt: DateTime.toDate(DateTime.add(now, { minutes: 10 }))
         })
@@ -148,7 +150,8 @@ export const JiraCredentialsLive = Layer.effect(
         authorizeUrl: jiraAuthorizeUrl({
           clientId: oauth.clientId,
           redirectUri: jiraRedirectUri(oauth.publicBaseUrl),
-          state
+          state,
+          codeVerifier
         })
       }
     })
@@ -243,22 +246,27 @@ export const JiraCredentialsLive = Layer.effect(
             gt(userJiraOauthState.expiresAt, DateTime.toDate(now))
           )
         )
-        .returning({ returnPath: userJiraOauthState.returnPath })
+        .returning({
+          returnPath: userJiraOauthState.returnPath,
+          codeVerifier: userJiraOauthState.codeVerifier
+        })
         .pipe(Effect.mapError(() => new JiraError({ reason: "server_error" })))
       const consumedState = consumed[0]
       if (!consumedState) {
         return yield* new JiraError({ reason: "invalid_response" })
       }
-      const grant = yield* tokens.exchange(code).pipe(
-        Effect.catchTag("JiraRateLimited", () =>
-          Effect.fail(new JiraError({ reason: "server_error" }))
-        ),
-        Effect.tapError((error) =>
-          error._tag === "JiraReconnectRequired"
-            ? markReconnectRequired(userId, error.reason)
-            : Effect.void
+      const grant = yield* tokens
+        .exchange(code, consumedState.codeVerifier)
+        .pipe(
+          Effect.catchTag("JiraRateLimited", () =>
+            Effect.fail(new JiraError({ reason: "server_error" }))
+          ),
+          Effect.tapError((error) =>
+            error._tag === "JiraReconnectRequired"
+              ? markReconnectRequired(userId, error.reason)
+              : Effect.void
+          )
         )
-      )
       if (!hasRequiredScopes(grant.grantedScopes)) {
         yield* persistGrant(
           userId,

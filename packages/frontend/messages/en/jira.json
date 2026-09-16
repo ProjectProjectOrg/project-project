@@ -40,6 +40,7 @@
   "jira_migration_failed_description": "Nothing has been published. You can retry from the saved checkpoint or scan the source again.",
   "jira_migration_failed_title": "Migration needs attention",
   "jira_migration_failure_generic": "The migration stopped with an unexpected error ({reason}).",
+  "jira_migration_failure_internal_error": "The migration stopped on an unexpected error. Nothing was published; discard it and start again.",
   "jira_migration_failure_preflight_blocked": "Some mappings still need a decision before this project can be migrated.",
   "jira_migration_failure_storage_unavailable": "Organization storage was unreachable. Check the connection and try again.",
   "jira_migration_item_pending_description": "This migration cannot be loaded until the migration service is available. Its identifier has been preserved.",

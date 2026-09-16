@@ -820,6 +820,7 @@ export const userJiraOauthState = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     stateHash: text("state_hash").notNull().unique(),
+    codeVerifier: text("code_verifier"),
     returnPath: text("return_path").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),

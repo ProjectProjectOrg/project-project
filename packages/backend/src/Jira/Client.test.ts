@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vite-plus/test"
+import { JiraError } from "@projectproject/shared"
+import { it } from "@effect/vitest"
+import { describe, expect } from "vite-plus/test"
+import * as Duration from "effect/Duration"
+import * as Fiber from "effect/Fiber"
+import * as TestClock from "effect/testing/TestClock"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
@@ -15,6 +20,17 @@ import {
   type JiraTransportRequest,
   type JiraTransportResponse
 } from "./Client"
+
+const stubCredentials = JiraCredentials.of({
+  status: () => Effect.die("unused"),
+  beginConnect: () => Effect.die("unused"),
+  completeConnect: () => Effect.die("unused"),
+  completeConnectWithReturnPath: () => Effect.die("unused"),
+  returnPathForState: () => Effect.die("unused"),
+  accessTokenFor: () => Effect.succeed({ token: Redacted.make("token") }),
+  disconnect: () => Effect.die("unused"),
+  markReconnectRequired: () => Effect.void
+})
 
 describe("Jira client", () => {
   it("continues cursor pagination through an empty intermediate page", async () => {
@@ -482,4 +498,81 @@ describe("Jira client", () => {
       "bytes=2-4"
     ])
   })
+  it.effect(
+    "retries a transient server error instead of abandoning the whole scan",
+    () =>
+      Effect.gen(function* () {
+        const attempts = yield* Ref.make(0)
+        const transport = JiraTransport.of({
+          execute: () =>
+            Effect.gen(function* () {
+              const attempt = yield* Ref.updateAndGet(attempts, (n) => n + 1)
+              return {
+                status: attempt < 3 ? 503 : 200,
+                headers: {},
+                json: Effect.succeed([
+                  { id: "10001", name: "Bug", subtask: false, statuses: [] }
+                ]),
+                stream: Stream.empty
+              } satisfies JiraTransportResponse
+            })
+        })
+        const fiber = yield* Effect.gen(function* () {
+          const client = yield* JiraClient
+          return yield* client.projectStatuses("user", "cloud", "APP")
+        }).pipe(
+          Effect.provide(
+            JiraClientLive.pipe(
+              Layer.provide(
+                Layer.mergeAll(
+                  Layer.succeed(JiraTransport, transport),
+                  Layer.succeed(JiraCredentials, stubCredentials)
+                )
+              )
+            )
+          ),
+          Effect.forkChild
+        )
+
+        yield* TestClock.adjust(Duration.seconds(10))
+        const statuses = yield* Fiber.join(fiber)
+
+        expect(yield* Ref.get(attempts)).toBe(3)
+        expect(statuses.map(({ id }) => id)).toEqual(["10001"])
+      })
+  )
+
+  it.effect("gives up once the transient budget is spent", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0)
+      const transport = JiraTransport.of({
+        execute: () =>
+          Ref.update(attempts, (n) => n + 1).pipe(
+            Effect.andThen(Effect.fail(new JiraError({ reason: "network" })))
+          ) as Effect.Effect<JiraTransportResponse, JiraError>
+      })
+      const fiber = yield* Effect.gen(function* () {
+        const client = yield* JiraClient
+        return yield* client.projectStatuses("user", "cloud", "APP")
+      }).pipe(
+        Effect.provide(
+          JiraClientLive.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.succeed(JiraTransport, transport),
+                Layer.succeed(JiraCredentials, stubCredentials)
+              )
+            )
+          )
+        ),
+        Effect.forkChild
+      )
+
+      yield* TestClock.adjust(Duration.seconds(10))
+      const error = yield* Fiber.join(fiber).pipe(Effect.flip)
+
+      expect(yield* Ref.get(attempts)).toBe(4)
+      expect(error).toMatchObject({ _tag: "JiraError", reason: "network" })
+    })
+  )
 })

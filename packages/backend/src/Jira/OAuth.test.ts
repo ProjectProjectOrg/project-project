@@ -6,6 +6,7 @@ import {
   classifyTokenRejection,
   hasRequiredScopes,
   jiraAuthorizeUrl,
+  jiraCodeChallenge,
   jiraRedirectUri,
   parseTokenGrant,
   validateReturnPath
@@ -17,7 +18,8 @@ describe("Jira OAuth", () => {
       jiraAuthorizeUrl({
         clientId: "client-id",
         redirectUri: "https://app.example/api/integrations/jira/oauth/callback",
-        state: "state-value"
+        state: "state-value",
+        codeVerifier: "verifier-value"
       })
     )
 
@@ -30,6 +32,11 @@ describe("Jira OAuth", () => {
     expect(url.searchParams.get("prompt")).toBe("consent")
     expect(url.searchParams.get("client_id")).toBe("client-id")
     expect(url.searchParams.get("state")).toBe("state-value")
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256")
+    expect(url.searchParams.get("code_challenge")).toBe(
+      jiraCodeChallenge("verifier-value")
+    )
+    expect(url.searchParams.get("code_challenge")).not.toBe("verifier-value")
   })
 
   it("uses the exact callback path", () => {

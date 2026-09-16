@@ -22,13 +22,20 @@ import { GroupDocs } from "../Services/GroupDocs"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import { TicketDocs } from "../Services/TicketDocs"
 import { TicketIndex } from "../Services/TicketIndex"
-import { JiraMigrationBlocked } from "./Blocked"
-import { JiraMigrationReport } from "./Report"
+import {
+  JiraMigrationBlocked,
+  JiraMigrationDefect,
+  JiraMigrationLeaseLost
+} from "./Blocked"
+import {
+  buildJiraMigrationArchive,
+  buildJiraMigrationReportMarkdown
+} from "./Report"
 import { JiraClient } from "./Client"
 import { Attachments } from "../Services/Attachments"
 import {
   aliasJiraMediaReferences,
-  buildJiraImportPlan,
+  buildJiraImportContext,
   copyJiraAttachments,
   jiraImportEnvironment,
   markJiraAttachmentsLive,
@@ -42,6 +49,7 @@ import { JiraMigrationManifest } from "./Manifest"
 import { buildJiraScanArtifacts } from "./Scan"
 
 const LEASE_SECONDS = 30
+const LEASE_HEARTBEAT = "10 seconds"
 
 type ClaimedMigration = typeof jiraMigration.$inferSelect & {
   readonly leaseId: string
@@ -50,6 +58,21 @@ type ClaimedMigration = typeof jiraMigration.$inferSelect & {
 const objectKey = (prefix: string | null, path: string) => {
   const root = (prefix ?? "").replace(/^\/+|\/+$/g, "")
   return root === "" ? path : `${root}/${path}`
+}
+
+const failureReasonFor = (failure: { readonly _tag: string }) => {
+  if (
+    failure._tag === "S3Unavailable" ||
+    failure._tag === "StorageNotConnected" ||
+    failure._tag === "StorageConfigMissing" ||
+    failure._tag === "MarkdownError" ||
+    failure._tag === "MalformedTicketDocument"
+  ) {
+    return "storage_unavailable"
+  }
+  if (failure._tag === "JiraMigrationBlocked") return "preflight_blocked"
+  if (failure._tag === "JiraMigrationDefect") return "internal_error"
+  return failure._tag
 }
 
 const jqlProject = (key: string) =>
@@ -142,7 +165,9 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         )
         .returning({ id: jiraMigration.id })
         .pipe(Effect.orDie)
-      if (!rows[0]) return yield* Effect.interrupt
+      if (!rows[0]) {
+        return yield* new JiraMigrationLeaseLost({ migrationId: job.id })
+      }
     })
 
     const renewMigrating = Effect.fn("JiraMigrationWorker.renewMigrating")(
@@ -171,9 +196,54 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           )
           .returning({ id: jiraMigration.id })
           .pipe(Effect.orDie)
-        if (!rows[0]) return yield* Effect.interrupt
+        if (!rows[0]) {
+          return yield* new JiraMigrationLeaseLost({ migrationId: job.id })
+        }
       }
     )
+
+    const touchLease = Effect.fn("JiraMigrationWorker.touchLease")(function* (
+      job: ClaimedMigration,
+      status: "scanning" | "migrating"
+    ) {
+      const now = yield* DateTime.nowAsDate
+      const leaseExpiresAt = DateTime.toDate(
+        DateTime.add(DateTime.fromDateUnsafe(now), { seconds: LEASE_SECONDS })
+      )
+      const rows = yield* db
+        .update(jiraMigration)
+        .set({ leaseExpiresAt, updatedAt: now })
+        .where(
+          and(
+            eq(jiraMigration.id, job.id),
+            eq(jiraMigration.leaseId, job.leaseId),
+            eq(jiraMigration.status, status)
+          )
+        )
+        .returning({ id: jiraMigration.id })
+        .pipe(Effect.orDie)
+      if (!rows[0]) {
+        return yield* new JiraMigrationLeaseLost({ migrationId: job.id })
+      }
+    })
+
+    const underLease = <A, E, R>(
+      self: Effect.Effect<A, E, R>,
+      job: ClaimedMigration,
+      status: "scanning" | "migrating"
+    ) =>
+      Effect.raceFirst(
+        self,
+        Effect.repeat(
+          Effect.andThen(
+            Effect.sleep(LEASE_HEARTBEAT),
+            touchLease(job, status)
+          ),
+          Schedule.forever
+        )
+      ).pipe(
+        Effect.catchDefect((defect) => new JiraMigrationDefect({ defect }))
+      )
 
     const scan = Effect.fn("JiraMigrationWorker.scan")(function* (
       job: ClaimedMigration
@@ -399,12 +469,12 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         job.organizationId,
         job.destinationProjectSlug
       )
-      const probe = buildJiraImportPlan(
+      const probe = buildJiraImportContext(
         manifest,
         job.configuration,
         environment,
         {}
-      )
+      ).result
       if (probe.kind === "blocked") {
         return yield* new JiraMigrationBlocked({
           blockers: probe.blockers.map(({ code, subjectId }) => ({
@@ -435,7 +505,11 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         )
       })
 
-      const planResult = buildJiraImportPlan(
+      const {
+        mappings,
+        preflight,
+        result: planResult
+      } = buildJiraImportContext(
         manifest,
         job.configuration,
         environment,
@@ -465,32 +539,49 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
       )
       yield* renewMigrating(job, manifest.issues.length + 1)
 
-      const reportPath = `${job.stagingPrefix}/report.json`
-      const report = yield* Schema.encodeEffect(
-        Schema.fromJsonString(JiraMigrationReport)
-      )({
+      const outcome = {
         migrationId: job.id,
-        projectSlug: planResult.plan.project.slug,
-        tickets: planResult.plan.tickets.length,
-        comments: planResult.plan.comments.length,
-        groups: planResult.plan.groups.length,
-        createdStatuses: planResult.plan.createdStatuses.map(
-          ({ slug }) => slug
+        orgSlug,
+        siteName: job.sourceSiteName,
+        manifest,
+        mappings,
+        preflight,
+        plan: planResult.plan,
+        copiedAttachmentIds: Object.keys(attachmentUrls),
+        userLabelsById: Object.fromEntries(
+          members.map(({ userId, username }) => [userId, username])
         ),
-        tags: planResult.plan.tags.map(({ name }) => name),
-        attachmentsPending: planResult.plan.attachments.length
-      }).pipe(Effect.orDie)
-      yield* s3.putObject(
-        connection,
-        objectKey(connection.keyPrefix, reportPath),
-        "application/json",
-        new TextEncoder().encode(report)
-      )
-
-      yield* markJiraAttachmentsLive(
-        importDeps,
-        job.organizationId,
-        planResult.plan.project.slug
+        completedAt: DateTime.formatIso(yield* DateTime.now)
+      }
+      const archiveDir = `orgs/${orgSlug}/projects/${planResult.plan.project.slug}/${planResult.plan.archivePath}`
+      const reportPath = `${archiveDir}/report.md`
+      const archiveJson = yield* Schema.encodeEffect(
+        Schema.fromJsonString(Schema.Unknown)
+      )(buildJiraMigrationArchive(outcome)).pipe(Effect.orDie)
+      const staged = [
+        {
+          name: "archive.json",
+          contentType: "application/json",
+          bytes: new TextEncoder().encode(archiveJson)
+        },
+        {
+          name: "report.md",
+          contentType: "text/markdown; charset=utf-8",
+          bytes: new TextEncoder().encode(
+            buildJiraMigrationReportMarkdown(outcome)
+          )
+        }
+      ]
+      yield* Effect.forEach(
+        staged,
+        ({ name, contentType, bytes }) =>
+          s3.putObject(
+            connection,
+            objectKey(connection.keyPrefix, `${job.stagingPrefix}/${name}`),
+            contentType,
+            bytes
+          ),
+        { discard: true }
       )
 
       yield* reconcileJiraAttachmentReferences(
@@ -499,16 +590,41 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         planResult.plan
       )
 
-      yield* publishJiraMigration(importDeps, {
+      const published = yield* publishJiraMigration(importDeps, {
         migrationId: job.id,
         organizationId: job.organizationId,
         orgSlug,
         ownerId: job.initiatedBy,
         leaseId: job.leaseId,
         reportPath,
+        priorDestinationProjectId: job.destinationProjectId,
         plan: planResult.plan,
         members
       })
+
+      yield* markJiraAttachmentsLive(
+        importDeps,
+        job.organizationId,
+        planResult.plan.project.slug
+      )
+
+      yield* Effect.forEach(
+        staged,
+        ({ name, contentType, bytes }) =>
+          s3.putObject(
+            connection,
+            objectKey(connection.keyPrefix, `${archiveDir}/${name}`),
+            contentType,
+            bytes
+          ),
+        { discard: true }
+      ).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("Jira migration archive stayed in staging", cause)
+        )
+      )
+
+      return published
     })
 
     const updateFailure = (
@@ -570,7 +686,8 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           .where(
             and(
               eq(jiraMigration.id, job.id),
-              eq(jiraMigration.leaseId, job.leaseId)
+              eq(jiraMigration.leaseId, job.leaseId),
+              eq(jiraMigration.status, "cancelling")
             )
           )
           .pipe(Effect.orDie)
@@ -583,10 +700,13 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
 
       const migrating = yield* claimNext(migrateMatch)
       if (migrating) {
-        const outcome = yield* Effect.result(migrate(migrating))
+        const outcome = yield* Effect.result(
+          underLease(migrate(migrating), migrating, "migrating")
+        )
         if (outcome._tag === "Success") return
-        yield* Effect.logError("Jira migration migrate failed", outcome.failure)
         const failure = outcome.failure
+        if (failure._tag === "JiraMigrationLeaseLost") return
+        yield* Effect.logError("Jira migration migrate failed", failure)
         if (failure._tag === "JiraReconnectRequired") {
           return yield* updateFailure(
             migrating,
@@ -601,21 +721,19 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         ) {
           return yield* updateFailure(migrating, {})
         }
-        const storage =
+        const retryable =
           failure._tag === "S3Unavailable" ||
           failure._tag === "StorageNotConnected" ||
-          failure._tag === "StorageConfigMissing"
+          failure._tag === "StorageConfigMissing" ||
+          failure._tag === "MarkdownError" ||
+          failure._tag === "MalformedTicketDocument"
         return yield* updateFailure(
           migrating,
           {
             status: "failed",
             phase: "migrate",
-            failureReason: storage
-              ? "storage_unavailable"
-              : failure._tag === "JiraMigrationBlocked"
-                ? "preflight_blocked"
-                : failure._tag,
-            failureRetryable: storage,
+            failureReason: failureReasonFor(failure),
+            failureRetryable: retryable,
             finishedAt: yield* DateTime.nowAsDate
           },
           true
@@ -624,9 +742,12 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
 
       const job = yield* claimNext(scanMatch)
       if (!job) return
-      const result = yield* Effect.result(scan(job))
+      const result = yield* Effect.result(
+        underLease(scan(job), job, "scanning")
+      )
       if (result._tag === "Success") return
       const error = result.failure
+      if (error._tag === "JiraMigrationLeaseLost") return
       if (error._tag === "JiraReconnectRequired") {
         yield* updateFailure(
           job,
@@ -640,6 +761,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
       ) {
         yield* updateFailure(job, {})
       } else {
+        yield* Effect.logError("Jira migration scan failed", error)
         const storage =
           error._tag === "S3Unavailable" ||
           error._tag === "StorageNotConnected" ||
@@ -649,7 +771,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           {
             status: "failed",
             phase: "scan",
-            failureReason: storage ? "storage_unavailable" : error._tag,
+            failureReason: failureReasonFor(error),
             failureRetryable: storage,
             finishedAt: yield* DateTime.nowAsDate
           },

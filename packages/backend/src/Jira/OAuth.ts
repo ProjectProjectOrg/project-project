@@ -3,6 +3,7 @@ import {
   JiraRateLimited,
   JiraReconnectRequired
 } from "@projectproject/shared"
+import { createHash } from "node:crypto"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -68,10 +69,14 @@ export const JiraOAuthConfigLive = Layer.effect(
 export const jiraRedirectUri = (baseUrl: string): string =>
   new URL(JIRA_OAUTH_CALLBACK_PATH, baseUrl).toString()
 
+export const jiraCodeChallenge = (verifier: string): string =>
+  createHash("sha256").update(verifier).digest("base64url")
+
 export const jiraAuthorizeUrl = (input: {
   readonly clientId: string
   readonly redirectUri: string
   readonly state: string
+  readonly codeVerifier: string
 }): string => {
   const url = new URL("https://auth.atlassian.com/authorize")
   url.searchParams.set("audience", "api.atlassian.com")
@@ -81,6 +86,8 @@ export const jiraAuthorizeUrl = (input: {
   url.searchParams.set("state", input.state)
   url.searchParams.set("response_type", "code")
   url.searchParams.set("prompt", "consent")
+  url.searchParams.set("code_challenge", jiraCodeChallenge(input.codeVerifier))
+  url.searchParams.set("code_challenge_method", "S256")
   return url.toString()
 }
 
@@ -147,7 +154,8 @@ export const classifyTokenRejection = (
 
 export interface JiraTokenEndpointShape {
   readonly exchange: (
-    code: string
+    code: string,
+    codeVerifier: string | null
   ) => Effect.Effect<
     JiraTokenGrant,
     JiraReconnectRequired | JiraRateLimited | JiraError
@@ -219,11 +227,12 @@ export const JiraTokenEndpointLive = Layer.effect(
     const config = yield* JiraOAuthConfig
     const client = yield* HttpClient.HttpClient
     return JiraTokenEndpoint.of({
-      exchange: (code) =>
+      exchange: (code, codeVerifier) =>
         requestGrant(client, config, {
           grant_type: "authorization_code",
           code,
-          redirect_uri: jiraRedirectUri(config.publicBaseUrl)
+          redirect_uri: jiraRedirectUri(config.publicBaseUrl),
+          ...(codeVerifier === null ? {} : { code_verifier: codeVerifier })
         }),
       refresh: (refreshToken) =>
         requestGrant(client, config, {

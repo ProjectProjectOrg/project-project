@@ -137,5 +137,8 @@ function failureDescription(failure: JiraMigrationDetail["failure"]): string {
   if (failure.reason === "storage_unavailable") {
     return m.jira_migration_failure_storage_unavailable()
   }
+  if (failure.reason === "internal_error") {
+    return m.jira_migration_failure_internal_error()
+  }
   return m.jira_migration_failure_generic({ reason: failure.reason })
 }

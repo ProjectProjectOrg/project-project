@@ -309,6 +309,8 @@ const retryAfterSeconds = (
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 0
 }
 
+const TRANSIENT_BACKOFF_MS = [1000, 2000, 4000] as const
+
 export const JiraClientLive = Layer.effect(
   JiraClient,
   Effect.gen(function* () {
@@ -324,17 +326,29 @@ export const JiraClientLive = Layer.effect(
       let refreshed = false
       let retries = 0
       let waitedSeconds = 0
+      let transientRetries = 0
       let access = yield* credentials.accessTokenFor(input.userId)
       while (true) {
-        const response = yield* transport.execute({
-          method: input.method,
-          url: input.url,
-          headers: {
-            accept: "application/json",
-            authorization: `Bearer ${Redacted.value(access.token)}`
-          },
-          body: input.body
-        })
+        const attempt = yield* Effect.result(
+          transport.execute({
+            method: input.method,
+            url: input.url,
+            headers: {
+              accept: "application/json",
+              authorization: `Bearer ${Redacted.value(access.token)}`
+            },
+            body: input.body
+          })
+        )
+        if (attempt._tag === "Failure") {
+          if (transientRetries >= TRANSIENT_BACKOFF_MS.length) {
+            return yield* attempt.failure
+          }
+          yield* Effect.sleep(TRANSIENT_BACKOFF_MS[transientRetries]!)
+          transientRetries += 1
+          continue
+        }
+        const response = attempt.success
         if (response.status === 401) {
           if (refreshed) {
             yield* credentials.markReconnectRequired(
@@ -364,7 +378,12 @@ export const JiraClientLive = Layer.effect(
           continue
         }
         if (response.status >= 500) {
-          return yield* new JiraError({ reason: "server_error" })
+          if (transientRetries >= TRANSIENT_BACKOFF_MS.length) {
+            return yield* new JiraError({ reason: "server_error" })
+          }
+          yield* Effect.sleep(TRANSIENT_BACKOFF_MS[transientRetries]!)
+          transientRetries += 1
+          continue
         }
         if (response.status < 200 || response.status >= 300) {
           return yield* new JiraError({ reason: "invalid_response" })

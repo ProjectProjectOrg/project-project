@@ -1,0 +1,1 @@
+ALTER TABLE "user_jira_oauth_state" ADD COLUMN "code_verifier" text;

@@ -11,11 +11,39 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { DbLive } from "../Layers/Db"
+import { StorageNotConnected } from "@projectproject/shared"
+import { OrgStorage } from "../Services/OrgStorage"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import { S3Storage } from "../Services/S3Storage"
 import {
   isCompleteJiraConfiguration,
   JiraMigrations,
   JiraMigrationsLive
 } from "./Migrations"
+
+const unreachableStorage = Layer.mergeAll(
+  Layer.succeed(OrgStorage)({
+    getStatus: () => Effect.die("unused"),
+    connect: () => Effect.die("unused"),
+    disconnect: () => Effect.die("unused"),
+    requireConnection: () => Effect.fail(new StorageNotConnected())
+  }),
+  Layer.succeed(S3Storage)({
+    putObject: () => Effect.die("unused"),
+    getObject: () => Effect.die("unused"),
+    presignPut: () => Effect.die("unused"),
+    presignGet: () => Effect.die("unused"),
+    headObject: () => Effect.die("unused"),
+    deleteObject: () => Effect.die("unused"),
+    checkConnection: () => Effect.die("unused")
+  }),
+  Layer.succeed(ProjectDocs)({
+    read: () => Effect.die("unused"),
+    write: () => Effect.die("unused"),
+    removeDir: () => Effect.die("unused"),
+    readRaw: () => Effect.die("unused")
+  })
+)
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -43,7 +71,10 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         PgClient.layer({ url: Redacted.make(databaseUrl as string) })
       )
     )
-    layer = JiraMigrationsLive.pipe(Layer.provide(database), Layer.orDie)
+    layer = JiraMigrationsLive.pipe(
+      Layer.provide(Layer.mergeAll(database, unreachableStorage)),
+      Layer.orDie
+    )
   })
 
   afterAll(async () => {
