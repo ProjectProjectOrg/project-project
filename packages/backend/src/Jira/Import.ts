@@ -395,7 +395,8 @@ export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
     .where(
       and(
         eq(jiraMigration.id, input.migrationId),
-        eq(jiraMigration.leaseId, input.leaseId)
+        eq(jiraMigration.leaseId, input.leaseId),
+        eq(jiraMigration.status, "migrating")
       )
     )
     .pipe(Effect.orDie)

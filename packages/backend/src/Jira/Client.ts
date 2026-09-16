@@ -300,6 +300,15 @@ const softwareBase = (cloudId: string) =>
 
 const pathPart = (value: string | number) => encodeURIComponent(String(value))
 
+const retryAfterSeconds = (
+  headers: Readonly<Record<string, string | undefined>>
+): number => {
+  const header = headers["retry-after"]
+  if (header === undefined) return 0
+  const seconds = Number(header)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 0
+}
+
 export const JiraClientLive = Layer.effect(
   JiraClient,
   Effect.gen(function* () {
@@ -345,13 +354,7 @@ export const JiraClientLive = Layer.effect(
         if (response.status === 403) return yield* new JiraAccessDenied()
         if (response.status === 404) return yield* new JiraResourceNotFound()
         if (response.status === 429) {
-          const header = response.headers["retry-after"]
-          const retryAfterSeconds =
-            header === undefined ? Number.NaN : Number(header)
-          if (!Number.isFinite(retryAfterSeconds) || retryAfterSeconds < 0) {
-            return yield* new JiraRateLimited({ retryAfterSeconds: 0 })
-          }
-          const delay = retryAfterSeconds
+          const delay = retryAfterSeconds(response.headers)
           if (retries >= 4 || waitedSeconds + delay > 60) {
             return yield* new JiraRateLimited({ retryAfterSeconds: delay })
           }
@@ -587,7 +590,7 @@ export const JiraClientLive = Layer.effect(
             }
             if (response.status === 429) {
               return yield* new JiraRateLimited({
-                retryAfterSeconds: Number(response.headers["retry-after"] ?? 0)
+                retryAfterSeconds: retryAfterSeconds(response.headers)
               })
             }
             return yield* new JiraError({

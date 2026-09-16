@@ -539,7 +539,8 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
           .where(
             and(
               eq(jiraMigration.id, job.id),
-              eq(jiraMigration.leaseId, job.leaseId)
+              eq(jiraMigration.leaseId, job.leaseId),
+              eq(jiraMigration.status, job.status)
             )
           )
           .pipe(Effect.orDie)
