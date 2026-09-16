@@ -236,6 +236,7 @@ export function AssigneeField({
   members,
   sprintTicketsKey,
   ticketSectionsKey,
+  onChange,
   variant = "row",
   className
 }: {
@@ -245,6 +246,7 @@ export function AssigneeField({
   members: ReadonlyArray<Member>
   sprintTicketsKey?: string
   ticketSectionsKey?: string
+  onChange?: (value: ReadonlyArray<string>) => void
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -255,7 +257,9 @@ export function AssigneeField({
     <AssigneeSelect
       value={ticket.assignees}
       onChange={(assignees) =>
-        update({ assignees, sprintTicketsKey, ticketSectionsKey })
+        onChange
+          ? onChange(assignees)
+          : update({ assignees, sprintTicketsKey, ticketSectionsKey })
       }
       members={members}
       variant={variant}

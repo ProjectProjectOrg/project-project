@@ -18,7 +18,8 @@ import type {
   Group,
   Member,
   Ticket,
-  TicketListQuery
+  TicketListQuery,
+  UpdateTicketInput
 } from "@projectproject/shared"
 import { AssigneeField } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
@@ -41,8 +42,10 @@ function RowImpl({
   pending,
   previewOpen,
   onPreviewPointerEnter,
-  onPreviewOpenChange
+  onPreviewOpenChange,
+  onUpdate
 }: {
+  onUpdate?: (patch: UpdateTicketInput) => void
   orgSlug: string
   slug: string
   ticket: Ticket
@@ -60,10 +63,9 @@ function RowImpl({
   const updatePreview = useAtomValue(
     ticketUpdatePreviewAtom(ticketKey(orgSlug, slug, ticket.id))
   )
-  const visibleTicket = applyOptimisticTicketPreview(
-    ticket,
-    updatePreview.input
-  )
+  const visibleTicket = onUpdate
+    ? ticket
+    : applyOptimisticTicketPreview(ticket, updatePreview.input)
   const ticketSectionsKeyValue = ticketsSectionsKey(orgSlug, slug, query)
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
@@ -90,7 +92,7 @@ function RowImpl({
             ref={rowElement}
             className={cn(
               "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
-              updatePreview.waiting && "animate-pulse"
+              !onUpdate && updatePreview.waiting && "animate-pulse"
             )}
           >
             <Link
@@ -133,13 +135,17 @@ function RowImpl({
               ticket={visibleTicket}
               query={query}
               stopPropagation
+              onChange={onUpdate ? (status) => onUpdate({ status }) : undefined}
             />
             <PriorityButton
+              onChange={
+                onUpdate ? (priority) => onUpdate({ priority }) : undefined
+              }
               orgSlug={orgSlug}
               slug={slug}
               ticket={visibleTicket}
               stopPropagation
-              ticketSectionsKey={ticketSectionsKeyValue}
+              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
             />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
@@ -166,6 +172,7 @@ function RowImpl({
               />
               {showSprintCol && (
                 <SprintField
+                  variant="responsive"
                   orgSlug={orgSlug}
                   slug={slug}
                   ticketId={ticket.id}
@@ -173,19 +180,25 @@ function RowImpl({
                 />
               )}
               <AssigneeField
+                onChange={
+                  onUpdate ? (assignees) => onUpdate({ assignees }) : undefined
+                }
                 orgSlug={orgSlug}
                 slug={slug}
                 ticket={visibleTicket}
                 members={members}
-                ticketSectionsKey={ticketSectionsKeyValue}
+                ticketSectionsKey={
+                  onUpdate ? undefined : ticketSectionsKeyValue
+                }
                 className="hidden sm:inline-flex"
               />
             </div>
             <TypeButton
+              onChange={onUpdate ? (type) => onUpdate({ type }) : undefined}
               orgSlug={orgSlug}
               slug={slug}
               ticket={visibleTicket}
-              ticketSectionsKey={ticketSectionsKeyValue}
+              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (

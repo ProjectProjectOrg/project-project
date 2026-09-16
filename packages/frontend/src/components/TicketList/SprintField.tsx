@@ -6,6 +6,7 @@ import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import { SprintAssignMenu } from "@/components/sprints/SprintAssignMenu"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
   projectKey,
@@ -21,12 +22,14 @@ export function SprintField({
   slug,
   ticketId,
   membership,
+  variant = "default",
   onRequestNewSprint
 }: {
   orgSlug: string
   slug: string
   ticketId: TicketId
   membership: Group | null
+  variant?: "default" | "responsive"
   onRequestNewSprint?: () => void
 }) {
   const key = projectKey(orgSlug, slug)
@@ -63,7 +66,14 @@ export function SprintField({
         >
           <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
             <SprintStateIcon sprint={membership} size="xs" />
-            <span className="truncate">{membership.name}</span>
+            <span
+              className={cn(
+                "truncate",
+                variant === "responsive" && "hidden sm:inline"
+              )}
+            >
+              {membership.name}
+            </span>
           </span>
         </Hitbox>
       }

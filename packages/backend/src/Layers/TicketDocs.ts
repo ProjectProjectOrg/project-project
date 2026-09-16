@@ -54,6 +54,7 @@ const TicketFrontmatter = Schema.Struct({
   ),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
+  updatedBy: Schema.String,
   updatedAt: Schema.DateFromString
 })
 
@@ -66,6 +67,9 @@ function decodeFrontmatterCompat(raw: unknown) {
     if (record.assignees === undefined && "assignee" in record) {
       const legacy = record.assignee
       record.assignees = typeof legacy === "string" ? [legacy] : []
+    }
+    if (record.updatedBy === undefined) {
+      record.updatedBy = record.createdBy
     }
   }
   return decodeFrontmatter(raw)
@@ -91,6 +95,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
     archivedAt: document.archivedAt ? document.archivedAt.toISOString() : null,
     createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),
+    updatedBy: document.updatedBy,
     updatedAt: document.updatedAt.toISOString()
   }
 }

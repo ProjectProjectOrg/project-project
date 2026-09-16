@@ -32,6 +32,7 @@ import * as Projects from "../Services/Projects"
 import { Tickets } from "../Services/Tickets"
 import { Groups } from "../Services/Groups"
 import { Tags } from "../Services/Tags"
+import { ProjectStatuses } from "../Services/ProjectStatuses"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import { GroupDocs } from "../Services/GroupDocs"
 import * as TicketDocs from "../Services/TicketDocs"
@@ -93,6 +94,7 @@ type Env =
   | Tickets
   | Groups
   | Tags
+  | ProjectStatuses
   | ProjectDocs
   | GroupDocs
   | TicketDocs.TicketDocs
@@ -248,6 +250,13 @@ const get_ticket = (input: {
       input.projectSlug,
       input.id
     )
+  })
+
+const list_statuses = (input: { orgSlug: string; projectSlug: string }) =>
+  Effect.gen(function* () {
+    const current = yield* CurrentUser
+    const statuses = yield* ProjectStatuses
+    return yield* statuses.list(input.orgSlug, current.id, input.projectSlug)
   })
 
 const list_tags = (
@@ -543,6 +552,7 @@ export const handlers: HandlersMap<Env> = {
   get_group: (i) => dieInternal(get_group(i)),
   list_tickets: (i) => dieInternal(list_tickets(i)),
   get_ticket: (i) => dieInternal(get_ticket(i)),
+  list_statuses: (i) => dieInternal(list_statuses(i)),
   list_tags: (i) => dieInternal(list_tags(i)),
   list_members: (i) => dieInternal(list_members(i)),
   get_git_state: (i) => dieInternal(get_git_state(i)),

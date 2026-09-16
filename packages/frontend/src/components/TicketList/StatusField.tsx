@@ -262,6 +262,7 @@ export function StatusButton({
   ticket,
   query,
   stopPropagation,
+  onChange,
   size = "sm",
   disabled = false
 }: {
@@ -270,6 +271,7 @@ export function StatusButton({
   ticket: Ticket
   query: TicketListQuery
   stopPropagation?: boolean
+  onChange?: (status: TicketStatus) => void
   size?: "sm" | "lg"
   disabled?: boolean
 }) {
@@ -283,7 +285,9 @@ export function StatusButton({
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const currentStatus = pending.get(ticket.id)?.status ?? ticket.status
+  const currentStatus = onChange
+    ? ticket.status
+    : (pending.get(ticket.id)?.status ?? ticket.status)
   const currentTicket = { ...ticket, status: currentStatus }
   const meta = statusMetaFor(currentStatus, statuses)
   const Icon = meta.icon
@@ -310,7 +314,7 @@ export function StatusButton({
                 : m.tickets_status_aria_label({ label: statusLabel })
             }
             title={statusLabel}
-            disabled={disabled || updateState.waiting}
+            disabled={disabled || (!onChange && updateState.waiting)}
           >
             <span className={wrapperClass}>
               <Icon
@@ -334,26 +338,28 @@ export function StatusButton({
           current={currentStatus}
           statuses={statuses}
           onSelect={(status) =>
-            update({
-              ticket: currentTicket,
-              status,
-              sourceSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                currentStatus
-              ),
-              destSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                status
-              ),
-              countKey: ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
-                q: query.q
-              })
-            })
+            onChange
+              ? onChange(status)
+              : update({
+                  ticket: currentTicket,
+                  status,
+                  sourceSectionKey: ticketsListKeyForStatus(
+                    orgSlug,
+                    slug,
+                    query,
+                    currentStatus
+                  ),
+                  destSectionKey: ticketsListKeyForStatus(
+                    orgSlug,
+                    slug,
+                    query,
+                    status
+                  ),
+                  countKey: ticketsCountKey(orgSlug, slug, {
+                    filter: query.filter,
+                    q: query.q
+                  })
+                })
           }
         />
       </DropdownMenuContent>

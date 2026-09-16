@@ -11,6 +11,7 @@ import { GroupId } from "./GroupId"
 import { ProjectKey } from "./Project"
 import { StatusSlug } from "./Status"
 import { TagName } from "./Tag"
+import { User } from "./User"
 
 export const TicketId = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$/)),
@@ -70,6 +71,8 @@ export type Ticket = typeof Ticket.Type
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
   splitFrom: Schema.optional(Schema.NullOr(TicketId)),
+  creator: Schema.NullOr(User),
+  updater: Schema.NullOr(User),
   body: Schema.String,
   missingAttachments: Schema.optional(Schema.Array(Schema.String))
 })

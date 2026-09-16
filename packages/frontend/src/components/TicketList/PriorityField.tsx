@@ -106,7 +106,8 @@ export function PriorityButton({
   ticket,
   stopPropagation,
   sprintTicketsKey,
-  ticketSectionsKey
+  ticketSectionsKey,
+  onChange
 }: {
   orgSlug: string
   slug: string
@@ -114,6 +115,7 @@ export function PriorityButton({
   stopPropagation?: boolean
   sprintTicketsKey?: string
   ticketSectionsKey?: string
+  onChange?: (value: TicketPriority) => void
 }) {
   const update = useAtomSet(
     updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -123,7 +125,9 @@ export function PriorityButton({
       value={ticket.priority}
       stopPropagation={stopPropagation}
       onChange={(priority) =>
-        update({ priority, sprintTicketsKey, ticketSectionsKey })
+        onChange
+          ? onChange(priority)
+          : update({ priority, sprintTicketsKey, ticketSectionsKey })
       }
     />
   )

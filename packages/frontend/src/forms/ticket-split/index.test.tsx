@@ -69,6 +69,8 @@ it("disables cancellation while the split request is pending", () => {
     createdBy: "user-1",
     createdAt: "2026-09-13T00:00:00.000Z",
     updatedAt: "2026-09-13T00:00:00.000Z",
+    creator: null,
+    updater: null,
     body: ""
   })
 

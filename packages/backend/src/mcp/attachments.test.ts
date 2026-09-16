@@ -58,6 +58,7 @@ import * as BetterAuth from "../Services/BetterAuth"
 import * as ProjectDocs from "../Services/ProjectDocs"
 import * as GroupDocs from "../Services/GroupDocs"
 import * as TicketIndex from "../Services/TicketIndex"
+import * as ProjectStatuses from "../Services/ProjectStatuses"
 import {
   attachmentIndex,
   organization,
@@ -178,6 +179,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
               archivedAt: null,
               createdBy: user.id,
               createdAt: user.createdAt,
+              updatedBy: user.id,
               updatedAt: user.createdAt
             })
       }
@@ -231,7 +233,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(BetterAuth.BetterAuth, {}),
       Layer.mock(ProjectDocs.ProjectDocs, {}),
       Layer.mock(GroupDocs.GroupDocs, {}),
-      Layer.mock(TicketIndex.TicketIndex, {})
+      Layer.mock(TicketIndex.TicketIndex, {}),
+      Layer.mock(ProjectStatuses.ProjectStatuses, {})
     )
   )
   const prepare = Effect.fn("attachmentFixture.prepare")(function* (
@@ -826,6 +829,7 @@ describe("MCP attachment contracts", () => {
               Layer.mock(OrgStorage.OrgStorage, {}),
               Layer.mock(ProjectDocs.ProjectDocs, {}),
               Layer.mock(Projects.Projects, {}),
+              Layer.mock(ProjectStatuses.ProjectStatuses, {}),
               Layer.mock(Tags.Tags, {}),
               Layer.mock(TicketDocs.TicketDocs, {}),
               Layer.mock(TicketIndex.TicketIndex, {}),

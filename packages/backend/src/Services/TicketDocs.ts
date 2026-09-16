@@ -40,6 +40,7 @@ export interface TicketDocument {
   readonly archivedAt: Date | null
   readonly createdBy: string
   readonly createdAt: Date
+  readonly updatedBy: string
   readonly updatedAt: Date
   readonly body: string
   readonly commentsRegion: string
