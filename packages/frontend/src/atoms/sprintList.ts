@@ -87,15 +87,17 @@ const confirmCreatedSprint = (
   sprints: ReadonlyArray<Group>,
   input: CreateGroupInput,
   created: Group
-): ReadonlyArray<Group> => {
+): Array<Group> => {
   let replaced = false
-  const next = sprints.flatMap((sprint) => {
+  const next: Array<Group> = []
+  for (const sprint of sprints) {
     if (!replaced && sprint.createdBy === "" && sprint.name === input.name) {
       replaced = true
-      return [created]
+      next.push(created)
+      continue
     }
-    return sprint.id === created.id ? [] : [sprint]
-  })
+    if (sprint.id !== created.id) next.push(sprint)
+  }
   return replaced ? next : [created, ...sprints]
 }
 
