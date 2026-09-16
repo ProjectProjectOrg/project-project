@@ -33,7 +33,6 @@ const scopeOf = (req: BoardRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export type BoardValue = Readonly<{
-  /** Ticket order as the group defines it, resolved to full tickets. */
   tickets: ReadonlyArray<Ticket>
   completedAt: Date | null
 }>
@@ -44,17 +43,11 @@ const ticketsQuery = (req: BoardRequest) =>
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
-      Keys.sprintMembership(scopeOf(req), req.params.id)
+      Keys.sprintMembership(scopeOf(req), req.params.id),
+      Keys.orgMembers(req.params.orgSlug)
     ]
   })
 
-/**
- * The board is one region fed by two endpoints: the group supplies order and
- * completion, the ticket list supplies content and status. Both are refreshed
- * together, and the composed result reports `waiting` until both settle, which
- * is what makes `Atom.optimistic` hold the drag preview for the whole round
- * trip.
- */
 const boardView = (req: BoardRequest) =>
   Atom.readable(
     (get) => {
@@ -78,7 +71,6 @@ const boardView = (req: BoardRequest) =>
     }
   )
 
-/** The value every board consumer reads. */
 export const sprintBoard = Atom.family((req: BoardRequest) =>
   Atom.optimistic(boardView(req))
 )

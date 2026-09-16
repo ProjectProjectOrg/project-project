@@ -1,3 +1,4 @@
+import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -99,7 +100,10 @@ export const confirmedProject = (req: ProjectRequest) =>
     Api.query("projects", "get", {
       params: req.params,
       timeToLive: "2 minutes",
-      reactivityKeys: [Keys.project(scopeOf(req))]
+      reactivityKeys: [
+        Keys.project(scopeOf(req)),
+        Keys.orgMembers(req.params.orgSlug)
+      ]
     }),
     (result) => {
       if (AsyncResult.isSuccess(result) && !result.waiting) {
@@ -142,6 +146,10 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
   })
 )
 
+const unsavedProjectSetup = Atom.family((_req: ProjectRequest) =>
+  Atom.make<UpdateProjectSetupInput>({}).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
 export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
   Atom.optimisticFn(project(req), {
     reducer: (current, input: UpdateProjectSetupInput) =>
@@ -155,15 +163,27 @@ export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
           input: UpdateProjectSetupInput,
           get
         ) {
-          const updated = yield* Api.use((client) =>
-            client.projects.updateSetup({
-              params: req.params,
-              payload: input
-            })
+          const unsaved = unsavedProjectSetup(req)
+          const payload: UpdateProjectSetupInput = { ...get(unsaved), ...input }
+          get.set(unsaved, payload)
+          const updated = yield* Effect.catchCause(
+            Api.use((client) =>
+              client.projects.updateSetup({
+                params: req.params,
+                payload
+              })
+            ),
+            (cause) => {
+              if (!Cause.hasInterruptsOnly(cause) && get(unsaved) === payload) {
+                get.set(unsaved, {})
+              }
+              return Effect.failCause(cause)
+            }
           )
+          if (get(unsaved) === payload) get.set(unsaved, {})
           set(
             AsyncResult.map(get(project(req)), (current) =>
-              confirmSetupUpdate(current, updated, input)
+              confirmSetupUpdate(current, updated, payload)
             )
           )
           yield* Reactivity.invalidate([Keys.projects(req.params.orgSlug)])

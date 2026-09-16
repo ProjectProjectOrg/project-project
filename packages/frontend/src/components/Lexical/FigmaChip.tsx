@@ -73,12 +73,12 @@ export function FigmaChip({
   )
 }
 
-interface FigmaChipProps {
-  readonly reference: FigmaRef | null
-  readonly url?: string
-  readonly label: string
-  readonly morphId: string
-}
+type FigmaChipProps = Readonly<{
+  reference: FigmaRef | null
+  url?: string
+  label: string
+  morphId: string
+}>
 
 function ResolvedFigmaChip({
   request,

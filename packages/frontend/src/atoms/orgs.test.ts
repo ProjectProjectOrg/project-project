@@ -3,11 +3,14 @@ import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
 import { OrgInvitation, OrgMember, OrgMembers } from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 import { stubFetch } from "@/api/testFetch"
 import {
   inviteMember,
   orgMembers,
   orgRequest,
+  removeMember,
   transferOwnership,
   updateMemberRole
 } from "./orgs"
@@ -182,6 +185,64 @@ describe("org members optimistic updates", () => {
         { userId: owner.userId, role: "owner" },
         { userId: plain.userId, role: "admin" }
       ])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("invalidates project and ticket views after removing a member", async () => {
+    const served: OrgMembers = { members: [owner, plain], invitations: [] }
+    const fetched = new Map<string, number>()
+    const probe = (name: string, key: string) =>
+      Api.query("tickets", "count", {
+        params: { orgSlug: "acme", slug: "web" },
+        query: { q: name },
+        timeToLive: "2 minutes",
+        reactivityKeys: [key]
+      })
+    const orgMembersProbe = probe(
+      "orgMembers",
+      Keys.orgMembers(req.params.orgSlug)
+    )
+    const projectsProbe = probe("projects", Keys.projects(req.params.orgSlug))
+    fetchStub.set((input, init) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        "http://localhost"
+      )
+      if (url.pathname.endsWith("/count")) {
+        const name = url.searchParams.get("q") ?? ""
+        fetched.set(name, (fetched.get(name) ?? 0) + 1)
+        return Promise.resolve(Response.json({ total: 0, byStatus: {} }))
+      }
+      return Promise.resolve(Response.json(encodeMembers(served)))
+    })
+    const registry = AtomRegistry.make()
+    const view = orgMembers(req)
+    const mutation = removeMember({ req, userId: plain.userId })
+    registry.mount(view)
+    registry.mount(mutation)
+    registry.mount(orgMembersProbe)
+    registry.mount(projectsProbe)
+    try {
+      await vi.waitFor(() => {
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+        expect(AsyncResult.isSuccess(registry.get(orgMembersProbe))).toBe(true)
+        expect(AsyncResult.isSuccess(registry.get(projectsProbe))).toBe(true)
+      })
+      fetched.clear()
+      registry.set(mutation, undefined)
+      await vi.waitFor(() => {
+        expect(registry.get(mutation).waiting).toBe(false)
+        expect(fetched.get("orgMembers") ?? 0).toBeGreaterThan(0)
+        expect(fetched.get("projects") ?? 0).toBeGreaterThan(0)
+      })
     } finally {
       registry.dispose()
     }

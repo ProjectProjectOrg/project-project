@@ -18,12 +18,12 @@ export function FigmaEmbed({
   )
 }
 
-interface FigmaEmbedProps {
-  readonly reference: FigmaRef | null
-  readonly url: string
-  readonly label: string
-  readonly morphId: string
-}
+type FigmaEmbedProps = Readonly<{
+  reference: FigmaRef | null
+  url: string
+  label: string
+  morphId: string
+}>
 
 function ResolvedFigmaEmbed({
   request,

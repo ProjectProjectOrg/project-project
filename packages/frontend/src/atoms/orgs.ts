@@ -225,6 +225,10 @@ export const removeMember = Atom.family(
                 withoutMember(value, userId)
               )
             )
+            yield* Reactivity.invalidate([
+              Keys.orgMembers(req.params.orgSlug),
+              Keys.projects(req.params.orgSlug)
+            ])
           })
         )
     })

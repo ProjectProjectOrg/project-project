@@ -1,10 +1,20 @@
+import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry"
 import { describe, expect, it, vi } from "vitest"
-import { Member, ProjectDetail } from "@projectproject/shared"
+import {
+  Member,
+  ProjectDetail,
+  UpdateProjectSetupInput
+} from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
-import { project, projectRequest, updateMember } from "./projects"
+import {
+  project,
+  projectRequest,
+  updateMember,
+  updateProjectSetup
+} from "./projects"
 
 const detail = Schema.decodeSync(ProjectDetail)({
   org: "acme",
@@ -152,6 +162,86 @@ describe("project member mutations", () => {
         )
       )
       await vi.waitFor(() => expect(registry.get(second).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("project setup mutations", () => {
+  it("carries a pending setup field into a superseding update", async () => {
+    const payloads: Array<unknown> = []
+    const inviteAt = DateTime.toDate(
+      DateTime.makeUnsafe("2026-04-01T00:00:00.000Z")
+    )
+    const githubAt = DateTime.toDate(
+      DateTime.makeUnsafe("2026-04-01T00:00:01.000Z")
+    )
+    const confirmed = {
+      ...detail,
+      setup: {
+        ...detail.setup,
+        invitePeopleDismissedAt: inviteAt,
+        connectGithubDismissedAt: githubAt
+      }
+    }
+    let served = detail
+    fetchStub.set(async (input, init) => {
+      if (init?.method === "PATCH") {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        const payload = Schema.decodeUnknownSync(UpdateProjectSetupInput)(
+          await request.json()
+        )
+        payloads.push(payload)
+        if (payload.connectGithubDismissedAt !== undefined) {
+          served = confirmed
+          return Response.json(encode(confirmed))
+        }
+        return new Promise<Response>(() => {})
+      }
+      return Promise.resolve(Response.json(encode(served)))
+    })
+    const req = projectRequest("acme", "web")
+    const view = project(req)
+    const mutation = updateProjectSetup(req)
+    const registry = AtomRegistry.make()
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+
+      registry.set(mutation, {
+        invitePeopleDismissedAt: inviteAt
+      })
+      registry.set(mutation, {
+        connectGithubDismissedAt: githubAt
+      })
+      expect(registry.get(view)).toMatchObject({
+        value: {
+          setup: {
+            invitePeopleDismissedAt: inviteAt,
+            connectGithubDismissedAt: githubAt
+          }
+        }
+      })
+      await vi.waitFor(() =>
+        expect(payloads).toContainEqual({
+          invitePeopleDismissedAt: inviteAt,
+          connectGithubDismissedAt: githubAt
+        })
+      )
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      expect(registry.get(view)).toMatchObject({
+        value: {
+          setup: {
+            invitePeopleDismissedAt: inviteAt,
+            connectGithubDismissedAt: githubAt
+          }
+        }
+      })
     } finally {
       registry.dispose()
     }

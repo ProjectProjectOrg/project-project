@@ -23,7 +23,11 @@ const countsQuery = (req: CountsRequest) => {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
-    reactivityKeys: [Keys.ticketsIn(scope), Keys.ticketLists(scope)]
+    reactivityKeys: [
+      Keys.ticketsIn(scope),
+      Keys.ticketLists(scope),
+      Keys.orgMembers(req.params.orgSlug)
+    ]
   })
 }
 

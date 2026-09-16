@@ -23,12 +23,12 @@ export const collapseRole = (role: string): OrgRole => {
   return "member"
 }
 
-interface RawInvitation {
-  readonly id: string
-  readonly email: string
-  readonly role?: string | null
-  readonly status: string
-}
+type RawInvitation = Readonly<{
+  id: string
+  email: string
+  role?: string | null
+  status: string
+}>
 
 export const pendingInvitations = (
   invitations: ReadonlyArray<RawInvitation>

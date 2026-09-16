@@ -32,7 +32,8 @@ export const ticketSearch = Atom.family((req: SearchRequest) => {
     reactivityKeys: [
       Keys.ticketsIn(scope),
       Keys.ticketLists(scope),
-      Keys.ticketTitleQuery(scope)
+      Keys.ticketTitleQuery(scope),
+      Keys.orgMembers(req.params.orgSlug)
     ]
   })
 })

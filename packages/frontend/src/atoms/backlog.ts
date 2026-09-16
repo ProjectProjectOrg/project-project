@@ -86,7 +86,10 @@ const sectionsQuery = (req: BacklogRequest) =>
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
-    reactivityKeys: [Keys.ticketsIn(scopeOf(req))]
+    reactivityKeys: [
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.orgMembers(req.params.orgSlug)
+    ]
   })
 
 const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
@@ -107,7 +110,8 @@ const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticketsIn(scopeOf(req)),
-      Keys.ticketPages(scopeOf(req))
+      Keys.ticketPages(scopeOf(req)),
+      Keys.orgMembers(req.params.orgSlug)
     ]
   })
 

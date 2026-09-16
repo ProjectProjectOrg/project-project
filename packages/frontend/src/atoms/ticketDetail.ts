@@ -36,7 +36,8 @@ export const ticketQuery = (req: TicketRequest) =>
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticket(scopeOf(req), req.params.id),
-      Keys.ticketsIn(scopeOf(req))
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.orgMembers(req.params.orgSlug)
     ]
   })
 
