@@ -5,6 +5,7 @@ import {
   ticketListQueryFromSearch,
   type TicketListQuery
 } from "@projectproject/shared"
+import { BacklogGroupingControl } from "../BacklogGroupingControl"
 import { TicketToolbar } from "./TicketToolbar"
 
 vi.mock("@/atoms/projectStatuses", async () => {
@@ -18,6 +19,7 @@ vi.mock("@/atoms/projectStatuses", async () => {
 
 const commit = vi.fn<(query: TicketListQuery) => void>()
 function Toolbar() {
+  const [grouping, setGrouping] = useState<"status" | "sprint">("status")
   const [query, setQuery] = useState(
     ticketListQueryFromSearch({ type: ["bug"], sort: "title:asc" })
   )
@@ -34,7 +36,9 @@ function Toolbar() {
       counts={{ all: 0 }}
       filters={["type"]}
       showSort
-    />
+    >
+      <BacklogGroupingControl value={grouping} onChange={setGrouping} />
+    </TicketToolbar>
   )
 }
 
@@ -58,6 +62,31 @@ describe("toolbar search ownership", () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+  })
+
+  it("changes grouping without clearing filters, sort or pending search", () => {
+    render(<Toolbar />)
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "pending" }
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Group by: Status" }))
+    expect(
+      screen
+        .getByRole("menuitemradio", { name: "Status" })
+        .getAttribute("aria-checked")
+    ).toBe("true")
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Sprint" }))
+    expect(
+      screen.getByRole("button", { name: "Group by: Sprint" })
+    ).toBeTruthy()
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    expect(commit.mock.lastCall?.[0]).toMatchObject({
+      q: "pending",
+      filter: { type: ["bug"] },
+      sort: { key: "title", dir: "asc" }
+    })
   })
 
   it("keeps draft typing local until the debounced query commits", () => {

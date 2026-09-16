@@ -145,6 +145,7 @@ export function AssigneeField({
   members,
   sprintTicketsKey,
   ticketSectionsKey,
+  onChange,
   variant = "row",
   className
 }: {
@@ -154,6 +155,7 @@ export function AssigneeField({
   members: ReadonlyArray<Member>
   sprintTicketsKey?: string
   ticketSectionsKey?: string
+  onChange?: (value: ReadonlyArray<string>) => void
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -164,7 +166,8 @@ export function AssigneeField({
   const resolved = resolveAssignees(assignees, members)
 
   const setAssignees = (next: ReadonlyArray<string>) => {
-    update({ assignees: next, sprintTicketsKey, ticketSectionsKey })
+    if (onChange) onChange(next)
+    else update({ assignees: next, sprintTicketsKey, ticketSectionsKey })
   }
   const toggle = (memberId: string) =>
     setAssignees(
