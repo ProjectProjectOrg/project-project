@@ -32,6 +32,7 @@ export interface TicketDocument {
   readonly tags: ReadonlyArray<TagName>
   readonly branch: string | null
   readonly branchAutoLinkDisabled?: boolean
+  readonly splitFrom?: TicketId | null
   readonly pr: number | null
   readonly prState: PullRequestState | null
   readonly lastTransitionedPr: number | null

@@ -77,6 +77,8 @@ const FakeGroups = Layer.succeed(Groups, {
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
+  ensureSprintAssignable: () => Effect.void,
+  setSprintMembership: () => Effect.void,
   removeTicketFromAllGroups: () => Effect.void
 } satisfies GroupsShape)
 

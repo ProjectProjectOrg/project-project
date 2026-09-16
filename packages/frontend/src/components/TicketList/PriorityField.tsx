@@ -18,29 +18,54 @@ import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import type { TicketId, TicketPriority } from "@projectproject/shared"
 
-export function PriorityButton({
-  orgSlug,
-  slug,
-  ticket,
-  stopPropagation,
-  sprintTicketsKey,
-  ticketSectionsKey,
-  onChange
+function PriorityMenuItems({
+  current,
+  onSelect
 }: {
-  orgSlug: string
-  slug: string
-  ticket: { id: TicketId; priority: TicketPriority }
-  stopPropagation?: boolean
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
-  onChange?: (value: TicketPriority) => void
+  current: TicketPriority
+  onSelect: (priority: TicketPriority) => void
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  return (
+    <>
+      {PRIORITY_ORDER.map((p) => {
+        const pMeta = PRIORITY_META[p]
+        const PIcon = pMeta.icon
+        return (
+          <DropdownMenuItem
+            key={p}
+            onClick={() => {
+              if (p === current) return
+              onSelect(p)
+            }}
+            className="cursor-pointer"
+          >
+            <PIcon
+              className={cn("size-4", pMeta.className)}
+              strokeWidth={1.75}
+            />
+            {PRIORITY_LABELS[p]()}
+            {p === current && (
+              <Check className="ml-auto size-3.5 text-muted-foreground" />
+            )}
+          </DropdownMenuItem>
+        )
+      })}
+    </>
   )
-  const meta = PRIORITY_META[ticket.priority]
+}
+
+export function PrioritySelect({
+  value,
+  onChange,
+  stopPropagation
+}: {
+  value: TicketPriority
+  onChange: (priority: TicketPriority) => void
+  stopPropagation?: boolean
+}) {
+  const meta = PRIORITY_META[value]
   const Icon = meta.icon
-  const priorityLabel = PRIORITY_LABELS[ticket.priority]()
+  const priorityLabel = PRIORITY_LABELS[value]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -69,33 +94,42 @@ export function PriorityButton({
         className="w-44"
         onClick={(e) => e.stopPropagation()}
       >
-        {PRIORITY_ORDER.map((p) => {
-          const pMeta = PRIORITY_META[p]
-          const PIcon = pMeta.icon
-          return (
-            <DropdownMenuItem
-              key={p}
-              onClick={() => {
-                if (p === ticket.priority) return
-                if (onChange) onChange(p)
-                else
-                  update({ priority: p, sprintTicketsKey, ticketSectionsKey })
-              }}
-              className="cursor-pointer"
-            >
-              <PIcon
-                className={cn("size-4", pMeta.className)}
-                strokeWidth={1.75}
-              />
-              {PRIORITY_LABELS[p]()}
-              {p === ticket.priority && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <PriorityMenuItems current={value} onSelect={onChange} />
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function PriorityButton({
+  orgSlug,
+  slug,
+  ticket,
+  stopPropagation,
+  sprintTicketsKey,
+  ticketSectionsKey,
+  onChange
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; priority: TicketPriority }
+  stopPropagation?: boolean
+  sprintTicketsKey?: string
+  ticketSectionsKey?: string
+  onChange?: (value: TicketPriority) => void
+}) {
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+  return (
+    <PrioritySelect
+      value={ticket.priority}
+      stopPropagation={stopPropagation}
+      onChange={(priority) =>
+        onChange
+          ? onChange(priority)
+          : update({ priority, sprintTicketsKey, ticketSectionsKey })
+      }
+    />
   )
 }
 
@@ -142,29 +176,10 @@ export function PriorityBadgeTrigger({
         finalFocus={false}
         onClick={(e) => e.stopPropagation()}
       >
-        {PRIORITY_ORDER.map((p) => {
-          const pMeta = PRIORITY_META[p]
-          const PIcon = pMeta.icon
-          return (
-            <DropdownMenuItem
-              key={p}
-              onClick={() => {
-                if (p === ticket.priority) return
-                update({ priority: p })
-              }}
-              className="cursor-pointer"
-            >
-              <PIcon
-                className={cn("size-4", pMeta.className)}
-                strokeWidth={1.75}
-              />
-              {PRIORITY_LABELS[p]()}
-              {p === ticket.priority && (
-                <Check className="ml-auto size-3.5 text-muted-foreground" />
-              )}
-            </DropdownMenuItem>
-          )
-        })}
+        <PriorityMenuItems
+          current={ticket.priority}
+          onSelect={(priority) => update({ priority })}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -13,23 +13,20 @@ import { m } from "@/paraglide/messages"
 import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import type { TicketId, TicketType } from "@projectproject/shared"
 
-export function TypeBadgeTrigger({
-  orgSlug,
-  slug,
-  ticket,
+export function TypeSelect({
+  value,
+  onChange,
+  ariaLabel,
   className
 }: {
-  orgSlug: string
-  slug: string
-  ticket: { id: TicketId; type: TicketType }
+  value: TicketType
+  onChange: (type: TicketType) => void
+  ariaLabel?: string
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
-  const meta = TYPE_META[ticket.type]
+  const meta = TYPE_META[value]
   const Icon = meta.icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
+  const typeLabel = TYPE_LABELS[value]()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -38,7 +35,9 @@ export function TypeBadgeTrigger({
             type="button"
             variant="chip"
             onClick={(e) => e.stopPropagation()}
-            aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+            aria-label={
+              ariaLabel ?? m.tickets_type_aria_label({ label: typeLabel })
+            }
             className={className}
           >
             <Icon className="size-3.5" strokeWidth={1.75} />
@@ -60,14 +59,14 @@ export function TypeBadgeTrigger({
             <DropdownMenuItem
               key={t}
               onClick={() => {
-                if (t === ticket.type) return
-                update({ type: t })
+                if (t === value) return
+                onChange(t)
               }}
               className="cursor-pointer"
             >
               <TIcon className="size-4" strokeWidth={1.75} />
               {TYPE_LABELS[t]()}
-              {t === ticket.type && (
+              {t === value && (
                 <Check className="ml-auto size-3.5 text-muted-foreground" />
               )}
             </DropdownMenuItem>
@@ -75,6 +74,29 @@ export function TypeBadgeTrigger({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function TypeBadgeTrigger({
+  orgSlug,
+  slug,
+  ticket,
+  className
+}: {
+  orgSlug: string
+  slug: string
+  ticket: { id: TicketId; type: TicketType }
+  className?: string
+}) {
+  const update = useAtomSet(
+    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  )
+  return (
+    <TypeSelect
+      value={ticket.type}
+      onChange={(type) => update({ type })}
+      className={className}
+    />
   )
 }
 

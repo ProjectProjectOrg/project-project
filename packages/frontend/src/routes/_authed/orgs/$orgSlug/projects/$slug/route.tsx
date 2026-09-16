@@ -110,21 +110,18 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   }
 })
 
-const TICKET_DETAIL_ROUTE_ID: FileRouteTypes["id"] =
-  "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
-const PROJECT_SETTINGS_ROUTE_ID: FileRouteTypes["id"] =
+const HEADERLESS_ROUTE_IDS: ReadonlyArray<FileRouteTypes["id"]> = [
+  "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id",
+  "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split",
   "/_authed/orgs/$orgSlug/projects/$slug/settings"
+]
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
   const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
   const headerHidden = useMatches({
     select: (matches) =>
-      matches.some(
-        (match) =>
-          match.routeId === TICKET_DETAIL_ROUTE_ID ||
-          match.routeId === PROJECT_SETTINGS_ROUTE_ID
-      )
+      matches.some((match) => HEADERLESS_ROUTE_IDS.includes(match.routeId))
   })
 
   return Result.matchWithError(project, {

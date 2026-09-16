@@ -39,6 +39,7 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRouteImport } fro
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTeamRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/team'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsIntegrationsRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/integrations'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/general'
+import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_.split'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -210,6 +211,12 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRoute =
     path: '/general',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute =
+  AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport.update({
+    id: '/tickets/$id_/split',
+    path: '/tickets/$id/split',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
+  '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
 }
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
@@ -267,6 +275,7 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/orgs/$orgSlug/projects/$slug/settings': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
+  '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -300,6 +309,7 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugSprintsIndexRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/orgs/$orgSlug/projects/$slug/settings/'
     | '/orgs/$orgSlug/projects/$slug/sprints/'
+    | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/welcome'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/orgs/$orgSlug/projects/$slug/settings'
     | '/orgs/$orgSlug/projects/$slug/sprints'
+    | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
   id:
     | '__root__'
     | '/_authed'
@@ -391,6 +403,7 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/'
     | '/_authed/orgs/$orgSlug/projects/$slug/sprints/'
+    | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -613,6 +626,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split'
+      path: '/tickets/$id/split'
+      fullPath: '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
   }
 }
 
@@ -695,6 +715,7 @@ interface AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugAboutRoute: typeof AuthedOrgsOrgSlugProjectsSlugAboutRoute
   AuthedOrgsOrgSlugProjectsSlugIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute
+  AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
 }
 
 const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren =
@@ -709,6 +730,8 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteChildren: AuthedOrgsOrgSlugProjects
       AuthedOrgsOrgSlugProjectsSlugIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute:
       AuthedOrgsOrgSlugProjectsSlugTicketsIdRoute,
+    AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute:
+      AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute,
   }
 
 const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
