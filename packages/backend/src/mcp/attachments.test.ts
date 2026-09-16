@@ -179,6 +179,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
               archivedAt: null,
               createdBy: user.id,
               createdAt: user.createdAt,
+              updatedBy: user.id,
               updatedAt: user.createdAt
             })
       }

@@ -35,6 +35,8 @@ const ticket = {
   assignees: [],
   archivedAt: null,
   createdBy: "user-1",
+  creator: null,
+  updater: null,
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   body: "Before"

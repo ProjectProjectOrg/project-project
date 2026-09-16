@@ -55,6 +55,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     archivedAt: null,
     createdBy: userId,
     createdAt,
+    updatedBy: userId,
     updatedAt: createdAt,
     commentsRegion: "",
     body: "Ticket body"

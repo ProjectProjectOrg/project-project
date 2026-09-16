@@ -22,9 +22,9 @@ import { DescriptionField } from "@/components/TicketPage/DescriptionField"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { TicketDesignLinks } from "@/components/TicketPage/TicketDesignLinks"
 import { TitleField } from "@/components/TicketPage/TitleField"
+import { UserTimestamp } from "@/components/TicketPage/UserTimestamp"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 import { deleteTicketAtom, ticketKey } from "@/atoms/tickets"
 import type {
   GithubConnection,
@@ -53,7 +53,6 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const { canManageTags } = useProjectRole()
-  const locale = getLocale()
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
@@ -188,30 +187,10 @@ export function TicketPage({
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <MetaRow label={m.tickets_page_meta_created()}>
-            <time
-              dateTime={ticket.createdAt.toISOString()}
-              title={ticket.createdAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.createdAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <UserTimestamp user={ticket.creator} timestamp={ticket.createdAt} />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_updated()}>
-            <time
-              dateTime={ticket.updatedAt.toISOString()}
-              title={ticket.updatedAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.updatedAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <UserTimestamp user={ticket.updater} timestamp={ticket.updatedAt} />
           </MetaRow>
         </aside>
       </div>

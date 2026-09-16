@@ -67,6 +67,7 @@ function makeTicketDocument(
     archivedAt: null,
     createdBy: "user-1",
     createdAt: now,
+    updatedBy: "user-1",
     updatedAt: now,
     body: "",
     commentsRegion: ""
