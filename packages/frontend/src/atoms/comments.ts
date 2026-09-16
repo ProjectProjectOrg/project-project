@@ -107,7 +107,7 @@ export const createComment = Atom.family((key: CreateCommentKey) =>
       ]),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: CreateCommentInput, get) {
+        Effect.fn("createComment")(function* (input: CreateCommentInput, get) {
           const created = yield* Api.use((client) =>
             client.ticketComments.create({
               params: key.req.params,
@@ -153,7 +153,7 @@ export const editComment = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: UpdateCommentInput, get) {
+          Effect.fn("editComment")(function* (input: UpdateCommentInput, get) {
             const updated = yield* Api.use((client) =>
               client.ticketComments.update({
                 params: { ...req.params, commentId },
@@ -190,7 +190,7 @@ export const deleteComment = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("deleteComment")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.ticketComments.delete({
                 params: { ...req.params, commentId }

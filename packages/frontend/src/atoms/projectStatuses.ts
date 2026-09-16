@@ -68,7 +68,7 @@ export const createStatus = Atom.family((req: StatusesRequest) =>
       }),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: CreateStatusInput, get) {
+        Effect.fn("createStatus")(function* (input: CreateStatusInput, get) {
           const created = yield* Api.use((client) =>
             client.statuses.create({ params: req.params, payload: input })
           )
@@ -110,7 +110,7 @@ export const updateStatus = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateStatusInput, get) {
+          Effect.fn("updateStatus")(function* (patch: UpdateStatusInput, get) {
             const updated = yield* Api.use((client) =>
               client.statuses.update({
                 params: { ...req.params, statusSlug },
@@ -158,7 +158,10 @@ export const reorderStatus = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: ReorderStatusInput, get) {
+          Effect.fn("reorderStatus")(function* (
+            input: ReorderStatusInput,
+            get
+          ) {
             const reordered = yield* Api.use((client) =>
               client.statuses.reorder({
                 params: { ...req.params, statusSlug },
@@ -210,7 +213,7 @@ export const deleteStatus = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: DeleteStatusInput, get) {
+          Effect.fn("deleteStatus")(function* (input: DeleteStatusInput, get) {
             yield* Api.use((client) =>
               client.statuses.remove({
                 params: { ...req.params, statusSlug },

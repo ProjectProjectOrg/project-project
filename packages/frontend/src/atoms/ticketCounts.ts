@@ -27,11 +27,6 @@ const countsQuery = (req: CountsRequest) => {
   })
 }
 
-/**
- * Counts are read by the project sidebar, which never mutates them directly.
- * The wrapper exists so a future count-affecting mutation has something to
- * target, and so `waiting` is available for the badge.
- */
 export const ticketCounts = Atom.family((req: CountsRequest) =>
-  Atom.optimistic(countsQuery(req))
+  countsQuery(req)
 )

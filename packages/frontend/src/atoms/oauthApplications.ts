@@ -34,7 +34,7 @@ export const revokeOAuthApplicationAtom = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("deleteOauthApplication")(function* (_input: void, get) {
             const result = yield* Api.use((client) =>
               client.oauthApplications.revoke({ params: { id } })
             )

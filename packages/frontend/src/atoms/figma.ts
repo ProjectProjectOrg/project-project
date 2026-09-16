@@ -54,7 +54,7 @@ export const disconnectFigmaProfileAtom = Atom.optimisticFn(figmaProfileAtom, {
     })),
   fn: (set) =>
     Api.runtime.fn(
-      Effect.fn(function* (_input: void) {
+      Effect.fn("disconnectFigmaProfile")(function* (_input: void) {
         const profile = yield* Api.use((client) =>
           client.figma.disconnectProfile()
         )
@@ -86,7 +86,9 @@ export const connectFigmaProjectAtom = Atom.family((req: FigmaProjectRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: ConnectFigmaProjectInput) {
+        Effect.fn("connectFigmaProject")(function* (
+          input: ConnectFigmaProjectInput
+        ) {
           const status = yield* Api.use((client) =>
             client.figma.connectProject({
               params: req.params,
@@ -126,7 +128,7 @@ export const disconnectFigmaProjectAtom = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void) {
+          Effect.fn("disconnectFigmaProject")(function* (_input: void) {
             const status = yield* Api.use((client) =>
               client.figma.disconnectProject({ params: req.params })
             )

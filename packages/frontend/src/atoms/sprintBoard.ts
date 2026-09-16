@@ -117,7 +117,7 @@ export const placeBoardTicket = Atom.family((req: BoardRequest) =>
     reducer: (current, input: UpdateTicketOrderInput) =>
       AsyncResult.map(current, (value) => placeTicket(value, input)),
     fn: Api.runtime.fn(
-      Effect.fn(function* (input: UpdateTicketOrderInput) {
+      Effect.fn("placeBoardTicket")(function* (input: UpdateTicketOrderInput) {
         yield* Api.use((client) =>
           client.groups.updateTicketOrder({
             params: req.params,
@@ -151,7 +151,10 @@ export const updateBoardTicket = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateTicketInput, get) {
+          Effect.fn("updateBoardTicket")(function* (
+            patch: UpdateTicketInput,
+            get
+          ) {
             const unsaved = unsavedBoardTicketPatch({ req, id })
             const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
             get.set(unsaved, payload)

@@ -30,12 +30,7 @@ export const ticketRequest = (
 const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-/**
- * Listens only to this ticket's own content key. It deliberately does NOT
- * listen to `ticketsIn`, because this view's own mutation publishes that key
- * for the backlog, and self-invalidation would refetch twice per edit.
- */
-const ticketQuery = (req: TicketRequest) =>
+export const ticketQuery = (req: TicketRequest) =>
   Api.query("tickets", "get", {
     params: req.params,
     timeToLive: "2 minutes",
@@ -82,7 +77,10 @@ export const updateTicketDetail = Atom.family((req: TicketRequest) =>
       ),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (patch: UpdateTicketInput, get) {
+        Effect.fn("updateTicketDetail")(function* (
+          patch: UpdateTicketInput,
+          get
+        ) {
           const unsaved = unsavedTicketPatch(req)
           const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
           get.set(unsaved, payload)
@@ -120,7 +118,7 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
       ),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: ArchiveTicketInput) {
+        Effect.fn("archiveTicket")(function* (input: ArchiveTicketInput) {
           const updated = yield* Api.use((client) =>
             client.tickets.archive({ params: req.params, payload: input })
           )
@@ -142,7 +140,7 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
       AsyncResult.map(current, (ticket) => ({ ...ticket, archivedAt: null })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("unarchiveTicket")(function* (_input: void) {
           const updated = yield* Api.use((client) =>
             client.tickets.unarchive({ params: req.params })
           )
@@ -160,7 +158,7 @@ export const unarchiveTicket = Atom.family((req: TicketRequest) =>
 
 export const deleteTicket = Atom.family((req: TicketRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (_input: void) {
+    Effect.fn("deleteTicket")(function* (_input: void) {
       yield* Api.use((client) => client.tickets.delete({ params: req.params }))
       yield* Reactivity.invalidate([
         Keys.ticketsIn(scopeOf(req)),

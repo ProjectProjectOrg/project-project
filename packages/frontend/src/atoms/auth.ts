@@ -16,12 +16,14 @@ const meAtom = Atom.optimistic(meQuery)
 export const me = () => meAtom
 
 export const logout = Api.runtime.fn(
-  Effect.fn(function* (_: void) {
+  Effect.fn("logout")(function* (_: void) {
     yield* Effect.tryPromise(() => authData(authClient.signOut()))
   })
 )
 
-const publishGithubAuth = Effect.fn(function* (get: Atom.FnContext) {
+const publishGithubAuth = Effect.fn("publishGithubAuth")(function* (
+  get: Atom.FnContext
+) {
   const orgSlug = yield* get.result(me()).pipe(
     Effect.map((user) => user.activeOrgSlug),
     Effect.orElseSucceed(() => null)
@@ -32,7 +34,7 @@ const publishGithubAuth = Effect.fn(function* (get: Atom.FnContext) {
 })
 
 export const connectPersonalGithub = Api.runtime.fn(
-  Effect.fn(function* (_: void, get) {
+  Effect.fn("connectPersonalGithub")(function* (_: void, get) {
     yield* Effect.tryPromise(() =>
       authData(
         authClient.linkSocial({
@@ -48,7 +50,7 @@ export const connectPersonalGithub = Api.runtime.fn(
 )
 
 export const disconnectPersonalGithub = Api.runtime.fn(
-  Effect.fn(function* (_: void, get) {
+  Effect.fn("disconnectPersonalGithub")(function* (_: void, get) {
     const accounts = yield* Effect.tryPromise(() =>
       authData(authClient.listAccounts())
     )
@@ -65,7 +67,9 @@ export const disconnectPersonalGithub = Api.runtime.fn(
 )
 
 export const updateEditorPreference = Api.runtime.fn(
-  Effect.fn(function* (editorPreference: EditorPreference) {
+  Effect.fn("updateEditorPreference")(function* (
+    editorPreference: EditorPreference
+  ) {
     yield* Effect.tryPromise(() =>
       authData(authClient.updateUser({ editorPreference }))
     )
@@ -74,7 +78,7 @@ export const updateEditorPreference = Api.runtime.fn(
 )
 
 export const setActiveOrganization = Api.runtime.fn(
-  Effect.fn(function* (organizationSlug: string) {
+  Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {
     yield* Effect.tryPromise(() =>
       authData(authClient.organization.setActive({ organizationSlug }))
     )

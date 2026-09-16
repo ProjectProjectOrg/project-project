@@ -1,6 +1,6 @@
 import type { Session, User } from "../auth"
 import * as Context from "effect/Context"
-import * as Data from "effect/Data"
+import * as Schema from "effect/Schema"
 import type * as Effect from "effect/Effect"
 import type {
   AssignableRole,
@@ -16,19 +16,22 @@ import type {
   UserInvitation
 } from "@projectproject/shared"
 
-export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
-  readonly cause: unknown
-}> {}
+export class BetterAuthError extends Schema.TaggedError<BetterAuthError>()(
+  "BetterAuthError",
+  { cause: Schema.Unknown }
+) {}
 
-// Boundary error: user has no GitHub account row, or the row has no token.
-// The Auth service maps this to `GitHubTokenExpired` for the wire.
-export class NoGithubToken extends Data.TaggedError("NoGithubToken")<{}> {}
+export class NoGithubToken extends Schema.TaggedError<NoGithubToken>()(
+  "NoGithubToken",
+  {}
+) {}
 
-export interface InvitationState {
-  readonly status: string
-  readonly email: string
-  readonly expiresAt: Date
-}
+export const InvitationState = Schema.Struct({
+  status: Schema.String,
+  email: Schema.String,
+  expiresAt: Schema.Date
+})
+export type InvitationState = typeof InvitationState.Type
 
 export interface BetterAuthShape {
   readonly handler: (

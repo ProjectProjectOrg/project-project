@@ -61,7 +61,7 @@ export const renameOrg = Atom.family((req: OrgRequest) =>
       AsyncResult.map(current, (org) => ({ ...org, name: input.name })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: RenameOrgInput) {
+        Effect.fn("renameOrg")(function* (input: RenameOrgInput) {
           const renamed = yield* Api.use((client) =>
             client.org.rename({ params: req.params, payload: input })
           )
@@ -87,7 +87,7 @@ export const softDeleteOrg = Atom.family((req: OrgRequest) =>
     reducer: (current, _input: void) => AsyncResult.map(current, softDeleted),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("softDeleteOrg")(function* (_input: void) {
           const deleted = yield* Api.use((client) =>
             client.org.softDelete({ params: req.params })
           )
@@ -109,7 +109,7 @@ export const restoreOrg = Atom.family((req: OrgRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("restoreOrg")(function* (_input: void) {
           const restored = yield* Api.use((client) =>
             client.org.restore({ params: req.params })
           )
@@ -140,7 +140,7 @@ export const inviteMember = Atom.family((req: OrgRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: InviteMemberInput, get) {
+        Effect.fn("inviteMember")(function* (input: InviteMemberInput, get) {
           const invitation = yield* Api.use((client) =>
             client.org.inviteMember({ params: req.params, payload: input })
           )
@@ -183,7 +183,10 @@ export const updateMemberRole = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: UpdateMemberRoleInput, get) {
+          Effect.fn("updateMemberRole")(function* (
+            input: UpdateMemberRoleInput,
+            get
+          ) {
             const member = yield* Api.use((client) =>
               client.org.updateMemberRole({
                 params: { ...req.params, userId },
@@ -213,7 +216,7 @@ export const removeMember = Atom.family(
         AsyncResult.map(current, (value) => withoutMember(value, userId)),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("removeMember")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.org.removeMember({ params: { ...req.params, userId } })
             )
@@ -249,7 +252,7 @@ export const cancelInvitation = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("cancelInvitation")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.org.cancelInvitation({
                 params: { ...req.params, invitationId }
@@ -292,7 +295,9 @@ export const transferOwnership = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: TransferOrgOwnershipInput) {
+          Effect.fn("transferOwnership")(function* (
+            input: TransferOrgOwnershipInput
+          ) {
             const members = yield* Api.use((client) =>
               client.org.transferOwnership({
                 params: req.params,
@@ -312,7 +317,7 @@ export const transferOwnership = Atom.family(
 
 export const leaveOrg = Atom.family((req: OrgRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (_input: void) {
+    Effect.fn("leaveOrg")(function* (_input: void) {
       yield* Api.use((client) => client.org.leave({ params: req.params }))
       yield* Reactivity.invalidate([Keys.orgs(), Keys.me()])
     })

@@ -20,7 +20,7 @@ export const everhourProjectRequest = (
 const scopeOf = (req: EverhourProjectRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-const everhourProfileQuery = Api.query("everhour", "profile", {
+export const everhourProfileQuery = Api.query("everhour", "profile", {
   timeToLive: "1 minute",
   reactivityKeys: [Keys.everhourProfile()]
 })
@@ -38,7 +38,9 @@ export const connectEverhourProfileAtom = Atom.optimisticFn(
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: ConnectEverhourProfileInput) {
+        Effect.fn("connectEverhourProfile")(function* (
+          input: ConnectEverhourProfileInput
+        ) {
           const profile = yield* Api.use((client) =>
             client.everhour.connectProfile({ payload: input })
           )
@@ -64,7 +66,7 @@ export const disconnectEverhourProfileAtom = Atom.optimisticFn(
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("disconnectEverhourProfile")(function* (_input: void) {
           const profile = yield* Api.use((client) =>
             client.everhour.disconnectProfile()
           )
@@ -100,7 +102,7 @@ export const connectEverhourProjectAtom = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void) {
+          Effect.fn("connectEverhourProject")(function* (_input: void) {
             const summary = yield* Api.use((client) =>
               client.everhour.connectProject({ params: req.params })
             )
@@ -121,7 +123,7 @@ export const syncEverhourProjectAtom = Atom.family(
         AsyncResult.map(current, (status) => status),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void) {
+          Effect.fn("syncEverhourProject")(function* (_input: void) {
             const summary = yield* Api.use((client) =>
               client.everhour.syncProject({ params: req.params })
             )
@@ -151,7 +153,7 @@ export const disconnectEverhourProjectAtom = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void) {
+          Effect.fn("disconnectEverhourProject")(function* (_input: void) {
             const status = yield* Api.use((client) =>
               client.everhour.disconnectProject({ params: req.params })
             )

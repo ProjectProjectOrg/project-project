@@ -91,7 +91,7 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
         ...sprints
       ]),
     fn: Api.runtime.fn(
-      Effect.fn(function* (input: CreateGroupInput) {
+      Effect.fn("createSprint")(function* (input: CreateGroupInput) {
         return yield* Api.use((client) =>
           client.groups.create({ params: req.params, payload: input })
         )
@@ -117,7 +117,7 @@ export const updateSprint = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateGroupInput, get) {
+          Effect.fn("updateSprint")(function* (patch: UpdateGroupInput, get) {
             const updated = yield* Api.use((client) =>
               client.groups.update({
                 params: { ...req.params, id: groupId },
@@ -152,7 +152,7 @@ export const deleteSprint = Atom.family(
           sprints.filter((sprint) => sprint.id !== groupId)
         ),
       fn: Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("deleteSprint")(function* (_input: void) {
           yield* Api.use((client) =>
             client.groups.delete({ params: { ...req.params, id: groupId } })
           )
@@ -212,7 +212,10 @@ export const completeSprint = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: CompleteSprintInput, get) {
+          Effect.fn("completeSprint")(function* (
+            input: CompleteSprintInput,
+            get
+          ) {
             const result = yield* Api.use((client) =>
               client.groups.complete({
                 params: { ...req.params, id: groupId },
@@ -280,7 +283,10 @@ export const addTicketsToSprint = Atom.family(
         }),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: SprintAssignmentInput, get) {
+          Effect.fn("addTicketsToSprint")(function* (
+            input: SprintAssignmentInput,
+            get
+          ) {
             const { groupId } = input
             const scope = scopeOf(req)
             const list = get(sprintList(req))
@@ -362,7 +368,10 @@ export const removeTicketsFromSprint = Atom.family(
         }),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: SprintAssignmentInput, get) {
+          Effect.fn("removeTicketsFromSprint")(function* (
+            input: SprintAssignmentInput,
+            get
+          ) {
             const { groupId } = input
             const scope = scopeOf(req)
             const list = get(sprintList(req))

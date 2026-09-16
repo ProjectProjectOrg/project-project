@@ -43,7 +43,7 @@ export const updateSprintDetail = Atom.family((req: SprintRequest) =>
       ),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (patch: UpdateGroupInput) {
+        Effect.fn("updateSprintDetail")(function* (patch: UpdateGroupInput) {
           const updated = yield* Api.use((client) =>
             client.groups.update({ params: req.params, payload: patch })
           )

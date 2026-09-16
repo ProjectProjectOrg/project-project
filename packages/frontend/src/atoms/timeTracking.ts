@@ -17,7 +17,7 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { everhourProfileAtom } from "./everhour"
+import { everhourProfileQuery } from "./everhour"
 
 export type ActiveTimerRequest = Readonly<{
   params: Readonly<{ orgSlug: string }>
@@ -117,14 +117,17 @@ export type TicketTimePanelValue = Readonly<{
 
 const ticketTimePanelView = (req: TicketTimeRequest) => {
   const timerReq = activeTimerRequest(req.params.orgSlug)
+  const timer = activeTimerQuery(timerReq)
+  const workTypes = workTypesQuery(req)
+  const time = ticketTimeQuery(req)
   return Atom.readable(
     (get) =>
       AsyncResult.map(
         AsyncResult.all([
-          get(everhourProfileAtom),
-          get(workTypesForTicketAtom(req)),
-          get(ticketTimeAtom(req)),
-          get(activeTimerAtom(timerReq))
+          get(everhourProfileQuery),
+          get(workTypes),
+          get(time),
+          get(timer)
         ]),
         ([profile, workTypes, time, activeTimer]): TicketTimePanelValue => ({
           profile,
@@ -134,10 +137,10 @@ const ticketTimePanelView = (req: TicketTimeRequest) => {
         })
       ),
     (refresh) => {
-      refresh(everhourProfileAtom)
-      refresh(workTypesForTicketAtom(req))
-      refresh(ticketTimeAtom(req))
-      refresh(activeTimerAtom(timerReq))
+      refresh(everhourProfileQuery)
+      refresh(workTypes)
+      refresh(time)
+      refresh(timer)
     }
   )
 }
@@ -187,7 +190,7 @@ export const startTicketTimerAtom = Atom.family((req: TicketTimeRequest) => {
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: StartTimerInput, get) {
+        Effect.fn("startTicketTimer")(function* (input: StartTimerInput, get) {
           const previous = get(activeTimerQuery(timerReq))
           const keyToInvalidate = previousTicketKey(
             req.params.orgSlug,
@@ -230,7 +233,10 @@ export const startActiveTicketTimerAtom = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: StartTimerInput, get) {
+          Effect.fn("startActiveTicketTimer")(function* (
+            input: StartTimerInput,
+            get
+          ) {
             const previous = get(activeTimerQuery(timerReq))
             const keyToInvalidate = previousTicketKey(
               timerReq.params.orgSlug,
@@ -273,7 +279,10 @@ export const startSprintTimerAtom = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: StartSprintTimerInput, get) {
+          Effect.fn("startSprintTimer")(function* (
+            input: StartSprintTimerInput,
+            get
+          ) {
             const previous = get(activeTimerQuery(timerReq))
             const keyToInvalidate = previousTicketKey(
               timerReq.params.orgSlug,
@@ -305,7 +314,7 @@ export const stopTimerAtom = Atom.family((req: ActiveTimerRequest) =>
     reducer: (current, _input: void) => AsyncResult.map(current, () => null),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("stopTimer")(function* (_input: void) {
           const stopped = yield* Api.use((client) =>
             client.everhour.stopTimer({ params: req.params })
           )
@@ -326,7 +335,7 @@ export const stopTicketTimerAtom = Atom.family((req: TicketTimeRequest) =>
       AsyncResult.map(current, (panel) => ({ ...panel, activeTimer: null })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void, get) {
+        Effect.fn("stopTicketTimer")(function* (_input: void, get) {
           const stopped = yield* Api.use((client) =>
             client.everhour.stopTimer({
               params: { orgSlug: req.params.orgSlug }
@@ -365,7 +374,7 @@ export const logTicketTimeAtom = Atom.family((req: TicketTimeRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: LogTimeInput, get) {
+        Effect.fn("logTicketTime")(function* (input: LogTimeInput, get) {
           const summary = yield* Api.use((client) =>
             client.everhour.logTime({
               params: {
@@ -389,7 +398,7 @@ export const logTicketTimeAtom = Atom.family((req: TicketTimeRequest) =>
 
 export const logTimeAtom = Atom.family((req: ProjectTimeRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (input: LogTimeInput) {
+    Effect.fn("logTime")(function* (input: LogTimeInput) {
       const summary = yield* Api.use((client) =>
         client.everhour.logTime({ params: req.params, payload: input })
       )

@@ -32,7 +32,7 @@ export const acceptInvitation = Atom.family(
         AsyncResult.map(current, (value) => without(value, invitationId)),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("acceptInvitation")(function* (_input: void, get) {
             const org = yield* Api.use((client) =>
               client.invitations.accept({ params: { invitationId } })
             )
@@ -55,7 +55,7 @@ export const rejectInvitation = Atom.family(
         AsyncResult.map(current, (value) => without(value, invitationId)),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("rejectInvitation")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.invitations.reject({ params: { invitationId } })
             )

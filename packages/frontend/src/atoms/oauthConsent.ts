@@ -19,7 +19,7 @@ export type SubmitConsentInput = Readonly<{
 
 export const submitConsentAtom = Atom.family((req: OAuthConsentRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (input: SubmitConsentInput) {
+    Effect.fn("submitConsent")(function* (input: SubmitConsentInput) {
       const result = yield* Api.use((client) =>
         client.oauthApplications.consent({
           payload: {
@@ -60,5 +60,5 @@ const oauthClientNameQuery = (req: OAuthClientRequest) =>
       })
 
 export const oauthClientNameAtom = Atom.family((req: OAuthClientRequest) =>
-  Atom.optimistic(oauthClientNameQuery(req))
+  oauthClientNameQuery(req)
 )

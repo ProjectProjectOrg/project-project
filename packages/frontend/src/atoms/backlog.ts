@@ -128,12 +128,17 @@ const dedupeById = (
  * The composed backlog value. Task 6 extends this readable with loaded cursor
  * pages; the wrapper below never changes.
  */
+const emptyBacklog = (): BacklogValue => ({
+  counts: { total: 0, byStatus: {} },
+  sections: {}
+})
+
 const backlogView = (req: BacklogRequest) =>
-  Atom.readable<AsyncResult.AsyncResult<BacklogValue, unknown>>(
+  Atom.readable(
     (get) => {
       const base = get(sectionsQuery(req))
       if (!AsyncResult.isSuccess(base)) {
-        return base as unknown as AsyncResult.AsyncResult<BacklogValue, unknown>
+        return AsyncResult.map(base, emptyBacklog)
       }
       const loaded = get(loadedPagesAtom(req))
       const createdKeys = get(createdKeysAtom(scopeOf(req)))
@@ -185,8 +190,11 @@ export const loadMoreBacklog = Atom.family(
     req: BacklogRequest
     status: string
   }>) =>
-    Api.runtime.fn((_input: void, get: Atom.FnContext) =>
-      Effect.gen(function* () {
+    Api.runtime.fn(
+      Effect.fn("loadMoreBacklog")(function* (
+        _input: void,
+        get: Atom.FnContext
+      ) {
         const current = get(backlog(req))
         if (!AsyncResult.isSuccess(current)) return yield* Effect.void
         const cursor = current.value.sections[status]?.nextCursor
@@ -207,10 +215,13 @@ export const loadMoreBacklog = Atom.family(
                 cancel = get.registry.subscribe(
                   page,
                   (result) => {
-                    if (result._tag === "Success" && !result.waiting) {
+                    if (AsyncResult.isSuccess(result) && !result.waiting) {
                       cancel?.()
                       resume(Effect.succeed(result.value))
-                    } else if (result._tag === "Failure" && !result.waiting) {
+                    } else if (
+                      AsyncResult.isFailure(result) &&
+                      !result.waiting
+                    ) {
                       cancel?.()
                       resume(Effect.failCause(result.cause))
                     }
@@ -391,7 +402,10 @@ export const updateBacklogTicket = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateTicketInput, get) {
+          Effect.fn("updateBacklogTicket")(function* (
+            patch: UpdateTicketInput,
+            get
+          ) {
             const unsaved = unsavedPatchAtom({ req, id })
             const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
             get.set(unsaved, payload)
@@ -513,7 +527,10 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
         }
       }),
     fn: Api.runtime.fn(
-      Effect.fn(function* (input: QuickCreateArg, get) {
+      Effect.fn("quickCreateBacklogTicket")(function* (
+        input: QuickCreateArg,
+        get
+      ) {
         const created = yield* Api.use((client) =>
           client.tickets.quickCreate({
             params: req.params,

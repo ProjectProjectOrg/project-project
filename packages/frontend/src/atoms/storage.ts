@@ -45,7 +45,7 @@ export const connectStorage = Atom.family((req: StorageRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: ConnectStorageInput) {
+        Effect.fn("connectStorage")(function* (input: ConnectStorageInput) {
           const status = yield* Api.use((client) =>
             client.storage.connect({ params: req.params, payload: input })
           )
@@ -73,7 +73,7 @@ export const disconnectStorage = Atom.family((req: StorageRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void) {
+        Effect.fn("disconnectStorage")(function* (_input: void) {
           const status = yield* Api.use((client) =>
             client.storage.disconnect({ params: req.params })
           )

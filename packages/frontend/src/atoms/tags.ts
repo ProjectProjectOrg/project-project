@@ -14,7 +14,7 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { ticketDetail, ticketRequest } from "./ticketDetail"
+import { ticketQuery, ticketRequest } from "./ticketDetail"
 
 export type TagsRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
@@ -88,8 +88,8 @@ const ticketRequestOf = (req: TagEditorRequest) =>
   ticketRequest(req.params.orgSlug, req.params.slug, req.params.id)
 
 const tagEditorQuery = (req: TagEditorRequest) => {
-  const tags = tagsFor(tagsRequestOf(req))
-  const ticket = ticketDetail(ticketRequestOf(req))
+  const tags = tagsQuery(tagsRequestOf(req))
+  const ticket = ticketQuery(ticketRequestOf(req))
   return Atom.readable(
     (get) =>
       AsyncResult.map(
@@ -178,7 +178,7 @@ export const createTagInEditor = Atom.family((req: TagEditorRequest) =>
       AsyncResult.map(current, (value) => createEditorTag(value, input)),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: CreateTagInput, get) {
+        Effect.fn("createTagInEditor")(function* (input: CreateTagInput, get) {
           const created = yield* Api.use((client) =>
             client.tags.create({
               params: {
@@ -214,7 +214,10 @@ export const updateTagInEditor = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateTagInput, get) {
+          Effect.fn("updateTagInEditor")(function* (
+            patch: UpdateTagInput,
+            get
+          ) {
             const updated = yield* Api.use((client) =>
               client.tags.update({
                 params: {
@@ -252,7 +255,7 @@ export const deleteTagInEditor = Atom.family(
         AsyncResult.map(current, (value) => deleteEditorTag(value, name)),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("deleteTagInEditor")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.tags.delete({
                 params: {
@@ -293,7 +296,7 @@ export const createTag = Atom.family((req: TagsRequest) =>
       }),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: CreateTagInput, get) {
+        Effect.fn("createTag")(function* (input: CreateTagInput, get) {
           const created = yield* Api.use((client) =>
             client.tags.create({ params: req.params, payload: input })
           )
@@ -326,7 +329,7 @@ export const updateTag = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (patch: UpdateTagInput, get) {
+          Effect.fn("updateTag")(function* (patch: UpdateTagInput, get) {
             const updated = yield* Api.use((client) =>
               client.tags.update({
                 params: { ...req.params, name },
@@ -363,7 +366,7 @@ export const deleteTag = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("deleteTag")(function* (_input: void, get) {
             yield* Api.use((client) =>
               client.tags.delete({ params: { ...req.params, name } })
             )

@@ -67,7 +67,7 @@ export const updateProject = Atom.family((req: ProjectRequest) =>
       AsyncResult.map(current, (value) => ({ ...value, ...input })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateProjectInput, get) {
+        Effect.fn("updateProject")(function* (input: UpdateProjectInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.update({ params: req.params, payload: input })
           )
@@ -92,7 +92,10 @@ export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateProjectSetupInput, get) {
+        Effect.fn("updateProjectSetup")(function* (
+          input: UpdateProjectSetupInput,
+          get
+        ) {
           const updated = yield* Api.use((client) =>
             client.projects.updateSetup({
               params: req.params,
@@ -113,7 +116,7 @@ export const updateProjectSetup = Atom.family((req: ProjectRequest) =>
 
 export const deleteProject = Atom.family((req: ProjectRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (_input: void) {
+    Effect.fn("deleteProject")(function* (_input: void) {
       yield* Api.use((client) => client.projects.delete({ params: req.params }))
       yield* Reactivity.invalidate([
         Keys.project(scopeOf(req)),
@@ -241,7 +244,7 @@ export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: AddMemberInput, get) {
+        Effect.fn("addProjectMember")(function* (input: AddMemberInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.addMember({
               params: req.params,
@@ -265,7 +268,10 @@ export const updateMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       AsyncResult.map(current, (value) => replaceMember(value, id, input)),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: UpdateMemberInput, get) {
+        Effect.fn("updateProjectMember")(function* (
+          input: UpdateMemberInput,
+          get
+        ) {
           const updated = yield* Api.use((client) =>
             client.projects.updateMember({
               params: { ...req.params, userId: id },
@@ -298,7 +304,7 @@ export const removeMember = Atom.family(({ req, id }: MemberMutationRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void, get) {
+        Effect.fn("removeProjectMember")(function* (_input: void, get) {
           const updated = yield* Api.use((client) =>
             client.projects.removeMember({
               params: { ...req.params, userId: id }
@@ -328,7 +334,7 @@ export const cancelPendingMember = Atom.family(
         })),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("cancelPendingMember")(function* (_input: void, get) {
             const updated = yield* Api.use((client) =>
               client.projects.cancelPendingMember({
                 params: { ...req.params, invitationId: id }
@@ -350,7 +356,7 @@ export const cancelPendingMember = Atom.family(
 
 export const createProject = Atom.family((req: ProjectsRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (input: CreateProjectInput) {
+    Effect.fn("createProject")(function* (input: CreateProjectInput) {
       const created = yield* Api.use((client) =>
         client.projects.create({ params: req.params, payload: input })
       )

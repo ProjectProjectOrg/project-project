@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
@@ -134,7 +135,7 @@ export const projectGitStatesWaiting = Atom.family((req: ProjectRequest) =>
 
 export const invalidateGitStateTickets = Atom.family((req: ProjectRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (_input: void) {
+    Effect.fn("invalidateGitStateTickets")(function* (_input: void) {
       yield* Reactivity.invalidate([Keys.ticketsIn(scopeOf(req))])
     })
   )
@@ -186,7 +187,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
             page += 1
           }
           return repoPage(repos, false)
-        })
+        }).pipe(Effect.withSpan("githubRepos"))
       )
       .pipe(
         Atom.withReactivity([
@@ -224,7 +225,7 @@ export const connectGithub = Atom.family((req: ProjectRequest) =>
       })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (input: ConnectGithubInput, get) {
+        Effect.fn("connectGithub")(function* (input: ConnectGithubInput, get) {
           const updated = yield* Api.use((client) =>
             client.projects.connectGithub({
               params: req.params,
@@ -256,7 +257,7 @@ export const disconnectGithub = Atom.family((req: ProjectRequest) =>
       AsyncResult.map(current, (value) => ({ ...value, github: null })),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void, get) {
+        Effect.fn("disconnectGithub")(function* (_input: void, get) {
           const updated = yield* Api.use((client) =>
             client.projects.disconnectGithub({ params: req.params })
           )
@@ -278,7 +279,7 @@ export const disconnectGithub = Atom.family((req: ProjectRequest) =>
 
 export const startGithubInstall = Atom.family((req: GithubOrgRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (input: StartGithubInstallInput) {
+    Effect.fn("startGithubInstall")(function* (input: StartGithubInstallInput) {
       const response = yield* Api.use((client) =>
         client.projects.startGithubInstall({
           params: req.params,
@@ -293,9 +294,11 @@ export const startGithubInstall = Atom.family((req: GithubOrgRequest) =>
 
 const gitStateBaseBranch = (state: GitState | undefined): string => {
   if (state === undefined) return ""
-  if (state.tag === "no_branch") return state.baseBranch ?? ""
-  if (state.tag === "stale_branch") return ""
-  return state.baseBranch
+  return Match.value(state).pipe(
+    Match.when({ tag: "no_branch" }, (current) => current.baseBranch ?? ""),
+    Match.when({ tag: "stale_branch" }, () => ""),
+    Match.orElse((current) => current.baseBranch)
+  )
 }
 
 const withGitState = (
@@ -321,7 +324,10 @@ export const createBranch = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: CreateBranchMutationInput, get) {
+          Effect.fn("createBranch")(function* (
+            input: CreateBranchMutationInput,
+            get
+          ) {
             const updated = yield* Api.use((client) =>
               client.tickets.createBranch({
                 params: { ...req.params, id },
@@ -358,7 +364,7 @@ export const attachBranch = Atom.family(
         ),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (input: AttachBranchInput, get) {
+          Effect.fn("attachBranch")(function* (input: AttachBranchInput, get) {
             const updated = yield* Api.use((client) =>
               client.tickets.attachBranch({
                 params: { ...req.params, id },
@@ -393,7 +399,7 @@ export const clearBranch = Atom.family(({ req, id }: GitStateMutationRequest) =>
       }),
     fn: (set) =>
       Api.runtime.fn(
-        Effect.fn(function* (_input: void, get) {
+        Effect.fn("clearBranch")(function* (_input: void, get) {
           const updated = yield* Api.use((client) =>
             client.tickets.clearBranch({ params: { ...req.params, id } })
           )

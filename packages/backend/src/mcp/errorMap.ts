@@ -22,6 +22,7 @@ import {
   Unauthorized,
   Validation
 } from "@projectproject/shared"
+import { BetterAuthError } from "../Services/BetterAuth"
 
 export interface McpToolErrorResult {
   readonly content: ReadonlyArray<{
@@ -53,7 +54,7 @@ const ToolError = Schema.Union([
   AttachmentTooLarge,
   AttachmentTypeRejected,
   TaggedError("MarkdownError"),
-  TaggedError("BetterAuthError"),
+  BetterAuthError,
   TaggedError("TicketIdTaken"),
   TaggedError("GroupIdTaken"),
   SprintCompletedImmutable,

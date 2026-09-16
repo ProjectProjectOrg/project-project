@@ -1,4 +1,3 @@
-import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
@@ -16,14 +15,13 @@ import {
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 
-export class AttachmentUploadFailed extends Data.TaggedError(
-  "AttachmentUploadFailed"
-)<
-  Readonly<{
-    reason: "status" | "network" | "abort"
-    status?: number
-  }>
-> {}
+export class AttachmentUploadFailed extends Schema.TaggedError<AttachmentUploadFailed>()(
+  "AttachmentUploadFailed",
+  {
+    reason: Schema.Literals(["status", "network", "abort"]),
+    status: Schema.optionalKey(Schema.Finite)
+  }
+) {}
 
 export type UploadAttachmentInput = Readonly<{
   file: File
@@ -105,7 +103,7 @@ const ensureNotAborted = (input: UploadAttachmentInput) =>
 
 export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
   Api.runtime.fn(
-    Effect.fn(function* (input: UploadAttachmentInput) {
+    Effect.fn("uploadAttachment")(function* (input: UploadAttachmentInput) {
       yield* ensureNotAborted(input)
       const prepared = yield* Api.use((client) =>
         client.attachments.prepare({
@@ -139,7 +137,7 @@ export const uploadAttachment = Atom.family((req: UploadAttachmentRequest) =>
 export const uploadProjectImage = Atom.family(
   (req: UploadProjectImageRequest) =>
     Api.runtime.fn(
-      Effect.fn(function* (input: UploadAttachmentInput) {
+      Effect.fn("uploadProjectImage")(function* (input: UploadAttachmentInput) {
         yield* ensureNotAborted(input)
         const prepared = yield* Api.use((client) =>
           client.attachments.prepareProject({
@@ -293,7 +291,7 @@ export const deleteOrgAttachments = Atom.family(
         }),
       fn: (set) =>
         Api.runtime.fn(
-          Effect.fn(function* (_input: void, get) {
+          Effect.fn("deleteOrgAttachments")(function* (_input: void, get) {
             yield* Effect.forEach(
               attachmentIds,
               (attachmentId) =>
