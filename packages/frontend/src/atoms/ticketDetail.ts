@@ -34,7 +34,10 @@ export const ticketQuery = (req: TicketRequest) =>
   Api.query("tickets", "get", {
     params: req.params,
     timeToLive: "2 minutes",
-    reactivityKeys: [Keys.ticket(scopeOf(req), req.params.id)]
+    reactivityKeys: [
+      Keys.ticket(scopeOf(req), req.params.id),
+      Keys.ticketsIn(scopeOf(req))
+    ]
   })
 
 /** The detail value every consumer reads. */
@@ -46,7 +49,6 @@ export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
-/** Keys the OTHER views listen to, never ones `ticketQuery` registered. */
 const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)

@@ -15,6 +15,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
+  applyTagsInEditor,
   createTagInEditor,
   deleteTagInEditor,
   tagEditor,
@@ -24,7 +25,6 @@ import {
   updateTagInEditor,
   type TagEditorRequest
 } from "@/atoms/tags"
-import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
@@ -54,11 +54,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
       ? tagUsage(tagsReq)
       : idleUsageCountsAtom
   )
-  const ticketReq = useMemo(
-    () => ticketRequest(orgSlug, slug, ticket.id),
-    [orgSlug, slug, ticket.id]
-  )
-  const updateTicket = useAtomSet(updateTicketDetail(ticketReq))
+  const updateTags = useAtomSet(applyTagsInEditor(editorReq))
   const create = useAtomSet(createTagInEditor(editorReq), {
     mode: "promiseExit"
   })
@@ -94,7 +90,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     : registry
 
   const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({ tags: next.map((name) => makeTagName(name)) })
+    updateTags({ tags: next.map((name) => makeTagName(name)) })
 
   const addTag = (name: string) => {
     if (displayedNames.includes(makeTagName(name))) return

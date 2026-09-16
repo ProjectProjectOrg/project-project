@@ -1594,6 +1594,43 @@ it.effect(
   }
 )
 
+it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  const plannedSprint = Schema.decodeSync(Group)({
+    id: "G-1",
+    name: "Planned",
+    kind: "sprint",
+    tickets: ["T-1"],
+    color: "#123456",
+    startsAt: "2099-01-01T00:00:00.000Z",
+    endsAt: "2099-01-15T00:00:00.000Z",
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z"
+  })
+  const groups = makeFakeGroups({
+    list: () => Effect.succeed([plannedSprint])
+  })
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      groupId: ["ungrouped"]
+    })
+
+    expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
+  }).pipe(
+    Effect.provide(
+      makeTicketsLayer("T", docs.layer, {
+        groups,
+        ticketIndex: makeFakeTicketIndex(docs.documents)
+      })
+    )
+  )
+})
+
 it.effect("list defaults to created desc", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(

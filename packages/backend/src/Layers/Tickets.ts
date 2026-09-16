@@ -229,16 +229,16 @@ export const TicketsLive = Layer.effect(
         }
         if (wantsUngrouped) {
           const allGroups = yield* groups.list(orgSlug, userId, slug)
-          const inAnyActiveSprint = new Set<string>()
+          const inIncompleteSprint = new Set<string>()
           const now = yield* DateTime.nowAsDate
           for (const g of allGroups) {
-            if (g.kind !== "sprint" || sprintState(g, now) !== "active")
+            if (g.kind !== "sprint" || sprintState(g, now) === "completed")
               continue
-            for (const t of g.tickets) inAnyActiveSprint.add(t)
+            for (const t of g.tickets) inIncompleteSprint.add(t)
           }
           const allTicketIds = yield* ticketIndex.listIds(project)
           for (const id of allTicketIds) {
-            if (!inAnyActiveSprint.has(id)) memberSet.add(id)
+            if (!inIncompleteSprint.has(id)) memberSet.add(id)
           }
         }
         return memberSet

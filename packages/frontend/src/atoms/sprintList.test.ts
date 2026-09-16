@@ -276,6 +276,7 @@ describe("createSprint", () => {
         throw new Error("no optimistic value")
       }
       expect(optimistic.value[0].name).toBe("New sprint")
+      expect(optimistic.value[0].id).not.toBe(otherGroupId)
       expect(optimistic.value).toHaveLength(2)
 
       const createdSprint: Group = {
@@ -286,6 +287,13 @@ describe("createSprint", () => {
       served = [createdSprint, sprint]
       finish(Response.json(encodeGroup(createdSprint)))
       await vi.waitFor(() => expect(registry.get(create).waiting).toBe(false))
+
+      const confirmed = registry.get(view)
+      if (!AsyncResult.isSuccess(confirmed)) {
+        throw new Error("did not confirm")
+      }
+      expect(confirmed.value[0].id).toBe(otherGroupId)
+      expect(confirmed.value[0].name).toBe("New sprint")
 
       const settled = registry.get(view)
       if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")

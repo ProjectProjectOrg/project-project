@@ -9,10 +9,12 @@ import {
   TagName,
   TicketDetail,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  TicketUpdateResult
 } from "@projectproject/shared"
 import { stubFetch } from "@/api/testFetch"
 import {
+  applyTagsInEditor,
   deleteTag,
   deleteTagInEditor,
   tagEditor,
@@ -55,6 +57,8 @@ const ticket = {
   body: ""
 } satisfies TicketDetail
 const encodeTicket = Schema.encodeSync(TicketDetail)
+const encodeUpdate = (t: TicketDetail) =>
+  Schema.encodeSync(TicketUpdateResult)({ ticket: t, orderKey: null })
 const editorReq = tagEditorRequest("acme", "web", ticket.id)
 const fetchStub = stubFetch()
 
@@ -159,6 +163,59 @@ describe("tags optimistic updates", () => {
           applied: [{ key: nextName, name: nextName }],
           tags: [{ name: nextName }]
         }
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("applies tags through the editor view", async () => {
+    let servedTags: ReadonlyArray<Tag> = [tag]
+    let servedTicket: TicketDetail = ticket
+    let finish = (_response: Response) => {}
+    fetchStub.set((input, init) => {
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          finish = resolve
+        })
+      }
+      return Promise.resolve(
+        Response.json(
+          (input instanceof Request ? input.url : String(input)).endsWith(
+            "/tags"
+          )
+            ? servedTags.map((tag) => encode(tag))
+            : encodeTicket(servedTicket)
+        )
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = tagEditor(editorReq)
+    const mutation = applyTagsInEditor(editorReq)
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, { tags: [] })
+      expect(registry.get(view)).toMatchObject({
+        waiting: true,
+        value: { applied: [], tags: [{ name }] }
+      })
+
+      servedTicket = { ...ticket, tags: [] }
+      finish(Response.json(encodeUpdate(servedTicket)))
+
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ waiting: false })
+      )
+      expect(registry.get(view)).toMatchObject({
+        value: { applied: [], tags: [{ name }] }
       })
     } finally {
       registry.dispose()

@@ -156,6 +156,18 @@ const createEditorTag = (
   ]
 })
 
+const applyEditorTags = (
+  value: TagEditorValue,
+  tags: ReadonlyArray<TagName>
+): TagEditorValue => ({
+  ...value,
+  applied: tags.map((name) => ({ key: name, name }))
+})
+
+type ApplyTagsInput = Readonly<{
+  tags: ReadonlyArray<TagName>
+}>
+
 const confirmEditorUpdate = (
   value: TagEditorValue,
   name: TagName,
@@ -171,6 +183,38 @@ const confirmEditorUpdate = (
       : tag
   )
 })
+
+export const applyTagsInEditor = Atom.family((req: TagEditorRequest) =>
+  Atom.optimisticFn(tagEditor(req), {
+    reducer: (current, input: ApplyTagsInput) =>
+      AsyncResult.map(current, (value) => applyEditorTags(value, input.tags)),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("applyTagsInEditor")(function* (input: ApplyTagsInput, get) {
+          const { ticket: updated } = yield* Api.use((client) =>
+            client.tickets.update({
+              params: req.params,
+              query: {},
+              payload: { tags: input.tags }
+            })
+          )
+          set(
+            AsyncResult.map(get(tagEditor(req)), (value) =>
+              applyEditorTags(value, updated.tags)
+            )
+          )
+          const scope = projectScope(req.params.orgSlug, req.params.slug)
+          yield* Reactivity.invalidate([
+            Keys.tagUsage(scope),
+            Keys.ticketsIn(scope),
+            Keys.ticketLists(scope),
+            Keys.ticketPages(scope)
+          ])
+          return updated
+        })
+      )
+  })
+)
 
 export const createTagInEditor = Atom.family((req: TagEditorRequest) =>
   Atom.optimisticFn(tagEditor(req), {

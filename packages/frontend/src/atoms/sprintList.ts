@@ -83,6 +83,22 @@ const buildSyntheticSprint = (input: CreateGroupInput): Group => {
   }
 }
 
+const confirmCreatedSprint = (
+  sprints: ReadonlyArray<Group>,
+  input: CreateGroupInput,
+  created: Group
+): ReadonlyArray<Group> => {
+  let replaced = false
+  const next = sprints.flatMap((sprint) => {
+    if (!replaced && sprint.createdBy === "" && sprint.name === input.name) {
+      replaced = true
+      return [created]
+    }
+    return sprint.id === created.id ? [] : [sprint]
+  })
+  return replaced ? next : [created, ...sprints]
+}
+
 export const createSprint = Atom.family((req: SprintListRequest) =>
   Atom.optimisticFn(sprintList(req), {
     reducer: (current, input: CreateGroupInput) =>
@@ -90,13 +106,20 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
         buildSyntheticSprint(input),
         ...sprints
       ]),
-    fn: Api.runtime.fn(
-      Effect.fn("createSprint")(function* (input: CreateGroupInput) {
-        return yield* Api.use((client) =>
-          client.groups.create({ params: req.params, payload: input })
-        )
-      })
-    )
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("createSprint")(function* (input: CreateGroupInput, get) {
+          const created = yield* Api.use((client) =>
+            client.groups.create({ params: req.params, payload: input })
+          )
+          set(
+            AsyncResult.map(get(sprintList(req)), (sprints) =>
+              confirmCreatedSprint(sprints, input, created)
+            )
+          )
+          return created
+        })
+      )
   })
 )
 
