@@ -145,6 +145,21 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           yield* tickets.remove(org.orgSlug, user.id, params.slug, params.id)
         }).pipe(dieOnMarkdown)
       )
+      .handle("split", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.split(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            params.id,
+            payload
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("archive", ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

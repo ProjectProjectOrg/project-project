@@ -34,6 +34,9 @@ const TicketFrontmatter = Schema.Struct({
   ),
   branch: Schema.NullOr(Schema.String),
   branchAutoLinkDisabled: Schema.optional(Schema.Boolean),
+  splitFrom: Schema.NullOr(TicketId).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
   pr: Schema.NullOr(Schema.Number).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -51,6 +54,7 @@ const TicketFrontmatter = Schema.Struct({
   ),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
+  updatedBy: Schema.String,
   updatedAt: Schema.DateFromString
 })
 
@@ -63,6 +67,9 @@ function decodeFrontmatterCompat(raw: unknown) {
     if (record.assignees === undefined && "assignee" in record) {
       const legacy = record.assignee
       record.assignees = typeof legacy === "string" ? [legacy] : []
+    }
+    if (record.updatedBy === undefined) {
+      record.updatedBy = record.createdBy
     }
   }
   return decodeFrontmatter(raw)
@@ -80,6 +87,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
     ...(document.branchAutoLinkDisabled
       ? { branchAutoLinkDisabled: true }
       : {}),
+    ...(document.splitFrom ? { splitFrom: document.splitFrom } : {}),
     pr: document.pr,
     prState: document.prState,
     lastTransitionedPr: document.lastTransitionedPr,
@@ -87,6 +95,7 @@ function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
     archivedAt: document.archivedAt ? document.archivedAt.toISOString() : null,
     createdBy: document.createdBy,
     createdAt: document.createdAt.toISOString(),
+    updatedBy: document.updatedBy,
     updatedAt: document.updatedAt.toISOString()
   }
 }

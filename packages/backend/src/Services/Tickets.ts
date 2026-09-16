@@ -2,6 +2,8 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type {
   AttachBranchInput,
+  Forbidden,
+  SprintCompletedImmutable,
   BranchExists,
   BranchNotFound,
   BranchProtected,
@@ -18,6 +20,8 @@ import type {
   OpenPrResult,
   QuickCreateTicketInput,
   RateLimited,
+  SplitTicketInput,
+  SplitTicketResult,
   RepoGone,
   Ticket,
   TicketCountQuery,
@@ -106,6 +110,20 @@ export interface TicketsShape {
   ) => Effect.Effect<
     TicketDetail,
     TicketReadError | Validation | MentionInvalid
+  >
+  readonly split: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: SplitTicketInput
+  ) => Effect.Effect<
+    SplitTicketResult,
+    | TicketReadError
+    | Validation
+    | MentionInvalid
+    | Forbidden
+    | SprintCompletedImmutable
   >
   readonly remove: (
     orgSlug: string,

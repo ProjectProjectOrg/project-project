@@ -43,6 +43,7 @@ const doc = (
   archivedAt: null,
   createdBy: "user-1",
   createdAt: at("2026-05-01T00:00:00.000Z"),
+  updatedBy: "user-1",
   updatedAt: at(updatedAt),
   body: "",
   commentsRegion: "",

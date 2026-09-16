@@ -180,20 +180,100 @@ export function StatusBadgeTrigger({
   )
 }
 
+export function StatusSelect({
+  orgSlug,
+  slug,
+  value,
+  onChange,
+  size = "sm",
+  stopPropagation,
+  disabled = false
+}: {
+  orgSlug: string
+  slug: string
+  value: TicketStatus
+  onChange: (status: TicketStatus) => void
+  size?: "sm" | "lg"
+  stopPropagation?: boolean
+  disabled?: boolean
+}) {
+  const statusesResult = useAtomValue(
+    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  )
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const meta = statusMetaFor(value, statuses)
+  const Icon = meta.icon
+  const statusLabel = statusLabelFor(value, statuses)
+  const wrapperClass =
+    size === "lg"
+      ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
+      : cn(
+          "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
+          meta.className
+        )
+  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin={size === "lg" ? "1" : "2"}
+            onClick={(e) => stopPropagation && e.stopPropagation()}
+            aria-label={
+              disabled
+                ? statusLabel
+                : m.tickets_status_aria_label({ label: statusLabel })
+            }
+            title={statusLabel}
+            disabled={disabled}
+          >
+            <span className={wrapperClass}>
+              <Icon
+                className={iconClass}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+            </span>
+          </Hitbox>
+        }
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
+          current={value}
+          statuses={statuses}
+          onSelect={onChange}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function StatusButton({
   orgSlug,
   slug,
   ticket,
   query,
   stopPropagation,
-  size = "sm"
+  onChange,
+  size = "sm",
+  disabled = false
 }: {
   orgSlug: string
   slug: string
   ticket: Ticket
   query: TicketListQuery
   stopPropagation?: boolean
+  onChange?: (status: TicketStatus) => void
   size?: "sm" | "lg"
+  disabled?: boolean
 }) {
   const key = ticketKey(orgSlug, slug, ticket.id)
   const update = useAtomSet(updateTicketStatusAtom(key))
@@ -205,7 +285,9 @@ export function StatusButton({
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
   )
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
-  const currentStatus = pending.get(ticket.id)?.status ?? ticket.status
+  const currentStatus = onChange
+    ? ticket.status
+    : (pending.get(ticket.id)?.status ?? ticket.status)
   const currentTicket = { ...ticket, status: currentStatus }
   const meta = statusMetaFor(currentStatus, statuses)
   const Icon = meta.icon
@@ -226,9 +308,13 @@ export function StatusButton({
             mode="inline"
             margin={size === "lg" ? "1" : "2"}
             onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={m.tickets_status_aria_label({ label: statusLabel })}
+            aria-label={
+              disabled
+                ? statusLabel
+                : m.tickets_status_aria_label({ label: statusLabel })
+            }
             title={statusLabel}
-            disabled={updateState.waiting}
+            disabled={disabled || (!onChange && updateState.waiting)}
           >
             <span className={wrapperClass}>
               <Icon
@@ -252,26 +338,28 @@ export function StatusButton({
           current={currentStatus}
           statuses={statuses}
           onSelect={(status) =>
-            update({
-              ticket: currentTicket,
-              status,
-              sourceSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                currentStatus
-              ),
-              destSectionKey: ticketsListKeyForStatus(
-                orgSlug,
-                slug,
-                query,
-                status
-              ),
-              countKey: ticketsCountKey(orgSlug, slug, {
-                filter: query.filter,
-                q: query.q
-              })
-            })
+            onChange
+              ? onChange(status)
+              : update({
+                  ticket: currentTicket,
+                  status,
+                  sourceSectionKey: ticketsListKeyForStatus(
+                    orgSlug,
+                    slug,
+                    query,
+                    currentStatus
+                  ),
+                  destSectionKey: ticketsListKeyForStatus(
+                    orgSlug,
+                    slug,
+                    query,
+                    status
+                  ),
+                  countKey: ticketsCountKey(orgSlug, slug, {
+                    filter: query.filter,
+                    q: query.q
+                  })
+                })
           }
         />
       </DropdownMenuContent>

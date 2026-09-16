@@ -24,17 +24,25 @@ type Rendered = {
   readonly src: string
   readonly width: number
   readonly height: number
+  readonly signature: string
 }
+
+const signatureOf = (
+  image: HTMLImageElement,
+  settings: BannerPrototypeSettings
+) => `${image.src}|${settings.x}|${settings.y}|${settings.zoom}`
 
 export function CachedShaderBanner({
   image,
   settings,
   cacheKey,
+  live = false,
   onFirstRender
 }: {
   image: HTMLImageElement
   settings: BannerPrototypeSettings
   cacheKey: BannerRenderKey | null
+  live?: boolean
   onFirstRender?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -77,9 +85,12 @@ export function CachedShaderBanner({
     [rendered]
   )
 
+  const signature = signatureOf(image, settings)
+
   const capture = useCallback(
     (canvas: HTMLCanvasElement) => {
       onFirstRender?.()
+      if (live) return
       if (
         canvas.width <= 0 ||
         canvas.height <= 0 ||
@@ -92,18 +103,21 @@ export function CachedShaderBanner({
         if (!blob) return
         void writeBannerRender(cacheKey, blob)
         if (!mounted.current) return
-        setRendered({ src: URL.createObjectURL(blob), ...size })
+        setRendered({ src: URL.createObjectURL(blob), ...size, signature })
       })
     },
-    [size, onFirstRender, cacheKey]
+    [size, onFirstRender, cacheKey, live, signature]
   )
 
   const usable =
-    rendered && rendered.width === size.width && rendered.height === size.height
+    rendered &&
+    rendered.width === size.width &&
+    rendered.height === size.height &&
+    rendered.signature === signature
 
   return (
     <div ref={ref} className="size-full">
-      {usable ? (
+      {usable && !live ? (
         <img src={rendered.src} alt="" className="block size-full" />
       ) : (
         size.width > 0 &&

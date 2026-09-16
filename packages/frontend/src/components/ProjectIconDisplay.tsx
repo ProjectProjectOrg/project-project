@@ -5,6 +5,7 @@ import {
   withAttachmentParams,
   type ProjectIconImage
 } from "@projectproject/shared"
+import { CroppedImage } from "@/components/CroppedImage"
 import { cn } from "@/lib/utils"
 
 export function ProjectIconDisplay({
@@ -45,10 +46,10 @@ export function ProjectIconDisplay({
 
   return (
     <span
-      className={cn("block overflow-hidden", className)}
+      className={cn("relative block overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
-      <img
+      <CroppedImage
         src={withAttachmentParams(
           attachmentUrl(
             orgSlug,
@@ -63,17 +64,12 @@ export function ProjectIconDisplay({
             )
           }
         )}
-        alt=""
+        crop={iconImage.crop}
         onError={() => setFailed(true)}
         className={cn(
-          "size-full object-cover",
           iconImage.type === "sticker" &&
             "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
         )}
-        style={{
-          objectPosition: `${iconImage.crop.x * 100}% ${iconImage.crop.y * 100}%`,
-          scale: String(iconImage.crop.zoom)
-        }}
       />
     </span>
   )

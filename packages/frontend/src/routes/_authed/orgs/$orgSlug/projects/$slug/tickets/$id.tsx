@@ -16,8 +16,11 @@ import { useProject } from "../-context"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
+const isTicketId = Schema.is(TicketId)
+
 interface TicketDetailSearch {
   focusBody?: 1
+  splitInto?: ReadonlyArray<TicketId>
 }
 
 export const Route = createFileRoute(
@@ -25,8 +28,13 @@ export const Route = createFileRoute(
 )({
   component: TicketDetailRoute,
   validateSearch: (search: Record<string, unknown>): TicketDetailSearch => {
-    if (search.focusBody === 1) return { focusBody: 1 }
-    return {}
+    const splitInto = Array.isArray(search.splitInto)
+      ? search.splitInto.filter(isTicketId)
+      : []
+    return {
+      ...(search.focusBody === 1 ? { focusBody: 1 as const } : {}),
+      ...(splitInto.length > 0 ? { splitInto } : {})
+    }
   },
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
@@ -88,6 +96,7 @@ function TicketDetailRoute() {
         members={project.members}
         github={project.github}
         autoFocusBody={autoFocusBody}
+        splitInto={search.splitInto ?? []}
       />
     )
   })
