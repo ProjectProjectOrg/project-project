@@ -16,6 +16,70 @@ import type {
   UpdateTicketInput
 } from "@projectproject/shared"
 
+export function TypeSelect({
+  value,
+  onChange,
+  ariaLabel,
+  className
+}: {
+  value: TicketType
+  onChange: (type: TicketType) => void
+  ariaLabel?: string
+  className?: string
+}) {
+  const meta = TYPE_META[value]
+  const Icon = meta.icon
+  const typeLabel = TYPE_LABELS[value]()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={
+              ariaLabel ?? m.tickets_type_aria_label({ label: typeLabel })
+            }
+            className={className}
+          >
+            <Icon className="size-3.5" strokeWidth={1.75} />
+            <span>{typeLabel}</span>
+          </Button>
+        }
+      />
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="w-40"
+        finalFocus={false}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(Object.keys(TYPE_META) as TicketType[]).map((t) => {
+          const tMeta = TYPE_META[t]
+          const TIcon = tMeta.icon
+          return (
+            <DropdownMenuItem
+              key={t}
+              onClick={() => {
+                if (t === value) return
+                onChange(t)
+              }}
+              className="cursor-pointer"
+            >
+              <TIcon className="size-4" strokeWidth={1.75} />
+              {TYPE_LABELS[t]()}
+              {t === value && (
+                <Check className="ml-auto size-3.5 text-muted-foreground" />
+              )}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function TypeBadgeTrigger({
   ticket,
   onPatch,

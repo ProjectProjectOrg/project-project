@@ -70,7 +70,12 @@ const encodeTicket = Schema.encodeSync(Ticket)
 const encodeTicketUpdate = (ticket: TicketDetail) =>
   Schema.encodeSync(TicketUpdateResult)({ ticket, orderKey: null })
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
-const asTicketDetail = (t: Ticket): TicketDetail => ({ ...t, body: "" })
+const asTicketDetail = (t: Ticket): TicketDetail => ({
+  ...t,
+  creator: null,
+  updater: null,
+  body: ""
+})
 
 const req = boardRequest("acme", "web", groupId)
 

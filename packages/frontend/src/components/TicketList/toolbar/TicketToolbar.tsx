@@ -14,7 +14,8 @@ export function TicketToolbar({
   members,
   counts,
   filters,
-  showSort = false
+  showSort = false,
+  children
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -75,6 +76,7 @@ export function TicketToolbar({
             <Status />
             <Filters />
             {showSort && <Sort />}
+            {children}
             <ClearAll />
           </div>
         )}

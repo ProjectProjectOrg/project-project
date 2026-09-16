@@ -54,10 +54,25 @@ function DeferredDropdownMenu({
   )
 }
 
+const noop = () => {}
+
 function DropdownMenuPortal({
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Portal>) {
-  return <MenuPrimitive.Portal {...props} />
+  const restore = React.useRef<(() => void) | null>(null)
+  const portalRef = React.useCallback((element: HTMLElement | null) => {
+    if (element === null) return noop
+    restore.current?.()
+    const display = element.style.getPropertyValue("display")
+    const priority = element.style.getPropertyPriority("display")
+    restore.current = () => {
+      element.style.setProperty("display", display, priority)
+    }
+    return () => {
+      element.style.setProperty("display", "none", "important")
+    }
+  }, [])
+  return <MenuPrimitive.Portal ref={portalRef} {...props} />
 }
 
 function DropdownMenuTrigger(
@@ -117,7 +132,7 @@ function DropdownMenuPopup({
   ...props
 }: DropdownMenuContentProps) {
   return (
-    <MenuPrimitive.Portal>
+    <DropdownMenuPortal>
       <MenuPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
@@ -142,7 +157,7 @@ function DropdownMenuPopup({
           {...props}
         />
       </MenuPrimitive.Positioner>
-    </MenuPrimitive.Portal>
+    </DropdownMenuPortal>
   )
 }
 
@@ -350,7 +365,7 @@ function DropdownMenuSubContent({
   ...props
 }: DropdownMenuSubContentProps) {
   return (
-    <MenuPrimitive.Portal>
+    <DropdownMenuPortal>
       <MenuPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
@@ -366,7 +381,7 @@ function DropdownMenuSubContent({
           {...props}
         />
       </MenuPrimitive.Positioner>
-    </MenuPrimitive.Portal>
+    </DropdownMenuPortal>
   )
 }
 

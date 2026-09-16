@@ -6,6 +6,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { TicketListQuery } from "@projectproject/shared"
 
+const BacklogRouteSearchSchema = TicketListQuery.pipe(
+  Schema.fieldsAssign({
+    view: Schema.optional(Schema.Literals(["list", "board"]))
+  })
+)
+
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
   component: () => null,
   loaderDeps: ({ search }) => search,
@@ -19,5 +25,5 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
   },
-  validateSearch: Schema.toStandardSchemaV1(TicketListQuery)
+  validateSearch: Schema.toStandardSchemaV1(BacklogRouteSearchSchema)
 })

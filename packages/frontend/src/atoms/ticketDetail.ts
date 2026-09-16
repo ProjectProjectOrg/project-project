@@ -6,6 +6,7 @@ import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import type {
   ArchiveTicketInput,
+  SplitTicketInput,
   TicketId,
   UpdateTicketInput
 } from "@projectproject/shared"
@@ -168,6 +169,27 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
         Keys.ticketLists(scopeOf(req)),
         Keys.ticketPages(scopeOf(req))
       ])
+    })
+  )
+)
+
+export const splitTicket = Atom.family((req: TicketRequest) =>
+  Api.runtime.fn(
+    Effect.fn("splitTicket")(function* (input: SplitTicketInput) {
+      const result = yield* Api.use((client) =>
+        client.tickets.split({
+          params: req.params,
+          payload: input
+        })
+      )
+      yield* Reactivity.invalidate([
+        Keys.ticket(scopeOf(req), req.params.id),
+        Keys.ticketsIn(scopeOf(req)),
+        Keys.ticketLists(scopeOf(req)),
+        Keys.ticketPages(scopeOf(req)),
+        Keys.sprintMembership(scopeOf(req))
+      ])
+      return result
     })
   )
 )

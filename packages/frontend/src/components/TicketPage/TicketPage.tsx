@@ -4,16 +4,15 @@ import { Archive } from "lucide-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { useMemo, useState } from "react"
-import { BackButton } from "@/components/BackButton"
 import { CommentsSection } from "@/components/Comments/CommentsSection"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { ArchiveTicketControl } from "@/components/TicketList/ArchiveControl"
+import { SplitTicketControl } from "@/components/TicketList/SplitControl"
 import { AssigneePicker } from "@/components/TicketList/AssigneeField"
 import { PriorityBadgeTrigger } from "@/components/TicketList/PriorityField"
 import { SprintBadgeTrigger } from "@/components/TicketList/SprintField"
-import { StatusButton } from "@/components/TicketList/StatusField"
 import { TypeBadgeTrigger } from "@/components/TicketList/TypeField"
 import { TagEditor } from "@/components/TagEditor"
 import { TicketGitPanel } from "@/components/TicketGit"
@@ -21,10 +20,12 @@ import { TicketTimeSection } from "@/components/time/TicketTimePanel"
 import { DescriptionField } from "@/components/TicketPage/DescriptionField"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
 import { TicketDesignLinks } from "@/components/TicketPage/TicketDesignLinks"
-import { TitleField } from "@/components/TicketPage/TitleField"
+import { SplitResultBanner } from "@/components/TicketPage/SplitResultBanner"
+import { TicketPageHeader } from "@/components/TicketPage/TicketPageHeader"
+import { TicketPageShell } from "@/components/TicketPage/TicketPageShell"
+import { UserTimestamp } from "@/components/TicketPage/UserTimestamp"
 import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
   archiveTicket,
@@ -36,8 +37,11 @@ import {
 import type {
   GithubConnection,
   Member,
-  TicketDetail
+  TicketDetail,
+  TicketId
 } from "@projectproject/shared"
+
+const NO_SPLIT_RESULTS: ReadonlyArray<TicketId> = []
 
 export function TicketPage({
   orgSlug,
@@ -45,7 +49,8 @@ export function TicketPage({
   ticket,
   members,
   github,
-  autoFocusBody = false
+  autoFocusBody = false,
+  splitInto = NO_SPLIT_RESULTS
 }: {
   orgSlug: string
   slug: string
@@ -53,6 +58,7 @@ export function TicketPage({
   members: ReadonlyArray<Member>
   github: GithubConnection | null
   autoFocusBody?: boolean
+  splitInto?: ReadonlyArray<TicketId>
 }) {
   const req = useMemo(
     () => ticketRequest(orgSlug, slug, ticket.id),
@@ -71,19 +77,17 @@ export function TicketPage({
   const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
   const { canManageTags } = useProjectRole()
-  const locale = getLocale()
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <BackButton
-          fallback={{
-            to: "/orgs/$orgSlug/projects/$slug",
-            params: { orgSlug, slug }
-          }}
-        />
-        <div className="flex items-center gap-2">
+    <TicketPageShell
+      back={{
+        to: "/orgs/$orgSlug/projects/$slug",
+        params: { orgSlug, slug }
+      }}
+      actions={
+        <>
           <MarkdownSaveIndicator status={bodyStatus} />
+          <SplitTicketControl orgSlug={orgSlug} slug={slug} id={ticket.id} />
           <ArchiveTicketControl
             archived={ticket.archivedAt !== null}
             onArchive={archiveTicketSet}
@@ -117,48 +121,36 @@ export function TicketPage({
               throw Cause.squash(exit.cause)
             }}
           />
-        </div>
-      </div>
-      <header className="flex items-start gap-2">
-        <div className="mt-1.5 flex h-[1lh] shrink-0 items-center text-xl">
-          <StatusButton
-            orgSlug={orgSlug}
-            slug={slug}
-            ticket={ticket}
-            onPatch={updateTicket}
-            waiting={updateTicketState.waiting}
-            size="lg"
-          />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-          <h1 className="w-full">
-            <TitleField
-              key={ticket.id}
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={ticket}
-            />
-          </h1>
-          <div className="flex items-center gap-1.5 px-2">
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {ticket.id}
-            </span>
-            <TypeBadgeTrigger
-              ticket={ticket}
-              onPatch={updateTicket}
-              waiting={updateTicketState.waiting}
-            />
-            {ticket.archivedAt !== null && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                <Archive className="size-3" strokeWidth={1.75} />
-                {m.tickets_archived_badge()}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <div className="h-px bg-border/60" />
+        </>
+      }
+      header={
+        <TicketPageHeader
+          orgSlug={orgSlug}
+          slug={slug}
+          ticket={ticket}
+          onPatch={updateTicket}
+          waiting={updateTicketState.waiting}
+          meta={
+            <>
+              <TypeBadgeTrigger
+                ticket={ticket}
+                onPatch={updateTicket}
+                waiting={updateTicketState.waiting}
+              />
+              {ticket.archivedAt !== null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <Archive className="size-3" strokeWidth={1.75} />
+                  {m.tickets_archived_badge()}
+                </span>
+              )}
+            </>
+          }
+        />
+      }
+    >
+      {splitInto.length > 0 && (
+        <SplitResultBanner orgSlug={orgSlug} slug={slug} created={splitInto} />
+      )}
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex min-w-0 flex-col gap-6">
@@ -220,33 +212,13 @@ export function TicketPage({
           <TicketDesignLinks orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <TicketTimeSection orgSlug={orgSlug} slug={slug} ticket={ticket} />
           <MetaRow label={m.tickets_page_meta_created()}>
-            <time
-              dateTime={ticket.createdAt.toISOString()}
-              title={ticket.createdAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.createdAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <UserTimestamp user={ticket.creator} timestamp={ticket.createdAt} />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_updated()}>
-            <time
-              dateTime={ticket.updatedAt.toISOString()}
-              title={ticket.updatedAt.toLocaleString(locale)}
-              className="text-xs"
-            >
-              {ticket.updatedAt.toLocaleDateString(locale, {
-                year: "numeric",
-                month: "short",
-                day: "numeric"
-              })}
-            </time>
+            <UserTimestamp user={ticket.updater} timestamp={ticket.updatedAt} />
           </MetaRow>
         </aside>
       </div>
-    </div>
+    </TicketPageShell>
   )
 }

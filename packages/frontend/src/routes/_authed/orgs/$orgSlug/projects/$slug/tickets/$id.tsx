@@ -17,7 +17,8 @@ import { useProject } from "../-context"
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 const TicketDetailSearch = Schema.Struct({
-  focusBody: Schema.optional(Schema.Literal(1))
+  focusBody: Schema.optional(Schema.Literal(1)),
+  splitInto: Schema.optional(Schema.Array(TicketId))
 })
 
 export const Route = createFileRoute(
@@ -63,7 +64,8 @@ function TicketDetailRoute() {
     if (!autoFocusBody) return
     void navigate({
       to: ".",
-      search: () => ({}),
+      search: ({ splitInto }) =>
+        splitInto && splitInto.length > 0 ? { splitInto } : {},
       replace: true
     })
   }, [autoFocusBody, navigate])
@@ -89,6 +91,7 @@ function TicketDetailRoute() {
         members={project.members}
         github={project.github}
         autoFocusBody={autoFocusBody}
+        splitInto={search.splitInto ?? []}
       />
     )
   })

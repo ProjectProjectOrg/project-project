@@ -178,35 +178,30 @@ function Trigger({
   )
 }
 
-export function AssigneeField({
-  ticket,
+export function AssigneeSelect({
+  value,
+  onChange,
   members,
-  onPatch,
-  waiting,
+  waiting = false,
   variant = "row",
   className
 }: {
-  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  value: ReadonlyArray<string>
+  onChange: (assignees: ReadonlyArray<string>) => void
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
+  waiting?: boolean
   variant?: AssigneeVariant
   className?: string
 }) {
-  const assignees = ticket.assignees
-  const resolved = resolveAssignees(assignees, members)
-
-  const setAssignees = (next: ReadonlyArray<string>) => {
-    onPatch({ assignees: next })
-  }
+  const resolved = resolveAssignees(value, members)
   const toggle = (memberId: string) =>
-    setAssignees(
-      assignees.includes(memberId)
-        ? assignees.filter((a) => a !== memberId)
-        : [...assignees, memberId]
+    onChange(
+      value.includes(memberId)
+        ? value.filter((a) => a !== memberId)
+        : [...value, memberId]
     )
   const clear = () => {
-    if (assignees.length > 0) setAssignees([])
+    if (value.length > 0) onChange([])
   }
 
   const label =
@@ -246,13 +241,13 @@ export function AssigneeField({
         >
           <UserRound className="size-4" strokeWidth={1.75} />
           {m.tickets_assignee_unassigned()}
-          {assignees.length === 0 && (
+          {value.length === 0 && (
             <Check className="ml-auto size-3.5 text-muted-foreground" />
           )}
         </DropdownMenuItem>
         {members.length > 0 && <div className="my-1 h-px bg-border" />}
         {members.map((member) => {
-          const selected = assignees.includes(member.id)
+          const selected = value.includes(member.id)
           return (
             <DropdownMenuItem
               key={member.id}
@@ -277,6 +272,33 @@ export function AssigneeField({
         })}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+export function AssigneeField({
+  ticket,
+  members,
+  onPatch,
+  waiting,
+  variant = "row",
+  className
+}: {
+  ticket: { id: TicketId; assignees: ReadonlyArray<string> }
+  members: ReadonlyArray<Member>
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
+  variant?: AssigneeVariant
+  className?: string
+}) {
+  return (
+    <AssigneeSelect
+      value={ticket.assignees}
+      onChange={(assignees) => onPatch({ assignees })}
+      members={members}
+      waiting={waiting}
+      variant={variant}
+      className={className}
+    />
   )
 }
 

@@ -98,6 +98,8 @@ const ticketDetail = {
   createdBy: "user-1",
   createdAt: "2026-09-15T10:00:00.000Z",
   updatedAt: "2026-09-15T10:00:00.000Z",
+  creator: null,
+  updater: null,
   body: ""
 }
 

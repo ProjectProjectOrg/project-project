@@ -369,6 +369,8 @@ describe("MCP dispatcher → doc tools", () => {
 describe("MCP dispatcher → write tools", () => {
   const fakeTicketDetail = {
     ...fakeTicket,
+    creator: null,
+    updater: null,
     body: "## Steps\n- repro\n"
   }
 

@@ -1,12 +1,14 @@
 import * as DateTime from "effect/DateTime"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   padNumericIdSort,
+  type GroupId,
   type QuickCreateTicketInput,
   type Ticket,
   type TicketCounts,
@@ -23,6 +25,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { compareCodePoints } from "@/lib/orderKey"
 import { PRIORITY_META } from "@/lib/priority-meta"
+import { countsRequest, ticketCounts } from "./ticketCounts"
 import { applyTicketPatch } from "./ticketPatch"
 
 export const encodeTicketListQuery = Schema.encodeSync(
@@ -551,5 +554,322 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
         return created
       })
     )
+  })
+)
+
+export const flatBacklogRequest = (
+  orgSlug: string,
+  slug: string,
+  query: TicketListQuery
+): BacklogRequest => ({
+  params: { orgSlug, slug },
+  query: { ...query, cursor: undefined }
+})
+
+export type FlatBacklogValue = Readonly<{
+  items: ReadonlyArray<BacklogRow>
+  nextCursor: string | null
+  count: number
+}>
+
+const emptyFlatBacklog = (): FlatBacklogValue => ({
+  items: [],
+  nextCursor: null,
+  count: 0
+})
+
+const countQueryOf = (req: BacklogRequest) => {
+  const { sort: _sort, cursor: _cursor, ...query } = req.query
+  return ticketCounts(countsRequest(req.params.orgSlug, req.params.slug, query))
+}
+
+const flatFirstPageQuery = (req: BacklogRequest) =>
+  Api.query("tickets", "list", {
+    params: req.params,
+    query: req.query,
+    timeToLive: "2 minutes",
+    reactivityKeys: [
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketPages(scopeOf(req)),
+      Keys.orgMembers(req.params.orgSlug)
+    ]
+  })
+
+const flatPageQuery = (req: BacklogRequest, cursor: string) =>
+  Api.query("tickets", "list", {
+    params: req.params,
+    query: { ...req.query, cursor },
+    timeToLive: "2 minutes",
+    reactivityKeys: [
+      Keys.ticketsIn(scopeOf(req)),
+      Keys.ticketPages(scopeOf(req)),
+      Keys.orgMembers(req.params.orgSlug)
+    ]
+  })
+
+const flatLoadedPagesAtom = Atom.family((_req: BacklogRequest) =>
+  Atom.make(0).pipe(Atom.setIdleTTL("2 minutes"))
+)
+
+const assignedSprintId = (req: BacklogRequest): GroupId | undefined => {
+  const id = req.query.groupId?.[0]
+  return id !== undefined && id !== "ungrouped" ? id : undefined
+}
+
+const flatBacklogView = (req: BacklogRequest) =>
+  Atom.readable(
+    (get) => {
+      const page = get(flatFirstPageQuery(req))
+      const counts = get(countQueryOf(req))
+      if (!AsyncResult.isSuccess(page) || !AsyncResult.isSuccess(counts)) {
+        const combined = AsyncResult.all([page, counts])
+        return AsyncResult.map(combined, emptyFlatBacklog)
+      }
+      const createdKeys = get(createdKeysAtom(scopeOf(req)))
+      const rows: Array<BacklogRow> = page.value.items.map(toRow)
+      let nextCursor = page.value.nextCursor
+      const parts: Array<AsyncResult.AsyncResult<unknown, unknown>> = [
+        page,
+        counts
+      ]
+      const depth = get(flatLoadedPagesAtom(req))
+      for (let index = 0; index < depth; index++) {
+        if (nextCursor === null) break
+        const cursor = nextCursor
+        const extra = get(flatPageQuery(req, cursor))
+        parts.push(extra)
+        if (!AsyncResult.isSuccess(extra)) break
+        for (const item of extra.value.items) rows.push(toRow(item))
+        nextCursor = extra.value.nextCursor
+      }
+      return AsyncResult.success<FlatBacklogValue>(
+        {
+          items: dedupeById(rows).map((row) => ({
+            ...row,
+            key: createdKeys.get(row.ticket.id) ?? row.key
+          })),
+          nextCursor,
+          count: counts.value.total
+        },
+        { waiting: parts.some((part) => part.waiting) }
+      )
+    },
+    (refresh) => {
+      refresh(flatFirstPageQuery(req))
+      refresh(countQueryOf(req))
+    }
+  )
+
+export const flatBacklog = Atom.family((req: BacklogRequest) =>
+  Atom.optimistic(flatBacklogView(req))
+)
+
+export const loadMoreFlatBacklog = Atom.family((req: BacklogRequest) =>
+  Api.runtime.fn(
+    Effect.fn("loadMoreFlatBacklog")(function* (
+      _input: void,
+      get: Atom.FnContext
+    ) {
+      const current = get(flatBacklog(req))
+      if (!AsyncResult.isSuccess(current)) return yield* Effect.void
+      const cursor = current.value.nextCursor
+      if (!cursor) return yield* Effect.void
+      const depth = get(flatLoadedPagesAtom(req))
+      const first = get(flatFirstPageQuery(req))
+      if (!AsyncResult.isSuccess(first)) return yield* Effect.void
+      let pageCursor: string | null = first.value.nextCursor
+      for (let index = 0; index < depth; index++) {
+        if (pageCursor === null) break
+        const page = flatPageQuery(req, pageCursor)
+        if (pageCursor === cursor) {
+          get.set(flatLoadedPagesAtom(req), depth + 1)
+          return yield* get.result(page, { suspendOnWaiting: true })
+        }
+        const result = get(page)
+        if (!AsyncResult.isSuccess(result)) return yield* Effect.void
+        pageCursor = result.value.nextCursor
+      }
+      get.set(flatLoadedPagesAtom(req), depth + 1)
+      return yield* get.result(flatPageQuery(req, cursor), {
+        suspendOnWaiting: true
+      })
+    })
+  )
+)
+
+const unsavedFlatPatchAtom = Atom.family(
+  (_key: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+    Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("2 minutes"))
+)
+
+export const updateFlatBacklogTicket = Atom.family(
+  ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
+    Atom.optimisticFn(flatBacklog(req), {
+      reducer: (current, patch: UpdateTicketInput) =>
+        AsyncResult.map(current, (value) => ({
+          ...value,
+          items: value.items.map((row) =>
+            row.ticket.id === id
+              ? {
+                  ...row,
+                  ticket: applyTicketPatch(row.ticket, patch),
+                  pending: true
+                }
+              : row
+          )
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("updateFlatBacklogTicket")(function* (
+            patch: UpdateTicketInput,
+            get
+          ) {
+            const unsaved = unsavedFlatPatchAtom({ req, id })
+            const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
+            get.set(unsaved, payload)
+            const { ticket: updated } = yield* Effect.catchCause(
+              Api.use((client) =>
+                client.tickets.update({
+                  params: { ...req.params, id },
+                  query: { sort: req.query.sort },
+                  payload
+                })
+              ),
+              (cause) => {
+                if (
+                  !Cause.hasInterruptsOnly(cause) &&
+                  get(unsaved) === payload
+                ) {
+                  get.set(unsaved, {})
+                }
+                return Effect.failCause(cause)
+              }
+            )
+            set(
+              AsyncResult.map(get(flatBacklog(req)), (value) => ({
+                ...value,
+                items: value.items.map((row) =>
+                  row.ticket.id === id
+                    ? {
+                        ticket: updated,
+                        key: row.key,
+                        orderKey: row.orderKey,
+                        pending: false
+                      }
+                    : row
+                )
+              }))
+            )
+            yield* Reactivity.invalidate([
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.ticket(scopeOf(req), id),
+              Keys.ticketLists(scopeOf(req)),
+              Keys.ticketPages(scopeOf(req))
+            ])
+            if (get(unsaved) === payload) get.set(unsaved, {})
+            return updated
+          })
+        )
+    })
+)
+
+export const quickCreateFlatBacklogTicket = Atom.family((req: BacklogRequest) =>
+  Atom.optimisticFn(flatBacklog(req), {
+    reducer: (current, input: QuickCreateArg) =>
+      AsyncResult.map(current, (value) => {
+        const status = input.ticket.status ?? ("todo" as TicketStatus)
+        const now = DateTime.toDate(DateTime.nowUnsafe())
+        const predicted: Ticket = {
+          id: placeholderId(value.items, input.projectPrefix),
+          title: input.ticket.title,
+          status,
+          type: input.ticket.type ?? "other",
+          priority: "med",
+          tags: [],
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          gitState: { tag: "no_branch", baseBranch: "" },
+          assignees: [],
+          archivedAt: null,
+          createdBy: input.viewerId,
+          createdAt: now,
+          updatedAt: now
+        }
+        return {
+          count: value.count + 1,
+          nextCursor: value.nextCursor,
+          items: [
+            {
+              ticket: predicted,
+              key: input.clientId,
+              orderKey: null,
+              pending: true
+            },
+            ...value.items
+          ]
+        }
+      }),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("quickCreateFlatBacklogTicket")(function* (
+          input: QuickCreateArg,
+          get
+        ) {
+          const created = yield* Api.use((client) =>
+            client.tickets.quickCreate({
+              params: req.params,
+              payload: input.ticket
+            })
+          )
+          const groupId = assignedSprintId(req)
+          const assignment = yield* Effect.exit(
+            groupId
+              ? Effect.gen(function* () {
+                  const sprint = yield* Api.use((client) =>
+                    client.groups.get({
+                      params: { ...req.params, id: groupId }
+                    })
+                  )
+                  yield* Api.use((client) =>
+                    client.groups.updateTickets({
+                      params: { ...req.params, id: groupId },
+                      payload: { tickets: [...sprint.tickets, created.id] }
+                    })
+                  )
+                })
+              : Effect.void
+          )
+          const index = createdKeysAtom(scopeOf(req))
+          get.set(index, new Map(get(index)).set(created.id, input.clientId))
+          set(
+            AsyncResult.map(get(flatBacklog(req)), (value) => ({
+              ...value,
+              items: value.items.map((row) =>
+                row.key === input.clientId
+                  ? {
+                      ticket: created,
+                      key: created.id,
+                      orderKey: row.orderKey,
+                      pending: false
+                    }
+                  : row
+              )
+            }))
+          )
+          yield* Reactivity.invalidate([
+            Keys.ticketsIn(scopeOf(req)),
+            Keys.ticketLists(scopeOf(req)),
+            Keys.ticketPages(scopeOf(req)),
+            Keys.sprints(scopeOf(req)),
+            Keys.sprintMembership(scopeOf(req))
+          ])
+          return {
+            ...created,
+            sprintAssignmentFailed: Exit.isFailure(assignment)
+          }
+        })
+      )
   })
 )

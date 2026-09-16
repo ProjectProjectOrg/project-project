@@ -56,6 +56,8 @@ import {
   ArchiveTicketInput,
   CreateTicketInput,
   QuickCreateTicketInput,
+  SplitTicketInput,
+  SplitTicketResult,
   Ticket,
   TicketDetail,
   TicketId,
@@ -1232,6 +1234,25 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         success: TicketDetail,
         error: [Unauthorized, NotFound]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "split",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/split",
+      {
+        params: TicketPath,
+        payload: SplitTicketInput,
+        success: SplitTicketResult,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          SprintCompletedImmutable
+        ]
       }
     )
   )

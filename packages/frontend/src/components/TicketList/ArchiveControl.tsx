@@ -111,7 +111,7 @@ function ArchivePopover({
   )
 }
 
-function ArchiveForm({
+export function ArchiveForm({
   reason,
   onReasonChange,
   onArchive,

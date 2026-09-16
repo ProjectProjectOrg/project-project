@@ -42,15 +42,19 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
+  splitFrom: Schema.optionalKey(TicketId),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
+  updatedBy: Schema.optionalKey(Schema.String),
   updatedAt: Schema.DateFromString
 })
 
 const TicketFrontmatterValue = Schema.Struct(
   Struct.evolve(Struct.omit(TicketFrontmatterOnDisk.fields, ["assignee"]), {
     branchAutoLinkDisabled: () => Schema.optional(Schema.Boolean),
-    assignees: () => Schema.Array(Schema.String)
+    assignees: () => Schema.Array(Schema.String),
+    splitFrom: () => Schema.optional(TicketId),
+    updatedBy: () => Schema.String
   })
 )
 
@@ -59,19 +63,31 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
     Schema.toType(TicketFrontmatterValue),
     SchemaTransformation.transform({
       decode: (input) =>
-        Object.assign(Struct.omit(input, ["assignee", "assignees"]), {
-          assignees:
-            input.assignees ??
-            (input.assignee === undefined || input.assignee === null
-              ? []
-              : [input.assignee])
-        }),
+        Object.assign(
+          Struct.omit(input, [
+            "assignee",
+            "assignees",
+            "updatedBy",
+            "splitFrom"
+          ]),
+          {
+            assignees:
+              input.assignees ??
+              (input.assignee === undefined || input.assignee === null
+                ? []
+                : [input.assignee]),
+            updatedBy: input.updatedBy ?? input.createdBy,
+            ...(input.splitFrom ? { splitFrom: input.splitFrom } : {})
+          }
+        ),
       encode: (input) =>
-        input.branchAutoLinkDisabled
-          ? Object.assign(Struct.omit(input, ["branchAutoLinkDisabled"]), {
-              branchAutoLinkDisabled: true as const
-            })
-          : Struct.omit(input, ["branchAutoLinkDisabled"])
+        Object.assign(
+          Struct.omit(input, ["branchAutoLinkDisabled", "splitFrom"]),
+          input.branchAutoLinkDisabled
+            ? { branchAutoLinkDisabled: true as const }
+            : {},
+          input.splitFrom ? { splitFrom: input.splitFrom } : {}
+        )
     })
   )
 )

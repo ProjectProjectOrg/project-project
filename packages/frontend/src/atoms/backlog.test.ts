@@ -48,7 +48,12 @@ const ticket = {
 const encode = Schema.encodeSync(Ticket)
 const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
-const asDetail = (t: Ticket): TicketDetail => ({ ...t, body: "Before" })
+const asDetail = (t: Ticket): TicketDetail => ({
+  ...t,
+  creator: null,
+  updater: null,
+  body: "Before"
+})
 const asUpdateResult = (
   t: Ticket,
   key: string | null = null

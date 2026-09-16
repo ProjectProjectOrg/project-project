@@ -140,6 +140,7 @@ it.effect(
         archivedAt: null,
         createdBy: "user-1",
         createdAt: isoDate("2026-02-01T10:00:00.000Z"),
+        updatedBy: "user-1",
         updatedAt: isoDate("2026-02-01T10:00:00.000Z"),
         body: "# Write tests\n",
         commentsRegion: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
@@ -199,6 +200,7 @@ it.effect(
         archivedAt: null,
         createdBy: "user-1",
         createdAt: isoDate("2026-02-01T10:00:00.000Z"),
+        updatedBy: "user-1",
         updatedAt: isoDate("2026-02-02T10:00:00.000Z"),
         body: "# Write tests\n",
         commentsRegion: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
@@ -221,6 +223,7 @@ it.effect(
           archivedAt: null,
           createdBy: "user-1",
           createdAt: "2026-02-01T10:00:00.000Z",
+          updatedBy: "user-1",
           updatedAt: "2026-02-02T10:00:00.000Z"
         },
         body: "# Write tests\n"

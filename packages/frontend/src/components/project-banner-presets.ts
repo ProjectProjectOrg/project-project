@@ -2,24 +2,32 @@ import type { ProjectBannerPreset } from "@projectproject/shared"
 import { bannerPresetSources, bannerSource } from "@/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
+import sunsetThumbUrl from "./project-banner-monet-sunset-thumb.webp"
+import water_lily_pondThumbUrl from "./project-banner-monet-87088-thumb.webp"
+import wheat_stacksThumbUrl from "./project-banner-monet-64818-thumb.webp"
+import cliff_walkThumbUrl from "./project-banner-monet-14620-thumb.webp"
+import saint_lazareThumbUrl from "./project-banner-monet-16571-thumb.webp"
+import bordigheraThumbUrl from "./project-banner-monet-81537-thumb.webp"
 
 export { bannerSource }
 
-export type BannerPreset = {
+export type BannerPreset = Readonly<{
   id: ProjectBannerPreset
   src: string
+  thumbSrc: string
   label: () => string
   artist: string
   provider: string
   url: string
   x: number
   y: number
-}
+}>
 
 export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "sunset",
     src: bannerPresetSources.sunset,
+    thumbSrc: sunsetThumbUrl,
     label: () => m.project_banner_template_sunset(),
     artist: "Claude Monet",
     provider: m.project_banner_template_user_provided(),
@@ -30,6 +38,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "water_lily_pond",
     src: bannerPresetSources.water_lily_pond,
+    thumbSrc: water_lily_pondThumbUrl,
     label: () => m.project_banner_template_water_lily_pond(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -40,6 +49,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "wheat_stacks",
     src: bannerPresetSources.wheat_stacks,
+    thumbSrc: wheat_stacksThumbUrl,
     label: () => m.project_banner_template_wheat_stacks(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -50,6 +60,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "cliff_walk",
     src: bannerPresetSources.cliff_walk,
+    thumbSrc: cliff_walkThumbUrl,
     label: () => m.project_banner_template_cliff_walk(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -60,6 +71,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "saint_lazare",
     src: bannerPresetSources.saint_lazare,
+    thumbSrc: saint_lazareThumbUrl,
     label: () => m.project_banner_template_saint_lazare(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",
@@ -70,6 +82,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "bordighera",
     src: bannerPresetSources.bordighera,
+    thumbSrc: bordigheraThumbUrl,
     label: () => m.project_banner_template_bordighera(),
     artist: "Claude Monet",
     provider: "Art Institute of Chicago",

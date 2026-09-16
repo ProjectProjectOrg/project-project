@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type {
   CompleteSprintInput,
   CompleteSprintOutput,
+  GroupId,
   CreateGroupInput,
   CursorPayload,
   Forbidden,
@@ -117,6 +118,22 @@ export interface GroupsShape {
     slug: string,
     id: string
   ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  readonly ensureSprintAssignable: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    sprintIds: ReadonlyArray<GroupId>
+  ) => Effect.Effect<
+    void,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly setSprintMembership: (
+    orgSlug: string,
+    slug: string,
+    ticketId: TicketId,
+    sprintId: GroupId | null,
+    options?: { readonly after?: TicketId | null }
+  ) => Effect.Effect<void, MarkdownError>
   readonly removeTicketFromAllGroups: (
     orgSlug: string,
     slug: string,

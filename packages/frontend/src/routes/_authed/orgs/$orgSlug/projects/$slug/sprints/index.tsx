@@ -43,7 +43,7 @@ export const Route = createFileRoute(
     throw redirect({
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
       params: { orgSlug, slug, groupId: target.id },
-      search: { view: "board" },
+      search: {},
       replace: true
     })
   }

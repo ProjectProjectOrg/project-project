@@ -151,6 +151,81 @@ export function StatusBadgeTrigger({
   )
 }
 
+export function StatusSelect({
+  orgSlug,
+  slug,
+  value,
+  onChange,
+  size = "sm",
+  stopPropagation,
+  disabled = false
+}: {
+  orgSlug: string
+  slug: string
+  value: TicketStatus
+  onChange: (status: TicketStatus) => void
+  size?: "sm" | "lg"
+  stopPropagation?: boolean
+  disabled?: boolean
+}) {
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const statusesResult = useAtomValue(statusesFor(req))
+  const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
+  const meta = statusMetaFor(value, statuses)
+  const Icon = meta.icon
+  const statusLabel = statusLabelFor(value, statuses)
+  const wrapperClass =
+    size === "lg"
+      ? "grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5"
+      : cn(
+          "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
+          meta.className
+        )
+  const iconClass = size === "lg" ? cn("size-5", meta.className) : "size-4"
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin={size === "lg" ? "1" : "2"}
+            onClick={(e) => stopPropagation && e.stopPropagation()}
+            aria-label={
+              disabled
+                ? statusLabel
+                : m.tickets_status_aria_label({ label: statusLabel })
+            }
+            title={statusLabel}
+            disabled={disabled}
+          >
+            <span className={wrapperClass}>
+              <Icon
+                className={iconClass}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+            </span>
+          </Hitbox>
+        }
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <StatusMenuItems
+          orgSlug={orgSlug}
+          slug={slug}
+          current={value}
+          statuses={statuses}
+          onSelect={onChange}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function StatusButton({
   orgSlug,
   slug,
@@ -158,7 +233,8 @@ export function StatusButton({
   stopPropagation,
   size = "sm",
   onPatch,
-  waiting
+  waiting,
+  disabled = false
 }: {
   orgSlug: string
   slug: string
@@ -167,6 +243,7 @@ export function StatusButton({
   size?: "sm" | "lg"
   onPatch: (patch: UpdateTicketInput) => void
   waiting: boolean
+  disabled?: boolean
 }) {
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
   const statusesResult = useAtomValue(statusesFor(req))
@@ -190,9 +267,13 @@ export function StatusButton({
             mode="inline"
             margin={size === "lg" ? "1" : "2"}
             onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={m.tickets_status_aria_label({ label: statusLabel })}
+            aria-label={
+              disabled
+                ? statusLabel
+                : m.tickets_status_aria_label({ label: statusLabel })
+            }
             title={statusLabel}
-            disabled={waiting}
+            disabled={disabled || waiting}
           >
             <span className={cn(wrapperClass, waiting && "animate-pulse")}>
               <Icon

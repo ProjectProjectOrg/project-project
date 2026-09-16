@@ -9,7 +9,12 @@ import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
-import type { Group, Member, Ticket } from "@projectproject/shared"
+import type {
+  Group,
+  Member,
+  Ticket,
+  UpdateTicketInput
+} from "@projectproject/shared"
 import { AssigneeField } from "./AssigneeField"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
@@ -18,21 +23,8 @@ import { TypeButton } from "./TypeField"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
-function RowImpl({
-  orgSlug,
-  slug,
-  ticket,
-  req,
-  members,
-  showSprintCol,
-  showExtraActionsCol,
-  sprintMembership,
-  extraRowActions,
-  pending,
-  previewOpen,
-  onPreviewPointerEnter,
-  onPreviewOpenChange
-}: {
+type RowProps = Readonly<{
+  onUpdate?: (patch: UpdateTicketInput) => void
   orgSlug: string
   slug: string
   ticket: Ticket
@@ -46,9 +38,44 @@ function RowImpl({
   previewOpen: boolean
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+}>
+
+function RowImpl(props: RowProps) {
+  if (props.onUpdate) {
+    return <RowView {...props} onPatch={props.onUpdate} waiting={false} />
+  }
+  return <BacklogMutatingRow {...props} />
+}
+
+function BacklogMutatingRow(props: RowProps) {
+  const update = useAtomSet(
+    updateBacklogTicket({ req: props.req, id: props.ticket.id })
+  )
+  const updateState = useAtomValue(
+    updateBacklogTicket({ req: props.req, id: props.ticket.id })
+  )
+  return <RowView {...props} onPatch={update} waiting={updateState.waiting} />
+}
+
+function RowView({
+  orgSlug,
+  slug,
+  ticket,
+  members,
+  showSprintCol,
+  showExtraActionsCol,
+  sprintMembership,
+  extraRowActions,
+  pending,
+  previewOpen,
+  onPreviewPointerEnter,
+  onPreviewOpenChange,
+  onPatch,
+  waiting
+}: RowProps & {
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
 }) {
-  const update = useAtomSet(updateBacklogTicket({ req, id: ticket.id }))
-  const updateState = useAtomValue(updateBacklogTicket({ req, id: ticket.id }))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -74,7 +101,7 @@ function RowImpl({
             ref={rowElement}
             className={cn(
               "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
-              updateState.waiting && "animate-pulse"
+              waiting && "animate-pulse"
             )}
           >
             <Link
@@ -116,14 +143,14 @@ function RowImpl({
               slug={slug}
               ticket={ticket}
               stopPropagation
-              onPatch={update}
-              waiting={updateState.waiting}
+              onPatch={onPatch}
+              waiting={waiting}
             />
             <PriorityButton
               ticket={ticket}
               stopPropagation
-              onPatch={update}
-              waiting={updateState.waiting}
+              onPatch={onPatch}
+              waiting={waiting}
             />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
@@ -146,6 +173,7 @@ function RowImpl({
               <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
               {showSprintCol && (
                 <SprintField
+                  variant="responsive"
                   orgSlug={orgSlug}
                   slug={slug}
                   ticketId={ticket.id}
@@ -155,15 +183,15 @@ function RowImpl({
               <AssigneeField
                 ticket={ticket}
                 members={members}
-                onPatch={update}
-                waiting={updateState.waiting}
+                onPatch={onPatch}
+                waiting={waiting}
                 className="hidden sm:inline-flex"
               />
             </div>
             <TypeButton
               ticket={ticket}
-              onPatch={update}
-              waiting={updateState.waiting}
+              onPatch={onPatch}
+              waiting={waiting}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (

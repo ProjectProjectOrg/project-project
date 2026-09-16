@@ -1,11 +1,9 @@
 import * as Schema from "effect/Schema"
 import { TicketId, TicketStatus } from "./Ticket"
 
-export const GroupId = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^G-[1-9][0-9]*$/)),
-  Schema.brand("GroupId")
-)
-export type GroupId = typeof GroupId.Type
+import { GroupId } from "./GroupId"
+
+export { GroupId }
 
 export const GroupKind = Schema.Literals([
   "sprint",

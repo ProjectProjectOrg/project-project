@@ -5,6 +5,7 @@ import {
   withAttachmentParams,
   type ProjectIconImage
 } from "@projectproject/shared"
+import { CroppedImage } from "@/components/CroppedImage"
 import { preloadImage } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 
@@ -49,7 +50,7 @@ export function ProjectIconDisplay({
     if (failed) setFailed(false)
   }
 
-  if (!iconImage || failed) {
+  if (!iconImage || failed || source === null) {
     return (
       <span className={className} style={emojiStyle}>
         {icon}
@@ -59,22 +60,17 @@ export function ProjectIconDisplay({
 
   return (
     <span
-      className={cn("block overflow-hidden", className)}
+      className={cn("relative block overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
-      <img
-        src={source ?? undefined}
-        alt=""
+      <CroppedImage
+        src={source}
+        crop={iconImage.crop}
         onError={() => setFailed(true)}
         className={cn(
-          "size-full object-cover",
           iconImage.type === "sticker" &&
             "[filter:drop-shadow(0_0_1px_var(--icon-sticker-outline))_drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
         )}
-        style={{
-          objectPosition: `${iconImage.crop.x * 100}% ${iconImage.crop.y * 100}%`,
-          scale: String(iconImage.crop.zoom)
-        }}
       />
     </span>
   )

@@ -32,6 +32,8 @@ const ticket = {
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  creator: null,
+  updater: null,
   body: "Before"
 } satisfies TicketDetail
 

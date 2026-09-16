@@ -39,6 +39,7 @@
   "tickets_assignees_row_unassigned_aria_label": "Unassigned. Click to assign.",
   "tickets_clear_search_button": "Clear search",
   "tickets_create_error_fallback": "Failed to create ticket",
+  "tickets_create_sprint_assignment_failed": "Ticket created, but sprint assignment failed. Find it in Unscheduled and try assigning it again.",
   "tickets_create_title_aria_label": "New ticket title",
   "tickets_create_title_placeholder": "New ticket title…",
   "tickets_create_type_aria_label": "Type: {type}. Click to change.",
@@ -65,6 +66,13 @@
   "tickets_filters_section_type": "Type",
   "tickets_filters_sprint_any": "Any sprint",
   "tickets_filters_sprint_none": "Not in a sprint",
+  "tickets_grouping_active": "Active",
+  "tickets_grouping_completed": "Completed",
+  "tickets_grouping_label": "Group by: {label}",
+  "tickets_grouping_planned": "Planned",
+  "tickets_grouping_sprint": "Sprint",
+  "tickets_grouping_status": "Status",
+  "tickets_grouping_unscheduled": "Unscheduled",
   "tickets_list_defect": "Something went wrong: {defect}",
   "tickets_list_load_error": "Couldn't load tickets: {error}",
   "tickets_list_malformed_query": "This URL has filter values we can't parse. Reset the filters to recover.",
@@ -91,6 +99,7 @@
   "tickets_priority_high": "High",
   "tickets_priority_low": "Low",
   "tickets_priority_med": "Med",
+  "tickets_row_actions_aria_label": "Ticket actions",
   "tickets_save_status_dirty": "Unsaved changes",
   "tickets_save_status_saved": "Saved",
   "tickets_save_status_saving": "Saving…",
@@ -110,6 +119,76 @@
   "tickets_sort_priority": "Priority (high to low)",
   "tickets_sort_title": "Title",
   "tickets_sort_updated": "Recently updated",
+  "tickets_split_action_aria_label": "Split this ticket into multiple tickets",
+  "tickets_split_add_hint": "Up to {max} · each new ticket opens with “Split from {id}” as its first line",
+  "tickets_split_add_result": "Add ticket",
+  "tickets_split_cancel": "Cancel",
+  "tickets_split_error_fallback": "Couldn't split this ticket. Try again.",
+  "tickets_split_eyebrow": "Splitting",
+  "tickets_split_menu_item": "Split ticket",
+  "tickets_split_result_banner": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Split done. {count} new ticket was created:",
+        "countPlural=*": "Split done. {count} new tickets were created:"
+      }
+    }
+  ],
+  "tickets_split_result_dismiss": "Dismiss split summary",
+  "tickets_split_row_remove": "Remove this ticket from the split",
+  "tickets_split_row_title_label": "Ticket title",
+  "tickets_split_row_title_placeholder": "What is this piece of work?",
+  "tickets_split_submit": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Split into {count} ticket",
+        "countPlural=*": "Split into {count} tickets"
+      }
+    }
+  ],
+  "tickets_split_warning_branch_pr_suffix": [
+    {
+      "declarations": [
+        "input count",
+        "input number",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "and PR #{number} are detached from the resulting ticket. Reattach them afterwards.",
+        "countPlural=*": "and PR #{number} are detached from all {count} tickets. Reattach them afterwards."
+      }
+    }
+  ],
+  "tickets_split_warning_branch_prefix": "Branch",
+  "tickets_split_warning_branch_suffix": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "is detached from the resulting ticket. Reattach it afterwards.",
+        "countPlural=*": "is detached from all {count} tickets. Reattach it afterwards."
+      }
+    }
+  ],
+  "tickets_split_warning_comments": [
+    {
+      "declarations": [
+        "input count",
+        "input id",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} comment stays on {id} and is not copied to the new tickets.",
+        "countPlural=*": "{count} comments stay on {id} and are not copied to the new tickets."
+      }
+    }
+  ],
   "tickets_sprint_assign_error_fallback": "Failed to update sprint",
   "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
   "tickets_sprint_popover_new_sprint_action": "New sprint…",
@@ -118,6 +197,7 @@
   "tickets_sprint_popover_title": "Active + Planned",
   "tickets_status_all": "All",
   "tickets_status_aria_label": "Status: {label}. Click to change.",
+  "tickets_status_baseline_locked_aria": "Built-in status. Label, icon, and color are fixed — order can still be changed.",
   "tickets_status_chip_aria_label": "{label} ({count})",
   "tickets_status_create_add": "Add status",
   "tickets_status_create_error_fallback": "Couldn't add this status. Try again.",
@@ -127,7 +207,6 @@
   "tickets_status_delete_confirm_empty": "Delete this status?",
   "tickets_status_delete_confirm_with_tickets": "Move {count} tickets to",
   "tickets_status_delete_error_fallback": "Couldn't delete this status. Try again.",
-  "tickets_status_baseline_locked_aria": "Built-in status. Label, icon, and color are fixed — order can still be changed.",
   "tickets_status_deleting": "Deleting…",
   "tickets_status_done": "Done",
   "tickets_status_drag_handle_aria": "Reorder {label}. Use arrow keys or drag.",
@@ -151,5 +230,8 @@
   "tickets_type_other": "Other",
   "tickets_unarchive_action_aria_label": "Unarchive ticket",
   "tickets_unarchive_button": "Unarchive",
-  "tickets_unarchive_error_fallback": "Failed to unarchive ticket"
+  "tickets_unarchive_error_fallback": "Failed to unarchive ticket",
+  "tickets_view_board": "Board",
+  "tickets_view_list": "List",
+  "tickets_view_tabs_aria_label": "Switch view"
 }

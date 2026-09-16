@@ -48,6 +48,8 @@ const ticket = Schema.decodeSync(TicketDetail)({
   gitState: { tag: "no_branch", baseBranch: "main" },
   archivedAt: null,
   createdBy: "user-1",
+  creator: null,
+  updater: null,
   body: "",
   createdAt: "2026-09-15T10:00:00.000Z",
   updatedAt: "2026-09-15T10:11:12.345Z"

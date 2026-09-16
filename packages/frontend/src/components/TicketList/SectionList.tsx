@@ -2,12 +2,21 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/ErrorPage"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Loader2 } from "lucide-react"
-import { useMemo, useRef, useState, type ReactNode } from "react"
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type ComponentType,
+  type ComponentProps
+} from "react"
 import { Button } from "@/components/ui/button"
 import {
   backlogRequest,
   encodeTicketListQuery,
+  flatBacklogRequest,
   loadMoreBacklog,
+  type BacklogRequest,
   type BacklogSection
 } from "@/atoms/backlog"
 import { cn } from "@/lib/utils"
@@ -23,7 +32,7 @@ import type {
 } from "@projectproject/shared"
 import { Row } from "./Row"
 import { AutoLoad, VirtualRows } from "./VirtualRows"
-import { SectionHeader } from "./SectionHeader"
+import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionTicketCreator } from "./SectionTicketCreator"
 
 export function SectionList({
@@ -43,8 +52,22 @@ export function SectionList({
   showExtraActionsCol,
   activePreviewId,
   onPreviewPointerEnter,
-  onPreviewOpenChange
+  onPreviewOpenChange,
+  heading,
+  canCreate = true,
+  pagination,
+  listKey,
+  rowComponent: RowComponent = Row,
+  emptyMessage,
+  creationVariant = "status"
 }: {
+  heading?: SectionHeading
+  listKey?: string
+  canCreate?: boolean
+  pagination?: ReactNode
+  rowComponent?: ComponentType<ComponentProps<typeof Row>>
+  creationVariant?: "status" | "flat"
+  emptyMessage?: string
   orgSlug: string
   slug: string
   status: TicketStatus
@@ -64,18 +87,18 @@ export function SectionList({
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
   const req = useMemo(
-    () => backlogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
+    () =>
+      creationVariant === "flat"
+        ? flatBacklogRequest(orgSlug, slug, query)
+        : backlogRequest(orgSlug, slug, query),
+    [creationVariant, orgSlug, slug, query]
   )
-  const sectionKey = `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
-  const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
-  const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
-  const loadingMore = loadMoreState.waiting
-
+  const sectionKey =
+    listKey ??
+    `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
   const [creating, setCreating] = useState(false)
 
-  const { items, nextCursor } = page
-  const remaining = Math.max(0, count - items.length)
+  const { items } = page
 
   const gridCols = cn(
     "grid gap-y-1",
@@ -100,6 +123,8 @@ export function SectionList({
       <SectionHeader
         ref={shellRef}
         variant="sticky"
+        heading={heading}
+        canCreate={canCreate}
         status={status}
         statuses={statuses}
         count={count}
@@ -110,6 +135,7 @@ export function SectionList({
         onDismissCreate={onDismissCreate}
         creator={
           <SectionTicketCreator
+            variant={creationVariant}
             orgSlug={orgSlug}
             slug={slug}
             status={status}
@@ -134,7 +160,7 @@ export function SectionList({
           <div className="flex flex-col gap-1 pt-1">
             {items.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                —
+                {emptyMessage ?? "—"}
               </div>
             ) : (
               <VirtualRows
@@ -156,7 +182,7 @@ export function SectionList({
                         pending && "pointer-events-none animate-pulse"
                       )}
                     >
-                      <Row
+                      <RowComponent
                         orgSlug={orgSlug}
                         slug={slug}
                         ticket={ticket}
@@ -179,54 +205,115 @@ export function SectionList({
               </VirtualRows>
             )}
 
-            {Result.matchWithError(loadMoreState, {
-              onInitial: () => null,
-              onError: (error) => (
-                <ErrorPage error={error} reset={() => loadMore()} contained />
-              ),
-              onDefect: (defect) => (
-                <ErrorPage error={defect} reset={() => loadMore()} contained />
-              ),
-              onSuccess: () => null
-            })}
-            {nextCursor !== null && (
-              <AutoLoad
-                key={sectionKey}
-                cursor={nextCursor}
-                enabled={
-                  !collapsed && !loadingMore && !Result.isFailure(loadMoreState)
-                }
-                loadMore={() => loadMore()}
-              >
-                {Result.isFailure(loadMoreState) ? (
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="sm"
-                    onClick={() => loadMore()}
-                  >
-                    {m.tickets_section_load_more_button({ remaining })}
-                  </Button>
-                ) : (
-                  <div
-                    role="status"
-                    className={cn(
-                      "flex h-7 items-center gap-2 text-xs text-muted-foreground",
-                      !loadingMore && "invisible"
-                    )}
-                  >
-                    <Loader2
-                      className="size-4 animate-spin motion-reduce:animate-none"
-                      strokeWidth={1.75}
-                    />
-                    {m.tickets_load_more_loading()}
-                  </div>
-                )}
-              </AutoLoad>
+            {pagination ?? (
+              <SectionPagination
+                req={req}
+                collapsed={collapsed}
+                status={status}
+                page={page}
+                count={count}
+              />
             )}
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function SectionPagination({
+  req,
+  status,
+  page,
+  count,
+  collapsed
+}: {
+  req: BacklogRequest
+  status: TicketStatus
+  page: BacklogSection
+  count: number
+  collapsed: boolean
+}) {
+  const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
+  const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
+  const loadingMore = loadMoreState.waiting
+
+  const { items, nextCursor } = page
+  const remaining = Math.max(0, count - items.length)
+  return (
+    <>
+      {Result.matchWithError(loadMoreState, {
+        onInitial: () => null,
+        onError: (error) => (
+          <ErrorPage error={error} reset={() => loadMore()} contained />
+        ),
+        onDefect: (defect) => (
+          <ErrorPage error={defect} reset={() => loadMore()} contained />
+        ),
+        onSuccess: () => null
+      })}
+      <TicketPagination
+        nextCursor={nextCursor}
+        remaining={remaining}
+        collapsed={collapsed}
+        loadingMore={loadingMore}
+        failed={Result.isFailure(loadMoreState)}
+        loadMore={() => loadMore()}
+      />
+    </>
+  )
+}
+
+export function TicketPagination({
+  nextCursor,
+  remaining,
+  collapsed,
+  loadingMore,
+  failed,
+  loadMore
+}: {
+  nextCursor: string | null
+  remaining: number
+  collapsed: boolean
+  loadingMore: boolean
+  failed: boolean
+  loadMore: () => void
+}) {
+  return (
+    <>
+      {nextCursor !== null && (
+        <AutoLoad
+          key={nextCursor}
+          cursor={nextCursor}
+          enabled={!collapsed && !loadingMore && !failed}
+          loadMore={loadMore}
+        >
+          {failed ? (
+            <Button
+              type="button"
+              variant="tertiary"
+              size="sm"
+              onClick={loadMore}
+            >
+              {m.tickets_section_load_more_button({ remaining })}
+            </Button>
+          ) : (
+            <div
+              role="status"
+              className={cn(
+                "flex h-7 items-center gap-2 text-xs text-muted-foreground",
+                !loadingMore && "invisible"
+              )}
+            >
+              <Loader2
+                className="size-4 animate-spin motion-reduce:animate-none"
+                strokeWidth={1.75}
+              />
+              {m.tickets_load_more_loading()}
+            </div>
+          )}
+        </AutoLoad>
+      )}
+    </>
   )
 }

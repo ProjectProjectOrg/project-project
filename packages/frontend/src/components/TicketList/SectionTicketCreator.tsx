@@ -27,7 +27,12 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
-import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
+import {
+  backlogRequest,
+  flatBacklogRequest,
+  quickCreateBacklogTicket,
+  quickCreateFlatBacklogTicket
+} from "@/atoms/backlog"
 import { me } from "@/atoms/auth"
 import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
@@ -51,6 +56,7 @@ export function SectionTicketCreator({
   slug,
   status,
   query,
+  variant = "status",
   containerRef,
   onDone
 }: {
@@ -58,22 +64,39 @@ export function SectionTicketCreator({
   slug: string
   status: TicketStatus
   query: TicketListQuery
+  variant?: "status" | "flat"
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
 }) {
   const registry = useContext(RegistryContext)
-  const req = useMemo(
+  const sectionsReq = useMemo(
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const create = useAtomSet(quickCreateBacklogTicket(req), {
+  const flatReq = useMemo(
+    () => flatBacklogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
+  )
+  const createSections = useAtomSet(quickCreateBacklogTicket(sectionsReq), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateBacklogTicket(req))
+  const createSectionsState = useAtomValue(
+    quickCreateBacklogTicket(sectionsReq)
+  )
+  const createFlat = useAtomSet(quickCreateFlatBacklogTicket(flatReq), {
+    mode: "promiseExit"
+  })
+  const createFlatState = useAtomValue(quickCreateFlatBacklogTicket(flatReq))
+  const create = variant === "flat" ? createFlat : createSections
+  const createState = variant === "flat" ? createFlatState : createSectionsState
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
-    : null
+    : Result.isSuccess(createState) &&
+        "sprintAssignmentFailed" in createState.value &&
+        createState.value.sprintAssignmentFailed
+      ? m.tickets_create_sprint_assignment_failed()
+      : null
 
   const viewer = useAtomValue(me())
   const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
@@ -194,7 +217,7 @@ export function SectionTicketCreator({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null) {
+    if (attachTo !== null && variant !== "flat") {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }

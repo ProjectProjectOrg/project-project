@@ -22,6 +22,11 @@ import {
   paginateSorted,
   QuickCreateTicketInput,
   RateLimited,
+  Forbidden,
+  SprintCompletedImmutable,
+  formatMentionHref,
+  SplitTicketInput,
+  SplitTicketResult,
   RepoGone,
   TagName,
   Ticket,
@@ -42,6 +47,7 @@ import {
   type TicketSort,
   type TicketStatus,
   type TicketUpdateResult,
+  type User,
   sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
@@ -65,6 +71,7 @@ import {
   type TicketDocument
 } from "../Services/TicketDocs"
 import { Tickets, type TicketsShape } from "../Services/Tickets"
+import { Users } from "../Services/Users"
 import {
   planAutomaticBranchLinks,
   planTicketGitStates
@@ -78,7 +85,7 @@ const makeTagName = Schema.decodeUnknownSync(TagName)
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 function pendingGitState(
-  document: Omit<TicketDocument, "body" | "commentsRegion">,
+  document: Pick<TicketDocument, "branch" | "pr" | "prState">,
   github: ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
@@ -171,10 +178,15 @@ function ticketPage(
 function documentToDetail(
   document: TicketDocument,
   github: ProjectGithubIntegration | null,
+  creator: User | null,
+  updater: User | null,
   branchDeletedAt: Date | null = null
 ): TicketDetail {
   return {
     ...documentToTicket(document, github, branchDeletedAt),
+    splitFrom: document.splitFrom ?? null,
+    creator,
+    updater,
     body: document.body
   }
 }
@@ -193,6 +205,29 @@ export const TicketsLive = Layer.effect(
     const db = yield* Db
     const attachments = yield* Attachments
     const figmaLinks = yield* FigmaLinks
+    const users = yield* Users
+
+    const detailOf = (
+      document: TicketDocument,
+      github: ProjectGithubIntegration | null,
+      branchDeletedAt: Date | null = null
+    ): Effect.Effect<TicketDetail> =>
+      users
+        .fullByIds([...new Set([document.createdBy, document.updatedBy])])
+        .pipe(
+          Effect.map((found) => {
+            const byId = new Map<string, User>(
+              found.map((user) => [user.id, user])
+            )
+            return documentToDetail(
+              document,
+              github,
+              byId.get(document.createdBy) ?? null,
+              byId.get(document.updatedBy) ?? null,
+              branchDeletedAt
+            )
+          })
+        )
 
     const ensureAccess = (
       orgSlug: string,
@@ -480,7 +515,7 @@ export const TicketsLive = Layer.effect(
         )
         return yield* withMissingAttachments(
           orgSlug,
-          documentToDetail(ticket, projectGithub, branchDeletedAt)
+          yield* detailOf(ticket, projectGithub, branchDeletedAt)
         )
       })
 
@@ -614,7 +649,8 @@ export const TicketsLive = Layer.effect(
       slug: string,
       projectKey: ProjectKey,
       indexProject: TicketIndexProject,
-      buildDocument: (id: TicketId) => TicketDocument
+      buildDocument: (id: TicketId) => TicketDocument,
+      onFileWritten?: (document: TicketDocument) => void
     ): Effect.Effect<TicketDocument, MarkdownError> =>
       Effect.gen(function* () {
         while (true) {
@@ -624,22 +660,26 @@ export const TicketsLive = Layer.effect(
           const document = buildDocument(candidate)
           const result = yield* ticketDocs
             .create(orgSlug, slug, document, (created) =>
-              attachments
-                .reconcileTicket(orgSlug, slug, created.id, created.body)
-                .pipe(
-                  Effect.andThen(
-                    figmaLinks.reconcileTicket(
-                      orgSlug,
-                      slug,
-                      created.id,
-                      created.title,
-                      created.body
-                    )
-                  ),
-                  Effect.andThen(
-                    ticketIndex.upsertTicket(indexProject, created)
+              Effect.sync(() => onFileWritten?.(created)).pipe(
+                Effect.andThen(
+                  attachments.reconcileTicket(
+                    orgSlug,
+                    slug,
+                    created.id,
+                    created.body
                   )
-                )
+                ),
+                Effect.andThen(
+                  figmaLinks.reconcileTicket(
+                    orgSlug,
+                    slug,
+                    created.id,
+                    created.title,
+                    created.body
+                  )
+                ),
+                Effect.andThen(ticketIndex.upsertTicket(indexProject, created))
+              )
             )
             .pipe(
               Effect.map(() => "ok" as const),
@@ -685,6 +725,7 @@ export const TicketsLive = Layer.effect(
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
+            updatedBy: ownerId,
             updatedAt: now,
             body: "",
             commentsRegion: ""
@@ -695,7 +736,7 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return documentToDetail(document, projectGithub)
+        return yield* detailOf(document, projectGithub)
       })
 
     const create = (
@@ -742,6 +783,7 @@ export const TicketsLive = Layer.effect(
             archivedAt: null,
             createdBy: ownerId,
             createdAt: now,
+            updatedBy: ownerId,
             updatedAt: now,
             body: input.body ?? "",
             commentsRegion: ""
@@ -752,7 +794,7 @@ export const TicketsLive = Layer.effect(
           ownerId,
           slug
         )
-        return documentToDetail(document, projectGithub)
+        return yield* detailOf(document, projectGithub)
       })
 
     const update = (
@@ -819,6 +861,7 @@ export const TicketsLive = Layer.effect(
                     input.assignees !== undefined
                       ? input.assignees
                       : existing.assignees,
+                  updatedBy: ownerId,
                   updatedAt: yield* DateTime.nowAsDate,
                   body: input.body ?? existing.body
                 }
@@ -846,7 +889,7 @@ export const TicketsLive = Layer.effect(
 
           const ticket = yield* withMissingAttachments(
             orgSlug,
-            documentToDetail(next, projectGithub)
+            yield* detailOf(next, projectGithub)
           )
           const orderKey =
             sort === undefined
@@ -855,6 +898,285 @@ export const TicketsLive = Layer.effect(
           return { ticket, orderKey }
         })
       )
+
+    const discardSplitResult = (
+      orgSlug: string,
+      slug: string,
+      indexProject: TicketIndexProject,
+      document: TicketDocument
+    ) =>
+      ticketDocs
+        .remove(
+          orgSlug,
+          slug,
+          document.id,
+          attachments
+            .reconcileTicket(orgSlug, slug, document.id, "")
+            .pipe(
+              Effect.andThen(
+                figmaLinks.reconcileTicket(orgSlug, slug, document.id, "", "")
+              ),
+              Effect.andThen(
+                ticketIndex.deleteTicket(indexProject, document.id)
+              )
+            )
+        )
+        .pipe(Effect.ignore)
+
+    const restoreSplitDocuments = (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      indexProject: TicketIndexProject,
+      original: TicketDocument,
+      created: ReadonlyArray<TicketDocument>
+    ) =>
+      Effect.forEach(
+        created,
+        (document) => discardSplitResult(orgSlug, slug, indexProject, document),
+        { discard: true }
+      ).pipe(
+        Effect.andThen(
+          ticketDocs
+            .write(orgSlug, slug, id, original)
+            .pipe(
+              Effect.andThen(ticketIndex.upsertTicket(indexProject, original))
+            )
+        )
+      )
+
+    const split = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      input: SplitTicketInput
+    ): Effect.Effect<
+      SplitTicketResult,
+      | TicketReadError
+      | Validation
+      | MentionInvalid
+      | Forbidden
+      | SprintCompletedImmutable
+    > =>
+      Effect.gen(function* () {
+        yield* ensureAccess(orgSlug, userId, slug)
+        const [retainedInput, ...newInputs] = input.results
+        if (retainedInput === undefined || newInputs.length === 0) {
+          return yield* new Validation({ reason: "split_needs_two_results" })
+        }
+
+        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
+        const projectKey = yield* projects.getKey(orgSlug, userId, slug)
+        const projectGithub = yield* projects.getGithubIntegration(
+          orgSlug,
+          userId,
+          slug
+        )
+
+        const assignees = [
+          ...new Set(input.results.flatMap((result) => result.assignees))
+        ]
+        if (assignees.length > 0) {
+          yield* validateAssigneesAreMembers(orgSlug, slug, assignees)
+        }
+        yield* Effect.forEach(
+          [...new Set(input.results.map((result) => result.status))],
+          (status) => validateStatusExists(slug, status),
+          { discard: true }
+        )
+
+        const originalId = makeTicketId(id)
+        const sprintTargets = input.results
+          .map((result) => result.sprintId)
+          .filter((sprintId) => sprintId !== null)
+        if (sprintTargets.length > 0) {
+          yield* groups.ensureSprintAssignable(
+            orgSlug,
+            userId,
+            slug,
+            sprintTargets
+          )
+        }
+        const originalSprint = (yield* groups.list(orgSlug, userId, slug)).find(
+          (group) =>
+            group.kind === "sprint" &&
+            group.completedAt === null &&
+            group.tickets.includes(originalId)
+        )
+        const originalSprintId = originalSprint?.id ?? null
+        const originalSprintIndex =
+          originalSprint?.tickets.indexOf(originalId) ?? -1
+        const originalSprintAnchor = originalSprint
+          ? originalSprintIndex === 0
+            ? null
+            : originalSprint.tickets[originalSprintIndex - 1]
+          : undefined
+
+        const written = yield* withTicketDocumentLock(
+          orgSlug,
+          slug,
+          id,
+          Effect.gen(function* () {
+            const original = yield* ticketDocs.read(orgSlug, slug, id)
+            const now = yield* DateTime.nowAsDate
+            const persisted: Array<TicketDocument> = []
+
+            const run = Effect.gen(function* () {
+              const createdDocuments: Array<TicketDocument> = []
+              for (const result of newInputs) {
+                createdDocuments.push(
+                  yield* writeWithIdAllocation(
+                    orgSlug,
+                    slug,
+                    projectKey,
+                    indexProject,
+                    (newId) => ({
+                      id: newId,
+                      title: result.title,
+                      status: result.status,
+                      type: result.type,
+                      priority: result.priority,
+                      tags: original.tags,
+                      branch: null,
+                      branchAutoLinkDisabled: true,
+                      pr: null,
+                      prState: null,
+                      lastTransitionedPr: null,
+                      splitFrom: originalId,
+                      assignees: [...result.assignees],
+                      archivedAt: original.archivedAt,
+                      createdBy: userId,
+                      createdAt: now,
+                      updatedBy: userId,
+                      updatedAt: now,
+                      body: `Split from [${originalId}](${formatMentionHref("ticket", originalId)})
+`,
+                      commentsRegion: ""
+                    }),
+                    (document) => persisted.push(document)
+                  )
+                )
+              }
+
+              const retained = yield* ticketDocs.update(
+                orgSlug,
+                slug,
+                id,
+                (existing) =>
+                  Effect.succeed({
+                    ...existing,
+                    title: retainedInput.title,
+                    type: retainedInput.type,
+                    status: retainedInput.status,
+                    priority: retainedInput.priority,
+                    assignees: [...retainedInput.assignees],
+                    branch: null,
+                    branchAutoLinkDisabled: true,
+                    pr: null,
+                    prState: null,
+                    lastTransitionedPr: null,
+                    updatedBy: userId,
+                    updatedAt: now
+                  }),
+                (next) => ticketIndex.upsertTicket(indexProject, next)
+              )
+
+              return { original, retained, createdDocuments }
+            })
+
+            return yield* run.pipe(
+              Effect.onError(() =>
+                restoreSplitDocuments(
+                  orgSlug,
+                  slug,
+                  id,
+                  indexProject,
+                  original,
+                  persisted
+                ).pipe(Effect.ignoreCause)
+              )
+            )
+          })
+        )
+
+        let sprintAnchor = originalId
+        const sprintAssignments = [
+          { ticketId: originalId, sprintId: retainedInput.sprintId },
+          ...written.createdDocuments.map((document, index) => ({
+            ticketId: document.id,
+            sprintId: newInputs[index].sprintId
+          }))
+        ]
+        yield* Effect.forEach(
+          sprintAssignments,
+          ({ ticketId, sprintId }) =>
+            groups
+              .setSprintMembership(orgSlug, slug, ticketId, sprintId, {
+                after: sprintAnchor
+              })
+              .pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    sprintAnchor = ticketId
+                  })
+                )
+              ),
+          { discard: true }
+        ).pipe(
+          Effect.onError(() =>
+            Effect.forEach(
+              written.createdDocuments,
+              (document) =>
+                groups
+                  .setSprintMembership(orgSlug, slug, document.id, null)
+                  .pipe(
+                    Effect.catchCause((cause) =>
+                      Effect.logError("split: sprint rollback failed", cause)
+                    )
+                  ),
+              { discard: true }
+            ).pipe(
+              Effect.andThen(
+                groups
+                  .setSprintMembership(
+                    orgSlug,
+                    slug,
+                    originalId,
+                    originalSprintId,
+                    { after: originalSprintAnchor }
+                  )
+                  .pipe(
+                    Effect.catchCause((cause) =>
+                      Effect.logError("split: sprint rollback failed", cause)
+                    )
+                  )
+              ),
+              Effect.andThen(
+                restoreSplitDocuments(
+                  orgSlug,
+                  slug,
+                  id,
+                  indexProject,
+                  written.original,
+                  written.createdDocuments
+                ).pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logError("split: ticket rollback failed", cause)
+                  )
+                )
+              )
+            )
+          )
+        )
+
+        return {
+          retained: yield* detailOf(written.retained, projectGithub),
+          created: yield* Effect.forEach(written.createdDocuments, (document) =>
+            detailOf(document, projectGithub)
+          )
+        }
+      })
 
     const remove = (
       orgSlug: string,
@@ -930,7 +1252,7 @@ export const TicketsLive = Layer.effect(
             userId,
             slug
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -966,7 +1288,7 @@ export const TicketsLive = Layer.effect(
             userId,
             slug
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1136,7 +1458,7 @@ export const TicketsLive = Layer.effect(
               lastTransitionedPr: null
             })
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1196,7 +1518,7 @@ export const TicketsLive = Layer.effect(
               lastTransitionedPr: null
             })
           )
-          return documentToDetail(next, projectGithub)
+          return yield* detailOf(next, projectGithub)
         })
       )
 
@@ -1286,7 +1608,7 @@ export const TicketsLive = Layer.effect(
             prState: null,
             lastTransitionedPr: null
           })
-          return documentToDetail(next, null)
+          return yield* detailOf(next, null)
         })
       )
 
@@ -1627,6 +1949,7 @@ export const TicketsLive = Layer.effect(
       quickCreate,
       create,
       update,
+      split,
       remove,
       archive,
       unarchive,

@@ -1,7 +1,8 @@
-import type { ReactNode } from "react"
+import { useCallback, type ReactNode } from "react"
 import { TicketList } from "@/components/TicketList"
+import { TicketRowActions } from "@/components/TicketList/RowActions"
 import { SprintListToolbar } from "@/components/TicketList/toolbars"
-import type { Member, TicketListQuery } from "@projectproject/shared"
+import type { Member, Ticket, TicketListQuery } from "@projectproject/shared"
 
 export function SprintTicketList({
   orgSlug,
@@ -18,6 +19,17 @@ export function SprintTicketList({
   members: ReadonlyArray<Member>
   creator: ReactNode
 }) {
+  const rowActions = useCallback(
+    (ticket: Ticket) => (
+      <TicketRowActions
+        orgSlug={orgSlug}
+        slug={slug}
+        id={ticket.id}
+        archived={ticket.archivedAt !== null}
+      />
+    ),
+    [orgSlug, slug]
+  )
   return (
     <TicketList
       orgSlug={orgSlug}
@@ -25,6 +37,7 @@ export function SprintTicketList({
       query={query}
       members={members}
       creator={creator}
+      extraRowActions={rowActions}
       toolbar={
         <SprintListToolbar
           orgSlug={orgSlug}

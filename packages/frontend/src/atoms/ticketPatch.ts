@@ -26,6 +26,7 @@ export function applyTicketDetailPatch(
   patch: UpdateTicketInput
 ): TicketDetail {
   return {
+    ...ticket,
     ...applyTicketPatch(ticket, patch),
     body: patch.body ?? ticket.body
   }
