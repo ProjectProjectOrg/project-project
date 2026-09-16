@@ -6,10 +6,12 @@ import { m } from "@/paraglide/messages"
 export function JiraProgressStep({
   detail,
   waiting,
+  error,
   onCancel
 }: {
   detail: JiraMigrationDetail
   waiting: boolean
+  error?: string | null
   onCancel?: () => void
 }) {
   const scanning = detail.status === "scanning"
@@ -72,6 +74,11 @@ export function JiraProgressStep({
           <span className="text-xs text-muted-foreground">
             {phaseLabel(detail.progress.phase)}
           </span>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
       </div>
 

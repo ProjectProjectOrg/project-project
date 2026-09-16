@@ -103,7 +103,36 @@ const requirements: JiraMigrationRequirements = {
   ]
 }
 
+const excludeRestrictedContent = (
+  draft: ReturnType<typeof buildJiraMigrationDraft>
+) => ({
+  ...draft,
+  restrictedContent: { policy: "exclude" as const }
+})
+
 describe("Jira migration draft", () => {
+  it("leaves restricted content undecided when the scan found restrictions", () => {
+    const draft = buildJiraMigrationDraft(requirements, null)
+
+    expect(draft.restrictedContent).toBeUndefined()
+  })
+
+  it("excludes restricted content automatically when the scan found none", () => {
+    const draft = buildJiraMigrationDraft(
+      {
+        ...requirements,
+        restrictedContent: {
+          issueCount: 0,
+          commentCount: 0,
+          worklogCount: 0
+        }
+      },
+      null
+    )
+
+    expect(draft.restrictedContent).toEqual({ policy: "exclude" })
+  })
+
   it("does not silently accept mapping suggestions", () => {
     const draft = buildJiraMigrationDraft(requirements, null)
 
@@ -145,7 +174,9 @@ describe("Jira migration draft", () => {
   })
 
   it("prefills suggested tag names", () => {
-    const draft = buildJiraMigrationDraft(requirements, null)
+    const draft = excludeRestrictedContent(
+      buildJiraMigrationDraft(requirements, null)
+    )
 
     expect(draft.tags[0]?.destinationTagName).toBe("component:web")
     expect(toPartialJiraMigrationConfiguration(draft).tags).toEqual([
@@ -158,7 +189,7 @@ describe("Jira migration draft", () => {
 
   it("lets a saved tag name win over the suggestion", () => {
     const initial = toPartialJiraMigrationConfiguration(
-      buildJiraMigrationDraft(requirements, null)
+      excludeRestrictedContent(buildJiraMigrationDraft(requirements, null))
     )
     const draft = buildJiraMigrationDraft(requirements, {
       ...initial,
@@ -175,7 +206,9 @@ describe("Jira migration draft", () => {
   })
 
   it("keeps forced attachment skips while omitting unanswered decisions", () => {
-    const draft = buildJiraMigrationDraft(requirements, null)
+    const draft = excludeRestrictedContent(
+      buildJiraMigrationDraft(requirements, null)
+    )
     const configuration = toPartialJiraMigrationConfiguration(draft)
 
     expect(configuration.identities).toEqual([])
@@ -186,7 +219,7 @@ describe("Jira migration draft", () => {
 
   it("preserves an explicit create-status decision across draft rebuilding", () => {
     const initial = toPartialJiraMigrationConfiguration(
-      buildJiraMigrationDraft(requirements, null)
+      excludeRestrictedContent(buildJiraMigrationDraft(requirements, null))
     )
     const configuration = {
       ...initial,

@@ -428,9 +428,13 @@ function JiraMigrationDetailPage({
 }) {
   const key = jiraMigrationKey(orgSlug, detail.id)
   const navigate = useNavigate()
-  const run = useAtomSet(runJiraMigrationAtom(key), { mode: "promise" })
-  const rescan = useAtomSet(rescanJiraMigrationAtom(key), { mode: "promise" })
-  const cancel = useAtomSet(cancelJiraMigrationAtom(key), { mode: "promise" })
+  const run = useAtomSet(runJiraMigrationAtom(key), { mode: "promiseExit" })
+  const rescan = useAtomSet(rescanJiraMigrationAtom(key), {
+    mode: "promiseExit"
+  })
+  const cancel = useAtomSet(cancelJiraMigrationAtom(key), {
+    mode: "promiseExit"
+  })
   const discard = useAtomSet(discardJiraMigrationAtom(key), {
     mode: "promiseExit"
   })
@@ -438,6 +442,10 @@ function JiraMigrationDetailPage({
   const rescanState = useAtomValue(rescanJiraMigrationAtom(key))
   const cancelState = useAtomValue(cancelJiraMigrationAtom(key))
   const discardState = useAtomValue(discardJiraMigrationAtom(key))
+  const actionError =
+    jiraMigrationActionError(runState) ??
+    jiraMigrationActionError(rescanState) ??
+    jiraMigrationActionError(cancelState)
   const busy =
     waiting ||
     runState.waiting ||
@@ -476,6 +484,7 @@ function JiraMigrationDetailPage({
         <JiraProgressStep
           detail={detail}
           waiting={busy}
+          error={actionError}
           onCancel={() => void cancel({ expectedRevision: detail.revision })}
         />
       </JiraMigrationShell>
@@ -532,6 +541,7 @@ function JiraMigrationDetailPage({
           detail={detail}
           orgSlug={orgSlug}
           waiting={busy}
+          error={actionError}
           onRetry={() => void run({ expectedRevision: detail.revision })}
           onReconfigure={() => {
             setStep("people")
@@ -551,6 +561,17 @@ function JiraMigrationDetailPage({
       </div>
     </JiraMigrationShell>
   )
+}
+
+function jiraMigrationActionError(
+  result: Result.AsyncResult<unknown, unknown>
+): string | null {
+  return Result.matchWithError(result, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: () => m.jira_migration_error_generic(),
+    onDefect: () => m.jira_migration_error_generic()
+  })
 }
 
 function stageIndex(step: JiraMigrationStep) {

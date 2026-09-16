@@ -76,6 +76,7 @@
   "jira_migration_restricted_description": "Restricted Jira content may contain information that is not visible to every destination member.",
   "jira_migration_restricted_exclude": "Exclude restricted content",
   "jira_migration_restricted_include": "Include it and accept the disclosure",
+  "jira_migration_restricted_required": "Choose whether to include or exclude restricted content.",
   "jira_migration_restricted_title": "Restricted content",
   "jira_migration_resume_description": "Return to a migration you started earlier.",
   "jira_migration_resume_empty": "No saved Jira migrations yet.",

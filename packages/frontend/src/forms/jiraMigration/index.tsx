@@ -24,6 +24,7 @@ import {
   jiraMigrationFormOpts,
   peopleValidator,
   prioritiesValidator,
+  restrictedContentValidator,
   statusesValidator,
   tagsValidator,
   toPartialJiraMigrationConfiguration,
@@ -120,6 +121,9 @@ function ConfiguredJiraMigrationForm({
 
   const rejectIncompleteMapping = () =>
     setValidationError(m.jira_migration_mapping_required())
+
+  const rejectMissingRestrictedContentPolicy = () =>
+    setValidationError(m.jira_migration_restricted_required())
 
   const previous = () => {
     if (step === "connect" || step === "choose" || step === "snapshot") return
@@ -274,10 +278,11 @@ function ConfiguredJiraMigrationForm({
         <form.FormGroup
           key="restrictedContent"
           name="restrictedContent"
+          validators={[validateStep(restrictedContentValidator)]}
           onSubmit={async () => {
             await form.handleSubmit()
           }}
-          onSubmitInvalid={rejectIncompleteMapping}
+          onSubmitInvalid={rejectMissingRestrictedContentPolicy}
         >
           {(group) => (
             <ReviewStep

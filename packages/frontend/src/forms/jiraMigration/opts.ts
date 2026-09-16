@@ -41,6 +41,7 @@ export interface JiraMigrationDraft {
   restrictedContent:
     | { policy: "exclude" }
     | { policy: "include"; disclosureAccepted: true }
+    | undefined
   skippedAttachmentIds: ReadonlyArray<string>
   attachmentSkipsAccepted: boolean
 }
@@ -53,7 +54,7 @@ const emptyDraft: JiraMigrationDraft = {
   priorities: [],
   tags: [],
   activeFutureSprintChoices: [],
-  restrictedContent: { policy: "exclude" },
+  restrictedContent: undefined,
   skippedAttachmentIds: [],
   attachmentSkipsAccepted: false
 }
@@ -166,6 +167,10 @@ export const prioritiesValidator = Schema.toStandardSchemaV1(prioritiesSchema)
 
 export const tagsValidator = Schema.toStandardSchemaV1(tagsSchema)
 
+export const restrictedContentValidator = Schema.toStandardSchemaV1(
+  JiraMigrationConfiguration.fields.restrictedContent
+)
+
 export const destinationValidator = Schema.toStandardSchemaV1(
   JiraMigrationConfiguration.fields.destination
 )
@@ -224,6 +229,10 @@ export function buildJiraMigrationDraft(
   const forcedSkips = requirements.attachments
     .filter((attachment) => attachment.forcedSkipReason !== null)
     .map((attachment) => attachment.jiraAttachmentId)
+  const restrictedContentFound =
+    requirements.restrictedContent.issueCount > 0 ||
+    requirements.restrictedContent.commentCount > 0 ||
+    requirements.restrictedContent.worklogCount > 0
 
   return {
     destination: configuration?.destination ?? {
@@ -270,9 +279,9 @@ export function buildJiraMigrationDraft(
           : undefined
       })
     ),
-    restrictedContent: configuration?.restrictedContent ?? {
-      policy: "exclude"
-    },
+    restrictedContent:
+      configuration?.restrictedContent ??
+      (restrictedContentFound ? undefined : { policy: "exclude" }),
     skippedAttachmentIds: [
       ...new Set([
         ...forcedSkips,

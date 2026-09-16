@@ -7,6 +7,7 @@ export function JiraTerminalStep({
   detail,
   orgSlug,
   waiting,
+  error,
   onRetry,
   onReconfigure,
   onRescan,
@@ -15,6 +16,7 @@ export function JiraTerminalStep({
   detail: JiraMigrationDetail
   orgSlug: string
   waiting: boolean
+  error?: string | null
   onRetry?: () => void
   onReconfigure?: () => void
   onRescan?: () => void
@@ -56,7 +58,7 @@ export function JiraTerminalStep({
       : failureDescription(detail.failure)
 
   return (
-    <TerminalSurface title={title} description={description}>
+    <TerminalSurface title={title} description={description} error={error}>
       {reconnect ? (
         <Button
           render={
@@ -97,10 +99,12 @@ export function JiraTerminalStep({
 function TerminalSurface({
   title,
   description,
+  error,
   children
 }: {
   title: string
   description: string
+  error?: string | null
   children: React.ReactNode
 }) {
   return (
@@ -112,6 +116,11 @@ function TerminalSurface({
         <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
           {description}
         </p>
+        {error ? (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {children}
         </div>

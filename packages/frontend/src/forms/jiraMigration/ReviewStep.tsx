@@ -87,13 +87,13 @@ export function ReviewStep({
               {(field) => (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <ChoiceButton
-                    selected={field.value.policy === "exclude"}
+                    selected={field.value?.policy === "exclude"}
                     onClick={() => field.handleChange({ policy: "exclude" })}
                   >
                     {m.jira_migration_restricted_exclude()}
                   </ChoiceButton>
                   <ChoiceButton
-                    selected={field.value.policy === "include"}
+                    selected={field.value?.policy === "include"}
                     onClick={() =>
                       field.handleChange({
                         policy: "include",

@@ -1,7 +1,14 @@
 import { useState } from "react"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from "@testing-library/react"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type {
   JiraMigrationDetail,
@@ -219,5 +226,66 @@ describe("JiraMigrationForm navigation", () => {
       await screen.findByRole("heading", { name: "Map issue types" })
     ).not.toBeNull()
     expect(mocks.mutate).not.toHaveBeenCalled()
+  })
+})
+
+describe("JiraMigrationForm restricted content", () => {
+  const renderReview = (
+    restrictedContent: JiraMigrationRequirements["restrictedContent"]
+  ) => {
+    const reviewRequirements = {
+      ...requirements,
+      identities: [],
+      statuses: [],
+      restrictedContent
+    }
+    const reviewDetail = {
+      ...detail,
+      requirements: reviewRequirements,
+      scanSummary: {
+        ...detail.scanSummary!,
+        counts: {
+          ...detail.scanSummary!.counts,
+          restrictions:
+            restrictedContent.issueCount +
+            restrictedContent.commentCount +
+            restrictedContent.worklogCount
+        }
+      }
+    }
+    mocks.mutate.mockResolvedValue(Exit.succeed(reviewDetail))
+
+    render(
+      <JiraMigrationForm
+        orgSlug="example"
+        detail={reviewDetail}
+        step="review"
+        onStep={() => {}}
+      />
+    )
+  }
+
+  it("requires an explicit restricted-content choice before migration", async () => {
+    renderReview({ issueCount: 1, commentCount: 0, worklogCount: 0 })
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and migrate" }))
+
+    expect(await screen.findByRole("alert")).not.toBeNull()
+    expect(mocks.mutate).not.toHaveBeenCalled()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Exclude restricted content" })
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and migrate" }))
+
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalled())
+  })
+
+  it("submits without a choice when the scan found no restricted content", async () => {
+    renderReview({ issueCount: 0, commentCount: 0, worklogCount: 0 })
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and migrate" }))
+
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalled())
   })
 })
