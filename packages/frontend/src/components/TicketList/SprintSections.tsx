@@ -169,15 +169,12 @@ function SprintSection({
   ...props
 }: SprintSectionProps) {
   const { orgSlug, slug, members, extraRowActions } = props
-  const query: TicketListQuery = {
+  const req = flatBacklogRequest(orgSlug, slug, {
     ...props.query,
     groupId: [sprint?.id ?? "ungrouped"],
     cursor: undefined
-  }
-  const req = useMemo(
-    () => flatBacklogRequest(orgSlug, slug, query),
-    [orgSlug, slug, query]
-  )
+  })
+  const query = req.query
   const listKey = encodeTicketListQuery(req.query)
   const result = useAtomValue(flatBacklog(req))
   const refresh = useAtomRefresh(flatBacklog(req))
