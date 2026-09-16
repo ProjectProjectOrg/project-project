@@ -588,8 +588,6 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const { view, setPreference } = useProjectView(orgSlug, slug, search?.view)
   if (!sprintMatch && !backlogMatch) return null
 
-  // Flip the view first, then let the URL catch up — a router navigation runs at
-  // transition priority and would otherwise hold the switch for ~50ms.
   const select = (next: "list" | "board" | "description", to: () => void) => {
     if (next !== "description") flushSync(() => setPreference(next))
     startTransition(to)
