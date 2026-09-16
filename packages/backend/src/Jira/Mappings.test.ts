@@ -524,3 +524,145 @@ describe("created status colours", () => {
     ])
   })
 })
+
+describe("jiraConfigurationToMappings priority gaps", () => {
+  const withUnprioritised = (
+    priorityId: string | null
+  ): JiraMigrationManifest => ({
+    ...emptyManifest(),
+    issues: [
+      {
+        id: "10001",
+        key: "APP-1",
+        issueNumber: 1,
+        summary: "First",
+        description: null,
+        statusId: "1",
+        issueTypeId: "10",
+        priorityId,
+        assigneeAccountId: null,
+        labels: [],
+        componentIds: [],
+        groupIds: [],
+        parentIssueId: null,
+        attachmentIds: [],
+        restricted: false,
+        createdAt: "2026-09-01T10:00:00Z",
+        updatedAt: "2026-09-01T10:00:00Z",
+        raw: {}
+      }
+    ]
+  })
+
+  const configuration = {
+    destination: { name: "Application", slug: "application", key: "APP" },
+    identities: [],
+    statuses: [],
+    issueTypes: [],
+    priorities: [{ jiraPriorityId: "3", projectPriority: "med" }],
+    tags: [],
+    activeFutureSprintChoices: [],
+    restrictedContent: { policy: "exclude" as const },
+    skippedAttachmentIds: [],
+    attachmentSkipsAccepted: true
+  }
+
+  it("covers issues that carry no Jira priority", () => {
+    const mappings = jiraConfigurationToMappings(
+      withUnprioritised(null),
+      configuration as never
+    )
+
+    expect(
+      mappings.priorities.find(
+        ({ sourcePriorityId }) => sourcePriorityId === null
+      )
+    ).toEqual({ sourcePriorityId: null, destinationPriority: "med" })
+    expect(Schema.is(JiraMigrationMappings)(mappings)).toBe(true)
+  })
+
+  it("does not invent a null mapping when every issue has a priority", () => {
+    const mappings = jiraConfigurationToMappings(
+      withUnprioritised("3"),
+      configuration as never
+    )
+
+    expect(
+      mappings.priorities.some(
+        ({ sourcePriorityId }) => sourcePriorityId === null
+      )
+    ).toBe(false)
+  })
+})
+
+describe("preflight honours wizard tag renames", () => {
+  it("stops blocking a label that the user renamed", async () => {
+    const { preflightJiraMigration } = await import("./Preflight")
+    const manifest: JiraMigrationManifest = {
+      ...emptyManifest(),
+      issues: [
+        {
+          id: "10001",
+          key: "APP-1",
+          issueNumber: 1,
+          summary: "First",
+          description: null,
+          statusId: "1",
+          issueTypeId: "10",
+          priorityId: "3",
+          assigneeAccountId: null,
+          labels: ["-"],
+          componentIds: [],
+          groupIds: [],
+          parentIssueId: null,
+          attachmentIds: [],
+          restricted: false,
+          createdAt: "2026-09-01T10:00:00Z",
+          updatedAt: "2026-09-01T10:00:00Z",
+          raw: {}
+        }
+      ]
+    }
+    const environment = {
+      existingProjectSlugs: [],
+      existingProjectKeys: [],
+      existingTicketIds: [],
+      existingUserIds: [],
+      existingStatusSlugs: ["todo", "in_progress", "done"]
+    }
+    const base = {
+      destination: { name: "Application", slug: "application", key: "APP" },
+      identities: [],
+      statuses: [{ jiraStatusId: "1", projectStatusSlug: "todo" }],
+      issueTypes: [{ jiraIssueTypeId: "10", projectType: "feat" }],
+      priorities: [{ jiraPriorityId: "3", projectPriority: "med" }],
+      activeFutureSprintChoices: [],
+      restrictedContent: { policy: "exclude" as const },
+      skippedAttachmentIds: [],
+      attachmentSkipsAccepted: true
+    }
+
+    const unnamed = preflightJiraMigration(
+      manifest,
+      jiraConfigurationToMappings(manifest, { ...base, tags: [] } as never),
+      environment
+    )
+    expect(unnamed.blockers.map(({ code }) => code)).toContain(
+      "unrepresentable-tag"
+    )
+
+    const renamed = preflightJiraMigration(
+      manifest,
+      jiraConfigurationToMappings(manifest, {
+        ...base,
+        tags: [
+          { source: { kind: "label", value: "-" }, destinationTagName: "no" }
+        ]
+      } as never),
+      environment
+    )
+    expect(renamed.blockers.map(({ code }) => code)).not.toContain(
+      "unrepresentable-tag"
+    )
+  })
+})

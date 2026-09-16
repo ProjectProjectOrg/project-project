@@ -8,6 +8,7 @@ import {
   buildJiraStatusCreateOptions,
   buildTagCandidates,
   findTagCollisions,
+  resolveTagDestinations,
   type JiraMigrationMappings
 } from "./Mappings"
 
@@ -226,8 +227,9 @@ export function preflightJiraMigration(
   }
 
   const candidates = buildTagCandidates(manifest)
+  const resolvedTags = resolveTagDestinations(manifest, mappings)
   for (const candidate of candidates) {
-    if (candidate.destinationTag === null) {
+    if ((resolvedTags.get(candidate.sourceId) ?? null) === null) {
       addFinding(blockers, "unrepresentable-tag", candidate.sourceId)
     }
   }

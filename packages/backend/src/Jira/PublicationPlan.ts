@@ -20,6 +20,7 @@ import type {
 export type JiraReferenceTarget = {
   readonly url: string
   readonly text?: string
+  readonly embed?: boolean
 }
 
 export type JiraReferenceTargets = Readonly<Record<string, JiraReferenceTarget>>
@@ -152,6 +153,11 @@ export function createJiraReferenceTargets(
   return targets
 }
 
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
+
+const isEmbeddableImage = (filename: string): boolean =>
+  IMAGE_EXTENSIONS.test(filename.trim())
+
 export function rewriteJiraPublicationText(
   text: JiraConvertedText,
   targets: JiraReferenceTargets
@@ -159,7 +165,14 @@ export function rewriteJiraPublicationText(
   const destinations = new Map<string, JiraReferenceTarget>()
   for (const reference of text.references) {
     const target = targets[jiraReferenceKey(reference.kind, reference.sourceId)]
-    if (target) destinations.set(reference.placeholder, target)
+    if (!target) continue
+    destinations.set(
+      reference.placeholder,
+      reference.kind === "jira-attachment" &&
+        isEmbeddableImage(reference.fallbackText)
+        ? { ...target, embed: true }
+        : target
+    )
   }
   return rewriteJiraReferences(text, destinations)
 }

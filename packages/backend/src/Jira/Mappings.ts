@@ -348,6 +348,8 @@ function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
+const UNPRIORITISED_DESTINATION = "med" as const
+
 export function jiraConfigurationToMappings(
   manifest: JiraMigrationManifest,
   configuration: JiraMigrationConfiguration
@@ -392,12 +394,22 @@ export function jiraConfigurationToMappings(
         destinationType: projectType
       })
     ),
-    priorities: configuration.priorities.map(
-      ({ jiraPriorityId, projectPriority }) => ({
-        sourcePriorityId: jiraPriorityId,
-        destinationPriority: projectPriority
-      })
-    ),
+    priorities: [
+      ...configuration.priorities.map(
+        ({ jiraPriorityId, projectPriority }) => ({
+          sourcePriorityId: jiraPriorityId as string | null,
+          destinationPriority: projectPriority
+        })
+      ),
+      ...(manifest.issues.some(({ priorityId }) => priorityId === null)
+        ? [
+            {
+              sourcePriorityId: null,
+              destinationPriority: UNPRIORITISED_DESTINATION
+            }
+          ]
+        : [])
+    ],
     ticketIds: buildDefaultTicketIdMappings(manifest),
     restrictions: manifest.restrictions.map(({ id }) => ({
       restrictionId: id,

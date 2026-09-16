@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
-import { buildJiraImportPlan, groupColors, nextTicketNumberFor } from "./Import"
+import {
+  aliasJiraMediaReferences,
+  buildJiraImportPlan,
+  groupColors,
+  nextTicketNumberFor
+} from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
@@ -319,5 +324,164 @@ describe("groupColors", () => {
     )
 
     for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}$/i)
+  })
+})
+
+describe("aliasJiraMediaReferences", () => {
+  const mediaManifest = (): JiraMigrationManifest => {
+    const base = manifest()
+    return {
+      ...base,
+      attachments: [
+        {
+          id: "10348",
+          issueId: "issue-1",
+          filename: "Screenshot.png",
+          mimeType: "image/png",
+          byteSize: 100,
+          downloadUrl: null,
+          jiraUrl: null,
+          downloadAllowed: true,
+          raw: {}
+        }
+      ],
+      comments: [
+        {
+          ...base.comments[0]!,
+          body: {
+            markdown: "see jira-reference:000000",
+            references: [
+              {
+                kind: "jira-attachment",
+                sourceId: "573670c8-28f0-460c-93bc-5d0992659b8d",
+                placeholder: "jira-reference:000000",
+                originalUrl: null,
+                fallbackText: "Screenshot.png"
+              }
+            ],
+            warnings: [],
+            adf: {}
+          }
+        }
+      ]
+    }
+  }
+
+  it("maps the ADF media uuid onto the copied attachment url", () => {
+    const aliased = aliasJiraMediaReferences(mediaManifest(), {
+      "10348": "/api/attachments/example/ATT1"
+    })
+
+    expect(aliased["573670c8-28f0-460c-93bc-5d0992659b8d"]).toBe(
+      "/api/attachments/example/ATT1"
+    )
+    expect(aliased["10348"]).toBe("/api/attachments/example/ATT1")
+  })
+
+  it("leaves a media reference alone when its attachment was not copied", () => {
+    const aliased = aliasJiraMediaReferences(mediaManifest(), {})
+
+    expect(aliased["573670c8-28f0-460c-93bc-5d0992659b8d"]).toBeUndefined()
+  })
+
+  it("does not guess when the filename is ambiguous across issues", () => {
+    const base = mediaManifest()
+    const ambiguous: JiraMigrationManifest = {
+      ...base,
+      attachments: [
+        ...base.attachments,
+        { ...base.attachments[0]!, id: "10999", issueId: "issue-other" }
+      ],
+      comments: [
+        {
+          ...base.comments[0]!,
+          issueId: "issue-unrelated"
+        }
+      ]
+    }
+
+    const aliased = aliasJiraMediaReferences(ambiguous, {
+      "10348": "/api/attachments/example/ATT1",
+      "10999": "/api/attachments/example/ATT2"
+    })
+
+    expect(aliased["573670c8-28f0-460c-93bc-5d0992659b8d"]).toBeUndefined()
+  })
+})
+
+describe("embedded image references", () => {
+  it("renders an imported screenshot as an inline image, not a file chip", () => {
+    const base = manifest()
+    const withMedia: JiraMigrationManifest = {
+      ...base,
+      attachments: [
+        {
+          id: "10348",
+          issueId: "issue-1",
+          filename: "Screenshot.png",
+          mimeType: "image/png",
+          byteSize: 100,
+          downloadUrl: "https://example.atlassian.net/a/10348",
+          jiraUrl: null,
+          downloadAllowed: true,
+          raw: {}
+        },
+        {
+          id: "10349",
+          issueId: "issue-1",
+          filename: "spec.pdf",
+          mimeType: "application/pdf",
+          byteSize: 100,
+          downloadUrl: "https://example.atlassian.net/a/10349",
+          jiraUrl: null,
+          downloadAllowed: true,
+          raw: {}
+        }
+      ],
+      comments: [
+        {
+          ...base.comments[0]!,
+          body: {
+            markdown: "shot jira-reference:000000 doc jira-reference:000001",
+            references: [
+              {
+                kind: "jira-attachment",
+                sourceId: "media-uuid-1",
+                placeholder: "jira-reference:000000",
+                originalUrl: null,
+                fallbackText: "Screenshot.png"
+              },
+              {
+                kind: "jira-attachment",
+                sourceId: "media-uuid-2",
+                placeholder: "jira-reference:000001",
+                originalUrl: null,
+                fallbackText: "spec.pdf"
+              }
+            ],
+            warnings: [],
+            adf: {}
+          }
+        }
+      ]
+    }
+
+    const urls = aliasJiraMediaReferences(withMedia, {
+      "10348": "/api/attachments/example/IMG",
+      "10349": "/api/attachments/example/DOC"
+    })
+    const result = buildJiraImportPlan(
+      withMedia,
+      configuration,
+      environment,
+      urls
+    )
+
+    if (result.kind !== "ready")
+      throw new Error(`blocked: ${JSON.stringify(result.blockers)}`)
+    const body = result.plan.comments[0]!.body
+    expect(body).toContain("![Screenshot.png](/api/attachments/example/IMG)")
+    expect(body).toContain("[spec.pdf](/api/attachments/example/DOC)")
+    expect(body).not.toContain("![spec.pdf]")
   })
 })

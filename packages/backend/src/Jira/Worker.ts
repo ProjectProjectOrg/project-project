@@ -25,12 +25,15 @@ import { TicketIndex } from "../Services/TicketIndex"
 import { JiraMigrationBlocked } from "./Blocked"
 import { JiraMigrationReport } from "./Report"
 import { JiraClient } from "./Client"
+import { Attachments } from "../Services/Attachments"
 import {
+  aliasJiraMediaReferences,
   buildJiraImportPlan,
   copyJiraAttachments,
   jiraImportEnvironment,
   markJiraAttachmentsLive,
   publishJiraMigration,
+  reconcileJiraAttachmentReferences,
   resolveJiraImportMembers,
   writeJiraStagedDocuments,
   type JiraImportDependencies
@@ -63,6 +66,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
     const ticketDocs = yield* TicketDocs
     const groupDocs = yield* GroupDocs
     const ticketIndex = yield* TicketIndex
+    const attachments = yield* Attachments
     const importDeps: JiraImportDependencies = {
       db,
       projectDocs,
@@ -435,7 +439,7 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         manifest,
         job.configuration,
         environment,
-        attachmentUrls
+        aliasJiraMediaReferences(manifest, attachmentUrls)
       )
       if (planResult.kind === "blocked") {
         return yield* new JiraMigrationBlocked({
@@ -487,6 +491,12 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         importDeps,
         job.organizationId,
         planResult.plan.project.slug
+      )
+
+      yield* reconcileJiraAttachmentReferences(
+        attachments,
+        orgSlug,
+        planResult.plan
       )
 
       yield* publishJiraMigration(importDeps, {

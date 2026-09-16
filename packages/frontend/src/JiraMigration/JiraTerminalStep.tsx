@@ -8,6 +8,7 @@ export function JiraTerminalStep({
   orgSlug,
   waiting,
   onRetry,
+  onReconfigure,
   onRescan,
   onDiscard
 }: {
@@ -15,6 +16,7 @@ export function JiraTerminalStep({
   orgSlug: string
   waiting: boolean
   onRetry?: () => void
+  onReconfigure?: () => void
   onRescan?: () => void
   onDiscard?: () => void
 }) {
@@ -51,7 +53,7 @@ export function JiraTerminalStep({
     ? m.jira_migration_reconnect_description()
     : cancelled
       ? m.jira_migration_cancelled_description()
-      : m.jira_migration_failed_description()
+      : failureDescription(detail.failure)
 
   return (
     <TerminalSurface title={title} description={description}>
@@ -69,6 +71,13 @@ export function JiraTerminalStep({
       {detail.actions.canRetry ? (
         <Button disabled={waiting} onClick={onRetry}>
           {m.jira_migration_action_retry()}
+        </Button>
+      ) : null}
+      {!detail.actions.canRetry &&
+      detail.actions.canConfigure &&
+      onReconfigure ? (
+        <Button disabled={waiting} onClick={onReconfigure}>
+          {m.jira_migration_action_reconfigure()}
         </Button>
       ) : null}
       {detail.actions.canRescan ? (
@@ -109,4 +118,15 @@ function TerminalSurface({
       </div>
     </div>
   )
+}
+
+function failureDescription(failure: JiraMigrationDetail["failure"]): string {
+  if (failure === null) return m.jira_migration_failed_description()
+  if (failure.reason === "preflight_blocked") {
+    return m.jira_migration_failure_preflight_blocked()
+  }
+  if (failure.reason === "storage_unavailable") {
+    return m.jira_migration_failure_storage_unavailable()
+  }
+  return m.jira_migration_failure_generic({ reason: failure.reason })
 }

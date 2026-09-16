@@ -108,8 +108,11 @@ export class JiraMigrations extends Context.Service<
 
 const dateTime = (value: Date) => DateTime.fromDateUnsafe(value)
 
-const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
-  canConfigure: row.status === "needs_configuration" || row.status === "ready",
+export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
+  canConfigure:
+    row.status === "needs_configuration" ||
+    row.status === "ready" ||
+    (row.status === "failed" && row.scanAt !== null),
   canRun:
     row.status === "ready" ||
     (row.status === "failed" && row.failureRetryable === true),
@@ -533,7 +536,11 @@ export const JiraMigrationsLive = Layer.effect(
       ) =>
         Effect.gen(function* () {
           const row = yield* ownedRow(organizationId, userId, migrationId)
-          if (row.status !== "needs_configuration" && row.status !== "ready") {
+          if (
+            row.status !== "needs_configuration" &&
+            row.status !== "ready" &&
+            !(row.status === "failed" && row.scanAt !== null)
+          ) {
             return yield* new Validation({
               reason: "jira_migration_not_configurable"
             })
@@ -551,7 +558,10 @@ export const JiraMigrationsLive = Layer.effect(
           return yield* updateRevision(row, expectedRevision, {
             configuration,
             status: complete ? "ready" : "needs_configuration",
-            phase: complete ? "ready" : "configuration"
+            phase: complete ? "ready" : "configuration",
+            failureReason: null,
+            failureRetryable: null,
+            finishedAt: null
           })
         }),
       rescan: (organizationId, userId, migrationId, expectedRevision) =>

@@ -458,6 +458,7 @@ function JiraMigrationDetailPage({
   >("statuses")
   const [furthestStep, setFurthestStep] =
     useState<JiraMigrationStep>("snapshot")
+  const [reconfiguring, setReconfiguring] = useState(false)
 
   useJiraMigrationPolling(orgSlug, detail.id, detail.status)
 
@@ -486,7 +487,12 @@ function JiraMigrationDetailPage({
     )
   }
 
-  if (screen === "configuration" && detail.scanSummary && detail.requirements) {
+  if (
+    (screen === "configuration" ||
+      (reconfiguring && detail.actions.canConfigure)) &&
+    detail.scanSummary &&
+    detail.requirements
+  ) {
     const navigateWithinJob = (
       destination: "connect" | "choose" | "snapshot" | "people" | "map"
     ) => {
@@ -553,6 +559,10 @@ function JiraMigrationDetailPage({
           orgSlug={orgSlug}
           waiting={busy}
           onRetry={() => void run({ expectedRevision: detail.revision })}
+          onReconfigure={() => {
+            setStep("people")
+            setReconfiguring(true)
+          }}
           onRescan={() => void rescan({ expectedRevision: detail.revision })}
           onDiscard={() => void discardAndLeave()}
         />

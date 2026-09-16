@@ -35,6 +35,7 @@ import {
   type S3Connection,
   type S3StorageShape
 } from "../Services/S3Storage"
+import type { AttachmentsShape } from "../Services/Attachments"
 import type { GroupDocsShape } from "../Services/GroupDocs"
 import type { ProjectDocsShape } from "../Services/ProjectDocs"
 import type { TicketDocsShape } from "../Services/TicketDocs"
@@ -614,3 +615,77 @@ export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
       .pipe(Effect.orDie)
   }
 )
+
+export function aliasJiraMediaReferences(
+  manifest: JiraMigrationManifest,
+  urlsByAttachmentId: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> {
+  const attachmentsByIssue = new Map<string, Array<JiraManifestAttachment>>()
+  for (const attachment of manifest.attachments) {
+    const existing = attachmentsByIssue.get(attachment.issueId)
+    if (existing) existing.push(attachment)
+    else attachmentsByIssue.set(attachment.issueId, [attachment])
+  }
+
+  const aliased: Record<string, string> = { ...urlsByAttachmentId }
+  const resolve = (issueId: string, filename: string) => {
+    const onIssue = (attachmentsByIssue.get(issueId) ?? [])
+      .filter((attachment) => attachment.filename === filename)
+      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
+    if (onIssue[0]) return onIssue[0].id
+    const anywhere = manifest.attachments
+      .filter((attachment) => attachment.filename === filename)
+      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
+    return anywhere.length === 1 ? anywhere[0]!.id : null
+  }
+
+  const apply = (
+    issueId: string,
+    references: JiraMigrationManifest["comments"][number]["body"]["references"]
+  ) => {
+    for (const reference of references) {
+      if (reference.kind !== "jira-attachment") continue
+      if (aliased[reference.sourceId] !== undefined) continue
+      const attachmentId = resolve(issueId, reference.fallbackText)
+      if (attachmentId === null) continue
+      const url = urlsByAttachmentId[attachmentId]
+      if (url !== undefined) aliased[reference.sourceId] = url
+    }
+  }
+
+  for (const issue of manifest.issues) {
+    if (issue.description !== null)
+      apply(issue.id, issue.description.references)
+  }
+  for (const comment of manifest.comments) {
+    apply(comment.issueId, comment.body.references)
+  }
+  return aliased
+}
+
+export const reconcileJiraAttachmentReferences = Effect.fn(
+  "JiraImport.reconcileAttachments"
+)(function* (
+  attachments: Pick<AttachmentsShape, "reconcileTicket">,
+  orgSlug: string,
+  plan: JiraPublicationPlan
+) {
+  const commentsByTicket = new Map<string, Array<string>>()
+  for (const comment of plan.comments) {
+    const existing = commentsByTicket.get(comment.ticketId)
+    if (existing) existing.push(comment.body)
+    else commentsByTicket.set(comment.ticketId, [comment.body])
+  }
+
+  yield* Effect.forEach(
+    plan.tickets,
+    (ticket) =>
+      attachments.reconcileTicket(
+        orgSlug,
+        plan.project.slug,
+        ticket.id,
+        [ticket.body, ...(commentsByTicket.get(ticket.id) ?? [])].join("\n\n")
+      ),
+    { concurrency: 8, discard: true }
+  )
+})

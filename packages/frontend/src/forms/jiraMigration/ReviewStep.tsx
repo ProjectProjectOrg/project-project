@@ -21,6 +21,11 @@ export function ReviewStep({
   const forcedSkips = requirements.attachments.filter(
     (attachment) => attachment.forcedSkipReason !== null
   )
+  const restricted = requirements.restrictedContent
+  const hasRestrictedContent =
+    restricted.issueCount > 0 ||
+    restricted.commentCount > 0 ||
+    restricted.worklogCount > 0
 
   return (
     <StepFrame
@@ -70,37 +75,39 @@ export function ReviewStep({
           </form.Subscribe>
         </div>
 
-        <div>
-          <h3 className="text-sm font-semibold">
-            {m.jira_migration_restricted_title()}
-          </h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {m.jira_migration_restricted_description()}
-          </p>
-          <form.Field name="restrictedContent">
-            {(field) => (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <ChoiceButton
-                  selected={field.value.policy === "exclude"}
-                  onClick={() => field.handleChange({ policy: "exclude" })}
-                >
-                  {m.jira_migration_restricted_exclude()}
-                </ChoiceButton>
-                <ChoiceButton
-                  selected={field.value.policy === "include"}
-                  onClick={() =>
-                    field.handleChange({
-                      policy: "include",
-                      disclosureAccepted: true
-                    })
-                  }
-                >
-                  {m.jira_migration_restricted_include()}
-                </ChoiceButton>
-              </div>
-            )}
-          </form.Field>
-        </div>
+        {hasRestrictedContent ? (
+          <div>
+            <h3 className="text-sm font-semibold">
+              {m.jira_migration_restricted_title()}
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {m.jira_migration_restricted_description()}
+            </p>
+            <form.Field name="restrictedContent">
+              {(field) => (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <ChoiceButton
+                    selected={field.value.policy === "exclude"}
+                    onClick={() => field.handleChange({ policy: "exclude" })}
+                  >
+                    {m.jira_migration_restricted_exclude()}
+                  </ChoiceButton>
+                  <ChoiceButton
+                    selected={field.value.policy === "include"}
+                    onClick={() =>
+                      field.handleChange({
+                        policy: "include",
+                        disclosureAccepted: true
+                      })
+                    }
+                  >
+                    {m.jira_migration_restricted_include()}
+                  </ChoiceButton>
+                </div>
+              )}
+            </form.Field>
+          </div>
+        ) : null}
 
         {forcedSkips.length > 0 ? (
           <div>

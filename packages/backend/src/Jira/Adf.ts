@@ -23,6 +23,7 @@ export type AdfConversionResult = {
 export type AdfReferenceDestination = {
   readonly url: string
   readonly text?: string
+  readonly embed?: boolean
 }
 
 type AdfNode = {
@@ -89,7 +90,8 @@ export function rewriteJiraReferences(
       ? markdownLinkWithMarks(
           destination.text ?? reference.fallbackText,
           destination.url,
-          marks
+          marks,
+          destination.embed === true
         )
       : reference.originalUrl
         ? markdownLinkWithMarks(
@@ -439,9 +441,10 @@ function escapeUrl(url: string): string {
 function markdownLinkWithMarks(
   text: string,
   url: string,
-  marks: ReadonlyArray<TextMark>
+  marks: ReadonlyArray<TextMark>,
+  embed = false
 ): string {
-  return `[${renderMarkedText(text, marks)}](${escapeUrl(url)})`
+  return `${embed ? "!" : ""}[${renderMarkedText(text, marks)}](${escapeUrl(url)})`
 }
 
 function jiraIssueId(url: string): string | null {
