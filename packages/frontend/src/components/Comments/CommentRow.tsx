@@ -33,7 +33,17 @@ export function CommentRow({
   ticketId: TicketId
 }) {
   const me = useAtomValue(meAtom)
-  const isAuthor = Result.isSuccess(me) && me.value.id === comment.author.id
+  const linkedAuthor =
+    comment.author.kind === "user" ? comment.author.user : null
+  const authorName =
+    comment.author.kind === "user"
+      ? (comment.author.user.name ?? comment.author.user.email)
+      : comment.author.displayName
+  const isAuthor =
+    comment.origin === "native" &&
+    linkedAuthor !== null &&
+    Result.isSuccess(me) &&
+    me.value.id === linkedAuthor.id
   const key = commentKey(orgSlug, slug, ticketId, comment.id)
   const editState = useAtomValue(editCommentAtom(key))
   const deleteState = useAtomValue(deleteCommentAtom(key))
@@ -47,10 +57,8 @@ export function CommentRow({
       <InlineForm.Idle block>
         <header className="flex items-center justify-between gap-2 text-sm">
           <div className="flex items-center gap-2">
-            <MemberAvatar member={comment.author} size={20} />
-            <span className="font-medium">
-              {comment.author.name ?? comment.author.email}
-            </span>
+            {linkedAuthor && <MemberAvatar member={linkedAuthor} size={20} />}
+            <span className="font-medium">{authorName}</span>
             <time className="text-muted-foreground">
               {DateTime.toDate(
                 DateTime.makeUnsafe(comment.createdAt)
@@ -59,6 +67,11 @@ export function CommentRow({
             {comment.editedAt && (
               <span className="text-muted-foreground text-xs">
                 {m.comments_edited_marker()}
+              </span>
+            )}
+            {comment.origin === "jira" && (
+              <span className="text-muted-foreground text-xs">
+                {m.comments_imported_from_jira()}
               </span>
             )}
           </div>
@@ -128,9 +141,13 @@ function EditForm({
   return (
     <>
       <header className="flex items-center gap-2 text-sm mt-1.5">
-        <MemberAvatar member={comment.author} size={20} />
+        {comment.author.kind === "user" && (
+          <MemberAvatar member={comment.author.user} size={20} />
+        )}
         <span className="font-medium">
-          {comment.author.name ?? comment.author.email}
+          {comment.author.kind === "user"
+            ? (comment.author.user.name ?? comment.author.user.email)
+            : comment.author.displayName}
         </span>
         <span className="text-muted-foreground">
           {m.comments_editing_marker()}

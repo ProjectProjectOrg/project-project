@@ -1,5 +1,5 @@
-import * as DateTime from "effect/DateTime"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import matter from "gray-matter"
 
 export const COMMENTS_START = "<!-- comments:start -->"
@@ -9,11 +9,61 @@ const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 
 export interface CommentBlock {
   readonly id: string
-  readonly author: string
+  readonly author: CommentBlockAuthor
+  readonly origin: "native" | "jira"
   readonly createdAt: Date
   readonly editedAt: Date | null
   readonly body: string
 }
+
+export type CommentBlockAuthor =
+  | { readonly kind: "user"; readonly userId: string }
+  | {
+      readonly kind: "jira"
+      readonly displayName: string
+      readonly accountId: string
+    }
+
+const CommentBlockDate = Schema.Union([Schema.DateFromString, Schema.Date])
+const CommentBlockEditedDate = Schema.NullOr(CommentBlockDate)
+const UserBlockAuthor = Schema.Struct({
+  kind: Schema.Literal("user"),
+  userId: Schema.NonEmptyString
+})
+const JiraBlockAuthor = Schema.Struct({
+  kind: Schema.Literal("jira"),
+  displayName: Schema.NonEmptyString,
+  accountId: Schema.NonEmptyString
+})
+const LegacyCommentData = Schema.Struct({
+  author: Schema.NonEmptyString,
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+})
+const NativeCommentData = Schema.Struct({
+  author: UserBlockAuthor,
+  origin: Schema.Literal("native"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+})
+const LinkedJiraCommentData = Schema.Struct({
+  author: UserBlockAuthor,
+  origin: Schema.Literal("jira"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+})
+const SnapshotJiraCommentData = Schema.Struct({
+  author: JiraBlockAuthor,
+  origin: Schema.Literal("jira"),
+  createdAt: CommentBlockDate,
+  editedAt: Schema.optionalKey(CommentBlockEditedDate)
+})
+const CommentBlockData = Schema.Union([
+  LegacyCommentData,
+  NativeCommentData,
+  LinkedJiraCommentData,
+  SnapshotJiraCommentData
+])
 
 export type ValidationResult =
   | { readonly ok: true }
@@ -61,16 +111,24 @@ export function parseCommentsRegion(
     while (end < lines.length && !COMMENT_MARKER.test(lines[end].trim())) end++
     const blockText = lines.slice(i, end).join("\n").trim()
     const parsed = matter(blockText)
-    const data = parsed.data as Record<string, unknown>
-    const author = typeof data.author === "string" ? data.author : null
-    const createdAt = parseDate(data.createdAt)
-    const editedAt = parseDate(data.editedAt)
-    if (author && createdAt) {
+    const decoded = Schema.decodeUnknownOption(CommentBlockData)(parsed.data)
+    if (Option.isSome(decoded)) {
+      const data = decoded.value
+      let author: CommentBlockAuthor
+      let origin: CommentBlock["origin"]
+      if ("origin" in data) {
+        author = data.author
+        origin = data.origin
+      } else {
+        author = { kind: "user", userId: data.author }
+        origin = "native"
+      }
       blocks.push({
         id,
         author,
-        createdAt,
-        editedAt,
+        origin,
+        createdAt: data.createdAt,
+        editedAt: data.editedAt ?? null,
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -87,6 +145,7 @@ export function serializeCommentsRegion(
   for (const b of blocks) {
     const fm: Record<string, unknown> = {
       author: b.author,
+      origin: b.origin,
       createdAt: b.createdAt.toISOString()
     }
     if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
@@ -102,15 +161,4 @@ function stripOuterMarkers(region: string): string | null {
   const end = region.lastIndexOf(COMMENTS_END)
   if (start === -1 || end === -1 || end <= start) return null
   return region.slice(start + COMMENTS_START.length, end)
-}
-
-function parseDate(v: unknown): Date | null {
-  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null
-  if (typeof v === "string") {
-    return Option.match(DateTime.make(v), {
-      onNone: () => null,
-      onSome: DateTime.toDate
-    })
-  }
-  return null
 }

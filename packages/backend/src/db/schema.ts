@@ -57,6 +57,7 @@ import {
   uuid
 } from "drizzle-orm/pg-core"
 import type {
+  JiraMigrationConfiguration,
   OrgEverhourConfig,
   ProjectBanner,
   ProjectIconImage
@@ -608,15 +609,35 @@ export const commentIndex = pgTable(
     id: text("id").primaryKey(),
     projectSlug: text("project_slug").notNull(),
     ticketId: text("ticket_id").notNull(),
-    authorId: text("author_id")
-      .notNull()
-      .references(() => user.id),
+    origin: text("origin", { enum: ["native", "jira"] }).notNull(),
+    authorKind: text("author_kind", { enum: ["user", "jira"] }).notNull(),
+    authorId: text("author_id").references(() => user.id),
+    jiraDisplayName: text("jira_display_name"),
+    jiraAccountId: text("jira_account_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
     editedAt: timestamp("edited_at", { withTimezone: true })
   },
   (t) => [
+    check(
+      "comment_index_attribution_check",
+      sql`(
+        ${t.authorKind} = 'user'
+        and ${t.authorId} is not null
+        and ${t.jiraDisplayName} is null
+        and ${t.jiraAccountId} is null
+      ) or (
+        ${t.authorKind} = 'jira'
+        and ${t.authorId} is null
+        and ${t.jiraDisplayName} is not null
+        and ${t.jiraAccountId} is not null
+      )`
+    ),
+    check(
+      "comment_index_origin_check",
+      sql`${t.origin} = 'jira' or (${t.origin} = 'native' and ${t.authorKind} = 'user')`
+    ),
     index("comment_index_ticket_idx").on(t.projectSlug, t.ticketId, t.createdAt)
   ]
 )
@@ -751,6 +772,136 @@ export const userFigmaOauthState = pgTable(
   (t) => [index("user_figma_oauth_state_user_idx").on(t.userId)]
 )
 
+export const userJiraIntegration = pgTable(
+  "user_jira_integration",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    encryptedAccessToken: text("encrypted_access_token").notNull(),
+    accessTokenNonce: text("access_token_nonce").notNull(),
+    accessTokenTag: text("access_token_tag").notNull(),
+    encryptedRefreshToken: text("encrypted_refresh_token").notNull(),
+    refreshTokenNonce: text("refresh_token_nonce").notNull(),
+    refreshTokenTag: text("refresh_token_tag").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    grantedScopes: jsonb("granted_scopes")
+      .$type<ReadonlyArray<string>>()
+      .notNull(),
+    status: text("status", {
+      enum: ["active", "reconnect_required"]
+    })
+      .notNull()
+      .default("active"),
+    reconnectReason: text("reconnect_reason", {
+      enum: ["invalid_grant", "missing_scopes"]
+    }),
+    connectedAt: timestamp("connected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    refreshLeaseId: uuid("refresh_lease_id"),
+    refreshLeaseExpiresAt: timestamp("refresh_lease_expires_at", {
+      withTimezone: true
+    })
+  },
+  (t) => [
+    index("user_jira_integration_refresh_lease_idx").on(t.refreshLeaseExpiresAt)
+  ]
+)
+
+export const userJiraOauthState = pgTable(
+  "user_jira_oauth_state",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stateHash: text("state_hash").notNull().unique(),
+    codeVerifier: text("code_verifier"),
+    returnPath: text("return_path").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [index("user_jira_oauth_state_user_idx").on(t.userId)]
+)
+
+export const jiraMigration = pgTable(
+  "jira_migration",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    requestId: text("request_id").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    initiatedBy: text("initiated_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    sourceCloudId: text("source_cloud_id").notNull(),
+    sourceSiteName: text("source_site_name").notNull(),
+    sourceSiteUrl: text("source_site_url").notNull(),
+    sourceProjectId: text("source_project_id").notNull(),
+    sourceProjectKey: text("source_project_key").notNull(),
+    sourceProjectName: text("source_project_name").notNull(),
+    status: text("status", {
+      enum: [
+        "scanning",
+        "needs_configuration",
+        "ready",
+        "migrating",
+        "cancelling",
+        "reconnect_required",
+        "failed",
+        "cancelled",
+        "succeeded"
+      ]
+    })
+      .notNull()
+      .default("scanning"),
+    phase: text("phase").notNull().default("queued_scan"),
+    revision: integer("revision").notNull().default(0),
+    manifestVersion: integer("manifest_version").notNull().default(1),
+    stagingPrefix: text("staging_prefix").notNull(),
+    configuration: jsonb("configuration").$type<JiraMigrationConfiguration>(),
+    checkpoint: jsonb("checkpoint").$type<unknown>(),
+    progressDone: integer("progress_done").notNull().default(0),
+    progressTotal: integer("progress_total"),
+    leaseId: uuid("lease_id"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    scanAt: timestamp("scan_at", { withTimezone: true }),
+    destinationProjectId: uuid("destination_project_id"),
+    destinationProjectSlug: text("destination_project_slug"),
+    reportPath: text("report_path"),
+    failureReason: text("failure_reason"),
+    failureRetryable: boolean("failure_retryable"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true })
+  },
+  (t) => [
+    uniqueIndex("jira_migration_request_uidx").on(
+      t.initiatedBy,
+      t.organizationId,
+      t.requestId
+    ),
+    index("jira_migration_initiator_idx").on(
+      t.organizationId,
+      t.initiatedBy,
+      t.createdAt
+    ),
+    index("jira_migration_worker_idx").on(t.status, t.leaseExpiresAt)
+  ]
+)
+
 export const projectFigmaIntegration = pgTable(
   "project_figma_integration",
   {
@@ -841,6 +992,9 @@ export const relations = defineRelations(
   {
     ...authSchema,
     userFigmaIntegration,
+    userJiraIntegration,
+    userJiraOauthState,
+    jiraMigration,
     projectFigmaIntegration,
     figmaLinkIndex,
     figmaReference,
@@ -878,6 +1032,18 @@ export const relations = defineRelations(
       tags: r.many.projectTag(),
       statuses: r.many.projectStatus(),
       integrationLinks: r.many.projectIntegrationLink()
+    },
+    jiraMigration: {
+      organization: r.one.organization({
+        optional: false,
+        from: [r.jiraMigration.organizationId],
+        to: [r.organization.id]
+      }),
+      initiator: r.one.user({
+        optional: false,
+        from: [r.jiraMigration.initiatedBy],
+        to: [r.user.id]
+      })
     },
     projectMember: {
       project: r.one.projectIndex({
@@ -995,6 +1161,20 @@ export const relations = defineRelations(
         to: [r.user.id]
       })
     },
+    userJiraIntegration: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userJiraIntegration.userId],
+        to: [r.user.id]
+      })
+    },
+    userJiraOauthState: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userJiraOauthState.userId],
+        to: [r.user.id]
+      })
+    },
     projectEverhourIntegration: {
       projectLink: r.one.projectIntegrationLink({
         optional: false,
@@ -1004,7 +1184,7 @@ export const relations = defineRelations(
     },
     commentIndex: {
       author: r.one.user({
-        optional: false,
+        optional: true,
         from: [r.commentIndex.authorId],
         to: [r.user.id]
       })
@@ -1016,7 +1196,9 @@ export const relations = defineRelations(
       invitations: r.many.invitation(),
       oauthClients: r.many.oauthClient(),
       oauthAccessTokens: r.many.oauthAccessToken(),
-      oauthConsents: r.many.oauthConsent()
+      oauthConsents: r.many.oauthConsent(),
+      jiraIntegration: r.one.userJiraIntegration(),
+      jiraOauthStates: r.many.userJiraOauthState()
     },
     session: {
       user: r.one.user({

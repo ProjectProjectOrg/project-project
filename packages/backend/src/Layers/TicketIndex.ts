@@ -39,12 +39,14 @@ import {
 } from "@projectproject/shared"
 import type { MarkdownError } from "../Services/Markdown"
 import {
+  commentIndex,
   organization,
   projectGithubRepository,
   projectIndex,
   projectIntegrationLink,
   ticketIndex
 } from "../db/schema"
+import { parseCommentsRegion } from "../comments-region"
 import { Db } from "../Services/Db"
 import {
   TicketIndex,
@@ -899,8 +901,25 @@ export const TicketIndexLive = Layer.effect(
     const writeProjectIndex = (
       project: TicketIndexProject,
       documents: ReadonlyArray<TicketDocument>
-    ): Effect.Effect<void> =>
-      sql
+    ): Effect.Effect<void> => {
+      const comments = documents.flatMap((document) =>
+        parseCommentsRegion(document.commentsRegion).map((comment) => ({
+          id: comment.id,
+          projectSlug: project.projectSlug,
+          ticketId: document.id,
+          origin: comment.origin,
+          authorKind: comment.author.kind,
+          authorId:
+            comment.author.kind === "user" ? comment.author.userId : null,
+          jiraDisplayName:
+            comment.author.kind === "jira" ? comment.author.displayName : null,
+          jiraAccountId:
+            comment.author.kind === "jira" ? comment.author.accountId : null,
+          createdAt: comment.createdAt,
+          editedAt: comment.editedAt
+        }))
+      )
+      return sql
         .withTransaction(
           Effect.gen(function* () {
             yield* db
@@ -914,6 +933,16 @@ export const TicketIndexLive = Layer.effect(
                 .pipe(Effect.asVoid, Effect.orDie)
             }
             yield* db
+              .delete(commentIndex)
+              .where(eq(commentIndex.projectSlug, project.projectSlug))
+              .pipe(Effect.asVoid, Effect.orDie)
+            if (comments.length > 0) {
+              yield* db
+                .insert(commentIndex)
+                .values(comments)
+                .pipe(Effect.asVoid, Effect.orDie)
+            }
+            yield* db
               .update(projectIndex)
               .set({
                 nextTicketNumber: drizzleSql`greatest(${projectIndex.nextTicketNumber}, ${nextTicketNumberFor(documents)})`
@@ -923,6 +952,7 @@ export const TicketIndexLive = Layer.effect(
           })
         )
         .pipe(Effect.catchTag("SqlError", Effect.die), Effect.asVoid)
+    }
 
     const indexedRefs = (project: TicketIndexProject) =>
       db

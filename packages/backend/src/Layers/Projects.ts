@@ -6,6 +6,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { and, asc, eq, sql as sqlFragment } from "drizzle-orm"
 import { ulid } from "ulid"
 import {
+  BASELINE_STATUS_SEED,
   Conflict,
   deriveProjectIdentity,
   Forbidden,
@@ -728,35 +729,17 @@ export const ProjectsLive = Layer.effect(
 
           yield* db
             .insert(projectStatus)
-            .values([
-              {
+            .values(
+              BASELINE_STATUS_SEED.map((baseline) => ({
                 projectId: row.id,
-                slug: "todo",
-                label: "Todo",
-                icon: "CircleDashed",
-                color: "#a3a3a3",
-                orderKey: "a0",
+                slug: baseline.slug,
+                label: baseline.label,
+                icon: baseline.icon,
+                color: baseline.color,
+                orderKey: baseline.orderKey,
                 createdBy
-              },
-              {
-                projectId: row.id,
-                slug: "in_progress",
-                label: "In progress",
-                icon: "CircleDot",
-                color: "#3b82f6",
-                orderKey: "a1",
-                createdBy
-              },
-              {
-                projectId: row.id,
-                slug: "done",
-                label: "Done",
-                icon: "CircleCheck",
-                color: "#22c55e",
-                orderKey: "a2",
-                createdBy
-              }
-            ])
+              }))
+            )
             .pipe(Effect.orDie)
 
           const rollback = db

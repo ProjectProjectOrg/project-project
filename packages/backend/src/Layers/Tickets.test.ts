@@ -145,7 +145,8 @@ const FakeComments = Layer.effect(
               ...parseCommentsRegion(file.region),
               {
                 id: `comment-${recordedCommentBodies.length}`,
-                author: "user-1",
+                author: { kind: "user", userId: "user-1" },
+                origin: "native",
                 createdAt: DateTime.toDate(
                   DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
                 ),
@@ -157,6 +158,7 @@ const FakeComments = Layer.effect(
           return {} as never
         }).pipe(Effect.orDie),
       edit: () => unexpected("Comments.edit"),
+      importHistorical: () => unexpected("Comments.importHistorical"),
       remove: () => unexpected("Comments.remove")
     } satisfies CommentsShape
   })

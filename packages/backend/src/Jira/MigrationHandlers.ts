@@ -1,0 +1,148 @@
+import {
+  AppApi,
+  CurrentUser,
+  JiraMigrationUnavailable,
+  JiraResourceNotFound
+} from "@projectproject/shared"
+import * as Effect from "effect/Effect"
+import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { requireOrgAdmin, CurrentOrg } from "../Services/CurrentOrg"
+import { OrgStorage } from "../Services/OrgStorage"
+import { JiraClient } from "./Client"
+import { JiraMigrations } from "./Migrations"
+
+const contextFor = (orgSlug: string) =>
+  Effect.gen(function* () {
+    const user = yield* CurrentUser
+    const currentOrg = yield* CurrentOrg
+    const org = yield* requireOrgAdmin(currentOrg, orgSlug, user.id)
+    return { user, org }
+  })
+
+export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "jiraMigrations",
+  (handlers) =>
+    handlers
+      .handle("list", ({ params }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.list(org.organizationId, user.id)
+        })
+      )
+      .handle("create", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const storage = yield* OrgStorage
+          yield* storage.requireConnection(org.orgSlug).pipe(
+            Effect.catchTags({
+              StorageNotConnected: () =>
+                Effect.fail(
+                  new JiraMigrationUnavailable({
+                    reason: "storage_unavailable"
+                  })
+                ),
+              StorageConfigMissing: () =>
+                Effect.fail(
+                  new JiraMigrationUnavailable({
+                    reason: "storage_unavailable"
+                  })
+                )
+            })
+          )
+          const jira = yield* JiraClient
+          const sites = yield* jira.accessibleSites(user.id)
+          const site = sites.find(({ cloudId }) => cloudId === payload.cloudId)
+          if (!site) return yield* new JiraResourceNotFound()
+          const projects = yield* jira.projects(user.id, site.cloudId)
+          const project = projects.find(({ id }) => id === payload.projectId)
+          if (!project) return yield* new JiraResourceNotFound()
+          const migrations = yield* JiraMigrations
+          return yield* migrations.create(
+            org.organizationId,
+            user.id,
+            payload.requestId,
+            {
+              cloudId: site.cloudId,
+              siteName: site.name,
+              siteUrl: site.url,
+              projectId: project.id,
+              projectKey: project.key,
+              projectName: project.name
+            }
+          )
+        })
+      )
+      .handle("get", ({ params }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.get(
+            org.organizationId,
+            user.id,
+            params.migrationId
+          )
+        })
+      )
+      .handle("configure", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.configure(
+            org.organizationId,
+            user.id,
+            params.migrationId,
+            payload.expectedRevision,
+            payload.configuration
+          )
+        })
+      )
+      .handle("rescan", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.rescan(
+            org.organizationId,
+            user.id,
+            params.migrationId,
+            payload.expectedRevision
+          )
+        })
+      )
+      .handle("run", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.run(
+            org.organizationId,
+            user.id,
+            params.migrationId,
+            payload.expectedRevision
+          )
+        })
+      )
+      .handle("cancel", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          return yield* migrations.cancel(
+            org.organizationId,
+            user.id,
+            params.migrationId,
+            payload.expectedRevision
+          )
+        })
+      )
+      .handle("discard", ({ params }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* contextFor(params.orgSlug)
+          const migrations = yield* JiraMigrations
+          yield* migrations.discard(
+            org.organizationId,
+            user.id,
+            params.migrationId
+          )
+        })
+      )
+)

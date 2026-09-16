@@ -7,6 +7,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import pg from "pg"
 import {
+  CommentId,
   encodeCursor,
   padNumericIdSort,
   TagName,
@@ -14,7 +15,12 @@ import {
   TicketStatus,
   type TicketFilter
 } from "@projectproject/shared"
+import { serializeCommentsRegion } from "../comments-region"
+import { Comments } from "../Services/Comments"
+import { Projects } from "../Services/Projects"
+import { Users } from "../Services/Users"
 import { DbLive, PgLive } from "./Db"
+import { CommentsLive } from "./Comments"
 import { TicketIndexLive } from "./TicketIndex"
 import {
   TicketDocs,
@@ -25,6 +31,7 @@ import { TicketIndex } from "../Services/TicketIndex"
 
 const { Client } = pg
 const ticketId = Schema.decodeUnknownSync(TicketId)
+const commentId = Schema.decodeUnknownSync(CommentId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
 
@@ -186,6 +193,251 @@ describe.runIf(process.env.DATABASE_URL !== undefined)(
         expect(yield* index.reserveTicketNumber(project)).toBe(42)
       }).pipe(Effect.provide(RebuildTestLayer))
     )
+
+    it.effect("restores canonical comments as listable index rows", () => {
+      const suffix = randomUUID()
+      const organizationId = `ticket-index-comments-${suffix}`
+      const orgSlug = `ticket-index-comments-${suffix}`
+      const projectSlug = `ticket-index-comments-${suffix}`
+      const projectId = randomUUID()
+      const userId = `ticket-index-comments-user-${suffix}`
+      const nativeId = commentId(`c_${randomUUID()}`)
+      const linkedId = commentId(`c_${randomUUID()}`)
+      const snapshotId = commentId(`c_${randomUUID()}`)
+      const nativeCreatedAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-01T01:02:03.456Z")
+      )
+      const linkedCreatedAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-02T02:03:04.567Z")
+      )
+      const linkedEditedAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-03T03:04:05.678Z")
+      )
+      const snapshotCreatedAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-04T04:05:06.789Z")
+      )
+      const snapshotEditedAt = DateTime.toDate(
+        DateTime.makeUnsafe("2021-04-05T05:06:07.890Z")
+      )
+      const largeBody = `Historical Jira body\n\n${"x".repeat(20_001)}`
+      const rebuildDocument: TicketDocument = {
+        ...rebuiltDocument,
+        id: ticketId("T-42"),
+        createdBy: userId,
+        commentsRegion: serializeCommentsRegion([
+          {
+            id: nativeId,
+            author: { kind: "user", userId },
+            origin: "native",
+            createdAt: nativeCreatedAt,
+            editedAt: null,
+            body: "Native body"
+          },
+          {
+            id: linkedId,
+            author: { kind: "user", userId },
+            origin: "jira",
+            createdAt: linkedCreatedAt,
+            editedAt: linkedEditedAt,
+            body: largeBody
+          },
+          {
+            id: snapshotId,
+            author: {
+              kind: "jira",
+              displayName: "Former Jira User",
+              accountId: "jira-account-1"
+            },
+            origin: "jira",
+            createdAt: snapshotCreatedAt,
+            editedAt: snapshotEditedAt,
+            body: "Snapshot body"
+          }
+        ])
+      }
+      const ticketDocs = Layer.succeed(TicketDocs, {
+        listIds: () => Effect.succeed([rebuildDocument.id]),
+        read: () => Effect.succeed(rebuildDocument),
+        create: () => unexpected("TicketDocs.create"),
+        write: () => unexpected("TicketDocs.write"),
+        update: () => unexpected("TicketDocs.update"),
+        remove: () => unexpected("TicketDocs.remove"),
+        readRaw: () => unexpected("TicketDocs.readRaw")
+      } satisfies TicketDocsShape)
+      const indexLayer = TicketIndexLive.pipe(
+        Layer.provide(ticketDocs),
+        Layer.provide(DatabaseLive)
+      )
+      const author = {
+        id: userId,
+        email: `${userId}@example.com`,
+        name: "Linked User",
+        username: "linked-user",
+        image: null,
+        createdAt: nativeCreatedAt,
+        activeOrgSlug: orgSlug,
+        personalGithub: { connected: false as const },
+        editorPreference: "github" as const,
+        personalEverhour: {
+          connected: false as const,
+          everhourUserId: null,
+          name: null,
+          email: null,
+          lastVerifiedAt: null,
+          lastCheckError: null
+        }
+      }
+      const commentsLayer = CommentsLive.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            ticketDocs,
+            Layer.mock(Projects, {
+              requireMember: () => Effect.succeed({ role: "member" as const })
+            }),
+            Layer.mock(TicketIndex, {}),
+            Layer.mock(Users, {
+              fullByIds: () => Effect.succeed([author])
+            }),
+            DatabaseLive
+          )
+        )
+      )
+
+      return Effect.gen(function* () {
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into "user" (id, name, email, created_at, updated_at)
+             values ($1, 'Linked User', $2, now(), now())`,
+            [userId, `${userId}@example.com`]
+          )
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket index comments', $2, now())`,
+            [organizationId, orgSlug]
+          )
+          await client.query(
+            `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $3, 'T', 'Ticket index comments', 'folder', 'blue', $4, now())`,
+            [projectId, projectSlug, organizationId, userId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient(async (client) => {
+            await client.query(
+              "delete from comment_index where project_slug = $1",
+              [projectSlug]
+            )
+            await client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+            await client.query('delete from "user" where id = $1', [userId])
+          })
+        )
+
+        const index = yield* TicketIndex
+        const project = yield* index.projectFor(orgSlug, projectSlug)
+        yield* index.rebuildProject(project)
+
+        const rows = yield* withClient((client) =>
+          client.query<{
+            id: string
+            origin: string
+            author_kind: string
+            author_id: string | null
+            jira_display_name: string | null
+            jira_account_id: string | null
+            created_at: Date
+            edited_at: Date | null
+          }>(
+            `select id, origin, author_kind, author_id, jira_display_name,
+                    jira_account_id, created_at, edited_at
+             from comment_index
+             where project_slug = $1 and ticket_id = $2
+             order by created_at`,
+            [projectSlug, rebuildDocument.id]
+          )
+        )
+        expect(rows.rows).toEqual([
+          {
+            id: nativeId,
+            origin: "native",
+            author_kind: "user",
+            author_id: userId,
+            jira_display_name: null,
+            jira_account_id: null,
+            created_at: nativeCreatedAt,
+            edited_at: null
+          },
+          {
+            id: linkedId,
+            origin: "jira",
+            author_kind: "user",
+            author_id: userId,
+            jira_display_name: null,
+            jira_account_id: null,
+            created_at: linkedCreatedAt,
+            edited_at: linkedEditedAt
+          },
+          {
+            id: snapshotId,
+            origin: "jira",
+            author_kind: "jira",
+            author_id: null,
+            jira_display_name: "Former Jira User",
+            jira_account_id: "jira-account-1",
+            created_at: snapshotCreatedAt,
+            edited_at: snapshotEditedAt
+          }
+        ])
+
+        const listed = yield* Effect.gen(function* () {
+          const comments = yield* Comments
+          return yield* comments.list(
+            orgSlug,
+            userId,
+            projectSlug,
+            rebuildDocument.id
+          )
+        }).pipe(Effect.provide(commentsLayer))
+        expect(listed).toEqual([
+          {
+            id: nativeId,
+            ticketId: rebuildDocument.id,
+            projectSlug,
+            author: { kind: "user", user: author },
+            origin: "native",
+            body: "Native body",
+            createdAt: nativeCreatedAt,
+            editedAt: null
+          },
+          {
+            id: linkedId,
+            ticketId: rebuildDocument.id,
+            projectSlug,
+            author: { kind: "user", user: author },
+            origin: "jira",
+            body: largeBody,
+            createdAt: linkedCreatedAt,
+            editedAt: linkedEditedAt
+          },
+          {
+            id: snapshotId,
+            ticketId: rebuildDocument.id,
+            projectSlug,
+            author: {
+              kind: "jira",
+              displayName: "Former Jira User",
+              accountId: "jira-account-1"
+            },
+            origin: "jira",
+            body: "Snapshot body",
+            createdAt: snapshotCreatedAt,
+            editedAt: snapshotEditedAt
+          }
+        ])
+      }).pipe(Effect.provide(indexLayer))
+    })
 
     it.effect("queries, filters, paginates, and counts indexed tickets", () =>
       Effect.gen(function* () {

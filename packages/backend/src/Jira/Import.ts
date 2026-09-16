@@ -1,0 +1,720 @@
+import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
+import { ulid } from "ulid"
+import * as Stream from "effect/Stream"
+import {
+  attachmentUrl,
+  BASELINE_STATUS_SEED,
+  deriveProjectIdentity,
+  GroupColor,
+  GroupId,
+  JiraMigrationConfiguration,
+  pickStatusColor,
+  ProjectKey,
+  StatusSlug,
+  TagName,
+  TicketId
+} from "@projectproject/shared"
+import { generateKeyBetween } from "fractional-indexing"
+import {
+  attachmentIndex,
+  jiraMigration,
+  projectIndex,
+  projectMember,
+  projectStatus,
+  projectTag,
+  ticketIndex,
+  user as userTable
+} from "../db/schema"
+import { serializeCommentsRegion, type CommentBlock } from "../comments-region"
+import { JiraMigrationBlocked } from "./Blocked"
+import type { Db } from "../Services/Db"
+import {
+  attachmentObjectKey,
+  type S3Connection,
+  type S3StorageShape
+} from "../Services/S3Storage"
+import type { AttachmentsShape } from "../Services/Attachments"
+import type { GroupDocsShape } from "../Services/GroupDocs"
+import type { ProjectDocsShape } from "../Services/ProjectDocs"
+import type { TicketDocsShape } from "../Services/TicketDocs"
+import type { TicketIndexShape } from "../Services/TicketIndex"
+import type { JiraClientShape } from "./Client"
+import { jiraConfigurationToMappings } from "./Mappings"
+import type { JiraManifestAttachment, JiraMigrationManifest } from "./Manifest"
+import {
+  preflightJiraMigration,
+  type JiraPreflightEnvironment
+} from "./Preflight"
+import {
+  createJiraPublicationPlan,
+  type JiraPublicationPlan
+} from "./PublicationPlan"
+
+export type JiraImportBlocked = {
+  readonly kind: "blocked"
+  readonly blockers: ReadonlyArray<{
+    readonly code: string
+    readonly subject: string
+  }>
+}
+
+export type JiraImportPublished = {
+  readonly kind: "published"
+  readonly projectSlug: string
+  readonly ticketCount: number
+  readonly commentCount: number
+  readonly groupCount: number
+}
+
+export type JiraImportResult = JiraImportBlocked | JiraImportPublished
+
+const decodeConfiguration = Schema.decodeUnknownSync(JiraMigrationConfiguration)
+const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
+const decodeGroupId = Schema.decodeUnknownSync(GroupId)
+const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
+const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+const decodeTagName = Schema.decodeUnknownSync(TagName)
+const decodeStatusSlug = Schema.decodeUnknownSync(StatusSlug)
+
+const toDate = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
+
+const SPRINT_GROUP_COLOR = "#777777"
+
+export const groupColors = (
+  groups: JiraPublicationPlan["groups"]
+): ReadonlyArray<string> => {
+  const used: Array<string> = []
+  return groups.map((group) => {
+    if (group.kind === "sprint") return SPRINT_GROUP_COLOR
+    const color = pickStatusColor(used)
+    used.push(color)
+    return color
+  })
+}
+
+export const buildJiraImportContext = (
+  manifest: JiraMigrationManifest,
+  rawConfiguration: unknown,
+  environment: JiraPreflightEnvironment,
+  attachmentUrlsBySourceId: Readonly<Record<string, string>>
+) => {
+  const configuration = decodeConfiguration(rawConfiguration)
+  const mappings = jiraConfigurationToMappings(manifest, configuration)
+  const preflight = preflightJiraMigration(manifest, mappings, environment)
+  const result = createJiraPublicationPlan(
+    manifest,
+    mappings,
+    preflight,
+    attachmentUrlsBySourceId
+  )
+  return { mappings, preflight, result }
+}
+
+export const buildJiraImportPlan = (
+  manifest: JiraMigrationManifest,
+  rawConfiguration: unknown,
+  environment: JiraPreflightEnvironment,
+  attachmentUrlsBySourceId: Readonly<Record<string, string>>
+) =>
+  buildJiraImportContext(
+    manifest,
+    rawConfiguration,
+    environment,
+    attachmentUrlsBySourceId
+  ).result
+
+const commentBlocksFor = (
+  plan: JiraPublicationPlan,
+  ticketId: string
+): ReadonlyArray<CommentBlock> =>
+  plan.comments
+    .filter((comment) => comment.ticketId === ticketId)
+    .map((comment) => ({
+      id: comment.sourceCommentId.startsWith("c_")
+        ? comment.sourceCommentId
+        : `c_jira_${comment.sourceCommentId}`,
+      author: comment.author,
+      origin: "jira" as const,
+      createdAt: toDate(comment.createdAt),
+      editedAt: comment.editedAt === null ? null : toDate(comment.editedAt),
+      body: comment.body
+    }))
+
+export interface JiraImportDependencies {
+  readonly db: Db["Service"]
+  readonly projectDocs: ProjectDocsShape
+  readonly ticketDocs: TicketDocsShape
+  readonly groupDocs: GroupDocsShape
+  readonly ticketIndex: TicketIndexShape
+}
+
+export const writeJiraStagedDocuments = Effect.fn("JiraImport.writeDocuments")(
+  function* (
+    deps: JiraImportDependencies,
+    orgSlug: string,
+    ownerId: string,
+    plan: JiraPublicationPlan,
+    members: ReadonlyArray<JiraImportMember>
+  ) {
+    const now = yield* DateTime.nowAsDate
+    const identity = deriveProjectIdentity(plan.project.slug)
+    yield* deps.projectDocs.write(orgSlug, plan.project.slug, {
+      org: orgSlug,
+      slug: plan.project.slug,
+      key: decodeProjectKey(plan.project.key),
+      name: plan.project.name,
+      icon: identity.icon,
+      color: identity.color,
+      createdBy: ownerId,
+      createdAt: now,
+      members: members.map(({ username, role }) => ({ username, role })),
+      github: null,
+      setup: {
+        workflowReviewedAt: null,
+        invitePeopleDismissedAt: null,
+        connectGithubDismissedAt: null
+      },
+      body:
+        plan.project.body.trim() === ""
+          ? `# ${plan.project.name}
+`
+          : plan.project.body
+    })
+
+    yield* Effect.forEach(
+      plan.tickets,
+      (ticket) => {
+        const document = {
+          id: decodeTicketId(ticket.id),
+          title: ticket.title,
+          status: decodeStatusSlug(ticket.status),
+          type: ticket.type,
+          priority: ticket.priority,
+          tags: ticket.tags.map((tag) => decodeTagName(tag)),
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          assignees: ticket.assignees,
+          archivedAt: null,
+          createdBy: ownerId,
+          updatedBy: ownerId,
+          createdAt: toDate(ticket.createdAt),
+          updatedAt: toDate(ticket.updatedAt),
+          body: ticket.body,
+          commentsRegion: serializeCommentsRegion(
+            commentBlocksFor(plan, ticket.id)
+          )
+        }
+        return deps.ticketDocs
+          .create(orgSlug, plan.project.slug, document)
+          .pipe(
+            Effect.catchTag("TicketIdTaken", () =>
+              deps.ticketDocs.write(
+                orgSlug,
+                plan.project.slug,
+                ticket.id,
+                document
+              )
+            )
+          )
+      },
+      { concurrency: 8, discard: true }
+    )
+
+    const colors = groupColors(plan.groups)
+    yield* Effect.forEach(
+      plan.groups.map((group, index) => ({ group, index })),
+      ({ group, index }) => {
+        const id = decodeGroupId(`G-${index + 1}`)
+        const document = {
+          id,
+          name: group.name,
+          kind: group.kind,
+          tickets: group.ticketIds.map((ticketId) => decodeTicketId(ticketId)),
+          color: decodeGroupColor(colors[index] ?? SPRINT_GROUP_COLOR),
+          startsAt: group.startsAt === null ? null : toDate(group.startsAt),
+          endsAt: group.endsAt === null ? null : toDate(group.endsAt),
+          completedAt:
+            group.completedAt === null ? null : toDate(group.completedAt),
+          createdBy: ownerId,
+          createdAt: now,
+          updatedAt: now,
+          body: group.body
+        }
+        return deps.groupDocs
+          .create(orgSlug, plan.project.slug, document)
+          .pipe(
+            Effect.catchTag("GroupIdTaken", () =>
+              deps.groupDocs.write(orgSlug, plan.project.slug, id, document)
+            )
+          )
+      },
+      { concurrency: 4, discard: true }
+    )
+  }
+)
+
+export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
+  deps: JiraImportDependencies,
+  input: {
+    readonly migrationId: string
+    readonly organizationId: string
+    readonly orgSlug: string
+    readonly ownerId: string
+    readonly leaseId: string
+    readonly reportPath: string
+    readonly priorDestinationProjectId: string | null
+    readonly plan: JiraPublicationPlan
+    readonly members: ReadonlyArray<JiraImportMember>
+  }
+) {
+  const now = yield* DateTime.nowAsDate
+  const identity = deriveProjectIdentity(input.plan.project.slug)
+  const publication = yield* deps.db
+    .transaction((tx) =>
+      Effect.gen(function* () {
+        const existing = yield* tx
+          .select({ id: projectIndex.id })
+          .from(projectIndex)
+          .where(eq(projectIndex.slug, input.plan.project.slug))
+          .limit(1)
+        const claimed = existing[0]
+        if (claimed && claimed.id !== input.priorDestinationProjectId) {
+          return "slug-taken" as const
+        }
+        const inserted = claimed
+          ? [claimed]
+          : yield* tx
+              .insert(projectIndex)
+              .values({
+                slug: input.plan.project.slug,
+                organizationId: input.organizationId,
+                key: input.plan.project.key,
+                name: input.plan.project.name,
+                icon: identity.icon,
+                color: identity.color,
+                nextTicketNumber: nextTicketNumberFor(input.plan),
+                createdBy: input.ownerId,
+                createdAt: now
+              })
+              .returning({ id: projectIndex.id })
+
+        const id = inserted[0]?.id
+        if (!id) return yield* Effect.interrupt
+
+        for (const baseline of BASELINE_STATUS_SEED) {
+          yield* tx
+            .insert(projectStatus)
+            .values({
+              projectId: id,
+              slug: baseline.slug,
+              label: baseline.label,
+              icon: baseline.icon,
+              color: baseline.color,
+              orderKey: baseline.orderKey,
+              createdBy: input.ownerId,
+              createdAt: now
+            })
+            .onConflictDoNothing()
+        }
+
+        let orderKey: string | null =
+          BASELINE_STATUS_SEED.at(-1)?.orderKey ?? null
+        for (const status of input.plan.createdStatuses) {
+          orderKey = generateKeyBetween(orderKey, null)
+          yield* tx
+            .insert(projectStatus)
+            .values({
+              projectId: id,
+              slug: status.slug,
+              label: status.label,
+              icon: status.icon,
+              color: status.color,
+              orderKey,
+              createdBy: input.ownerId,
+              createdAt: now
+            })
+            .onConflictDoNothing()
+        }
+
+        for (const member of input.members) {
+          yield* tx
+            .insert(projectMember)
+            .values({
+              projectSlug: input.plan.project.slug,
+              projectId: id,
+              userId: member.userId,
+              role: member.role
+            })
+            .onConflictDoNothing()
+        }
+
+        const usedTagColors: Array<string> = []
+        for (const tag of input.plan.tags) {
+          const tagColor = pickStatusColor(usedTagColors)
+          usedTagColors.push(tagColor)
+          yield* tx
+            .insert(projectTag)
+            .values({
+              projectId: id,
+              name: tag.name,
+              color: tagColor,
+              createdBy: input.ownerId,
+              createdAt: now
+            })
+            .onConflictDoNothing()
+        }
+
+        yield* deps.ticketIndex.rebuildProject({
+          orgSlug: input.orgSlug,
+          organizationId: input.organizationId,
+          projectId: id,
+          projectSlug: input.plan.project.slug
+        })
+
+        const published = yield* tx
+          .update(jiraMigration)
+          .set({
+            status: "succeeded",
+            phase: "succeeded",
+            destinationProjectId: id,
+            destinationProjectSlug: input.plan.project.slug,
+            reportPath: input.reportPath,
+            failureReason: null,
+            failureRetryable: null,
+            finishedAt: now,
+            leaseId: null,
+            leaseExpiresAt: null,
+            revision: drizzleSql`${jiraMigration.revision} + 1`,
+            updatedAt: now
+          })
+          .where(
+            and(
+              eq(jiraMigration.id, input.migrationId),
+              eq(jiraMigration.leaseId, input.leaseId),
+              eq(jiraMigration.status, "migrating")
+            )
+          )
+          .returning({ id: jiraMigration.id })
+        if (!published[0]) return yield* Effect.interrupt
+
+        return id
+      })
+    )
+    .pipe(Effect.catchTag("SqlError", Effect.die))
+
+  if (publication === "slug-taken") {
+    return yield* new JiraMigrationBlocked({
+      blockers: [
+        {
+          code: "project-slug-collision",
+          subjectId: input.plan.project.slug
+        }
+      ]
+    })
+  }
+
+  return {
+    kind: "published" as const,
+    projectSlug: input.plan.project.slug,
+    ticketCount: input.plan.tickets.length,
+    commentCount: input.plan.comments.length,
+    groupCount: input.plan.groups.length
+  }
+})
+
+export function nextTicketNumberFor(plan: JiraPublicationPlan): number {
+  const numbers = plan.tickets.flatMap((ticket) => {
+    const parsed = Number.parseInt(ticket.id.split("-").at(-1) ?? "", 10)
+    return Number.isFinite(parsed) ? [parsed] : []
+  })
+  return numbers.length === 0 ? 1 : Math.max(...numbers) + 1
+}
+
+export interface JiraImportMember {
+  readonly userId: string
+  readonly username: string
+  readonly role: "owner" | "member"
+}
+
+export const resolveJiraImportMembers = Effect.fn("JiraImport.members")(
+  function* (
+    deps: JiraImportDependencies,
+    ownerId: string,
+    plan: JiraPublicationPlan
+  ) {
+    const referenced = new Set<string>([ownerId])
+    for (const ticket of plan.tickets) {
+      for (const assignee of ticket.assignees) referenced.add(assignee)
+    }
+    for (const comment of plan.comments) {
+      if (comment.author.kind === "user") referenced.add(comment.author.userId)
+    }
+    const rows = yield* deps.db
+      .select({
+        id: userTable.id,
+        username: userTable.username,
+        email: userTable.email
+      })
+      .from(userTable)
+      .where(inArray(userTable.id, [...referenced]))
+      .pipe(Effect.orDie)
+    return rows.map((row): JiraImportMember => ({
+      userId: row.id,
+      username: row.username ?? row.email,
+      role: row.id === ownerId ? "owner" : "member"
+    }))
+  }
+)
+
+export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
+  function* (
+    deps: JiraImportDependencies,
+    organizationId: string,
+    ownedProjectSlug: string | null = null
+  ) {
+    const projects = yield* deps.db
+      .select({ slug: projectIndex.slug, key: projectIndex.key })
+      .from(projectIndex)
+      .where(eq(projectIndex.organizationId, organizationId))
+      .pipe(Effect.orDie)
+    const tickets = yield* deps.db
+      .select({
+        ticketId: ticketIndex.ticketId,
+        projectSlug: ticketIndex.projectSlug
+      })
+      .from(ticketIndex)
+      .where(eq(ticketIndex.organizationId, organizationId))
+      .pipe(Effect.orDie)
+    const users = yield* deps.db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .pipe(Effect.orDie)
+    const reservedSlugs = yield* deps.db
+      .select({ slug: projectIndex.slug })
+      .from(projectIndex)
+      .pipe(Effect.orDie)
+    const owned = projects.filter(({ slug }) => slug === ownedProjectSlug)
+    const others = projects.filter(({ slug }) => slug !== ownedProjectSlug)
+    const ownedTicketIds = new Set(
+      owned.length === 0
+        ? []
+        : tickets
+            .filter(({ projectSlug }) => projectSlug === ownedProjectSlug)
+            .map(({ ticketId }) => ticketId)
+    )
+    return {
+      existingProjectSlugs: reservedSlugs
+        .map(({ slug }) => slug)
+        .filter((slug) => slug !== ownedProjectSlug),
+      existingProjectKeys: others.map(({ key }) => key),
+      existingTicketIds: tickets
+        .filter(({ ticketId }) => !ownedTicketIds.has(ticketId))
+        .map(({ ticketId }) => ticketId),
+      existingUserIds: users.map(({ id }) => id),
+      existingStatusSlugs: ["todo", "in_progress", "done"]
+    } satisfies JiraPreflightEnvironment
+  }
+)
+
+export interface JiraAttachmentCopyInput {
+  readonly organizationId: string
+  readonly orgSlug: string
+  readonly projectSlug: string
+  readonly userId: string
+  readonly cloudId: string
+  readonly connection: S3Connection
+  readonly ticketIdBySourceIssueId: ReadonlyMap<string, string>
+  readonly attachments: ReadonlyArray<JiraManifestAttachment>
+}
+
+export const copyJiraAttachments = Effect.fn("JiraImport.copyAttachments")(
+  function* (
+    deps: JiraImportDependencies,
+    jira: Pick<JiraClientShape, "attachmentContent">,
+    s3: S3StorageShape,
+    input: JiraAttachmentCopyInput
+  ) {
+    const urls: Record<string, string> = {}
+    const alreadyCopied = yield* deps.db
+      .select({
+        id: attachmentIndex.id,
+        ticketId: attachmentIndex.ticketId,
+        filename: attachmentIndex.filename,
+        byteSize: attachmentIndex.byteSize
+      })
+      .from(attachmentIndex)
+      .where(
+        and(
+          eq(attachmentIndex.organizationId, input.organizationId),
+          eq(attachmentIndex.projectSlug, input.projectSlug)
+        )
+      )
+      .pipe(Effect.orDie)
+    const existingByKey = new Map(
+      alreadyCopied.map((row) => [
+        `${row.ticketId}|${row.filename}|${row.byteSize}`,
+        row.id
+      ])
+    )
+
+    yield* Effect.forEach(
+      input.attachments,
+      (attachment) =>
+        Effect.gen(function* () {
+          const ticketId = input.ticketIdBySourceIssueId.get(attachment.issueId)
+          if (!ticketId) return
+          const existingId = existingByKey.get(
+            `${ticketId}|${attachment.filename}|${attachment.byteSize}`
+          )
+          if (existingId) {
+            urls[attachment.id] = attachmentUrl(input.orgSlug, existingId)
+            return
+          }
+          const id = ulid()
+          const objectKey = attachmentObjectKey({
+            keyPrefix: input.connection.keyPrefix,
+            orgSlug: input.orgSlug,
+            projectSlug: input.projectSlug,
+            ticketId,
+            attachmentId: id,
+            filename: attachment.filename
+          })
+          const chunks = yield* Stream.runCollect(
+            jira.attachmentContent(input.userId, input.cloudId, attachment.id)
+          )
+          const parts = [...chunks]
+          const total = parts.reduce((sum, part) => sum + part.length, 0)
+          const bytes = new Uint8Array(total)
+          let offset = 0
+          for (const part of parts) {
+            bytes.set(part, offset)
+            offset += part.length
+          }
+          yield* s3.putObject(
+            input.connection,
+            objectKey,
+            attachment.mimeType,
+            bytes
+          )
+          yield* deps.db
+            .insert(attachmentIndex)
+            .values({
+              id,
+              organizationId: input.organizationId,
+              orgSlug: input.orgSlug,
+              projectSlug: input.projectSlug,
+              ticketId,
+              objectKey,
+              filename: attachment.filename,
+              contentType: attachment.mimeType,
+              byteSize: bytes.length,
+              status: "pending",
+              uploadedBy: input.userId
+            })
+            .pipe(Effect.orDie)
+          urls[attachment.id] = attachmentUrl(input.orgSlug, id)
+        }),
+      { concurrency: 4, discard: true }
+    )
+    return urls
+  }
+)
+
+export const markJiraAttachmentsLive = Effect.fn("JiraImport.attachmentsLive")(
+  function* (
+    deps: JiraImportDependencies,
+    organizationId: string,
+    projectSlug: string
+  ) {
+    yield* deps.db
+      .update(attachmentIndex)
+      .set({ status: "live" })
+      .where(
+        and(
+          eq(attachmentIndex.organizationId, organizationId),
+          eq(attachmentIndex.projectSlug, projectSlug),
+          eq(attachmentIndex.status, "pending")
+        )
+      )
+      .pipe(Effect.orDie)
+  }
+)
+
+export function aliasJiraMediaReferences(
+  manifest: JiraMigrationManifest,
+  urlsByAttachmentId: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> {
+  const attachmentsByIssue = new Map<string, Array<JiraManifestAttachment>>()
+  for (const attachment of manifest.attachments) {
+    const existing = attachmentsByIssue.get(attachment.issueId)
+    if (existing) existing.push(attachment)
+    else attachmentsByIssue.set(attachment.issueId, [attachment])
+  }
+
+  const aliased: Record<string, string> = { ...urlsByAttachmentId }
+  const resolve = (issueId: string, filename: string) => {
+    const onIssue = (attachmentsByIssue.get(issueId) ?? [])
+      .filter((attachment) => attachment.filename === filename)
+      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
+    if (onIssue[0]) return onIssue[0].id
+    const anywhere = manifest.attachments
+      .filter((attachment) => attachment.filename === filename)
+      .toSorted((left, right) => (left.id < right.id ? -1 : 1))
+    return anywhere.length === 1 ? anywhere[0]!.id : null
+  }
+
+  const apply = (
+    issueId: string,
+    references: JiraMigrationManifest["comments"][number]["body"]["references"]
+  ) => {
+    for (const reference of references) {
+      if (reference.kind !== "jira-attachment") continue
+      if (aliased[reference.sourceId] !== undefined) continue
+      const attachmentId = resolve(issueId, reference.fallbackText)
+      if (attachmentId === null) continue
+      const url = urlsByAttachmentId[attachmentId]
+      if (url !== undefined) aliased[reference.sourceId] = url
+    }
+  }
+
+  for (const issue of manifest.issues) {
+    if (issue.description !== null)
+      apply(issue.id, issue.description.references)
+  }
+  for (const comment of manifest.comments) {
+    apply(comment.issueId, comment.body.references)
+  }
+  return aliased
+}
+
+export const reconcileJiraAttachmentReferences = Effect.fn(
+  "JiraImport.reconcileAttachments"
+)(function* (
+  attachments: Pick<AttachmentsShape, "reconcileTicket">,
+  orgSlug: string,
+  plan: JiraPublicationPlan
+) {
+  const commentsByTicket = new Map<string, Array<string>>()
+  for (const comment of plan.comments) {
+    const existing = commentsByTicket.get(comment.ticketId)
+    if (existing) existing.push(comment.body)
+    else commentsByTicket.set(comment.ticketId, [comment.body])
+  }
+
+  yield* Effect.forEach(
+    plan.tickets,
+    (ticket) =>
+      attachments.reconcileTicket(
+        orgSlug,
+        plan.project.slug,
+        ticket.id,
+        [ticket.body, ...(commentsByTicket.get(ticket.id) ?? [])].join("\n\n")
+      ),
+    { concurrency: 8, discard: true }
+  )
+})

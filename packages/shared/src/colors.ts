@@ -49,6 +49,12 @@ export const STATE_COLORS = {
   merged: monoState(swatch(285, OUTER.L, OUTER.C))
 } as const satisfies Record<string, StateColorToken>
 
+export const BASELINE_STATUS_COLORS: ReadonlyArray<string> = [
+  "#a3a3a3",
+  "#3b82f6",
+  "#22c55e"
+]
+
 export function pickStatusColor(used: ReadonlyArray<string>): string {
   for (const c of TAG_DEFAULT_PALETTE) if (!used.includes(c)) return c
   return TAG_DEFAULT_PALETTE[used.length % TAG_DEFAULT_PALETTE.length]

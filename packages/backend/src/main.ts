@@ -90,7 +90,11 @@ import { TagsHandlerLive } from "./handlers/tags"
 import { TicketsHandlerLive } from "./handlers/tickets"
 import { McpHttp } from "./Services/McpHttp"
 import { McpHttpLive } from "./Layers/McpHttp"
-import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
+import {
+  BackendHttpServicesLive,
+  BackendInfrastructureLive,
+  JiraMigrationBackgroundLive
+} from "./runtime"
 import { BetterAuth } from "./Services/BetterAuth"
 import { Db } from "./Services/Db"
 import { GitHubIntegrations } from "./Services/GitHubIntegrations"
@@ -101,6 +105,9 @@ import { EverhourWebhooksLive } from "./Layers/EverhourWebhooks"
 import { McpServerLive } from "./Layers/McpServer"
 import { TicketIndexReconcilerLive } from "./Layers/TicketIndexReconciler"
 import { AttachmentReaperLive } from "./Layers/AttachmentReaper"
+import { JiraHandlerLive } from "./Jira/Handlers"
+import { jiraOauthRoutes } from "./Jira/OAuthRoutes"
+import { JiraMigrationsHandlerLive } from "./Jira/MigrationHandlers"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -145,6 +152,8 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
+  Layer.provide(JiraHandlerLive),
+  Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
   Layer.provide(CommentsHandlerLive),
   Layer.provide(TagsHandlerLive),
@@ -412,6 +421,7 @@ const RouteLive = Layer.mergeAll(
   githubIntegrationRoutes,
   everhourIntegrationRoutes,
   figmaOauthRoutes,
+  jiraOauthRoutes,
   HttpRouter.add(
     "GET",
     "/api/figma-thumbnails/:orgSlug/:linkId",
@@ -446,7 +456,17 @@ const ReaperLive = AttachmentReaperLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-const AppLive = Layer.mergeAll(ServerLive, ReconcilerLive, ReaperLive)
+const JiraWorkerLive = JiraMigrationBackgroundLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
+const AppLive = Layer.mergeAll(
+  ServerLive,
+  ReconcilerLive,
+  ReaperLive,
+  JiraWorkerLive
+)
 
 // Only boot the real server when this file is the entry point. When tests
 // import { ApiLive } from this module, `import.meta.main` is false and we

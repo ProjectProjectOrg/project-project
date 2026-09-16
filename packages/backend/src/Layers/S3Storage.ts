@@ -98,6 +98,27 @@ export const S3StorageLive = Layer.succeed(
           })
         )
       }),
+    getObject: (connection, key) =>
+      withClient(connection, async (client) => {
+        try {
+          const response = await client.send(
+            new GetObjectCommand({ Bucket: connection.bucket, Key: key })
+          )
+          const body = response.Body
+          if (!body) return null
+          return new Uint8Array(await body.transformToByteArray())
+        } catch (cause) {
+          if (
+            typeof cause === "object" &&
+            cause !== null &&
+            "name" in cause &&
+            (cause.name === "NoSuchKey" || cause.name === "NotFound")
+          ) {
+            return null
+          }
+          throw cause
+        }
+      }),
     presignPut: (connection, key, contentType, expiresInSeconds) =>
       withClient(connection, (client) =>
         getSignedUrl(

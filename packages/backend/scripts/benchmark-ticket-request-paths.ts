@@ -389,6 +389,7 @@ const FakeGitHub = Layer.succeed(GitHub, {
 const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),
   create: () => unexpected("Comments.create"),
+  importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
 } satisfies CommentsShape)
