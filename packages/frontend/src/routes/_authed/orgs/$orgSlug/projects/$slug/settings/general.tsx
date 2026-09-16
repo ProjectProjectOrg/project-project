@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { lazy, Suspense, useEffect, useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import {
   deleteProjectAtom,
   projectKey,
@@ -18,10 +18,6 @@ import { useProjectRole } from "@/lib/projectRole"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
 
-const BannerSettingsPrototype = import.meta.env.DEV
-  ? lazy(() => import("@/components/ProjectBannerPrototype"))
-  : null
-
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/general"
 )({
@@ -33,7 +29,6 @@ export const Route = createFileRoute(
 
 function GeneralSettings() {
   const { orgSlug } = Route.useParams()
-  const { bannerPrototype } = Route.useSearch()
   const project = useProject()
   const key = projectKey(orgSlug, project.slug)
   const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
@@ -65,25 +60,18 @@ function GeneralSettings() {
   return (
     <div className="flex w-full flex-col gap-8">
       <section className="flex flex-col gap-4">
-        <div className="grid grid-cols-[auto_1fr] items-start gap-x-8 gap-y-4">
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">
-              {m.project_settings_identity_label()}
-            </span>
-            <ProjectIdentityEditor
-              orgSlug={orgSlug}
-              slug={project.slug}
-              icon={project.icon}
-              color={project.color}
-              canEdit={canEdit}
-              size="settings"
-            />
-          </div>
-          {BannerSettingsPrototype && bannerPrototype && canEdit && (
-            <Suspense fallback={null}>
-              <BannerSettingsPrototype mode="mask" embedded />
-            </Suspense>
-          )}
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">
+            {m.project_settings_identity_label()}
+          </span>
+          <ProjectIdentityEditor
+            orgSlug={orgSlug}
+            slug={project.slug}
+            icon={project.icon}
+            color={project.color}
+            canEdit={canEdit}
+            size="settings"
+          />
         </div>
         <form onSubmit={onNameSubmit} className="grid gap-2">
           <label className="text-sm font-medium" htmlFor="project-name">
