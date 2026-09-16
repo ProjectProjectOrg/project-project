@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -18,6 +19,37 @@ export type JiraMigrationStep =
   | "review"
   | "migrate"
   | "finish"
+
+export const jiraMappingSteps = [
+  "statuses",
+  "types",
+  "priorities",
+  "planning",
+  "destination"
+] as const satisfies ReadonlyArray<JiraMigrationStep>
+
+export type JiraMappingStep = (typeof jiraMappingSteps)[number]
+
+export const isJiraMappingStep = (
+  step: JiraMigrationStep
+): step is JiraMappingStep =>
+  (jiraMappingSteps as ReadonlyArray<JiraMigrationStep>).includes(step)
+
+export const jiraWizardSteps = [
+  "connect",
+  "choose",
+  "snapshot",
+  "people",
+  ...jiraMappingSteps,
+  "review"
+] as const satisfies ReadonlyArray<JiraMigrationStep>
+
+export type JiraWizardStep = (typeof jiraWizardSteps)[number]
+
+export const isJiraWizardStep = (
+  step: JiraMigrationStep
+): step is JiraWizardStep =>
+  (jiraWizardSteps as ReadonlyArray<JiraMigrationStep>).includes(step)
 
 export const jiraMigrationStages: ReadonlyArray<{
   id:
@@ -41,18 +73,8 @@ export const jiraMigrationStages: ReadonlyArray<{
   { id: "finish", label: m.jira_migration_stage_finish }
 ]
 
-export const jiraMigrationStageForStep = (step: JiraMigrationStep) => {
-  if (
-    step === "statuses" ||
-    step === "types" ||
-    step === "priorities" ||
-    step === "planning" ||
-    step === "destination"
-  ) {
-    return "map"
-  }
-  return step
-}
+export const jiraMigrationStageForStep = (step: JiraMigrationStep) =>
+  isJiraMappingStep(step) ? "map" : step
 
 type NavigableJiraMigrationStage =
   | "connect"
@@ -104,25 +126,7 @@ export function JiraMigrationShell({
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {m.jira_migration_page_title()}
         </h1>
-        <Button
-          variant="ghost"
-          render={
-            <Link
-              to="/orgs/$orgSlug/projects"
-              params={{ orgSlug }}
-              onClick={(event) => {
-                if (
-                  confirmLeave &&
-                  !window.confirm(m.jira_migration_leave_confirmation())
-                ) {
-                  event.preventDefault()
-                }
-              }}
-            />
-          }
-        >
-          {m.jira_migration_action_save_leave()}
-        </Button>
+        <LeaveButton orgSlug={orgSlug} confirmLeave={confirmLeave} />
       </header>
 
       <div className="flex w-full flex-1 flex-col gap-5 pt-3 md:flex-row md:items-stretch md:gap-10">
@@ -197,5 +201,42 @@ export function JiraMigrationShell({
         <section className="min-w-0 max-w-[820px] flex-1">{children}</section>
       </div>
     </div>
+  )
+}
+
+function LeaveButton({
+  orgSlug,
+  confirmLeave
+}: {
+  orgSlug: string
+  confirmLeave: boolean
+}) {
+  const leaveLink = (
+    <Link to="/orgs/$orgSlug/projects" params={{ orgSlug }} />
+  )
+
+  if (!confirmLeave) {
+    return (
+      <Button variant="ghost" render={leaveLink}>
+        {m.jira_migration_action_save_leave()}
+      </Button>
+    )
+  }
+
+  return (
+    <ConfirmButton.Root>
+      <ConfirmButton.Trigger variant="ghost">
+        {m.jira_migration_action_save_leave()}
+      </ConfirmButton.Trigger>
+      <ConfirmButton.Confirm>
+        <span className="text-[13px] text-muted-foreground">
+          {m.jira_migration_leave_question()}
+        </span>
+        <Button size="sm" variant="destructive" render={leaveLink}>
+          {m.jira_migration_action_leave_confirm()}
+        </Button>
+        <ConfirmButton.Cancel>{m.common_cancel_button()}</ConfirmButton.Cancel>
+      </ConfirmButton.Confirm>
+    </ConfirmButton.Root>
   )
 }

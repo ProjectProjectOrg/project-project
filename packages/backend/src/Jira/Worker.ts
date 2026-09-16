@@ -656,8 +656,8 @@ export const JiraMigrationWorkerLive = Layer.effectDiscard(
         )
       }
     }).pipe(
-      Effect.catchCause(() =>
-        Effect.logError("Jira migration worker iteration failed")
+      Effect.catchCause((cause) =>
+        Effect.logError("Jira migration worker iteration failed", cause)
       )
     )
 

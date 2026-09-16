@@ -2,6 +2,7 @@ import { formatMentionHref } from "@projectproject/shared"
 import { rewriteJiraReferences } from "./Adf"
 import type {
   JiraConvertedText,
+  JiraManifestAttachment,
   JiraManifestGroup,
   JiraMigrationManifest
 } from "./Manifest"
@@ -145,18 +146,28 @@ export function createJiraReferenceTargets(
       url: formatMentionHref("user", mapping.resolution.userId)
     }
   }
+  const embeddableUrls = new Set(
+    manifest.attachments
+      .filter(isEmbeddableAttachment)
+      .map((attachment) => attachmentUrlsBySourceId[attachment.id])
+      .filter((url) => url !== undefined)
+  )
   for (const [sourceAttachmentId, url] of Object.entries(
     attachmentUrlsBySourceId
   )) {
-    targets[jiraReferenceKey("jira-attachment", sourceAttachmentId)] = { url }
+    targets[jiraReferenceKey("jira-attachment", sourceAttachmentId)] =
+      embeddableUrls.has(url) ? { url, embed: true } : { url }
   }
   return targets
 }
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i
 
-const isEmbeddableImage = (filename: string): boolean =>
-  IMAGE_EXTENSIONS.test(filename.trim())
+const isEmbeddableAttachment = (
+  attachment: JiraManifestAttachment
+): boolean =>
+  attachment.mimeType.toLowerCase().startsWith("image/") ||
+  IMAGE_EXTENSIONS.test(attachment.filename.trim())
 
 export function rewriteJiraPublicationText(
   text: JiraConvertedText,
@@ -165,14 +176,7 @@ export function rewriteJiraPublicationText(
   const destinations = new Map<string, JiraReferenceTarget>()
   for (const reference of text.references) {
     const target = targets[jiraReferenceKey(reference.kind, reference.sourceId)]
-    if (!target) continue
-    destinations.set(
-      reference.placeholder,
-      reference.kind === "jira-attachment" &&
-        isEmbeddableImage(reference.fallbackText)
-        ? { ...target, embed: true }
-        : target
-    )
+    if (target) destinations.set(reference.placeholder, target)
   }
   return rewriteJiraReferences(text, destinations)
 }

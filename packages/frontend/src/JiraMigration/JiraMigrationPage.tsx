@@ -33,15 +33,19 @@ import { useJiraMigrationPolling } from "@/hooks/useJiraMigrationPolling"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
+  isJiraMappingStep,
+  isJiraWizardStep,
   jiraMigrationStageForStep,
   jiraMigrationStages,
   JiraMigrationShell,
-  type JiraMigrationStep
+  type JiraMappingStep,
+  type JiraMigrationStep,
+  type JiraWizardStep
 } from "./JiraMigrationShell"
 import { JiraProgressStep } from "./JiraProgressStep"
 import { JiraSourceStep } from "./JiraSourceStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
-import { jiraMigrationScreen } from "./screen"
+import { isActiveJiraMigration, jiraMigrationScreen } from "./screen"
 
 export function JiraMigrationStartPage({ orgSlug }: { orgSlug: string }) {
   const profile = useAtomValue(jiraProfileAtom)
@@ -441,24 +445,15 @@ function JiraMigrationDetailPage({
     cancelState.waiting ||
     discardState.waiting
   const screen = jiraMigrationScreen(detail.status)
-  const [step, setStep] = useState<
-    | "connect"
-    | "choose"
-    | "snapshot"
-    | "people"
-    | "statuses"
-    | "types"
-    | "priorities"
-    | "planning"
-    | "destination"
-    | "review"
-  >("snapshot")
-  const [lastMappingStep, setLastMappingStep] = useState<
-    "statuses" | "types" | "priorities" | "planning" | "destination"
-  >("statuses")
+  const [step, setStep] = useState<JiraWizardStep>("snapshot")
+  const [lastMappingStep, setLastMappingStep] =
+    useState<JiraMappingStep>("statuses")
   const [furthestStep, setFurthestStep] =
     useState<JiraMigrationStep>("snapshot")
   const [reconfiguring, setReconfiguring] = useState(false)
+  if (reconfiguring && isActiveJiraMigration(detail.status)) {
+    setReconfiguring(false)
+  }
 
   useJiraMigrationPolling(orgSlug, detail.id, detail.status)
 
@@ -514,29 +509,8 @@ function JiraMigrationDetailPage({
             if (stageIndex(nextStep) > stageIndex(furthestStep)) {
               setFurthestStep(nextStep)
             }
-            if (
-              nextStep === "statuses" ||
-              nextStep === "types" ||
-              nextStep === "priorities" ||
-              nextStep === "planning" ||
-              nextStep === "destination"
-            ) {
-              setLastMappingStep(nextStep)
-            }
-            if (
-              nextStep === "connect" ||
-              nextStep === "choose" ||
-              nextStep === "snapshot" ||
-              nextStep === "people" ||
-              nextStep === "statuses" ||
-              nextStep === "types" ||
-              nextStep === "priorities" ||
-              nextStep === "planning" ||
-              nextStep === "destination" ||
-              nextStep === "review"
-            ) {
-              setStep(nextStep)
-            }
+            if (isJiraMappingStep(nextStep)) setLastMappingStep(nextStep)
+            if (isJiraWizardStep(nextStep)) setStep(nextStep)
           }}
         />
       </JiraMigrationShell>

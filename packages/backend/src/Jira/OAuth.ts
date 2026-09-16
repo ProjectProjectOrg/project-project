@@ -55,12 +55,14 @@ export class JiraOAuthConfig extends Context.Service<
 export const JiraOAuthConfigLive = Layer.effect(
   JiraOAuthConfig,
   Effect.all({
-    clientId: Config.string("JIRA_CLIENT_ID"),
-    clientSecret: Config.redacted("JIRA_CLIENT_SECRET"),
+    clientId: Config.string("JIRA_CLIENT_ID").pipe(Config.withDefault("")),
+    clientSecret: Config.redacted("JIRA_CLIENT_SECRET").pipe(
+      Config.withDefault(Redacted.make(""))
+    ),
     publicBaseUrl: Config.string("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")
     )
-  }).pipe(Effect.orDie)
+  })
 )
 
 export const jiraRedirectUri = (baseUrl: string): string =>

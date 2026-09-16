@@ -99,17 +99,32 @@ describe("JiraMigrationShell stages", () => {
     ).not.toBeNull()
   })
 
-  it("warns before leaving an in-session configuration draft", () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false)
+  it("confirms inline before leaving an in-session configuration draft", () => {
     render(
       <JiraMigrationShell orgSlug="example" currentStep="statuses" confirmLeave>
         <div />
       </JiraMigrationShell>
     )
 
+    expect(screen.queryByRole("link", { name: "Leave" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Leave migration" }))
+
+    expect(screen.getByText("Leave? Unsaved changes are lost.")).not.toBeNull()
+    expect(screen.getByRole("link", { name: "Leave" })).not.toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(screen.queryByRole("link", { name: "Leave" })).toBeNull()
+  })
+
+  it("leaves without confirming when there is no draft to lose", () => {
+    render(
+      <JiraMigrationShell orgSlug="example" currentStep="statuses">
+        <div />
+      </JiraMigrationShell>
+    )
+
     expect(
-      fireEvent.click(screen.getByRole("link", { name: "Leave migration" }))
-    ).toBe(false)
-    expect(confirm).toHaveBeenCalledOnce()
+      screen.getByRole("link", { name: "Leave migration" })
+    ).not.toBeNull()
   })
 })

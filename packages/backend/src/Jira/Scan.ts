@@ -270,6 +270,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
           raw: comment.raw
         }))
     ]
+    const scannedIssueIds = new Set(issues.map(({ id }) => id))
     const manifestRaw = {
       version: 1,
       migrationId: input.migrationId,
@@ -344,7 +345,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
               : sprint.state.toLowerCase() === "future"
                 ? ("future" as const)
                 : ("other" as const),
-          issueIds,
+          issueIds: issueIds.filter((issueId) => scannedIssueIds.has(issueId)),
           startsAt: sprint.startDate ?? null,
           endsAt: sprint.endDate ?? null,
           completedAt: sprint.completeDate ?? null,

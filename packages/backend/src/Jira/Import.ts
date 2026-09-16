@@ -264,7 +264,12 @@ export const publishJiraMigration = Effect.fn("JiraImport.publish")(function* (
         const existing = yield* tx
           .select({ id: projectIndex.id })
           .from(projectIndex)
-          .where(eq(projectIndex.slug, input.plan.project.slug))
+          .where(
+            and(
+              eq(projectIndex.slug, input.plan.project.slug),
+              eq(projectIndex.organizationId, input.organizationId)
+            )
+          )
           .limit(1)
         const inserted = existing[0]
           ? existing
@@ -471,6 +476,10 @@ export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
       .select({ id: userTable.id })
       .from(userTable)
       .pipe(Effect.orDie)
+    const reservedSlugs = yield* deps.db
+      .select({ slug: projectIndex.slug })
+      .from(projectIndex)
+      .pipe(Effect.orDie)
     const owned = projects.filter(({ slug }) => slug === ownedProjectSlug)
     const others = projects.filter(({ slug }) => slug !== ownedProjectSlug)
     const ownedTicketIds = new Set(
@@ -481,7 +490,9 @@ export const jiraImportEnvironment = Effect.fn("JiraImport.environment")(
             .map(({ ticketId }) => ticketId)
     )
     return {
-      existingProjectSlugs: others.map(({ slug }) => slug),
+      existingProjectSlugs: reservedSlugs
+        .map(({ slug }) => slug)
+        .filter((slug) => slug !== ownedProjectSlug),
       existingProjectKeys: others.map(({ key }) => key),
       existingTicketIds: tickets
         .filter(({ ticketId }) => !ownedTicketIds.has(ticketId))

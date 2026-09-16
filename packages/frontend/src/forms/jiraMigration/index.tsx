@@ -8,7 +8,11 @@ import {
   jiraMigrationKey,
   runJiraMigrationAtom
 } from "@/atoms/jiraMigration"
-import type { JiraMigrationStep } from "@/JiraMigration/JiraMigrationShell"
+import {
+  jiraMappingSteps,
+  type JiraMigrationStep,
+  type JiraWizardStep
+} from "@/JiraMigration/JiraMigrationShell"
 import { JiraSnapshotStep } from "@/JiraMigration/JiraSnapshotStep"
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"
@@ -35,19 +39,9 @@ import { TypeStep } from "./TypeStep"
 
 const configurationSteps = [
   "people",
-  "statuses",
-  "types",
-  "priorities",
-  "planning",
-  "destination",
+  ...jiraMappingSteps,
   "review"
 ] as const satisfies ReadonlyArray<JiraMigrationStep>
-
-type JiraMigrationFormStep =
-  | "connect"
-  | "choose"
-  | "snapshot"
-  | (typeof configurationSteps)[number]
 
 export function JiraMigrationForm({
   orgSlug,
@@ -57,7 +51,7 @@ export function JiraMigrationForm({
 }: {
   orgSlug: string
   detail: JiraMigrationDetail
-  step: JiraMigrationFormStep
+  step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
 }) {
   if (!detail.requirements || !detail.scanSummary) return null
@@ -86,7 +80,7 @@ function ConfiguredJiraMigrationForm({
   detail: JiraMigrationDetail
   requirements: NonNullable<JiraMigrationDetail["requirements"]>
   summary: NonNullable<JiraMigrationDetail["scanSummary"]>
-  step: JiraMigrationFormStep
+  step: JiraWizardStep
   onStep: (step: JiraMigrationStep) => void
 }) {
   const key = jiraMigrationKey(orgSlug, detail.id)
@@ -123,6 +117,9 @@ function ConfiguredJiraMigrationForm({
     setValidationError(null)
     onStep(next)
   }
+
+  const rejectIncompleteMapping = () =>
+    setValidationError(m.jira_migration_mapping_required())
 
   const previous = () => {
     if (step === "connect" || step === "choose" || step === "snapshot") return
@@ -172,9 +169,7 @@ function ConfiguredJiraMigrationForm({
           name="identities"
           validators={[validateStep(peopleValidator)]}
           onSubmit={() => advance("statuses")}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <PeopleStep
@@ -191,9 +186,7 @@ function ConfiguredJiraMigrationForm({
           name="statuses"
           validators={[validateStep(statusesValidator)]}
           onSubmit={() => advance("types")}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <StatusStep
@@ -210,9 +203,7 @@ function ConfiguredJiraMigrationForm({
           name="issueTypes"
           validators={[validateStep(issueTypesValidator)]}
           onSubmit={() => advance("priorities")}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <TypeStep
@@ -229,9 +220,7 @@ function ConfiguredJiraMigrationForm({
           name="priorities"
           validators={[validateStep(prioritiesValidator)]}
           onSubmit={() => advance("planning")}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <PriorityStep
@@ -248,9 +237,7 @@ function ConfiguredJiraMigrationForm({
           name="tags"
           validators={[validateStep(tagsValidator)]}
           onSubmit={() => advance("destination")}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <TagsPlanningStep
@@ -290,9 +277,7 @@ function ConfiguredJiraMigrationForm({
           onSubmit={async () => {
             await form.handleSubmit()
           }}
-          onSubmitInvalid={() =>
-            setValidationError(m.jira_migration_mapping_required())
-          }
+          onSubmitInvalid={rejectIncompleteMapping}
         >
           {(group) => (
             <ReviewStep

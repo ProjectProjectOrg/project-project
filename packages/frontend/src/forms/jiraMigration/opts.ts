@@ -58,59 +58,47 @@ const emptyDraft: JiraMigrationDraft = {
   attachmentSkipsAccepted: false
 }
 
-const peopleSchema = Schema.Array(
+const allResolved = <S extends Schema.Top>(
+  item: S,
+  resolved: (value: S["Type"]) => boolean
+) =>
+  Schema.Array(item).pipe(
+    Schema.check(Schema.makeFilter((items) => items.every(resolved)))
+  )
+
+const peopleSchema = allResolved(
   Schema.Struct({
     jiraAccountId: Schema.NonEmptyString,
     projectProjectUserId: Schema.NullOr(
       Schema.UndefinedOr(Schema.NonEmptyString)
     )
-  })
-).pipe(
-  Schema.check(
-    Schema.makeFilter((items) =>
-      items.every((item) => item.projectProjectUserId !== undefined)
-    )
-  )
+  }),
+  (item) => item.projectProjectUserId !== undefined
 )
 
-const statusesSchema = Schema.Array(
+const statusesSchema = allResolved(
   Schema.Struct({
     jiraStatusId: Schema.NonEmptyString,
     projectStatusSlug: Schema.UndefinedOr(StatusSlug),
     createStatus: Schema.optional(Schema.Literal(true))
-  })
-).pipe(
-  Schema.check(
-    Schema.makeFilter((items) =>
-      items.every((item) => item.projectStatusSlug !== undefined)
-    )
-  )
+  }),
+  (item) => item.projectStatusSlug !== undefined
 )
 
-const issueTypesSchema = Schema.Array(
+const issueTypesSchema = allResolved(
   Schema.Struct({
     jiraIssueTypeId: Schema.NonEmptyString,
     projectType: Schema.UndefinedOr(TicketType)
-  })
-).pipe(
-  Schema.check(
-    Schema.makeFilter((items) =>
-      items.every((item) => item.projectType !== undefined)
-    )
-  )
+  }),
+  (item) => item.projectType !== undefined
 )
 
-const prioritiesSchema = Schema.Array(
+const prioritiesSchema = allResolved(
   Schema.Struct({
     jiraPriorityId: Schema.NonEmptyString,
     projectPriority: Schema.UndefinedOr(TicketPriority)
-  })
-).pipe(
-  Schema.check(
-    Schema.makeFilter((items) =>
-      items.every((item) => item.projectPriority !== undefined)
-    )
-  )
+  }),
+  (item) => item.projectPriority !== undefined
 )
 
 const tagsSchema = Schema.Array(
@@ -123,17 +111,12 @@ const tagsSchema = Schema.Array(
   })
 )
 
-const sprintChoicesSchema = Schema.Array(
+const sprintChoicesSchema = allResolved(
   Schema.Struct({
     jiraIssueId: Schema.NonEmptyString,
     jiraSprintId: Schema.NullOr(Schema.UndefinedOr(Schema.NonEmptyString))
-  })
-).pipe(
-  Schema.check(
-    Schema.makeFilter((items) =>
-      items.every((item) => item.jiraSprintId !== undefined)
-    )
-  )
+  }),
+  (item) => item.jiraSprintId !== undefined
 )
 
 const jiraMigrationDraftSchema = Schema.Struct({

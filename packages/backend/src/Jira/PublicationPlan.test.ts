@@ -249,6 +249,56 @@ describe("Jira publication references", () => {
       "[APP-4](mention:ticket/APP-4) [EXT-9](https://example.atlassian.net/browse/EXT-9) [@Linked User](mention:user/user-1)"
     )
   })
+  it("embeds image attachments by content type, not by their display text", () => {
+    const source = manifest()
+    const targets = createJiraReferenceTargets(source, mappings(), {
+      "attachment-1": "/api/orgs/acme/attachments/A1"
+    })
+    const text = convertedText("a", [
+      {
+        kind: "jira-attachment",
+        sourceId: "attachment-1",
+        placeholder: "a",
+        originalUrl: null,
+        fallbackText: "Login screen"
+      }
+    ])
+
+    expect(rewriteJiraPublicationText(text, targets)).toBe(
+      "![Login screen](/api/orgs/acme/attachments/A1)"
+    )
+  })
+
+  it("links non-image attachments even when the display text looks like a filename", () => {
+    const source = manifest()
+    const withDocument = {
+      ...source,
+      attachments: [
+        {
+          ...source.attachments[0]!,
+          id: "attachment-2",
+          filename: "spec.pdf",
+          mimeType: "application/pdf"
+        }
+      ]
+    }
+    const targets = createJiraReferenceTargets(withDocument, mappings(), {
+      "attachment-2": "/api/orgs/acme/attachments/A2"
+    })
+    const text = convertedText("a", [
+      {
+        kind: "jira-attachment",
+        sourceId: "attachment-2",
+        placeholder: "a",
+        originalUrl: null,
+        fallbackText: "screenshot.png"
+      }
+    ])
+
+    expect(rewriteJiraPublicationText(text, targets)).toBe(
+      "[screenshot.png](/api/orgs/acme/attachments/A2)"
+    )
+  })
 })
 
 describe("createJiraPublicationPlan", () => {
