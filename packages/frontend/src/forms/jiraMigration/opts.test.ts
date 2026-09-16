@@ -109,10 +109,69 @@ describe("Jira migration draft", () => {
 
     expect(draft.identities[0]?.projectProjectUserId).toBeUndefined()
     expect(draft.statuses[0]?.projectStatusSlug).toBeUndefined()
-    expect(draft.issueTypes[0]?.projectType).toBeUndefined()
-    expect(draft.priorities[0]?.projectPriority).toBeUndefined()
-    expect(draft.tags[0]?.destinationTagName).toBe("")
     expect(draft.activeFutureSprintChoices[0]?.jiraSprintId).toBeUndefined()
+  })
+
+  it("prefills only issue types whose name matches a native type", () => {
+    const named = (name: string) =>
+      buildJiraMigrationDraft(
+        {
+          ...requirements,
+          issueTypes: [
+            {
+              jiraIssueTypeId: "type-1",
+              name,
+              isSubtask: false,
+              suggestedProjectType: "chore"
+            }
+          ]
+        },
+        null
+      ).issueTypes[0]?.projectType
+
+    expect(named("Bug")).toBe("bug")
+    expect(named("feature")).toBe("feat")
+    expect(named("Chore")).toBe("chore")
+    expect(named("Story")).toBeUndefined()
+    expect(named("Task")).toBeUndefined()
+    expect(named("Subtask")).toBeUndefined()
+    expect(named("Epic")).toBeUndefined()
+  })
+
+  it("prefills every priority from the server suggestion", () => {
+    const draft = buildJiraMigrationDraft(requirements, null)
+
+    expect(draft.priorities[0]?.projectPriority).toBe("high")
+  })
+
+  it("prefills suggested tag names", () => {
+    const draft = buildJiraMigrationDraft(requirements, null)
+
+    expect(draft.tags[0]?.destinationTagName).toBe("component:web")
+    expect(toPartialJiraMigrationConfiguration(draft).tags).toEqual([
+      {
+        source: { kind: "component", value: "Web" },
+        destinationTagName: "component:web"
+      }
+    ])
+  })
+
+  it("lets a saved tag name win over the suggestion", () => {
+    const initial = toPartialJiraMigrationConfiguration(
+      buildJiraMigrationDraft(requirements, null)
+    )
+    const draft = buildJiraMigrationDraft(requirements, {
+      ...initial,
+      tags: [
+        {
+          source: { kind: "component", value: "Web" },
+          destinationTagName:
+            "frontend" as (typeof initial.tags)[number]["destinationTagName"]
+        }
+      ]
+    })
+
+    expect(draft.tags[0]?.destinationTagName).toBe("frontend")
   })
 
   it("keeps forced attachment skips while omitting unanswered decisions", () => {

@@ -51,10 +51,7 @@ export function TagsPlanningStep({
                     <Input
                       aria-label={m.jira_migration_tag_destination_label()}
                       value={field.value}
-                      placeholder={
-                        tag.suggestedDestinationTagName ??
-                        m.jira_migration_tag_destination_label()
-                      }
+                      placeholder={m.jira_migration_tag_destination_label()}
                       onBlur={field.handleBlur}
                       onChange={(event) =>
                         field.handleChange(event.currentTarget.value)

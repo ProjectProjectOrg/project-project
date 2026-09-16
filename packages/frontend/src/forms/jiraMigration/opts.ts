@@ -190,6 +190,17 @@ export const destinationValidator = Schema.toStandardSchemaV1(
 const sourceKey = (source: { kind: string; value: string }) =>
   `${source.kind}:${source.value}`
 
+const exactIssueTypeNames = new Map<string, TicketType>([
+  ["feat", "feat"],
+  ["feature", "feat"],
+  ["bug", "bug"],
+  ["chore", "chore"],
+  ["other", "other"]
+])
+
+const exactIssueType = (name: string): TicketType | undefined =>
+  exactIssueTypeNames.get(name.trim().toLowerCase())
+
 export function buildJiraMigrationDraft(
   requirements: JiraMigrationRequirements,
   configuration: JiraMigrationConfigurationType | null
@@ -253,15 +264,20 @@ export function buildJiraMigrationDraft(
     }),
     issueTypes: requirements.issueTypes.map((issueType) => ({
       jiraIssueTypeId: issueType.jiraIssueTypeId,
-      projectType: issueTypes.get(issueType.jiraIssueTypeId)
+      projectType: issueTypes.has(issueType.jiraIssueTypeId)
+        ? issueTypes.get(issueType.jiraIssueTypeId)
+        : exactIssueType(issueType.name)
     })),
     priorities: requirements.priorities.map((priority) => ({
       jiraPriorityId: priority.jiraPriorityId,
-      projectPriority: priorities.get(priority.jiraPriorityId)
+      projectPriority: priorities.has(priority.jiraPriorityId)
+        ? priorities.get(priority.jiraPriorityId)
+        : (priority.suggestedProjectPriority ?? undefined)
     })),
     tags: requirements.tags.map((tag) => ({
       source: tag.source,
-      destinationTagName: tags.get(sourceKey(tag.source)) ?? ""
+      destinationTagName:
+        tags.get(sourceKey(tag.source)) ?? tag.suggestedDestinationTagName ?? ""
     })),
     activeFutureSprintChoices: requirements.activeFutureSprintChoices.map(
       (choice) => ({
