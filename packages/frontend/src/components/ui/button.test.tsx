@@ -3,6 +3,20 @@ import { describe, expect, it } from "vite-plus/test"
 import { Button, type ButtonProps } from "./button"
 
 describe("Button", () => {
+  it("only enables press motion when the user allows motion", () => {
+    const { getByRole } = render(<Button>Save</Button>)
+
+    const button = getByRole("button", { name: "Save" })
+
+    expect(button.classList.contains("motion-safe:transition-all")).toBe(true)
+    expect(button.classList.contains("motion-safe:duration-100")).toBe(true)
+    expect(button.classList.contains("motion-safe:active:scale-[0.97]")).toBe(
+      true
+    )
+    expect(button.classList.contains("transition-all")).toBe(false)
+    expect(button.classList.contains("active:scale-[0.97]")).toBe(false)
+  })
+
   it("uses the metadata control inset for sidebar links", () => {
     const { getByRole } = render(
       <Button variant="sidebar-link" size="sm">

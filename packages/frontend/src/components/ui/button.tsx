@@ -22,13 +22,22 @@ import {
 const buttonVariants = cva(
   [
     "group relative inline-flex items-center justify-center whitespace-nowrap outline-none cursor-pointer",
-    "transition-all duration-100 active:scale-[0.97]",
+    "motion-safe:transition-all motion-safe:duration-100 motion-safe:active:scale-[0.97]",
     "disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100",
     "focus-visible:ring-1 focus-visible:ring-ring"
   ],
   {
     variants: {
       variant: {
+        "appearance-row":
+          "w-full justify-start whitespace-normal text-left hover:bg-accent/40",
+        "selection-card":
+          "flex-1 justify-start whitespace-normal border border-border text-left hover:bg-accent/40 aria-pressed:border-foreground",
+        dropzone:
+          "flex-col whitespace-normal border border-dashed border-border hover:bg-accent/40 data-[dragging=true]:border-ring data-[dragging=true]:bg-accent/60",
+        "artwork-option":
+          "group/reveal flex-col items-stretch whitespace-normal text-left",
+
         "image-option":
           "overflow-hidden bg-muted ring-1 ring-border hover:ring-ring aria-pressed:ring-2 aria-pressed:ring-foreground",
         primary:
@@ -53,6 +62,11 @@ const buttonVariants = cva(
         dither: "bg-transparent overflow-hidden"
       },
       size: {
+        "appearance-row": "h-auto gap-3 p-3",
+        "selection-card": "h-auto gap-2.5 p-2.5",
+        dropzone: "h-auto gap-1 px-4 py-8",
+        "artwork-option": "h-auto gap-1.5 p-0",
+
         "image-option": "aspect-[3/1] h-auto w-full p-0",
         "image-strip": "h-12 w-full p-0",
         "banner-add": "h-12 w-full justify-start px-4 text-[13px] gap-1.5",
@@ -91,24 +105,22 @@ const buttonVariants = cva(
   }
 )
 
-interface ButtonProps
-  extends
-    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color">,
-    VariantProps<typeof buttonVariants> {
-  ref?: Ref<HTMLButtonElement>
-  render?: useRender.RenderProp
-  loading?: boolean
-  leadingIcon?: IconComponent
-  trailingIcon?: IconComponent
-  ditherFrom?: string
-  ditherTo?: string
-  ditherDirection?: DitherDirection
-  ditherStops?: DitherStops
-  ditherHoverStops?: DitherStops
-  ditherHoverDuration?: number
-  ditherMatrix?: DitherMatrix
-  ditherPixelSize?: number
-}
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> &
+  VariantProps<typeof buttonVariants> & {
+    ref?: Ref<HTMLButtonElement>
+    render?: useRender.RenderProp
+    loading?: boolean
+    leadingIcon?: IconComponent
+    trailingIcon?: IconComponent
+    ditherFrom?: string
+    ditherTo?: string
+    ditherDirection?: DitherDirection
+    ditherStops?: DitherStops
+    ditherHoverStops?: DitherStops
+    ditherHoverDuration?: number
+    ditherMatrix?: DitherMatrix
+    ditherPixelSize?: number
+  }
 
 function Button({
   className,
