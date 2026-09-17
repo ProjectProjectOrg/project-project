@@ -335,6 +335,7 @@ export const addMember = Atom.family(({ req, id }: MemberMutationRequest) =>
               confirmAddedMember(current, updated, input.email)
             )
           )
+          yield* Reactivity.invalidate([Keys.orgMembers(req.params.orgSlug)])
           return updated
         })
       )
@@ -427,6 +428,7 @@ export const cancelPendingMember = Atom.family(
                 )
               }))
             )
+            yield* Reactivity.invalidate([Keys.orgMembers(req.params.orgSlug)])
             return updated
           })
         )

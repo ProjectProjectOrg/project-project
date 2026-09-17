@@ -727,22 +727,77 @@ const unsavedFlatPatchAtom = Atom.family(
     Atom.make<UpdateTicketInput>({}).pipe(Atom.setIdleTTL("2 minutes"))
 )
 
+const patchFlatRow = (
+  value: FlatBacklogValue,
+  id: TicketId,
+  patch: UpdateTicketInput,
+  sort: TicketSort,
+  now: Date
+): FlatBacklogValue => {
+  let patched: BacklogRow | undefined
+  const items: Array<BacklogRow> = []
+  for (const row of value.items) {
+    if (row.ticket.id !== id) {
+      items.push(row)
+      continue
+    }
+    patched = {
+      ...row,
+      ticket: { ...applyTicketPatch(row.ticket, patch), updatedAt: now },
+      pending: true
+    }
+    if (sort.key === "updated" || patchesSortedField(patch, sort.key)) {
+      patched = { ...patched, orderKey: localOrderKey(patched.ticket, sort) }
+    }
+  }
+  if (!patched) return value
+  return {
+    ...value,
+    items: insertByOrderKey(items, patched, sort.dir)
+  }
+}
+
+const replaceFlatRow = (
+  value: FlatBacklogValue,
+  ticket: Ticket,
+  orderKey: string | null,
+  sort: TicketSort
+): FlatBacklogValue => {
+  if (orderKey === null) {
+    return {
+      ...value,
+      items: value.items.map((row) =>
+        row.ticket.id === ticket.id ? { ...row, ticket, pending: false } : row
+      )
+    }
+  }
+  const items: Array<BacklogRow> = []
+  let moved: BacklogRow | undefined
+  for (const row of value.items) {
+    if (row.ticket.id === ticket.id) {
+      moved = { ...row, ticket, orderKey, pending: false }
+    } else items.push(row)
+  }
+  if (moved === undefined) return value
+  return {
+    ...value,
+    items: insertByOrderKey(items, moved, sort.dir)
+  }
+}
+
 export const updateFlatBacklogTicket = Atom.family(
   ({ req, id }: Readonly<{ req: BacklogRequest; id: TicketId }>) =>
     Atom.optimisticFn(flatBacklog(req), {
       reducer: (current, patch: UpdateTicketInput) =>
-        AsyncResult.map(current, (value) => ({
-          ...value,
-          items: value.items.map((row) =>
-            row.ticket.id === id
-              ? {
-                  ...row,
-                  ticket: applyTicketPatch(row.ticket, patch),
-                  pending: true
-                }
-              : row
+        AsyncResult.map(current, (value) =>
+          patchFlatRow(
+            value,
+            id,
+            patch,
+            req.query.sort,
+            DateTime.toDate(DateTime.nowUnsafe())
           )
-        })),
+        ),
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn("updateFlatBacklogTicket")(function* (
@@ -752,7 +807,7 @@ export const updateFlatBacklogTicket = Atom.family(
             const unsaved = unsavedFlatPatchAtom({ req, id })
             const payload: UpdateTicketInput = { ...get(unsaved), ...patch }
             get.set(unsaved, payload)
-            const { ticket: updated } = yield* Effect.catchCause(
+            const { ticket: updated, orderKey } = yield* Effect.catchCause(
               Api.use((client) =>
                 client.tickets.update({
                   params: { ...req.params, id },
@@ -771,19 +826,9 @@ export const updateFlatBacklogTicket = Atom.family(
               }
             )
             set(
-              AsyncResult.map(get(flatBacklog(req)), (value) => ({
-                ...value,
-                items: value.items.map((row) =>
-                  row.ticket.id === id
-                    ? {
-                        ticket: updated,
-                        key: row.key,
-                        orderKey: row.orderKey,
-                        pending: false
-                      }
-                    : row
-                )
-              }))
+              AsyncResult.map(get(flatBacklog(req)), (value) =>
+                replaceFlatRow(value, updated, orderKey, req.query.sort)
+              )
             )
             yield* Reactivity.invalidate([
               Keys.ticketsIn(scopeOf(req)),
