@@ -833,19 +833,12 @@ export const quickCreateFlatBacklogTicket = Atom.family((req: BacklogRequest) =>
           const groupId = assignedSprintId(req)
           const assignment = yield* Effect.exit(
             groupId
-              ? Effect.gen(function* () {
-                  const sprint = yield* Api.use((client) =>
-                    client.groups.get({
-                      params: { ...req.params, id: groupId }
-                    })
-                  )
-                  yield* Api.use((client) =>
-                    client.groups.updateTickets({
-                      params: { ...req.params, id: groupId },
-                      payload: { tickets: [...sprint.tickets, created.id] }
-                    })
-                  )
-                })
+              ? Api.use((client) =>
+                  client.groups.addTickets({
+                    params: { ...req.params, id: groupId },
+                    payload: { tickets: [created.id] }
+                  })
+                )
               : Effect.void
           )
           const index = createdKeysAtom(scopeOf(req))

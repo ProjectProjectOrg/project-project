@@ -642,23 +642,41 @@ describe("ticket membership mutations", () => {
         const payload = Schema.decodeUnknownSync(UpdateGroupTicketsInput)(
           await request.json()
         )
-        const target = { ...selected, tickets: payload.tickets }
-        const evicted = groups.flatMap((group) => {
-          if (group.id === target.id) return []
-          const ticketIds = group.tickets.filter((id) =>
-            payload.tickets.includes(id)
-          )
-          return ticketIds.length > 0 ? [{ groupId: group.id, ticketIds }] : []
-        })
+        const adding = url.pathname.endsWith("/tickets/add")
+        const removing = url.pathname.endsWith("/tickets/remove")
+        const tickets = removing
+          ? selected.tickets.filter((id) => !payload.tickets.includes(id))
+          : adding
+            ? [
+                ...selected.tickets,
+                ...payload.tickets.filter(
+                  (id) => !selected.tickets.includes(id)
+                )
+              ]
+            : payload.tickets
+        const target = { ...selected, tickets }
+        const evicted = removing
+          ? []
+          : groups.flatMap((group) => {
+              if (group.id === target.id) return []
+              const ticketIds = group.tickets.filter((id) =>
+                payload.tickets.includes(id)
+              )
+              return ticketIds.length > 0
+                ? [{ groupId: group.id, ticketIds }]
+                : []
+            })
         groups = groups.map((group) =>
           group.id === target.id
             ? target
-            : {
-                ...group,
-                tickets: group.tickets.filter(
-                  (id) => !payload.tickets.includes(id)
-                )
-              }
+            : removing
+              ? group
+              : {
+                  ...group,
+                  tickets: group.tickets.filter(
+                    (id) => !payload.tickets.includes(id)
+                  )
+                }
         )
         return Response.json({
           target: encodeGroupDetail(asDetail(target)),
@@ -861,6 +879,73 @@ describe("ticket membership mutations", () => {
     expect(removeTicketsFromSprint({ req, ticketId: ticketA })).not.toBe(
       removeTicketsFromSprint({ req, ticketId: ticketB })
     )
+  })
+
+  it("sends additive membership patches and keeps stacked assigns when confirms race", async () => {
+    const pending: Array<
+      Readonly<{
+        tickets: ReadonlyArray<TicketId>
+        resolve: (response: Response) => void
+      }>
+    > = []
+    fetchStub.set(async (input, init) => {
+      if (init?.method === "PATCH") {
+        const request = new Request(input, init)
+        expect(new URL(request.url).pathname).toContain("/tickets/add")
+        const payload = Schema.decodeUnknownSync(UpdateGroupTicketsInput)(
+          await request.json()
+        )
+        return new Promise<Response>((resolve) => {
+          pending.push({ tickets: payload.tickets, resolve })
+        })
+      }
+      return Promise.resolve(listResponse([sprint, otherSprint]))
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    const mutationA = addTicketsToSprint({ req, ticketId: ticketA })
+    const mutationB = addTicketsToSprint({ req, ticketId: ticketB })
+    registry.mount(view)
+    registry.mount(mutationA)
+    registry.mount(mutationB)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutationA, { groupId: otherGroupId })
+      registry.set(mutationB, { groupId: otherGroupId })
+      await vi.waitFor(() => expect(pending).toHaveLength(2))
+      expect(pending.map(({ tickets }) => tickets)).toEqual(
+        expect.arrayContaining([[ticketA], [ticketB]])
+      )
+
+      const stale = pending.find((entry) => entry.tickets[0] === ticketA)
+      if (stale === undefined) throw new Error("missing T-1 request")
+      stale.resolve(
+        Response.json({
+          target: encodeGroupDetail(
+            asDetail({ ...otherSprint, tickets: [ticketA] })
+          ),
+          evicted: []
+        })
+      )
+      await vi.waitFor(() =>
+        expect(registry.get(mutationA).waiting).toBe(false)
+      )
+
+      const afterStale = registry.get(view)
+      if (!AsyncResult.isSuccess(afterStale)) {
+        throw new Error("did not keep the stacked assignment")
+      }
+      expect(
+        afterStale.value.find((sprint) => sprint.id === otherGroupId)?.tickets
+      ).toEqual(expect.arrayContaining([ticketA, ticketB]))
+    } finally {
+      registry.dispose()
+    }
   })
 
   it("rolls back and surfaces a failure when the assignment request fails", async () => {

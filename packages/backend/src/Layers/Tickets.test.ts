@@ -75,6 +75,7 @@ const FakeGroups = Layer.succeed(Groups, {
   update: () => unexpected("Groups.update"),
   updateTickets: () => unexpected("Groups.updateTickets"),
   addTickets: () => unexpected("Groups.addTickets"),
+  removeTickets: () => unexpected("Groups.removeTickets"),
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),

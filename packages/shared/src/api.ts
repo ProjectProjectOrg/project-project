@@ -1504,6 +1504,30 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .add(
     HttpApiEndpoint.patch(
+      "addTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets/add",
+      {
+        params: GroupPath,
+        payload: UpdateGroupTicketsInput,
+        success: UpdateGroupTicketsOutput,
+        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "removeTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets/remove",
+      {
+        params: GroupPath,
+        payload: UpdateGroupTicketsInput,
+        success: UpdateGroupTicketsOutput,
+        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
       "updateTicketOrder",
       "/orgs/:orgSlug/projects/:slug/groups/:id/ticket-order",
       {

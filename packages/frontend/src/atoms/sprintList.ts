@@ -14,7 +14,8 @@ import {
   type CreateGroupInput,
   type Group,
   type TicketId,
-  type UpdateGroupInput
+  type UpdateGroupInput,
+  type UpdateGroupTicketsOutput
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
@@ -275,6 +276,48 @@ type SprintAssignmentInput = Readonly<{
   groupId: GroupId
 }>
 
+const confirmAddedTicket = (
+  sprints: ReadonlyArray<Group>,
+  groupId: GroupId,
+  ticketId: TicketId,
+  result: UpdateGroupTicketsOutput
+): Array<Group> => {
+  const evicted = new Map(
+    result.evicted.map((entry) => [entry.groupId, new Set(entry.ticketIds)])
+  )
+  return sprints.map((sprint) => {
+    if (sprint.id === groupId) {
+      return {
+        ...result.target,
+        tickets: sprint.tickets.includes(ticketId)
+          ? sprint.tickets
+          : [...sprint.tickets, ticketId]
+      }
+    }
+    const dropped = evicted.get(sprint.id)
+    if (dropped === undefined) return sprint
+    return {
+      ...sprint,
+      tickets: sprint.tickets.filter((id) => !dropped.has(id))
+    }
+  })
+}
+
+const confirmRemovedTicket = (
+  sprints: ReadonlyArray<Group>,
+  groupId: GroupId,
+  ticketId: TicketId,
+  result: UpdateGroupTicketsOutput
+): Array<Group> =>
+  sprints.map((sprint) =>
+    sprint.id === groupId
+      ? {
+          ...result.target,
+          tickets: sprint.tickets.filter((id) => id !== ticketId)
+        }
+      : sprint
+  )
+
 export const addTicketsToSprint = Atom.family(
   ({
     req,
@@ -314,25 +357,15 @@ export const addTicketsToSprint = Atom.family(
           ) {
             const { groupId } = input
             const scope = scopeOf(req)
-            const list = get(sprintList(req))
-            const currentTickets = AsyncResult.isSuccess(list)
-              ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
-                [])
-              : []
-            const union = currentTickets.includes(ticketId)
-              ? currentTickets
-              : [...currentTickets, ticketId]
             const result = yield* Api.use((client) =>
-              client.groups.updateTickets({
+              client.groups.addTickets({
                 params: { ...req.params, id: groupId },
-                payload: { tickets: union }
+                payload: { tickets: [ticketId] }
               })
             )
             set(
               AsyncResult.map(get(sprintList(req)), (sprints) =>
-                sprints.map((sprint) =>
-                  sprint.id === groupId ? result.target : sprint
-                )
+                confirmAddedTicket(sprints, groupId, ticketId, result)
               )
             )
             yield* Reactivity.invalidate([
@@ -399,23 +432,15 @@ export const removeTicketsFromSprint = Atom.family(
           ) {
             const { groupId } = input
             const scope = scopeOf(req)
-            const list = get(sprintList(req))
-            const currentTickets = AsyncResult.isSuccess(list)
-              ? (list.value.find((sprint) => sprint.id === groupId)?.tickets ??
-                [])
-              : []
-            const remaining = currentTickets.filter((id) => id !== ticketId)
             const result = yield* Api.use((client) =>
-              client.groups.updateTickets({
+              client.groups.removeTickets({
                 params: { ...req.params, id: groupId },
-                payload: { tickets: remaining }
+                payload: { tickets: [ticketId] }
               })
             )
             set(
               AsyncResult.map(get(sprintList(req)), (sprints) =>
-                sprints.map((sprint) =>
-                  sprint.id === groupId ? result.target : sprint
-                )
+                confirmRemovedTicket(sprints, groupId, ticketId, result)
               )
             )
             yield* Reactivity.invalidate([

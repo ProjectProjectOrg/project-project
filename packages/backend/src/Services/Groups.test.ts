@@ -1376,6 +1376,105 @@ it.effect("addTickets serializes concurrent calls on the same project", () =>
   )
 )
 
+it.effect(
+  "removeTickets drops ids without replacing the rest of the list",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const sprint = yield* groups.create("org", "user-1", "p", {
+        name: "Sprint 1",
+        kind: "sprint",
+        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+      })
+      const result = yield* groups.removeTickets(
+        "org",
+        "user-1",
+        "p",
+        sprint.id,
+        [ticketId("T-2")]
+      )
+      expect(result.target.tickets).toEqual(["T-1", "T-3"])
+      expect(result.evicted).toEqual([])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      )
+    )
+)
+
+it.effect("removeTickets is a no-op when none of the ids are members", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1")]
+    })
+    const result = yield* groups.removeTickets(
+      "org",
+      "user-1",
+      "p",
+      sprint.id,
+      [ticketId("T-2")]
+    )
+    expect(result.target.tickets).toEqual(["T-1"])
+    expect(result.evicted).toEqual([])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+    )
+  )
+)
+
+it.effect("removeTickets serializes with concurrent addTickets", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1"), ticketId("T-2")]
+    })
+    yield* Effect.all(
+      [
+        groups.removeTickets("org", "user-1", "p", sprint.id, [
+          ticketId("T-1")
+        ]),
+        groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-3")])
+      ],
+      { concurrency: "unbounded" }
+    )
+    const after = yield* groups.get("org", "user-1", "p", sprint.id)
+    expect([...after.tickets].sort()).toEqual(["T-2", "T-3"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+    )
+  )
+)
+
+it.effect("removeTickets refuses to mutate a completed sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const created = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1")]
+    })
+    yield* groups.complete("org", "user-1", "p", created.id, {
+      destination: { kind: "backlog" }
+    })
+    const outcome = yield* Effect.result(
+      groups.removeTickets("org", "user-1", "p", created.id, [ticketId("T-1")])
+    )
+    expect(outcome._tag).toBe("Failure")
+    if (outcome._tag === "Failure") {
+      expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
+    }
+  }).pipe(
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
+  )
+)
+
 it.effect("setSprintMembership places a ticket at the start", () =>
   Effect.gen(function* () {
     const groups = yield* Groups
