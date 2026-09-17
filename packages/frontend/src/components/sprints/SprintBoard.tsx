@@ -1,7 +1,11 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomValue, useAtomSet, useAtomRefresh } from "@effect/atom-react"
+import {
+  RegistryContext,
+  useAtomValue,
+  useAtomRefresh
+} from "@effect/atom-react"
 import { motion, Reorder } from "motion/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
@@ -133,8 +137,7 @@ function SprintBoardContent({
     return () => document.removeEventListener("keydown", onKey)
   }, [reorderMode, onExitReorder])
 
-  const place = useAtomSet(placeBoardTicket(req))
-  const placeState = useAtomValue(placeBoardTicket(req))
+  const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
   const order = dragOrder ?? statusSlugs
@@ -145,9 +148,6 @@ function SprintBoardContent({
   } | null>(null)
   const flash = (id: TicketId) =>
     setLastFlash((prev) => ({ id, tick: (prev?.tick ?? 0) + 1 }))
-
-  const [dragTargetId, setDragTargetId] = useState<TicketId | null>(null)
-  const pendingId = placeState.waiting ? dragTargetId : null
 
   const { matchingTickets } = useBoardTickets(
     orgSlug,
@@ -203,8 +203,11 @@ function SprintBoardContent({
         if (after === src.id) return
         const status =
           nextStatus !== src.status ? (nextStatus as TicketStatus) : undefined
-        setDragTargetId(src.id)
-        place({ ticketId: src.id, status, after })
+        registry.set(placeBoardTicket({ req, id: src.id }), {
+          ticketId: src.id,
+          status,
+          after
+        })
         flash(src.id)
       }
     })
@@ -212,7 +215,7 @@ function SprintBoardContent({
       cleanupAutoScroll()
       cleanupMonitor()
     }
-  }, [isCompleted, reorderMode, place])
+  }, [isCompleted, reorderMode, req, registry])
 
   return (
     <motion.div
@@ -247,7 +250,6 @@ function SprintBoardContent({
             tickets={grouped[status] ?? []}
             members={members}
             isDraggable={!isCompleted}
-            pendingId={pendingId}
             lastFlash={lastFlash}
             reorderMode={reorderMode}
             onActivateReorder={onEnterReorder}

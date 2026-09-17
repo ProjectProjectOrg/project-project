@@ -109,6 +109,15 @@ describe("sprintBoard", () => {
     expect(sprintBoard(a)).toBe(sprintBoard(b))
   })
 
+  it("keys each board placement by ticket", () => {
+    expect(placeBoardTicket({ req, id: ticketAId })).toBe(
+      placeBoardTicket({ req, id: ticketAId })
+    )
+    expect(placeBoardTicket({ req, id: ticketAId })).not.toBe(
+      placeBoardTicket({ req, id: ticketBId })
+    )
+  })
+
   it("reads the same group query atom that sprintDetail does", () => {
     expect(sprintQuery(req)).toBe(
       sprintQuery(sprintRequest("acme", "web", groupId))
@@ -188,7 +197,7 @@ describe("sprintBoard", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintBoard(req)
-    const mutation = placeBoardTicket(req)
+    const mutation = placeBoardTicket({ req, id: ticketBId })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -268,7 +277,7 @@ describe("sprintBoard", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintBoard(req)
-    const mutation = placeBoardTicket(req)
+    const mutation = placeBoardTicket({ req, id: ticketAId })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -359,7 +368,7 @@ describe("sprintBoard", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintBoard(req)
-    const mutation = placeBoardTicket(req)
+    const mutation = placeBoardTicket({ req, id: ticketAId })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -394,6 +403,80 @@ describe("sprintBoard", () => {
           settled.value.tickets.find((t) => t.id === ticketAId)?.status
         ).toBe(todo)
       })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("keeps a second placement in flight when the first fails", async () => {
+    const finishers: Array<(response: Response) => void> = []
+    fetchStub.set((input, init) =>
+      routeByPath(
+        input,
+        [
+          [
+            (_url, method) => method === "PATCH",
+            () =>
+              new Promise<Response>((resolve) => {
+                finishers.push(resolve)
+              })
+          ],
+          [
+            (url, method) =>
+              method === "GET" && url.pathname.endsWith("/tickets"),
+            () =>
+              Promise.resolve(
+                Response.json([encodeTicket(ticketA), encodeTicket(ticketB)])
+              )
+          ],
+          [
+            (url, method) =>
+              method === "GET" && !url.pathname.endsWith("/tickets"),
+            () =>
+              Promise.resolve(Response.json(encodeGroup(asGroupDetail(group))))
+          ]
+        ],
+        init
+      )
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintBoard(req)
+    const placeA = placeBoardTicket({ req, id: ticketAId })
+    const placeB = placeBoardTicket({ req, id: ticketBId })
+    registry.mount(view)
+    registry.mount(placeA)
+    registry.mount(placeB)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(placeA, {
+        ticketId: ticketAId,
+        status: inProgress,
+        after: null
+      })
+      await vi.waitFor(() => expect(finishers).toHaveLength(1))
+      registry.set(placeB, {
+        ticketId: ticketBId,
+        after: null,
+        status: undefined
+      })
+      await vi.waitFor(() => expect(finishers).toHaveLength(2))
+      expect(registry.get(placeA).waiting).toBe(true)
+      expect(registry.get(placeB).waiting).toBe(true)
+
+      finishers[0]!(new Response("nope", { status: 500 }))
+      await vi.waitFor(() => expect(registry.get(placeA).waiting).toBe(false))
+      expect(registry.get(placeB).waiting).toBe(true)
+      const held = registry.get(view)
+      if (!AsyncResult.isSuccess(held)) throw new Error("no held value")
+      expect(held.value.tickets.map((t) => t.id)).toEqual([
+        ticketBId,
+        ticketAId
+      ])
     } finally {
       registry.dispose()
     }

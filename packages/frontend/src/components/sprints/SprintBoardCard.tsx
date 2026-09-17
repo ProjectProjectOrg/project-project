@@ -3,7 +3,11 @@ import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Link } from "@tanstack/react-router"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { updateBacklogTicket, type BacklogRequest } from "@/atoms/backlog"
-import { updateBoardTicket, type BoardRequest } from "@/atoms/sprintBoard"
+import {
+  placeBoardTicket,
+  updateBoardTicket,
+  type BoardRequest
+} from "@/atoms/sprintBoard"
 import { TicketGitChip } from "@/components/TicketGit"
 import { cn } from "@/lib/utils"
 import type { Member, Ticket, UpdateTicketInput } from "@projectproject/shared"
@@ -103,6 +107,7 @@ function BoardMutatingCard({
 }) {
   const update = useAtomSet(updateBoardTicket({ req, id: ticket.id }))
   const updateState = useAtomValue(updateBoardTicket({ req, id: ticket.id }))
+  const placeState = useAtomValue(placeBoardTicket({ req, id: ticket.id }))
   return (
     <BoardCardFields
       orgSlug={orgSlug}
@@ -110,7 +115,7 @@ function BoardMutatingCard({
       ticket={ticket}
       members={members}
       onPatch={update}
-      waiting={updateState.waiting}
+      waiting={updateState.waiting || placeState.waiting}
     />
   )
 }

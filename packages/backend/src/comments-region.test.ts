@@ -90,6 +90,20 @@ describe("serializeCommentsRegion + parseCommentsRegion", () => {
     expect(parsed[0].createdAt.toISOString()).toBe("2026-05-07T10:00:00.000Z")
   })
 
+  it("keeps a comment whose editedAt cannot be parsed", () => {
+    const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\neditedAt: yesterday\n---\nHello.\n${COMMENTS_END}\n`
+    const parsed = parseCommentsRegion(region)
+    expect(parsed).toEqual([
+      {
+        id: "c_a",
+        author: "github_42",
+        createdAt: isoDate("2026-05-07T10:00:00.000Z"),
+        editedAt: null,
+        body: "Hello."
+      }
+    ])
+  })
+
   it("parses a region containing tombstone-style whitespace tolerantly", () => {
     const region = `${COMMENTS_START}\n<!-- comment:c_a -->\n---\nauthor: github_42\ncreatedAt: 2026-05-07T10:00:00.000Z\n---\nHello.\n${COMMENTS_END}\n`
     const parsed = parseCommentsRegion(region)

@@ -104,30 +104,35 @@ const unsavedBoardTicketPatch = Atom.family((_key: BoardTicketUpdateKey) =>
 )
 
 /** Drag: reorder within a column, or move across columns (which changes status). */
-export const placeBoardTicket = Atom.family((req: BoardRequest) =>
-  Atom.optimisticFn(sprintBoard(req), {
-    reducer: (current, input: UpdateTicketOrderInput) =>
-      AsyncResult.map(current, (value) => placeTicket(value, input)),
-    fn: Api.runtime.fn(
-      Effect.fn("placeBoardTicket")(function* (input: UpdateTicketOrderInput) {
-        yield* Api.use((client) =>
-          client.groups.updateTicketOrder({
-            params: req.params,
-            payload: input
-          })
-        )
-        if (input.status !== undefined) {
-          yield* Reactivity.invalidate([
-            Keys.ticket(scopeOf(req), input.ticketId),
-            Keys.ticketsIn(scopeOf(req)),
-            Keys.ticketLists(scopeOf(req)),
-            Keys.ticketPages(scopeOf(req)),
-            Keys.ticketUpdatedQuery(scopeOf(req))
-          ])
-        }
-      })
-    )
-  })
+export const placeBoardTicket = Atom.family(
+  ({ req, id }: BoardTicketUpdateKey) =>
+    Atom.optimisticFn(sprintBoard(req), {
+      reducer: (current, input: UpdateTicketOrderInput) =>
+        AsyncResult.map(current, (value) =>
+          placeTicket(value, { ...input, ticketId: id })
+        ),
+      fn: Api.runtime.fn(
+        Effect.fn("placeBoardTicket")(function* (
+          input: UpdateTicketOrderInput
+        ) {
+          yield* Api.use((client) =>
+            client.groups.updateTicketOrder({
+              params: req.params,
+              payload: { ...input, ticketId: id }
+            })
+          )
+          if (input.status !== undefined) {
+            yield* Reactivity.invalidate([
+              Keys.ticket(scopeOf(req), id),
+              Keys.ticketsIn(scopeOf(req)),
+              Keys.ticketLists(scopeOf(req)),
+              Keys.ticketPages(scopeOf(req)),
+              Keys.ticketUpdatedQuery(scopeOf(req))
+            ])
+          }
+        })
+      )
+    })
 )
 
 /** Editing a card's fields from the board. */

@@ -9,10 +9,14 @@ const COMMENT_MARKER = /^<!--\s*comment:([A-Za-z0-9_-]+)\s*-->$/
 const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
 
 const YamlDate = Schema.Union([Schema.DateFromString, Schema.Date])
+const decodeEditedAt = (value: unknown): Date | null => {
+  if (value == null) return null
+  return Option.getOrNull(Schema.decodeUnknownOption(YamlDate)(value))
+}
 const CommentMetadataOnDisk = Schema.Struct({
   author: Schema.String,
   createdAt: YamlDate,
-  editedAt: Schema.optionalKey(Schema.NullOr(YamlDate))
+  editedAt: Schema.optionalKey(Schema.Unknown)
 })
 const CommentMetadata = CommentMetadataOnDisk.pipe(
   Schema.decodeTo(
@@ -27,7 +31,7 @@ const CommentMetadata = CommentMetadataOnDisk.pipe(
       decode: (input) => ({
         author: input.author,
         createdAt: input.createdAt,
-        editedAt: input.editedAt ?? null
+        editedAt: decodeEditedAt(input.editedAt)
       }),
       encode: (input) =>
         input.editedAt === null

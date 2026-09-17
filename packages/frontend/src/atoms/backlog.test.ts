@@ -23,6 +23,7 @@ import {
   flatBacklog,
   flatBacklogRequest,
   loadMoreBacklog,
+  loadMoreFlatBacklog,
   quickCreateBacklogTicket,
   quickCreateFlatBacklogTicket,
   updateBacklogTicket
@@ -942,6 +943,86 @@ describe("backlog quick create", () => {
           pending: false,
           ticket: { id: "T-9" }
         })
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("surfaces a failed flat page and retries the same cursor", async () => {
+    let pageAttempts = 0
+    fetchStub.set((input: RequestInfo | URL) => {
+      const url = new URL(input instanceof Request ? input.url : String(input))
+      if (url.pathname.endsWith("/tickets/count")) {
+        return Promise.resolve(
+          Response.json({
+            total: 2,
+            byStatus: { todo: 2 }
+          })
+        )
+      }
+      if (url.searchParams.get("cursor") === null) {
+        return Promise.resolve(
+          Response.json({
+            items: [serverRow(ticket)],
+            nextCursor: "cursor-1"
+          })
+        )
+      }
+      pageAttempts++
+      if (pageAttempts === 1) {
+        return Promise.resolve(new Response("nope", { status: 500 }))
+      }
+      return Promise.resolve(
+        Response.json({
+          items: [
+            serverRow({ ...ticket, id: Schema.decodeSync(TicketId)("T-2") })
+          ],
+          nextCursor: null
+        })
+      )
+    })
+    const request = flatBacklogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const registry = AtomRegistry.make()
+    const view = flatBacklog(request)
+    const loadMore = loadMoreFlatBacklog(request)
+    registry.mount(view)
+    registry.mount(loadMore)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() =>
+        expect(registry.get(loadMore)).toMatchObject({
+          _tag: "Failure",
+          waiting: false
+        })
+      )
+      expect(registry.get(view)).toMatchObject({
+        value: { nextCursor: "cursor-1" }
+      })
+
+      registry.set(loadMore, undefined)
+      await vi.waitFor(() =>
+        expect(registry.get(loadMore)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      expect(pageAttempts).toBe(2)
+      await vi.waitFor(() => {
+        const result = registry.get(view)
+        if (!AsyncResult.isSuccess(result)) throw new Error("no view")
+        expect(result.value.items.map(({ ticket }) => ticket.id)).toEqual([
+          "T-1",
+          "T-2"
+        ])
       })
     } finally {
       registry.dispose()

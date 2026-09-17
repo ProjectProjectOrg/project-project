@@ -689,8 +689,26 @@ export const loadMoreFlatBacklog = Atom.family((req: BacklogRequest) =>
         if (pageCursor === null) break
         const page = flatPageQuery(req, pageCursor)
         if (pageCursor === cursor) {
-          get.set(flatLoadedPagesAtom(req), depth + 1)
-          return yield* get.result(page, { suspendOnWaiting: true })
+          return yield* Effect.callback<unknown, NotFound | Unauthorized>(
+            (resume) => {
+              let cancel: (() => void) | undefined
+              cancel = get.registry.subscribe(
+                page,
+                (result) => {
+                  if (AsyncResult.isSuccess(result) && !result.waiting) {
+                    cancel?.()
+                    resume(Effect.succeed(result.value))
+                  } else if (AsyncResult.isFailure(result) && !result.waiting) {
+                    cancel?.()
+                    resume(Effect.failCause(result.cause))
+                  }
+                },
+                { immediate: false }
+              )
+              get.refresh(page)
+              return Effect.sync(() => cancel?.())
+            }
+          )
         }
         const result = get(page)
         if (!AsyncResult.isSuccess(result)) return yield* Effect.void
