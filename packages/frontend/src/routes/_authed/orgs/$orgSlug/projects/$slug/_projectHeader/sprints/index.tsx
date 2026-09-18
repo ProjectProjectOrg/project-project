@@ -24,7 +24,7 @@ import {
 } from "@projectproject/shared"
 
 export const Route = createFileRoute(
-  "/_authed/orgs/$orgSlug/projects/$slug/sprints/"
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/"
 )({
   component: SprintsIndex,
   loader: async ({
