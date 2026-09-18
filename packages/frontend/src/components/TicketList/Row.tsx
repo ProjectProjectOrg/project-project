@@ -78,6 +78,10 @@ function RowImpl({
   const handleTitlePointerLeave = () => {
     onPreviewOpenChange(ticket.id, false)
   }
+  const handleRowClick = () => {
+    onPreviewOpenChange(ticket.id, false)
+    setPreviewMounted(false)
+  }
   return (
     <div className="group/list-row col-span-full grid grid-cols-subgrid">
       <DeferredDropdownMenus>
@@ -100,6 +104,7 @@ function RowImpl({
               params={{ orgSlug, slug, id: ticket.id }}
               preload="intent"
               data-row-link
+              onClick={handleRowClick}
               className="col-start-4 row-start-1 flex min-w-0 self-stretch items-center outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
             >
               <PopoverTrigger
