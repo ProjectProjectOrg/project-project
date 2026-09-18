@@ -2,6 +2,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import {
   deriveStatusSlug,
@@ -192,8 +193,11 @@ export const dispatchStatusReorders = Atom.family((req: StatusesRequest) =>
   Atom.fnSync((reorders: ReadonlyArray<StatusReorder>, get) => {
     for (const { statusSlug, orderKey } of reorders) {
       const mutation = reorderStatus({ req, statusSlug })
-      get.mount(mutation)
+      const unmount = get.registry.mount(mutation)
       get.set(mutation, { orderKey })
+      void Effect.runPromiseExit(
+        Registry.getResult(get.registry, mutation, { suspendOnWaiting: true })
+      ).finally(unmount)
     }
   })
 )

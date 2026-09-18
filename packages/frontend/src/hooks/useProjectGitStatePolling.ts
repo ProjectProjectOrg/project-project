@@ -34,7 +34,6 @@ export function useProjectGitStatePolling(
     const previous = seen.current
     if (previous === states.value) return
     seen.current = states.value
-    if (previous === undefined) return
     if (
       shouldInvalidateTicketsForGitStates(states.value) ||
       changedGitStateTicketIds(previous, states.value).length > 0

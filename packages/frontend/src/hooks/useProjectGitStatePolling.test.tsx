@@ -173,3 +173,51 @@ it("invalidates the project's tickets when a poll changes a git state", async ()
     registry.dispose()
   }
 })
+
+it("invalidates tickets when the first git-states response reports changes", async () => {
+  const registry = Registry.make()
+  const paths: Array<string> = []
+  fetchStub.set((input) => {
+    const path = pathOf(input)
+    paths.push(path)
+    if (path.endsWith("/git-states")) {
+      return Promise.resolve(
+        Response.json({ ...branchState, changedTicketIds: ["T-1"] })
+      )
+    }
+    if (path.endsWith("/tickets/sections")) {
+      return Promise.resolve(
+        Response.json({ counts: { total: 0, byStatus: {} }, sections: {} })
+      )
+    }
+    return new Promise<Response>(() => {})
+  })
+  const view = projectGitStates(projectRequest("org", "project"))
+  const sections = backlog(
+    backlogRequest("org", "project", { sort: { key: "id", dir: "asc" } })
+  )
+  const sectionCalls = () =>
+    paths.filter((path) => path.endsWith("/tickets/sections")).length
+  registry.mount(view)
+  registry.mount(sections)
+  try {
+    await waitFor(() =>
+      expect(registry.get(view)).toMatchObject({
+        _tag: "Success",
+        waiting: false
+      })
+    )
+    await waitFor(() => expect(sectionCalls()).toBe(1))
+    renderHook(() => useProjectGitStatePolling("org", "project", true), {
+      wrapper: ({ children }) => (
+        <RegistryContext.Provider value={registry}>
+          {children}
+        </RegistryContext.Provider>
+      )
+    })
+    await waitFor(() => expect(sectionCalls()).toBe(2), { timeout: 3000 })
+  } finally {
+    cleanup()
+    registry.dispose()
+  }
+})
