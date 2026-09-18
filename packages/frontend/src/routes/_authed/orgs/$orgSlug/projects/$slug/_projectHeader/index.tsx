@@ -12,7 +12,9 @@ type BacklogRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
   view?: "list" | "board"
 }
 
-export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
+export const Route = createFileRoute(
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+)({
   component: () => null,
   loaderDeps: ({ search }) => ticketListQueryFromSearch(search),
   loader: ({
