@@ -102,6 +102,36 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("addTickets", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const groups = yield* Groups
+          return yield* groups.addTickets(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            params.id,
+            payload.tickets
+          )
+        }).pipe(dieOnMarkdown)
+      )
+      .handle("removeTickets", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const groups = yield* Groups
+          return yield* groups.removeTickets(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            params.id,
+            payload.tickets
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("updateTicketOrder", ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

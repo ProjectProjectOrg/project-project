@@ -46,7 +46,21 @@ const fakeBetterAuth: BetterAuthShape = {
   listOrganizations: () => Effect.die("not implemented"),
   listOrganizationsPaged: () => Effect.die("not implemented"),
   getOrganization: () => Effect.die("not implemented"),
-  submitConsent: () => Effect.die("not implemented")
+  submitConsent: () => Effect.die("not implemented"),
+  getMembers: () => Effect.die("not implemented"),
+  renameOrg: () => Effect.die("not implemented"),
+  inviteMember: () => Effect.die("not implemented"),
+  updateMemberRole: () => Effect.die("not implemented"),
+  removeMember: () => Effect.die("not implemented"),
+  cancelInvitation: () => Effect.die("not implemented"),
+  transferOwnership: () => Effect.die("not implemented"),
+  leaveOrg: () => Effect.die("not implemented"),
+  listInvitations: () => Effect.die("not implemented"),
+  getInvitation: () => Effect.die("not implemented"),
+  getInvitationState: () => Effect.die("not implemented"),
+  acceptInvitation: () => Effect.die("not implemented"),
+  rejectInvitation: () => Effect.die("not implemented"),
+  getPublicClientName: () => Effect.die("not implemented")
 }
 
 const layer = GitHubLive.pipe(

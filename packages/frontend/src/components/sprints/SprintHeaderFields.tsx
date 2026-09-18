@@ -10,7 +10,7 @@ import {
   Trash2,
   Trophy
 } from "lucide-react"
-import { useEffect, useState, type KeyboardEvent } from "react"
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -30,20 +30,17 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import {
-  completeSprintAtom,
-  deleteSprintAtom,
-  projectKey,
-  updateSprintAtom,
-  type CompleteSprintDestination
-} from "@/atoms/sprints"
-import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+  completeSprint,
+  deleteSprint,
+  sprintListRequest,
+  updateSprint
+} from "@/atoms/sprintList"
 import {
   daysLeft,
   pickEarliestPlannedSprint,
   sprintState,
-  type Group,
-  type GroupId,
-  type TicketId
+  type CompleteSprintDestination,
+  type Group
 } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
@@ -52,22 +49,6 @@ const shortDateFormatter = () =>
     month: "short",
     day: "numeric"
   })
-
-function useTicketStatusesInSprint(
-  orgSlug: string,
-  slug: string,
-  groupId: GroupId
-) {
-  const ticketsResult = useAtomValue(
-    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
-  )
-  const loaded = Result.isSuccess(ticketsResult)
-  const ticketStatuses = new Map<TicketId, string>()
-  if (loaded) {
-    for (const t of ticketsResult.value) ticketStatuses.set(t.id, t.status)
-  }
-  return { ticketStatuses, loaded }
-}
 
 export function SprintStatusSelect({
   orgSlug,
@@ -80,26 +61,23 @@ export function SprintStatusSelect({
   sprint: Group
   sprints: ReadonlyArray<Group>
 }) {
-  const key = projectKey(orgSlug, slug)
-  const complete = useAtomSet(completeSprintAtom(key))
-  const completeState = useAtomValue(completeSprintAtom(key))
-  const reopen = useAtomSet(updateSprintAtom(key))
-  const reopenState = useAtomValue(updateSprintAtom(key))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
+  const completeState = useAtomValue(
+    completeSprint({ req, groupId: sprint.id })
+  )
+  const reopen = useAtomSet(updateSprint({ req, groupId: sprint.id }))
+  const reopenState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const isCompleted = sprint.completedAt !== null
   const planned = pickEarliestPlannedSprint(sprints)
 
-  const { ticketStatuses, loaded: ticketsLoaded } = useTicketStatusesInSprint(
-    orgSlug,
-    slug,
-    sprint.id
-  )
   const completing = completeState.waiting
   const reopening = reopenState.waiting
   const failed =
     Result.isFailure(completeState) || Result.isFailure(reopenState)
 
   const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ groupId: sprint.id, destination, ticketStatuses })
+    complete({ destination })
 
   return (
     <DropdownMenu>
@@ -119,9 +97,7 @@ export function SprintStatusSelect({
       <DropdownMenuContent align="start" sideOffset={8} className="w-56">
         {isCompleted ? (
           <DropdownMenuItem
-            onClick={() =>
-              reopen({ groupId: sprint.id, patch: { completedAt: null } })
-            }
+            onClick={() => reopen({ completedAt: null })}
             disabled={reopening}
             className="cursor-pointer"
           >
@@ -134,7 +110,7 @@ export function SprintStatusSelect({
               onClick={() =>
                 completeTo({ kind: "sprint", groupId: planned.id })
               }
-              disabled={completing || !ticketsLoaded}
+              disabled={completing}
               className="cursor-pointer"
             >
               <Trophy
@@ -145,7 +121,7 @@ export function SprintStatusSelect({
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => completeTo({ kind: "backlog" })}
-              disabled={completing || !ticketsLoaded}
+              disabled={completing}
               className="cursor-pointer"
             >
               <Trophy
@@ -158,7 +134,7 @@ export function SprintStatusSelect({
         ) : (
           <DropdownMenuItem
             onClick={() => completeTo({ kind: "backlog" })}
-            disabled={completing || !ticketsLoaded}
+            disabled={completing}
             className="cursor-pointer"
           >
             <Trophy className="size-4 text-state-success" strokeWidth={1.75} />
@@ -186,9 +162,11 @@ export function SprintNameField({
   sprint: Group
   disabled: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateSprintAtom(key), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateSprintAtom(key))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const update = useAtomSet(updateSprint({ req, groupId: sprint.id }), {
+    mode: "promiseExit"
+  })
+  const updateState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const saving = updateState.waiting
   const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)
@@ -205,7 +183,7 @@ export function SprintNameField({
       setDraft(sprint.name)
       return
     }
-    const exit = await update({ groupId: sprint.id, patch: { name: trimmed } })
+    const exit = await update({ name: trimmed })
     if (Exit.isSuccess(exit)) setEditing(false)
   }
 
@@ -312,8 +290,8 @@ function SprintDatesField({
   sprint: Group
   disabled: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateSprintAtom(key))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<DateRange>({
     from: sprint.startsAt ?? undefined,
@@ -352,10 +330,7 @@ function SprintDatesField({
             nextStart?.getTime() !== prevStart?.getTime() ||
             nextEnd?.getTime() !== prevEnd?.getTime()
           ) {
-            update({
-              groupId: sprint.id,
-              patch: { startsAt: nextStart, endsAt: nextEnd }
-            })
+            update({ startsAt: nextStart, endsAt: nextEnd })
           }
         }
       }}
@@ -395,27 +370,26 @@ export function SprintDeleteMenu({
   sprints: ReadonlyArray<Group>
 }) {
   const navigate = useNavigate()
-  const key = projectKey(orgSlug, slug)
-  const complete = useAtomSet(completeSprintAtom(key))
-  const completeState = useAtomValue(completeSprintAtom(key))
-  const remove = useAtomSet(deleteSprintAtom(key), { mode: "promiseExit" })
-  const removeState = useAtomValue(deleteSprintAtom(key))
-  const { ticketStatuses, loaded: ticketsLoaded } = useTicketStatusesInSprint(
-    orgSlug,
-    slug,
-    sprint.id
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
+  const completeState = useAtomValue(
+    completeSprint({ req, groupId: sprint.id })
   )
+  const remove = useAtomSet(deleteSprint({ req, groupId: sprint.id }), {
+    mode: "promiseExit"
+  })
+  const removeState = useAtomValue(deleteSprint({ req, groupId: sprint.id }))
   const deleting = removeState.waiting
   const completing = completeState.waiting
   const deleteFailed = Result.isFailure(removeState)
   const isCompleted = sprint.completedAt !== null
   const planned = pickEarliestPlannedSprint(sprints)
   const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ groupId: sprint.id, destination, ticketStatuses })
+    complete({ destination })
   const [confirming, setConfirming] = useState(false)
 
-  async function onDelete(groupId: GroupId) {
-    const exit = await remove({ groupId })
+  async function onDelete() {
+    const exit = await remove(undefined)
     if (Exit.isSuccess(exit)) {
       void navigate({
         to: "/orgs/$orgSlug/projects/$slug/sprints",
@@ -459,7 +433,7 @@ export function SprintDeleteMenu({
                     onClick={() =>
                       completeTo({ kind: "sprint", groupId: planned.id })
                     }
-                    disabled={completing || deleting || !ticketsLoaded}
+                    disabled={completing || deleting}
                     className="cursor-pointer"
                   >
                     <Trophy
@@ -470,7 +444,7 @@ export function SprintDeleteMenu({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => completeTo({ kind: "backlog" })}
-                    disabled={completing || deleting || !ticketsLoaded}
+                    disabled={completing || deleting}
                     className="cursor-pointer"
                   >
                     <Trophy
@@ -483,7 +457,7 @@ export function SprintDeleteMenu({
               ) : (
                 <DropdownMenuItem
                   onClick={() => completeTo({ kind: "backlog" })}
-                  disabled={completing || deleting || !ticketsLoaded}
+                  disabled={completing || deleting}
                   className="cursor-pointer"
                 >
                   <Trophy
@@ -516,7 +490,7 @@ export function SprintDeleteMenu({
               <button
                 type="button"
                 disabled={deleting}
-                onClick={() => void onDelete(sprint.id)}
+                onClick={() => void onDelete()}
                 className="flex-1 rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-colors transition-transform duration-100 hover:bg-destructive/90 active:scale-[0.97] disabled:opacity-50"
               >
                 {m.common_delete_confirm_button()}

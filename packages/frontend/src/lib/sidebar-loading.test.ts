@@ -1,11 +1,13 @@
 import { createMemoryHistory, createRouter } from "@tanstack/react-router"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { afterEach, expect, it, vi } from "vite-plus/test"
-import { projectsListAtom } from "@/atoms/projects"
+import { afterAll, afterEach, expect, it, vi } from "vite-plus/test"
+import { stubFetch } from "@/api/testFetch"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { routeTree } from "@/routeTree.gen"
 
 const registries: Array<Registry.AtomRegistry> = []
+const fetchStub = stubFetch()
 const org = {
   id: "org-1",
   slug: "fixture",
@@ -33,8 +35,7 @@ function setup(
   orgResponse = Promise.resolve(Response.json(org))
 ) {
   const requested: string[] = []
-  vi.stubGlobal(
-    "fetch",
+  fetchStub.set(
     vi.fn<typeof fetch>(async (input) => {
       const path = new URL(
         input instanceof Request ? input.url : String(input),
@@ -58,8 +59,9 @@ function setup(
 
 afterEach(() => {
   for (const registry of registries.splice(0)) registry.dispose()
-  vi.unstubAllGlobals()
 })
+
+afterAll(() => vi.unstubAllGlobals())
 
 it.each([{ projects: [project] }, { projects: [] }])(
   "preloads sidebar rows alongside the org request and retains them for mount: $projects.length rows",
@@ -81,13 +83,13 @@ it.each([{ projects: [project] }, { projects: [] }])(
       releaseOrg?.()
       await loading
     }
-    const result = registry.get(projectsListAtom("fixture"))
+    const result = registry.get(projectsFor(projectsRequest("fixture")))
     expect(Result.isSuccess(result)).toBe(true)
     if (Result.isSuccess(result))
       expect(result.value.map((p) => p.slug)).toEqual(
         projects.map((p) => p.slug)
       )
-    const unmount = registry.mount(projectsListAtom("fixture"))
+    const unmount = registry.mount(projectsFor(projectsRequest("fixture")))
     await router.invalidate()
     expect(requested.filter((path) => path.endsWith("/projects"))).toHaveLength(
       1
@@ -107,8 +109,8 @@ it.each([
     expect(
       router.state.matches.every((match) => match.status === "success")
     ).toBe(true)
-    expect(Result.isFailure(registry.get(projectsListAtom("fixture")))).toBe(
-      true
-    )
+    expect(
+      Result.isFailure(registry.get(projectsFor(projectsRequest("fixture"))))
+    ).toBe(true)
   }
 )

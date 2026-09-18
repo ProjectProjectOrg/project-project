@@ -1,8 +1,9 @@
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
+import { Option, Schema } from "effect"
 import {
-  SLUG_PATTERN,
-  ULID_PATTERN,
+  AttachmentId,
+  Slug,
   type FigmaLinkMetadata,
   type Forbidden,
   type NotFound,
@@ -42,9 +43,17 @@ export const figmaThumbnailUrl = (orgSlug: string, linkId: string): string =>
   `${FIGMA_THUMBNAIL_URL_PREFIX}/${orgSlug}/${linkId}`
 
 export interface FigmaThumbnailRef {
-  readonly orgSlug: string
-  readonly linkId: string
+  readonly orgSlug: Slug
+  readonly linkId: AttachmentId
 }
+
+const FigmaThumbnailRefSchema = Schema.Struct({
+  orgSlug: Slug,
+  linkId: AttachmentId
+})
+const decodeFigmaThumbnailRef = Schema.decodeUnknownOption(
+  FigmaThumbnailRefSchema
+)
 
 export const parseFigmaThumbnailUrl = (
   path: string
@@ -54,10 +63,7 @@ export const parseFigmaThumbnailUrl = (
   const parts = rest.split("/")
   if (parts.length !== 2) return null
   const [orgSlug, linkId] = parts
-  if (!orgSlug || !linkId) return null
-  if (!SLUG_PATTERN.test(orgSlug)) return null
-  if (!ULID_PATTERN.test(linkId)) return null
-  return { orgSlug, linkId }
+  return Option.getOrNull(decodeFigmaThumbnailRef({ orgSlug, linkId }))
 }
 
 export interface FigmaLinksShape {

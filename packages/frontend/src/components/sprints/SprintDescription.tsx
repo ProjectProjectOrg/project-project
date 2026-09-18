@@ -1,11 +1,11 @@
 import { useAtomSet } from "@effect/atom-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { Markdown } from "@/components/Markdown"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { MentionScopeProvider } from "@/mentions/scope"
 import { m } from "@/paraglide/messages"
-import { projectKey, updateSprintAtom } from "@/atoms/sprints"
+import { sprintRequest, updateSprintDetail } from "@/atoms/sprintDetail"
 import type { GroupDetail } from "@projectproject/shared"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 
@@ -21,8 +21,11 @@ export function SprintDescription({
   disabled: boolean
 }) {
   const project = useProject()
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateSprintAtom(key))
+  const req = useMemo(
+    () => sprintRequest(orgSlug, slug, sprint.id),
+    [orgSlug, slug, sprint.id]
+  )
+  const update = useAtomSet(updateSprintDetail(req))
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   if (disabled) {
@@ -41,7 +44,7 @@ export function SprintDescription({
           key={`sprint:${sprint.id}`}
           markdown={sprint.body}
           onChange={(next) => {
-            update({ groupId: sprint.id, patch: { body: next } })
+            update({ body: next })
           }}
           onStatusChange={setStatus}
           placeholder={m.sprints_description_placeholder()}

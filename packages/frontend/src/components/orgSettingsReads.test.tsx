@@ -2,18 +2,13 @@ import { RegistryContext } from "@effect/atom-react"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
+import { stubFetch } from "@/api/testFetch"
 import { m } from "@/paraglide/messages"
 import { Route as OrgRoute } from "@/routes/_authed/orgs/$orgSlug/route"
 import { Route as MembersRoute } from "@/routes/_authed/orgs/$orgSlug/settings/members"
 import { Route as AttachmentsRoute } from "@/routes/_authed/orgs/$orgSlug/settings/attachments"
 
-const { getFullOrganization } = vi.hoisted(() => ({
-  getFullOrganization: vi.fn(() => new Promise<never>(() => {}))
-}))
-
-vi.mock("@/services/AuthClient", () => ({
-  authClient: { organization: { getFullOrganization } }
-}))
+const fetchStub = stubFetch()
 
 let registry: Registry.AtomRegistry
 let requests: string[]
@@ -22,11 +17,10 @@ let finishOrg: (response: Response) => void
 beforeEach(() => {
   registry = Registry.make()
   requests = []
-  getFullOrganization.mockClear()
   const org = new Promise<Response>((resolve) => {
     finishOrg = resolve
   })
-  vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+  fetchStub.set((input: RequestInfo | URL) => {
     const path = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -41,7 +35,6 @@ afterEach(() => {
   cleanup()
   registry.dispose()
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
 
 function load<A, R>(
@@ -63,11 +56,7 @@ it("starts members while the parent org loader is still waiting", async () => {
     context: { registry },
     params: { orgSlug: "test" }
   })
-  await waitFor(() =>
-    expect(getFullOrganization).toHaveBeenCalledWith({
-      query: { organizationSlug: "test" }
-    })
-  )
+  await waitFor(() => expect(requests).toContain("/api/orgs/test/members"))
   expect(requests).toEqual(
     expect.arrayContaining(["/api/orgs/test", "/api/orgs/test/projects"])
   )

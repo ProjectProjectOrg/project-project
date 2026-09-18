@@ -3,13 +3,14 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { useState } from "react"
 import { DEFAULT_WORK_TYPES, type GroupId } from "@projectproject/shared"
 import {
+  everhourProjectRequest,
   everhourProfileAtom,
   everhourProjectStatusAtom
 } from "@/atoms/everhour"
-import { projectKey } from "@/atoms/projects"
 import {
+  activeTimerRequest,
   activeTimerAtom,
-  groupKey,
+  sprintTimerRequest,
   startSprintTimerAtom,
   stopTimerAtom
 } from "@/atoms/timeTracking"
@@ -34,17 +35,21 @@ export function SprintTimePanel({
   slug: string
   groupId: GroupId
 }) {
-  const gKey = groupKey(orgSlug, slug, groupId)
+  const timerReq = activeTimerRequest(orgSlug)
+  const sprintReq = sprintTimerRequest(orgSlug, slug, groupId)
+  const startKey = { timerReq, sprintReq }
   const statusResult = useAtomValue(
-    everhourProjectStatusAtom(projectKey(orgSlug, slug))
+    everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
   const { isOwner, isAdmin } = useProjectRole()
   const profileResult = useAtomValue(everhourProfileAtom)
-  const activeTimerResult = useAtomValue(activeTimerAtom(orgSlug))
-  const start = useAtomSet(startSprintTimerAtom(gKey), { mode: "promiseExit" })
-  const startState = useAtomValue(startSprintTimerAtom(gKey))
-  const stop = useAtomSet(stopTimerAtom(orgSlug), { mode: "promiseExit" })
-  const stopState = useAtomValue(stopTimerAtom(orgSlug))
+  const activeTimerResult = useAtomValue(activeTimerAtom(timerReq))
+  const start = useAtomSet(startSprintTimerAtom(startKey), {
+    mode: "promiseExit"
+  })
+  const startState = useAtomValue(startSprintTimerAtom(startKey))
+  const stop = useAtomSet(stopTimerAtom(timerReq), { mode: "promiseExit" })
+  const stopState = useAtomValue(stopTimerAtom(timerReq))
   const [workType, setWorkType] = useState(options[0].key)
   const [showLog, setShowLog] = useState(false)
 

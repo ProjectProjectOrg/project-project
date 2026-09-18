@@ -1,378 +1,329 @@
-import * as Result from "effect/unstable/reactivity/AsyncResult"
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
-import { runtime } from "@/runtime"
-import { ApiClient } from "@/services/ApiClient"
-import { authClient } from "@/services/AuthClient"
-import type { AssignableRole, OrgRole } from "@projectproject/shared"
-import { authData, meAtom } from "./auth"
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
+import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Reactivity from "effect/unstable/reactivity/Reactivity"
+import {
+  ORG_DELETE_GRACE_DAYS,
+  type InviteMemberInput,
+  type OrgDetail,
+  type OrgMember,
+  type OrgMembers,
+  type RenameOrgInput,
+  type TransferOrgOwnershipInput,
+  type UpdateMemberRoleInput
+} from "@projectproject/shared"
+import { Api } from "@/api/Api"
+import { Keys } from "@/api/keys"
 
-export const orgKey = (orgSlug: string) => orgSlug
+export type OrgRequest = Readonly<{
+  params: Readonly<{ orgSlug: string }>
+}>
 
-export const orgMemberKey = (orgSlug: string, memberId: string) =>
-  `${orgSlug}/${memberId}`
+export const orgRequest = (orgSlug: string): OrgRequest => ({
+  params: { orgSlug }
+})
 
-export const orgInvitationKey = (orgSlug: string, invitationId: string) =>
-  `${orgSlug}/${invitationId}`
+const userOrgsQuery = Api.query("org", "myOrgs", {
+  timeToLive: "1 minute",
+  reactivityKeys: [Keys.orgs()]
+})
 
-const splitOrgSubKey = (key: string) => {
-  const separator = key.indexOf("/")
+const userOrgsAtom = Atom.optimistic(userOrgsQuery)
+
+export const userOrgs = () => userOrgsAtom
+
+const orgDetailQuery = (req: OrgRequest) =>
+  Api.query("org", "get", {
+    params: req.params,
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.org(req.params.orgSlug)]
+  })
+
+export const orgDetail = Atom.family((req: OrgRequest) =>
+  Atom.optimistic(orgDetailQuery(req))
+)
+
+const orgMembersQuery = (req: OrgRequest) =>
+  Api.query("org", "members", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.orgMembers(req.params.orgSlug)]
+  })
+
+export const orgMembers = Atom.family((req: OrgRequest) =>
+  Atom.optimistic(orgMembersQuery(req))
+)
+
+export const renameOrg = Atom.family((req: OrgRequest) =>
+  Atom.optimisticFn(orgDetail(req), {
+    reducer: (current, input: RenameOrgInput) =>
+      AsyncResult.map(current, (org) => ({ ...org, name: input.name })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("renameOrg")(function* (input: RenameOrgInput) {
+          const renamed = yield* Api.use((client) =>
+            client.org.rename({ params: req.params, payload: input })
+          )
+          set(AsyncResult.success(renamed))
+          yield* Reactivity.invalidate([Keys.orgs()])
+          return renamed
+        })
+      )
+  })
+)
+
+const softDeleted = (org: OrgDetail): OrgDetail => {
+  const now = DateTime.nowUnsafe()
   return {
-    orgSlug: key.slice(0, separator),
-    id: key.slice(separator + 1)
+    ...org,
+    deletedAt: DateTime.toDate(now),
+    purgeAt: DateTime.toDate(DateTime.add(now, { days: ORG_DELETE_GRACE_DAYS }))
   }
 }
 
-export type OrgMember = {
-  id: string
-  userId: string
-  role: OrgRole
-  name: string
-  email: string
-  image: string | null
-}
-
-export type OrgInvitation = {
-  id: string
-  email: string
-  role: OrgRole
-}
-
-export type OrgMembers = {
-  members: ReadonlyArray<OrgMember>
-  invitations: ReadonlyArray<OrgInvitation>
-}
-
-const toOrgRole = (role: string): OrgRole => {
-  const roles = role.split(",")
-  if (roles.includes("owner")) return "owner"
-  if (roles.includes("admin")) return "admin"
-  return "member"
-}
-
-export const userOrgsAtom = runtime
-  .atom(
-    Effect.gen(function* () {
-      const client = yield* ApiClient
-      return yield* client.org.myOrgs()
-    })
-  )
-  .pipe(Atom.setIdleTTL("1 minute"))
-
-export const orgDetailBaseAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.gen(function* () {
-        const client = yield* ApiClient
-        return yield* client.org.get({ params: { orgSlug } })
-      })
-    )
-    .pipe(Atom.setIdleTTL("2 minutes"))
-)
-
-export const orgDetailAtom = Atom.family((orgSlug: string) =>
-  Atom.optimistic(orgDetailBaseAtom(orgSlug))
-)
-
-export const renameOrgAtom = Atom.family((orgSlug: string) =>
-  Atom.optimisticFn(orgDetailAtom(orgSlug), {
-    reducer: (current, input: { name: string }) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            { ...current.value, name: input.name },
-            { waiting: true }
+export const softDeleteOrg = Atom.family((req: OrgRequest) =>
+  Atom.optimisticFn(orgDetail(req), {
+    reducer: (current, _input: void) => AsyncResult.map(current, softDeleted),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("softDeleteOrg")(function* (_input: void) {
+          const deleted = yield* Api.use((client) =>
+            client.org.softDelete({ params: req.params })
           )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: { name: string }, get) {
-        const current = get(orgDetailBaseAtom(orgSlug))
-        if (!Result.isSuccess(current)) {
-          return yield* Effect.die(new Error("org detail not loaded"))
-        }
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.update({
-              data: { name: input.name },
-              organizationId: current.value.id
-            })
-          )
-        )
-        get.refresh(orgDetailBaseAtom(orgSlug))
-        get.refresh(userOrgsAtom)
-        get.refresh(meAtom)
-      })
-    )
+          set(AsyncResult.success(deleted))
+          yield* Reactivity.invalidate([Keys.orgs()])
+          return deleted
+        })
+      )
   })
 )
 
-export const softDeleteOrgAtom = Atom.family((orgSlug: string) =>
-  runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const detail = yield* client.org.softDelete({ params: { orgSlug } })
-      get.refresh(orgDetailBaseAtom(orgSlug))
-      get.refresh(userOrgsAtom)
-      get.refresh(meAtom)
-      return detail
-    })
-  )
+export const restoreOrg = Atom.family((req: OrgRequest) =>
+  Atom.optimisticFn(orgDetail(req), {
+    reducer: (current, _input: void) =>
+      AsyncResult.map(current, (org) => ({
+        ...org,
+        deletedAt: null,
+        purgeAt: null
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("restoreOrg")(function* (_input: void) {
+          const restored = yield* Api.use((client) =>
+            client.org.restore({ params: req.params })
+          )
+          set(AsyncResult.success(restored))
+          yield* Reactivity.invalidate([Keys.orgs()])
+          return restored
+        })
+      )
+  })
 )
 
-export const restoreOrgAtom = Atom.family((orgSlug: string) =>
-  runtime.fn(
-    Effect.fn(function* (_input: void, get) {
-      const client = yield* ApiClient
-      const detail = yield* client.org.restore({ params: { orgSlug } })
-      get.refresh(orgDetailBaseAtom(orgSlug))
-      get.refresh(userOrgsAtom)
-      get.refresh(meAtom)
-      return detail
-    })
-  )
+const pendingInvitationId = (email: string) => `pending-invitation:${email}`
+
+export const inviteMember = Atom.family((req: OrgRequest) =>
+  Atom.optimisticFn(orgMembers(req), {
+    reducer: (current, input: InviteMemberInput) =>
+      AsyncResult.map(current, (value) => ({
+        ...value,
+        invitations: [
+          ...value.invitations,
+          {
+            id: pendingInvitationId(input.email),
+            email: input.email,
+            role: input.role,
+            status: "pending" as const
+          }
+        ]
+      })),
+    fn: (set) =>
+      Api.runtime.fn(
+        Effect.fn("inviteMember")(function* (input: InviteMemberInput, get) {
+          const invitation = yield* Api.use((client) =>
+            client.org.inviteMember({ params: req.params, payload: input })
+          )
+          set(
+            AsyncResult.map(get(orgMembers(req)), (value) => ({
+              ...value,
+              invitations: value.invitations.map((pending) =>
+                pending.id === pendingInvitationId(input.email)
+                  ? invitation
+                  : pending
+              )
+            }))
+          )
+          return invitation
+        })
+      )
+  })
 )
 
-const orgMembersBaseAtom = Atom.family((orgSlug: string) =>
-  runtime
-    .atom(
-      Effect.tryPromise(async (): Promise<OrgMembers> => {
-        const full = await authData(
-          authClient.organization.getFullOrganization({
-            query: { organizationSlug: orgSlug }
+const withMemberRole = (
+  value: OrgMembers,
+  userId: string,
+  member: OrgMember
+): OrgMembers => ({
+  ...value,
+  members: value.members.map((existing) =>
+    existing.userId === userId ? member : existing
+  )
+})
+
+export const updateMemberRole = Atom.family(
+  ({ req, userId }: Readonly<{ req: OrgRequest; userId: string }>) =>
+    Atom.optimisticFn(orgMembers(req), {
+      reducer: (current, input: UpdateMemberRoleInput) =>
+        AsyncResult.map(current, (value) => ({
+          ...value,
+          members: value.members.map((member) =>
+            member.userId === userId ? { ...member, role: input.role } : member
+          )
+        })),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("updateMemberRole")(function* (
+            input: UpdateMemberRoleInput,
+            get
+          ) {
+            const member = yield* Api.use((client) =>
+              client.org.updateMemberRole({
+                params: { ...req.params, userId },
+                payload: input
+              })
+            )
+            set(
+              AsyncResult.map(get(orgMembers(req)), (value) =>
+                withMemberRole(value, userId, member)
+              )
+            )
+            return member
           })
         )
-        const members = (full?.members ?? []).map((member): OrgMember => ({
-          id: member.id,
-          userId: member.userId,
-          role: toOrgRole(member.role),
-          name: member.user?.name ?? member.user?.email ?? "",
-          email: member.user?.email ?? "",
-          image: member.user?.image ?? null
-        }))
-        const invitations = (full?.invitations ?? [])
-          .filter((invitation) => invitation.status === "pending")
-          .map((invitation): OrgInvitation => ({
-            id: invitation.id,
-            email: invitation.email,
-            role: toOrgRole(invitation.role)
-          }))
-        return { members, invitations }
-      })
-    )
-    .pipe(Atom.setIdleTTL("30 seconds"))
+    })
 )
 
-export const orgMembersAtom = Atom.family((orgSlug: string) =>
-  Atom.optimistic(orgMembersBaseAtom(orgSlug))
-)
+const withoutMember = (value: OrgMembers, userId: string): OrgMembers => ({
+  ...value,
+  members: value.members.filter((member) => member.userId !== userId)
+})
 
-export const inviteOrgMemberAtom = Atom.family((orgSlug: string) =>
-  Atom.optimisticFn(orgMembersAtom(orgSlug), {
-    reducer: (current, _input: { email: string; role: AssignableRole }) =>
-      Result.isSuccess(current)
-        ? Result.success(current.value, { waiting: true })
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (
-        input: { email: string; role: AssignableRole },
-        get
-      ) {
-        const detail = get(orgDetailBaseAtom(orgSlug))
-        if (!Result.isSuccess(detail)) {
-          return yield* Effect.die(new Error("org detail not loaded"))
-        }
-        const organizationId = detail.value.id
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.inviteMember({
-              email: input.email,
-              role: input.role,
-              organizationId
-            })
-          )
-        )
-        get.refresh(orgMembersBaseAtom(orgSlug))
-      })
-    )
-  })
-)
-
-export const updateOrgMemberRoleAtom = Atom.family((memberKey: string) => {
-  const { orgSlug, id: memberId } = splitOrgSubKey(memberKey)
-  return Atom.optimisticFn(orgMembersAtom(orgSlug), {
-    reducer: (current, input: { role: AssignableRole }) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              ...current.value,
-              members: current.value.members.map((member) =>
-                member.id === memberId
-                  ? { ...member, role: input.role }
-                  : member
+export const removeMember = Atom.family(
+  ({ req, userId }: Readonly<{ req: OrgRequest; userId: string }>) =>
+    Atom.optimisticFn(orgMembers(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (value) => withoutMember(value, userId)),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("removeMember")(function* (_input: void, get) {
+            yield* Api.use((client) =>
+              client.org.removeMember({ params: { ...req.params, userId } })
+            )
+            set(
+              AsyncResult.map(get(orgMembers(req)), (value) =>
+                withoutMember(value, userId)
               )
-            },
-            { waiting: true }
-          )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (input: { role: AssignableRole }, get) {
-        const detail = get(orgDetailBaseAtom(orgSlug))
-        if (!Result.isSuccess(detail)) {
-          return yield* Effect.die(new Error("org detail not loaded"))
-        }
-        const organizationId = detail.value.id
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.updateMemberRole({
-              role: input.role,
-              memberId,
-              organizationId
-            })
-          )
+            )
+            yield* Reactivity.invalidate([
+              Keys.orgMembers(req.params.orgSlug),
+              Keys.projects(req.params.orgSlug)
+            ])
+          })
         )
-        get.refresh(orgMembersBaseAtom(orgSlug))
-      })
-    )
+    })
+)
+
+const withoutInvitation = (
+  value: OrgMembers,
+  invitationId: string
+): OrgMembers => ({
+  ...value,
+  invitations: value.invitations.filter(
+    (invitation) => invitation.id !== invitationId
+  )
+})
+
+export const cancelInvitation = Atom.family(
+  ({
+    req,
+    invitationId
+  }: Readonly<{ req: OrgRequest; invitationId: string }>) =>
+    Atom.optimisticFn(orgMembers(req), {
+      reducer: (current, _input: void) =>
+        AsyncResult.map(current, (value) =>
+          withoutInvitation(value, invitationId)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("cancelInvitation")(function* (_input: void, get) {
+            yield* Api.use((client) =>
+              client.org.cancelInvitation({
+                params: { ...req.params, invitationId }
+              })
+            )
+            set(
+              AsyncResult.map(get(orgMembers(req)), (value) =>
+                withoutInvitation(value, invitationId)
+              )
+            )
+          })
+        )
+    })
+)
+
+const withOwnershipTransferred = (
+  value: OrgMembers,
+  toUserId: string,
+  callerUserId: string
+): OrgMembers => ({
+  ...value,
+  members: value.members.map((member) => {
+    if (member.userId === toUserId) return { ...member, role: "owner" as const }
+    if (member.userId === callerUserId) {
+      return { ...member, role: "admin" as const }
+    }
+    return member
   })
 })
 
-export const removeOrgMemberAtom = Atom.family((memberKey: string) => {
-  const { orgSlug, id: memberId } = splitOrgSubKey(memberKey)
-  return Atom.optimisticFn(orgMembersAtom(orgSlug), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              ...current.value,
-              members: current.value.members.filter(
-                (member) => member.id !== memberId
-              )
-            },
-            { waiting: true }
-          )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get: Atom.FnContext) {
-        const detail = get(orgDetailBaseAtom(orgSlug))
-        if (!Result.isSuccess(detail)) {
-          return yield* Effect.die(new Error("org detail not loaded"))
-        }
-        const organizationId = detail.value.id
-        yield* Effect.tryPromise(() =>
-          authData(
-            authClient.organization.removeMember({
-              memberIdOrEmail: memberId,
-              organizationId
-            })
-          )
+export const transferOwnership = Atom.family(
+  ({
+    req,
+    callerUserId
+  }: Readonly<{ req: OrgRequest; callerUserId: string }>) =>
+    Atom.optimisticFn(orgMembers(req), {
+      reducer: (current, input: TransferOrgOwnershipInput) =>
+        AsyncResult.map(current, (value) =>
+          withOwnershipTransferred(value, input.userId, callerUserId)
+        ),
+      fn: (set) =>
+        Api.runtime.fn(
+          Effect.fn("transferOwnership")(function* (
+            input: TransferOrgOwnershipInput
+          ) {
+            const members = yield* Api.use((client) =>
+              client.org.transferOwnership({
+                params: req.params,
+                payload: input
+              })
+            )
+            set(AsyncResult.success(members))
+            yield* Reactivity.invalidate([
+              Keys.org(req.params.orgSlug),
+              Keys.orgs()
+            ])
+            return members
+          })
         )
-        get.refresh(orgMembersBaseAtom(orgSlug))
-      })
-    )
-  })
-})
+    })
+)
 
-export const cancelOrgInvitationAtom = Atom.family((invitationKey: string) => {
-  const { orgSlug, id: invitationId } = splitOrgSubKey(invitationKey)
-  return Atom.optimisticFn(orgMembersAtom(orgSlug), {
-    reducer: (current) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              ...current.value,
-              invitations: current.value.invitations.filter(
-                (invitation) => invitation.id !== invitationId
-              )
-            },
-            { waiting: true }
-          )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (_input: void, get) {
-        yield* Effect.tryPromise(() =>
-          authData(authClient.organization.cancelInvitation({ invitationId }))
-        )
-        get.refresh(orgMembersBaseAtom(orgSlug))
-      })
-    )
-  })
-})
-
-export const leaveOrgAtom = Atom.family((orgSlug: string) =>
-  runtime.fn(
-    Effect.fn(function* (_input: void, get: Atom.FnContext) {
-      const detail = get(orgDetailBaseAtom(orgSlug))
-      if (!Result.isSuccess(detail)) {
-        return yield* Effect.die(new Error("org detail not loaded"))
-      }
-      const organizationId = detail.value.id
-      yield* Effect.tryPromise(() =>
-        authData(authClient.organization.leave({ organizationId }))
-      )
-      get.refresh(meAtom)
-      get.refresh(userOrgsAtom)
+export const leaveOrg = Atom.family((req: OrgRequest) =>
+  Api.runtime.fn(
+    Effect.fn("leaveOrg")(function* (_input: void) {
+      yield* Api.use((client) => client.org.leave({ params: req.params }))
+      yield* Reactivity.invalidate([Keys.orgs(), Keys.me()])
     })
   )
-)
-
-export const transferOrgOwnershipAtom = Atom.family((orgSlug: string) =>
-  Atom.optimisticFn(orgMembersAtom(orgSlug), {
-    reducer: (current, input: { toMemberId: string; selfMemberId: string }) =>
-      Result.isSuccess(current)
-        ? Result.success(
-            {
-              ...current.value,
-              members: current.value.members.map((member) => {
-                if (member.id === input.toMemberId) {
-                  return { ...member, role: "owner" as OrgRole }
-                }
-                if (member.id === input.selfMemberId) {
-                  return { ...member, role: "admin" as OrgRole }
-                }
-                return member
-              })
-            },
-            { waiting: true }
-          )
-        : current,
-    fn: runtime.fn(
-      Effect.fn(function* (
-        input: { toMemberId: string; selfMemberId: string },
-        get
-      ) {
-        const detail = get(orgDetailBaseAtom(orgSlug))
-        if (!Result.isSuccess(detail)) {
-          return yield* Effect.die(new Error("org detail not loaded"))
-        }
-        const organizationId = detail.value.id
-        yield* Effect.gen(function* () {
-          yield* Effect.tryPromise(() =>
-            authData(
-              authClient.organization.updateMemberRole({
-                role: "owner",
-                memberId: input.toMemberId,
-                organizationId
-              })
-            )
-          )
-          yield* Effect.tryPromise(() =>
-            authData(
-              authClient.organization.updateMemberRole({
-                role: "admin",
-                memberId: input.selfMemberId,
-                organizationId
-              })
-            )
-          )
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              get.refresh(orgMembersBaseAtom(orgSlug))
-              get.refresh(orgDetailBaseAtom(orgSlug))
-              get.refresh(meAtom)
-            })
-          )
-        )
-      })
-    )
-  })
 )

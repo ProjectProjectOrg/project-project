@@ -1,13 +1,13 @@
-import { Activity, useState, type ReactNode } from "react"
+import { Activity, useMemo, useState, type ReactNode } from "react"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import {
-  ticketsListKey,
-  ticketsSectionsAtom,
-  ticketsSectionsBaseAtom,
-  ticketsSectionsKey,
-  type TicketSectionsValue
-} from "@/atoms/tickets"
+  backlog,
+  backlogRequest,
+  encodeTicketListQuery,
+  type BacklogRequest,
+  type BacklogValue
+} from "@/atoms/backlog"
 import { ErrorPage } from "@/components/ErrorPage"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
@@ -19,7 +19,7 @@ import type {
   TicketListQuery
 } from "@projectproject/shared"
 
-type TicketListProps = {
+type TicketListProps = Readonly<{
   orgSlug: string
   slug: string
   query: TicketListQuery
@@ -32,10 +32,10 @@ type TicketListProps = {
   alternate?: (args: {
     key: string
     query: TicketListQuery
-    snapshot: TicketSectionsValue
+    snapshot: BacklogValue
   }) => ReactNode
   showAlternate?: boolean
-}
+}>
 
 export function TicketList({
   creator,
@@ -70,27 +70,26 @@ function StatusSections({
   alternate,
   showAlternate = false
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
-  const key = ticketsListKey(orgSlug, slug, query)
-  const result = useAtomValue(
-    ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
-  const refresh = useAtomRefresh(
-    ticketsSectionsBaseAtom(ticketsSectionsKey(orgSlug, slug, query))
-  )
+  const result = useAtomValue(backlog(req))
+  const refresh = useAtomRefresh(backlog(req))
   const [previous, setPrevious] = useState<{
-    key: string
+    req: BacklogRequest
     query: TicketListQuery
-    value: TicketSectionsValue
+    value: BacklogValue
   } | null>(null)
   if (
     Result.isSuccess(result) &&
-    (previous?.key !== key || previous.value !== result.value)
+    (previous?.req !== req || previous.value !== result.value)
   ) {
-    setPrevious({ key, query, value: result.value })
+    setPrevious({ req, query, value: result.value })
   }
   const active = Result.isSuccess(result)
-    ? { key, query, value: result.value }
-    : Result.isFailure(result) && previous?.key !== key
+    ? { req, query, value: result.value }
+    : Result.isFailure(result) && previous?.req !== req
       ? null
       : previous
   const renderSections = () =>
@@ -98,7 +97,7 @@ function StatusSections({
       <>
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
-            key={active.key}
+            key={`${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`}
             orgSlug={orgSlug}
             slug={slug}
             query={active.query}
@@ -111,7 +110,7 @@ function StatusSections({
         {alternate && (
           <Activity mode={showAlternate ? "visible" : "hidden"}>
             {alternate({
-              key: active.key,
+              key: `${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`,
               query: active.query,
               snapshot: active.value
             })}

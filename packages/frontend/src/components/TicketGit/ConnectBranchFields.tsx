@@ -10,9 +10,9 @@ import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import { GitBranch } from "lucide-react"
-import { useRef, useState } from "react"
-import { attachBranchAtom, branchesAtom, branchesKey } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
+import { useMemo, useRef, useState } from "react"
+import { attachBranch, branches, branchesRequest } from "@/atoms/github"
+import { projectRequest } from "@/atoms/projects"
 import { Button } from "@/components/ui/button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
@@ -97,12 +97,20 @@ export function ConnectBranchFields({
       return { repoId: github.repoId, index }
     })
 
-  const key = branchesKey(orgSlug, slug, github.repoId, q)
-  const result = useAtomValue(branchesAtom(key))
-  const refreshBranches = useAtomRefresh(branchesAtom(key))
-  const pKey = projectKey(orgSlug, slug)
-  const attach = useAtomSet(attachBranchAtom(pKey), { mode: "promiseExit" })
-  const attachState = useAtomValue(attachBranchAtom(pKey))
+  const branchesReq = useMemo(
+    () => branchesRequest(orgSlug, slug, q),
+    [orgSlug, slug, q]
+  )
+  const result = useAtomValue(branches(branchesReq))
+  const refreshBranches = useAtomRefresh(branches(branchesReq))
+  const attachRequest = useMemo(
+    () => ({ req: projectRequest(orgSlug, slug), id: ticket.id }),
+    [orgSlug, slug, ticket.id]
+  )
+  const attach = useAtomSet(attachBranch(attachRequest), {
+    mode: "promiseExit"
+  })
+  const attachState = useAtomValue(attachBranch(attachRequest))
 
   const itemsCacheRef = useRef<BranchItemsCache>({
     repoId: github.repoId,
@@ -150,10 +158,7 @@ export function ConnectBranchFields({
     setBusy(true)
     setDidSubmit(true)
     setAttemptedName(branchName)
-    const exit = await attach({
-      id: ticket.id,
-      name: branchName
-    })
+    const exit = await attach({ name: branchName })
     if (Exit.isSuccess(exit)) {
       close()
       return

@@ -44,12 +44,14 @@ interface Capture {
 
 interface DbState {
   orgRow?: OrgRowLike | null
+  orgExists?: boolean
   myOrgRows?: ReadonlyArray<{ slug: string; name: string; role: string }>
   capture: Capture
 }
 
 const makeState = (init: Omit<DbState, "capture"> = {}): DbState => ({
   orgRow: init.orgRow,
+  orgExists: init.orgExists,
   myOrgRows: init.myOrgRows,
   capture: {}
 })
@@ -76,6 +78,10 @@ const makeDb = (state: DbState) =>
                 limit: () => Effect.succeed(state.orgRow ? [state.orgRow] : [])
               }
             }
+          }),
+          where: () => ({
+            limit: () =>
+              Effect.succeed(state.orgExists ? [{ id: "org-1" }] : [])
           })
         }
       }
@@ -194,6 +200,19 @@ it.effect("get requires membership", () =>
       expect(result.failure._tag).toBe("NotFound")
     }
   }).pipe(Effect.provide(makeOrgLayer(makeState({ orgRow: null }))))
+)
+
+it.effect("get does not distinguish a non-member from an unknown org", () =>
+  Effect.gen(function* () {
+    const org = yield* Org
+    const result = yield* Effect.result(org.get("acme", "user-1"))
+    expect(result._tag).toBe("Failure")
+    if (result._tag === "Failure") {
+      expect(result.failure._tag).toBe("NotFound")
+    }
+  }).pipe(
+    Effect.provide(makeOrgLayer(makeState({ orgRow: null, orgExists: true })))
+  )
 )
 
 it.effect("softDelete sets deletedAt for an owner", () =>

@@ -1,11 +1,51 @@
-import * as DateTime from "effect/DateTime"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 import matter from "gray-matter"
 
 export const COMMENTS_START = "<!-- comments:start -->"
 export const COMMENTS_END = "<!-- comments:end -->"
 const COMMENT_MARKER = /^<!--\s*comment:([A-Za-z0-9_-]+)\s*-->$/
 const FORBIDDEN_BODY = /<!--\s*comment(s)?:/
+
+const YamlDate = Schema.Union([Schema.DateFromString, Schema.Date])
+const decodeEditedAt = (value: unknown): Date | null => {
+  if (value == null) return null
+  return Option.getOrNull(Schema.decodeUnknownOption(YamlDate)(value))
+}
+const CommentMetadataOnDisk = Schema.Struct({
+  author: Schema.String,
+  createdAt: YamlDate,
+  editedAt: Schema.optionalKey(Schema.Unknown)
+})
+const CommentMetadata = CommentMetadataOnDisk.pipe(
+  Schema.decodeTo(
+    Schema.toType(
+      Schema.Struct({
+        author: Schema.String,
+        createdAt: Schema.Date,
+        editedAt: Schema.NullOr(Schema.Date)
+      })
+    ),
+    SchemaTransformation.transform({
+      decode: (input) => ({
+        author: input.author,
+        createdAt: input.createdAt,
+        editedAt: decodeEditedAt(input.editedAt)
+      }),
+      encode: (input) =>
+        input.editedAt === null
+          ? { author: input.author, createdAt: input.createdAt }
+          : {
+              author: input.author,
+              createdAt: input.createdAt,
+              editedAt: input.editedAt
+            }
+    })
+  )
+)
+const decodeCommentMetadata = Schema.decodeUnknownOption(CommentMetadata)
+const encodeCommentMetadata = Schema.encodeSync(CommentMetadata)
 
 export interface CommentBlock {
   readonly id: string
@@ -61,16 +101,13 @@ export function parseCommentsRegion(
     while (end < lines.length && !COMMENT_MARKER.test(lines[end].trim())) end++
     const blockText = lines.slice(i, end).join("\n").trim()
     const parsed = matter(blockText)
-    const data = parsed.data as Record<string, unknown>
-    const author = typeof data.author === "string" ? data.author : null
-    const createdAt = parseDate(data.createdAt)
-    const editedAt = parseDate(data.editedAt)
-    if (author && createdAt) {
+    const metadata = decodeCommentMetadata(parsed.data)
+    if (Option.isSome(metadata)) {
       blocks.push({
         id,
-        author,
-        createdAt,
-        editedAt,
+        author: metadata.value.author,
+        createdAt: metadata.value.createdAt,
+        editedAt: metadata.value.editedAt,
         body: parsed.content.replace(/^\n+/, "").replace(/\s+$/, "")
       })
     }
@@ -85,13 +122,12 @@ export function serializeCommentsRegion(
   if (blocks.length === 0) return ""
   const out: string[] = [COMMENTS_START]
   for (const b of blocks) {
-    const fm: Record<string, unknown> = {
-      author: b.author,
-      createdAt: b.createdAt.toISOString()
-    }
-    if (b.editedAt) fm.editedAt = b.editedAt.toISOString()
     out.push(`<!-- comment:${b.id} -->`)
-    out.push(matter.stringify(b.body.replace(/\s+$/, "") + "\n", fm).trimEnd())
+    out.push(
+      matter
+        .stringify(b.body.replace(/\s+$/, "") + "\n", encodeCommentMetadata(b))
+        .trimEnd()
+    )
   }
   out.push(COMMENTS_END)
   return out.join("\n") + "\n"
@@ -102,15 +138,4 @@ function stripOuterMarkers(region: string): string | null {
   const end = region.lastIndexOf(COMMENTS_END)
   if (start === -1 || end === -1 || end <= start) return null
   return region.slice(start + COMMENTS_START.length, end)
-}
-
-function parseDate(v: unknown): Date | null {
-  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null
-  if (typeof v === "string") {
-    return Option.match(DateTime.make(v), {
-      onNone: () => null,
-      onSome: DateTime.toDate
-    })
-  }
-  return null
 }

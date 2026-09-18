@@ -1,5 +1,10 @@
 import * as Exit from "effect/Exit"
 import { describe, expect, it } from "vite-plus/test"
+import {
+  Conflict,
+  ProjectOwnerRemovalBlocked,
+  Validation
+} from "@projectproject/shared"
 import { orgActionError, orgActionErrorFromExit } from "./orgErrors"
 
 describe("orgActionError", () => {
@@ -31,6 +36,36 @@ describe("orgActionError", () => {
     ]
     expect(new Set(messages).size).toBe(messages.length)
     for (const message of messages) expect(message.length).toBeGreaterThan(0)
+  })
+
+  it("maps the tagged errors the org endpoints return", () => {
+    const generic = orgActionError({ code: "SOMETHING_UNEXPECTED" }).message
+    const messages = [
+      orgActionError(new Conflict({ reason: "already_member" })).message,
+      orgActionError(new Conflict({ reason: "already_invited" })).message,
+      orgActionError(new Conflict({ reason: "last_owner" })).message,
+      orgActionError(new Conflict({ reason: "last_owner_removal" })).message,
+      orgActionError(new Validation({ reason: "role_not_found" })).message
+    ]
+    expect(new Set(messages).size).toBe(messages.length)
+    for (const message of messages) expect(message).not.toBe(generic)
+  })
+
+  it("surfaces project slugs from the tagged removal block", () => {
+    const result = orgActionError(
+      new ProjectOwnerRemovalBlocked({ projectSlugs: ["alpha", "beta"] })
+    )
+    expect(result.projectSlugs).toEqual(["alpha", "beta"])
+    expect(result.message).not.toBe(
+      orgActionError({ code: "SOMETHING_UNEXPECTED" }).message
+    )
+  })
+
+  it("unwraps a tagged removal block from a failed exit", () => {
+    const result = orgActionErrorFromExit(
+      Exit.fail(new ProjectOwnerRemovalBlocked({ projectSlugs: ["alpha"] }))
+    )
+    expect(result?.projectSlugs).toEqual(["alpha"])
   })
 
   it("falls back to a generic message for unknown causes", () => {

@@ -47,7 +47,7 @@ const ticketDocument = (
   priority: "med",
   tags: [],
   branch: "chore/branch-matching",
-  ...(branchAutoLinkDisabled === undefined ? {} : { branchAutoLinkDisabled }),
+  branchAutoLinkDisabled,
   pr: null,
   prState: null,
   lastTransitionedPr: null,
@@ -89,7 +89,7 @@ describe("TicketDocs branch matching persistence", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("decodes a legacy ticket without branchAutoLinkDisabled", () =>
+  it.effect("decodes a ticket without branchAutoLinkDisabled", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
       const docs = yield* TicketDocs
@@ -99,7 +99,7 @@ describe("TicketDocs branch matching persistence", () => {
         "T-3",
         {
           id: "T-3",
-          title: "Legacy ticket",
+          title: "Ticket",
           status: "todo",
           type: "chore",
           priority: "med",
@@ -114,11 +114,77 @@ describe("TicketDocs branch matching persistence", () => {
           createdAt: "2026-09-07T10:00:00Z",
           updatedAt: "2026-09-07T10:00:00Z"
         },
-        "# Legacy ticket\n"
+        "# Ticket\n"
       )
 
       const document = yield* docs.read("acme", "project", "T-3")
       expect(document.branchAutoLinkDisabled).toBeUndefined()
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("decodes the singular assignee field", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-4",
+        {
+          id: "T-4",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          tags: [],
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          assignee: "user-1",
+          archivedAt: null,
+          createdBy: "user-2",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const document = yield* docs.read("acme", "project", "T-4")
+      expect(document.assignees).toEqual(["user-1"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("decodes a null singular assignee field", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown
+      const docs = yield* TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-5",
+        {
+          id: "T-5",
+          title: "Ticket",
+          status: "todo",
+          type: "chore",
+          priority: "med",
+          tags: [],
+          branch: null,
+          pr: null,
+          prState: null,
+          lastTransitionedPr: null,
+          assignee: null,
+          archivedAt: null,
+          createdBy: "user-2",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const document = yield* docs.read("acme", "project", "T-5")
+      expect(document.assignees).toEqual([])
     }).pipe(Effect.provide(TestLayer))
   )
 })

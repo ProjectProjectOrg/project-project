@@ -5,6 +5,7 @@ import {
   Unauthorized,
   Validation
 } from "@projectproject/shared"
+import { Effect, Schema } from "effect"
 import { mapToolError } from "./errorMap"
 
 describe("mapToolError", () => {
@@ -36,5 +37,13 @@ describe("mapToolError", () => {
     const result = mapToolError(new Error("boom"))
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toContain("Internal error")
+  })
+
+  it("preserves schema validation details", () => {
+    const error = Effect.runSync(
+      Schema.decodeUnknownEffect(Schema.String)(42).pipe(Effect.flip)
+    )
+    const result = mapToolError(error)
+    expect(result.content[0].text).toContain("Validation error:")
   })
 })

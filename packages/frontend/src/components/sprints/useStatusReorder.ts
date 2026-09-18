@@ -1,21 +1,22 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { generateKeyBetween } from "fractional-indexing"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  reorderStatusAtom
+  dispatchStatusReorders,
+  statusesFor,
+  statusesRequest
 } from "@/atoms/projectStatuses"
+import type { ProjectStatus, StatusSlug } from "@projectproject/shared"
 
-export type StatusReorder = {
-  readonly reorderMode: boolean
-  readonly dragOrder: ReadonlyArray<string> | null
-  readonly enterReorder: () => void
-  readonly cancelReorder: () => void
-  readonly setDragOrder: (next: ReadonlyArray<string> | null) => void
-  readonly saveReorder: () => void
-}
+export type StatusReorder = Readonly<{
+  reorderMode: boolean
+  dragOrder: ReadonlyArray<string> | null
+  enterReorder: () => void
+  cancelReorder: () => void
+  setDragOrder: (next: ReadonlyArray<string> | null) => void
+  saveReorder: () => void
+}>
 
 export function useStatusReorder(
   orgSlug: string,
@@ -28,9 +29,12 @@ export function useStatusReorder(
   } | null>(null)
   if (reorder !== null && reorder.key !== scopeKey) setReorder(null)
 
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statusesResult = useAtomValue(projectStatusesAtom(statusKey))
-  const reorderStatus = useAtomSet(reorderStatusAtom(statusKey))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
+  const reorderStatuses = useAtomSet(dispatchStatusReorders(statusReq))
 
   const dragOrder = reorder?.order ?? null
 
@@ -51,13 +55,17 @@ export function useStatusReorder(
     if (!Result.isSuccess(statusesResult)) return
     const statuses = statusesResult.value
     if (dragOrder && statuses.length > 0) {
+      const reorders: Array<{
+        statusSlug: StatusSlug
+        orderKey: ProjectStatus["orderKey"]
+      }> = []
       const keys = new Map<string, string>(
         statuses.map((s) => [s.slug as string, s.orderKey as string])
       )
       let lastKey: string | null = null
       for (let i = 0; i < dragOrder.length; i++) {
-        const slug = dragOrder[i]
-        const myKey = keys.get(slug)
+        const columnSlug = dragOrder[i]
+        const myKey = keys.get(columnSlug)
         if (!myKey) continue
         if (lastKey === null || myKey > lastKey) {
           lastKey = myKey
@@ -72,13 +80,17 @@ export function useStatusReorder(
           }
         }
         const newKey = generateKeyBetween(lastKey, nextValid)
-        keys.set(slug, newKey)
-        reorderStatus({ statusSlug: slug, orderKey: newKey })
+        keys.set(columnSlug, newKey)
+        reorders.push({
+          statusSlug: columnSlug as StatusSlug,
+          orderKey: newKey as ProjectStatus["orderKey"]
+        })
         lastKey = newKey
       }
+      reorderStatuses(reorders)
     }
     setReorder(null)
-  }, [dragOrder, statusesResult, reorderStatus])
+  }, [dragOrder, reorderStatuses, statusesResult])
 
   return {
     reorderMode: reorder !== null,

@@ -17,21 +17,19 @@ import {
   type Group
 } from "@projectproject/shared"
 import {
+  everhourProjectRequest,
   everhourProfileAtom,
   everhourProjectStatusAtom
 } from "@/atoms/everhour"
-import { projectKey as projectAtomKey } from "@/atoms/projects"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
-import {
+  activeTimerRequest,
   activeTimerAtom,
-  groupKey,
+  sprintTimerRequest,
+  startActiveTicketTimerAtom,
   startSprintTimerAtom,
-  startTicketTimerAtom,
   stopTimerAtom,
-  ticketKey,
+  ticketTimeRequest,
   workTypesForTicketAtom
 } from "@/atoms/timeTracking"
 import {
@@ -180,7 +178,8 @@ function timerLabel(timer: ActiveTimer): string {
 
 export function RunningTimerIndicator({ orgSlug }: { orgSlug: string }) {
   const { pathname } = useLocation()
-  const activeTimerResult = useAtomValue(activeTimerAtom(orgSlug))
+  const timerReq = activeTimerRequest(orgSlug)
+  const activeTimerResult = useAtomValue(activeTimerAtom(timerReq))
   const timer = Result.isSuccess(activeTimerResult)
     ? activeTimerResult.value
     : null
@@ -216,7 +215,7 @@ type ProjectTimerProps = {
 function ProjectTimerIndicator(props: ProjectTimerProps) {
   const { orgSlug, slug } = props
   const status = useAtomValue(
-    everhourProjectStatusAtom(projectAtomKey(orgSlug, slug))
+    everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
   if (Result.isInitial(status)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
@@ -239,20 +238,21 @@ function ConnectedProjectTimerIndicator({
 }: ProjectTimerProps) {
   const profileResult = useAtomValue(everhourProfileAtom)
   const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+    sprintList(sprintListRequest(orgSlug, slug))
   )
-  const ticketTimerKey = ticketKey(
+  const timerReq = activeTimerRequest(orgSlug)
+  const ticketReq = ticketTimeRequest(
     orgSlug,
     slug,
     ticketId ?? placeholderTicketId
   )
   const ticketWorkTypesResult = useAtomValue(
     ticketId !== null
-      ? workTypesForTicketAtom(ticketTimerKey)
+      ? workTypesForTicketAtom(ticketReq)
       : defaultWorkTypesResultAtom
   )
-  const stop = useAtomSet(stopTimerAtom(orgSlug), { mode: "promiseExit" })
-  const stopState = useAtomValue(stopTimerAtom(orgSlug))
+  const stop = useAtomSet(stopTimerAtom(timerReq), { mode: "promiseExit" })
+  const stopState = useAtomValue(stopTimerAtom(timerReq))
   const reduceMotion = useReducedMotion()
   const [open, setOpen] = useState(false)
   const [workType, setWorkType] = useState(options[0].key)
@@ -281,19 +281,23 @@ function ConnectedProjectTimerIndicator({
       : timer.ticketId === null &&
         effectiveGroupId !== null &&
         timer.groupId === effectiveGroupId)
-  const startKey = groupKey(
+  const sprintReq = sprintTimerRequest(
     orgSlug,
     slug,
     effectiveGroupId ?? placeholderGroupId
   )
+  const startKey = { timerReq, sprintReq }
   const start = useAtomSet(startSprintTimerAtom(startKey), {
     mode: "promiseExit"
   })
   const startState = useAtomValue(startSprintTimerAtom(startKey))
-  const startTicket = useAtomSet(startTicketTimerAtom(ticketTimerKey), {
+  const ticketStartKey = { timerReq, ticketReq }
+  const startTicket = useAtomSet(startActiveTicketTimerAtom(ticketStartKey), {
     mode: "promiseExit"
   })
-  const startTicketState = useAtomValue(startTicketTimerAtom(ticketTimerKey))
+  const startTicketState = useAtomValue(
+    startActiveTicketTimerAtom(ticketStartKey)
+  )
   const ticketOptionsLoading =
     ticketId !== null && Result.isInitial(ticketWorkTypesResult)
   const availableOptions = useMemo(

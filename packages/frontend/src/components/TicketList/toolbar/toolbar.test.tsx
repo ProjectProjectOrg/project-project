@@ -1,10 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  ticketListQueryFromSearch,
-  type TicketListQuery
-} from "@projectproject/shared"
+import { TicketListQuery } from "@projectproject/shared"
+import * as Schema from "effect/Schema"
 import { BacklogGroupingControl } from "../BacklogGroupingControl"
 import { TicketToolbar } from "./TicketToolbar"
 
@@ -12,16 +10,22 @@ vi.mock("@/atoms/projectStatuses", async () => {
   const Atom = await import("effect/unstable/reactivity/Atom")
   const Result = await import("effect/unstable/reactivity/AsyncResult")
   return {
-    projectKey: (orgSlug: string, slug: string) => `${orgSlug}/${slug}`,
-    projectStatusesAtom: Atom.family(() => Atom.make(Result.success([])))
+    statusesRequest: (orgSlug: string, slug: string) => ({
+      params: { orgSlug, slug }
+    }),
+    statusesFor: Atom.family(() => Atom.make(Result.success([])))
   }
 })
 
+const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 const commit = vi.fn<(query: TicketListQuery) => void>()
 function Toolbar() {
   const [grouping, setGrouping] = useState<"status" | "sprint">("status")
   const [query, setQuery] = useState(
-    ticketListQueryFromSearch({ type: ["bug"], sort: "title:asc" })
+    decodeTicketListQuery({
+      type: ["bug"],
+      sort: { key: "title", dir: "asc" }
+    })
   )
   return (
     <TicketToolbar
@@ -84,7 +88,7 @@ describe("toolbar search ownership", () => {
     })
     expect(commit.mock.lastCall?.[0]).toMatchObject({
       q: "pending",
-      filter: { type: ["bug"] },
+      type: ["bug"],
       sort: { key: "title", dir: "asc" }
     })
   })
@@ -100,7 +104,7 @@ describe("toolbar search ownership", () => {
     })
     expect(commit).toHaveBeenCalledTimes(1)
     expect(commit.mock.lastCall?.[0].q).toBe("latest")
-    expect(commit.mock.lastCall?.[0].filter?.type).toEqual(["bug"])
+    expect(commit.mock.lastCall?.[0].type).toEqual(["bug"])
   })
 
   it("clears an uncommitted draft, preserves sort, and cancels its pending commit", () => {
@@ -114,7 +118,7 @@ describe("toolbar search ownership", () => {
       vi.advanceTimersByTime(200)
     })
     expect(commit).toHaveBeenCalledExactlyOnceWith({
-      sort: ticketListQueryFromSearch({ sort: "title:asc" }).sort
+      sort: { key: "title", dir: "asc" }
     })
   })
 
@@ -141,6 +145,6 @@ describe("toolbar search ownership", () => {
       vi.advanceTimersByTime(200)
     })
     expect(commit.mock.lastCall?.[0].q).toBe("pending")
-    expect(commit.mock.lastCall?.[0].filter).toBeUndefined()
+    expect(commit.mock.lastCall?.[0].type).toBeUndefined()
   })
 })

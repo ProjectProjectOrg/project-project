@@ -4,10 +4,10 @@ import {
   FigmaFileNotFound,
   FigmaRateLimited
 } from "@projectproject/shared"
-import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import {
   Figma,
   figmaAuthHeader,
@@ -20,20 +20,65 @@ import {
 
 const baseUrl = "https://api.figma.com"
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
-
-const idString = (value: unknown): string =>
-  typeof value === "string"
-    ? value
-    : typeof value === "number"
-      ? String(value)
-      : ""
+const ExternalId = Schema.Union([Schema.String, Schema.Finite])
+const NullableString = Schema.NullOr(Schema.String).pipe(
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const ErrorPayload = Schema.Struct({
+  message: Schema.optional(Schema.String),
+  err: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String)
+})
+const UserResponse = Schema.Struct({
+  id: ExternalId,
+  handle: NullableString,
+  email: NullableString
+})
+const FileResponse = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  lastModified: Schema.NullOr(Schema.DateFromString).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  thumbnailUrl: NullableString
+})
+const DevResource = Schema.Struct({
+  id: ExternalId,
+  url: Schema.String
+})
+const DevResourcesResponse = Schema.Struct({
+  dev_resources: Schema.Array(DevResource).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  )
+})
+const NodeResponse = Schema.Struct({
+  document: Schema.Struct({ name: Schema.String })
+})
+const NodesResponse = Schema.Struct({
+  nodes: Schema.Record(Schema.String, Schema.NullOr(NodeResponse))
+})
+const ImagesResponse = Schema.Struct({
+  images: Schema.Record(Schema.String, Schema.NullOr(Schema.String))
+})
+const DevResourceMutationResponse = Schema.Struct({
+  errors: Schema.Array(Schema.Struct({ error: Schema.String })).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
+  links_created: Schema.Array(Schema.Struct({ id: ExternalId })).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  )
+})
 
 const errorMessage = (payload: unknown): string => {
-  if (!isRecord(payload)) return "Figma error"
-  const message = payload.message ?? payload.err ?? payload.error
-  return typeof message === "string" ? message : "Figma error"
+  const decoded = Schema.decodeUnknownOption(ErrorPayload)(payload)
+  if (Option.isNone(decoded)) return "Figma error"
+  return (
+    decoded.value.message ??
+    decoded.value.err ??
+    decoded.value.error ??
+    "Figma error"
+  )
 }
 
 const parseRetryAfterSeconds = (response: Response): number => {
@@ -87,18 +132,22 @@ const send = (
     return { response, payload }
   })
 
-const request = <A>(
+const request = <S extends Schema.ConstraintDecoder<unknown>>(
   credential: FigmaCredential,
   method: string,
   path: string,
   body: unknown,
   fileKey: string | null,
-  map: (payload: unknown) => A
-): Effect.Effect<A, FigmaCallError> =>
+  schema: S
+): Effect.Effect<S["Type"], FigmaCallError> =>
   send(credential, method, path, body).pipe(
     Effect.flatMap(({ response, payload }) =>
       response.ok
-        ? Effect.succeed(map(payload))
+        ? Schema.decodeUnknownEffect(schema)(payload).pipe(
+            Effect.mapError(
+              (cause) => new FigmaError({ reason: String(cause) })
+            )
+          )
         : Effect.fail(errorForStatus(response, fileKey, errorMessage(payload)))
     )
   )
@@ -126,23 +175,7 @@ const getFile = (
     `/v1/files/${encodeURIComponent(fileKey)}?depth=1`,
     undefined,
     fileKey,
-    (payload) => {
-      const record = isRecord(payload) ? payload : {}
-      const lastModifiedRaw = record.lastModified
-      const lastModified =
-        typeof lastModifiedRaw === "string"
-          ? Option.match(DateTime.make(lastModifiedRaw), {
-              onNone: () => null,
-              onSome: DateTime.toDate
-            })
-          : null
-      return {
-        name: typeof record.name === "string" ? record.name : "",
-        lastModified,
-        thumbnailUrl:
-          typeof record.thumbnailUrl === "string" ? record.thumbnailUrl : null
-      }
-    }
+    FileResponse
   )
 
 const findExistingDevResourceId = (
@@ -157,36 +190,26 @@ const findExistingDevResourceId = (
     `/v1/files/${encodeURIComponent(fileKey)}/dev_resources?node_ids=${encodeURIComponent(nodeId)}`,
     undefined,
     fileKey,
-    (raw) => raw
+    DevResourcesResponse
   ).pipe(
     Effect.map((payload) => {
-      const record = isRecord(payload) ? payload : {}
-      const resources = Array.isArray(record.dev_resources)
-        ? record.dev_resources
-        : []
-      const match = resources.find(
-        (resource) => isRecord(resource) && resource.url === url
+      const match = payload.dev_resources.find(
+        (resource) => resource.url === url
       )
-      const id = isRecord(match) ? match.id : null
-      return typeof id === "string"
-        ? id
-        : typeof id === "number"
-          ? String(id)
-          : null
+      return match === undefined ? null : String(match.id)
     }),
     Effect.catch(() => Effect.succeed(null))
   )
 
 export const FigmaLive = Layer.succeed(Figma, {
   getMe: (credential) =>
-    request(credential, "GET", "/v1/me", undefined, null, (payload) => {
-      const record = isRecord(payload) ? payload : {}
-      return {
-        id: idString(record.id),
-        handle: typeof record.handle === "string" ? record.handle : null,
-        email: typeof record.email === "string" ? record.email : null
-      }
-    }),
+    request(credential, "GET", "/v1/me", undefined, null, UserResponse).pipe(
+      Effect.map((user) => ({
+        id: String(user.id),
+        handle: user.handle,
+        email: user.email
+      }))
+    ),
 
   getFile,
 
@@ -197,21 +220,13 @@ export const FigmaLive = Layer.succeed(Figma, {
       `/v1/files/${encodeURIComponent(fileKey)}/nodes?ids=${encodeURIComponent(nodeId)}`,
       undefined,
       fileKey,
-      (raw) => raw
+      NodesResponse
     ).pipe(
       Effect.flatMap((payload) => {
-        const record = isRecord(payload) ? payload : {}
-        const nodes = isRecord(record.nodes) ? record.nodes : {}
-        const node = isRecord(nodes[nodeId]) ? nodes[nodeId] : null
-        const document =
-          node !== null && isRecord(node.document) ? node.document : null
-        const name =
-          document !== null && typeof document.name === "string"
-            ? document.name
-            : null
-        return name === null
+        const node = payload.nodes[nodeId]
+        return node == null
           ? Effect.fail(new FigmaFileNotFound({ fileKey }))
-          : Effect.succeed({ name })
+          : Effect.succeed({ name: node.document.name })
       })
     ),
 
@@ -231,12 +246,10 @@ export const FigmaLive = Layer.succeed(Figma, {
         `/v1/images/${encodeURIComponent(fileKey)}?ids=${encodeURIComponent(nodeId)}&format=png&scale=${clampedScale}`,
         undefined,
         fileKey,
-        (raw) => raw
+        ImagesResponse
       )
-      const record = isRecord(payload) ? payload : {}
-      const images = isRecord(record.images) ? record.images : {}
-      const imageUrl = images[nodeId]
-      if (typeof imageUrl !== "string") {
+      const imageUrl = payload.images[nodeId]
+      if (imageUrl == null) {
         return yield* new FigmaError({ reason: "node_not_renderable" })
       }
       return yield* fetchBytes(imageUrl)
@@ -259,43 +272,36 @@ export const FigmaLive = Layer.succeed(Figma, {
             errorForStatus(response, null, errorMessage(payload))
           )
         }
-        const record = isRecord(payload) ? payload : {}
-        const errors = Array.isArray(record.errors) ? record.errors : []
-        const firstError = isRecord(errors[0]) ? errors[0] : null
-        const errorText =
-          firstError !== null && typeof firstError.error === "string"
-            ? firstError.error
-            : null
-        if (errorText !== null) {
-          return findExistingDevResourceId(
-            credential,
-            input.fileKey,
-            input.nodeId,
-            input.url
-          ).pipe(
-            Effect.flatMap((existingId) =>
-              existingId !== null
-                ? Effect.succeed(existingId)
-                : Effect.logDebug(
-                    "Figma dev resource create skipped by the API"
-                  ).pipe(
-                    Effect.annotateLogs({ reason: errorText }),
-                    Effect.as(null)
-                  )
+        return Schema.decodeUnknownEffect(DevResourceMutationResponse)(
+          payload
+        ).pipe(
+          Effect.mapError((cause) => new FigmaError({ reason: String(cause) })),
+          Effect.flatMap((decoded) => {
+            const firstError = decoded.errors[0]
+            if (firstError !== undefined) {
+              return findExistingDevResourceId(
+                credential,
+                input.fileKey,
+                input.nodeId,
+                input.url
+              ).pipe(
+                Effect.flatMap((existingId) =>
+                  existingId !== null
+                    ? Effect.succeed(existingId)
+                    : Effect.logDebug(
+                        "Figma dev resource create skipped by the API"
+                      ).pipe(
+                        Effect.annotateLogs({ reason: firstError.error }),
+                        Effect.as(null)
+                      )
+                )
+              )
+            }
+            const created = decoded.links_created[0]
+            return Effect.succeed(
+              created === undefined ? null : String(created.id)
             )
-          )
-        }
-        const linksCreated = Array.isArray(record.links_created)
-          ? record.links_created
-          : []
-        const created = isRecord(linksCreated[0]) ? linksCreated[0] : null
-        const id = created === null ? null : created.id
-        return Effect.succeed(
-          typeof id === "string"
-            ? id
-            : typeof id === "number"
-              ? String(id)
-              : null
+          })
         )
       })
     ),

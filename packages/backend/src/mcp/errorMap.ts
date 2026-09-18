@@ -1,3 +1,29 @@
+import { Match, Option, Schema } from "effect"
+import {
+  AttachmentNotUploaded,
+  AttachmentTooLarge,
+  AttachmentTypeRejected,
+  BranchExists,
+  BranchNotFound,
+  BranchProtected,
+  Conflict,
+  Forbidden,
+  GitHubError,
+  GitHubScopeInsufficient,
+  GitHubTokenExpired,
+  MentionInvalid,
+  NotFound,
+  RateLimited,
+  RepoGone,
+  SprintCompletedImmutable,
+  StorageConfigMissing,
+  StorageError,
+  StorageNotConnected,
+  Unauthorized,
+  Validation
+} from "@projectproject/shared"
+import { BetterAuthError } from "../Services/BetterAuth"
+
 export interface McpToolErrorResult {
   readonly content: ReadonlyArray<{
     readonly type: "text"
@@ -6,139 +32,132 @@ export interface McpToolErrorResult {
   readonly isError: true
 }
 
-const text = (s: string): McpToolErrorResult => ({
-  content: [{ type: "text", text: s }],
+const text = (value: string): McpToolErrorResult => ({
+  content: [{ type: "text", text: value }],
   isError: true
 })
 
-const reasonOf = (e: unknown): string | undefined => {
-  if (typeof e !== "object" || e === null || !("reason" in e)) return undefined
-  const reason = (e as { reason?: unknown }).reason
-  return typeof reason === "string" ? reason : undefined
-}
+const TaggedError = <const Tag extends string>(tag: Tag) =>
+  Schema.TaggedStruct(tag, {})
 
-export const mapToolError = (e: unknown): McpToolErrorResult => {
-  if (typeof e !== "object" || e === null || !("_tag" in e)) {
-    return text("Internal error.")
+const ToolError = Schema.Union([
+  Unauthorized,
+  Forbidden,
+  NotFound,
+  Conflict,
+  Validation,
+  MentionInvalid,
+  StorageNotConnected,
+  StorageConfigMissing,
+  StorageError,
+  AttachmentNotUploaded,
+  AttachmentTooLarge,
+  AttachmentTypeRejected,
+  TaggedError("MarkdownError"),
+  BetterAuthError,
+  TaggedError("TicketIdTaken"),
+  TaggedError("GroupIdTaken"),
+  SprintCompletedImmutable,
+  BranchNotFound,
+  BranchExists,
+  BranchProtected,
+  GitHubTokenExpired,
+  GitHubScopeInsufficient,
+  RepoGone,
+  RateLimited,
+  GitHubError
+])
+
+const decodeToolError = Schema.decodeUnknownOption(ToolError)
+
+export const mapToolError = (error: unknown): McpToolErrorResult => {
+  if (Schema.isSchemaError(error)) {
+    return text(`Validation error: ${error.message}`)
   }
-  const tag = String((e as { _tag: unknown })._tag)
-  switch (tag) {
-    case "Unauthorized":
-      return text("Unauthorized.")
-    case "Forbidden":
-      return text("Forbidden.")
-    case "NotFound":
-      return text("Not found.")
-    case "Conflict": {
-      const reason = reasonOf(e)
-      return text(reason ? `Conflict (${reason}).` : "Conflict.")
-    }
-    case "Validation": {
-      const reason = reasonOf(e)
-      return text(
-        reason ? `Validation error (${reason}).` : "Validation error."
-      )
-    }
-    case "MentionInvalid": {
-      const kind =
-        typeof e === "object" && e !== null && "kind" in e
-          ? String((e as { kind?: unknown }).kind)
-          : undefined
-      const href =
-        typeof e === "object" && e !== null && "href" in e
-          ? String((e as { href?: unknown }).href)
-          : undefined
-      const detail = kind && href ? `${kind}: ${href}` : (kind ?? href ?? "")
-      return text(
-        detail
-          ? `Mention error (${detail}). Use [label](mention:user/<id>) or [label](mention:ticket/<T-N>); discover ids via list_members and list_tickets.`
-          : "Mention error."
-      )
-    }
-    case "StorageNotConnected":
-      return text(
-        "StorageNotConnected: Attachments are unavailable because this organization has not connected storage. Connect storage in organization settings, then retry."
-      )
-    case "StorageConfigMissing":
-      return text(
-        "StorageConfigMissing: Server storage configuration is missing. Ask the server administrator to configure attachment storage, then retry."
-      )
-    case "StorageError":
-      return text(
-        "StorageError: Attachment storage could not complete the operation. Check the connection in organization settings and retry."
-      )
-    case "AttachmentNotUploaded":
-      return text(
-        "AttachmentNotUploaded: The uploaded object could not be verified. Retry the POST to uploadUrl. If the upload URL expired, prepare a new upload."
-      )
-    case "AttachmentTooLarge": {
-      const limit =
-        "maxBytes" in e &&
-        typeof e.maxBytes === "number" &&
-        Number.isFinite(e.maxBytes)
-          ? `${e.maxBytes / (1024 * 1024)} MiB`
+  const decoded = decodeToolError(error)
+  if (Option.isNone(decoded)) return text("Internal error.")
+
+  return Match.value(decoded.value).pipe(
+    Match.tagsExhaustive({
+      Unauthorized: () => text("Unauthorized."),
+      Forbidden: () => text("Forbidden."),
+      NotFound: () => text("Not found."),
+      Conflict: (error) =>
+        text(error.reason ? `Conflict (${error.reason}).` : "Conflict."),
+      Validation: (error) =>
+        text(
+          error.reason
+            ? `Validation error (${error.reason}).`
+            : "Validation error."
+        ),
+      MentionInvalid: (error) => {
+        const detail =
+          error.kind && error.href
+            ? `${error.kind}: ${error.href}`
+            : (error.kind ?? error.href ?? "")
+        return text(
+          detail
+            ? `Mention error (${detail}). Use [label](mention:user/<id>) or [label](mention:ticket/<T-N>); discover ids via list_members and list_tickets.`
+            : "Mention error."
+        )
+      },
+      StorageNotConnected: () =>
+        text(
+          "StorageNotConnected: Attachments are unavailable because this organization has not connected storage. Connect storage in organization settings, then retry."
+        ),
+      StorageConfigMissing: () =>
+        text(
+          "StorageConfigMissing: Server storage configuration is missing. Ask the server administrator to configure attachment storage, then retry."
+        ),
+      StorageError: () =>
+        text(
+          "StorageError: Attachment storage could not complete the operation. Check the connection in organization settings and retry."
+        ),
+      AttachmentNotUploaded: () =>
+        text(
+          "AttachmentNotUploaded: The uploaded object could not be verified. Retry the POST to uploadUrl. If the upload URL expired, prepare a new upload."
+        ),
+      AttachmentTooLarge: (error) => {
+        const limit = error.maxBytes
+          ? `${error.maxBytes / (1024 * 1024)} MiB`
           : "the server limit"
-      return text(
-        `AttachmentTooLarge: The file must be non-empty and at most ${limit}.`
-      )
-    }
-    case "AttachmentTypeRejected":
-      return text(
-        "AttachmentTypeRejected: Use PNG, JPEG, GIF, WebP, AVIF, PDF, ZIP, gzip, or tar."
-      )
-    case "SchemaError":
-      return text(
-        e instanceof Error
-          ? `Validation error: ${e.message}`
-          : "Validation error."
-      )
-    case "MarkdownError":
-      return text("Document read failed.")
-    case "BetterAuthError":
-      return text("Auth provider error.")
-    case "TicketIdTaken":
-    case "GroupIdTaken":
-      return text("Identifier already taken.")
-    case "SprintCompletedImmutable":
-      return text("Sprint is already completed and cannot be modified.")
-    case "BranchNotFound": {
-      const name =
-        typeof e === "object" && e !== null && "name" in e
-          ? String((e as { name?: unknown }).name)
-          : undefined
-      return text(
-        name
-          ? `Branch not found on remote: ${name}.`
-          : "Branch not found on remote."
-      )
-    }
-    case "BranchExists": {
-      const name =
-        typeof e === "object" && e !== null && "branch" in e
-          ? String((e as { branch?: unknown }).branch)
-          : undefined
-      return text(
-        name ? `Branch already exists: ${name}.` : "Branch already exists."
-      )
-    }
-    case "BranchProtected":
-      return text("Branch is protected.")
-    case "GitHubTokenExpired":
-      return text("GitHub token expired — reconnect GitHub.")
-    case "GitHubScopeInsufficient":
-      return text("GitHub token is missing required scopes.")
-    case "RepoGone":
-      return text("Connected GitHub repository is gone.")
-    case "RateLimited":
-      return text("Rate limited by GitHub — retry later.")
-    case "GitHubError": {
-      const message =
-        typeof e === "object" && e !== null && "message" in e
-          ? String((e as { message?: unknown }).message)
-          : undefined
-      return text(message ? `GitHub error: ${message}.` : "GitHub error.")
-    }
-    default:
-      return text("Internal error.")
-  }
+        return text(
+          `AttachmentTooLarge: The file must be non-empty and at most ${limit}.`
+        )
+      },
+      AttachmentTypeRejected: () =>
+        text(
+          "AttachmentTypeRejected: Use PNG, JPEG, GIF, WebP, AVIF, PDF, ZIP, gzip, or tar."
+        ),
+      MarkdownError: () => text("Document read failed."),
+      BetterAuthError: () => text("Auth provider error."),
+      TicketIdTaken: () => text("Identifier already taken."),
+      GroupIdTaken: () => text("Identifier already taken."),
+      SprintCompletedImmutable: () =>
+        text("Sprint is already completed and cannot be modified."),
+      BranchNotFound: (error) =>
+        text(
+          error.name
+            ? `Branch not found on remote: ${error.name}.`
+            : "Branch not found on remote."
+        ),
+      BranchExists: (error) =>
+        text(
+          error.branch
+            ? `Branch already exists: ${error.branch}.`
+            : "Branch already exists."
+        ),
+      BranchProtected: () => text("Branch is protected."),
+      GitHubTokenExpired: () =>
+        text("GitHub token expired — reconnect GitHub."),
+      GitHubScopeInsufficient: () =>
+        text("GitHub token is missing required scopes."),
+      RepoGone: () => text("Connected GitHub repository is gone."),
+      RateLimited: () => text("Rate limited by GitHub — retry later."),
+      GitHubError: (error) =>
+        text(
+          error.message ? `GitHub error: ${error.message}.` : "GitHub error."
+        )
+    })
+  )
 }

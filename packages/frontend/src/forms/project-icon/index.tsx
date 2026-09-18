@@ -10,8 +10,11 @@ import {
   type ProjectIconImage
 } from "@projectproject/shared"
 import type { ReactFormType } from "@tanstack/react-form"
-import { uploadProjectImageAtom } from "@/atoms/attachments"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import {
+  uploadProjectImage,
+  uploadProjectImageRequest
+} from "@/atoms/attachments"
+import { projectRequest, updateProject } from "@/atoms/projects"
 import { compressImage } from "@/lib/imageCompression"
 import { CUTOUT_DEFAULT_TOLERANCE, hasAlpha } from "@/lib/iconCutout"
 import { useAppForm, useFormValues } from "@/lib/form"
@@ -55,13 +58,14 @@ export function ProjectIconForm({
   onDone?: () => void
   onLiveChange?: (live: LiveIcon | null) => void
 }) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
-  const upload = useAtomSet(uploadProjectImageAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  const uploadReq = uploadProjectImageRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const upload = useAtomSet(uploadProjectImage(uploadReq), {
     mode: "promiseExit"
   })
-  const updateState = useAtomValue(updateProjectAtom(key))
-  const uploadState = useAtomValue(uploadProjectImageAtom(key))
+  const updateState = useAtomValue(updateProject(req))
+  const uploadState = useAtomValue(uploadProjectImage(uploadReq))
   const busy = updateState.waiting || uploadState.waiting
   const failed =
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)

@@ -11,6 +11,7 @@ import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 import { GroupId } from "@projectproject/shared"
 import { afterEach, expect, it, vi } from "vitest"
+import { stubFetch } from "@/api/testFetch"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 
 vi.mock("@tanstack/react-router", async (original) => ({
@@ -18,9 +19,10 @@ vi.mock("@tanstack/react-router", async (original) => ({
   useNavigate: () => vi.fn()
 }))
 
+const fetchStub = stubFetch()
+
 afterEach(() => {
   cleanup()
-  vi.unstubAllGlobals()
 })
 
 it.each(["focus", "hover"] as const)(
@@ -28,7 +30,7 @@ it.each(["focus", "hover"] as const)(
   async (intent) => {
     const registry = Registry.make()
     const searches = new Map<string, (response: Response) => void>()
-    vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+    fetchStub.set((input: RequestInfo | URL) => {
       const url = new URL(
         input instanceof Request ? input.url : String(input),
         "http://localhost"

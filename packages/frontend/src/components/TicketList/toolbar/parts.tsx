@@ -7,10 +7,10 @@ import {
   Search as SearchIcon,
   X
 } from "lucide-react"
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
 import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { projectStatusesAtom, projectKey } from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { MIN_SEARCH_CHARS } from "../search"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import {
@@ -91,11 +91,12 @@ export function SearchInput() {
 export function Status() {
   const { query, patchFilter, counts, orgSlug, slug, controlsCompact } =
     useTicketToolbar()
-  const selected = query.filter?.status
+  const selected = query.status
   const status = selected?.length === 1 ? selected[0] : "all"
   const setStatus = (status: TicketStatus | "all") =>
     patchFilter({ status: status === "all" ? undefined : [status] })
-  const result = useAtomValue(projectStatusesAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const result = useAtomValue(statusesFor(req))
   const statuses = Result.isSuccess(result) ? result.value : []
   const slugs = boardStatusesFor(statuses)
   const active = status !== "all"

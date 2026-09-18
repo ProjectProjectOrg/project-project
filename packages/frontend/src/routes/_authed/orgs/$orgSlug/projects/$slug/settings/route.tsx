@@ -5,7 +5,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useCallback } from "react"
 import { motion, useReducedMotion } from "motion/react"
 import { GitBranch, SlidersHorizontal, Users, Workflow } from "lucide-react"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { project, projectRequest } from "@/atoms/projects"
 import { PageContainer, PageHeader } from "@/components/page"
 import { ProjectIconDisplay } from "@/components/ProjectIconDisplay"
 import { RailBackLink } from "@/components/RailBackLink"
@@ -97,11 +97,15 @@ function projectSettingsLayoutId(orgSlug: string, slug: string) {
 function SettingsRail({ orgSlug, slug }: { orgSlug: string; slug: string }) {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
-  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
-  const projectName = Result.isSuccess(project) ? project.value.name : slug
-  const projectIcon = Result.isSuccess(project) ? project.value.icon : null
-  const projectIconImage = Result.isSuccess(project)
-    ? project.value.iconImage
+  const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
+  const projectName = Result.isSuccess(projectResult)
+    ? projectResult.value.name
+    : slug
+  const projectIcon = Result.isSuccess(projectResult)
+    ? projectResult.value.icon
+    : null
+  const projectIconImage = Result.isSuccess(projectResult)
+    ? projectResult.value.iconImage
     : null
 
   return (

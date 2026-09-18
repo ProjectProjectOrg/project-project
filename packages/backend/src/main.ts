@@ -68,7 +68,9 @@ import * as Config from "effect/Config"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
+import * as Schema from "effect/Schema"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { projectIndex } from "./db/schema"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
@@ -81,8 +83,12 @@ import { EverhourHandlerLive } from "./handlers/everhour"
 import { FigmaHandlerLive } from "./handlers/figma"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
-import { OAuthApplicationsHandlerLive } from "./handlers/oauthApplications"
+import {
+  OAuthApplicationsHandlerLive,
+  PublicOAuthHandlerLive
+} from "./handlers/oauthApplications"
 import { StorageHandlerLive } from "./handlers/storage"
+import { InvitationsHandlerLive } from "./handlers/invitations"
 import { OrgHandlerLive } from "./handlers/org"
 import { ProjectsHandlerLive } from "./handlers/projects"
 import { StatusesHandlerLive } from "./handlers/statuses"
@@ -142,6 +148,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(DbHandlerLive),
   Layer.provide(AuthHandlerLive),
   Layer.provide(OrgHandlerLive),
+  Layer.provide(InvitationsHandlerLive),
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(FigmaHandlerLive),
@@ -151,6 +158,7 @@ export const ApiLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(StatusesHandlerLive),
   Layer.provide(GroupsHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
+  Layer.provide(PublicOAuthHandlerLive),
   Layer.provide(StorageHandlerLive),
   Layer.provide(AttachmentsHandlerLive),
   Layer.provide(BackendHttpServicesLive)
@@ -185,17 +193,29 @@ const mcpRoute = Effect.gen(function* () {
 const badRequest = (message: string) =>
   HttpServerResponse.text(message, { status: 400 })
 
+const GithubSetupQuery = Schema.fromURLSearchParams(
+  Schema.Struct({
+    state: Schema.NonEmptyString,
+    installation_id: Schema.NonEmptyString
+  })
+)
+const GithubCallbackQuery = Schema.fromURLSearchParams(
+  Schema.Struct({
+    state: Schema.NonEmptyString,
+    code: Schema.NonEmptyString
+  })
+)
+
 const githubSetupRoute = Effect.gen(function* () {
   const integrations = yield* GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const state = url.searchParams.get("state")
-  const installationId = url.searchParams.get("installation_id")
-  if (!state || !installationId) return badRequest("Missing GitHub setup state")
+  const query = Schema.decodeOption(GithubSetupQuery)(url.searchParams)
+  if (Option.isNone(query)) return badRequest("Missing GitHub setup state")
   const { authorizeUrl } = yield* integrations.completeSetup(
-    state,
-    installationId
+    query.value.state,
+    query.value.installation_id
   )
   return HttpServerResponse.redirect(authorizeUrl)
 }).pipe(
@@ -224,10 +244,12 @@ const githubCallbackRoute = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const state = url.searchParams.get("state")
-  const code = url.searchParams.get("code")
-  if (!state || !code) return badRequest("Missing GitHub callback state")
-  const { redirectUrl } = yield* integrations.completeCallback(state, code)
+  const query = Schema.decodeOption(GithubCallbackQuery)(url.searchParams)
+  if (Option.isNone(query)) return badRequest("Missing GitHub callback state")
+  const { redirectUrl } = yield* integrations.completeCallback(
+    query.value.state,
+    query.value.code
+  )
   return HttpServerResponse.redirect(redirectUrl)
 }).pipe(
   Effect.catchTags({

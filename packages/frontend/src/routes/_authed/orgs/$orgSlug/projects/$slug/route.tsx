@@ -15,6 +15,7 @@ import {
   type MouseEvent,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
@@ -33,25 +34,23 @@ import {
   type LucideIcon
 } from "lucide-react"
 import { statusMetaFor } from "@/lib/ticket-meta"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
-  projectAtom,
-  projectKey,
-  updateProjectSetupAtom
+  project,
+  projectRequest,
+  updateProject,
+  updateProjectSetup
 } from "@/atoms/projects"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import { projectGitStates } from "@/atoms/github"
 import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
-import { projectGitStatesAtom } from "@/atoms/github"
-import { everhourProjectStatusAtom } from "@/atoms/everhour"
+  everhourProjectRequest,
+  everhourProjectStatusAtom
+} from "@/atoms/everhour"
 import {
   activeAndPlannedCount,
   pickActiveSprint,
@@ -74,7 +73,6 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
-import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type { FileRouteTypes } from "@/routeTree.gen"
 import type {
@@ -88,11 +86,13 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
     const { registry } = context
-    registry.mount(projectAtom(projectKey(orgSlug, slug)))()
-    registry.mount(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))()
-    registry.mount(sprintsListAtom(sprintsProjectKey(orgSlug, slug)))()
-    registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
-    registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
+    registry.mount(project(projectRequest(orgSlug, slug)))()
+    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
+    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
+    registry.mount(
+      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
+    )()
     return {
       crumb: [
         {
@@ -119,13 +119,15 @@ const HEADERLESS_ROUTE_IDS: ReadonlyArray<FileRouteTypes["id"]> = [
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const req = projectRequest(orgSlug, slug)
+  const projectResult = useAtomValue(project(req))
+  const projectUpdate = useAtomValue(updateProject(req))
   const headerHidden = useMatches({
     select: (matches) =>
       matches.some((match) => HEADERLESS_ROUTE_IDS.includes(match.routeId))
   })
 
-  return Result.matchWithError(project, {
+  return Result.matchWithError(projectResult, {
     onInitial: () => (
       <PageContainer>
         <Skeleton />
@@ -155,40 +157,38 @@ function ProjectLayout() {
       />
     ),
     onSuccess: ({ value, waiting }) => (
-      <ProjectContext.Provider value={value}>
-        <TagRenamesProvider>
-          <ProjectGitStatePolling
+      <ProjectContext.Provider value={req}>
+        <ProjectGitStatePolling
+          orgSlug={orgSlug}
+          slug={slug}
+          enabled={value.github !== null}
+        />
+        <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
+        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+          <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
-            enabled={value.github !== null}
+            banner={value.banner}
+            waiting={waiting && projectUpdate.waiting}
           />
-          <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
-            <ProjectBanner
-              orgSlug={orgSlug}
-              slug={slug}
-              banner={value.banner}
-              waiting={waiting}
-            />
-            {!headerHidden && (
-              <PageContainer className="gap-3">
-                <ProjectHeader
-                  orgSlug={orgSlug}
-                  slug={value.slug}
-                  name={value.name}
-                  project={value}
-                />
-                <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
-              </PageContainer>
-            )}
-            <RetainedProjectViews
-              key={`${orgSlug}/${slug}`}
-              orgSlug={orgSlug}
-              slug={slug}
-            />
-            <Outlet />
-          </div>
-        </TagRenamesProvider>
+          {!headerHidden && (
+            <PageContainer className="gap-3">
+              <ProjectHeader
+                orgSlug={orgSlug}
+                slug={value.slug}
+                name={value.name}
+                project={value}
+              />
+              <TabsNav orgSlug={orgSlug} slug={slug} project={value} />
+            </PageContainer>
+          )}
+          <RetainedProjectViews
+            key={`${orgSlug}/${slug}`}
+            orgSlug={orgSlug}
+            slug={slug}
+          />
+          <Outlet />
+        </div>
       </ProjectContext.Provider>
     )
   })
@@ -244,9 +244,9 @@ function ProjectSetupRail({
   project: ProjectDetailType
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const gitStates = useAtomValue(projectGitStatesAtom(key))
-  const updateSetup = useAtomSet(updateProjectSetupAtom(key))
+  const req = projectRequest(orgSlug, slug)
+  const gitStates = useAtomValue(projectGitStates(req))
+  const updateSetup = useAtomSet(updateProjectSetup(req))
   if (!canManage) return null
 
   const brokenGithub =
@@ -385,15 +385,19 @@ function TabsNav({
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
-  const ticketsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
+  const countsReq = useMemo(
+    () => countsRequest(orgSlug, slug, {}),
+    [orgSlug, slug]
   )
+  const ticketsResult = useAtomValue(ticketCounts(countsReq))
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.total
     : null
-  const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsCount = Result.isSuccess(sprintsResult)
     ? activeAndPlannedCount(sprintsResult.value)
     : null
@@ -415,9 +419,11 @@ function TabsNav({
   const navigate = useNavigate()
   const isActive = (key: TabKey) => selectedTab === key
 
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const statusSlugs = boardStatusesFor(statuses)
   const byStatusRaw = Result.isSuccess(ticketsResult)
@@ -613,7 +619,11 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
             void navigate({
               to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
               params: { orgSlug, slug, groupId },
-              search: (prev) => ({ ...prev, view: next })
+              search: (prev) => ({
+                ...prev,
+                updatedAfter: prev.updatedAfter?.toISOString(),
+                view: next
+              })
             })
           })
         }
@@ -634,7 +644,11 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           void navigate({
             to: "/orgs/$orgSlug/projects/$slug",
             params: { orgSlug, slug },
-            search: (prev) => ({ ...prev, view: next })
+            search: (prev) => ({
+              ...prev,
+              updatedAfter: prev.updatedAfter?.toISOString(),
+              view: next
+            })
           })
         })
       }

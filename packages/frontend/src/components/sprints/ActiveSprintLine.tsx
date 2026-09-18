@@ -1,8 +1,9 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
+import { useMemo } from "react"
 import { m } from "@/paraglide/messages"
-import { projectKey, sprintsListAtom } from "@/atoms/sprints"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { daysLeft, pickActiveSprint } from "@projectproject/shared"
 import { SprintStateIcon } from "./SprintChip"
 
@@ -13,7 +14,8 @@ export function ActiveSprintLine({
   orgSlug: string
   slug: string
 }) {
-  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const list = useAtomValue(sprintList(req))
   const sprints = Result.isSuccess(list) ? list.value : []
   const active = pickActiveSprint(sprints)
 

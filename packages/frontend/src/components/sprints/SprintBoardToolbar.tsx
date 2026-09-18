@@ -1,17 +1,15 @@
+import { useAtomValue } from "@effect/atom-react"
+import * as Result from "effect/unstable/reactivity/AsyncResult"
+import { useMemo } from "react"
+import { boardRequest, sprintBoard } from "@/atoms/sprintBoard"
 import { TicketToolbar } from "@/components/TicketList/toolbar"
-import type {
-  GroupId,
-  Member,
-  TicketId,
-  TicketListQuery
-} from "@projectproject/shared"
+import type { GroupId, Member, TicketListQuery } from "@projectproject/shared"
 import { useBoardTickets } from "./useBoardTickets"
 
 export function SprintBoardToolbar({
   orgSlug,
   slug,
   groupId,
-  ticketIds,
   query,
   onQueryChange,
   members
@@ -19,12 +17,17 @@ export function SprintBoardToolbar({
   orgSlug: string
   slug: string
   groupId: GroupId
-  ticketIds: ReadonlyArray<TicketId>
   query: TicketListQuery
   onQueryChange: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>
 }) {
-  const { counts } = useBoardTickets(orgSlug, slug, groupId, ticketIds, query)
+  const req = useMemo(
+    () => boardRequest(orgSlug, slug, groupId),
+    [orgSlug, slug, groupId]
+  )
+  const board = useAtomValue(sprintBoard(req))
+  const tickets = Result.isSuccess(board) ? board.value.tickets : []
+  const { counts } = useBoardTickets(orgSlug, slug, tickets, query)
   return (
     <TicketToolbar
       orgSlug={orgSlug}

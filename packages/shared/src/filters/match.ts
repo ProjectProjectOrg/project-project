@@ -4,6 +4,7 @@ import type {
   TicketType
 } from "../schemas/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
+import type { UserId } from "../schemas/User"
 
 export interface MatchableTicket {
   readonly id: string
@@ -21,7 +22,8 @@ export interface MatchableTicket {
 
 export const matchesTicketFilter = (
   ticket: MatchableTicket,
-  filter: TicketFilter | undefined
+  filter: TicketFilter | undefined,
+  viewerId?: UserId
 ): boolean => {
   if (!filter) return true
 
@@ -37,13 +39,16 @@ export const matchesTicketFilter = (
 
   if (filter.assignee !== undefined) {
     if (filter.assignee.length === 0) return false
-    const wantsUnassigned = filter.assignee.includes(null)
-    const wantedIds = filter.assignee.filter(
-      (a): a is string => a !== null && a !== "mine"
-    )
+    const wantsUnassigned = filter.assignee.includes("unassigned")
     const isUnassigned = ticket.assignees.length === 0
-    const hasWantedId = ticket.assignees.some((a) => wantedIds.includes(a))
-    if (!(wantsUnassigned && isUnassigned) && !hasWantedId) return false
+    const hasWantedAssignee = ticket.assignees.some((ticketAssignee) =>
+      filter.assignee?.some((wantedAssignee) =>
+        wantedAssignee === "mine"
+          ? ticketAssignee === viewerId
+          : wantedAssignee === ticketAssignee
+      )
+    )
+    if (!(wantsUnassigned && isUnassigned) && !hasWantedAssignee) return false
   }
 
   if (filter.tags !== undefined) {
@@ -71,23 +76,13 @@ export const matchesTicketFilter = (
 
 export const matchesTicketQuery = (
   ticket: MatchableTicket,
-  query: Pick<TicketListQuery, "filter" | "q">,
-  viewerId: string
+  query: TicketFilter & Pick<TicketListQuery, "q">,
+  viewerId: UserId | undefined
 ): boolean => {
-  const showArchived = query.filter?.archived === true
+  const showArchived = query.archived === true
   if ((ticket.archivedAt !== null) !== showArchived) return false
 
-  if (query.filter !== undefined) {
-    const resolvedFilter: TicketFilter = query.filter.assignee
-      ? {
-          ...query.filter,
-          assignee: query.filter.assignee.map((a) =>
-            a === "mine" ? viewerId : a
-          )
-        }
-      : query.filter
-    if (!matchesTicketFilter(ticket, resolvedFilter)) return false
-  }
+  if (!matchesTicketFilter(ticket, query, viewerId)) return false
 
   if (query.q !== undefined) {
     const needle = query.q.trim().toLowerCase()

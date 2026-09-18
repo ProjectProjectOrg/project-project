@@ -7,12 +7,13 @@ import {
   type FigmaRef,
   type TicketDetail
 } from "@projectproject/shared"
-import { ticketBodyDraftAtom, ticketKey } from "@/atoms/tickets"
+import { ticketBodyDraft, ticketRequest } from "@/atoms/ticketDetail"
 import { FigmaGlyph, figmaDisplayName } from "@/components/Lexical/FigmaChip"
+import { useFigmaMetadata } from "@/components/Lexical/figmaMetadata"
 import {
-  FigmaTicketProvider,
-  useFigmaMetadata
-} from "@/components/Lexical/figmaMetadata"
+  figmaTicketLinksRequest,
+  type FigmaTicketLinksRequest
+} from "@/atoms/figma"
 import { PaperGlyph } from "@/components/Lexical/PaperNode"
 import { isPaperDesignUrl } from "@/components/Lexical/paperUrl"
 import { MetaRow } from "@/components/TicketPage/MetaRow"
@@ -100,11 +101,13 @@ function LinkContents({
 }
 
 function FigmaDesignLink({
-  link
+  link,
+  request
 }: {
   link: Extract<TicketDesignLink, { kind: "figma" }>
+  request: FigmaTicketLinksRequest
 }) {
-  const metadata = useFigmaMetadata(link.reference)
+  const metadata = useFigmaMetadata(link.reference, request)
   const name = figmaDisplayName({
     resolved: metadata?.name ?? null,
     label: link.label,
@@ -170,28 +173,29 @@ export function TicketDesignLinks({
   slug: string
   ticket: TicketDetail
 }) {
-  const key = ticketKey(orgSlug, slug, ticket.id)
-  const bodyDraft = useAtomValue(ticketBodyDraftAtom(key))
+  const figmaRequest = figmaTicketLinksRequest(orgSlug, slug, ticket.id)
+  const bodyDraft = useAtomValue(
+    ticketBodyDraft(ticketRequest(orgSlug, slug, ticket.id))
+  )
   const links = extractTicketDesignLinks(bodyDraft ?? ticket.body)
 
   if (links.length === 0) return null
 
   return (
     <MetaRow label={m.tickets_page_meta_designs()}>
-      <FigmaTicketProvider target={{ orgSlug, slug, ticketId: ticket.id }}>
-        <div className="flex flex-col gap-0.5">
-          {links.map((link) =>
-            link.kind === "figma" ? (
-              <FigmaDesignLink
-                key={`figma:${figmaRefKey(link.reference)}`}
-                link={link}
-              />
-            ) : (
-              <PaperDesignLink key={`paper:${link.url}`} link={link} />
-            )
-          )}
-        </div>
-      </FigmaTicketProvider>
+      <div className="flex flex-col gap-0.5">
+        {links.map((link) =>
+          link.kind === "figma" ? (
+            <FigmaDesignLink
+              key={`figma:${figmaRefKey(link.reference)}`}
+              link={link}
+              request={figmaRequest}
+            />
+          ) : (
+            <PaperDesignLink key={`paper:${link.url}`} link={link} />
+          )
+        )}
+      </div>
     </MetaRow>
   )
 }

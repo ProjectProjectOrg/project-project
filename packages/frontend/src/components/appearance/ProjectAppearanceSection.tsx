@@ -10,7 +10,8 @@ import {
 } from "@projectproject/shared"
 import {
   projectKey as makeProjectKey,
-  updateProjectAtom
+  projectRequest,
+  updateProject
 } from "@/atoms/projects"
 import { ColorPicker } from "@/components/ColorPicker"
 import { CroppedImage } from "@/components/CroppedImage"
@@ -57,9 +58,9 @@ export function ProjectAppearanceSection({
   banner: ProjectBanner | null
   canEdit: boolean
 }) {
-  const key = makeProjectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key))
-  const updateState = useAtomValue(updateProjectAtom(key))
+  const req = projectRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req))
+  const updateState = useAtomValue(updateProject(req))
   const [editing, setEditing] = useState<"icon" | "banner" | null>(null)
   const [live, setLive] = useState<LiveIcon | null>(null)
   const [pickingColor, setPickingColor] = useState(false)
@@ -201,7 +202,7 @@ export function ProjectAppearanceSection({
                       onCancel={() => setEditing(null)}
                     />
                     <ProjectBannerForm
-                      key={key}
+                      key={makeProjectKey(orgSlug, slug)}
                       orgSlug={orgSlug}
                       slug={slug}
                       banner={banner}

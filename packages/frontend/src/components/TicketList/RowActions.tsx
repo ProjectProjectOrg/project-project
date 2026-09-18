@@ -2,8 +2,12 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link } from "@tanstack/react-router"
 import { Archive, ArchiveRestore, MoreHorizontal, Split } from "lucide-react"
-import { useState } from "react"
-import { ticketKey, unarchiveTicketAtom } from "@/atoms/tickets"
+import { useMemo, useState } from "react"
+import {
+  archiveTicket,
+  ticketRequest,
+  unarchiveTicket
+} from "@/atoms/ticketDetail"
 import { ArchiveForm } from "@/components/TicketList/ArchiveControl"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,9 +32,14 @@ export function TicketRowActions({
 }) {
   const [archiving, setArchiving] = useState(false)
   const [reason, setReason] = useState("")
-  const tKey = ticketKey(orgSlug, slug, id)
-  const unarchive = useAtomSet(unarchiveTicketAtom(tKey))
-  const unarchiveState = useAtomValue(unarchiveTicketAtom(tKey))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, id),
+    [orgSlug, slug, id]
+  )
+  const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
+  const archiveState = useAtomValue(archiveTicket(req))
+  const unarchive = useAtomSet(unarchiveTicket(req))
+  const unarchiveState = useAtomValue(unarchiveTicket(req))
 
   return (
     <DropdownMenu
@@ -64,9 +73,11 @@ export function TicketRowActions({
         {archiving ? (
           <div className="p-1">
             <ArchiveForm
-              tKey={tKey}
               reason={reason}
               onReasonChange={setReason}
+              onArchive={archive}
+              waiting={archiveState.waiting}
+              failed={Result.isFailure(archiveState)}
               onClose={() => setArchiving(false)}
             />
           </div>

@@ -1,70 +1,47 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useMemo } from "react"
-import { meAtom } from "@/atoms/auth"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
-import { pendingTicketStatusAtom, sprintKey } from "@/atoms/sprints"
-import { ticketsInSprintAtom, ticketsInSprintKey } from "@/atoms/tickets"
+import { me } from "@/atoms/auth"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { matchesTicketQuery } from "@projectproject/shared"
-import type {
-  GroupId,
-  Ticket,
-  TicketId,
-  TicketListQuery,
-  TicketStatus
-} from "@projectproject/shared"
-import { boardStatusesFor, effectiveStatus } from "./board-utils"
+import type { Ticket, TicketListQuery } from "@projectproject/shared"
+import { boardStatusesFor } from "./board-utils"
 
 export type BoardTickets = {
-  readonly ticketById: ReadonlyMap<TicketId, Ticket>
-  readonly matchingTicketIds: ReadonlyArray<TicketId>
+  readonly matchingTickets: ReadonlyArray<Ticket>
   readonly counts: Record<string, number>
 }
 
 export function useBoardTickets(
   orgSlug: string,
   slug: string,
-  groupId: GroupId,
-  ticketIds: ReadonlyArray<TicketId>,
+  tickets: ReadonlyArray<Ticket>,
   query: TicketListQuery
 ): BoardTickets {
-  const list = useAtomValue(
-    ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, groupId))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
-  const overlay = useAtomValue(
-    pendingTicketStatusAtom(sprintKey(orgSlug, slug, groupId))
-  )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
-  )
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
-
-  const ticketById = useMemo(() => {
-    const m = new Map<TicketId, Ticket>()
-    if (Result.isSuccess(list)) {
-      for (const t of list.value) m.set(t.id, t)
-    }
-    return m
-  }, [list])
+  const statusesResult = useAtomValue(statusesFor(statusReq))
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : undefined
 
   const boardQuery = useMemo(() => {
-    const { archived: _archived, ...filter } = query.filter ?? {}
-    return { filter, q: query.q }
+    const {
+      archived: _archived,
+      cursor: _cursor,
+      sort: _sort,
+      ...filter
+    } = query
+    return filter
   }, [query])
 
-  const matchingTicketIds = useMemo(
+  const matchingTickets = useMemo(
     () =>
-      ticketIds.filter((tid) => {
-        const ticket = ticketById.get(tid)
-        if (!ticket) return true
-        const status = effectiveStatus(ticket, overlay) as TicketStatus
-        return matchesTicketQuery({ ...ticket, status }, boardQuery, viewerId)
-      }),
-    [ticketIds, ticketById, overlay, boardQuery, viewerId]
+      tickets.filter((ticket) =>
+        matchesTicketQuery(ticket, boardQuery, viewerId)
+      ),
+    [tickets, boardQuery, viewerId]
   )
 
   const statusSlugs = useMemo(
@@ -78,15 +55,12 @@ export function useBoardTickets(
   const counts = useMemo(() => {
     const next: Record<string, number> = { all: 0 }
     for (const status of statusSlugs) next[status] = 0
-    for (const tid of matchingTicketIds) {
-      const ticket = ticketById.get(tid)
-      if (!ticket) continue
+    for (const ticket of matchingTickets) {
       next.all += 1
-      const status = effectiveStatus(ticket, overlay)
-      if (status in next) next[status] += 1
+      if (ticket.status in next) next[ticket.status] += 1
     }
     return next
-  }, [matchingTicketIds, ticketById, overlay, statusSlugs])
+  }, [matchingTickets, statusSlugs])
 
-  return { ticketById, matchingTicketIds, counts }
+  return { matchingTickets, counts }
 }

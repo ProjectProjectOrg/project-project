@@ -1,11 +1,14 @@
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
-import { afterEach, expect, it, vi } from "vitest"
-import { meAtom } from "@/atoms/auth"
-import { AppLayer } from "@/runtime"
-import { userMentionProvider } from "./userProvider"
+import * as Schema from "effect/Schema"
+import { expect, it, vi } from "vitest"
+import { UserId } from "@projectproject/shared"
+import { stubFetch } from "@/api/testFetch"
+import { me } from "@/atoms/auth"
+import { userProvider } from "./userProvider"
 
-afterEach(() => vi.unstubAllGlobals())
+const userId = Schema.decodeSync(UserId)
+const fetchStub = stubFetch()
 
 it("reuses cached identity for repeated mentions and matches supplied members without requests", async () => {
   const registry = Registry.make()
@@ -30,19 +33,16 @@ it("reuses cached identity for repeated mentions and matches supplied members wi
       }
     })
   )
-  vi.stubGlobal("fetch", fetch)
+  fetchStub.set(fetch)
   const scope = { orgSlug: "org", slug: "project" }
   const search = (q: string, members?: (typeof member)[]) =>
     Effect.runPromise(
-      userMentionProvider
-        .search(q, { ...scope, members })
-        .pipe(
-          Effect.provideService(Registry.AtomRegistry, registry),
-          Effect.provide(AppLayer)
-        )
+      userProvider({ ...scope, members })
+        .search(q)
+        .pipe(Effect.provideService(Registry.AtomRegistry, registry))
     )
   const member = {
-    id: "member-1",
+    id: userId("member-1"),
     name: "Wouter",
     username: "wvh",
     email: "wouter@example.com",
@@ -50,7 +50,7 @@ it("reuses cached identity for repeated mentions and matches supplied members wi
     role: "member" as const
   }
   try {
-    await Effect.runPromise(Registry.getResult(registry, meAtom))
+    await Effect.runPromise(Registry.getResult(registry, me()))
     expect(await search("lu")).toEqual([
       { id: "user-1", label: "Luuk", image: null }
     ])

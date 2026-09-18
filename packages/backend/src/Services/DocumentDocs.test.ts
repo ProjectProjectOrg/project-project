@@ -67,57 +67,55 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
   return Layer.succeed(Markdown, service)
 }
 
-it.effect(
-  "TicketDocs reads legacy ticket frontmatter as a typed document",
-  () =>
-    Effect.gen(function* () {
-      const docs = yield* TicketDocs
-      const document = yield* docs.read("org", "project", "T-1")
+it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
+  Effect.gen(function* () {
+    const docs = yield* TicketDocs
+    const document = yield* docs.read("org", "project", "T-1")
 
-      expect(document).toMatchObject({
-        id: "T-1",
-        title: "Fix auth",
-        status: ticketStatus("todo"),
-        type: "bug",
-        priority: "med",
-        tags: [],
-        branch: null,
-        pr: null,
-        prState: null,
-        lastTransitionedPr: null,
-        assignees: ["user-1"],
-        createdBy: "user-2",
-        body: "# Fix auth\n",
-        commentsRegion: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
-      })
-      expect(document.createdAt.toISOString()).toBe("2026-01-01T00:00:00.000Z")
-      expect(document.updatedAt.toISOString()).toBe("2026-01-02T00:00:00.000Z")
-    }).pipe(
-      Effect.provide(
-        TicketDocsLive.pipe(
-          Layer.provide(
-            makeMarkdown({
-              readTicketParts: () =>
-                Effect.succeed({
-                  data: {
-                    id: "T-1",
-                    title: "Fix auth",
-                    status: ticketStatus("todo"),
-                    type: "bug",
-                    branch: null,
-                    assignee: "user-1",
-                    createdBy: "user-2",
-                    createdAt: "2026-01-01T00:00:00.000Z",
-                    updatedAt: "2026-01-02T00:00:00.000Z"
-                  },
-                  description: "# Fix auth\n",
-                  region: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
-                })
-            })
-          )
+    expect(document).toMatchObject({
+      id: "T-1",
+      title: "Fix auth",
+      status: ticketStatus("todo"),
+      type: "bug",
+      priority: "med",
+      tags: [],
+      branch: null,
+      pr: null,
+      prState: null,
+      lastTransitionedPr: null,
+      assignees: ["user-1"],
+      createdBy: "user-2",
+      body: "# Fix auth\n",
+      commentsRegion: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
+    })
+    expect(document.createdAt.toISOString()).toBe("2026-01-01T00:00:00.000Z")
+    expect(document.updatedAt.toISOString()).toBe("2026-01-02T00:00:00.000Z")
+  }).pipe(
+    Effect.provide(
+      TicketDocsLive.pipe(
+        Layer.provide(
+          makeMarkdown({
+            readTicketParts: () =>
+              Effect.succeed({
+                data: {
+                  id: "T-1",
+                  title: "Fix auth",
+                  status: ticketStatus("todo"),
+                  type: "bug",
+                  branch: null,
+                  assignees: ["user-1"],
+                  createdBy: "user-2",
+                  createdAt: "2026-01-01T00:00:00.000Z",
+                  updatedAt: "2026-01-02T00:00:00.000Z"
+                },
+                description: "# Fix auth\n",
+                region: "<!-- pp:comments:start -->\n<!-- pp:comments:end -->"
+              })
+          })
         )
       )
     )
+  )
 )
 
 it.effect(
