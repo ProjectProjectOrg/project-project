@@ -10,8 +10,14 @@ verification into an Effect middleware built on Better Auth's own primitives.
 
 ## Goals
 
-- Serve MCP `2026-07-28` only. No `Mcp-Session-Id`, no in-memory session state,
-  any backend instance can answer any request.
+- Serve MCP `2026-07-28` as the primary revision. Clients on it need no
+  `Mcp-Session-Id` and no server-side state; any backend instance can answer
+  any request.
+- Keep `2025-11-25` and `2025-06-18` reachable for clients that have not
+  caught up (Cursor 3.21, Gemini CLI 0.60). Those go through Effect's
+  stateful runtime, which keeps sessions in memory.
+- Fix the connected-agents page so each supported platform gets its current,
+  verified connect instructions.
 - One source of truth for the tool catalog: `McpTools` in `packages/shared`
   keeps describing every tool; the backend derives `Tool.make` definitions
   from it.
@@ -25,10 +31,11 @@ verification into an Effect middleware built on Better Auth's own primitives.
 
 ## Non-goals
 
-- Legacy protocol revisions. Claude Code (2.1.273) and Codex (0.154.0) already
-  negotiate `2026-07-28`; the npm SDK client lags but is not a production
-  consumer here. Adding `McpProtocol.v2025_11_25` later is a one-line change
-  plus accepting Effect's in-memory sessions for those clients.
+- Revisions older than `2025-06-18`, and the historical two-endpoint
+  HTTP+SSE transport.
+- Distributed session storage for the legacy revisions. Until Cursor and
+  Gemini CLI ship `2026-07-28`, legacy clients assume a single backend
+  instance or sticky routing; the modern path has no such constraint.
 - MCP resources, prompts, elicitation, `subscriptions/listen`. Tools only, as
   today.
 - Changing the OAuth flow, consent screen, scopes, or the connected-agents UI.
@@ -41,15 +48,18 @@ workspace in one commit before any MCP work. Whatever the bump breaks in the
 frontend or backend gets fixed in that commit; the MCP rewrite starts from a
 green typecheck and test run.
 
-`@modelcontextprotocol/sdk` is removed from `packages/backend`. Its only
-remaining uses are the server transport (replaced) and the test client
-(cannot speak `2026-07-28`, replaced by a raw JSON-RPC helper).
+`@modelcontextprotocol/sdk` leaves the backend's runtime dependencies. It
+stays as a dev dependency only: its client (1.30.0, tops out at `2025-11-25`)
+is the right tool to exercise the legacy session path in tests. The
+`2026-07-28` path is tested with a raw JSON-RPC helper because no released
+client library speaks it yet.
 
 ## Architecture
 
 ```
 HttpRouter
-  └─ /mcp  (McpServer.layerHttp, protocols: [McpProtocol.v2026_07_28])
+  └─ /mcp  (McpServer.layerHttp,
+             protocols: [v2026_07_28, v2025_11_25, v2025_06_18])
        ├─ McpAuthMiddleware      verifies bearer, resolves User, sets McpRequestUser
        └─ McpServer.toolkit      Toolkit built from McpTools, handlers from handlers.ts
 ```
@@ -128,7 +138,8 @@ accept negotiation are all Effect's; nothing to write.
 ```
 McpServer.layerHttp({
   name: "projectproject", version, instructions,
-  path: "/mcp", protocols: [McpProtocol.v2026_07_28]
+  path: "/mcp",
+  protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18]
 }).pipe(
   Layer.provideMerge(McpServer.toolkit(McpToolkit)),
   Layer.provide(McpToolkitHandlersLive),
@@ -152,16 +163,40 @@ retain in handler context) and calling the same `McpAuth` verification there,
 with the middleware keeping the 401 challenge role. The spec's file layout is
 unchanged either way.
 
+## Connected-agents page
+
+`ConnectedAgentsSection.tsx` keeps its disclosure-per-platform layout but the
+platform list and snippets change to what each client documents and ships
+today. All instructions rely on the server's OAuth discovery and dynamic
+client registration; none needs a pre-shared client id.
+
+| Platform | Snippet | Follow-up |
+| --- | --- | --- |
+| Claude Code | `claude mcp add --transport http projectproject <url>` | `/mcp` inside Claude Code, or `claude mcp login projectproject` |
+| Codex CLI | `codex mcp add projectproject --url <url>` | `codex mcp login projectproject` |
+| Cursor | `.cursor/mcp.json` with `{ "mcpServers": { "projectproject": { "url": "<url>" } } }` plus an "Install in Cursor" deeplink button | Click the login prompt Cursor shows for the server |
+| Gemini CLI | `gemini mcp add --transport http projectproject <url>` | The CLI runs OAuth on first request |
+
+The Codex TOML snippet goes; the CLI command is the documented path now. The
+Gemini `httpUrl` JSON snippet goes for the same reason. A short note per
+platform states which MCP revision it currently uses, so the session caveat
+for Cursor and Gemini CLI is visible where it matters. New message ids stay
+under the existing `profile_connect_mcp_` prefix in `account.json`.
+
 ## Testing
 
-- `Layers/McpHttp.test.ts` → `Layers/Mcp.test.ts`. Same DB-backed setup, two
-  runtimes round-robin, same assertions (401 challenge headers, expired
-  token, `405`, user isolation, consent revocation, validation error text,
-  unknown tool `-32602`). The client becomes a small helper that posts
-  JSON-RPC with the `MCP-Protocol-Version: 2026-07-28` header and the
-  `_meta` envelope the revision requires (`io.modelcontextprotocol/protocolVersion`,
-  `clientCapabilities`, `clientInfo`). It asserts no `mcp-session-id` header
-  is ever returned.
+- `Layers/McpHttp.test.ts` → `Layers/Mcp.test.ts`. Same DB-backed setup and
+  assertions (401 challenge headers, expired token, `405`, user isolation,
+  consent revocation, validation error text, unknown tool `-32602`), split
+  across two clients:
+  - Modern path: a small helper posts JSON-RPC with the
+    `MCP-Protocol-Version: 2026-07-28` header and the `_meta` envelope the
+    revision requires (`io.modelcontextprotocol/protocolVersion`,
+    `clientCapabilities`, `clientInfo`). It runs against two runtimes
+    round-robin and asserts no `mcp-session-id` header is ever returned.
+  - Legacy path: the npm SDK `Client` over `StreamableHTTPClientTransport`
+    against a single runtime, asserting initialize negotiates `2025-11-25`,
+    a session id is issued, and tool calls succeed.
 - New `mcp/toolkit.test.ts`: for every tool, the emitted JSON Schema
   validates the same fixture inputs the same way as the schema `dispatch.ts`
   emits today (fixtures and expected verdicts captured before the rewrite
@@ -173,6 +208,7 @@ unchanged either way.
 
 None blocking. Resolved during planning:
 
-- Protocols: `2026-07-28` only.
+- Protocols: `2026-07-28` primary, `2025-11-25` and `2025-06-18` for Cursor
+  and Gemini CLI, in-memory sessions accepted for those.
 - Auth placement: middleware + `Context.Reference` (Option A).
 - Error wire format: keep today's text messages via `failure: Schema.String`.
