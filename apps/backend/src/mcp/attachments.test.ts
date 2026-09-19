@@ -1,3 +1,5 @@
+import * as Option from "effect/Option"
+import { McpRequestUser } from "./McpRequestUser"
 import { randomUUID, randomBytes } from "node:crypto"
 
 import {
@@ -43,7 +45,6 @@ import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
   AttachmentTooLarge,
-  CurrentUser,
   McpTools,
   NotFound,
   StorageNotConnected,
@@ -228,7 +229,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
   const context = yield* Layer.build(
     Layer.mergeAll(
       domain,
-      Layer.succeed(CurrentUser, user),
+      Layer.succeed(McpRequestUser, Option.some(user)),
       Layer.mock(Tickets.Tickets, {}),
       Layer.mock(Comments.Comments, {}),
       Layer.mock(Groups.Groups, {}),
@@ -827,7 +828,7 @@ describe("MCP attachment contracts", () => {
       const result = yield* handlers
         .prepare_ticket_attachment(decoded)
         .pipe(
-          Effect.provideService(CurrentUser, user),
+          Effect.provideService(McpRequestUser, Option.some(user)),
           Effect.provide(
             Layer.mergeAll(
               Layer.mock(AttachmentUploads.AttachmentUploads, { prepare }),

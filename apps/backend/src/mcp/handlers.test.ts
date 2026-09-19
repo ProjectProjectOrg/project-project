@@ -1,3 +1,5 @@
+import * as Option from "effect/Option"
+import { McpRequestUser } from "./McpRequestUser"
 import { describe, expect, it } from "@effect/vitest"
 import {
   CallToolRequestSchema,

@@ -8,11 +8,14 @@ import { mapToolError } from "./errorMap"
 type SpecOf<K extends McpToolName> = (typeof McpTools)[K]
 type InputOf<K extends McpToolName> = Schema.Schema.Type<SpecOf<K>["input"]>
 type OutputOf<K extends McpToolName> = Schema.Schema.Type<SpecOf<K>["output"]>
+type ErrorsOf<K extends McpToolName> = Schema.Schema.Type<
+  SpecOf<K>["errors"][number]
+>
 
 export type McpHandlers<R> = {
   readonly [K in McpToolName]: (
     input: InputOf<K>
-  ) => Effect.Effect<OutputOf<K>, unknown, R>
+  ) => Effect.Effect<OutputOf<K>, ErrorsOf<K>, R>
 }
 
 type McpToolFor<K extends McpToolName> = K extends McpToolName

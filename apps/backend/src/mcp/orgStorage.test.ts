@@ -1,3 +1,5 @@
+import * as Option from "effect/Option"
+import { McpRequestUser } from "./McpRequestUser"
 import { it } from "@effect/vitest"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
@@ -14,7 +16,6 @@ import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
 import {
-  CurrentUser,
   McpTools,
   NotFound,
   Org,
@@ -90,7 +91,7 @@ const fixture = (
     []
   const layer = Layer.mergeAll(
     unused,
-    Layer.succeed(CurrentUser, user),
+    Layer.succeed(McpRequestUser, Option.some(user)),
     Layer.mock(BetterAuth.BetterAuth, {
       getOrganization: (userId, orgSlug) => {
         calls.push({ operation: "organization", userId, orgSlug })
