@@ -141,7 +141,8 @@ type McpProvider = {
   readonly id: string
   readonly label: string
   readonly description: string
-  readonly language: "bash" | "json" | "toml"
+  readonly revision: string
+  readonly language: "bash" | "json"
   readonly buildSnippet: (mcpUrl: string) => string
 }
 
@@ -157,29 +158,36 @@ function ConnectMcpDisclosure() {
         id: "claude",
         label: m.profile_connect_mcp_claude_label(),
         description: m.profile_connect_mcp_claude_description(),
+        revision: "2026-07-28",
         language: "bash",
         buildSnippet: (url) =>
           `claude mcp add --transport http projectproject ${url}`
       },
       {
-        id: "gemini",
-        label: m.profile_connect_mcp_gemini_label(),
-        description: m.profile_connect_mcp_gemini_description(),
-        language: "json",
-        buildSnippet: (url) =>
-          JSON.stringify(
-            { mcpServers: { projectproject: { httpUrl: url } } },
-            null,
-            2
-          )
-      },
-      {
         id: "codex",
         label: m.profile_connect_mcp_codex_label(),
         description: m.profile_connect_mcp_codex_description(),
-        language: "toml",
+        revision: "2026-07-28",
+        language: "bash",
+        buildSnippet: (url) => `codex mcp add projectproject --url ${url}`
+      },
+      {
+        id: "cursor",
+        label: m.profile_connect_mcp_cursor_label(),
+        description: m.profile_connect_mcp_cursor_description(),
+        revision: "2025-11-25",
+        language: "json",
         buildSnippet: (url) =>
-          ["[mcp_servers.projectproject]", `url = "${url}"`].join("\n")
+          JSON.stringify({ mcpServers: { projectproject: { url } } }, null, 2)
+      },
+      {
+        id: "gemini",
+        label: m.profile_connect_mcp_gemini_label(),
+        description: m.profile_connect_mcp_gemini_description(),
+        revision: "2025-06-18",
+        language: "bash",
+        buildSnippet: (url) =>
+          `gemini mcp add --transport http projectproject ${url}`
       }
     ],
     []
@@ -260,6 +268,11 @@ function ProviderItem({
             <div className="space-y-2 px-3 pb-3">
               <p className="text-xs text-muted-foreground">
                 {provider.description}
+              </p>
+              <p className="text-[11px] text-muted-foreground/80">
+                {m.profile_connect_mcp_revision({
+                  revision: provider.revision
+                })}
               </p>
               <CodeSnippet code={snippet} language={provider.language} />
             </div>
