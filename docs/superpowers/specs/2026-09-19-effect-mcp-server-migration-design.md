@@ -73,9 +73,9 @@ HttpRouter
 | `mcp/dispatch.ts`, `mcp/currentUserStorage.ts` | `mcp/toolkit.ts` (catalog → `Tool`/`Toolkit`) |
 | `mcpRoute` bridge in `main.ts` | `Layers/Mcp.ts` merged into `RouteLive` |
 
-Kept as is: `packages/shared/src/mcp/*`, `mcp/handlers.ts` (signatures
-unchanged), `mcp/errorMap.ts`, `handlers.test.ts`, `attachments.test.ts`,
-`orgStorage.test.ts`.
+Kept as is: `packages/shared/src/mcp/*`, `mcp/errorMap.ts`. `mcp/handlers.ts`
+is restructured (below); its tests and `attachments.test.ts`,
+`orgStorage.test.ts` change only where they provided `CurrentUser`.
 
 ### `mcp/toolkit.ts`
 
@@ -83,16 +83,12 @@ Walks `McpTools` once and produces:
 
 - `Tool.make(name, { description, parameters: spec.input, success: spec.output, failure: Schema.String, failureMode: "return" })` per entry. `parameters` must be an object schema; the catalog already guarantees that.
 - `McpToolkit = Toolkit.make(...tools)`.
-- `makeHandlers(handlers: HandlersMap<R>)` producing the toolkit handler layer.
-  Each handler is wrapped once:
-
-  ```
-  withCurrentUser(handlers[name](input)).pipe(
-    Effect.mapError((e) => mapToolError(e).content[0].text),
-    Effect.tapDefect(log), Effect.catchDefect(die → mapToolError text),
-    Effect.withSpan(`mcp.tool.${name}`)
-  )
-  ```
+- `McpCurrentUser`: an effect that reads `McpRequestUser` and fails
+  `Unauthorized` when it is `None`. Handlers yield this instead of the
+  `CurrentUser` service, so no per-call injection is needed.
+- `toolFailure`: one `Effect.mapError` that turns a catalog error into the
+  `errorMap.ts` text, plus defect logging. It is applied once, at the layer
+  level, to every handler in the toolkit.
 
   `failure: Schema.String` is deliberate: Effect encodes a declared string
   failure as a single `text` content item with `isError: true`, so the agent
@@ -103,13 +99,21 @@ Walks `McpTools` once and produces:
 Unknown tool names are handled by Effect: `callTool` maps `ToolNotFound` to
 JSON-RPC `-32602`, matching the current behaviour.
 
+### `mcp/handlers.ts`
+
+Becomes the toolkit handler layer itself: `McpToolkit.toLayer({ ... })`. Tool
+names, parameter and success types come from the `Tool` definitions, so the
+hand-written `HandlersMap` type disappears with `dispatch.ts`. Every
+`yield* CurrentUser` becomes `yield* McpCurrentUser`; the domain logic in each
+handler is untouched. Spans move to `Effect.withSpan` per handler in the same
+file.
+
 ### `McpRequestUser`
 
 A `Context.Reference<Option<User>>` with default `None`, defined next to
 `CurrentUser` in the backend. References carry a default, so they never show
 up as a static requirement of the toolkit layer, yet they are read from the
-request fiber. The auth middleware sets it; `withCurrentUser` reads it,
-fails `Unauthorized` on `None`, and provides `CurrentUser` to the handler.
+request fiber. The auth middleware sets it; `McpCurrentUser` reads it.
 
 This mirrors how Effect's own `McpServer` threads `CurrentLogLevel` per request.
 
@@ -157,10 +161,10 @@ route.
 Before writing the middleware for real, a one-file check: mount `layerHttp`
 with a single tool that reads `McpRequestUser`, wrap the route in a
 middleware that sets it, and post one `2026-07-28` request. Expected: the
-handler sees the value. If it does not, the fallback is reading the bearer
-token inside `withCurrentUser` from `HttpServerRequest` (which Effect does
-retain in handler context) and calling the same `McpAuth` verification there,
-with the middleware keeping the 401 challenge role. The spec's file layout is
+handler sees the value. If it does not, the fallback is for `McpCurrentUser`
+to read the bearer token from `HttpServerRequest` (which Effect does retain
+in handler context) and call the same `McpAuth` verification there, with the
+middleware keeping the 401 challenge role. The spec's file layout is
 unchanged either way.
 
 ## Connected-agents page
@@ -203,7 +207,8 @@ under the existing `profile_connect_mcp_` prefix in `account.json`.
   emits today (fixtures and expected verdicts captured before the rewrite
   with Ajv, which stays a dev dependency), and a declared error becomes `{ isError: true, content: [{ type: "text", text }] }`
   with the `errorMap.ts` text.
-- Existing handler tests run unchanged.
+- Existing handler tests keep their cases; where they provided
+  `CurrentUser` they now provide `McpRequestUser`.
 
 ## Open decisions
 
@@ -211,5 +216,6 @@ None blocking. Resolved during planning:
 
 - Protocols: `2026-07-28` primary, `2025-11-25` and `2025-06-18` for Cursor
   and Gemini CLI, in-memory sessions accepted for those.
-- Auth placement: middleware + `Context.Reference` (Option A).
+- Auth placement: middleware + `Context.Reference` (Option A), read directly
+  by handlers via `McpCurrentUser`; `handlers.ts` becomes the toolkit layer.
 - Error wire format: keep today's text messages via `failure: Schema.String`.
