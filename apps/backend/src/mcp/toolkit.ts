@@ -36,10 +36,10 @@ const objectType = Schema.makeFilter(() => true, {
 const withObjectJsonSchema = <S extends Schema.Top>(schema: S): S =>
   Schema.toJsonSchemaDocument(schema).schema.type === "object"
     ? schema
-    : (schema.check(objectType) as unknown as S)
+    : (schema.check(objectType) as S)
 
 const makeTool = <K extends McpToolName>(name: K): McpToolFor<K> => {
-  const spec = McpTools[name] as SpecOf<K>
+  const spec = McpTools[name]
   return Tool.make(name, {
     description: spec.description,
     parameters: withObjectJsonSchema(spec.input),
@@ -49,7 +49,7 @@ const makeTool = <K extends McpToolName>(name: K): McpToolFor<K> => {
   }) as McpToolFor<K>
 }
 
-const toolNames = Object.keys(McpTools) as ReadonlyArray<McpToolName>
+const toolNames = Record.keys(McpTools)
 
 export const McpToolkit = Toolkit.make(
   ...toolNames.map((name) => makeTool(name))
@@ -61,7 +61,7 @@ export const toolFailure = <A, E, R>(
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, string, R> =>
   effect.pipe(
-    Effect.tapDefect((cause) => Effect.logError("mcp tool defect", cause)),
+    Effect.tapDefect((defect) => Effect.logError("mcp tool defect", defect)),
     Effect.mapError(failureText),
     Effect.catchDefect((defect) => Effect.fail(failureText(defect)))
   )

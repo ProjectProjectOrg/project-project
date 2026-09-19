@@ -4,7 +4,12 @@ import * as Effect from "effect/Effect"
 import { Tool } from "effect/unstable/ai"
 import { McpTools, NotFound, Validation } from "@projectproject/shared"
 import legacy from "./__fixtures__/legacyInputSchemas.json"
-import { McpToolkit, toolFailure } from "./toolkit"
+import {
+  McpToolkit,
+  toToolkitHandlers,
+  toolFailure,
+  type McpHandlers
+} from "./toolkit"
 
 const fixtures: Record<string, ReadonlyArray<unknown>> = {
   me: [{}, [], { extra: 1 }],
@@ -27,6 +32,21 @@ describe("McpToolkit", () => {
     expect(Object.keys(McpToolkit.tools).sort()).toEqual(
       Object.keys(McpTools).sort()
     )
+  })
+
+  test("input schemas are structurally identical to the legacy schemas", () => {
+    for (const name of Object.keys(McpTools)) {
+      const { $defs, ...before } = legacy[
+        name as keyof typeof legacy
+      ] as Record<string, unknown>
+      expect($defs).toEqual({})
+      expect(
+        Tool.getJsonSchema(
+          McpToolkit.tools[name as keyof typeof McpToolkit.tools]
+        ),
+        name
+      ).toEqual(before)
+    }
   })
 
   test("input schemas accept and reject the same inputs as before", () => {
@@ -62,5 +82,45 @@ describe("McpToolkit", () => {
     expect(
       await Effect.runPromise(Effect.flip(toolFailure(Effect.die("boom"))))
     ).toBe("Internal error.")
+  })
+})
+
+describe("toToolkitHandlers", () => {
+  const stub = {
+    me: () => Effect.succeed({ ok: true }),
+    get_org: () => Effect.fail(new NotFound())
+  } as unknown as McpHandlers<never>
+
+  test("preserves the handler keys", () => {
+    expect(Object.keys(toToolkitHandlers(stub))).toEqual(["me", "get_org"])
+  })
+
+  test("passes a success through unchanged", async () => {
+    const handlers = toToolkitHandlers(stub) as unknown as Record<
+      string,
+      (input: unknown) => Effect.Effect<unknown, string>
+    >
+    expect(await Effect.runPromise(handlers.me({}))).toEqual({ ok: true })
+  })
+
+  test("maps a declared failure to the errorMap text", async () => {
+    const handlers = toToolkitHandlers(stub) as unknown as Record<
+      string,
+      (input: unknown) => Effect.Effect<never, string>
+    >
+    expect(await Effect.runPromise(Effect.flip(handlers.get_org({})))).toBe(
+      "Not found."
+    )
+  })
+
+  test("wraps each handler in an mcp.tool.<name> span", async () => {
+    const spans = {
+      me: () => Effect.map(Effect.currentSpan, (span) => span.name)
+    } as unknown as McpHandlers<never>
+    const handlers = toToolkitHandlers(spans) as unknown as Record<
+      string,
+      (input: unknown) => Effect.Effect<unknown, string>
+    >
+    expect(await Effect.runPromise(handlers.me({}))).toBe("mcp.tool.me")
   })
 })
