@@ -45,9 +45,7 @@
         "maxLength": 64
       }
     },
-    "required": [
-      "orgSlug"
-    ],
+    "required": ["orgSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -83,9 +81,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug"
-    ],
+    "required": ["orgSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -105,10 +101,7 @@
         "maxLength": 64
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -138,12 +131,7 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "sprint",
-                        "epic",
-                        "milestone",
-                        "other"
-                      ]
+                      "enum": ["sprint", "epic", "milestone", "other"]
                     }
                   },
                   {
@@ -192,10 +180,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -218,11 +203,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "active",
-              "planned",
-              "completed"
-            ]
+            "enum": ["active", "planned", "completed"]
           },
           {
             "type": "null"
@@ -252,10 +233,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -279,11 +257,7 @@
         "pattern": "^G-[1-9][0-9]*$"
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -329,12 +303,7 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "feat",
-                        "bug",
-                        "chore",
-                        "other"
-                      ]
+                      "enum": ["feat", "bug", "chore", "other"]
                     }
                   },
                   {
@@ -350,9 +319,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": [
-                            "mine"
-                          ]
+                          "enum": ["mine"]
                         },
                         {
                           "type": "null"
@@ -474,10 +441,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -501,11 +465,7 @@
         "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -525,10 +485,7 @@
         "maxLength": 64
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -570,10 +527,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -615,10 +569,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -649,10 +600,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -672,10 +620,7 @@
         "maxLength": 64
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -699,11 +644,7 @@
         "pattern": "^G-[1-9][0-9]*$"
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -727,11 +668,7 @@
         "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -772,12 +709,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "feat",
-              "bug",
-              "chore",
-              "other"
-            ]
+            "enum": ["feat", "bug", "chore", "other"]
           },
           {
             "type": "null"
@@ -788,11 +720,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "low",
-              "med",
-              "high"
-            ]
+            "enum": ["low", "med", "high"]
           },
           {
             "type": "null"
@@ -837,11 +765,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "title"
-    ],
+    "required": ["orgSlug", "projectSlug", "title"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -893,12 +817,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "feat",
-              "bug",
-              "chore",
-              "other"
-            ]
+            "enum": ["feat", "bug", "chore", "other"]
           },
           {
             "type": "null"
@@ -909,11 +828,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "low",
-              "med",
-              "high"
-            ]
+            "enum": ["low", "med", "high"]
           },
           {
             "type": "null"
@@ -958,11 +873,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -998,10 +909,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "rich",
-              "compact"
-            ]
+            "enum": ["rich", "compact"]
           },
           {
             "type": "null"
@@ -1055,12 +963,7 @@
         "maxLength": 20000
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "ticketId",
-      "body"
-    ],
+    "required": ["orgSlug", "projectSlug", "ticketId", "body"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1089,12 +992,7 @@
         "maxLength": 255
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id",
-      "name"
-    ],
+    "required": ["orgSlug", "projectSlug", "id", "name"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1178,11 +1076,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "name"
-    ],
+    "required": ["orgSlug", "projectSlug", "name"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1273,11 +1167,7 @@
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id"
-    ],
+    "required": ["orgSlug", "projectSlug", "id"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1307,19 +1197,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": [
-                  "sprint"
-                ]
+                "enum": ["sprint"]
               },
               "groupId": {
                 "type": "string",
                 "pattern": "^G-[1-9][0-9]*$"
               }
             },
-            "required": [
-              "kind",
-              "groupId"
-            ],
+            "required": ["kind", "groupId"],
             "additionalProperties": true
           },
           {
@@ -1327,25 +1212,16 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": [
-                  "backlog"
-                ]
+                "enum": ["backlog"]
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "additionalProperties": true
           }
         ]
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "id",
-      "destination"
-    ],
+    "required": ["orgSlug", "projectSlug", "id", "destination"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1365,10 +1241,7 @@
         "maxLength": 64
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug"
-    ],
+    "required": ["orgSlug", "projectSlug"],
     "additionalProperties": true,
     "$defs": {}
   },
@@ -1399,12 +1272,7 @@
         }
       }
     },
-    "required": [
-      "orgSlug",
-      "projectSlug",
-      "groupId",
-      "ticketIds"
-    ],
+    "required": ["orgSlug", "projectSlug", "groupId", "ticketIds"],
     "additionalProperties": true,
     "$defs": {}
   }
