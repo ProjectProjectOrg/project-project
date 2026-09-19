@@ -48,19 +48,23 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     method: string,
     params: Record<string, unknown> = {},
     overrides: {
-      headers?: Record<string, string>
+      headers?: Record<string, string | undefined>
       meta?: Record<string, unknown>
     } = {}
   ) => {
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      "mcp-protocol-version": "2026-07-28",
-      "mcp-method": method,
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(typeof params.name === "string" ? { "mcp-name": params.name } : {}),
-      ...overrides.headers
-    }
+    const headers = Object.fromEntries(
+      Object.entries({
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2026-07-28",
+        "mcp-method": method,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(typeof params.name === "string" ? { "mcp-name": params.name } : {}),
+        ...overrides.headers
+      }).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string"
+      )
+    )
     const response = await nextHandler()(
       new Request(resource, {
         method: "POST",
@@ -99,7 +103,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     name: string,
     args: Record<string, unknown> = {},
     overrides: {
-      headers?: Record<string, string>
+      headers?: Record<string, string | undefined>
       meta?: Record<string, unknown>
     } = {}
   ) => modern(token, "tools/call", { name, arguments: args }, overrides)
@@ -260,7 +264,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   it("modern: isolates users across round-robin handlers", async () => {
     await Promise.all(
       Array.from({ length: 6 }, async (_, i) => {
-        const userIndex = i % tokens.length
+        const userIndex = [0, 0, 1, 0, 1, 1][i]
         const { body } = await callTool(tokens[userIndex], "me")
         expect(body.result.isError).toBeFalsy()
         expect(body.result.content[0].text).toContain(userIds[userIndex])
@@ -295,6 +299,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     )
     const missing = await callTool(tokens[0], "get_org", { orgSlug: orgId })
     expect(missing.body.result.isError).toBe(true)
+    expect(missing.body.result.content[0].text).toContain("Not found.")
   })
 
   it("modern: unknown tool is JSON-RPC -32602", async () => {
@@ -329,16 +334,22 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     )
     expect(status).toBe(400)
     expect(body.error.code).toBe(-32020)
+    expect(body.error.message).toContain(
+      "Mcp-Name header does not match request parameters"
+    )
   })
 
   it("modern: missing MCP-Protocol-Version header is 400", async () => {
-    const { status } = await modern(
+    const { status, body } = await modern(
       tokens[0],
       "tools/list",
       {},
-      { headers: { "mcp-protocol-version": "" } }
+      { headers: { "mcp-protocol-version": undefined } }
     )
     expect(status).toBe(400)
+    expect(body.error.message).toContain(
+      "MCP-Protocol-Version header is required"
+    )
   })
 
   it("auth: unauthenticated and expired requests get a 401 challenge", async () => {
@@ -369,11 +380,13 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     const client = new Client({ name: "legacy-test", version: "1" })
     clients.push(client)
     let sessionSeen = false
+    let negotiatedVersion: string | null = null
     const transport = new StreamableHTTPClientTransport(new URL(resource), {
       requestInit: { headers: { authorization: `Bearer ${tokens[1]}` } },
       fetch: async (input, init) => {
         const response = await handlers[0](new Request(input.toString(), init))
         if (response.headers.get("mcp-session-id")) sessionSeen = true
+        negotiatedVersion = response.headers.get("mcp-protocol-version")
         return response
       }
     })
@@ -381,18 +394,21 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(sessionSeen).toBe(true)
     expect(transport.sessionId).toBeDefined()
     const result = await client.callTool({ name: "me", arguments: {} })
+    expect(negotiatedVersion).toBe("2025-11-25")
     expect(result).toMatchObject({
       content: [{ type: "text", text: expect.stringContaining(userIds[1]) }]
     })
   })
 
-  it("auth: revoking consent locks the token out", async () => {
-    await pool.query("DELETE FROM oauth_provider_consent WHERE id=$1", [
-      consentIds[0]
-    ])
-    const { status } = await modern(tokens[0], "tools/list")
-    expect(status).toBe(401)
-    const other = await callTool(tokens[1], "me")
-    expect(other.body.result.content[0].text).toContain(userIds[1])
+  describe("after consent revocation", () => {
+    it("auth: revoking consent locks the token out", async () => {
+      await pool.query("DELETE FROM oauth_provider_consent WHERE id=$1", [
+        consentIds[0]
+      ])
+      const { status } = await modern(tokens[0], "tools/list")
+      expect(status).toBe(401)
+      const other = await callTool(tokens[1], "me")
+      expect(other.body.result.content[0].text).toContain(userIds[1])
+    })
   })
 })
