@@ -23,6 +23,8 @@ class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown
 }> {}
 
+class ConsentRevoked extends Data.TaggedError("ConsentRevoked")<{}> {}
+
 const ConsentIds = Schema.Array(Schema.String)
 
 const resourceMetadataUrl = new URL(
@@ -46,15 +48,22 @@ const unauthorized = HttpServerResponse.jsonUnsafe(
 
 const challenge = (cause: unknown) => {
   const apiError = createResourceServerChallenge(cause, mcpResource)
-  if (!apiError) return unauthorized
+  if (!apiError) {
+    return Effect.andThen(
+      Effect.logError("mcp access token verification failed", cause),
+      Effect.die(cause)
+    )
+  }
   const headers = Object.fromEntries(new Headers(apiError.headers).entries())
-  return HttpServerResponse.jsonUnsafe(
-    {
-      jsonrpc: "2.0",
-      error: { code: -32000, message: apiError.message },
-      id: null
-    },
-    { status: apiError.statusCode, headers }
+  return Effect.succeed(
+    HttpServerResponse.jsonUnsafe(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32000, message: apiError.message },
+        id: null
+      },
+      { status: apiError.statusCode, headers }
+    )
   )
 }
 
@@ -123,16 +132,13 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
         const request = yield* HttpServerRequest.HttpServerRequest
         const claims = yield* verify(request)
         const user = yield* resolveUser(claims)
-        if (Option.isNone(user)) {
-          return yield* new TokenRejected({
-            cause: new Error("consent revoked")
-          })
-        }
+        if (Option.isNone(user)) return yield* new ConsentRevoked()
         return yield* Effect.provideService(effect, McpRequestUser, user)
       }).pipe(
-        Effect.catchTag("TokenRejected", (e) =>
-          Effect.succeed(challenge(e.cause))
-        )
+        Effect.catchTags({
+          TokenRejected: (e) => challenge(e.cause),
+          ConsentRevoked: () => Effect.succeed(unauthorized)
+        })
       )
   })
 ).layer
