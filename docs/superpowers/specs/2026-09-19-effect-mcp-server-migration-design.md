@@ -18,6 +18,9 @@ verification into an Effect middleware built on Better Auth's own primitives.
   stateful runtime, which keeps sessions in memory.
 - Fix the connected-agents page so each supported platform gets its current,
   verified connect instructions.
+- Support Client ID Metadata Documents (CIMD) for client registration, which
+  the 2026-07-28 authorization spec asks authorization servers to support,
+  while keeping Dynamic Client Registration for legacy clients.
 - One source of truth for the tool catalog: `McpTools` in `packages/shared`
   keeps describing every tool; the backend derives `Tool.make` definitions
   from it.
@@ -38,7 +41,9 @@ verification into an Effect middleware built on Better Auth's own primitives.
   instance or sticky routing; the modern path has no such constraint.
 - MCP resources, prompts, elicitation, `subscriptions/listen`. Tools only, as
   today.
-- Changing the OAuth flow, consent screen, scopes, or the connected-agents UI.
+- Changing the OAuth flow, consent screen, scopes, or the connected-agents
+  list. The registration mechanism gains CIMD; everything after registration
+  is unchanged.
 
 ## What the MCP specification requires
 
@@ -62,6 +67,12 @@ pages, and where they are satisfied:
 | `405` for GET and DELETE on the endpoint for modern clients | Effect `layerHttp` |
 | Authenticate all connections, `401` with `WWW-Authenticate` for OAuth discovery | `Layers/McpAuth.ts` |
 | Modern requests never mint or echo `Mcp-Session-Id` | Effect stateless runtime; asserted in tests |
+
+From the [authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
+page: authorization servers SHOULD support Client ID Metadata Documents and
+MAY keep Dynamic Client Registration, which is deprecated. Protected resource
+metadata, OAuth 2.1 with PKCE, and audience-bound tokens are MUSTs and are
+already provided by the Better Auth MCP plugin.
 
 Nothing in our code re-implements protocol mechanics. When Cursor and Gemini
 CLI move to the modern era, the legacy adapters and their test leave; the
@@ -164,6 +175,32 @@ An `HttpRouter.middleware` scoped to the `/mcp` route (not global). Per request:
 Method gating (`405` for non-POST), `Origin` rejection, content-type and
 accept negotiation are all Effect's; nothing to write.
 
+### Client registration: CIMD next to DCR
+
+`auth.ts` composes `cimd()` from `@better-auth/cimd` (same `1.7.3` pin as
+`better-auth`) after the `mcp()` plugin, with
+`metadataProfile: "mcp-2026-07-28"` as the MCP plugin's own documentation
+prescribes. With CIMD an agent's `client_id` is the HTTPS URL of a JSON
+document it hosts; Better Auth fetches and validates that document, persists
+the client through the same OAuth Provider registration path DCR uses, and
+advertises `client_id_metadata_document_supported: true` in the authorization
+server metadata. Claude Code and Codex read that flag and prefer CIMD; Codex
+exposes the choice as `--oauth-client-registration AUTO|CIMD|DCR`.
+
+Because CIMD clients land in the same `oauth_client` and consent tables, the
+consent-row check in `Layers/McpAuth.ts` and the connected-agents list are
+unchanged. `allowDynamicClientRegistration` stays on for Cursor and Gemini
+CLI and leaves together with the legacy protocol adapters.
+
+The plugin requires a hardened transport for fetching metadata documents
+(DNS pinning, TLS identity preserved, redirects refused, 5 KB limit). Better
+Auth ships one as `@better-auth/cimd/node`. This backend runs on Bun, so the
+plan includes a check that this transport behaves on Bun; if it does not, a
+Bun-native `fetchClientMetadataResource` with the same guarantees is written
+in `packages/backend/src/auth/cimdTransport.ts`. `isMetadataDocumentUrlAllowed`
+is left permissive: any HTTPS origin, since agents host their documents on
+their own domains.
+
 ### `Layers/Mcp.ts`
 
 ```
@@ -241,6 +278,12 @@ under the existing `profile_connect_mcp_` prefix in `account.json`.
   with the `errorMap.ts` text.
 - Existing handler tests keep their cases; where they provided
   `CurrentUser` they now provide `McpRequestUser`.
+- Registration: `oauthCompatibility.test.ts` gains two cases. The
+  authorization server metadata advertises
+  `client_id_metadata_document_supported: true`, and an authorization
+  request whose `client_id` is an HTTPS metadata URL (served by the test
+  HTTP server) reaches consent with the document's `client_name`. DCR keeps
+  its existing case.
 
 ## Open decisions
 
@@ -250,4 +293,5 @@ None blocking. Resolved during planning:
   and Gemini CLI, in-memory sessions accepted for those.
 - Auth placement: middleware + `Context.Reference` (Option A), read directly
   by handlers via `McpCurrentUser`; `handlers.ts` becomes the toolkit layer.
+- Client registration: CIMD added, DCR kept until the legacy adapters go.
 - Error wire format: keep today's text messages via `failure: Schema.String`.
