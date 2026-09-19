@@ -40,6 +40,33 @@ verification into an Effect middleware built on Better Auth's own primitives.
   today.
 - Changing the OAuth flow, consent screen, scopes, or the connected-agents UI.
 
+## What the MCP specification requires
+
+The [2026-07-28 versioning page](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning)
+calls what we are building a **dual-era** server: modern clients declare the
+protocol version on every request and are served statelessly; legacy clients
+open with `initialize` and get a session scoped to the negotiated revision.
+A dual-era server MAY serve both on the same endpoint, which is what
+`layerHttp` does with a mixed `protocols` list.
+
+Server-side MUSTs from the versioning and
+[Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http)
+pages, and where they are satisfied:
+
+| Requirement | Satisfied by |
+| --- | --- |
+| Implement `server/discover` | Effect `v2026_07_28` adapter |
+| Reject unknown or disabled versions with `400` and `-32022` listing `supported` | Effect runtime, list derived from `protocols` |
+| Require `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`; reject mismatches with `400` and `-32020` | Effect runtime |
+| Validate `Origin`, `403` when present and not allowed | Effect `layerHttp` (`allowedOrigins` left unset: agents send no `Origin`) |
+| `405` for GET and DELETE on the endpoint for modern clients | Effect `layerHttp` |
+| Authenticate all connections, `401` with `WWW-Authenticate` for OAuth discovery | `Layers/McpAuth.ts` |
+| Modern requests never mint or echo `Mcp-Session-Id` | Effect stateless runtime; asserted in tests |
+
+Nothing in our code re-implements protocol mechanics. When Cursor and Gemini
+CLI move to the modern era, the legacy adapters and their test leave; the
+modern path is unchanged.
+
 ## Version bump
 
 `effect`, `@effect/platform-bun`, `@effect/sql-pg`, `@effect/atom-react` and
@@ -194,11 +221,16 @@ under the existing `profile_connect_mcp_` prefix in `account.json`.
   assertions (401 challenge headers, expired token, `405`, user isolation,
   consent revocation, validation error text, unknown tool `-32602`), split
   across two clients:
-  - Modern path: a small helper posts JSON-RPC with the
-    `MCP-Protocol-Version: 2026-07-28` header and the `_meta` envelope the
-    revision requires (`io.modelcontextprotocol/protocolVersion`,
-    `clientCapabilities`, `clientInfo`). It runs against two runtimes
+  - Modern path: a small helper posts JSON-RPC exactly as the transport
+    page specifies: `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`,
+    `Mcp-Name` for `tools/call`, `Accept` listing both media types, and the
+    `_meta` envelope (`io.modelcontextprotocol/protocolVersion`,
+    `clientInfo`, `clientCapabilities`). It runs against two runtimes
     round-robin and asserts no `mcp-session-id` header is ever returned.
+    Protocol conformance cases, one each: `server/discover` lists all three
+    revisions; an unknown version gets `400` with `-32022` and the
+    `supported` list; a mismatched `Mcp-Name` gets `400` with `-32020`; a
+    request without `MCP-Protocol-Version` gets `400`.
   - Legacy path: the npm SDK `Client` over `StreamableHTTPClientTransport`
     against a single runtime, asserting initialize negotiates `2025-11-25`,
     a session id is issued, and tool calls succeed.
