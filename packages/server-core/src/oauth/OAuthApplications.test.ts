@@ -15,6 +15,7 @@ import { OAuthApplicationsLive } from "./OAuthApplicationsLive"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
+const utcTimestamp = (value: string) => date(value).toISOString()
 
 describe.skipIf(!databaseUrl)("OAuth application service", () => {
   const userA = randomUUID()
@@ -51,7 +52,7 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
       migrationsFolder
     })
 
-    const now = date("2026-09-07T12:00:00.000Z")
+    const now = utcTimestamp("2026-09-07T12:00:00.000Z")
     await pool.query(
       `INSERT INTO "user" (id, name, email, created_at, updated_at)
        VALUES ($1, 'OAuth user A', $2, $3, $3), ($4, 'OAuth user B', $5, $3, $3)`,
@@ -73,12 +74,12 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
         userA,
         ["openid"],
         now,
-        date("2026-09-07T12:01:00.000Z"),
+        utcTimestamp("2026-09-07T12:01:00.000Z"),
         consentA2,
-        date("2026-09-07T12:02:00.000Z"),
+        utcTimestamp("2026-09-07T12:02:00.000Z"),
         consentB,
         userB,
-        date("2026-09-07T12:03:00.000Z")
+        utcTimestamp("2026-09-07T12:03:00.000Z")
       ]
     )
     await pool.query(
@@ -90,8 +91,8 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
         `access-${accessA}`,
         clientId,
         userA,
-        date("2026-09-08T12:00:00.000Z"),
-        date("2026-09-07T12:04:00.000Z"),
+        utcTimestamp("2026-09-08T12:00:00.000Z"),
+        utcTimestamp("2026-09-07T12:04:00.000Z"),
         ["openid"]
       ]
     )
@@ -104,8 +105,8 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
         `refresh-${refreshA}`,
         clientId,
         userA,
-        date("2026-10-07T12:00:00.000Z"),
-        date("2026-09-07T12:05:00.000Z"),
+        utcTimestamp("2026-10-07T12:00:00.000Z"),
+        utcTimestamp("2026-09-07T12:05:00.000Z"),
         ["openid"]
       ]
     )
@@ -159,7 +160,7 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
           yield* Effect.promise(() =>
             pool.query(
               "INSERT INTO oauth_refresh_token (id, token, client_id, user_id, expires_at, created_at, scopes) VALUES ($1, $1, $1, $2, now(), $3, $4)",
-              [older, userA, date("2026-09-07T12:03:00.000Z"), ["openid"]]
+              [older, userA, utcTimestamp("2026-09-07T12:03:00.000Z"), ["openid"]]
             )
           )
           const service = yield* OAuthApplications

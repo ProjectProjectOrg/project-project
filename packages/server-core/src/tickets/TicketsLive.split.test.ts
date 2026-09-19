@@ -446,7 +446,7 @@ it.effect("split refuses a sprint the caller may not change", () =>
     const tickets = yield* Tickets
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
     const original = yield* seedOriginal
 
     const attempt = yield* Effect.result(
@@ -502,7 +502,7 @@ it.effect("split removes created tickets when the original update fails", () =>
     const tickets = yield* Tickets
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* Config.string("PROJECTS_DIR")
+    const root = yield* Config.String("PROJECTS_DIR")
     const original = yield* seedOriginal
 
     failUpsertAfter = upserts + 2
@@ -533,7 +533,7 @@ it.effect(
       const docs = yield* TicketDocs
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
-      const root = yield* Config.string("PROJECTS_DIR")
+      const root = yield* Config.String("PROJECTS_DIR")
       const original = yield* seedOriginal
       const originalSprintId = decodeGroupId("G-1")
       sprintMemberships.set(original.id, originalSprintId)

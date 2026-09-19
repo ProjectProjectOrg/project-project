@@ -83,14 +83,14 @@ const decodeFigmaTokenResponse = Schema.decodeUnknownOption(FigmaTokenResponse)
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
 
-const publicBaseUrl = Config.string("BETTER_AUTH_URL").pipe(
+const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
   Config.withDefault("http://localhost:5173")
 )
 
 export const figmaOAuthClient: Effect.Effect<FigmaOAuthClient, FigmaError> =
   Effect.all({
-    clientId: Config.string("FIGMA_CLIENT_ID"),
-    clientSecret: Config.redacted("FIGMA_CLIENT_SECRET")
+    clientId: Config.String("FIGMA_CLIENT_ID"),
+    clientSecret: Config.Redacted("FIGMA_CLIENT_SECRET")
   }).pipe(
     Effect.mapError(
       () => new FigmaError({ reason: "figma_oauth_unconfigured" })

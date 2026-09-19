@@ -360,7 +360,7 @@ export const githubWebhookRoute = Effect.gen(function* () {
       status: 413
     })
   }
-  const secret = yield* Config.redacted("GITHUB_APP_WEBHOOK_SECRET")
+  const secret = yield* Config.Redacted("GITHUB_APP_WEBHOOK_SECRET")
   const verified = verifyGithubWebhook(
     body,
     webReq.headers.get("x-hub-signature-256"),
