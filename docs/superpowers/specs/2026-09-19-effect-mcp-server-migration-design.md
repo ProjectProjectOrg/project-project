@@ -15,9 +15,11 @@ verification into an Effect middleware built on Better Auth's own primitives.
 - One source of truth for the tool catalog: `McpTools` in `packages/shared`
   keeps describing every tool; the backend derives `Tool.make` definitions
   from it.
-- Agent-facing behaviour stays byte-for-byte where it matters: tool names,
-  input JSON Schema, success payloads, and the human-readable `isError` texts
-  from `errorMap.ts`.
+- Agent-facing behaviour is preserved: tool names, success payloads and the
+  human-readable `isError` texts from `errorMap.ts` stay byte-for-byte. Input
+  JSON Schema is emitted by Effect's `Tool.getJsonSchemaFromSchema` and may
+  differ in layout (`$defs` placement), but must accept and reject the same
+  inputs.
 - Better Auth stays the OAuth authorization server. Only the web-`Request`
   shaped `requireMcpAuth` wrapper goes.
 
@@ -160,9 +162,10 @@ unchanged either way.
   `_meta` envelope the revision requires (`io.modelcontextprotocol/protocolVersion`,
   `clientCapabilities`, `clientInfo`). It asserts no `mcp-session-id` header
   is ever returned.
-- New `mcp/toolkit.test.ts`: the JSON Schema emitted for every tool equals
-  what `dispatch.ts` emits today (snapshot taken before the rewrite), and a
-  declared error becomes `{ isError: true, content: [{ type: "text", text }] }`
+- New `mcp/toolkit.test.ts`: for every tool, the emitted JSON Schema
+  validates the same fixture inputs the same way as the schema `dispatch.ts`
+  emits today (fixtures and expected verdicts captured before the rewrite
+  with Ajv, which stays a dev dependency), and a declared error becomes `{ isError: true, content: [{ type: "text", text }] }`
   with the `errorMap.ts` text.
 - Existing handler tests run unchanged.
 
