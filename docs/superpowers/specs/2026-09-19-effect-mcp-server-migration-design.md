@@ -174,13 +174,14 @@ client registration; none needs a pre-shared client id.
 | --- | --- | --- |
 | Claude Code | `claude mcp add --transport http projectproject <url>` | `/mcp` inside Claude Code, or `claude mcp login projectproject` |
 | Codex CLI | `codex mcp add projectproject --url <url>` | `codex mcp login projectproject` |
-| Cursor | `.cursor/mcp.json` with `{ "mcpServers": { "projectproject": { "url": "<url>" } } }` plus an "Install in Cursor" deeplink button | Click the login prompt Cursor shows for the server |
+| Cursor | `.cursor/mcp.json` with `{ "mcpServers": { "projectproject": { "url": "<url>" } } }` | Click the login prompt Cursor shows for the server |
 | Gemini CLI | `gemini mcp add --transport http projectproject <url>` | The CLI runs OAuth on first request |
 
 The Codex TOML snippet goes; the CLI command is the documented path now. The
-Gemini `httpUrl` JSON snippet goes for the same reason. A short note per
-platform states which MCP revision it currently uses, so the session caveat
-for Cursor and Gemini CLI is visible where it matters. New message ids stay
+Gemini `httpUrl` JSON snippet goes for the same reason. Cursor's docs no
+longer describe an install deeplink, so the page offers `mcp.json` only. A
+short note per platform states which MCP revision it currently uses, so the
+session caveat for Cursor and Gemini CLI is visible where it matters. New message ids stay
 under the existing `profile_connect_mcp_` prefix in `account.json`.
 
 ## Testing
