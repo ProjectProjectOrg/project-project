@@ -1,3 +1,5 @@
+import { cimd } from "@better-auth/cimd"
+import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
@@ -467,6 +469,10 @@ export const auth = betterAuth({
           }
         }
       ]
+    }),
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28"
     }),
     {
       id: "legacy-mcp-resources",
