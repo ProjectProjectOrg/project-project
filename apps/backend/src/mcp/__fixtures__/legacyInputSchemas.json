@@ -1,9 +1,7 @@
 {
   "me": {
-    "not": {
-      "type": "null"
-    },
     "type": "object",
+    "additionalProperties": false,
     "$defs": {}
   },
   "list_orgs": {

@@ -3,85 +3,130 @@ import * as Record from "effect/Record"
 import * as Schema from "effect/Schema"
 import { Tool, Toolkit } from "effect/unstable/ai"
 import { McpTools, type McpToolName } from "@projectproject/shared"
-import { mapToolError } from "./errorMap"
+import { AttachmentUploads } from "../Services/AttachmentUploads"
+import { BetterAuth } from "../Services/BetterAuth"
+import { Comments } from "../Services/Comments"
+import { GroupDocs } from "../Services/GroupDocs"
+import { Groups } from "../Services/Groups"
+import { OrgStorage } from "../Services/OrgStorage"
+import { ProjectDocs } from "../Services/ProjectDocs"
+import { ProjectStatuses } from "../Services/ProjectStatuses"
+import { Projects } from "../Services/Projects"
+import { Tags } from "../Services/Tags"
+import { TicketDocs } from "../Services/TicketDocs"
+import { TicketIndex } from "../Services/TicketIndex"
+import { Tickets } from "../Services/Tickets"
+import { mappedToolErrorText } from "./errorMap"
+
+const handlerDependencies = [
+  AttachmentUploads,
+  BetterAuth,
+  Comments,
+  GroupDocs,
+  Groups,
+  OrgStorage,
+  ProjectDocs,
+  ProjectStatuses,
+  Projects,
+  Tags,
+  TicketDocs,
+  TicketIndex,
+  Tickets
+] as const
+
+export type McpHandlerEnv = (typeof handlerDependencies)[number]["Identifier"]
 
 type SpecOf<K extends McpToolName> = (typeof McpTools)[K]
 type InputOf<K extends McpToolName> = Schema.Schema.Type<SpecOf<K>["input"]>
 type OutputOf<K extends McpToolName> = Schema.Schema.Type<SpecOf<K>["output"]>
-type ErrorsOf<K extends McpToolName> = Schema.Schema.Type<
-  SpecOf<K>["errors"][number]
->
+
+type HandlerError = { readonly _tag: string }
 
 export type McpHandlers<R> = {
   readonly [K in McpToolName]: (
     input: InputOf<K>
-  ) => Effect.Effect<OutputOf<K>, ErrorsOf<K>, R>
+  ) => Effect.Effect<OutputOf<K>, HandlerError, R>
 }
 
-type McpToolFor<K extends McpToolName> = K extends McpToolName
-  ? Tool.Tool<
-      K,
-      {
-        readonly parameters: SpecOf<K>["input"]
-        readonly success: SpecOf<K>["output"]
-        readonly failure: typeof Schema.String
-        readonly failureMode: "return"
-      }
-    >
-  : never
-
-export type McpToolsByName = { readonly [K in McpToolName]: McpToolFor<K> }
-
-const objectType = Schema.makeFilter(() => true, {
-  toJsonSchema: () => ({ type: "object" })
-})
-
-const withObjectJsonSchema = <S extends Schema.Top>(schema: S): S =>
-  Schema.toJsonSchemaDocument(schema).schema.type === "object"
-    ? schema
-    : (schema.check(objectType) as S)
-
-const makeTool = <K extends McpToolName>(name: K): McpToolFor<K> => {
-  const spec = McpTools[name]
-  return Tool.make(name, {
+const makeTool = <
+  Name extends string,
+  Parameters extends Schema.Top,
+  Success extends Schema.Top
+>(
+  name: Name,
+  spec: {
+    readonly description: string
+    readonly input: Parameters
+    readonly output: Success
+  }
+) =>
+  Tool.make(name, {
     description: spec.description,
-    parameters: withObjectJsonSchema(spec.input),
+    parameters: spec.input,
     success: spec.output,
     failure: Schema.String,
-    failureMode: "return"
-  }) as McpToolFor<K>
-}
-
-const toolNames = Record.keys(McpTools)
+    failureMode: "return",
+    dependencies: [...handlerDependencies]
+  })
 
 export const McpToolkit = Toolkit.make(
-  ...toolNames.map((name) => makeTool(name))
-) as Toolkit.Toolkit<McpToolsByName>
+  makeTool("me", McpTools.me),
+  makeTool("list_orgs", McpTools.list_orgs),
+  makeTool("get_org", McpTools.get_org),
+  makeTool("list_projects", McpTools.list_projects),
+  makeTool("get_project", McpTools.get_project),
+  makeTool("list_groups", McpTools.list_groups),
+  makeTool("list_sprints", McpTools.list_sprints),
+  makeTool("get_group", McpTools.get_group),
+  makeTool("list_tickets", McpTools.list_tickets),
+  makeTool("get_ticket", McpTools.get_ticket),
+  makeTool("list_statuses", McpTools.list_statuses),
+  makeTool("list_tags", McpTools.list_tags),
+  makeTool("list_members", McpTools.list_members),
+  makeTool("get_git_state", McpTools.get_git_state),
+  makeTool("get_project_doc", McpTools.get_project_doc),
+  makeTool("get_group_doc", McpTools.get_group_doc),
+  makeTool("get_ticket_doc", McpTools.get_ticket_doc),
+  makeTool("create_ticket", McpTools.create_ticket),
+  makeTool("update_ticket", McpTools.update_ticket),
+  makeTool("prepare_ticket_attachment", McpTools.prepare_ticket_attachment),
+  makeTool("create_comment", McpTools.create_comment),
+  makeTool("attach_branch", McpTools.attach_branch),
+  makeTool("create_sprint", McpTools.create_sprint),
+  makeTool("update_sprint", McpTools.update_sprint),
+  makeTool("complete_sprint", McpTools.complete_sprint),
+  makeTool("rebuild_ticket_index", McpTools.rebuild_ticket_index),
+  makeTool("add_tickets_to_group", McpTools.add_tickets_to_group)
+)
 
-const failureText = (e: unknown) => mapToolError(e).content[0].text
+export type McpToolsByName = {
+  readonly [K in McpToolName]: (typeof McpToolkit.tools)[K]
+}
 
 export const toolFailure = <A, E, R>(
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, string, R> =>
   effect.pipe(
-    Effect.tapDefect((defect) => Effect.logError("mcp tool defect", defect)),
-    Effect.mapError(failureText),
-    Effect.catchDefect((defect) => Effect.fail(failureText(defect)))
+    Effect.catch((error) => {
+      if (typeof error === "string") return Effect.fail(error)
+      const mapped = mappedToolErrorText(error)
+      return mapped === undefined ? Effect.die(error) : Effect.fail(mapped)
+    })
   )
 
-type HandlerFailure = { readonly _tag: string }
+export const handle =
+  <I, A, E, R>(
+    name: McpToolName,
+    handler: (input: I) => Effect.Effect<A, E, R>
+  ) =>
+  (input: I) =>
+    toolFailure(handler(input)).pipe(Effect.withSpan(`mcp.tool.${name}`))
 
-type AnyHandler<R> = (
-  input: unknown
-) => Effect.Effect<unknown, HandlerFailure, R>
+type AnyHandler<R> = (input: never) => Effect.Effect<unknown, HandlerError, R>
 
 export const toToolkitHandlers = <R>(
   handlers: McpHandlers<R>
 ): Toolkit.HandlersFrom<McpToolsByName> =>
-  Record.map(
-    handlers,
-    (handler, name) => (input: unknown) =>
-      toolFailure((handler as AnyHandler<R>)(input)).pipe(
-        Effect.withSpan(`mcp.tool.${name}`)
-      )
+  Record.map(handlers, (handler, name) =>
+    handle(name, handler as AnyHandler<R>)
   ) as unknown as Toolkit.HandlersFrom<McpToolsByName>

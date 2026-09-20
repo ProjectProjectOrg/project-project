@@ -72,7 +72,7 @@ import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
 import { attachmentUploadRoute } from "../http/attachmentUploadRoutes"
-import { mapToolError } from "./errorMap"
+import { mappedToolErrorText } from "./errorMap"
 import { handlers } from "./handlers"
 
 const user = Schema.decodeSync(User)({
@@ -881,10 +881,9 @@ describe("MCP attachment contracts", () => {
     ).toBe(false)
   })
   it("reports the actual size limit without requesting a prepared byte size", () => {
-    const result = mapToolError(
-      new AttachmentTooLarge({ maxBytes: 1536 * 1024 })
-    )
-    expect(result.content[0].text).toBe(
+    expect(
+      mappedToolErrorText(new AttachmentTooLarge({ maxBytes: 1536 * 1024 }))
+    ).toBe(
       "AttachmentTooLarge: The file must be non-empty and at most 1.5 MiB."
     )
   })
@@ -895,10 +894,10 @@ describe("MCP attachment contracts", () => {
   ])(
     "exposes actionable storage errors without upstream details: $_tag",
     (error) => {
-      const result = mapToolError(error)
-      expect(result.isError).toBe(true)
-      expect(result.content[0].text).toContain(error._tag)
-      expect(result.content[0].text).not.toContain("private upstream details")
+      const text = mappedToolErrorText(error)
+      expect(text).toBeDefined()
+      expect(text).toContain(error._tag)
+      expect(text).not.toContain("private upstream details")
     }
   )
 })
