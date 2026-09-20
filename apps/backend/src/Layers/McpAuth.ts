@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import {
+  Headers as HttpHeaders,
   HttpRouter,
   HttpServerRequest,
   HttpServerResponse
@@ -23,46 +24,53 @@ class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown
 }> {}
 
+class InvalidAccessToken extends Data.TaggedError("InvalidAccessToken")<{}> {}
+
 class ConsentRevoked extends Data.TaggedError("ConsentRevoked")<{}> {}
 
-const ConsentIds = Schema.Array(Schema.String)
+const AccessTokenClaims = Schema.Struct({
+  sub: Schema.String,
+  client_id: Schema.String,
+  pp_consent_ids: Schema.NonEmptyArray(Schema.String)
+})
+
+const decodeClaims = Schema.decodeUnknownEffect(AccessTokenClaims)
 
 const resourceMetadataUrl = new URL(
   "/.well-known/oauth-protected-resource/mcp",
   mcpResource
 ).href
 
-const unauthorized = HttpServerResponse.jsonUnsafe(
-  {
-    jsonrpc: "2.0",
-    error: { code: -32000, message: "Unauthorized" },
-    id: null
-  },
-  {
-    status: 401,
-    headers: {
-      "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`
-    }
-  }
-)
+const jsonRpcError = (
+  message: string,
+  status: number,
+  headers?: HttpHeaders.Input
+) =>
+  HttpServerResponse.jsonUnsafe(
+    {
+      jsonrpc: "2.0",
+      error: { code: -32000, message },
+      id: null
+    },
+    { status, headers }
+  )
+
+const unauthorized = jsonRpcError("Unauthorized", 401, {
+  "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl}"`
+})
 
 const challenge = (cause: unknown) => {
   const apiError = createResourceServerChallenge(cause, mcpResource)
   if (!apiError) {
-    return Effect.andThen(
-      Effect.logError("mcp access token verification failed", cause),
-      Effect.die(cause)
+    return Effect.logError("mcp access token verification failed", cause).pipe(
+      Effect.andThen(Effect.die(cause))
     )
   }
-  const headers = Object.fromEntries(new Headers(apiError.headers).entries())
   return Effect.succeed(
-    HttpServerResponse.jsonUnsafe(
-      {
-        jsonrpc: "2.0",
-        error: { code: -32000, message: apiError.message },
-        id: null
-      },
-      { status: apiError.statusCode, headers }
+    jsonRpcError(
+      apiError.message,
+      apiError.statusCode,
+      HttpHeaders.fromInput(new Headers(apiError.headers))
     )
   )
 }
@@ -79,8 +87,10 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
     }
     const replayStore = createDpopReplayStore(internalAdapter)
 
-    const verify = (request: HttpServerRequest.HttpServerRequest) =>
-      Effect.tryPromise({
+    const verify = Effect.fn("McpAuth.verify")(function* (
+      request: HttpServerRequest.HttpServerRequest
+    ) {
+      return yield* Effect.tryPromise({
         try: () =>
           verifyAccessTokenRequest(
             {
@@ -97,46 +107,50 @@ export const McpAuthMiddlewareLive = HttpRouter.middleware(
           ),
         catch: (cause) => new TokenRejected({ cause })
       })
+    })
 
-    const resolveUser = (claims: Record<string, unknown>) =>
-      Effect.gen(function* () {
-        const userId = claims["sub"]
-        const clientId = claims["client_id"]
-        const consentIds = claims["pp_consent_ids"]
-        if (
-          typeof userId !== "string" ||
-          typeof clientId !== "string" ||
-          !Schema.is(ConsentIds)(consentIds) ||
-          consentIds.length === 0
-        ) {
-          return Option.none()
-        }
-        const consents = yield* db
-          .select({ id: oauthConsent.id })
-          .from(oauthConsent)
-          .where(
-            and(
-              eq(oauthConsent.userId, userId),
-              eq(oauthConsent.clientId, clientId),
-              inArray(oauthConsent.id, consentIds)
-            )
+    const resolveUser = Effect.fn("McpAuth.resolveUser")(function* (
+      claims: unknown
+    ) {
+      const decoded = yield* decodeClaims(claims).pipe(
+        Effect.mapError(() => new InvalidAccessToken())
+      )
+      const consents = yield* db
+        .select({ id: oauthConsent.id })
+        .from(oauthConsent)
+        .where(
+          and(
+            eq(oauthConsent.userId, decoded.sub),
+            eq(oauthConsent.clientId, decoded.client_id),
+            inArray(oauthConsent.id, decoded.pp_consent_ids)
           )
-          .limit(1)
-        if (consents.length === 0) return Option.none()
-        const found = yield* users.fullByIds([userId])
-        return Option.fromUndefinedOr(found[0])
-      }).pipe(Effect.orDie)
+        )
+        .limit(1)
+        .pipe(Effect.orDie)
+      if (consents.length === 0) {
+        return yield* new ConsentRevoked()
+      }
+      const found = yield* users.fullByIds([decoded.sub])
+      if (!found[0]) {
+        return yield* Effect.die("MCP token subject is missing from users")
+      }
+      return found[0]
+    })
 
     return (effect) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const claims = yield* verify(request)
         const user = yield* resolveUser(claims)
-        if (Option.isNone(user)) return yield* new ConsentRevoked()
-        return yield* Effect.provideService(effect, McpRequestUser, user)
+        return yield* Effect.provideService(
+          effect,
+          McpRequestUser,
+          Option.some(user)
+        )
       }).pipe(
         Effect.catchTags({
           TokenRejected: (e) => challenge(e.cause),
+          InvalidAccessToken: () => Effect.succeed(unauthorized),
           ConsentRevoked: () => Effect.succeed(unauthorized)
         })
       )
