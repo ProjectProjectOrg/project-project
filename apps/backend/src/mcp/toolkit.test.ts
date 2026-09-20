@@ -3,10 +3,11 @@ import Ajv from "ajv"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
 import { Tool } from "effect/unstable/ai"
 import { McpTools, NotFound, Validation } from "@projectproject/shared"
 import legacy from "./__fixtures__/legacyInputSchemas.json"
-import { handle, McpToolkit, toolFailure } from "./toolkit"
+import { handle, McpToolFailure, McpToolkit, toolFailure } from "./toolkit"
 
 const fixtures: Record<string, ReadonlyArray<unknown>> = {
   me: [{}, [], { extra: 1 }],
@@ -66,25 +67,36 @@ describe("McpToolkit", () => {
 
   test("toolFailure maps catalog errors to errorMap text", async () => {
     expect(
-      await Effect.runPromise(
-        Effect.flip(toolFailure(Effect.fail(new NotFound())))
-      )
+      (
+        await Effect.runPromise(
+          Effect.flip(toolFailure(Effect.fail(new NotFound())))
+        )
+      ).message
     ).toBe("Not found.")
     expect(
-      await Effect.runPromise(
-        Effect.flip(
-          toolFailure(Effect.fail(new Validation({ reason: "title required" })))
+      (
+        await Effect.runPromise(
+          Effect.flip(
+            toolFailure(
+              Effect.fail(new Validation({ reason: "title required" }))
+            )
+          )
         )
-      )
+      ).message
     ).toBe("Validation error (title required).")
   })
 
-  test("toolFailure leaves declared string failures alone", async () => {
+  test("toolFailure passes an already-mapped failure through untouched", async () => {
+    const failure = new McpToolFailure({ message: "Not found." })
     expect(
-      await Effect.runPromise(
-        Effect.flip(toolFailure(Effect.fail("Not found.")))
-      )
-    ).toBe("Not found.")
+      await Effect.runPromise(Effect.flip(toolFailure(Effect.fail(failure))))
+    ).toBe(failure)
+  })
+
+  test("the failure carries the text as an Error message, not a JSON string", () => {
+    const failure = new McpToolFailure({ message: "Not found." })
+    expect(failure.message).toBe("Not found.")
+    expect(Schema.is(McpToolFailure)(failure)).toBe(true)
   })
 
   test("toolFailure leaves defects for McpServer to scrub", async () => {
@@ -111,7 +123,8 @@ describe("handle", () => {
   test("maps a declared failure to the errorMap text", async () => {
     const get_org = handle("get_org", () => Effect.fail(new NotFound()))
     expect(
-      await Effect.runPromise(Effect.flip(get_org({ orgSlug: "acme" })))
+      (await Effect.runPromise(Effect.flip(get_org({ orgSlug: "acme" }))))
+        .message
     ).toBe("Not found.")
   })
 

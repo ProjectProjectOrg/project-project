@@ -42,6 +42,11 @@ type OutputOf<K extends McpToolName> = Schema.Schema.Type<SpecOf<K>["output"]>
 
 type HandlerError = { readonly _tag: string }
 
+export class McpToolFailure extends Schema.TaggedError<McpToolFailure>()(
+  "McpToolFailure",
+  { message: Schema.String }
+) {}
+
 export type McpHandlers<R> = {
   readonly [K in McpToolName]: (
     input: InputOf<K>
@@ -64,8 +69,8 @@ const makeTool = <
     description: spec.description,
     parameters: spec.input,
     success: spec.output,
-    failure: Schema.String,
-    failureMode: "return",
+    failure: McpToolFailure,
+    failureMode: "error",
     dependencies: [...handlerDependencies]
   })
 
@@ -103,14 +108,18 @@ export type McpToolsByName = {
   readonly [K in McpToolName]: (typeof McpToolkit.tools)[K]
 }
 
+const isToolFailure = Schema.is(McpToolFailure)
+
 export const toolFailure = <A, E, R>(
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, string, R> =>
+): Effect.Effect<A, McpToolFailure, R> =>
   effect.pipe(
     Effect.catch((error) => {
-      if (typeof error === "string") return Effect.fail(error)
+      if (isToolFailure(error)) return Effect.fail(error)
       const mapped = mappedToolErrorText(error)
-      return mapped === undefined ? Effect.die(error) : Effect.fail(mapped)
+      return mapped === undefined
+        ? Effect.die(error)
+        : Effect.fail(new McpToolFailure({ message: mapped }))
     })
   )
 

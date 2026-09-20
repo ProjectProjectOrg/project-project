@@ -303,7 +303,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   it("modern: not-found is isError text", async () => {
     const missing = await callTool(tokens[0], "get_org", { orgSlug: orgId })
     expect(missing.body.result.isError).toBe(true)
-    expect(missing.body.result.content[0].text).toContain("Not found.")
+    expect(missing.body.result.content[0].text).toBe("Not found.")
   })
 
   it("modern: unknown tool is JSON-RPC -32602", async () => {
