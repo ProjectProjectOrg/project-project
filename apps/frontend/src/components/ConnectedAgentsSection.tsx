@@ -15,7 +15,6 @@ import { ChevronRight, KeyRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useMemo, useState } from "react"
 
-import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -25,6 +24,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { CodeSnippet } from "@/components/ui/code-snippet"
+import { ErrorPage } from "@/components/ErrorPage"
 import {
   type OAuthApplicationsRequest,
   oauthApplicationsRequest,
@@ -52,9 +52,7 @@ export function ConnectedAgentsSection() {
       </CardHeader>
       <CardContent className="space-y-5 text-sm">
         {Result.matchWithError(applications, {
-          onInitial: () => (
-            <div className="h-14 animate-pulse rounded-xl bg-muted/40" />
-          ),
+          onInitial: () => <AgentsSkeleton />,
           onError: (error) => (
             <ErrorPage error={error} reset={refresh} contained />
           ),
@@ -87,6 +85,22 @@ export function ConnectedAgentsSection() {
         <ConnectMcpDisclosure />
       </CardContent>
     </Card>
+  )
+}
+
+function AgentsSkeleton() {
+  return (
+    <div className="divide-y divide-border rounded-xl border border-border bg-background">
+      {[0, 1].map((row) => (
+        <div key={row} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="size-9 animate-pulse rounded-md bg-muted" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="h-3.5 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -147,51 +161,47 @@ type McpProvider = {
 }
 
 function ConnectMcpDisclosure() {
-  const mcpUrl = useMemo(() => {
-    if (typeof window === "undefined")
-      return "https://your-instance.example.com/mcp"
-    return `${window.location.origin}/mcp`
-  }, [])
-  const providers = useMemo<ReadonlyArray<McpProvider>>(
-    () => [
-      {
-        id: "claude",
-        label: m.profile_connect_mcp_claude_label(),
-        description: m.profile_connect_mcp_claude_description(),
-        revision: "2026-07-28",
-        language: "bash",
-        buildSnippet: (url) =>
-          `claude mcp add --transport http projectproject ${url}`
-      },
-      {
-        id: "codex",
-        label: m.profile_connect_mcp_codex_label(),
-        description: m.profile_connect_mcp_codex_description(),
-        revision: "2026-07-28",
-        language: "bash",
-        buildSnippet: (url) => `codex mcp add projectproject --url ${url}`
-      },
-      {
-        id: "cursor",
-        label: m.profile_connect_mcp_cursor_label(),
-        description: m.profile_connect_mcp_cursor_description(),
-        revision: "2025-11-25",
-        language: "json",
-        buildSnippet: (url) =>
-          JSON.stringify({ mcpServers: { projectproject: { url } } }, null, 2)
-      },
-      {
-        id: "gemini",
-        label: m.profile_connect_mcp_gemini_label(),
-        description: m.profile_connect_mcp_gemini_description(),
-        revision: "2025-06-18",
-        language: "bash",
-        buildSnippet: (url) =>
-          `gemini mcp add --transport http projectproject ${url}`
-      }
-    ],
-    []
-  )
+  const mcpUrl =
+    typeof window === "undefined"
+      ? "https://your-instance.example.com/mcp"
+      : `${window.location.origin}/mcp`
+  const providers: ReadonlyArray<McpProvider> = [
+    {
+      id: "claude",
+      label: m.profile_connect_mcp_claude_label(),
+      description: m.profile_connect_mcp_claude_description(),
+      revision: "2026-07-28",
+      language: "bash",
+      buildSnippet: (url) =>
+        `claude mcp add --transport http projectproject ${url}`
+    },
+    {
+      id: "codex",
+      label: m.profile_connect_mcp_codex_label(),
+      description: m.profile_connect_mcp_codex_description(),
+      revision: "2026-07-28",
+      language: "bash",
+      buildSnippet: (url) => `codex mcp add projectproject --url ${url}`
+    },
+    {
+      id: "cursor",
+      label: m.profile_connect_mcp_cursor_label(),
+      description: m.profile_connect_mcp_cursor_description(),
+      revision: "2025-11-25",
+      language: "json",
+      buildSnippet: (url) =>
+        JSON.stringify({ mcpServers: { projectproject: { url } } }, null, 2)
+    },
+    {
+      id: "gemini",
+      label: m.profile_connect_mcp_gemini_label(),
+      description: m.profile_connect_mcp_gemini_description(),
+      revision: "2025-06-18",
+      language: "bash",
+      buildSnippet: (url) =>
+        `gemini mcp add --transport http projectproject ${url}`
+    }
+  ]
   const [openId, setOpenId] = useState<string | null>(null)
 
   return (
