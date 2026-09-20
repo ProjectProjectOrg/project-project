@@ -287,16 +287,20 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     expect(body.result.content[0].text).toContain(userIds[0])
   })
 
-  it("modern: validation and not-found errors are isError text", async () => {
-    const invalid = await callTool(tokens[0], "create_ticket", {
+  it("modern: invalid parameters are an isError tool result", async () => {
+    const { body } = await callTool(tokens[0], "create_ticket", {
       orgSlug: "acme",
       projectSlug: "demo",
       title: ""
     })
-    expect(invalid.body.result.isError).toBe(true)
-    expect(invalid.body.result.content[0].text).toContain(
+    expect(body.error).toBeUndefined()
+    expect(body.result.isError).toBe(true)
+    expect(body.result.content[0].text).toContain(
       "Invalid parameters for tool 'create_ticket'"
     )
+  })
+
+  it("modern: not-found is isError text", async () => {
     const missing = await callTool(tokens[0], "get_org", { orgSlug: orgId })
     expect(missing.body.result.isError).toBe(true)
     expect(missing.body.result.content[0].text).toContain("Not found.")
