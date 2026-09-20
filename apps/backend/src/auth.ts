@@ -1,3 +1,4 @@
+import { legacyMcpResources } from "./auth/legacyMcpResources"
 import { cimd } from "@better-auth/cimd"
 import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { mcp } from "@better-auth/mcp"
@@ -474,19 +475,7 @@ export const auth = betterAuth({
       fetchClientMetadataResource,
       metadataProfile: "mcp-2026-07-28"
     }),
-    {
-      id: "legacy-mcp-resources",
-      init: async () => {
-        await db.execute(sql`
-          INSERT INTO oauth_client_resource (id, client_id, resource_id, created_at)
-          SELECT gen_random_uuid()::text, client.client_id, ${mcpResource}, now()
-          FROM oauth_client AS client
-          INNER JOIN oauth_application AS legacy
-            ON legacy.id = client.id AND legacy.client_id = client.client_id
-          ON CONFLICT (client_id, resource_id) DO NOTHING
-        `)
-      }
-    }
+    legacyMcpResources({ db, resource: mcpResource })
   ]
 })
 
