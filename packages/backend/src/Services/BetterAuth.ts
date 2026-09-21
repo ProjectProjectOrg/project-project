@@ -1,22 +1,37 @@
 import type { Session, User } from "../auth"
 import * as Context from "effect/Context"
-import * as Data from "effect/Data"
+import * as Schema from "effect/Schema"
 import type * as Effect from "effect/Effect"
 import type {
+  AssignableRole,
   CursorPayload,
+  InviteMemberInput,
   NotFound,
   Org,
+  OrgInvitation,
+  OrgMember,
+  OrgMembers,
   PersonalEverhour,
-  PersonalGithub
+  PersonalGithub,
+  UserInvitation
 } from "@projectproject/shared"
 
-export class BetterAuthError extends Data.TaggedError("BetterAuthError")<{
-  readonly cause: unknown
-}> {}
+export class BetterAuthError extends Schema.TaggedError<BetterAuthError>()(
+  "BetterAuthError",
+  { cause: Schema.Unknown }
+) {}
 
-// Boundary error: user has no GitHub account row, or the row has no token.
-// The Auth service maps this to `GitHubTokenExpired` for the wire.
-export class NoGithubToken extends Data.TaggedError("NoGithubToken")<{}> {}
+export class NoGithubToken extends Schema.TaggedError<NoGithubToken>()(
+  "NoGithubToken",
+  {}
+) {}
+
+export const InvitationState = Schema.Struct({
+  status: Schema.String,
+  email: Schema.String,
+  expiresAt: Schema.Date
+})
+export type InvitationState = typeof InvitationState.Type
 
 export interface BetterAuthShape {
   readonly handler: (
@@ -64,6 +79,67 @@ export interface BetterAuthShape {
     request: Request,
     input: { accept: boolean; oauth_query: string }
   ) => Effect.Effect<{ redirectURI: string }, BetterAuthError>
+  readonly getMembers: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly renameOrg: (
+    request: Request,
+    orgSlug: string,
+    name: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly inviteMember: (
+    request: Request,
+    orgSlug: string,
+    input: InviteMemberInput
+  ) => Effect.Effect<OrgInvitation, BetterAuthError | NotFound>
+  readonly updateMemberRole: (
+    request: Request,
+    orgSlug: string,
+    userId: string,
+    role: AssignableRole
+  ) => Effect.Effect<OrgMember, BetterAuthError | NotFound>
+  readonly removeMember: (
+    request: Request,
+    orgSlug: string,
+    userId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly cancelInvitation: (
+    request: Request,
+    orgSlug: string,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly transferOwnership: (
+    request: Request,
+    orgSlug: string,
+    toUserId: string,
+    selfUserId: string
+  ) => Effect.Effect<OrgMembers, BetterAuthError | NotFound>
+  readonly leaveOrg: (
+    request: Request,
+    orgSlug: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly listInvitations: (
+    request: Request
+  ) => Effect.Effect<ReadonlyArray<UserInvitation>, BetterAuthError>
+  readonly getInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<UserInvitation, BetterAuthError | NotFound>
+  readonly getInvitationState: (
+    invitationId: string
+  ) => Effect.Effect<InvitationState | null, BetterAuthError>
+  readonly acceptInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<Org, BetterAuthError | NotFound>
+  readonly rejectInvitation: (
+    request: Request,
+    invitationId: string
+  ) => Effect.Effect<void, BetterAuthError | NotFound>
+  readonly getPublicClientName: (
+    clientId: string
+  ) => Effect.Effect<string | null, BetterAuthError>
 }
 
 export class BetterAuth extends Context.Service<BetterAuth, BetterAuthShape>()(

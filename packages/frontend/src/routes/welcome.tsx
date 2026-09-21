@@ -1,20 +1,15 @@
-import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import * as Registry from "effect/unstable/reactivity/AtomRegistry"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import { Inbox, LogOut, MailCheck, UserRound } from "lucide-react"
-import { useCallback, useContext, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { logout, me, setActiveOrganization } from "@/atoms/auth"
 import {
-  acceptInviteAtom,
-  declineInvitationAtom,
-  logoutAtom,
-  meAtom,
-  pendingInvitesAtom,
-  setActiveOrganizationAtom
-} from "@/atoms/auth"
+  acceptInvitation,
+  invitations,
+  rejectInvitation
+} from "@/atoms/invitations"
 import { Button } from "@/components/ui/button"
 import {
   OnboardingGateStatus,
@@ -22,25 +17,26 @@ import {
 } from "@/components/OnboardingShell"
 import { ErrorPage } from "@/components/ErrorPage"
 import { errorMessage } from "@/lib/errorMessage"
+import {
+  invitationInviterDetail,
+  invitationRoleLabel,
+  pickActiveInvitation
+} from "@/lib/invitations"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import {
-  acceptInvitations,
-  pickActiveInvite,
-  type InviteAcceptFailure,
-  type InviteAcceptResult,
-  type PendingInvite
-} from "@/lib/invitations"
+import type { UserInvitation } from "@projectproject/shared"
+
+type AcceptInvitation = (input: void) => Promise<Exit.Exit<unknown, unknown>>
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage
 })
 
 function WelcomePage() {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
 
-  return Result.matchWithError(me, {
+  return Result.matchWithError(viewer, {
     onInitial: () => (
       <OnboardingGateStatus>{m.chrome_loading()}</OnboardingGateStatus>
     ),
@@ -60,26 +56,31 @@ function WelcomePage() {
 }
 
 function WelcomeContent() {
-  const invites = useAtomValue(pendingInvitesAtom)
+  const invites = useAtomValue(invitations())
+  const [joining, setJoining] = useState(false)
+  const lastOffered = useRef<ReadonlyArray<UserInvitation>>([])
 
   return (
     <OnboardingShell icon={Inbox}>
       {Result.match(invites, {
         onInitial: () => <WelcomeSkeleton />,
         onFailure: () => <WelcomeNoAccess />,
-        onSuccess: ({ value, waiting }) =>
-          value.length > 0 ? (
-            <WelcomeInviteList invites={value} syncing={waiting} />
+        onSuccess: ({ value }) => {
+          if (value.length > 0) lastOffered.current = value
+          const offered = joining ? lastOffered.current : value
+          return offered.length > 0 ? (
+            <WelcomeInviteList invites={offered} onJoining={setJoining} />
           ) : (
             <WelcomeNoAccess />
           )
+        }
       })}
     </OnboardingShell>
   )
 }
 
 function WelcomeNoAccess() {
-  const logout = useAtomSet(logoutAtom)
+  const signOut = useAtomSet(logout)
 
   return (
     <>
@@ -96,7 +97,7 @@ function WelcomeNoAccess() {
           type="button"
           variant="primary"
           leadingIcon={LogOut}
-          onClick={() => logout()}
+          onClick={() => signOut()}
         >
           {m.auth_welcome_sign_out_button()}
         </Button>
@@ -104,7 +105,7 @@ function WelcomeNoAccess() {
           type="button"
           variant="tertiary"
           leadingIcon={UserRound}
-          onClick={() => logout()}
+          onClick={() => signOut()}
         >
           {m.auth_welcome_try_another_account_button()}
         </Button>
@@ -115,106 +116,67 @@ function WelcomeNoAccess() {
 
 function WelcomeInviteList({
   invites,
-  syncing
+  onJoining
 }: {
-  invites: readonly PendingInvite[]
-  syncing: boolean
+  invites: ReadonlyArray<UserInvitation>
+  onJoining: (joining: boolean) => void
 }) {
-  const registry = useContext(RegistryContext)
   const navigate = useNavigate({ from: Route.fullPath })
-  const activateOrg = useAtomSet(setActiveOrganizationAtom("me"), {
+  const activateOrg = useAtomSet(setActiveOrganization, {
     mode: "promiseExit"
   })
-  const logout = useAtomSet(logoutAtom)
-  const [failedAccepts, setFailedAccepts] = useState<InviteAcceptFailure[]>([])
-  const [acceptingAll, setAcceptingAll] = useState(false)
+  const signOut = useAtomSet(logout)
   const [pageError, setPageError] = useState<string | null>(null)
-  const failedById = new Map(
-    failedAccepts.map((failure) => [failure.invite.id, failure])
-  )
+  const [acceptingAll, setAcceptingAll] = useState(false)
+  const acceptingAllRef = useRef(false)
+  const accepts = useRef(new Map<string, AcceptInvitation>())
 
-  const clearFailure = useCallback((inviteId: string) => {
-    setPageError(null)
-    setFailedAccepts((failures) =>
-      failures.filter((failure) => failure.invite.id !== inviteId)
-    )
-  }, [])
-
-  const acceptInvite = useCallback(
-    async (invite: PendingInvite): Promise<InviteAcceptResult> => {
-      const atom = acceptInviteAtom(invite.id)
-      return await acceptInvitations([invite], async () => {
-        const unmount = registry.mount(atom)
-        try {
-          registry.set(atom, undefined)
-          const exit = await Effect.runPromiseExit(
-            Registry.getResult(registry, atom, { suspendOnWaiting: true })
-          )
-          if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-        } finally {
-          unmount()
-        }
-      })
-    },
-    [registry]
-  )
-
-  const applyAcceptResults = useCallback(
-    async (results: readonly InviteAcceptResult[]) => {
-      const failures = results.flatMap((result) => result.failures)
-      const successes = results.flatMap((result) => result.successes)
-      const activeInvite = pickActiveInvite(
-        successes.map((success) => success.invite)
-      )
-
-      setFailedAccepts((current) => {
-        const failedIds = new Set(failures.map((failure) => failure.invite.id))
-        return [
-          ...current.filter((failure) => !failedIds.has(failure.invite.id)),
-          ...failures
-        ]
-      })
-
-      if (!activeInvite) return false
-
-      const activeExit = await activateOrg(activeInvite.organizationSlug)
-      if (Exit.isFailure(activeExit)) {
-        setPageError(m.auth_invites_accept_all_error())
-        return false
+  const registerAccept = useCallback(
+    (invitationId: string, accept: AcceptInvitation) => {
+      accepts.current.set(invitationId, accept)
+      return () => {
+        accepts.current.delete(invitationId)
       }
-
-      await navigate({
-        to: "/orgs/$orgSlug",
-        params: { orgSlug: activeInvite.organizationSlug },
-        replace: true
-      })
-      return true
     },
-    [activateOrg, navigate]
+    []
+  )
+
+  const enterOrg = useCallback(
+    async (accepted: ReadonlyArray<UserInvitation>) => {
+      const active = pickActiveInvitation(accepted)
+      if (active && Exit.isSuccess(await activateOrg(active.orgSlug))) {
+        await navigate({
+          to: "/orgs/$orgSlug",
+          params: { orgSlug: active.orgSlug },
+          replace: true
+        })
+        return
+      }
+      setPageError(m.auth_invites_accept_all_error())
+      onJoining(false)
+    },
+    [activateOrg, navigate, onJoining]
   )
 
   const onAcceptAll = async () => {
-    setPageError(null)
-    setFailedAccepts([])
+    if (acceptingAllRef.current) return
+    acceptingAllRef.current = true
     setAcceptingAll(true)
-    const results = await Promise.all(
-      invites.map((invite) => acceptInvite(invite))
-    )
-    setAcceptingAll(false)
-
-    const navigated = await applyAcceptResults(results)
-    const failures = results.flatMap((result) => result.failures)
-    if (!navigated && failures.length === invites.length) {
-      setPageError(m.auth_invites_accept_all_error())
+    setPageError(null)
+    onJoining(true)
+    try {
+      const entries = [...accepts.current.entries()]
+      const exits = await Promise.all(entries.map(([, accept]) => accept()))
+      const acceptedIds = new Set(
+        entries.flatMap(([invitationId], index) =>
+          Exit.isSuccess(exits[index]) ? [invitationId] : []
+        )
+      )
+      await enterOrg(invites.filter((invite) => acceptedIds.has(invite.id)))
+    } finally {
+      acceptingAllRef.current = false
+      setAcceptingAll(false)
     }
-  }
-
-  const onAcceptResult = async (
-    invite: PendingInvite,
-    result: InviteAcceptResult
-  ) => {
-    clearFailure(invite.id)
-    await applyAcceptResults([result])
   }
 
   return (
@@ -227,21 +189,14 @@ function WelcomeInviteList({
           {m.auth_invites_body()}
         </p>
       </div>
-      <ul
-        className={cn(
-          "overflow-hidden rounded-xl border border-border bg-background",
-          syncing && "animate-pulse"
-        )}
-      >
+      <ul className="overflow-hidden rounded-xl border border-border bg-background">
         {invites.map((invite) => (
           <InviteRow
             key={invite.id}
             invite={invite}
-            acceptFailure={failedById.get(invite.id)}
-            acceptingAll={acceptingAll}
-            clearFailure={clearFailure}
-            acceptInvite={acceptInvite}
-            onAcceptResult={onAcceptResult}
+            registerAccept={registerAccept}
+            onJoining={onJoining}
+            onAccepted={enterOrg}
           />
         ))}
       </ul>
@@ -264,7 +219,7 @@ function WelcomeInviteList({
           type="button"
           variant="tertiary"
           leadingIcon={LogOut}
-          onClick={() => logout()}
+          onClick={() => signOut()}
         >
           {m.auth_welcome_sign_out_button()}
         </Button>
@@ -275,42 +230,53 @@ function WelcomeInviteList({
 
 function InviteRow({
   invite,
-  acceptFailure,
-  acceptingAll,
-  clearFailure,
-  acceptInvite,
-  onAcceptResult
+  registerAccept,
+  onJoining,
+  onAccepted
 }: {
-  invite: PendingInvite
-  acceptFailure: InviteAcceptFailure | undefined
-  acceptingAll: boolean
-  clearFailure: (inviteId: string) => void
-  acceptInvite: (invite: PendingInvite) => Promise<InviteAcceptResult>
-  onAcceptResult: (
-    invite: PendingInvite,
-    result: InviteAcceptResult
-  ) => Promise<void>
+  invite: UserInvitation
+  registerAccept: (invitationId: string, accept: AcceptInvitation) => () => void
+  onJoining: (joining: boolean) => void
+  onAccepted: (accepted: ReadonlyArray<UserInvitation>) => Promise<void>
 }) {
-  const acceptState = useAtomValue(acceptInviteAtom(invite.id))
-  const decline = useAtomSet(declineInvitationAtom(invite.id), {
+  const mutationKey = { invitationId: invite.id }
+  const accept = useAtomSet(acceptInvitation(mutationKey), {
     mode: "promiseExit"
   })
-  const declineState = useAtomValue(declineInvitationAtom(invite.id))
+  const acceptState = useAtomValue(acceptInvitation(mutationKey))
+  const reject = useAtomSet(rejectInvitation(mutationKey), {
+    mode: "promiseExit"
+  })
+  const rejectState = useAtomValue(rejectInvitation(mutationKey))
   const accepting = acceptState.waiting
-  const declining = declineState.waiting
-  const declineFailed = Result.isFailure(declineState)
+  const declining = rejectState.waiting
+  const acceptError = Result.matchWithError(acceptState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: (error) =>
+      error._tag === "InvitationNotAcceptable"
+        ? errorMessage(error)
+        : m.auth_invites_accept_row_error(),
+    onDefect: () => m.auth_invites_accept_row_error()
+  })
+  const declineFailed = Result.isFailure(rejectState)
+
+  useEffect(
+    () => registerAccept(invite.id, accept),
+    [registerAccept, invite.id, accept]
+  )
 
   const onAccept = async () => {
-    clearFailure(invite.id)
-    const result = await acceptInvite(invite)
-    await onAcceptResult(invite, result)
+    onJoining(true)
+    const exit = await accept()
+    if (Exit.isFailure(exit)) {
+      onJoining(false)
+      return
+    }
+    await onAccepted([invite])
   }
 
-  const onDecline = async () => {
-    await decline()
-  }
-
-  const initial = invite.organizationName.trim().charAt(0).toUpperCase() || "·"
+  const initial = invite.orgName.trim().charAt(0).toUpperCase() || "·"
 
   return (
     <li
@@ -330,18 +296,18 @@ function InviteRow({
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="min-w-0 truncate text-[14px] font-medium leading-5 text-foreground">
-            {invite.organizationName}
+            {invite.orgName}
           </span>
           <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10.5px] font-medium capitalize leading-[1.5] text-muted-foreground">
-            {roleLabel(invite.role)}
+            {invitationRoleLabel(invite.role)}
           </span>
         </div>
         <div className="truncate text-[12.5px] leading-5 text-muted-foreground">
-          {m.auth_invites_row_detail({ inviter: invite.inviterEmail })}
+          {invitationInviterDetail(invite.inviterEmail)}
         </div>
-        {acceptFailure ? (
+        {acceptError ? (
           <div className="pt-1 text-[12.5px] leading-5 text-destructive">
-            {errorMessage(acceptFailure.error)}
+            {acceptError}
           </div>
         ) : null}
         {declineFailed ? (
@@ -355,9 +321,9 @@ function InviteRow({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={declining || accepting || acceptingAll}
+          disabled={declining || accepting}
           loading={declining}
-          onClick={onDecline}
+          onClick={() => void reject()}
         >
           {m.auth_invites_decline_button()}
         </Button>
@@ -366,7 +332,7 @@ function InviteRow({
           variant="primary"
           size="sm"
           loading={accepting}
-          disabled={declining || accepting || acceptingAll}
+          disabled={declining || accepting}
           onClick={onAccept}
         >
           {m.auth_invites_accept_button()}
@@ -404,10 +370,4 @@ function WelcomeSkeleton() {
       </div>
     </div>
   )
-}
-
-function roleLabel(role: string) {
-  if (role === "owner") return m.auth_invites_role_owner()
-  if (role === "admin") return m.auth_invites_role_admin()
-  return m.auth_invites_role_member()
 }

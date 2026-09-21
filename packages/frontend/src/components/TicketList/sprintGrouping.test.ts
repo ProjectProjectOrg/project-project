@@ -39,10 +39,9 @@ describe("backlog sprint sections", () => {
   })
   it("honors explicit sprint and unassigned filters without inventing sections", () => {
     const sprints = [planned, active, completed]
-    expect(backlogSprintSections(sprints, [planned.id, null], now)).toEqual([
-      planned,
-      null
-    ])
+    expect(
+      backlogSprintSections(sprints, [planned.id, "ungrouped"], now)
+    ).toEqual([planned, null])
     expect(backlogSprintSections(sprints, [completed.id], now)).toEqual([
       completed
     ])

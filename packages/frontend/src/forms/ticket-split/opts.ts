@@ -12,12 +12,12 @@ import {
   type TicketType
 } from "@projectproject/shared"
 
-export interface SplitResultDefaults {
-  readonly type: TicketType
-  readonly status: TicketStatus
-  readonly priority: TicketPriority
-  readonly sprintId: GroupId | null
-}
+export type SplitResultDefaults = Readonly<{
+  type: TicketType
+  status: TicketStatus
+  priority: TicketPriority
+  sprintId: GroupId | null
+}>
 
 const SplitResultFormSchema = Schema.Struct({
   rowId: Schema.String,

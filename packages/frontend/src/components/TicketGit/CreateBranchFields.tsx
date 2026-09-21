@@ -11,10 +11,10 @@ import {
   CircleCheck,
   GitBranch
 } from "lucide-react"
-import { useEffect, useState } from "react"
-import { branchesAtom, branchesKey, createBranchAtom } from "@/atoms/github"
-import { projectKey } from "@/atoms/projects"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { useEffect, useMemo, useState } from "react"
+import { branches, branchesRequest, createBranch } from "@/atoms/github"
+import { projectRequest } from "@/atoms/projects"
+import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -45,10 +45,7 @@ import {
 import { cn } from "@/lib/utils"
 import { slugify } from "@/lib/slug"
 import { statusMetaFor, statusLabelFor } from "@/lib/ticket-meta"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { m } from "@/paraglide/messages"
 import type {
@@ -99,15 +96,28 @@ export function CreateBranchFields({
   )
   const [didSubmit, setDidSubmit] = useState(false)
   const [attemptedName, setAttemptedName] = useState("")
-  const pKey = projectKey(orgSlug, slug)
-  const create = useAtomSet(createBranchAtom(pKey), { mode: "promiseExit" })
-  const createState = useAtomValue(createBranchAtom(pKey))
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const createRequest = useMemo(
+    () => ({ req: projectReq, id: ticket.id }),
+    [projectReq, ticket.id]
   )
+  const create = useAtomSet(createBranch(createRequest), {
+    mode: "promiseExit"
+  })
+  const createState = useAtomValue(createBranch(createRequest))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const updateTicket = useAtomSet(updateTicketDetail(req))
+  const statusesReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
 
   const errorString =
@@ -143,11 +153,7 @@ export function CreateBranchFields({
     const branchName = name.trim()
     const baseBranch = base.trim() || github.defaultBaseBranch || "main"
     setAttemptedName(branchName)
-    const exit = await create({
-      id: ticket.id,
-      name: branchName,
-      baseBranch
-    })
+    const exit = await create({ name: branchName, baseBranch })
     if (Exit.isSuccess(exit)) {
       if (status !== ticket.status) updateTicket({ status })
       close()
@@ -184,7 +190,6 @@ export function CreateBranchFields({
           <BaseBranchCombobox
             orgSlug={orgSlug}
             slug={slug}
-            repoId={github.repoId}
             value={base}
             onChange={setBase}
             placeholder={github.defaultBaseBranch ?? "main"}
@@ -376,7 +381,6 @@ function StatusDropdown({
 function BaseBranchCombobox({
   orgSlug,
   slug,
-  repoId,
   value,
   onChange,
   placeholder,
@@ -384,7 +388,6 @@ function BaseBranchCombobox({
 }: {
   orgSlug: string
   slug: string
-  repoId: string
   value: string
   onChange: (next: string) => void
   placeholder: string
@@ -403,9 +406,11 @@ function BaseBranchCombobox({
     }
   }, [search])
 
-  const result = useAtomValue(
-    branchesAtom(branchesKey(orgSlug, slug, repoId, q))
+  const branchesReq = useMemo(
+    () => branchesRequest(orgSlug, slug, q),
+    [orgSlug, slug, q]
   )
+  const result = useAtomValue(branches(branchesReq))
   const items = Result.isSuccess(result) ? result.value.items : []
   const loading = Result.isInitial(result) || Result.isWaiting(result)
 

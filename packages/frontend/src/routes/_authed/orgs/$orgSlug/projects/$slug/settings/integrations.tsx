@@ -4,11 +4,12 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import {
   connectEverhourProjectAtom,
   disconnectEverhourProjectAtom,
+  everhourProjectRequest,
   everhourProjectStatusAtom,
   syncEverhourProjectAtom
 } from "@/atoms/everhour"
-import { meAtom } from "@/atoms/auth"
-import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
+import { me } from "@/atoms/auth"
+import { projectRequest, updateProjectSetup } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { GithubChip } from "@/components/GithubChip"
 import { FigmaProjectSettings } from "@/components/settings/FigmaProjectSettings"
@@ -35,8 +36,8 @@ export const Route = createFileRoute(
 function IntegrationsSettings() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
-  const key = projectKey(orgSlug, project.slug)
-  const update = useAtomSet(updateProjectSetupAtom(key))
+  const req = projectRequest(orgSlug, project.slug)
+  const update = useAtomSet(updateProjectSetup(req))
   const { role } = useProjectRole()
 
   return (
@@ -92,9 +93,9 @@ function EverhourSettingsCard({
   slug: string
   role: "owner" | "admin" | "member"
 }) {
-  const key = projectKey(orgSlug, slug)
-  const status = useAtomValue(everhourProjectStatusAtom(key))
-  const me = useAtomValue(meAtom)
+  const req = everhourProjectRequest(orgSlug, slug)
+  const status = useAtomValue(everhourProjectStatusAtom(req))
+  const viewer = useAtomValue(me())
 
   return Result.matchWithError(status, {
     onInitial: () => (
@@ -105,7 +106,7 @@ function EverhourSettingsCard({
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
     onSuccess: ({ value, waiting }) => {
-      const user = Result.isSuccess(me) ? me.value : null
+      const user = Result.isSuccess(viewer) ? viewer.value : null
       const hasKey = user?.personalEverhour.connected === true
       const canManage = role === "owner" || role === "admin"
       return (
@@ -145,17 +146,17 @@ function EverhourSettingsContent({
   hasKey: boolean
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const connect = useAtomSet(connectEverhourProjectAtom(key), {
+  const req = everhourProjectRequest(orgSlug, slug)
+  const connect = useAtomSet(connectEverhourProjectAtom(req), {
     mode: "promise"
   })
-  const sync = useAtomSet(syncEverhourProjectAtom(key), { mode: "promise" })
-  const disconnect = useAtomSet(disconnectEverhourProjectAtom(key), {
+  const sync = useAtomSet(syncEverhourProjectAtom(req), { mode: "promise" })
+  const disconnect = useAtomSet(disconnectEverhourProjectAtom(req), {
     mode: "promise"
   })
-  const connectState = useAtomValue(connectEverhourProjectAtom(key))
-  const syncState = useAtomValue(syncEverhourProjectAtom(key))
-  const disconnectState = useAtomValue(disconnectEverhourProjectAtom(key))
+  const connectState = useAtomValue(connectEverhourProjectAtom(req))
+  const syncState = useAtomValue(syncEverhourProjectAtom(req))
+  const disconnectState = useAtomValue(disconnectEverhourProjectAtom(req))
   const busy =
     waiting ||
     connectState.waiting ||

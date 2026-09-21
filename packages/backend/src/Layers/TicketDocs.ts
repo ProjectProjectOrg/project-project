@@ -2,13 +2,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
-import {
-  NotFound,
-  PullRequestState,
-  TagName,
-  TicketId,
-  TicketStatus
-} from "@projectproject/shared"
+import { NotFound, TicketId } from "@projectproject/shared"
 import {
   Markdown,
   type MarkdownError,
@@ -16,92 +10,19 @@ import {
 } from "../Services/Markdown"
 import {
   MalformedTicketDocument,
+  TicketFrontmatter,
   TicketDocs,
   type TicketDocsShape,
-  type TicketDocument
+  type TicketDocument,
+  type TicketFrontmatter as TicketFrontmatterType
 } from "../Services/TicketDocs"
 
-const TicketFrontmatter = Schema.Struct({
-  id: TicketId,
-  title: Schema.String,
-  status: TicketStatus,
-  type: Schema.Literals(["feat", "bug", "chore", "other"]),
-  priority: Schema.Literals(["low", "med", "high"]).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed("med" as const))
-  ),
-  tags: Schema.Array(TagName).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
-  ),
-  branch: Schema.NullOr(Schema.String),
-  branchAutoLinkDisabled: Schema.optional(Schema.Boolean),
-  splitFrom: Schema.NullOr(TicketId).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  pr: Schema.NullOr(Schema.Number).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  prState: Schema.NullOr(PullRequestState).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  lastTransitionedPr: Schema.NullOr(Schema.Number).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  assignees: Schema.Array(Schema.String).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
-  ),
-  archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
-  createdBy: Schema.String,
-  createdAt: Schema.DateFromString,
-  updatedBy: Schema.String,
-  updatedAt: Schema.DateFromString
-})
-
 const decodeFrontmatter = Schema.decodeUnknownEffect(TicketFrontmatter)
+const encodeFrontmatter = Schema.encodeSync(TicketFrontmatter)
 const decodeTicketId = Schema.decodeUnknownEffect(TicketId)
 
-function decodeFrontmatterCompat(raw: unknown) {
-  if (raw && typeof raw === "object") {
-    const record = raw as Record<string, unknown>
-    if (record.assignees === undefined && "assignee" in record) {
-      const legacy = record.assignee
-      record.assignees = typeof legacy === "string" ? [legacy] : []
-    }
-    if (record.updatedBy === undefined) {
-      record.updatedBy = record.createdBy
-    }
-  }
-  return decodeFrontmatter(raw)
-}
-
-function frontmatterToDisk(document: TicketDocument): Record<string, unknown> {
-  return {
-    id: document.id,
-    title: document.title,
-    status: document.status,
-    type: document.type,
-    priority: document.priority,
-    tags: document.tags,
-    branch: document.branch,
-    ...(document.branchAutoLinkDisabled
-      ? { branchAutoLinkDisabled: true }
-      : {}),
-    ...(document.splitFrom ? { splitFrom: document.splitFrom } : {}),
-    pr: document.pr,
-    prState: document.prState,
-    lastTransitionedPr: document.lastTransitionedPr,
-    assignees: document.assignees,
-    archivedAt: document.archivedAt ? document.archivedAt.toISOString() : null,
-    createdBy: document.createdBy,
-    createdAt: document.createdAt.toISOString(),
-    updatedBy: document.updatedBy,
-    updatedAt: document.updatedAt.toISOString()
-  }
-}
-
 function toDocument(
-  frontmatter: typeof TicketFrontmatter.Type,
+  frontmatter: TicketFrontmatterType,
   body: string,
   commentsRegion: string
 ): TicketDocument {
@@ -209,7 +130,7 @@ export const TicketDocsLive = Layer.effect(
         { ticketId: id },
         Effect.gen(function* () {
           const file = yield* markdown.readTicketParts(orgSlug, slug, id)
-          const frontmatter = yield* decodeFrontmatterCompat(file.data).pipe(
+          const frontmatter = yield* decodeFrontmatter(file.data).pipe(
             Effect.mapError(
               (cause) =>
                 new MalformedTicketDocument({
@@ -246,7 +167,7 @@ export const TicketDocsLive = Layer.effect(
               orgSlug,
               slug,
               document.id,
-              frontmatterToDisk(document),
+              encodeFrontmatter(document),
               bodyWithCommentsRegion(document.body, document.commentsRegion)
             )
             .pipe(
@@ -274,7 +195,7 @@ export const TicketDocsLive = Layer.effect(
           orgSlug,
           slug,
           id,
-          frontmatterToDisk(document),
+          encodeFrontmatter(document),
           document.body,
           document.commentsRegion
         )

@@ -8,8 +8,8 @@ import {
   SlidersHorizontal,
   UserRound
 } from "lucide-react"
-import { useRef, useState, type ComponentProps } from "react"
-import { meAtom } from "@/atoms/auth"
+import { useMemo, useRef, useState, type ComponentProps } from "react"
+import { me } from "@/atoms/auth"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import {
@@ -20,16 +20,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TagChip } from "@/components/TagChip"
 import { SPRINT_STATE_META } from "@/components/sprints/SprintChip"
-import { tagsAtom, tagsKey } from "@/atoms/tags"
-import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { tagsFor, tagsRequest } from "@/atoms/tags"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
   sprintState,
+  type AssigneeFilter,
   type TicketType,
   type TicketFilter,
   type Member
@@ -56,7 +54,7 @@ export function Filters() {
     slug,
     searchActive: compact
   } = useTicketToolbar()
-  const value = query.filter
+  const value = query
   const activeFilterCount = countActiveFilters(value, filters)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
@@ -246,17 +244,12 @@ function FilterAssignee({
   onChange: (value: TicketFilter["assignee"]) => void
   members: ReadonlyArray<Member>
 }) {
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : null
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : null
   const assignees = value
-  const assigneeFilter =
-    assignees?.length === 1 ? (assignees[0] ?? "unassigned") : "all"
-  const setAssigneeFilter = (assignee: string) =>
-    onChange(
-      assignee === "all"
-        ? undefined
-        : [assignee === "unassigned" ? null : assignee]
-    )
+  const assigneeFilter = assignees?.length === 1 ? assignees[0] : "all"
+  const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>
+    onChange(assignee === "all" ? undefined : [assignee])
   return (
     <FilterSection>
       <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
@@ -324,15 +317,14 @@ function FilterSprint({
   slug: string
 }) {
   const groups = value
-  const sprintFilter =
-    groups?.length === 1 ? (groups[0] ?? "unassigned") : "all"
+  const sprintFilter = groups?.length === 1 ? groups[0] : "all"
   const setSprintFilter = (sprint: SprintFilterValue) =>
-    onChange(
-      sprint === "all" ? undefined : [sprint === "unassigned" ? null : sprint]
-    )
-  const sprintsList = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+    onChange(sprint === "all" ? undefined : [sprint])
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsList = useAtomValue(sprintList(sprintReq))
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
   const now = DateTime.toDate(DateTime.nowUnsafe())
   const sprintOptions = allSprints.filter((s) => {
@@ -354,11 +346,11 @@ function FilterSprint({
       </DropdownMenuItem>
       <DropdownMenuItem
         closeOnClick={false}
-        onClick={() => setSprintFilter("unassigned")}
+        onClick={() => setSprintFilter("ungrouped")}
         className="cursor-pointer"
       >
         {m.tickets_filters_sprint_none()}
-        {sprintFilter === "unassigned" && (
+        {sprintFilter === "ungrouped" && (
           <Check className="ml-auto size-3.5 text-muted-foreground" />
         )}
       </DropdownMenuItem>
@@ -402,7 +394,8 @@ function FilterTags({
   const selectedTags = value ?? []
   const setSelectedTags = (tags: typeof selectedTags) =>
     onChange(tags.length ? tags : undefined)
-  const tags = useAtomValue(tagsAtom(tagsKey(orgSlug, slug)))
+  const req = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
+  const tags = useAtomValue(tagsFor(req))
   const tagList = Result.isSuccess(tags) ? tags.value : []
   if (tagList.length === 0) return null
   return (

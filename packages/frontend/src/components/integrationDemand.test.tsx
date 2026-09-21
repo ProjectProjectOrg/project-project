@@ -14,7 +14,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { RunningTimerIndicator } from "./time/RunningTimerIndicator"
 import { TicketTimeSection } from "./time/TicketTimePanel"
 import { TagEditor } from "./TagEditor"
-import { TagRenamesProvider } from "./TagRenamesProvider"
+import { stubFetch } from "@/api/testFetch"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
@@ -50,6 +50,7 @@ const ticket = Schema.decodeSync(TicketDetail)({
 })
 
 let registry: Registry.AtomRegistry
+const fetchStub = stubFetch()
 
 beforeEach(() => {
   registry = Registry.make()
@@ -58,7 +59,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   registry.dispose()
-  vi.unstubAllGlobals()
 })
 
 it.each(["not_connected", "active", "broken", "failed"] as const)(
@@ -69,7 +69,7 @@ it.each(["not_connected", "active", "broken", "failed"] as const)(
     const statusResponse = new Promise<Response>((resolve) => {
       resolveStatus = resolve
     })
-    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+    fetchStub.set(async (input: RequestInfo | URL) => {
       const path = new URL(
         input instanceof Request ? input.url : String(input),
         "http://localhost"
@@ -130,7 +130,7 @@ it.each(["not_connected", "active", "broken", "failed"] as const)(
 
 it("loads tag usage counts when management opens", async () => {
   const requests: string[] = []
-  vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+  fetchStub.set(async (input: RequestInfo | URL) => {
     const path = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -146,21 +146,25 @@ it("loads tag usage counts when management opens", async () => {
           createdAt: "2026-01-01T00:00:00.000Z"
         }
       ])
+    if (path.endsWith("/tickets/T-1"))
+      return Response.json(Schema.encodeSync(TicketDetail)(ticket))
     throw new Error("Unexpected request: " + path)
   })
   render(
     <RegistryContext.Provider value={registry}>
-      <TagRenamesProvider>
-        <TagEditor orgSlug="org" slug="project" ticket={ticket} canManageTags />
-      </TagRenamesProvider>
+      <TagEditor orgSlug="org" slug="project" ticket={ticket} canManageTags />
     </RegistryContext.Provider>
   )
   const edit = await screen.findByRole("button", { name: "Edit tag test" })
-  expect(requests).toEqual(["/api/orgs/org/projects/project/tags"])
+  expect(requests.toSorted()).toEqual([
+    "/api/orgs/org/projects/project/tags",
+    "/api/orgs/org/projects/project/tickets/T-1"
+  ])
   fireEvent.click(edit)
   await screen.findByText("Applied to 7 tickets")
-  expect(requests).toEqual([
+  expect(requests.toSorted()).toEqual([
     "/api/orgs/org/projects/project/tags",
-    "/api/orgs/org/projects/project/tags/usage-counts"
+    "/api/orgs/org/projects/project/tags/usage-counts",
+    "/api/orgs/org/projects/project/tickets/T-1"
   ])
 })

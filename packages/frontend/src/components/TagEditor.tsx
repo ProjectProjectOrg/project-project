@@ -9,21 +9,22 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { TagChip } from "@/components/TagChip"
 import { TagAdminPopover } from "@/components/TagAdminPopover"
-import { useTagRenames } from "@/components/TagRenamesProvider"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
 import {
-  createTagAtom,
-  deleteTagAtom,
-  renameTagAtom,
-  tagsAtom,
-  tagsKey,
-  tagUsageCountsAtom
+  applyTagsInEditor,
+  createTagInEditor,
+  deleteTagInEditor,
+  tagEditor,
+  tagEditorRequest,
+  tagsRequest,
+  tagUsage,
+  updateTagInEditor,
+  type TagEditorRequest
 } from "@/atoms/tags"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { TagName, type Tag, type TicketDetail } from "@projectproject/shared"
@@ -41,55 +42,33 @@ const makeTagName = Schema.decodeUnknownSync(TagName)
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
 export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
-  const key = tagsKey(orgSlug, slug)
-  const tagsResult = useAtomValue(tagsAtom(key))
+  const tagsReq = useMemo(() => tagsRequest(orgSlug, slug), [orgSlug, slug])
+  const editorReq = useMemo(
+    () => tagEditorRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const editorResult = useAtomValue(tagEditor(editorReq))
   const [managedTag, setManagedTag] = useState<string | null>(null)
   const usageResult = useAtomValue(
     canManageTags && managedTag !== null
-      ? tagUsageCountsAtom(key)
+      ? tagUsage(tagsReq)
       : idleUsageCountsAtom
   )
-  const updateTicket = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
-  const createTag = useAtomSet(createTagAtom(key), { mode: "promiseExit" })
-  const renameTag = useAtomSet(renameTagAtom(key))
-  const deleteTag = useAtomSet(deleteTagAtom(key), { mode: "promiseExit" })
-  const {
-    renameMap,
-    removed,
-    registerRename,
-    registerRemove,
-    unregisterRemove
-  } = useTagRenames(orgSlug, slug)
+  const updateTags = useAtomSet(applyTagsInEditor(editorReq))
+  const create = useAtomSet(createTagInEditor(editorReq), {
+    mode: "promiseExit"
+  })
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
   const registry = useMemo<ReadonlyArray<Tag>>(
-    () => (Result.isSuccess(tagsResult) ? tagsResult.value : []),
-    [tagsResult]
+    () => (Result.isSuccess(editorResult) ? editorResult.value.tags : []),
+    [editorResult]
   )
-  const registryWaiting = Result.isSuccess(tagsResult) && tagsResult.waiting
-  const registryNames = useMemo(
-    () => new Set<string>(registry.map((t) => t.name as string)),
-    [registry]
-  )
-
-  const mapName = (name: string) => {
-    const renamed = renameMap.get(name)
-    if (!renamed) return name
-    if (registryNames.has(name)) return name
-    return renamed
-  }
-
-  const displayed = useMemo(
-    () =>
-      ticket.tags
-        .map(mapName)
-        .filter((name) => !(removed.has(name) && !registryNames.has(name))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ticket.tags, renameMap, removed, registryNames]
-  )
+  const displayed = Result.isSuccess(editorResult)
+    ? editorResult.value.applied
+    : ticket.tags.map((name) => ({ key: name, name }))
+  const displayedNames = displayed.map((tag) => tag.name)
 
   const tagByName = useMemo(() => {
     const map = new Map<string, Tag>()
@@ -101,7 +80,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
   const exactRegistered = registry.find((t) => t.name === lowered)
   const isValidNewName = VALID.test(lowered)
   const showEmpty =
-    Result.isSuccess(tagsResult) &&
+    Result.isSuccess(editorResult) &&
     registry.length === 0 &&
     lowered.length === 0
   const showValidationError =
@@ -111,85 +90,50 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
     : registry
 
   const apply = (next: ReadonlyArray<string>) =>
-    updateTicket({ tags: next.map((name) => makeTagName(name)) })
+    updateTags({ tags: next.map((name) => makeTagName(name)) })
 
   const addTag = (name: string) => {
-    if (displayed.includes(name)) return
-    apply([...ticket.tags.filter((t) => !removed.has(t)), name])
+    if (displayedNames.includes(makeTagName(name))) return
+    apply([...displayedNames, name])
     setDraft("")
     setOpen(false)
   }
 
   const removeFromTicket = (name: string) => {
-    apply(ticket.tags.filter((t) => t !== name))
+    apply(displayedNames.filter((tagName) => tagName !== name))
   }
 
   const createAndApply = async () => {
     if (!isValidNewName || exactRegistered) return
     const name = lowered
-    const exit = await createTag({ name: makeTagName(name) })
+    const exit = await create({ name: makeTagName(name) })
     if (Exit.isSuccess(exit)) addTag(name)
   }
 
   const ticketHasTag = (name: string) =>
-    (ticket.tags as ReadonlyArray<string>).includes(name)
-
-  const handlePatch = (
-    oldName: string,
-    patch: { nextName?: TagName; color?: Tag["color"] }
-  ) => {
-    if (patch.nextName && patch.nextName !== oldName) {
-      registerRename(oldName, patch.nextName)
-    }
-    renameTag({
-      oldName: makeTagName(oldName),
-      nextName: patch.nextName,
-      color: patch.color
-    })
-  }
-
-  const handleDelete = async (name: string) => {
-    registerRemove(name)
-    const exit = await deleteTag({ name: makeTagName(name) })
-    if (Exit.isFailure(exit)) {
-      unregisterRemove(name)
-      throw Cause.squash(exit.cause)
-    }
-  }
-
-  const mappedCounts = useMemo(() => {
-    const acc: Record<string, number> = {}
-    if (!Result.isSuccess(usageResult)) return acc
-    for (const [name, n] of Object.entries(usageResult.value)) {
-      const mapped = mapName(name)
-      acc[mapped] = (acc[mapped] ?? 0) + n
-    }
-    return acc
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usageResult, renameMap, registryNames])
+    (displayedNames as ReadonlyArray<string>).includes(name)
 
   const usageCountFor = (currentName: string) =>
     Result.isSuccess(usageResult)
-      ? (mappedCounts[currentName] ?? 0)
+      ? (usageResult.value[currentName as TagName] ?? 0)
       : ticketHasTag(currentName)
         ? 1
         : 0
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {displayed.map((name, i) => {
+      {displayed.map(({ key, name }) => {
         const tag = tagByName.get(name)
         return (
           <AppliedTagChip
-            key={i}
+            key={key}
             name={name}
+            mutationName={key}
             tag={tag}
             color={tag?.color ?? null}
             canManage={canManageTags}
-            waiting={registryWaiting}
+            req={editorReq}
             usageCount={tag ? usageCountFor(tag.name) : 0}
-            onPatch={(patch) => handlePatch(name, patch)}
-            onDelete={() => handleDelete(name)}
             onRemove={() => removeFromTicket(name)}
             onManagementOpenChange={(open) =>
               setManagedTag((current) =>
@@ -205,12 +149,12 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
             <Button
               type="button"
               variant="tertiary"
-              size={displayed.length === 0 ? "xs" : "icon-xs"}
-              leadingIcon={displayed.length === 0 ? Plus : undefined}
+              size={displayedNames.length === 0 ? "xs" : "icon-xs"}
+              leadingIcon={displayedNames.length === 0 ? Plus : undefined}
               aria-label={m.tags_add_button()}
               className="border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground"
             >
-              {displayed.length === 0 ? (
+              {displayedNames.length === 0 ? (
                 m.tags_add_button()
               ) : (
                 <Plus strokeWidth={2} />
@@ -277,7 +221,7 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
                 </p>
               ) : null}
               {filtered.map((tag) => {
-                const isApplied = displayed.includes(tag.name)
+                const isApplied = displayedNames.includes(tag.name)
                 return (
                   <button
                     key={tag.name}
@@ -317,27 +261,38 @@ export function TagEditor({ orgSlug, slug, ticket, canManageTags }: Props) {
 
 function AppliedTagChip({
   name,
+  mutationName,
   tag,
   color,
   canManage,
-  waiting,
+  req,
   usageCount,
-  onPatch,
-  onDelete,
   onRemove,
   onManagementOpenChange
 }: {
   name: string
+  mutationName: TagName
   tag: Tag | undefined
   color: string | null
   canManage: boolean
-  waiting: boolean
+  req: TagEditorRequest
   usageCount: number
-  onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
-  onDelete: () => Promise<void> | void
   onRemove: () => void
   onManagementOpenChange: (open: boolean) => void
 }) {
+  const updateMutation = updateTagInEditor({ req, name: mutationName })
+  const removeMutation = deleteTagInEditor({ req, name: mutationName })
+  const update = useAtomSet(updateMutation)
+  const updateState = useAtomValue(updateMutation)
+  const remove = useAtomSet(removeMutation, { mode: "promiseExit" })
+  const removeState = useAtomValue(removeMutation)
+  const waiting = updateState.waiting || removeState.waiting
+  const patch = (next: { nextName?: TagName; color?: Tag["color"] }) =>
+    update({ name: next.nextName, color: next.color })
+  const removeTag = async () => {
+    const exit = await remove()
+    if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+  }
   const hex = color ?? NEUTRAL
   const wrapperClass = cn(
     "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap font-medium text-[11px] transition-colors",
@@ -380,8 +335,8 @@ function AppliedTagChip({
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
-        onPatch={onPatch}
-        onDelete={onDelete}
+        onPatch={patch}
+        onDelete={removeTag}
         onOpenChange={onManagementOpenChange}
       >
         <button

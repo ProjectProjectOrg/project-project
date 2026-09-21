@@ -1,13 +1,18 @@
-import { useAtomSet } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
 import { GripVertical, Lock } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   isReservedStatusSlug,
+  type OrderKey,
   type ProjectStatus,
   type StatusIconName
 } from "@projectproject/shared"
-import { projectKey, updateStatusAtom } from "@/atoms/projectStatuses"
+import {
+  reorderStatus,
+  statusesRequest,
+  updateStatus
+} from "@/atoms/projectStatuses"
 import { ColorPicker } from "@/components/ColorPicker"
 import { Input } from "@/components/ui/input"
 import { StatusDeleteConfirm } from "@/components/StatusDeleteConfirm"
@@ -22,9 +27,9 @@ type Props = {
   orgSlug: string
   slug: string
   onDragStart: () => void
-  onDragEnd: () => void
-  onMoveUp?: () => void
-  onMoveDown?: () => void
+  onDragEnd: () => OrderKey | null
+  onMoveUp?: () => OrderKey | null
+  onMoveDown?: () => OrderKey | null
 }
 
 export function StatusRow({
@@ -38,8 +43,14 @@ export function StatusRow({
   onMoveDown
 }: Props) {
   const baseline = isReservedStatusSlug(status.slug)
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateStatusAtom(key))
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const updateMutation = updateStatus({ req, statusSlug: status.slug })
+  const reorderMutation = reorderStatus({ req, statusSlug: status.slug })
+  const update = useAtomSet(updateMutation)
+  const updateState = useAtomValue(updateMutation)
+  const reorder = useAtomSet(reorderMutation)
+  const reorderState = useAtomValue(reorderMutation)
+  const dataWaiting = updateState.waiting || reorderState.waiting
   const controls = useDragControls()
   const [draftLabel, setDraftLabel] = useState<string>(status.label)
   const [isDragging, setIsDragging] = useState(false)
@@ -58,10 +69,7 @@ export function StatusRow({
       setDraftLabel(status.label)
       return
     }
-    update({
-      statusSlug: status.slug,
-      patch: { label: trimmed as ProjectStatus["label"] }
-    })
+    update({ label: trimmed as ProjectStatus["label"] })
   }
 
   const baselineMeta = baseline ? statusMetaFor(status.slug, statuses) : null
@@ -81,7 +89,8 @@ export function StatusRow({
       }}
       onDragEnd={() => {
         setIsDragging(false)
-        onDragEnd()
+        const orderKey = onDragEnd()
+        if (orderKey !== null) reorder({ orderKey })
       }}
       className={cn(
         "list-none rounded-md",
@@ -99,15 +108,32 @@ export function StatusRow({
       >
         <DragHandle
           controls={controls}
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
+          onMoveUp={
+            onMoveUp
+              ? () => {
+                  const orderKey = onMoveUp()
+                  if (orderKey !== null) reorder({ orderKey })
+                }
+              : undefined
+          }
+          onMoveDown={
+            onMoveDown
+              ? () => {
+                  const orderKey = onMoveDown()
+                  if (orderKey !== null) reorder({ orderKey })
+                }
+              : undefined
+          }
           ariaLabel={m.tickets_status_drag_handle_aria({ label: displayLabel })}
         />
 
         {baseline && baselineMeta && BaselineIcon ? (
           <>
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center"
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center",
+                dataWaiting && "animate-pulse"
+              )}
               aria-hidden
             >
               <BaselineIcon
@@ -118,7 +144,12 @@ export function StatusRow({
                 strokeWidth={1.75}
               />
             </div>
-            <span className="flex-1 truncate px-1 text-sm text-muted-foreground">
+            <span
+              className={cn(
+                "flex-1 truncate px-1 text-sm text-muted-foreground",
+                dataWaiting && "animate-pulse"
+              )}
+            >
               {displayLabel}
             </span>
             <div
@@ -132,25 +163,23 @@ export function StatusRow({
         ) : (
           <>
             <StatusIconPicker
+              className={cn(dataWaiting && "animate-pulse")}
               value={status.icon}
               color={status.color}
               onOpenChange={setIconMenuOpen}
-              onChange={(icon) =>
-                update({
-                  statusSlug: status.slug,
-                  patch: { icon: icon as StatusIconName }
-                })
-              }
+              onChange={(icon) => update({ icon: icon as StatusIconName })}
             />
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+            <div
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center",
+                dataWaiting && "animate-pulse"
+              )}
+            >
               <ColorPicker
                 value={status.color}
                 onOpenChange={setColorMenuOpen}
                 onChange={(color) =>
-                  update({
-                    statusSlug: status.slug,
-                    patch: { color: color as ProjectStatus["color"] }
-                  })
+                  update({ color: color as ProjectStatus["color"] })
                 }
               />
             </div>
@@ -165,7 +194,10 @@ export function StatusRow({
                   ;(e.target as HTMLInputElement).blur()
                 }
               }}
-              className="h-8 flex-1 rounded-md"
+              className={cn(
+                "h-8 flex-1 rounded-md",
+                dataWaiting && "animate-pulse"
+              )}
             />
             <StatusDeleteConfirm
               status={status}

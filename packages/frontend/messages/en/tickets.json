@@ -189,6 +189,7 @@
       }
     }
   ],
+  "tickets_sprint_assign_error_fallback": "Failed to update sprint",
   "tickets_sprint_chip_aria": "Sprint: {name}. Click to change.",
   "tickets_sprint_popover_new_sprint_action": "New sprint…",
   "tickets_sprint_popover_no_assignment_action": "Don't assign to a sprint",

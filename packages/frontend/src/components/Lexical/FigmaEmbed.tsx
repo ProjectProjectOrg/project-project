@@ -1,5 +1,6 @@
 import { motion } from "motion/react"
 import { figmaEmbedUrl, type FigmaRef } from "@projectproject/shared"
+import type { FigmaTicketLinksRequest } from "@/atoms/figma"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -7,20 +8,51 @@ import { FigmaChip, FigmaGlyph, figmaDisplayName } from "./FigmaChip"
 import { useFigmaMetadata } from "./figmaMetadata"
 
 export function FigmaEmbed({
-  reference,
-  url,
-  label,
-  morphId
-}: {
+  request,
+  ...props
+}: FigmaEmbedProps & { request: FigmaTicketLinksRequest | null }) {
+  return request === null ? (
+    <FigmaEmbedContent {...props} metadata={null} request={null} />
+  ) : (
+    <ResolvedFigmaEmbed {...props} request={request} />
+  )
+}
+
+type FigmaEmbedProps = Readonly<{
   reference: FigmaRef | null
   url: string
   label: string
   morphId: string
-}) {
-  const metadata = useFigmaMetadata(reference)
+}>
 
+function ResolvedFigmaEmbed({
+  request,
+  ...props
+}: FigmaEmbedProps & { request: FigmaTicketLinksRequest }) {
+  const metadata = useFigmaMetadata(props.reference, request)
+  return <FigmaEmbedContent {...props} metadata={metadata} request={request} />
+}
+
+function FigmaEmbedContent({
+  reference,
+  url,
+  label,
+  morphId,
+  metadata,
+  request
+}: FigmaEmbedProps & {
+  metadata: ReturnType<typeof useFigmaMetadata>
+  request: FigmaTicketLinksRequest | null
+}) {
   if (reference === null) {
-    return <FigmaChip reference={null} label={label} morphId={morphId} />
+    return (
+      <FigmaChip
+        request={request}
+        reference={null}
+        label={label}
+        morphId={morphId}
+      />
+    )
   }
 
   const name = figmaDisplayName({

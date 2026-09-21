@@ -2,9 +2,15 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
+import * as Schema from "effect/Schema"
 import { useState, type ReactNode } from "react"
-import { meAtom } from "@/atoms/auth"
-import { oauthClientNameAtom, submitConsentAtom } from "@/atoms/oauthConsent"
+import { me } from "@/atoms/auth"
+import {
+  oauthClientNameAtom,
+  oauthClientRequest,
+  oauthConsentRequest,
+  submitConsentAtom
+} from "@/atoms/oauthConsent"
 import { m } from "@/paraglide/messages"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
@@ -12,21 +18,18 @@ import { Logo, Wordmark } from "@/components/Logo"
 import { oauthConsentErrorMessage } from "@/lib/errorMessage"
 import { rawQueryFromSearch } from "@/lib/oauthQuery"
 
-type Search = {
-  client_id?: string
-  scope?: string
-}
+const OauthConsentSearch = Schema.Struct({
+  client_id: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String)
+})
 
 export const Route = createFileRoute("/(public)/oauth/consent")({
   component: OauthConsentPage,
-  validateSearch: (raw): Search => ({
-    client_id: typeof raw.client_id === "string" ? raw.client_id : undefined,
-    scope: typeof raw.scope === "string" ? raw.scope : undefined
-  })
+  validateSearch: Schema.toStandardSchemaV1(OauthConsentSearch)
 })
 
 function OauthConsentPage() {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const search = Route.useSearch()
   const oauthQuery =
     typeof window === "undefined"
@@ -37,7 +40,7 @@ function OauthConsentPage() {
     new URLSearchParams(oauthQuery).get("client_id") ??
     undefined
 
-  if (Result.isFailure(me)) {
+  if (Result.isFailure(viewer)) {
     return (
       <Navigate
         to="/login"
@@ -60,14 +63,17 @@ function ConsentForm({
   oauthQuery: string
   clientId: string | undefined
 }) {
-  const submit = useAtomSet(submitConsentAtom(oauthQuery), {
+  const consentReq = oauthConsentRequest(oauthQuery)
+  const clientReq = oauthClientRequest(clientId)
+  const submit = useAtomSet(submitConsentAtom(consentReq), {
     mode: "promiseExit"
   })
-  const submitState = useAtomValue(submitConsentAtom(oauthQuery))
-  const clientName = useAtomValue(oauthClientNameAtom(clientId ?? ""))
+  const submitState = useAtomValue(submitConsentAtom(consentReq))
+  const clientName = useAtomValue(oauthClientNameAtom(clientReq))
   const displayName =
-    (Result.isSuccess(clientName) ? clientName.value : null) ??
-    m.auth_oauth_consent_client_fallback()
+    (Result.isSuccess(clientName)
+      ? clientName.value.name?.trim() || null
+      : null) ?? m.auth_oauth_consent_client_fallback()
   const [pending, setPending] = useState<"accept" | "deny" | null>(null)
   const error = Result.matchWithError(submitState, {
     onInitial: () => null,
@@ -78,7 +84,7 @@ function ConsentForm({
 
   const onSubmit = async (accept: boolean) => {
     setPending(accept ? "accept" : "deny")
-    const exit = await submit({ accept, oauthQuery })
+    const exit = await submit({ accept })
     if (Exit.isSuccess(exit)) {
       window.location.replace(exit.value.redirectURI)
       return

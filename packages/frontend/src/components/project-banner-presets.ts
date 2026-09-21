@@ -1,18 +1,7 @@
-import {
-  attachmentUrl,
-  attachmentWidthForCss,
-  withAttachmentParams,
-  type ProjectBanner,
-  type ProjectBannerPreset
-} from "@projectproject/shared"
+import type { ProjectBannerPreset } from "@projectproject/shared"
+import { bannerPresetSources, bannerSource } from "@/lib/bannerSource"
 import { m } from "@/paraglide/messages"
 import type { BannerPrototypeSettings } from "./ProjectBannerPrototypeShader"
-import sunsetUrl from "./project-banner-monet-sunset.png"
-import water_lily_pondUrl from "./project-banner-monet-87088.jpg"
-import wheat_stacksUrl from "./project-banner-monet-64818.jpg"
-import cliff_walkUrl from "./project-banner-monet-14620.jpg"
-import saint_lazareUrl from "./project-banner-monet-16571.jpg"
-import bordigheraUrl from "./project-banner-monet-81537.jpg"
 import sunsetThumbUrl from "./project-banner-monet-sunset-thumb.webp"
 import water_lily_pondThumbUrl from "./project-banner-monet-87088-thumb.webp"
 import wheat_stacksThumbUrl from "./project-banner-monet-64818-thumb.webp"
@@ -20,7 +9,9 @@ import cliff_walkThumbUrl from "./project-banner-monet-14620-thumb.webp"
 import saint_lazareThumbUrl from "./project-banner-monet-16571-thumb.webp"
 import bordigheraThumbUrl from "./project-banner-monet-81537-thumb.webp"
 
-export type BannerPreset = {
+export { bannerSource }
+
+export type BannerPreset = Readonly<{
   id: ProjectBannerPreset
   src: string
   thumbSrc: string
@@ -30,12 +21,12 @@ export type BannerPreset = {
   url: string
   x: number
   y: number
-}
+}>
 
 export const bannerPresets: ReadonlyArray<BannerPreset> = [
   {
     id: "sunset",
-    src: sunsetUrl,
+    src: bannerPresetSources.sunset,
     thumbSrc: sunsetThumbUrl,
     label: () => m.project_banner_template_sunset(),
     artist: "Claude Monet",
@@ -46,7 +37,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "water_lily_pond",
-    src: water_lily_pondUrl,
+    src: bannerPresetSources.water_lily_pond,
     thumbSrc: water_lily_pondThumbUrl,
     label: () => m.project_banner_template_water_lily_pond(),
     artist: "Claude Monet",
@@ -57,7 +48,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "wheat_stacks",
-    src: wheat_stacksUrl,
+    src: bannerPresetSources.wheat_stacks,
     thumbSrc: wheat_stacksThumbUrl,
     label: () => m.project_banner_template_wheat_stacks(),
     artist: "Claude Monet",
@@ -68,7 +59,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "cliff_walk",
-    src: cliff_walkUrl,
+    src: bannerPresetSources.cliff_walk,
     thumbSrc: cliff_walkThumbUrl,
     label: () => m.project_banner_template_cliff_walk(),
     artist: "Claude Monet",
@@ -79,7 +70,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "saint_lazare",
-    src: saint_lazareUrl,
+    src: bannerPresetSources.saint_lazare,
     thumbSrc: saint_lazareThumbUrl,
     label: () => m.project_banner_template_saint_lazare(),
     artist: "Claude Monet",
@@ -90,7 +81,7 @@ export const bannerPresets: ReadonlyArray<BannerPreset> = [
   },
   {
     id: "bordighera",
-    src: bordigheraUrl,
+    src: bannerPresetSources.bordighera,
     thumbSrc: bordigheraThumbUrl,
     label: () => m.project_banner_template_bordighera(),
     artist: "Claude Monet",
@@ -114,25 +105,4 @@ export const bannerDefaults: BannerPrototypeSettings = {
   zoom: 1,
   x: 0.5,
   y: 0.65
-}
-
-export const bannerSource = (
-  orgSlug: string,
-  banner: ProjectBanner | null,
-  cssWidth?: number
-): string | null => {
-  if (banner === null) return null
-  if (banner.type === "preset") {
-    return (
-      bannerPresets.find((preset) => preset.id === banner.preset)?.src ?? null
-    )
-  }
-  const url = attachmentUrl(orgSlug, banner.attachmentId)
-  if (cssWidth === undefined) return url
-  return withAttachmentParams(url, {
-    width: attachmentWidthForCss(
-      cssWidth,
-      typeof window === "undefined" ? 1 : window.devicePixelRatio
-    )
-  })
 }

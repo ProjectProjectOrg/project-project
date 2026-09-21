@@ -1,17 +1,10 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { useMemo } from "react"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
-import type {
-  ProjectStatus,
-  TicketCountQuery,
-  TicketListQuery
-} from "@projectproject/shared"
+import type { ProjectStatus, TicketListQuery } from "@projectproject/shared"
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export function useServerTicketCounts(
@@ -19,13 +12,16 @@ export function useServerTicketCounts(
   slug: string,
   query: TicketListQuery
 ): Record<string, number> {
-  const countQuery: TicketCountQuery = { filter: query.filter, q: query.q }
-  const countsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, countQuery))
+  const req = useMemo(
+    () => countsRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const countsResult = useAtomValue(ticketCounts(req))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult
   )

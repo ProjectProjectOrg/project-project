@@ -28,14 +28,24 @@ vi.mock("@effect/atom-react", () => ({
       : { waiting: false }
 }))
 vi.mock("@/atoms/attachments", () => ({
-  uploadProjectImageAtom: () => "upload-atom"
+  uploadProjectImage: () => "upload-atom",
+  uploadProjectImageRequest: (org: string, slug: string) => ({
+    orgSlug: org,
+    slug
+  })
 }))
 vi.mock("@/atoms/projects", () => ({
   projectKey: (org: string, slug: string) => `${org}/${slug}`,
-  updateProjectAtom: () => "update-atom",
+  projectRequest: (org: string, slug: string) => ({
+    params: { orgSlug: org, slug }
+  }),
+  updateProject: () => "update-atom",
   projectBannerPreviewAtom: () => "preview-atom"
 }))
-vi.mock("@/atoms/storage", () => ({ orgStorageAtom: () => "storage-atom" }))
+vi.mock("@/atoms/storage", () => ({
+  orgStorage: () => "storage-atom",
+  storageRequest: (orgSlug: string) => ({ params: { orgSlug } })
+}))
 vi.mock("@/lib/imageCompression", () => ({ compressBanner: mocks.compress }))
 
 import { bannerPresets } from "@/components/project-banner-presets"

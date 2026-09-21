@@ -21,13 +21,7 @@ function decode<
     Schema.ConstraintEncoder<unknown>
 >(raw: string | null, schema: S, initial: S["Type"]): S["Type"] {
   if (raw === null) return initial
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return initial
-  }
-  const decoded = Schema.decodeUnknownResult(schema)(parsed)
+  const decoded = Schema.decodeResult(Schema.fromJsonString(schema))(raw)
   return Result.isSuccess(decoded) ? decoded.success : initial
 }
 
@@ -105,13 +99,14 @@ export function useLocalStorageState<
 
   const write = useCallback(
     (next: S["Type"]) => {
-      if (typeof window !== "undefined") {
-        try {
-          const encoded = Schema.encodeSync(schemaRef.current)(next)
-          window.localStorage.setItem(key, JSON.stringify(encoded))
-        } catch {
-          return
-        }
+      if (typeof window === "undefined") return
+      try {
+        const encoded = Schema.encodeSync(
+          Schema.fromJsonString(schemaRef.current)
+        )(next)
+        window.localStorage.setItem(key, encoded)
+      } catch {
+        return
       }
       snapshots.delete(key)
       notify(key)

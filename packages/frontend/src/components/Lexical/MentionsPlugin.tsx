@@ -25,12 +25,12 @@ import {
   type LexicalNode
 } from "lexical"
 import * as Effect from "effect/Effect"
-import { AppLayer } from "@/runtime"
 import {
   type MentionCandidate,
   type MentionProvider,
   mentionProviders,
-  providerForTrigger
+  providerForTrigger,
+  providerForType
 } from "@/mentions/registry"
 import { useMentionScope } from "@/mentions/scope"
 import { $createMentionNode, $isMentionNode } from "./MentionNode"
@@ -44,15 +44,30 @@ class MentionMenuOption extends MenuOption {
   }
 }
 
-const TRIGGERS = mentionProviders.map((p) => p.trigger).join("")
+const emptyScope = { orgSlug: "", slug: "" }
 
 export function MentionsPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
   const scope = useMentionScope()
   const registry = useContext(RegistryContext)
+  const providers = useMemo(
+    () => mentionProviders(scope ?? emptyScope),
+    [scope]
+  )
+  const triggers = useMemo(
+    () => providers.map((provider) => provider.trigger).join(""),
+    [providers]
+  )
   const [queryString, setQueryString] = useState<string | null>(null)
-  const [activeProvider, setActiveProvider] = useState<MentionProvider | null>(
+  const [activeType, setActiveType] = useState<MentionProvider["type"] | null>(
     null
+  )
+  const activeProvider = useMemo(
+    () =>
+      activeType === null
+        ? null
+        : (providerForType(providers, activeType) ?? null),
+    [activeType, providers]
   )
   const [results, setResults] = useState<{
     provider: MentionProvider
@@ -61,27 +76,30 @@ export function MentionsPlugin(): JSX.Element | null {
     candidates: ReadonlyArray<MentionCandidate>
   } | null>(null)
 
-  const checkForTriggerMatch = useCallback((text: string) => {
-    for (let i = text.length - 1; i >= 0; i--) {
-      const ch = text[i]
-      if (TRIGGERS.includes(ch)) {
-        const prev = i === 0 ? " " : text[i - 1]
-        if (/\s/.test(prev)) {
-          const provider = providerForTrigger(ch)
-          if (!provider) return null
-          const matchString = text.slice(i + 1)
-          if (/\s/.test(matchString)) return null
-          setActiveProvider(provider)
-          return {
-            leadOffset: i,
-            matchingString: matchString,
-            replaceableString: text.slice(i)
+  const checkForTriggerMatch = useCallback(
+    (text: string) => {
+      for (let i = text.length - 1; i >= 0; i--) {
+        const ch = text[i]
+        if (triggers.includes(ch)) {
+          const prev = i === 0 ? " " : text[i - 1]
+          if (/\s/.test(prev)) {
+            const provider = providerForTrigger(providers, ch)
+            if (!provider) return null
+            const matchString = text.slice(i + 1)
+            if (/\s/.test(matchString)) return null
+            setActiveType(provider.type)
+            return {
+              leadOffset: i,
+              matchingString: matchString,
+              replaceableString: text.slice(i)
+            }
           }
         }
       }
-    }
-    return null
-  }, [])
+      return null
+    },
+    [providers, triggers]
+  )
 
   useEffect(() => {
     if (!activeProvider || queryString === null) {
@@ -93,14 +111,8 @@ export function MentionsPlugin(): JSX.Element | null {
     Effect.runPromise(
       Effect.gen(function* () {
         if (queryString.length > 0) yield* Effect.sleep("200 millis")
-        return yield* activeProvider.search(
-          queryString,
-          scope ?? { orgSlug: "", slug: "" }
-        )
-      }).pipe(
-        Effect.provideService(Registry.AtomRegistry, registry),
-        Effect.provide(AppLayer)
-      ),
+        return yield* activeProvider.search(queryString)
+      }).pipe(Effect.provideService(Registry.AtomRegistry, registry)),
       { signal: controller.signal }
     ).then(
       (r) => {

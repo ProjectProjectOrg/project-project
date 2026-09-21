@@ -1,7 +1,8 @@
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 import { Db } from "../Services/Db"
 import type { EverhourTimeRecord } from "../Services/Everhour"
 import { EverhourTimeTracking } from "../Services/EverhourTimeTracking"
@@ -10,52 +11,71 @@ import {
   type EverhourWebhooksShape
 } from "../Services/EverhourWebhooks"
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
+const ExternalId = Schema.Union([Schema.String, Schema.Finite])
+const TimeRecordPayload = Schema.Struct({
+  id: ExternalId,
+  time: Schema.Finite,
+  task: Schema.NullOr(Schema.Struct({ id: ExternalId })).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  user: Schema.NullOr(ExternalId).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  date: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  comment: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  )
+})
 
-const idString = (value: unknown): string | null =>
-  typeof value === "string"
-    ? value
-    : typeof value === "number"
-      ? String(value)
-      : null
+const wrapped = <K extends string>(key: K) =>
+  Schema.Struct({ [key]: TimeRecordPayload }).pipe(
+    Schema.decodeTo(
+      Schema.toType(TimeRecordPayload),
+      SchemaTransformation.transform({
+        decode: (input) => input[key],
+        encode: (input) => ({ [key]: input })
+      })
+    )
+  )
 
-const decodeJson = Schema.decodeUnknownExit(
-  Schema.fromJsonString(Schema.Unknown)
+const PayloadData = Schema.Struct({
+  payload: Schema.Struct({ data: TimeRecordPayload })
+}).pipe(
+  Schema.decodeTo(
+    Schema.toType(TimeRecordPayload),
+    SchemaTransformation.transform({
+      decode: (input) => input.payload.data,
+      encode: (input) => ({ payload: { data: input } })
+    })
+  )
 )
 
+const WebhookTimeRecord = Schema.fromJsonString(
+  Schema.Union([
+    TimeRecordPayload,
+    wrapped("data"),
+    wrapped("time"),
+    wrapped("timeRecord"),
+    wrapped("payload"),
+    PayloadData
+  ])
+)
+const decodeWebhookTimeRecord = Schema.decodeOption(WebhookTimeRecord)
+
 export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
-  const parsed = decodeJson(body)
-  if (Exit.isFailure(parsed)) return null
-  const payload = parsed.value
-  const candidates: Array<unknown> = []
-  if (isRecord(payload)) {
-    candidates.push(payload)
-    if (isRecord(payload.data)) candidates.push(payload.data)
-    if (isRecord(payload.time)) candidates.push(payload.time)
-    if (isRecord(payload.timeRecord)) candidates.push(payload.timeRecord)
-    if (isRecord(payload.payload)) {
-      candidates.push(payload.payload)
-      if (isRecord(payload.payload.data)) candidates.push(payload.payload.data)
-    }
+  const decoded = decodeWebhookTimeRecord(body)
+  if (Option.isNone(decoded)) return null
+  const record = decoded.value
+  return {
+    id: String(record.id),
+    taskId: record.task === null ? null : String(record.task.id),
+    userId: record.user === null ? null : String(record.user),
+    seconds: record.time,
+    date: record.date,
+    comment: record.comment
   }
-  for (const candidate of candidates) {
-    if (!isRecord(candidate)) continue
-    const id = idString(candidate.id)
-    if (id === null) continue
-    const time = typeof candidate.time === "number" ? candidate.time : undefined
-    if (time === undefined) continue
-    const task = isRecord(candidate.task) ? candidate.task : null
-    return {
-      id,
-      taskId: task ? idString(task.id) : null,
-      userId: idString(candidate.user),
-      seconds: time,
-      date: typeof candidate.date === "string" ? candidate.date : "",
-      comment: typeof candidate.comment === "string" ? candidate.comment : null
-    }
-  }
-  return null
 }
 
 export const EverhourWebhooksLive = Layer.effect(

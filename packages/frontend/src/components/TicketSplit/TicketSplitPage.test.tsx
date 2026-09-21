@@ -24,15 +24,16 @@ vi.mock("@tanstack/react-router", () => ({
 }))
 
 vi.mock("@/atoms/comments", () => ({
-  commentsKey: () => "comments-key",
-  commentsAtom: () => "comments"
+  commentsRequest: () => ({
+    params: { orgSlug: "org", slug: "project", id: "T-1" }
+  }),
+  comments: () => "comments"
 }))
 
-vi.mock("@/atoms/sprints", () => ({
-  projectKey: () => "project-key",
-  sprintMembershipAtom: () => "membership",
-  sprintsListAtom: () => "sprints",
-  sprintsListBaseAtom: () => "sprints-base"
+vi.mock("@/atoms/sprintList", () => ({
+  sprintListRequest: () => ({ params: { orgSlug: "org", slug: "project" } }),
+  sprintMembership: () => "membership",
+  sprintList: () => "sprints"
 }))
 
 vi.mock("@/components/ErrorPage", () => ({
@@ -100,7 +101,7 @@ const renderPage = () =>
 
 beforeEach(() => {
   mocks.values.clear()
-  mocks.values.set("membership", new Map())
+  mocks.values.set("membership", Result.success(new Map(), { waiting: false }))
   mocks.back.mockReset()
   mocks.navigate.mockReset()
   mocks.refreshSprints.mockReset()

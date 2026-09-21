@@ -30,11 +30,12 @@ vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => ({ waiting: false })
 }))
 vi.mock("@/atoms/attachments", () => ({
-  uploadProjectImageAtom: () => "upload"
+  uploadProjectImage: () => "upload",
+  uploadProjectImageRequest: () => ({ orgSlug: "org", slug: "proj" })
 }))
 vi.mock("@/atoms/projects", () => ({
-  projectKey: () => "org/proj",
-  updateProjectAtom: () => "update"
+  projectRequest: () => ({ params: { orgSlug: "org", slug: "proj" } }),
+  updateProject: () => "update"
 }))
 vi.mock("@/lib/imageCompression", () => ({ compressImage: mocks.compress }))
 vi.mock("./useIconDraft", () => ({

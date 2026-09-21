@@ -1,5 +1,6 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useMemo, useState, type ReactNode } from "react"
 import { FilterX, ListChecks } from "lucide-react"
 import * as Schema from "effect/Schema"
@@ -15,12 +16,8 @@ import {
   EmptyTitle
 } from "@/components/ui/empty"
 import { ErrorPage } from "@/components/ErrorPage"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  projectStatusesBaseAtom
-} from "@/atoms/projectStatuses"
-import type { TicketSectionsValue } from "@/atoms/tickets"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
+import type { BacklogValue } from "@/atoms/backlog"
 import { m } from "@/paraglide/messages"
 import type {
   Group,
@@ -31,7 +28,6 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@projectproject/shared"
-import { queryHasActiveFilter, useResetTicketSearch } from "./url"
 import { SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
 
@@ -54,17 +50,40 @@ export function SegmentedList({
   members: ReadonlyArray<Member>
   extraRowActions?: (ticket: Ticket) => ReactNode
   sprintMembership?: ReadonlyMap<TicketId, Group>
-  snapshot: TicketSectionsValue
+  snapshot: BacklogValue
 }) {
-  const resetFilters = useResetTicketSearch()
+  const router = useRouter()
+  const navigate = useNavigate()
+  const resetFilters = () => {
+    void navigate({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        status: undefined,
+        type: undefined,
+        assignee: undefined,
+        tags: undefined,
+        groupId: undefined,
+        hasBranch: undefined,
+        hasPr: undefined,
+        updatedAfter: undefined,
+        archived: undefined,
+        sort: undefined,
+        q: undefined,
+        cursor: undefined,
+        view: previous.view
+      }),
+      replace: true,
+      resetScroll: false
+    })
+  }
   const preview = useTicketPreview()
 
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
-  const refreshStatuses = useAtomRefresh(
-    projectStatusesBaseAtom(projectStatusKey(orgSlug, slug))
-  )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
+  const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult
   )
@@ -73,17 +92,27 @@ export function SegmentedList({
 
   const { counts, sections } = snapshot
   const byStatus = counts.byStatus
-  const hasActiveFilter = queryHasActiveFilter(query)
+  const hasActiveFilter =
+    (query.q !== undefined && query.q.length > 0) ||
+    (query.status?.length ?? 0) > 0 ||
+    (query.type?.length ?? 0) > 0 ||
+    (query.assignee?.length ?? 0) > 0 ||
+    (query.tags?.length ?? 0) > 0 ||
+    (query.groupId?.length ?? 0) > 0 ||
+    query.hasBranch !== undefined ||
+    query.hasPr !== undefined ||
+    query.updatedAfter !== undefined ||
+    query.archived !== undefined
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
-    const requested = query.filter?.status
+    const requested = query.status
     const allOrdered = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
     if (requested !== undefined && requested.length > 0) {
       return allOrdered.filter((s) => requested.includes(s))
     }
     if (!hasActiveFilter) return allOrdered
     return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)
-  }, [statuses, query.filter, hasActiveFilter, byStatus])
+  }, [statuses, query.status, hasActiveFilter, byStatus])
 
   const [collapsedRaw, setCollapsedRaw] = useLocalStorageState(
     `projectproject:ticket-list-collapsed:${orgSlug}/${slug}`,

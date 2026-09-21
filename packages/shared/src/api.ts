@@ -22,8 +22,20 @@ import {
   OpenApi
 } from "effect/unstable/httpapi"
 import * as Schema from "effect/Schema"
+import * as Effect from "effect/Effect"
 import { User } from "./schemas/User"
-import { Org, OrgDetail } from "./schemas/Org"
+import {
+  InviteMemberInput,
+  Org,
+  OrgDetail,
+  OrgInvitation,
+  OrgMember,
+  OrgMembers,
+  RenameOrgInput,
+  TransferOrgOwnershipInput,
+  UpdateMemberRoleInput,
+  UserInvitation
+} from "./schemas/Org"
 import {
   AddMemberInput,
   ConnectGithubInput,
@@ -96,6 +108,7 @@ import {
 } from "./schemas/Figma"
 import {
   CompleteSprintInput,
+  CompleteSprintOutput,
   CreateGroupInput,
   Group,
   GroupDetail,
@@ -105,8 +118,18 @@ import {
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
 } from "./schemas/Group"
-import { TicketCounts, TicketListPage, TicketSections } from "./filters/Ticket"
-import { TicketCountParams, TicketListParams } from "./filters/url"
+import {
+  DEFAULT_TICKET_SORT,
+  TicketSort,
+  TicketCountQuery,
+  TicketCounts,
+  TicketListPage,
+  TicketListQuery,
+  TicketOrderKeyQuery,
+  TicketSearchQuery,
+  TicketSections,
+  TicketUpdateResult
+} from "./filters/Ticket"
 import {
   Attachment,
   AttachmentListPage,
@@ -138,6 +161,7 @@ import {
   GitHubError,
   GitHubScopeInsufficient,
   GitHubTokenExpired,
+  InvitationNotAcceptable,
   MentionInvalid,
   NotFound,
   ProjectOwnerRemovalBlocked,
@@ -185,6 +209,12 @@ const AuthGroup = HttpApiGroup.make("auth")
   .middleware(Authentication)
 
 const OrgPath = Schema.Struct({ orgSlug: Slug })
+const OrgMemberPath = Schema.Struct({ orgSlug: Slug, userId: Schema.String })
+const OrgInvitationPath = Schema.Struct({
+  orgSlug: Slug,
+  invitationId: Schema.String
+})
+const InvitationPath = Schema.Struct({ invitationId: Schema.String })
 
 const OrgGroup = HttpApiGroup.make("org")
   .add(
@@ -214,7 +244,116 @@ const OrgGroup = HttpApiGroup.make("org")
       error: [Unauthorized, NotFound, Forbidden, Conflict]
     })
   )
+  .add(
+    HttpApiEndpoint.get("members", "/orgs/:orgSlug/members", {
+      params: OrgPath,
+      success: OrgMembers,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch("rename", "/orgs/:orgSlug", {
+      params: OrgPath,
+      payload: RenameOrgInput,
+      success: OrgDetail,
+      error: [Unauthorized, NotFound, Forbidden]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("inviteMember", "/orgs/:orgSlug/members", {
+      params: OrgPath,
+      payload: InviteMemberInput,
+      success: OrgInvitation,
+      error: [Unauthorized, NotFound, Forbidden, Validation, Conflict]
+    })
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateMemberRole",
+      "/orgs/:orgSlug/members/:userId",
+      {
+        params: OrgMemberPath,
+        payload: UpdateMemberRoleInput,
+        success: OrgMember,
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.delete("removeMember", "/orgs/:orgSlug/members/:userId", {
+      params: OrgMemberPath,
+      success: HttpApiSchema.NoContent,
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        Conflict,
+        ProjectOwnerRemovalBlocked
+      ]
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "cancelInvitation",
+      "/orgs/:orgSlug/invitations/:invitationId",
+      {
+        params: OrgInvitationPath,
+        success: HttpApiSchema.NoContent,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "transferOwnership",
+      "/orgs/:orgSlug/transfer-ownership",
+      {
+        params: OrgPath,
+        payload: TransferOrgOwnershipInput,
+        success: OrgMembers,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.post("leave", "/orgs/:orgSlug/leave", {
+      params: OrgPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound, Conflict]
+    })
+  )
   .middleware(Authentication)
+
+const InvitationsGroup = HttpApiGroup.make("invitations")
+  .add(
+    HttpApiEndpoint.get("list", "/invitations", {
+      success: Schema.Array(UserInvitation),
+      error: [Unauthorized, InvitationNotAcceptable]
+    })
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/invitations/:invitationId", {
+      params: InvitationPath,
+      success: UserInvitation,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("accept", "/invitations/:invitationId/accept", {
+      params: InvitationPath,
+      success: Org,
+      error: [Unauthorized, NotFound, InvitationNotAcceptable]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("reject", "/invitations/:invitationId/reject", {
+      params: InvitationPath,
+      success: HttpApiSchema.NoContent,
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .middleware(Authentication)
+
 const ProjectPath = Schema.Struct({ orgSlug: Slug, slug: Slug })
 const ProjectMemberPath = Schema.Struct({
   orgSlug: Slug,
@@ -910,11 +1049,19 @@ const AttachmentsGroup = HttpApiGroup.make("attachments")
   )
   .middleware(Authentication)
 
-const TicketSearchParams = Schema.Struct({
-  q: Schema.optional(Schema.String),
-  excludeGroupId: Schema.optional(Schema.String),
-  limit: Schema.optional(Schema.String)
-})
+const TicketListHttpQuery = TicketListQuery.pipe(
+  Schema.fieldsAssign({
+    sort: Schema.fromJsonString(TicketSort).pipe(
+      Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
+    )
+  })
+)
+
+const TicketOrderKeyHttpQuery = TicketOrderKeyQuery.pipe(
+  Schema.fieldsAssign({
+    sort: Schema.optional(Schema.fromJsonString(TicketSort))
+  })
+)
 
 const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
@@ -923,7 +1070,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/sections",
       {
         params: ProjectPath,
-        query: TicketListParams,
+        query: TicketListHttpQuery,
         success: TicketSections,
         error: [Unauthorized, NotFound]
       }
@@ -932,7 +1079,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
-      query: TicketListParams,
+      query: TicketListHttpQuery,
       success: TicketListPage,
       error: [Unauthorized, NotFound]
     })
@@ -943,7 +1090,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/search",
       {
         params: ProjectPath,
-        query: TicketSearchParams,
+        query: TicketSearchQuery,
         success: Schema.Array(Ticket),
         error: [Unauthorized, NotFound]
       }
@@ -955,7 +1102,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/count",
       {
         params: ProjectPath,
-        query: TicketCountParams,
+        query: TicketCountQuery,
         success: TicketCounts,
         error: [Unauthorized, NotFound]
       }
@@ -994,8 +1141,9 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
       {
         params: TicketPath,
+        query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
-        success: TicketDetail,
+        success: TicketUpdateResult,
         error: [Unauthorized, NotFound, Validation, MentionInvalid]
       }
     )
@@ -1356,6 +1504,30 @@ const GroupsGroup = HttpApiGroup.make("groups")
   )
   .add(
     HttpApiEndpoint.patch(
+      "addTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets/add",
+      {
+        params: GroupPath,
+        payload: UpdateGroupTicketsInput,
+        success: UpdateGroupTicketsOutput,
+        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "removeTickets",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/tickets/remove",
+      {
+        params: GroupPath,
+        payload: UpdateGroupTicketsInput,
+        success: UpdateGroupTicketsOutput,
+        error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.patch(
       "updateTicketOrder",
       "/orgs/:orgSlug/projects/:slug/groups/:id/ticket-order",
       {
@@ -1379,7 +1551,7 @@ const GroupsGroup = HttpApiGroup.make("groups")
       {
         params: GroupPath,
         payload: CompleteSprintInput,
-        success: GroupDetail,
+        success: CompleteSprintOutput,
         error: [
           Unauthorized,
           NotFound,
@@ -1429,11 +1601,20 @@ const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   )
   .middleware(Authentication)
 
+const PublicOAuthGroup = HttpApiGroup.make("publicOAuth").add(
+  HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
+    query: Schema.Struct({ client_id: Schema.String }),
+    success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
+    error: [NotFound]
+  })
+)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
   .add(AuthGroup)
   .add(OrgGroup)
+  .add(InvitationsGroup)
   .add(ProjectsGroup)
   .add(EverhourGroup)
   .add(FigmaGroup)
@@ -1445,5 +1626,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(StatusesGroup)
   .add(GroupsGroup)
   .add(OAuthApplicationsGroup)
+  .add(PublicOAuthGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }

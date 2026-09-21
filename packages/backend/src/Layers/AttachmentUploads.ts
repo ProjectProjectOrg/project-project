@@ -37,7 +37,7 @@ const UploadGrant = Schema.fromJsonString(
     ticketId: TicketId,
     attachmentId: AttachmentId,
     userId: Schema.String,
-    expiresAt: Schema.Number
+    expiresAt: Schema.Finite
   })
 )
 const SealedGrant = Schema.fromJsonString(
@@ -112,7 +112,9 @@ export const AttachmentUploadsLive = Layer.effect(
         ).pipe(Effect.orDie)
         const payload = yield* Schema.encodeEffect(UploadGrant)({
           purpose: "ticket-attachment-upload",
-          ...ticket,
+          orgSlug: ticket.orgSlug,
+          projectSlug: ticket.projectSlug,
+          ticketId: ticket.ticketId,
           attachmentId,
           userId,
           expiresAt: prepared.expiresAt.getTime()
@@ -127,7 +129,12 @@ export const AttachmentUploadsLive = Layer.effect(
           "token",
           Buffer.from(encoded).toString("base64url")
         )
-        return { ...prepared, uploadUrl: url.toString() }
+        return {
+          id: prepared.id,
+          url: prepared.url,
+          uploadUrl: url.toString(),
+          expiresAt: prepared.expiresAt
+        }
       })
 
     const receive: AttachmentUploads.AttachmentUploads["Service"]["receive"] =

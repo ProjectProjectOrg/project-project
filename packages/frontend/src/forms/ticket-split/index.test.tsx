@@ -9,9 +9,11 @@ vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => Result.initial(true)
 }))
 
-vi.mock("@/atoms/tickets", () => ({
-  ticketKey: () => "ticket-key",
-  ticketSplitAtom: () => "split-atom"
+vi.mock("@/atoms/ticketDetail", () => ({
+  ticketRequest: () => ({
+    params: { orgSlug: "org", slug: "project", id: "T-1" }
+  }),
+  splitTicket: () => "split-atom"
 }))
 
 vi.mock("@/components/TicketList/AssigneeField", () => ({

@@ -8,25 +8,25 @@ import {
 } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { LogOut, MailCheck } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { logout, me, setActiveOrganization } from "@/atoms/auth"
 import {
-  acceptInviteAtom,
-  declineInvitationAtom,
-  invitationAtom,
-  logoutAtom,
-  meAtom,
-  setActiveOrganizationAtom
-} from "@/atoms/auth"
+  acceptInvitation,
+  invitations,
+  rejectInvitation
+} from "@/atoms/invitations"
 import { ErrorPage } from "@/components/ErrorPage"
+import { errorMessage } from "@/lib/errorMessage"
 import {
   OnboardingGateStatus,
   OnboardingShell
 } from "@/components/OnboardingShell"
 import { Button } from "@/components/ui/button"
+import { invitationInviterDetail, invitationRoleLabel } from "@/lib/invitations"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import type { PendingInvite } from "@/lib/invitations"
+import type { UserInvitation } from "@projectproject/shared"
 
 export const Route = createFileRoute("/invite/$invitationId")({
   component: InvitePage
@@ -34,9 +34,9 @@ export const Route = createFileRoute("/invite/$invitationId")({
 
 function InvitePage() {
   const { invitationId } = Route.useParams()
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
 
-  return Result.matchWithError(me, {
+  return Result.matchWithError(viewer, {
     onInitial: () => (
       <OnboardingGateStatus>{m.chrome_loading()}</OnboardingGateStatus>
     ),
@@ -53,9 +53,10 @@ function InvitePage() {
 }
 
 function InviteResolver({ invitationId }: { invitationId: string }) {
-  const invitation = useAtomValue(invitationAtom(invitationId))
+  const pending = useAtomValue(invitations())
+  const resolved = useRef<UserInvitation | null>(null)
 
-  return Result.matchWithError(invitation, {
+  return Result.matchWithError(pending, {
     onInitial: () => (
       <OnboardingShell icon={MailCheck}>
         <InviteSkeleton />
@@ -67,25 +68,32 @@ function InviteResolver({ invitationId }: { invitationId: string }) {
       </OnboardingShell>
     ),
     onDefect: (defect) => <ErrorPage error={defect} />,
-    onSuccess: ({ value }) => (
-      <OnboardingShell icon={MailCheck}>
-        <InviteAccept invite={value} />
-      </OnboardingShell>
-    )
+    onSuccess: ({ value }) => {
+      const invite =
+        value.find((invitation) => invitation.id === invitationId) ??
+        resolved.current
+      resolved.current = invite
+      return (
+        <OnboardingShell icon={MailCheck}>
+          {invite ? <InviteAccept invite={invite} /> : <InviteUnavailable />}
+        </OnboardingShell>
+      )
+    }
   })
 }
 
-function InviteAccept({ invite }: { invite: PendingInvite }) {
+function InviteAccept({ invite }: { invite: UserInvitation }) {
   const navigate = useNavigate()
-  const accept = useAtomSet(acceptInviteAtom(invite.id), {
+  const mutationKey = { invitationId: invite.id }
+  const accept = useAtomSet(acceptInvitation(mutationKey), {
     mode: "promiseExit"
   })
-  const acceptState = useAtomValue(acceptInviteAtom(invite.id))
-  const decline = useAtomSet(declineInvitationAtom(invite.id), {
+  const acceptState = useAtomValue(acceptInvitation(mutationKey))
+  const decline = useAtomSet(rejectInvitation(mutationKey), {
     mode: "promiseExit"
   })
-  const declineState = useAtomValue(declineInvitationAtom(invite.id))
-  const activateOrg = useAtomSet(setActiveOrganizationAtom("me"), {
+  const declineState = useAtomValue(rejectInvitation(mutationKey))
+  const activateOrg = useAtomSet(setActiveOrganization, {
     mode: "promiseExit"
   })
   const [pending, setPending] = useState<"accept" | "decline" | null>(null)
@@ -94,24 +102,30 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
   const accepting = acceptState.waiting || pending === "accept"
   const declining = declineState.waiting || pending === "decline"
   const busy = accepting || declining
+  const acceptError = Result.matchWithError(acceptState, {
+    onInitial: () => null,
+    onSuccess: () => null,
+    onError: (error) =>
+      error._tag === "InvitationNotAcceptable"
+        ? errorMessage(error)
+        : m.auth_invite_accept_error(),
+    onDefect: () => m.auth_invite_accept_error()
+  })
 
   const onAccept = async () => {
     setError(null)
     setPending("accept")
     try {
       const acceptExit = await accept()
-      if (Exit.isFailure(acceptExit)) {
-        setError(m.auth_invite_accept_error())
-        return
-      }
-      const activeExit = await activateOrg(invite.organizationSlug)
+      if (Exit.isFailure(acceptExit)) return
+      const activeExit = await activateOrg(invite.orgSlug)
       if (Exit.isFailure(activeExit)) {
         setError(m.auth_invite_accept_error())
         return
       }
       await navigate({
         to: "/orgs/$orgSlug",
-        params: { orgSlug: invite.organizationSlug },
+        params: { orgSlug: invite.orgSlug },
         replace: true
       })
     } finally {
@@ -134,7 +148,7 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
     }
   }
 
-  const initial = invite.organizationName.trim().charAt(0).toUpperCase() || "·"
+  const initial = invite.orgName.trim().charAt(0).toUpperCase() || "·"
 
   return (
     <div className="space-y-5">
@@ -143,7 +157,7 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
           {m.auth_invite_title()}
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          {m.auth_invite_body({ org: invite.organizationName })}
+          {m.auth_invite_body({ org: invite.orgName })}
         </p>
       </div>
       <div
@@ -163,20 +177,20 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
-              {invite.organizationName}
+              {invite.orgName}
             </span>
             <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10.5px] font-medium capitalize leading-[1.5] text-muted-foreground">
-              {roleLabel(invite.role)}
+              {invitationRoleLabel(invite.role)}
             </span>
           </div>
           <div className="truncate text-[12.5px] leading-5 text-muted-foreground">
-            {m.auth_invites_row_detail({ inviter: invite.inviterEmail })}
+            {invitationInviterDetail(invite.inviterEmail)}
           </div>
         </div>
       </div>
-      {error ? (
+      {(error ?? acceptError) ? (
         <p role="alert" className="text-sm text-destructive">
-          {error}
+          {error ?? acceptError}
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
@@ -205,7 +219,7 @@ function InviteAccept({ invite }: { invite: PendingInvite }) {
 }
 
 function InviteUnavailable() {
-  const logout = useAtomSet(logoutAtom)
+  const signOut = useAtomSet(logout)
 
   return (
     <div className="space-y-5">
@@ -225,7 +239,7 @@ function InviteUnavailable() {
           type="button"
           variant="tertiary"
           leadingIcon={LogOut}
-          onClick={() => logout()}
+          onClick={() => signOut()}
         >
           {m.auth_welcome_sign_out_button()}
         </Button>
@@ -251,10 +265,4 @@ function InviteSkeleton() {
       </div>
     </div>
   )
-}
-
-function roleLabel(role: string) {
-  if (role === "owner") return m.auth_invites_role_owner()
-  if (role === "admin") return m.auth_invites_role_admin()
-  return m.auth_invites_role_member()
 }

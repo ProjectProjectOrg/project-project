@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { Check, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
@@ -11,9 +10,12 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { Member, TicketId } from "@projectproject/shared"
+import type {
+  Member,
+  TicketId,
+  UpdateTicketInput
+} from "@projectproject/shared"
 
 type AssigneeVariant = "row" | "card" | "chip"
 
@@ -46,32 +48,56 @@ function chipLabel(resolved: ReadonlyArray<Member>): string {
 
 function Avatars({
   resolved,
-  size
+  size,
+  className
 }: {
   resolved: ReadonlyArray<Member>
   size: number
+  className?: string
 }) {
   if (resolved.length === 0) return null
   if (resolved.length === 1) {
-    return <MemberAvatar member={resolved[0]} size={size} />
+    return (
+      <MemberAvatar member={resolved[0]} size={size} className={className} />
+    )
   }
-  return <AvatarStack subjects={resolved} size={size} max={3} />
+  return (
+    <AvatarStack
+      subjects={resolved}
+      size={size}
+      max={3}
+      className={className}
+    />
+  )
 }
 
 function TriggerVisual({
   variant,
-  resolved
+  resolved,
+  waiting
 }: {
   variant: AssigneeVariant
   resolved: ReadonlyArray<Member>
+  waiting: boolean
 }) {
   const empty = resolved.length === 0
   if (variant === "chip") {
     return (
       <>
-        {empty && <UserRound className="size-3.5" strokeWidth={1.75} />}
-        <Avatars resolved={resolved} size={18} />
-        <span>{chipLabel(resolved)}</span>
+        {empty && (
+          <UserRound
+            className={cn("size-3.5", waiting && "animate-pulse")}
+            strokeWidth={1.75}
+          />
+        )}
+        <Avatars
+          resolved={resolved}
+          size={18}
+          className={cn(waiting && "animate-pulse")}
+        />
+        <span className={cn(waiting && "animate-pulse")}>
+          {chipLabel(resolved)}
+        </span>
       </>
     )
   }
@@ -79,16 +105,30 @@ function TriggerVisual({
     return (
       <>
         {empty && (
-          <span className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
+          <span
+            className={cn(
+              "grid size-6 place-items-center rounded-full text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground",
+              waiting && "animate-pulse"
+            )}
+          >
             <UserRound className="size-4" strokeWidth={1.75} />
           </span>
         )}
-        <Avatars resolved={resolved} size={20} />
+        <Avatars
+          resolved={resolved}
+          size={20}
+          className={cn(waiting && "animate-pulse")}
+        />
       </>
     )
   }
   return (
-    <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
+    <span
+      className={cn(
+        "inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground",
+        waiting && "animate-pulse"
+      )}
+    >
       {empty && (
         <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/15">
           <UserRound className="size-3" strokeWidth={1.75} />
@@ -142,12 +182,14 @@ export function AssigneeSelect({
   value,
   onChange,
   members,
+  waiting = false,
   variant = "row",
   className
 }: {
   value: ReadonlyArray<string>
   onChange: (assignees: ReadonlyArray<string>) => void
   members: ReadonlyArray<Member>
+  waiting?: boolean
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -179,7 +221,11 @@ export function AssigneeSelect({
           className
         )}
       >
-        <TriggerVisual variant={variant} resolved={resolved} />
+        <TriggerVisual
+          variant={variant}
+          resolved={resolved}
+          waiting={waiting}
+        />
       </Trigger>
       <DropdownMenuContent
         align="start"
@@ -230,38 +276,26 @@ export function AssigneeSelect({
 }
 
 export function AssigneeField({
-  orgSlug,
-  slug,
   ticket,
   members,
-  sprintTicketsKey,
-  ticketSectionsKey,
-  onChange,
+  onPatch,
+  waiting,
   variant = "row",
   className
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
-  onChange?: (value: ReadonlyArray<string>) => void
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
   variant?: AssigneeVariant
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
   return (
     <AssigneeSelect
       value={ticket.assignees}
-      onChange={(assignees) =>
-        onChange
-          ? onChange(assignees)
-          : update({ assignees, sprintTicketsKey, ticketSectionsKey })
-      }
+      onChange={(assignees) => onPatch({ assignees })}
       members={members}
+      waiting={waiting}
       variant={variant}
       className={className}
     />
@@ -269,10 +303,10 @@ export function AssigneeField({
 }
 
 export function AssigneePicker(props: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
 }) {
   return <AssigneeField {...props} variant="chip" />
 }

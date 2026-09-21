@@ -60,3 +60,18 @@ export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
         })
       )
 )
+
+export const PublicOAuthHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "publicOAuth",
+  (handlers) =>
+    handlers.handle("publicClient", ({ query }) =>
+      Effect.gen(function* () {
+        const ba = yield* BetterAuth
+        const name = yield* ba
+          .getPublicClientName(query.client_id)
+          .pipe(Effect.catchTag("BetterAuthError", Effect.die))
+        return { name }
+      })
+    )
+)

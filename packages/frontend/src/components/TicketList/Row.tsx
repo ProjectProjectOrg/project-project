@@ -1,13 +1,8 @@
 import { memo, useRef, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Link } from "@tanstack/react-router"
-import { useAtomValue } from "@effect/atom-react"
-import {
-  applyOptimisticTicketPreview,
-  ticketKey,
-  ticketUpdatePreviewAtom,
-  ticketsSectionsKey
-} from "@/atoms/tickets"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { updateBacklogTicket, type BacklogRequest } from "@/atoms/backlog"
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
@@ -18,7 +13,6 @@ import type {
   Group,
   Member,
   Ticket,
-  TicketListQuery,
   UpdateTicketInput
 } from "@projectproject/shared"
 import { AssigneeField } from "./AssigneeField"
@@ -29,29 +23,12 @@ import { TypeButton } from "./TypeField"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
-function RowImpl({
-  orgSlug,
-  slug,
-  ticket,
-  query,
-  members,
-  showSprintCol,
-  showExtraActionsCol,
-  sprintMembership,
-  extraRowActions,
-  pending,
-  previewOpen,
-  previewMounted,
-  onPreviewPointerEnter,
-  onPreviewOpenChange,
-  onPreviewDismiss,
-  onUpdate
-}: {
+type RowProps = Readonly<{
   onUpdate?: (patch: UpdateTicketInput) => void
   orgSlug: string
   slug: string
   ticket: Ticket
-  query: TicketListQuery
+  req: BacklogRequest
   members: ReadonlyArray<Member>
   showSprintCol: boolean
   showExtraActionsCol: boolean
@@ -63,14 +40,46 @@ function RowImpl({
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
   onPreviewDismiss: () => void
-}) {
-  const updatePreview = useAtomValue(
-    ticketUpdatePreviewAtom(ticketKey(orgSlug, slug, ticket.id))
+}>
+
+function RowImpl(props: RowProps) {
+  if (props.onUpdate) {
+    return <RowView {...props} onPatch={props.onUpdate} waiting={false} />
+  }
+  return <BacklogMutatingRow {...props} />
+}
+
+function BacklogMutatingRow(props: RowProps) {
+  const update = useAtomSet(
+    updateBacklogTicket({ req: props.req, id: props.ticket.id })
   )
-  const visibleTicket = onUpdate
-    ? ticket
-    : applyOptimisticTicketPreview(ticket, updatePreview.input)
-  const ticketSectionsKeyValue = ticketsSectionsKey(orgSlug, slug, query)
+  const updateState = useAtomValue(
+    updateBacklogTicket({ req: props.req, id: props.ticket.id })
+  )
+  return <RowView {...props} onPatch={update} waiting={updateState.waiting} />
+}
+
+function RowView({
+  orgSlug,
+  slug,
+  ticket,
+  members,
+  showSprintCol,
+  showExtraActionsCol,
+  sprintMembership,
+  extraRowActions,
+  pending,
+  previewOpen,
+  previewMounted,
+  onPreviewPointerEnter,
+  onPreviewOpenChange,
+  onPreviewDismiss,
+  onPatch,
+  waiting
+}: RowProps & {
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
+}) {
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -80,9 +89,6 @@ function RowImpl({
   }
   const handleTitlePointerLeave = () => {
     onPreviewOpenChange(ticket.id, false)
-  }
-  const handleRowClick = () => {
-    onPreviewDismiss()
   }
   return (
     <div className="group/list-row col-span-full grid grid-cols-subgrid">
@@ -97,7 +103,7 @@ function RowImpl({
             ref={rowElement}
             className={cn(
               "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
-              !onUpdate && updatePreview.waiting && "animate-pulse"
+              waiting && "animate-pulse"
             )}
           >
             <Link
@@ -105,7 +111,7 @@ function RowImpl({
               params={{ orgSlug, slug, id: ticket.id }}
               preload="intent"
               data-row-link
-              onClick={handleRowClick}
+              onClick={onPreviewDismiss}
               className="col-start-4 row-start-1 flex min-w-0 self-stretch items-center outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
             >
               <PopoverTrigger
@@ -131,27 +137,23 @@ function RowImpl({
                 )}
               >
                 <span className="min-w-0 truncate text-sm font-medium">
-                  {visibleTicket.title}
+                  {ticket.title}
                 </span>
               </PopoverTrigger>
             </Link>
             <StatusButton
               orgSlug={orgSlug}
               slug={slug}
-              ticket={visibleTicket}
-              query={query}
+              ticket={ticket}
               stopPropagation
-              onChange={onUpdate ? (status) => onUpdate({ status }) : undefined}
+              onPatch={onPatch}
+              waiting={waiting}
             />
             <PriorityButton
-              onChange={
-                onUpdate ? (priority) => onUpdate({ priority }) : undefined
-              }
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
+              ticket={ticket}
               stopPropagation
-              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
+              onPatch={onPatch}
+              waiting={waiting}
             />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
@@ -171,11 +173,7 @@ function RowImpl({
               </AnimatePresence>
             </span>
             <div className="flex shrink-0 items-center justify-end gap-2">
-              <TicketGitChip
-                orgSlug={orgSlug}
-                slug={slug}
-                ticket={visibleTicket}
-              />
+              <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
               {showSprintCol && (
                 <SprintField
                   variant="responsive"
@@ -186,30 +184,22 @@ function RowImpl({
                 />
               )}
               <AssigneeField
-                onChange={
-                  onUpdate ? (assignees) => onUpdate({ assignees }) : undefined
-                }
-                orgSlug={orgSlug}
-                slug={slug}
-                ticket={visibleTicket}
+                ticket={ticket}
                 members={members}
-                ticketSectionsKey={
-                  onUpdate ? undefined : ticketSectionsKeyValue
-                }
+                onPatch={onPatch}
+                waiting={waiting}
                 className="hidden sm:inline-flex"
               />
             </div>
             <TypeButton
-              onChange={onUpdate ? (type) => onUpdate({ type }) : undefined}
-              orgSlug={orgSlug}
-              slug={slug}
-              ticket={visibleTicket}
-              ticketSectionsKey={onUpdate ? undefined : ticketSectionsKeyValue}
+              ticket={ticket}
+              onPatch={onPatch}
+              waiting={waiting}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (
               <span className="relative z-20 inline-flex shrink-0 items-center">
-                {extraRowActions?.(visibleTicket)}
+                {extraRowActions?.(ticket)}
               </span>
             )}
           </div>

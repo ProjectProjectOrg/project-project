@@ -25,11 +25,14 @@ import type {
   RepoGone,
   Ticket,
   TicketCountQuery,
+  TicketSearchQuery,
   TicketCounts,
   TicketDetail,
   TicketListPage,
   TicketListQuery,
   TicketSections,
+  TicketSort,
+  TicketUpdateResult,
   UpdateTicketInput,
   Validation
 } from "@projectproject/shared"
@@ -63,11 +66,7 @@ export interface TicketsShape {
     orgSlug: string,
     userId: string,
     slug: string,
-    options: {
-      readonly q?: string
-      readonly excludeGroupId?: string
-      readonly limit?: number
-    }
+    options: TicketSearchQuery
   ) => Effect.Effect<ReadonlyArray<Ticket>, NotFound | MarkdownError>
   readonly listInGroup: (
     orgSlug: string,
@@ -106,9 +105,10 @@ export interface TicketsShape {
     ownerId: string,
     slug: string,
     id: string,
-    input: UpdateTicketInput
+    input: UpdateTicketInput,
+    sort?: TicketSort
   ) => Effect.Effect<
-    TicketDetail,
+    TicketUpdateResult,
     TicketReadError | Validation | MentionInvalid
   >
   readonly split: (

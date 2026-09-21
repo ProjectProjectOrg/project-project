@@ -8,6 +8,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vite-plus/test"
 import {
   DEFAULT_TICKET_SORT,
+  Group,
   matchesTicketQuery,
   NotFound,
   padNumericIdSort,
@@ -17,12 +18,15 @@ import {
   TICKET_LIST_LIMIT,
   TicketId,
   TicketStatus,
+  UserId,
   tryDecodeCursor,
   type TicketCountQuery,
+  type TicketFilter,
   type TicketListQuery,
   type User
 } from "@projectproject/shared"
 import { applyPullRequestWebhookToTicket } from "../Layers/GitHubWebhooks"
+import { TICKET_ORDER_KEY_SEPARATOR } from "../Layers/TicketIndex"
 import { TicketsLive } from "../Layers/Tickets"
 import * as TicketDocumentLock from "../ticketDocumentLock"
 import { Attachments, type AttachmentsShape } from "./Attachments"
@@ -54,6 +58,7 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
+const userId = Schema.decodeUnknownSync(UserId)
 const githubIntegration = {
   projectIntegrationLinkId: "link-1",
   organizationId: "org-1",
@@ -206,22 +211,27 @@ const FakeDb = Layer.succeed(
   ) as never
 )
 
-const FakeGroups = Layer.succeed(Groups, {
-  list: () => unexpected("Groups.list"),
-  listPaged: () => unexpected("Groups.listPaged"),
-  listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
-  get: () => unexpected("Groups.get"),
-  create: () => unexpected("Groups.create"),
-  update: () => unexpected("Groups.update"),
-  updateTickets: () => unexpected("Groups.updateTickets"),
-  addTickets: () => unexpected("Groups.addTickets"),
-  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
-  complete: () => unexpected("Groups.complete"),
-  remove: () => unexpected("Groups.remove"),
-  ensureSprintAssignable: () => Effect.void,
-  setSprintMembership: () => Effect.void,
-  removeTicketFromAllGroups: () => Effect.void
-} satisfies GroupsShape)
+const makeFakeGroups = (overrides: Partial<GroupsShape> = {}) =>
+  Layer.succeed(Groups, {
+    list: () => unexpected("Groups.list"),
+    listPaged: () => unexpected("Groups.listPaged"),
+    listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
+    get: () => unexpected("Groups.get"),
+    create: () => unexpected("Groups.create"),
+    update: () => unexpected("Groups.update"),
+    updateTickets: () => unexpected("Groups.updateTickets"),
+    addTickets: () => unexpected("Groups.addTickets"),
+    removeTickets: () => unexpected("Groups.removeTickets"),
+    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
+    complete: () => unexpected("Groups.complete"),
+    remove: () => unexpected("Groups.remove"),
+    ensureSprintAssignable: () => Effect.void,
+    setSprintMembership: () => Effect.void,
+    removeTicketFromAllGroups: () => Effect.void,
+    ...overrides
+  } satisfies GroupsShape)
+
+const FakeGroups = makeFakeGroups()
 
 const makeFakeAttachments = (
   overrides: Partial<AttachmentsShape> = {}
@@ -289,7 +299,7 @@ const makeRecordingAttachments = () => {
 }
 
 const fakeUser = (id: string): User => ({
-  id,
+  id: userId(id),
   email: `${id}@example.com`,
   name: id,
   username: null,
@@ -374,7 +384,7 @@ const ticketSortValue = (
 
 const matchingDocuments = (
   documents: Map<string, TicketDocument>,
-  query: Pick<TicketListQuery, "filter" | "q">,
+  query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: string,
   ticketIds?: ReadonlyArray<string>,
   excludeTicketIds?: ReadonlyArray<string>
@@ -385,7 +395,7 @@ const matchingDocuments = (
     (document) =>
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
-      matchesTicketQuery(document, query, viewerId)
+      matchesTicketQuery(document, query, userId(viewerId))
   )
 }
 
@@ -423,7 +433,9 @@ const makeFakeTicketIndex = (
           const rightValue = ticketSortValue(right, query)
           if (leftValue < rightValue) return -1 * sign
           if (leftValue > rightValue) return sign
-          return left.id.localeCompare(right.id)
+          if (left.id < right.id) return -1 * sign
+          if (left.id > right.id) return sign
+          return 0
         })
         return paginateSorted(sorted, {
           cursor: tryDecodeCursor(query.cursor),
@@ -431,10 +443,21 @@ const makeFakeTicketIndex = (
           sortKey: (document) => ticketSortValue(document, query),
           id: (document) => document.id,
           dir: query.sort.dir
-        }).items.map((document) => ({
-          entry: entryFromDocument(document),
-          sortValue: ticketSortValue(document, query)
-        }))
+        }).items.map((document) => {
+          const sortValue = ticketSortValue(document, query)
+          return {
+            entry: entryFromDocument(document),
+            sortValue,
+            orderKey: `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${document.id}`
+          }
+        })
+      }),
+    orderKeyFor: (_project, ticketId, sort) =>
+      Effect.sync(() => {
+        const document = documents.get(ticketId)
+        if (document === undefined) return null
+        const sortValue = ticketSortValue(document, { sort })
+        return `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
       }),
     count: (_project, query: TicketCountQuery, options) =>
       Effect.sync(() => {
@@ -577,6 +600,7 @@ function makeTicketsLayer(
   options: {
     readonly projects?: Layer.Layer<Projects>
     readonly github?: Layer.Layer<GitHub>
+    readonly groups?: Layer.Layer<Groups>
     readonly ticketIndex?: Layer.Layer<TicketIndex>
     readonly attachments?: Layer.Layer<Attachments>
     readonly figmaLinks?: Layer.Layer<FigmaLinks>
@@ -585,7 +609,7 @@ function makeTicketsLayer(
   return TicketsLive.pipe(
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
-    Layer.provide(FakeGroups),
+    Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
     Layer.provide(FakeUsers),
     Layer.provide(options.attachments ?? makeFakeAttachments()),
@@ -1541,11 +1565,101 @@ it.effect("list reads ticket index rows", () => {
       sort: DEFAULT_TICKET_SORT
     })
 
-    expect(result.items.map((t) => t.id)).toEqual(["T-1"])
+    expect(result.items.map((row) => row.ticket.id)).toEqual(["T-1"])
     expect(result.nextCursor).toBeNull()
   }).pipe(
     Effect.provide(
       makeTicketsLayer("T", docs.layer, {
+        ticketIndex: makeFakeTicketIndex(docs.documents)
+      })
+    )
+  )
+})
+
+it.effect(
+  "list resolves the ungrouped filter without treating it as a group id",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2"])
+    const activeSprint = Schema.decodeSync(Group)({
+      id: "G-1",
+      name: "Sprint",
+      kind: "sprint",
+      tickets: ["T-1"],
+      color: "#123456",
+      startsAt: null,
+      endsAt: null,
+      completedAt: null,
+      createdBy: "user-1",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    })
+    const epic = Schema.decodeSync(Group)({
+      id: "G-2",
+      name: "Epic",
+      kind: "epic",
+      tickets: ["T-2"],
+      color: "#654321",
+      startsAt: null,
+      endsAt: null,
+      completedAt: null,
+      createdBy: "user-1",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      updatedAt: "2026-04-01T00:00:00.000Z"
+    })
+    const groups = makeFakeGroups({
+      list: () => Effect.succeed([activeSprint, epic])
+    })
+
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const result = yield* tickets.list("org", "user-1", "p", {
+        sort: DEFAULT_TICKET_SORT,
+        groupId: ["ungrouped"]
+      })
+
+      expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
+    }).pipe(
+      Effect.provide(
+        makeTicketsLayer("T", docs.layer, {
+          groups,
+          ticketIndex: makeFakeTicketIndex(docs.documents)
+        })
+      )
+    )
+  }
+)
+
+it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  const plannedSprint = Schema.decodeSync(Group)({
+    id: "G-1",
+    name: "Planned",
+    kind: "sprint",
+    tickets: ["T-1"],
+    color: "#123456",
+    startsAt: "2099-01-01T00:00:00.000Z",
+    endsAt: "2099-01-15T00:00:00.000Z",
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: "2026-04-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z"
+  })
+  const groups = makeFakeGroups({
+    list: () => Effect.succeed([plannedSprint])
+  })
+
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const result = yield* tickets.list("org", "user-1", "p", {
+      sort: DEFAULT_TICKET_SORT,
+      groupId: ["ungrouped"]
+    })
+
+    expect(result.items.map((row) => row.ticket.id)).toEqual(["T-2"])
+  }).pipe(
+    Effect.provide(
+      makeTicketsLayer("T", docs.layer, {
+        groups,
         ticketIndex: makeFakeTicketIndex(docs.documents)
       })
     )
@@ -1582,7 +1696,11 @@ it.effect("list defaults to created desc", () => {
       sort: DEFAULT_TICKET_SORT
     })
 
-    expect(result.items.map((t) => t.title)).toEqual(["new", "mid", "old"])
+    expect(result.items.map((row) => row.ticket.title)).toEqual([
+      "new",
+      "mid",
+      "old"
+    ])
     expect(result.nextCursor).toBeNull()
   }).pipe(Effect.provide(layer))
 })
@@ -1600,7 +1718,7 @@ it.effect("list sorts by title asc", () => {
     }
     const result = yield* tickets.list("org", "user-1", "p", query)
 
-    expect(result.items.map((t) => t.title)).toEqual(["A", "B", "C"])
+    expect(result.items.map((row) => row.ticket.title)).toEqual(["A", "B", "C"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -1627,9 +1745,9 @@ it.effect("list paginates by cursor", () => {
     expect(page2.items.length).toBe(5)
     expect(page2.nextCursor).toBeNull()
 
-    const page1Ids = new Set(page1.items.map((t) => t.id))
-    for (const t of page2.items) {
-      expect(page1Ids.has(t.id)).toBe(false)
+    const page1Ids = new Set(page1.items.map((row) => row.ticket.id))
+    for (const row of page2.items) {
+      expect(page1Ids.has(row.ticket.id)).toBe(false)
     }
   }).pipe(Effect.provide(layer))
 })
@@ -1656,7 +1774,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     })
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
     expect(page1.nextCursor).not.toBeNull()
-    const page1Times = page1.items.map((t) => t.createdAt.getTime())
+    const page1Times = page1.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page1Times.length; i++) {
       expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
     }
@@ -1667,14 +1785,14 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     })
     expect(page2.items.length).toBe(5)
     expect(page2.nextCursor).toBeNull()
-    const page2Times = page2.items.map((t) => t.createdAt.getTime())
+    const page2Times = page2.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page2Times.length; i++) {
       expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
     }
 
-    const seen = new Set(page1.items.map((t) => t.id))
-    for (const t of page2.items) {
-      expect(seen.has(t.id)).toBe(false)
+    const seen = new Set(page1.items.map((row) => row.ticket.id))
+    for (const row of page2.items) {
+      expect(seen.has(row.ticket.id)).toBe(false)
     }
   }).pipe(Effect.provide(layer))
 })
@@ -1716,13 +1834,13 @@ it.effect("list filters by q and substitutes mine to viewerId", () => {
       sort: DEFAULT_TICKET_SORT,
       q: "hello"
     })
-    expect(byQ.items.map((t) => t.title)).toEqual(["hello world"])
+    expect(byQ.items.map((row) => row.ticket.title)).toEqual(["hello world"])
 
     const mine = yield* tickets.list("org", "user-1", "p", {
       sort: DEFAULT_TICKET_SORT,
-      filter: { assignee: ["mine"] }
+      assignee: ["mine"]
     })
-    expect(mine.items.map((t) => t.title)).toEqual(["hello world"])
+    expect(mine.items.map((row) => row.ticket.title)).toEqual(["hello world"])
   }).pipe(Effect.provide(layer))
 })
 
@@ -1807,7 +1925,7 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* Tickets
       const result = yield* tickets.count("org", "user-1", "p", {
-        filter: { status: [ticketStatus("done")] }
+        status: [ticketStatus("done")]
       })
       expect(result).toEqual({
         total: 6,
@@ -1849,7 +1967,7 @@ it.effect("count still applies non-status filters", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const result = yield* tickets.count("org", "user-1", "p", {
-      filter: { type: ["bug"] }
+      type: ["bug"]
     })
     expect(result).toEqual({
       total: 2,
@@ -1885,7 +2003,7 @@ it.effect("count substitutes mine to viewerId like list", () => {
   return Effect.gen(function* () {
     const tickets = yield* Tickets
     const result = yield* tickets.count("org", "user-1", "p", {
-      filter: { assignee: ["mine"] }
+      assignee: ["mine"]
     })
     expect(result).toEqual({
       total: 2,
@@ -1934,6 +2052,52 @@ for (const scenario of [
     }
   )
 }
+
+it.effect(
+  "hands back the order key the list query gives the ticket it just wrote",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const sort = { key: "title", dir: "asc" } as const
+      const updated = yield* tickets.update(
+        "org",
+        "user-1",
+        "p",
+        "T-2",
+        { title: "Zulu" },
+        sort
+      )
+      expect(updated.ticket.title).toBe("Zulu")
+
+      const page = yield* tickets.list("org", "user-1", "p", { sort })
+      const row = page.items.find((item) => item.ticket.id === "T-2")
+      expect(updated.orderKey).toBe(row?.orderKey)
+      expect(page.items.map((item) => item.ticket.id)).toEqual([
+        "T-1",
+        "T-3",
+        "T-2"
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("omits the order key when no sort is asked for", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const updated = yield* tickets.update("org", "user-1", "p", "T-1", {
+      title: "Quiet"
+    })
+    expect(updated.orderKey).toBeNull()
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect(
   "metadata edits skip attachment reconciliation while body edits retain it",
@@ -2038,18 +2202,23 @@ it.effect(
       expect(todo.items).toHaveLength(50)
       expect(todo.nextCursor).not.toBeNull()
       expect(
-        snapshot.sections[ticketStatus("in_progress")].items.map(({ id }) => id)
+        snapshot.sections[ticketStatus("in_progress")].items.map(
+          ({ ticket }) => ticket.id
+        )
       ).toEqual(["T-53"])
       const next = yield* tickets.list("org", "user-1", "p", {
         ...query,
-        filter: { status: [ticketStatus("todo")] },
+        status: [ticketStatus("todo")],
         cursor: todo.nextCursor ?? undefined
       })
-      expect(next.items.map(({ id }) => id)).toEqual(["T-51", "T-52"])
+      expect(next.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-51",
+        "T-52"
+      ])
       expect(next.nextCursor).toBeNull()
       const selected = yield* tickets.sections("org", "user-1", "p", {
         ...query,
-        filter: { status: [ticketStatus("in_progress")] }
+        status: [ticketStatus("in_progress")]
       })
       expect(Object.keys(selected.sections)).toEqual(["in_progress"])
       expect(selected.counts).toEqual(snapshot.counts)
