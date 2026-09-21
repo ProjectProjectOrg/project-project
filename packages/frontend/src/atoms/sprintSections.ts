@@ -11,7 +11,6 @@ import {
   type GroupId,
   type GroupIdFilter,
   type NotFound,
-  type QuickCreateTicketInput,
   type SprintSectionKey,
   type Ticket,
   type TicketId,
