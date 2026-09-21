@@ -33,7 +33,6 @@ import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { ErrorPage } from "@/components/ErrorPage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { cn } from "@/lib/utils"
 import { Row } from "./Row"
 import { SectionList, TicketPagination } from "./SectionList"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
@@ -271,12 +270,7 @@ function SprintSection({
     </>
   )
   return (
-    <div
-      aria-busy={result.waiting || Result.isInitial(result)}
-      className={cn(
-        result.waiting && "animate-pulse motion-reduce:animate-none"
-      )}
-    >
+    <div aria-busy={result.waiting || Result.isInitial(result)}>
       {Result.matchWithError(result, {
         onInitial: renderSection,
         onError: renderFailure,
