@@ -9,11 +9,15 @@ import {
   type ProjectBanner
 } from "@projectproject/shared"
 import type { ReactFormType } from "@tanstack/react-form"
-import { uploadProjectImageAtom } from "@/atoms/attachments"
+import {
+  uploadProjectImage,
+  uploadProjectImageRequest
+} from "@/atoms/attachments"
 import {
   projectBannerPreviewAtom,
   projectKey,
-  updateProjectAtom
+  projectRequest,
+  updateProject
 } from "@/atoms/projects"
 import {
   bannerDefaults,
@@ -43,14 +47,17 @@ export function ProjectBannerForm({
   banner: ProjectBanner | null
   onDone?: () => void
 }) {
-  const key = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(key), { mode: "promiseExit" })
-  const upload = useAtomSet(uploadProjectImageAtom(key), {
+  const req = projectRequest(orgSlug, slug)
+  const uploadReq = uploadProjectImageRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const upload = useAtomSet(uploadProjectImage(uploadReq), {
     mode: "promiseExit"
   })
-  const updateState = useAtomValue(updateProjectAtom(key))
-  const uploadState = useAtomValue(uploadProjectImageAtom(key))
-  const setPreview = useAtomSet(projectBannerPreviewAtom(key))
+  const updateState = useAtomValue(updateProject(req))
+  const uploadState = useAtomValue(uploadProjectImage(uploadReq))
+  const setPreview = useAtomSet(
+    projectBannerPreviewAtom(projectKey(orgSlug, slug))
+  )
   const busy = updateState.waiting || uploadState.waiting
   const failed =
     AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)

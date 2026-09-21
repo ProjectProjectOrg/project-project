@@ -1,8 +1,8 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
-import { useCallback, useId, useRef, useState } from "react"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
+import { useCallback, useId, useMemo, useRef, useState } from "react"
+import { ticketRequest, updateTicketDetail } from "@/atoms/ticketDetail"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import type { TicketDetail } from "@projectproject/shared"
@@ -16,7 +16,11 @@ export function TitleField({
   slug: string
   ticket: TicketDetail
 }) {
-  const atom = updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const atom = updateTicketDetail(req)
   const update = useAtomSet(atom, { mode: "promiseExit" })
   const result = useAtomValue(atom)
   const pending = result.waiting

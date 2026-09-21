@@ -1,12 +1,10 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import type { ComponentProps } from "react"
+import { useMemo } from "react"
 import { Link } from "@tanstack/react-router"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { Markdown } from "@/components/Markdown"
 import { MemberAvatar } from "@/components/MemberAvatar"
 import { TicketGitChip } from "@/components/TicketGit"
@@ -54,12 +52,16 @@ export function TicketHoverCard({
   anchor?: ComponentProps<typeof PopoverContent>["anchor"]
   interactive?: boolean
 }) {
-  const result = useAtomValue(
-    ticketAtom(ticketKey(scope.orgSlug, scope.slug, ticketId))
+  const req = useMemo(
+    () => ticketRequest(scope.orgSlug, scope.slug, ticketId),
+    [scope.orgSlug, scope.slug, ticketId]
   )
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(scope.orgSlug, scope.slug))
+  const result = useAtomValue(ticketDetail(req))
+  const statusesReq = useMemo(
+    () => statusesRequest(scope.orgSlug, scope.slug),
+    [scope.orgSlug, scope.slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusesReq))
   const statuses: ReadonlyArray<ProjectStatus> = Result.isSuccess(
     statusesResult
   )

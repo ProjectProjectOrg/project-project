@@ -22,10 +22,15 @@ export const Page = <S extends Schema.Top>(item: S) =>
     nextCursor: Schema.NullOr(Schema.String)
   })
 
-export interface CursorPayload {
-  readonly id: string
-  readonly sort: string
-}
+export const CursorPayload = Schema.Struct({
+  id: Schema.String,
+  sort: Schema.String
+})
+export type CursorPayload = typeof CursorPayload.Type
+
+const CursorPayloadJson = Schema.fromJsonString(CursorPayload)
+const encodeCursorPayload = Schema.encodeSync(CursorPayloadJson)
+const decodeCursorPayload = Schema.decodeSync(CursorPayloadJson)
 
 // base64url via the Web APIs so this module compiles for the browser too.
 // Cursor payloads are ASCII-only (ids + ISO dates) in practice, so the
@@ -46,17 +51,8 @@ const fromBase64Url = (s: string): Uint8Array => {
 }
 
 export const encodeCursor = (p: CursorPayload): string =>
-  toBase64Url(new TextEncoder().encode(JSON.stringify(p)))
+  toBase64Url(new TextEncoder().encode(encodeCursorPayload(p)))
 
 export const decodeCursor = (s: string): CursorPayload => {
-  const parsed: unknown = JSON.parse(new TextDecoder().decode(fromBase64Url(s)))
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    typeof (parsed as { id?: unknown }).id !== "string" ||
-    typeof (parsed as { sort?: unknown }).sort !== "string"
-  ) {
-    throw new Error("Invalid cursor payload")
-  }
-  return parsed as CursorPayload
+  return decodeCursorPayload(new TextDecoder().decode(fromBase64Url(s)))
 }

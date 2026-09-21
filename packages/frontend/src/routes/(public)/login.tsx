@@ -1,10 +1,11 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
+import * as Schema from "effect/Schema"
 import { Mail } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { Logo, Wordmark } from "@/components/Logo"
 import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
@@ -27,19 +28,17 @@ const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
   }
 ]
 
-type Search = {
-  redirect?: string
-}
+const LoginSearch = Schema.Struct({
+  redirect: Schema.optional(Schema.String)
+})
 
 export const Route = createFileRoute("/(public)/login")({
   component: LoginPage,
-  validateSearch: (raw): Search => ({
-    redirect: typeof raw.redirect === "string" ? raw.redirect : undefined
-  })
+  validateSearch: Schema.toStandardSchemaV1(LoginSearch)
 })
 
 function LoginPage() {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const { redirect } = Route.useSearch()
   const signedOauthQuery =
     typeof window === "undefined"
@@ -59,12 +58,12 @@ function LoginPage() {
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (Result.isSuccess(me) && oauthContinuationTarget) {
+    if (Result.isSuccess(viewer) && oauthContinuationTarget) {
       window.location.replace(oauthContinuationTarget)
     }
-  }, [me, oauthContinuationTarget])
+  }, [viewer, oauthContinuationTarget])
 
-  if (Result.isSuccess(me)) {
+  if (Result.isSuccess(viewer)) {
     if (oauthContinuationTarget) return null
     const queryIndex = redirectTarget.indexOf("?")
     const pathname =

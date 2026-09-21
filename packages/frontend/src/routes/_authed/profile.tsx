@@ -2,7 +2,6 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { type FormEvent, useEffect, useRef, useState } from "react"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import {
   type EditorPreference,
@@ -10,10 +9,10 @@ import {
   FigmaError
 } from "@projectproject/shared"
 import {
-  connectPersonalGithubAtom,
-  disconnectPersonalGithubAtom,
-  meAtom,
-  updateEditorPreferenceAtom
+  connectPersonalGithub,
+  disconnectPersonalGithub,
+  me,
+  updateEditorPreference
 } from "@/atoms/auth"
 import {
   connectEverhourProfileAtom,
@@ -44,13 +43,10 @@ const ProfileSearch = Schema.Struct({
   error: Schema.optional(Schema.NonEmptyString),
   figmaError: Schema.optional(Schema.NonEmptyString)
 })
-const decodeProfileSearch = Schema.decodeUnknownOption(ProfileSearch)
-type ProfileSearch = Schema.Schema.Type<typeof ProfileSearch>
 
 export const Route = createFileRoute("/_authed/profile")({
   component: Profile,
-  validateSearch: (search: Record<string, unknown>): ProfileSearch =>
-    Option.getOrElse(decodeProfileSearch(search), () => ({})),
+  validateSearch: Schema.toStandardSchemaV1(ProfileSearch),
   loader: () => ({
     crumb: {
       type: "static" as const,
@@ -63,7 +59,7 @@ export const Route = createFileRoute("/_authed/profile")({
 function Profile() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const githubOAuthError = useRef(githubOAuthErrorMessage(search.error)).current
   const figmaOAuthError = useRef(
     figmaOAuthErrorMessage(search.figmaError)
@@ -78,8 +74,8 @@ function Profile() {
     })
   }, [navigate, search.error, search.figmaError])
 
-  if (!Result.isSuccess(me)) return null
-  const user = me.value
+  if (!Result.isSuccess(viewer)) return null
+  const user = viewer.value
 
   return (
     <PageContainer>
@@ -250,12 +246,12 @@ function PersonalGithubCard({
   email: string
   oauthError: string | null
 }) {
-  const connect = useAtomSet(connectPersonalGithubAtom, { mode: "promise" })
-  const disconnect = useAtomSet(disconnectPersonalGithubAtom, {
+  const connect = useAtomSet(connectPersonalGithub, { mode: "promise" })
+  const disconnect = useAtomSet(disconnectPersonalGithub, {
     mode: "promise"
   })
-  const connectState = useAtomValue(connectPersonalGithubAtom)
-  const disconnectState = useAtomValue(disconnectPersonalGithubAtom)
+  const connectState = useAtomValue(connectPersonalGithub)
+  const disconnectState = useAtomValue(disconnectPersonalGithub)
   const connecting = connectState.waiting
   const waiting = connecting || disconnectState.waiting
   const error = Result.isFailure(connectState)
@@ -458,8 +454,8 @@ function EditorPreferenceCard({
 }: {
   preference: EditorPreference
 }) {
-  const update = useAtomSet(updateEditorPreferenceAtom, { mode: "promise" })
-  const updateState = useAtomValue(updateEditorPreferenceAtom)
+  const update = useAtomSet(updateEditorPreference, { mode: "promise" })
+  const updateState = useAtomValue(updateEditorPreference)
   const [selected, setSelected] = useState(preference)
 
   useEffect(() => {

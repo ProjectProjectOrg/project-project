@@ -40,25 +40,8 @@ const GroupFrontmatter = Schema.Struct({
 })
 
 const decodeFrontmatter = Schema.decodeUnknownEffect(GroupFrontmatter)
+const encodeFrontmatter = Schema.encodeSync(GroupFrontmatter)
 const decodeGroupId = Schema.decodeUnknownEffect(GroupId)
-
-function frontmatterToDisk(document: GroupDocument): Record<string, unknown> {
-  return {
-    id: document.id,
-    name: document.name,
-    kind: document.kind,
-    tickets: document.tickets,
-    color: document.color,
-    startsAt: document.startsAt ? document.startsAt.toISOString() : null,
-    endsAt: document.endsAt ? document.endsAt.toISOString() : null,
-    completedAt: document.completedAt
-      ? document.completedAt.toISOString()
-      : null,
-    createdBy: document.createdBy,
-    createdAt: document.createdAt.toISOString(),
-    updatedAt: document.updatedAt.toISOString()
-  }
-}
 
 function toDocument(
   group: typeof GroupFrontmatter.Type,
@@ -141,7 +124,7 @@ export const GroupDocsLive = Layer.effect(
           orgSlug,
           slug,
           document.id,
-          frontmatterToDisk(document),
+          encodeFrontmatter(document),
           document.body
         )
       )
@@ -161,7 +144,7 @@ export const GroupDocsLive = Layer.effect(
           orgSlug,
           slug,
           id,
-          frontmatterToDisk(document),
+          encodeFrontmatter(document),
           document.body
         )
       )
@@ -181,7 +164,7 @@ export const GroupDocsLive = Layer.effect(
           orgSlug,
           slug,
           id,
-          frontmatterToDisk(document),
+          encodeFrontmatter(document),
           document.body
         )
       )

@@ -5,9 +5,10 @@ import {
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
 import {
   Everhour,
-  type EverhourClientError,
   type EverhourProject,
   type EverhourSection,
   type EverhourShape,
@@ -19,122 +20,187 @@ import {
 
 const baseUrl = "https://api.everhour.com"
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
+const ExternalId = Schema.Union([Schema.String, Schema.Finite])
+const NullableString = Schema.NullOr(Schema.String).pipe(
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const IdReference = Schema.Struct({ id: ExternalId })
+const NullableIdReference = Schema.NullOr(IdReference).pipe(
+  Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+)
+const UserResponse = Schema.Struct({
+  id: ExternalId,
+  name: NullableString,
+  email: NullableString
+})
+const ProjectResponse = Schema.Struct({
+  id: ExternalId,
+  name: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  type: Schema.optional(Schema.String)
+})
+const SectionResponse = Schema.Struct({
+  id: ExternalId,
+  name: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  status: Schema.optional(Schema.String)
+})
+const TaskResponse = Schema.Struct({
+  id: ExternalId,
+  name: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  section: Schema.NullOr(ExternalId).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  labels: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
+  status: Schema.optional(Schema.String)
+})
+const TimerResponse = Schema.Struct({
+  id: NullableString,
+  status: Schema.optional(Schema.String),
+  task: NullableIdReference,
+  user: NullableIdReference,
+  startedAt: NullableString
+})
+const TimeRecordResponse = Schema.Struct({
+  id: ExternalId,
+  task: NullableIdReference,
+  user: Schema.NullOr(ExternalId).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  time: Schema.Finite,
+  date: Schema.String.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
+  comment: NullableString
+})
+const StoppedTimerResponse = Schema.Struct({
+  task: NullableIdReference,
+  user: NullableIdReference,
+  userDate: NullableString
+})
+const WebhookResponse = Schema.Struct({ id: ExternalId })
+const ErrorResponse = Schema.Struct({
+  message: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
+  detail: Schema.optional(Schema.String)
+})
 
-const textField = (
-  value: Record<string, unknown>,
-  key: string
-): string | null => (typeof value[key] === "string" ? value[key] : null)
+const decodeResponse = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  value: unknown
+): Effect.Effect<S["Type"], EverhourError> =>
+  Schema.decodeUnknownEffect(schema)(value).pipe(
+    Effect.mapError((cause) => new EverhourError({ message: String(cause) }))
+  )
 
-const idField = (value: Record<string, unknown>): string => String(value.id)
+const mapUser = (value: unknown): Effect.Effect<EverhourUser, EverhourError> =>
+  decodeResponse(UserResponse, value).pipe(
+    Effect.map((user) => ({
+      id: String(user.id),
+      name: user.name,
+      email: user.email
+    }))
+  )
 
-const mapUser = (value: unknown): EverhourUser => {
-  const record = isRecord(value) ? value : {}
-  return {
-    id: idField(record),
-    name: textField(record, "name"),
-    email: textField(record, "email")
-  }
-}
+const mapProject = (
+  value: unknown
+): Effect.Effect<EverhourProject, EverhourError> =>
+  decodeResponse(ProjectResponse, value).pipe(
+    Effect.map((project) => ({
+      id: String(project.id),
+      name: project.name,
+      type: project.type === "list" ? "list" : "board"
+    }))
+  )
 
-const mapProject = (value: unknown): EverhourProject => {
-  const record = isRecord(value) ? value : {}
-  return {
-    id: idField(record),
-    name: textField(record, "name") ?? "",
-    type: record.type === "list" ? "list" : "board"
-  }
-}
+const mapSection = (
+  value: unknown
+): Effect.Effect<EverhourSection, EverhourError> =>
+  decodeResponse(SectionResponse, value).pipe(
+    Effect.map((section) => ({
+      id: String(section.id),
+      name: section.name,
+      status: section.status === "archived" ? "archived" : "open"
+    }))
+  )
 
-const mapSection = (value: unknown): EverhourSection => {
-  const record = isRecord(value) ? value : {}
-  return {
-    id: idField(record),
-    name: textField(record, "name") ?? "",
-    status: record.status === "archived" ? "archived" : "open"
-  }
-}
+const mapTask = (value: unknown): Effect.Effect<EverhourTask, EverhourError> =>
+  decodeResponse(TaskResponse, value).pipe(
+    Effect.map((task) => ({
+      id: String(task.id),
+      name: task.name,
+      section: task.section,
+      labels: task.labels,
+      status: task.status === "closed" ? "closed" : "open"
+    }))
+  )
 
-const mapTask = (value: unknown): EverhourTask => {
-  const record = isRecord(value) ? value : {}
-  const labels = Array.isArray(record.labels)
-    ? record.labels.flatMap((label) =>
-        typeof label === "string" ? [label] : []
-      )
-    : []
-  return {
-    id: idField(record),
-    name: textField(record, "name") ?? "",
-    section:
-      typeof record.section === "string" || typeof record.section === "number"
-        ? record.section
-        : null,
-    labels,
-    status: record.status === "closed" ? "closed" : "open"
-  }
-}
+const mapTimer = (
+  value: unknown
+): Effect.Effect<EverhourTimer, EverhourError> =>
+  decodeResponse(TimerResponse, value).pipe(
+    Effect.map((timer) => ({
+      id: timer.id,
+      status: timer.status === "active" ? "active" : "stopped",
+      taskId: timer.task === null ? null : String(timer.task.id),
+      userId: timer.user === null ? null : String(timer.user.id),
+      startedAt: timer.startedAt
+    }))
+  )
 
-const numberField = (
-  value: Record<string, unknown>,
-  key: string
-): number | null => (typeof value[key] === "number" ? value[key] : null)
+const mapTimeRecord = (
+  value: unknown
+): Effect.Effect<EverhourTimeRecord, EverhourError> =>
+  decodeResponse(TimeRecordResponse, value).pipe(
+    Effect.map((record) => ({
+      id: String(record.id),
+      taskId: record.task === null ? null : String(record.task.id),
+      userId: record.user === null ? null : String(record.user),
+      seconds: record.time,
+      date: record.date,
+      comment: record.comment
+    }))
+  )
 
-const idString = (value: unknown): string | null =>
-  typeof value === "string"
-    ? value
-    : typeof value === "number"
-      ? String(value)
-      : null
-
-const mapTimer = (value: unknown): EverhourTimer => {
-  const record = isRecord(value) ? value : {}
-  const task = isRecord(record.task) ? record.task : null
-  const user = isRecord(record.user) ? record.user : null
-  return {
-    id: textField(record, "id"),
-    status: record.status === "active" ? "active" : "stopped",
-    taskId: task ? idField(task) : null,
-    userId: user ? idString(user.id) : null,
-    startedAt: textField(record, "startedAt")
-  }
-}
-
-const mapTimeRecord = (value: unknown): EverhourTimeRecord => {
-  const record = isRecord(value) ? value : {}
-  const task = isRecord(record.task) ? record.task : null
-  return {
-    id: idField(record),
-    taskId: task ? idField(task) : null,
-    userId: idString(record.user),
-    seconds: numberField(record, "time") ?? 0,
-    date: textField(record, "date") ?? "",
-    comment: textField(record, "comment")
-  }
-}
-
-const mapTimeRecords = (value: unknown): ReadonlyArray<EverhourTimeRecord> =>
-  Array.isArray(value) ? value.map(mapTimeRecord) : []
+const mapTimeRecords = (
+  value: unknown
+): Effect.Effect<ReadonlyArray<EverhourTimeRecord>, EverhourError> =>
+  decodeResponse(Schema.Array(TimeRecordResponse), value).pipe(
+    Effect.map((records) =>
+      records.map((record) => ({
+        id: String(record.id),
+        taskId: record.task === null ? null : String(record.task.id),
+        userId: record.user === null ? null : String(record.user),
+        seconds: record.time,
+        date: record.date,
+        comment: record.comment
+      }))
+    )
+  )
 
 const errorMessage = (body: unknown) => {
-  if (!isRecord(body)) return "Everhour error"
-  const message = body.message ?? body.error ?? body.detail
-  return typeof message === "string" ? message : "Everhour error"
+  const decoded = Schema.decodeUnknownOption(ErrorResponse)(body)
+  if (Option.isNone(decoded)) return "Everhour error"
+  return (
+    decoded.value.message ??
+    decoded.value.error ??
+    decoded.value.detail ??
+    "Everhour error"
+  )
 }
 
 const payloadPreview = (payload: unknown) => {
-  const text =
-    typeof payload === "string" ? payload : JSON.stringify(payload ?? null)
+  const text = Schema.is(Schema.String)(payload)
+    ? payload
+    : JSON.stringify(payload ?? null)
   return text.length > 500 ? `${text.slice(0, 500)}...` : text
 }
-
-const hasTag = (cause: unknown, tag: string) =>
-  isRecord(cause) && cause._tag === tag
-
-const isEverhourClientError = (cause: unknown): cause is EverhourClientError =>
-  hasTag(cause, "EverhourAuthInvalid") ||
-  hasTag(cause, "EverhourRateLimited") ||
-  hasTag(cause, "EverhourError")
 
 const send = <A>(
   apiKey: string,
@@ -187,36 +253,37 @@ const send = <A>(
       })
     }
     return yield* new EverhourError({ message })
-  }).pipe(
-    Effect.catch((cause) =>
-      isEverhourClientError(cause)
-        ? Effect.fail(cause)
-        : Effect.fail(new EverhourError({ message: String(cause) }))
-    )
-  )
+  })
 
 const request = <A>(
   apiKey: string,
   method: string,
   path: string,
   body: unknown,
-  map: (value: unknown) => A
-) => send(apiKey, method, path, body, (payload) => map(payload), false)
+  map: (value: unknown) => Effect.Effect<A, EverhourError>
+) =>
+  send(apiKey, method, path, body, (payload) => payload, false).pipe(
+    Effect.flatMap(map)
+  )
 
 const requestNullable = <A>(
   apiKey: string,
   method: string,
   path: string,
   body: unknown,
-  map: (value: unknown) => A
+  map: (value: unknown) => Effect.Effect<A, EverhourError>
 ) =>
   send(
     apiKey,
     method,
     path,
     body,
-    (payload, status): A | null => (status === 404 ? null : map(payload)),
+    (payload, status) => (status === 404 ? null : payload),
     true
+  ).pipe(
+    Effect.flatMap((payload) =>
+      payload === null ? Effect.succeed(null) : map(payload)
+    )
   )
 
 export const EverhourLive = Layer.succeed(Everhour, {
@@ -237,7 +304,7 @@ export const EverhourLive = Layer.succeed(Everhour, {
       apiKey,
       "PUT",
       `/projects/${encodeURIComponent(projectId)}`,
-      { ...input, type: "board" },
+      { name: input.name, type: "board" },
       mapProject
     ),
   createSection: (apiKey, projectId, input) =>
@@ -289,16 +356,15 @@ export const EverhourLive = Layer.succeed(Everhour, {
       )
     ),
   stopTimer: (apiKey) =>
-    requestNullable(apiKey, "DELETE", "/timers/current", undefined, (value) => {
-      const record = isRecord(value) ? value : {}
-      const task = isRecord(record.task) ? record.task : null
-      const user = isRecord(record.user) ? record.user : null
-      return {
-        taskId: task ? idField(task) : null,
-        userId: user ? String(user.id) : null,
-        date: textField(record, "userDate")
-      }
-    }).pipe(
+    requestNullable(apiKey, "DELETE", "/timers/current", undefined, (value) =>
+      decodeResponse(StoppedTimerResponse, value).pipe(
+        Effect.map((stopped) => ({
+          taskId: stopped.task === null ? null : String(stopped.task.id),
+          userId: stopped.user === null ? null : String(stopped.user.id),
+          date: stopped.userDate
+        }))
+      )
+    ).pipe(
       Effect.flatMap((stopped) => {
         if (!stopped || !stopped.taskId) {
           return Effect.succeed<EverhourTimeRecord | null>(null)
@@ -340,7 +406,10 @@ export const EverhourLive = Layer.succeed(Everhour, {
         events: ["api:time:updated"],
         project: input.project
       },
-      (value) => ({ id: idField(isRecord(value) ? value : {}) })
+      (value) =>
+        decodeResponse(WebhookResponse, value).pipe(
+          Effect.map((webhook) => ({ id: String(webhook.id) }))
+        )
     ),
   deleteWebhook: (apiKey, webhookId) =>
     request(
@@ -348,6 +417,6 @@ export const EverhourLive = Layer.succeed(Everhour, {
       "DELETE",
       `/hooks/${encodeURIComponent(webhookId)}`,
       undefined,
-      () => undefined
+      () => Effect.void
     )
 } satisfies EverhourShape)

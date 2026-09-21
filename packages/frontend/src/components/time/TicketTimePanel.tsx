@@ -4,17 +4,14 @@ import { Info } from "lucide-react"
 import { useState } from "react"
 import type { TicketDetail } from "@projectproject/shared"
 import {
-  everhourProfileAtom,
+  everhourProjectRequest,
   everhourProjectStatusAtom
 } from "@/atoms/everhour"
-import { projectKey } from "@/atoms/projects"
 import {
-  activeTimerAtom,
   startTicketTimerAtom,
-  stopTimerAtom,
-  ticketKey,
-  ticketTimeAtom,
-  workTypesForTicketAtom
+  stopTicketTimerAtom,
+  ticketTimePanelAtom,
+  ticketTimeRequest
 } from "@/atoms/timeTracking"
 import { ConnectEverhourInline } from "@/components/time/ConnectEverhourInline"
 import { EverhourSetupHint } from "@/components/time/EverhourSetupHint"
@@ -52,7 +49,7 @@ export function TicketTimeSection({
   ticket: TicketDetail
 }) {
   const statusResult = useAtomValue(
-    everhourProjectStatusAtom(projectKey(orgSlug, slug))
+    everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
   const { isOwner, isAdmin } = useProjectRole()
   const canManage = isOwner || isAdmin
@@ -90,62 +87,24 @@ export function TicketTimePanel({
   slug: string
   ticket: TicketDetail
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const profileResult = useAtomValue(everhourProfileAtom)
-  const workTypesResult = useAtomValue(workTypesForTicketAtom(tKey))
-  const timeResult = useAtomValue(ticketTimeAtom(tKey))
-  const activeTimerResult = useAtomValue(activeTimerAtom(orgSlug))
-  const start = useAtomSet(startTicketTimerAtom(tKey), { mode: "promiseExit" })
-  const startState = useAtomValue(startTicketTimerAtom(tKey))
-  const stop = useAtomSet(stopTimerAtom(orgSlug), { mode: "promiseExit" })
-  const stopState = useAtomValue(stopTimerAtom(orgSlug))
+  const req = ticketTimeRequest(orgSlug, slug, ticket.id)
+  const panelResult = useAtomValue(ticketTimePanelAtom(req))
+  const start = useAtomSet(startTicketTimerAtom(req), {
+    mode: "promiseExit"
+  })
+  const startState = useAtomValue(startTicketTimerAtom(req))
+  const stop = useAtomSet(stopTicketTimerAtom(req), { mode: "promiseExit" })
+  const stopState = useAtomValue(stopTicketTimerAtom(req))
   const [workType, setWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
 
-  if (Result.isInitial(profileResult)) {
-    return <div className="h-8 animate-pulse rounded bg-muted/40" />
-  }
-
-  if (Result.isFailure(profileResult)) {
-    return Result.matchWithError(profileResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
-  }
-
-  const connected =
-    Result.isSuccess(profileResult) && profileResult.value.connected
-  if (!connected) {
-    return <ConnectEverhourInline />
-  }
-
-  if (Result.isInitial(timeResult) || Result.isInitial(activeTimerResult)) {
-    return <div className="h-16 animate-pulse rounded bg-muted/40" />
-  }
-  if (Result.isFailure(timeResult)) {
-    return Result.matchWithError(timeResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
-  }
-  if (Result.isFailure(activeTimerResult)) {
-    return Result.matchWithError(activeTimerResult, {
-      onInitial: () => null,
-      onError: (error) => <ErrorPage error={error} contained />,
-      onDefect: (defect) => <ErrorPage error={defect} contained />,
-      onSuccess: () => null
-    })
-  }
-
-  return Result.matchWithError(workTypesResult, {
-    onInitial: () => <div className="h-8 animate-pulse rounded bg-muted/40" />,
+  return Result.matchWithError(panelResult, {
+    onInitial: () => <div className="h-16 animate-pulse rounded bg-muted/40" />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value: options }) => {
+    onSuccess: ({ value: panel, waiting }) => {
+      if (!panel.profile.connected) return <ConnectEverhourInline />
+      const options = panel.workTypes
       if (options.length === 0) {
         return (
           <p className="text-xs text-muted-foreground">
@@ -155,15 +114,10 @@ export function TicketTimePanel({
       }
       const effectiveWorkType = workType ?? options[0].key
       const running =
-        activeTimerResult.value !== null &&
-        activeTimerResult.value.ticketId === ticket.id
+        panel.activeTimer !== null && panel.activeTimer.ticketId === ticket.id
       const busy =
-        startState.waiting || stopState.waiting || activeTimerResult.waiting
-      const timePulse =
-        timeResult.waiting ||
-        activeTimerResult.waiting ||
-        startState.waiting ||
-        stopState.waiting
+        startState.waiting || stopState.waiting || panelResult.waiting
+      const timePulse = waiting || startState.waiting || stopState.waiting
 
       return (
         <div className="flex flex-col gap-3">
@@ -176,11 +130,11 @@ export function TicketTimePanel({
           >
             <TrackedFigure
               label={m.time_tracked_total()}
-              seconds={timeResult.value.totalSeconds}
+              seconds={panel.time.totalSeconds}
             />
             <TrackedFigure
               label={m.time_tracked_yours()}
-              seconds={timeResult.value.userSeconds}
+              seconds={panel.time.userSeconds}
             />
             <Popover>
               <PopoverTrigger
@@ -210,6 +164,7 @@ export function TicketTimePanel({
               orgSlug={orgSlug}
               slug={slug}
               ticketId={ticket.id}
+              request={req}
               options={options}
               defaultWorkType={effectiveWorkType}
               onDone={() => setShowLog(false)}

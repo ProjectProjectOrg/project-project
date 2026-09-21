@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import { projectKey, updateProjectSetupAtom } from "@/atoms/projects"
+import { projectRequest, updateProjectSetup } from "@/atoms/projects"
 import { StatusList } from "@/components/StatusList"
 import { Button } from "@/components/ui/button"
 import { useProjectRole } from "@/lib/projectRole"
@@ -21,9 +21,9 @@ export const Route = createFileRoute(
 function WorkflowSettings() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
-  const key = projectKey(orgSlug, project.slug)
-  const update = useAtomSet(updateProjectSetupAtom(key))
-  const updateState = useAtomValue(updateProjectSetupAtom(key))
+  const req = projectRequest(orgSlug, project.slug)
+  const update = useAtomSet(updateProjectSetup(req))
+  const updateState = useAtomValue(updateProjectSetup(req))
   const { role } = useProjectRole()
   const canEdit = role === "owner" || role === "admin"
   const reviewedAt = project.setup.workflowReviewedAt

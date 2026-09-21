@@ -31,6 +31,7 @@ import {
   type ChecksStatus,
   type PullRequestState,
   type TicketCountQuery,
+  type TicketFilter,
   type TicketListQuery,
   type TicketPriority,
   type TicketSort,
@@ -80,7 +81,7 @@ const ticketPrioritySortExpression = drizzleSql<string>`case ${ticketIndex.prior
   else '01'
 end`
 
-const ticketSortExpression = (sort: TicketSort): SQL => {
+export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
   switch (sort.key) {
     case "id":
       return ticketIdSortExpression
@@ -89,12 +90,20 @@ const ticketSortExpression = (sort: TicketSort): SQL => {
     case "updated":
       return drizzleSql`${ticketIndex.updatedAt}`
     case "title":
-      return drizzleSql`lower(${ticketIndex.title})`
+      return drizzleSql`lower(${ticketIndex.title}) collate "C"`
     case "priority":
       return ticketPrioritySortExpression
   }
   throw new Error("unsupported ticket sort key")
 }
+
+export const TICKET_ORDER_KEY_SEPARATOR = "\u0000"
+
+const sortValueText = (sortValue: string | Date): string =>
+  sortValue instanceof Date ? sortValue.toISOString() : sortValue
+
+const toOrderKey = (sortValue: string, ticketId: string): string =>
+  `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
 
 const cursorSortValue = (
   sort: TicketSort,
@@ -105,23 +114,25 @@ const cursorSortValue = (
   return Option.isSome(date) ? DateTime.toDate(date.value) : undefined
 }
 
-const cursorCondition = (
+export const ticketCursorCondition = (
   query: TicketListQuery,
-  expression: SQL
+  expression: SQL<string | Date>
 ): SQL | undefined => {
   const cursor = tryDecodeCursor(query.cursor)
   if (!cursor) return undefined
   const value = cursorSortValue(query.sort, cursor.sort)
   if (value === undefined) return undefined
-  const afterPrimary =
-    query.sort.dir === "asc"
-      ? drizzleSql`${expression} > ${value}`
-      : drizzleSql`${expression} < ${value}`
+  const ascending = query.sort.dir === "asc"
+  const afterPrimary = ascending
+    ? drizzleSql`${expression} > ${value}`
+    : drizzleSql`${expression} < ${value}`
   return or(
     afterPrimary,
     and(
       drizzleSql`${expression} = ${value}`,
-      gt(ticketIndex.ticketId, cursor.id)
+      ascending
+        ? gt(ticketIndex.ticketId, cursor.id)
+        : lt(ticketIndex.ticketId, cursor.id)
     )
   )
 }
@@ -137,10 +148,10 @@ interface TicketWhereOptions {
 
 const ticketWhereConditions = (
   project: TicketIndexProject,
-  query: Pick<TicketListQuery, "filter" | "q">,
+  query: TicketFilter & Pick<TicketListQuery, "q">,
   options: TicketWhereOptions
 ): ReadonlyArray<SQL> => {
-  const filter = query.filter
+  const filter = query
   const conditions: Array<SQL> = [
     eq(ticketIndex.projectId, project.projectId),
     filter?.archived === true
@@ -179,9 +190,11 @@ const ticketWhereConditions = (
     const assignees = filter.assignee.map((assignee) =>
       assignee === "mine" ? options.viewerId : assignee
     )
-    const requestedIds = assignees.filter((assignee) => assignee !== null)
+    const requestedIds = assignees.filter(
+      (assignee) => assignee !== "unassigned"
+    )
     const assigneeConditions: Array<SQL> = []
-    if (assignees.includes(null)) {
+    if (assignees.includes("unassigned")) {
       assigneeConditions.push(
         drizzleSql`cardinality(${ticketIndex.assignees}) = 0`
       )
@@ -478,7 +491,7 @@ export const TicketIndexLive = Layer.effect(
       const expression = ticketSortExpression(ticketQuery.sort)
       const conditions = [
         ...ticketWhereConditions(project, ticketQuery, options),
-        cursorCondition(ticketQuery, expression)
+        ticketCursorCondition(ticketQuery, expression)
       ].filter((condition) => condition !== undefined)
       return db
         .select({
@@ -488,23 +501,50 @@ export const TicketIndexLive = Layer.effect(
         .from(ticketIndex)
         .where(and(...conditions))
         .orderBy(
-          ticketQuery.sort.dir === "asc" ? asc(expression) : desc(expression),
-          asc(ticketIndex.ticketId)
+          ...(ticketQuery.sort.dir === "asc"
+            ? [asc(expression), asc(ticketIndex.ticketId)]
+            : [desc(expression), desc(ticketIndex.ticketId)])
         )
         .limit(Math.max(1, options.limit))
         .pipe(
           Effect.map((rows) =>
-            rows.map(({ sortValue, ...row }) => ({
-              entry: toEntry(row),
-              sortValue:
-                sortValue instanceof Date
-                  ? sortValue.toISOString()
-                  : String(sortValue)
-            }))
+            rows.map(({ sortValue, ...row }) => {
+              const value = sortValueText(sortValue)
+              return {
+                entry: toEntry(row),
+                sortValue: value,
+                orderKey: toOrderKey(value, row.ticketId)
+              }
+            })
           ),
           Effect.orDie
         )
     }
+
+    const orderKeyFor = (
+      project: TicketIndexProject,
+      ticketId: string,
+      sort: TicketSort
+    ): Effect.Effect<string | null> =>
+      db
+        .select({ sortValue: ticketSortExpression(sort) })
+        .from(ticketIndex)
+        .where(
+          and(
+            eq(ticketIndex.projectId, project.projectId),
+            eq(ticketIndex.ticketId, ticketId)
+          )
+        )
+        .limit(1)
+        .pipe(
+          Effect.map((rows) => {
+            const row = rows[0]
+            return row === undefined
+              ? null
+              : toOrderKey(sortValueText(row.sortValue), ticketId)
+          }),
+          Effect.orDie
+        )
 
     const count = (
       project: TicketIndexProject,
@@ -1011,6 +1051,7 @@ export const TicketIndexLive = Layer.effect(
       projectFor,
       list,
       query,
+      orderKeyFor,
       count,
       listIds,
       existingIds,

@@ -6,9 +6,10 @@ Wouter's approval comment on T-139 and the link from T-137 remain pending.
 ## Ownership and route readiness
 
 Routes initiate reads through canonical resource atoms in the shared registry.
-Atoms own cached server state and optimistic updates; components subscribe and
-render. Loaders must not create a second owner by calling the same API outside
-that cache.
+Atoms own cached server state and per-view optimistic updates as defined in
+[the native atom design](superpowers/specs/2026-09-11-native-atom-data-layer-design.md).
+Components subscribe and render. Loaders must not create a second owner by
+calling the same API outside that cache.
 
 Layout loaders may initiate cheap data needed by shared, visible chrome. Reads
 specific to a page belong to that page. Intent preloading runs loaders on hover,
@@ -50,9 +51,18 @@ candidate or optional integration dataset.
 
 Idle TTL governs retention of unused atom nodes. It is not a freshness policy and
 does not periodically refetch mounted data. Keep freshness explicit: mutations
-refresh affected base atoms, existing polling updates live integration state,
-and failed sections expose retry. Do not add blanket refetching on navigation or
-global keep-alive. Reuse retained results and in-flight reads through shared keys.
+settle through their optimistic wrapper and publish affected query keys, existing
+polling updates live integration state, and failed sections expose retry. Do not
+add blanket refetching on navigation or global keep-alive. Reuse retained
+results and in-flight reads through shared keys.
+
+Declare idle TTL and reactivity subscriptions on `Api.query`. Mutation modules
+publish keys for all affected views, including every affected source of a composed
+view. Shared-key invalidation may also refresh the initiating view; correctness
+comes before avoiding a redundant request. Batch operations that can partially
+succeed refresh server truth on failure too. Keys are built in
+`packages/frontend/src/api/keys.ts`; the conventions that bind this are the
+"Mutations and optimistic updates" section of `AGENTS.md`.
 
 The installed `effect/unstable/reactivity/AtomRegistry` implementation separates
 wrapper and base lifetimes. After a loader mount is released, an unused wrapper

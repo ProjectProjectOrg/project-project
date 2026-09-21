@@ -1,7 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Plus } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import { SprintAssignMenu } from "@/components/sprints/SprintAssignMenu"
 import { Button } from "@/components/ui/button"
@@ -9,12 +9,12 @@ import { Hitbox } from "@/components/ui/hitbox"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import {
-  projectKey,
-  sprintMembershipAtom,
-  sprintsListAtom,
-  useAddTicketsToSprint,
-  useRemoveTicketsFromSprint
-} from "@/atoms/sprints"
+  addTicketsToSprint,
+  removeTicketsFromSprint,
+  sprintList,
+  sprintListRequest,
+  sprintMembership
+} from "@/atoms/sprintList"
 import { type Group, type GroupId, type TicketId } from "@projectproject/shared"
 
 export function SprintField({
@@ -32,15 +32,18 @@ export function SprintField({
   variant?: "default" | "responsive"
   onRequestNewSprint?: () => void
 }) {
-  const key = projectKey(orgSlug, slug)
-  const list = useAtomValue(sprintsListAtom(key))
-  const addToSprint = useAddTicketsToSprint(key)
-  const removeFromSprint = useRemoveTicketsFromSprint(key)
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const list = useAtomValue(sprintList(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
+  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
 
   if (!membership) return null
 
   const sprints = Result.isSuccess(list) ? list.value : []
+  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
 
   return (
     <SprintAssignMenu
@@ -48,23 +51,29 @@ export function SprintField({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={membership.id}
-      onSelect={(s) => addToSprint({ groupId: s.id, ticketIds: [ticketId] })}
-      onClear={() =>
-        removeFromSprint({
-          groupId: membership.id,
-          ticketIds: [ticketId]
-        })
-      }
+      onSelect={(s) => addTickets({ groupId: s.id })}
+      onClear={() => removeTickets({ groupId: membership.id })}
       onRequestNewSprint={onRequestNewSprint}
       trigger={
         <Hitbox
           mode="inline"
           margin="2"
           onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_sprint_chip_aria({ name: membership.name })}
+          aria-label={
+            failed
+              ? m.tickets_sprint_assign_error_fallback()
+              : m.tickets_sprint_chip_aria({ name: membership.name })
+          }
           className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
+          <span
+            className={cn(
+              "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/hitbox:bg-foreground/5",
+              failed
+                ? "text-destructive"
+                : "text-muted-foreground group-hover/hitbox:text-foreground"
+            )}
+          >
             <SprintStateIcon sprint={membership} size="xs" />
             <span
               className={cn(
@@ -92,7 +101,8 @@ export function SprintSelect({
   value: GroupId | null
   onChange: (groupId: GroupId | null) => void
 }) {
-  const list = useAtomValue(sprintsListAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const list = useAtomValue(sprintList(req))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const current = sprints.find((sprint) => sprint.id === value) ?? null
@@ -149,16 +159,23 @@ export function SprintBadgeTrigger({
   ticketId: TicketId
   className?: string
 }) {
-  const key = projectKey(orgSlug, slug)
-  const list = useAtomValue(sprintsListAtom(key))
-  const membership = useAtomValue(sprintMembershipAtom(key))
-  const addToSprint = useAddTicketsToSprint(key)
-  const removeFromSprint = useRemoveTicketsFromSprint(key)
+  const req = useMemo(() => sprintListRequest(orgSlug, slug), [orgSlug, slug])
+  const list = useAtomValue(sprintList(req))
+  const membership = useAtomValue(sprintMembership(req))
+  const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
+  const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)
-  const current = membership?.get(ticketId) ?? null
-  const label = current?.name ?? m.tickets_assign_sprint_chip()
+  const current = Result.isSuccess(membership)
+    ? (membership.value.get(ticketId) ?? null)
+    : null
+  const failed = Result.isFailure(addState) || Result.isFailure(removeState)
+  const label = failed
+    ? m.tickets_sprint_assign_error_fallback()
+    : (current?.name ?? m.tickets_assign_sprint_chip())
 
   if (!hasAnyEligible) return null
 
@@ -168,15 +185,9 @@ export function SprintBadgeTrigger({
       onOpenChange={setOpen}
       sprints={sprints}
       selectedId={current?.id ?? null}
-      onSelect={(s) => addToSprint({ groupId: s.id, ticketIds: [ticketId] })}
+      onSelect={(s) => addTickets({ groupId: s.id })}
       onClear={
-        current
-          ? () =>
-              removeFromSprint({
-                groupId: current.id,
-                ticketIds: [ticketId]
-              })
-          : undefined
+        current ? () => removeTickets({ groupId: current.id }) : undefined
       }
       trigger={
         <Button
@@ -184,11 +195,13 @@ export function SprintBadgeTrigger({
           variant="chip"
           onClick={(e) => e.stopPropagation()}
           aria-label={
-            current
-              ? m.tickets_sprint_chip_aria({ name: current.name })
-              : m.tickets_assign_sprint_chip()
+            failed
+              ? m.tickets_sprint_assign_error_fallback()
+              : current
+                ? m.tickets_sprint_chip_aria({ name: current.name })
+                : m.tickets_assign_sprint_chip()
           }
-          className={className}
+          className={cn(failed && "text-destructive", className)}
         >
           {current ? (
             <SprintStateIcon sprint={current} size="xs" />

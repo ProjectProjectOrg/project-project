@@ -2,7 +2,9 @@ import * as Config from "effect/Config"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres"
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm"
@@ -62,8 +64,12 @@ export interface FigmaOAuthClient {
   readonly clientSecret: Redacted.Redacted<string>
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
+const FigmaTokenResponse = Schema.Struct({
+  access_token: Schema.NonEmptyString,
+  refresh_token: Schema.optional(Schema.NonEmptyString),
+  expires_in: Schema.optional(Schema.Finite.check(Schema.isGreaterThan(0)))
+})
+const decodeFigmaTokenResponse = Schema.decodeUnknownOption(FigmaTokenResponse)
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
@@ -134,22 +140,13 @@ export const toTokenGrant = (
   now: Date,
   fallbackRefreshToken: string | null
 ): FigmaTokenGrant | null => {
-  if (!isRecord(payload)) return null
-  const accessToken = payload.access_token
-  if (typeof accessToken !== "string" || accessToken.length === 0) return null
-  const rotated = payload.refresh_token
-  const refreshToken =
-    typeof rotated === "string" && rotated.length > 0
-      ? rotated
-      : fallbackRefreshToken
+  const decoded = decodeFigmaTokenResponse(payload)
+  if (Option.isNone(decoded)) return null
+  const refreshToken = decoded.value.refresh_token ?? fallbackRefreshToken
   if (refreshToken === null) return null
-  const expiresIn = payload.expires_in
-  const seconds =
-    typeof expiresIn === "number" && Number.isFinite(expiresIn) && expiresIn > 0
-      ? expiresIn
-      : DEFAULT_TOKEN_TTL_SECONDS
+  const seconds = decoded.value.expires_in ?? DEFAULT_TOKEN_TTL_SECONDS
   return {
-    accessToken,
+    accessToken: decoded.value.access_token,
     refreshToken,
     expiresAt: DateTime.toDate(
       DateTime.add(DateTime.fromDateUnsafe(now), { seconds })

@@ -2,13 +2,15 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
+import { useMemo } from "react"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { TicketPageSkeleton } from "@/components/TicketPage"
 import { TicketSplitPage } from "@/components/TicketSplit/TicketSplitPage"
 import { TicketId } from "@projectproject/shared"
-import { commentsAtom, commentsKey } from "@/atoms/comments"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { comments, commentsRequest } from "@/atoms/comments"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { m } from "@/paraglide/messages"
 import { useProject } from "../-context"
 
@@ -21,10 +23,13 @@ export const Route = createFileRoute(
   loader: ({ context, params }) => {
     const id = decodeTicketId(params.id)
     context.registry.mount(
-      ticketAtom(ticketKey(params.orgSlug, params.slug, id))
+      ticketDetail(ticketRequest(params.orgSlug, params.slug, id))
     )()
     context.registry.mount(
-      commentsAtom(commentsKey(params.orgSlug, params.slug, id))
+      comments(commentsRequest(params.orgSlug, params.slug, id))
+    )()
+    context.registry.mount(
+      sprintList(sprintListRequest(params.orgSlug, params.slug))
     )()
     return {
       crumb: {
@@ -40,7 +45,11 @@ export const Route = createFileRoute(
 function TicketSplitRoute() {
   const { orgSlug, slug, id } = Route.useParams()
   const ticketId = decodeTicketId(id)
-  const result = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, ticketId)))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticketId),
+    [orgSlug, slug, ticketId]
+  )
+  const result = useAtomValue(ticketDetail(req))
   const project = useProject()
 
   return Result.matchWithError(result, {

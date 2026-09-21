@@ -3,8 +3,8 @@ import { createFileRoute, Outlet } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { projectsListAtom } from "@/atoms/projects"
-import { orgDetailAtom, orgDetailBaseAtom } from "@/atoms/orgs"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
+import { orgDetail, orgRequest } from "@/atoms/orgs"
 import { DeletedOrgPage } from "@/components/DeletedOrgPage"
 import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
@@ -14,12 +14,17 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
   component: OrgLayout,
   loader: async ({ context: { registry }, params, abortController }) => {
     const projects = Effect.runPromiseExit(
-      Registry.getResult(registry, projectsListAtom(params.orgSlug)),
+      Registry.getResult(
+        registry,
+        projectsFor(projectsRequest(params.orgSlug))
+      ),
       { signal: abortController.signal }
     )
     await Effect.runPromiseExit(
-      Registry.getResult(registry, orgDetailAtom(params.orgSlug)),
-      { signal: abortController.signal }
+      Registry.getResult(registry, orgDetail(orgRequest(params.orgSlug))),
+      {
+        signal: abortController.signal
+      }
     )
     await projects
   }
@@ -27,8 +32,8 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug")({
 
 function OrgLayout() {
   const { orgSlug } = Route.useParams()
-  const result = useAtomValue(orgDetailAtom(orgSlug))
-  const refresh = useAtomRefresh(orgDetailBaseAtom(orgSlug))
+  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
+  const refresh = useAtomRefresh(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(result, {
     onInitial: () => <DitherShell animated>{null}</DitherShell>,

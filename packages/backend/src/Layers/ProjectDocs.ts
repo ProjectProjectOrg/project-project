@@ -2,9 +2,10 @@ import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
+import * as Struct from "effect/Struct"
 import {
   deriveProjectIdentity,
-  GithubConnection,
   NotFound,
   ProjectKey,
   Role,
@@ -66,7 +67,7 @@ const ProjectDocSetup = Schema.Struct({
   )
 })
 
-const ProjectFrontmatter = Schema.Struct({
+const ProjectFrontmatterOnDisk = Schema.Struct({
   org: Schema.optional(Slug),
   slug: Slug,
   key: Schema.optional(ProjectKey),
@@ -78,9 +79,7 @@ const ProjectFrontmatter = Schema.Struct({
   members: Schema.Array(ProjectDocMember).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
   ),
-  github: Schema.NullOr(ProjectDocGithub).pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
-  ),
+  github: Schema.optionalKey(Schema.NullOr(ProjectDocGithub)),
   setup: ProjectDocSetup.pipe(
     Schema.withDecodingDefaultTypeKey(
       Effect.succeed({
@@ -92,43 +91,28 @@ const ProjectFrontmatter = Schema.Struct({
   )
 })
 
-const decodeProjectFrontmatter = Schema.decodeUnknownEffect(ProjectFrontmatter)
+const ProjectFrontmatterValue = Schema.Struct(
+  Struct.evolve(ProjectFrontmatterOnDisk.fields, {
+    github: () => Schema.NullOr(ProjectDocGithub)
+  })
+)
 
-function toFrontmatter(
-  document: ProjectDocumentWrite
-): Record<string, unknown> {
-  const frontmatter: Record<string, unknown> = {
-    org: document.org,
-    slug: document.slug,
-    key: document.key,
-    name: document.name,
-    icon: document.icon,
-    color: document.color,
-    createdBy: document.createdBy,
-    createdAt: document.createdAt.toISOString(),
-    members: document.members.map((member) => ({
-      username: member.username,
-      role: member.role
-    }))
-  }
-  if (document.github) {
-    frontmatter.github = {
-      repoId: document.github.repoId,
-      repoOwner: document.github.repoOwner,
-      repoName: document.github.repoName,
-      defaultBaseBranch: document.github.defaultBaseBranch
-    } satisfies GithubConnection
-  }
-  frontmatter.setup = {
-    workflowReviewedAt:
-      document.setup.workflowReviewedAt?.toISOString() ?? null,
-    invitePeopleDismissedAt:
-      document.setup.invitePeopleDismissedAt?.toISOString() ?? null,
-    connectGithubDismissedAt:
-      document.setup.connectGithubDismissedAt?.toISOString() ?? null
-  }
-  return frontmatter
-}
+const ProjectFrontmatter = ProjectFrontmatterOnDisk.pipe(
+  Schema.decodeTo(
+    Schema.toType(ProjectFrontmatterValue),
+    SchemaTransformation.transform({
+      decode: (input) =>
+        Object.assign(Struct.omit(input, ["github"]), {
+          github: input.github ?? null
+        }),
+      encode: (input) =>
+        input.github === null ? Struct.omit(input, ["github"]) : input
+    })
+  )
+)
+
+const decodeProjectFrontmatter = Schema.decodeUnknownEffect(ProjectFrontmatter)
+const encodeProjectFrontmatter = Schema.encodeSync(ProjectFrontmatter)
 
 function withProjectDocTelemetry<A, E>(
   operation: string,
@@ -189,7 +173,7 @@ export const ProjectDocsLive = Layer.effect(
         markdown.writeProjectFile(
           orgSlug,
           slug,
-          toFrontmatter(document),
+          encodeProjectFrontmatter(document),
           document.body
         )
       )

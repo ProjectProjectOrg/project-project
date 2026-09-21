@@ -6,6 +6,7 @@ import * as Semaphore from "effect/Semaphore"
 import {
   ADMIN_GATED_KINDS,
   CompleteSprintInput,
+  type CompleteSprintOutput,
   CreateGroupInput,
   Forbidden,
   Group,
@@ -533,6 +534,38 @@ export const GroupsLive = Layer.effect(
         })
       )
 
+    const removeTickets = (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      id: string,
+      ticketIds: ReadonlyArray<TicketId>
+    ): Effect.Effect<
+      UpdateGroupTicketsOutput,
+      NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+    > =>
+      withProjectLock(
+        orgSlug,
+        slug,
+        Effect.gen(function* () {
+          yield* projects.requireMember(orgSlug, userId, slug)
+          const existing = yield* groupDocs.read(orgSlug, slug, id)
+          yield* requireKindRole(orgSlug, userId, slug, existing.kind)
+          if (existing.completedAt !== null) {
+            return yield* new SprintCompletedImmutable()
+          }
+          const drop = new Set<string>(ticketIds)
+          const remaining = existing.tickets.filter((tid) => !drop.has(tid))
+          if (remaining.length === existing.tickets.length) {
+            return {
+              target: existing,
+              evicted: []
+            } satisfies UpdateGroupTicketsOutput
+          }
+          return yield* applyTicketsChange(orgSlug, slug, existing, remaining)
+        })
+      )
+
     const updateTicketOrder = (
       orgSlug: string,
       userId: string,
@@ -634,7 +667,7 @@ export const GroupsLive = Layer.effect(
       id: string,
       input: CompleteSprintInput
     ): Effect.Effect<
-      GroupDetail,
+      CompleteSprintOutput,
       | NotFound
       | Forbidden
       | SprintCompletedImmutable
@@ -716,7 +749,7 @@ export const GroupsLive = Layer.effect(
             updatedAt: now
           }
           yield* groupDocs.write(orgSlug, slug, id, nextSource)
-          return nextSource
+          return { target: nextSource, carried: carry }
         })
       )
 
@@ -868,6 +901,7 @@ export const GroupsLive = Layer.effect(
       update,
       updateTickets,
       addTickets,
+      removeTickets,
       updateTicketOrder,
       complete,
       remove,

@@ -5,10 +5,11 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { and, eq, inArray, sql } from "drizzle-orm"
-import { FileSystem, Path } from "effect"
+import { FileSystem, Path, Schema, Struct } from "effect"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import matter from "gray-matter"
 import * as schema from "./db/schema"
 import * as authSchema from "./db/auth-schema"
@@ -18,11 +19,14 @@ import {
   projectMember,
   user
 } from "./db/schema"
+import { TicketFrontmatter } from "./Services/TicketDocs"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
 const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const TICKET_FILE = /^T-[1-9][0-9]*\.md$/
+const decodeTicketFrontmatter = Schema.decodeUnknownOption(TicketFrontmatter)
+const encodeTicketFrontmatter = Schema.encodeSync(TicketFrontmatter)
 
 function roleList(role: string): ReadonlyArray<string> {
   return role.split(",").map((r) => r.trim())
@@ -147,24 +151,28 @@ async function unassignUserFromActiveTicketsOnDisk(
             const filePath = path.join(ticketsDir, file)
             const raw = yield* fs.readFileString(filePath, "utf8")
             const parsed = matter(raw)
-            const assignees = Array.isArray(parsed.data.assignees)
-              ? parsed.data.assignees
-              : typeof parsed.data.assignee === "string"
-                ? [parsed.data.assignee]
-                : []
+            const decoded = decodeTicketFrontmatter(parsed.data)
+            if (Option.isNone(decoded)) return
+            const frontmatter = decoded.value
             if (
-              parsed.data.status === "done" ||
-              !assignees.some((id) => id === userId)
+              frontmatter.status === "done" ||
+              !frontmatter.assignees.includes(userId)
             ) {
               return
             }
-            parsed.data.assignees = assignees.filter((id) => id !== userId)
-            parsed.data.updatedAt = DateTime.toDate(
-              DateTime.nowUnsafe()
-            ).toISOString()
+            const updated = Struct.evolve(frontmatter, {
+              assignees: (assignees) => assignees.filter((id) => id !== userId),
+              updatedAt: () => DateTime.toDate(DateTime.nowUnsafe())
+            })
             yield* fs.writeFileString(
               filePath,
-              matter.stringify(parsed.content, parsed.data)
+              matter.stringify(
+                parsed.content,
+                Object.assign(
+                  Struct.omit(parsed.data, ["assignee"]),
+                  encodeTicketFrontmatter(updated)
+                )
+              )
             )
           }),
         { concurrency: 8 }

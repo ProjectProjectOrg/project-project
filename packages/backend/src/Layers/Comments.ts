@@ -129,7 +129,9 @@ export const CommentsLive = Layer.effect(
         const blocks = parseCommentsRegion(document.commentsRegion)
         const blockById = new Map(blocks.map((b) => [b.id, b]))
         const authors = yield* users.fullByIds(rows.map((r) => r.authorId))
-        const authorById = new Map(authors.map((u) => [u.id, u]))
+        const authorById = new Map<string, (typeof authors)[number]>(
+          authors.map((user) => [user.id, user])
+        )
         return rows.flatMap((r): Comment[] => {
           const block = blockById.get(r.id)
           const author = authorById.get(r.authorId)

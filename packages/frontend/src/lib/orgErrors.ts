@@ -1,4 +1,5 @@
 import * as Cause from "effect/Cause"
+import * as Match from "effect/Match"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
 import { m } from "@/paraglide/messages"
@@ -21,7 +22,33 @@ const projectSlugsOf = (error: unknown): ReadonlyArray<string> | undefined => {
   return undefined
 }
 
+const taggedOrgActionError = (error: unknown): OrgActionError | null =>
+  Match.value(error).pipe(
+    Match.when({ _tag: "ProjectOwnerRemovalBlocked" }, (blocked) => ({
+      message: m.org_members_project_owner_removal_blocked(),
+      projectSlugs: projectSlugsOf(blocked)
+    })),
+    Match.when({ _tag: "Conflict", reason: "already_member" }, () => ({
+      message: m.org_members_error_already_member()
+    })),
+    Match.when({ _tag: "Conflict", reason: "already_invited" }, () => ({
+      message: m.org_members_error_already_invited()
+    })),
+    Match.when({ _tag: "Conflict", reason: "last_owner_removal" }, () => ({
+      message: m.org_members_error_last_owner()
+    })),
+    Match.when({ _tag: "Conflict", reason: "last_owner" }, () => ({
+      message: m.org_members_error_only_owner_leave()
+    })),
+    Match.when({ _tag: "Validation", reason: "role_not_found" }, () => ({
+      message: m.org_members_error_role_not_allowed()
+    })),
+    Match.orElse(() => null)
+  )
+
 export const orgActionError = (error: unknown): OrgActionError => {
+  const tagged = taggedOrgActionError(error)
+  if (tagged) return tagged
   if (hasErrorCode(error, "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION")) {
     return { message: m.org_members_error_already_member() }
   }

@@ -36,12 +36,33 @@ Phases C, E and F do not depend on each other, except that Task 22 depends on Ph
 - Mutation input types are the payload schemas from `@projectproject/shared`, unchanged. Path params come from the atom's family key.
 - Reactivity keys use **array form** (`["tickets/acme/web"]`), never record form. Record form hashes the bare top-level key as well, so `{ tickets: [...] }` fires every atom registered under `tickets` and precision is impossible.
 - All reactivity keys come from `src/api/keys.ts`. Never write a key string inline.
-- **A mutation publishes only keys that other views registered.** The optimistic wrapper already refreshes its own source on commit, so publishing a key your own view listens to costs a second refetch per edit.
+- **Publish keys for every affected view.** Avoid redundant self-invalidation where possible, but publish shared keys when sibling views need them. Every affected source of a composed view must refresh.
 - Build every atom layer before rewiring any component. Do not write a temporary shim to keep a half-migrated component compiling; if a component cannot be rewired yet, its task has not come up.
-- Tests are Vitest at registry level with `vi.stubGlobal("fetch", ...)`, following `packages/frontend/src/atoms/tickets.sections.test.ts`.
+- Tests are Vitest at registry level. Install the fetch stub with `stubFetch()` from
+  `packages/frontend/src/api/testFetch.ts` — one dispatcher per file, handler swapped per test.
+  A bare per-test `vi.stubGlobal("fetch", ...)` is WRONG: `FetchHttpClient.Fetch` memoises
+  `globalThis.fetch` on first read, so the first stub in a file wins and later tests silently hit it.
 - Commands: `bun run test` (all), `bun run test <path>` (one file), `bun run typecheck`, `vp fmt`, `vp lint`. Run from `packages/frontend`.
 - Never run `npx prettier`. Use `vp fmt`.
 - Commit after every task. Conventional commits with scope, e.g. `feat(atoms): ...`.
+
+## Amendments made during execution
+
+**A1 — `Api.ts` uses the plain fetch layer.** The `globalThis.fetch` indirection this plan
+specifies in Task 1 is removed. `httpClient: FetchHttpClient.layer`, matching the reference
+implementation. The problem it solved is real but belongs in the test helper, not production
+code: `FetchHttpClient.Fetch` is a `Context.Reference` whose `defaultValue: () => globalThis.fetch`
+is permanently memoised on first read (`effect/src/Context.ts:1582-1589`), so the first
+`vi.stubGlobal` in a file wins forever. `src/api/testFetch.ts` handles it.
+
+**A2 — `atoms/lib/results.ts` is not built.** `AsyncResult.all`
+(`effect/src/unstable/reactivity/AsyncResult.ts:813-849`) returns the first non-Success, or
+`success(values, { waiting })` with waiting true if any part is waiting — exactly what
+`Results.blocked` + `Results.meta` did. `AsyncResult.map` then carries `waiting` and `timestamp`
+through (`success(f(self.value), self)`), so the composed-region hold still works. Composed views
+use `AsyncResult.map(AsyncResult.all([...]), ...)`. The one exception is Task 6's paginated
+backlog, where a failed page must not fail the region — there, keep the per-page loop and compute
+`waiting: parts.some((p) => p.waiting)` directly.
 
 ---
 
@@ -53,7 +74,7 @@ Phases C, E and F do not depend on each other, except that Task 22 depends on Ph
 | --- | --- |
 | `packages/frontend/src/api/Api.ts` | The single `AtomHttpApi` client and its runtime |
 | `packages/frontend/src/api/keys.ts` | Typed constructors for reactivity key strings |
-| `packages/frontend/src/atoms/lib/results.ts` | Pure helpers to combine several `AsyncResult`s into one |
+| ~~`packages/frontend/src/atoms/lib/results.ts`~~ | **AMENDED: not built.** `AsyncResult.all` already does this |
 | `packages/frontend/src/atoms/ticketPatch.ts` | Pure functions applying an `UpdateTicketInput` to a ticket |
 | `packages/frontend/src/atoms/ticketDetail.ts` | Detail query, wrapper, update/archive/unarchive/delete |
 | `packages/frontend/src/atoms/backlog.ts` | Sections query, page queries, composed view, wrapper, mutations |
@@ -263,7 +284,9 @@ git commit -m "feat(api): add the AtomHttpApi client and reactivity key vocabula
 - Test: `packages/frontend/src/atoms/lib/results.test.ts`
 
 **Interfaces:**
-- Produces: `applyTicketPatch(ticket: Ticket, patch: UpdateTicketInput): Ticket`, `applyTicketDetailPatch(ticket: TicketDetail, patch: UpdateTicketInput): TicketDetail`, `Results.blocked(parts): AsyncResult<never, E> | undefined`, `Results.meta(parts): { waiting: boolean; timestamp: number }`.
+- Produces: `applyTicketPatch(ticket: Ticket, patch: UpdateTicketInput): Ticket`, `applyTicketDetailPatch(ticket: TicketDetail, patch: UpdateTicketInput): TicketDetail`.
+- **AMENDED:** the `Results` helpers described below were NOT built. `AsyncResult.all` is the
+  built-in equivalent. Ignore every `results.ts` step in this task.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -798,7 +821,7 @@ git commit -m "feat(atoms): add the native ticket detail wrapper and mutations"
 - Test: `packages/frontend/src/atoms/backlog.test.ts`
 
 **Interfaces:**
-- Consumes: `Api`, `Keys`, `projectScope`, `Results`, `applyTicketPatch`.
+- Consumes: `Api`, `Keys`, `projectScope`, `AsyncResult.all`, `applyTicketPatch`.
 - Produces: `BacklogRequest`, `backlogRequest(orgSlug, slug, query: TicketListQuery): BacklogRequest`, `BacklogRow`, `BacklogSection`, `BacklogValue`, `backlog(req)`, `updateBacklogTicket({ req, id })`.
 
 - [ ] **Step 1: Write the failing test**
@@ -958,7 +981,6 @@ import {
 } from "@projectproject/shared"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
-import { Results } from "./lib/results"
 import { applyTicketPatch } from "./ticketPatch"
 
 export interface BacklogRequest {
@@ -1024,24 +1046,20 @@ const sectionsQuery = (req: BacklogRequest) =>
  */
 const backlogView = (req: BacklogRequest) =>
   Atom.readable(
-    (get) => {
-      const base = get(sectionsQuery(req))
-      const blocked = Results.blocked([base])
-      if (blocked) return blocked
-      if (!AsyncResult.isSuccess(base)) return base
-      const sections: Record<string, BacklogSection> = {}
-      for (const [status, page] of Object.entries(base.value.sections)) {
-        sections[status] = {
-          items: page.items.map(toRow),
-          nextCursor: page.nextCursor
+    (get) =>
+      AsyncResult.map(
+        AsyncResult.all([get(sectionsQuery(req))]),
+        ([base]): BacklogValue => {
+          const sections: Record<string, BacklogSection> = {}
+          for (const [status, page] of Object.entries(base.sections)) {
+            sections[status] = {
+              items: page.items.map(toRow),
+              nextCursor: page.nextCursor
+            }
+          }
+          return { counts: base.counts, sections }
         }
-      }
-      const { waiting, timestamp } = Results.meta([base])
-      return AsyncResult.success<BacklogValue>(
-        { counts: base.value.counts, sections },
-        { waiting, timestamp }
-      )
-    },
+      ),
     (refresh) => refresh(sectionsQuery(req))
   )
 
@@ -1423,10 +1441,11 @@ const backlogView = (req: BacklogRequest) =>
         sections[status] = { items: dedupeById(rows), nextCursor }
       }
 
-      const { waiting, timestamp } = Results.meta(parts)
+      // A failed or unmounted page must not fail the region, so this cannot be
+      // `AsyncResult.all` over the pages. Waiting is the union across parts.
       return AsyncResult.success<BacklogValue>(
         { counts: base.value.counts, sections },
-        { waiting, timestamp }
+        { waiting: parts.some((part) => part.waiting) }
       )
     },
     (refresh) => refresh(sectionsQuery(req))
@@ -1898,7 +1917,7 @@ keys, which removes those calls.
 | `createSprint(req)` | `CreateGroupInput` | `groups` / `create` | `Keys.sprints(scope)` is this view's own key, so publish nothing | prepend a synthetic sprint; id from a module counter as today |
 | `updateSprint({ req, groupId })` | `UpdateGroupInput` | `groups` / `update` | nothing | patch name, color, dates **and `body`** |
 | `deleteSprint({ req, groupId })` | `void` | `groups` / `delete` | `Keys.sprintMembership(scope)` | filter the sprint out |
-| `completeSprint({ req, groupId })` | `CompleteSprintInput` | `groups` / `complete` | `Keys.sprintMembership(scope)`, `Keys.ticketsIn(scope)` | mark complete, move carryover ids to the destination sprint |
+| `completeSprint({ req, groupId })` | `CompleteSprintInput` | `groups` / `complete` | `Keys.sprintMembership(scope)`, `Keys.ticketsIn(scope)`, `Keys.sprint(scope, groupId)`, and `Keys.sprint(scope, destination.groupId)` when the destination is a sprint | reducer only paints `completedAt`; once the response lands, `set()` applies the server's exact `target`/`carried` partition to source and destination — the client never predicts which tickets move |
 
 - [ ] **Step 1: Add the sprint keys**
 
@@ -2079,7 +2098,7 @@ not optimistic. One composed wrapper over both removes the split.
 - Test: `packages/frontend/src/atoms/sprintBoard.test.ts`
 
 **Interfaces:**
-- Consumes: `Results` (Task 2), `Keys`, `Api`, `sprintDetail` (Task 10).
+- Consumes: `AsyncResult.all`, `Keys`, `Api`, `sprintDetail` (Task 10).
 - Produces: `BoardRequest`, `boardRequest(orgSlug, slug, groupId)`, `BoardValue`, `sprintBoard(req)`, `placeBoardTicket(req)`, `updateBoardTicket({ req, id })`.
 
 - [ ] **Step 1: Write the failing test**
@@ -2157,24 +2176,19 @@ const ticketsQuery = (req: BoardRequest) =>
 const boardView = (req: BoardRequest) =>
   Atom.readable(
     (get) => {
-      const group = get(sprintQuery(req))
-      const tickets = get(ticketsQuery(req))
-      const blocked = Results.blocked([group, tickets])
-      if (blocked) return blocked
-      if (!AsyncResult.isSuccess(group) || !AsyncResult.isSuccess(tickets)) {
-        return group
-      }
-      const byId = new Map(tickets.value.map((t) => [t.id, t]))
-      const ordered: Array<Ticket> = []
-      for (const id of group.value.tickets) {
-        const ticket = byId.get(id)
-        if (ticket) ordered.push(ticket)
-      }
-      const { waiting, timestamp } = Results.meta([group, tickets])
-      return AsyncResult.success<BoardValue>(
-        { tickets: ordered, completedAt: group.value.completedAt },
-        { waiting, timestamp }
-      )
+      const combined = AsyncResult.all([
+        get(sprintQuery(req)),
+        get(ticketsQuery(req))
+      ])
+      return AsyncResult.map(combined, ([group, tickets]): BoardValue => {
+        const byId = new Map(tickets.map((t) => [t.id, t]))
+        const ordered: Array<Ticket> = []
+        for (const id of group.tickets) {
+          const ticket = byId.get(id)
+          if (ticket) ordered.push(ticket)
+        }
+        return { tickets: ordered, completedAt: group.completedAt }
+      })
     },
     (refresh) => {
       refresh(sprintQuery(req))
@@ -2962,19 +2976,11 @@ plugin methods are `getFullOrganization`, `updateOrganization`, `createInvitatio
 `rejectInvitation`. Confirm each name against the installed version before
 writing; do not trust this list blind.
 
-`transferOwnership` is the one that is not a single better-auth call. Implement
-it as the two role changes inside one `Effect.gen`, promoting the target before
-demoting the caller, so a mid-way failure leaves an org with two owners rather
-than none:
-
-```ts
-transferOwnership: (request, orgSlug, toUserId, selfUserId) =>
-  Effect.gen(function* () {
-    yield* setRole(request, orgSlug, toUserId, "owner")
-    yield* setRole(request, orgSlug, selfUserId, "admin")
-    return yield* getMembers(request, orgSlug)
-  })
-```
+`transferOwnership` changes both roles atomically. Validate the caller's owner
+role and the target's membership inside the same database transaction that
+promotes the target and demotes the caller. Preserve the last-owner invariant.
+An `Effect.gen` containing two independent better-auth calls is not a transaction;
+a failure must leave both roles unchanged. Test rollback and rejected callers.
 
 Map better-auth's comma-separated role string through `collapseRole` in every
 method that returns a member.
@@ -3642,8 +3648,8 @@ view they fire from. Rules and worked examples:
 4. **Mutation input equals the API payload.** Path params come from the family
    key. Never put cache keys, settle targets or view metadata in the input.
 5. **Reactivity keys are array form, built in `src/api/keys.ts`,** and published
-   inside the atom module. A mutation publishes only keys that OTHER views
-   registered; publishing your own view's key costs a second refetch per edit.
+   inside the atom module. A mutation publishes keys for all affected views. Avoid redundant
+   self-invalidation only when sibling views still receive every needed refresh.
 6. **Never hold a transition open** with `get.result(x, { suspendOnWaiting: true })`,
    a pending map, a preview merge or a React context. The wrapper holds until its
    own source refetches.
@@ -3722,7 +3728,7 @@ which are the only part that matters there.
 `CountsRequest`, `SearchRequest`, `SprintListRequest`, `SprintRequest`,
 `BoardRequest`, `TagsRequest`, `OrgRequest`, each defined once. Value types are
 `BacklogRow`, `BacklogSection`, `BacklogValue`, `BoardValue`. Helpers are
-`applyTicketPatch`, `applyTicketDetailPatch`, `Results.blocked`, `Results.meta`,
+`applyTicketPatch`, `applyTicketDetailPatch`,
 `placeTicket`, `collapseRole`. `scopeOf` is local to each atom module;
 `projectScope` is shared. The shared schemas added in Task 17 (`OrgMember`,
 `OrgInvitation`, `OrgMembers`, `UserInvitation`, `InviteMemberInput`,
@@ -3748,10 +3754,10 @@ deleted rather than kept in parallel.
 4. **Composed-region timestamps.** Every composed view must report `waiting`
    while any source is in flight and carry the newest timestamp. Get this wrong
    and the hold silently breaks, which looks exactly like the bug being fixed.
-   `Results.meta` centralises it; do not hand-roll the comparison.
+   `AsyncResult.all` centralises it; do not hand-roll the comparison.
 5. **`useMemo` on request objects.** A request object rebuilt each render is a
    new family key and refetches every render. This is the most likely mistake
    when rewiring components. Consider a lint rule.
 6. **Unmounted page queries.** In Task 6, an unmounted cursor page reports
-   Initial, which `Results.meta` does not count as waiting. If manual checking
+   Initial, which the waiting union does not count as waiting. If manual checking
    shows a flicker there, count Initial as waiting and add a test.
