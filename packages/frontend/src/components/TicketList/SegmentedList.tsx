@@ -1,6 +1,6 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import { useCallback, useMemo, useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { FilterX, ListChecks } from "lucide-react"
 import * as Schema from "effect/Schema"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
@@ -33,6 +33,7 @@ import type {
 } from "@projectproject/shared"
 import { queryHasActiveFilter, useResetTicketSearch } from "./url"
 import { SectionList } from "./SectionList"
+import { useTicketPreview } from "./useTicketPreview"
 
 const CollapsedSchema = Schema.Array(Schema.String)
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -56,18 +57,7 @@ export function SegmentedList({
   snapshot: TicketSectionsValue
 }) {
   const resetFilters = useResetTicketSearch()
-  const [activePreviewId, setActivePreviewId] = useState<TicketId | null>(null)
-  const handlePreviewPointerEnter = useCallback((ticketId: TicketId) => {
-    setActivePreviewId((current) => (current === ticketId ? current : null))
-  }, [])
-  const handlePreviewOpenChange = useCallback(
-    (ticketId: TicketId, open: boolean) => {
-      setActivePreviewId((current) =>
-        open ? ticketId : current === ticketId ? null : current
-      )
-    },
-    []
-  )
+  const preview = useTicketPreview()
 
   const statusesResult = useAtomValue(
     projectStatusesAtom(projectStatusKey(orgSlug, slug))
@@ -201,9 +191,11 @@ export function SegmentedList({
           extraRowActions={extraRowActions}
           showSprintCol={showSprintCol}
           showExtraActionsCol={showExtraActionsCol}
-          activePreviewId={activePreviewId}
-          onPreviewPointerEnter={handlePreviewPointerEnter}
-          onPreviewOpenChange={handlePreviewOpenChange}
+          activePreviewId={preview.activePreviewId}
+          mountedPreviewId={preview.mountedPreviewId}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
+          onPreviewDismiss={preview.onPreviewDismiss}
         />
       ))}
     </div>

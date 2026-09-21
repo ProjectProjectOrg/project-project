@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useState,
-  type ReactNode,
-  type ComponentProps
-} from "react"
+import { useState, type ReactNode, type ComponentProps } from "react"
 import { useAtomRefresh, useAtomValue, useAtomSet } from "@effect/atom-react"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -40,6 +35,7 @@ import { cn } from "@/lib/utils"
 import { queryHasActiveFilter } from "./url"
 import { Row } from "./Row"
 import { SectionList, TicketPagination } from "./SectionList"
+import { useTicketPreview } from "./useTicketPreview"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
@@ -75,17 +71,7 @@ export function SprintSections(props: Props) {
     if (props.query.q) setSearchState({ query: props.query.q, collapsed: next })
     else setCollapseOverrides(next)
   }
-  const [preview, setPreview] = useState<TicketId | null>(null)
-  const onPreviewPointerEnter = useCallback(
-    (id: TicketId) =>
-      setPreview((current) => (current === id ? current : null)),
-    []
-  )
-  const onPreviewOpenChange = useCallback(
-    (id: TicketId, open: boolean) =>
-      setPreview((current) => (open ? id : current === id ? null : current)),
-    []
-  )
+  const preview = useTicketPreview()
   const result = useAtomValue(sprintsListAtom(key))
   const refresh = useAtomRefresh(sprintsListBaseAtom(key))
   const groups = Option.getOrUndefined(Result.value(result))
@@ -112,9 +98,11 @@ export function SprintSections(props: Props) {
                 onToggleCollapsed={() =>
                   setCollapsed({ ...collapsed, [id]: !isCollapsed })
                 }
-                activePreviewId={preview}
-                onPreviewPointerEnter={onPreviewPointerEnter}
-                onPreviewOpenChange={onPreviewOpenChange}
+                activePreviewId={preview.activePreviewId}
+                mountedPreviewId={preview.mountedPreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+                onPreviewDismiss={preview.onPreviewDismiss}
               />
             )
           }
@@ -145,8 +133,10 @@ type SprintSectionProps = Props & {
   collapsed: boolean
   onToggleCollapsed: () => void
   activePreviewId: TicketId | null
+  mountedPreviewId: TicketId | null
   onPreviewPointerEnter: (id: TicketId) => void
   onPreviewOpenChange: (id: TicketId, open: boolean) => void
+  onPreviewDismiss: () => void
 }
 
 function SprintSection({
@@ -154,8 +144,10 @@ function SprintSection({
   collapsed,
   onToggleCollapsed,
   activePreviewId,
+  mountedPreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
+  onPreviewDismiss,
   ...props
 }: SprintSectionProps) {
   const { orgSlug, slug, members, extraRowActions } = props
@@ -244,8 +236,10 @@ function SprintSection({
         showSprintCol
         showExtraActionsCol
         activePreviewId={activePreviewId}
+        mountedPreviewId={mountedPreviewId}
         onPreviewPointerEnter={onPreviewPointerEnter}
         onPreviewOpenChange={onPreviewOpenChange}
+        onPreviewDismiss={onPreviewDismiss}
       />
     ) : (
       <div

@@ -215,8 +215,10 @@ it.each(["row", "card"] as const)(
             showExtraActionsCol={false}
             sprintMembership={null}
             previewOpen={false}
+            previewMounted={false}
             onPreviewPointerEnter={() => {}}
             onPreviewOpenChange={() => {}}
+            onPreviewDismiss={() => {}}
           />
         )
     })

@@ -1,4 +1,4 @@
-import { memo, useRef, useState, type ReactNode } from "react"
+import { memo, useRef, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { useAtomValue } from "@effect/atom-react"
@@ -41,8 +41,10 @@ function RowImpl({
   extraRowActions,
   pending,
   previewOpen,
+  previewMounted,
   onPreviewPointerEnter,
   onPreviewOpenChange,
+  onPreviewDismiss,
   onUpdate
 }: {
   onUpdate?: (patch: UpdateTicketInput) => void
@@ -57,8 +59,10 @@ function RowImpl({
   extraRowActions?: (ticket: Ticket) => ReactNode
   pending?: boolean
   previewOpen: boolean
+  previewMounted: boolean
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  onPreviewDismiss: () => void
 }) {
   const updatePreview = useAtomValue(
     ticketUpdatePreviewAtom(ticketKey(orgSlug, slug, ticket.id))
@@ -71,7 +75,6 @@ function RowImpl({
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
-  const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
   }
@@ -79,8 +82,7 @@ function RowImpl({
     onPreviewOpenChange(ticket.id, false)
   }
   const handleRowClick = () => {
-    onPreviewOpenChange(ticket.id, false)
-    setPreviewMounted(false)
+    onPreviewDismiss()
   }
   return (
     <div className="group/list-row col-span-full grid grid-cols-subgrid">
@@ -88,7 +90,6 @@ function RowImpl({
         <Popover
           open={previewOpen}
           onOpenChange={(nextOpen) => {
-            if (nextOpen) setPreviewMounted(true)
             onPreviewOpenChange(ticket.id, nextOpen)
           }}
         >
