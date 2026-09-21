@@ -34,7 +34,7 @@ describe("dispatchStatusReorders", () => {
     const doneStatus = makeStatus(done, "b")
     let served = [todoStatus, doneStatus]
     let finish = (_response: Response) => {}
-    fetchStub.set((input, init) => {
+    fetchStub.set((_input, init) => {
       if (init?.method === "PATCH") {
         return new Promise<Response>((resolve) => {
           finish = resolve
