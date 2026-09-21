@@ -14,6 +14,7 @@ import {
   useOptimistic,
   type MouseEvent,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
@@ -28,16 +29,10 @@ import {
   type LucideIcon
 } from "lucide-react"
 import { statusMetaFor } from "@/lib/ticket-meta"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
-import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import {
   activeAndPlannedCount,
   pickActiveSprint,
@@ -140,15 +135,19 @@ function TabsNav({
     select: (matches) => matches[matches.length - 1]?.pathname ?? ""
   })
   const base = `/orgs/${orgSlug}/projects/${slug}`
-  const ticketsResult = useAtomValue(
-    ticketsCountAtom(ticketsCountKey(orgSlug, slug, {}))
+  const countsReq = useMemo(
+    () => countsRequest(orgSlug, slug, {}),
+    [orgSlug, slug]
   )
+  const ticketsResult = useAtomValue(ticketCounts(countsReq))
   const ticketsCount = Result.isSuccess(ticketsResult)
     ? ticketsResult.value.total
     : null
-  const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsCount = Result.isSuccess(sprintsResult)
     ? activeAndPlannedCount(sprintsResult.value)
     : null
@@ -170,9 +169,11 @@ function TabsNav({
   const navigate = useNavigate()
   const isActive = (key: TabKey) => selectedTab === key
 
-  const statusesResult = useAtomValue(
-    projectStatusesAtom(projectStatusKey(orgSlug, slug))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const statusesResult = useAtomValue(statusesFor(statusReq))
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const statusSlugs = boardStatusesFor(statuses)
   const byStatusRaw = Result.isSuccess(ticketsResult)
@@ -369,7 +370,11 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
             void navigate({
               to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
               params: { orgSlug, slug, groupId },
-              search: (prev) => ({ ...prev, view: next })
+              search: (prev) => ({
+                ...prev,
+                updatedAfter: prev.updatedAfter?.toISOString(),
+                view: next
+              })
             })
           })
         }
@@ -390,7 +395,11 @@ function ViewSwitcher({ orgSlug, slug }: { orgSlug: string; slug: string }) {
           void navigate({
             to: "/orgs/$orgSlug/projects/$slug",
             params: { orgSlug, slug },
-            search: (prev) => ({ ...prev, view: next })
+            search: (prev) => ({
+              ...prev,
+              updatedAfter: prev.updatedAfter?.toISOString(),
+              view: next
+            })
           })
         })
       }

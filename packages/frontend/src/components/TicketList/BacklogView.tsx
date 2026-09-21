@@ -1,8 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { meAtom } from "@/atoms/auth"
 import { useAtomValue } from "@effect/atom-react"
 import { motion } from "motion/react"
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import type { Ticket, TicketListQuery } from "@projectproject/shared"
 import { TicketList } from "@/components/TicketList"
 import { BacklogBoard } from "@/components/TicketList/BacklogBoard"
@@ -13,7 +12,8 @@ import { PageContainer } from "@/components/page"
 import { ReorderBoardBanner } from "@/components/sprints/ReorderBoardBanner"
 import { useStatusReorder } from "@/components/sprints/useStatusReorder"
 import { transitions } from "@/lib/springs"
-import { projectKey, sprintMembershipAtom } from "@/atoms/sprints"
+import { me } from "@/atoms/auth"
+import { sprintListRequest, sprintMembership } from "@/atoms/sprintList"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import * as Schema from "effect/Schema"
@@ -36,17 +36,22 @@ export function BacklogView({
   onQueryChange: (query: TicketListQuery) => void
 }) {
   const project = useProject()
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
   const preferencesKey = `${viewerId}:${orgSlug}/${slug}`
   const [grouping, setGrouping] = useLocalStorageState(
     `projectproject:backlog-grouping:${preferencesKey}`,
     GroupingSchema,
     "status"
   )
-  const sprintMembership = useAtomValue(
-    sprintMembershipAtom(projectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const membershipResult = useAtomValue(sprintMembership(sprintReq))
+  const membership = Result.isSuccess(membershipResult)
+    ? membershipResult.value
+    : undefined
   const {
     reorderMode,
     dragOrder,
@@ -89,7 +94,7 @@ export function BacklogView({
         slug={slug}
         query={query}
         members={project.members}
-        sprintMembership={sprintMembership}
+        sprintMembership={membership}
         creator={
           isBoard ? (
             <div className="relative">

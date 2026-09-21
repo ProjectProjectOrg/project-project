@@ -1,6 +1,6 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { useProject } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/-context"
 import type { Role } from "@projectproject/shared"
 
@@ -11,9 +11,9 @@ export function useProjectRole(): {
   isAdmin: boolean
 } {
   const project = useProject()
-  const me = useAtomValue(meAtom)
-  const role: Role = Result.isSuccess(me)
-    ? (project.members.find((member) => member.id === me.value.id)?.role ??
+  const viewer = useAtomValue(me())
+  const role: Role = Result.isSuccess(viewer)
+    ? (project.members.find((member) => member.id === viewer.value.id)?.role ??
       "member")
     : "member"
   return {

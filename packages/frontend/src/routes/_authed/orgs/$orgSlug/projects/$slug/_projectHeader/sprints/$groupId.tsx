@@ -1,47 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
-import { projectStatusesAtom } from "@/atoms/projectStatuses"
-import {
-  projectKey,
-  sprintAtom,
-  sprintKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
-import {
-  ticketsSectionsAtom,
-  ticketsSectionsKey,
-  ticketsInSprintAtom,
-  ticketsInSprintKey
-} from "@/atoms/tickets"
-import {
-  GroupId,
-  ticketListQueryFromSearch,
-  ticketListQueryToSearch,
-  type TicketListQuery
-} from "@projectproject/shared"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
+import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import { boardRequest, sprintBoard } from "@/atoms/sprintBoard"
+import { backlog, backlogRequest } from "@/atoms/backlog"
+import { GroupId, TicketListQuery } from "@projectproject/shared"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
-type SprintRouteSearch = ReturnType<typeof ticketListQueryToSearch> & {
-  view?: "list" | "board" | "description"
-}
+const SprintRouteSearchSchema = TicketListQuery.pipe(
+  Schema.fieldsAssign({
+    view: Schema.optional(Schema.Literals(["list", "board", "description"]))
+  })
+)
+type SprintRouteSearch = typeof SprintRouteSearchSchema.Type
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 )({
   component: () => null,
-  validateSearch: (search: Record<string, unknown>): SprintRouteSearch => {
-    const { groupId: _groupId, ...sanitized } = ticketListQueryToSearch(
-      ticketListQueryFromSearch(search)
-    )
-    const view =
-      search.view === "list" ||
-      search.view === "board" ||
-      search.view === "description"
-        ? search.view
-        : undefined
-    return view === undefined ? sanitized : { ...sanitized, view }
-  },
+  validateSearch: Schema.toStandardSchemaV1(SprintRouteSearchSchema),
   loaderDeps: ({ search }) => search,
   loader: ({
     context: { registry },
@@ -49,20 +28,15 @@ export const Route = createFileRoute(
     deps: search
   }) => {
     const id = decodeGroupId(groupId)
-    const key = projectKey(orgSlug, slug)
     const query = sprintListQuery(search, id)
     const view = search.view ?? "board"
-    registry.mount(sprintAtom(sprintKey(orgSlug, slug, id)))()
-    registry.mount(sprintsListAtom(key))()
-    registry.mount(projectStatusesAtom(key))()
+    registry.mount(sprintDetail(sprintRequest(orgSlug, slug, id)))()
+    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     if (view === "list") {
-      registry.mount(
-        ticketsSectionsAtom(ticketsSectionsKey(orgSlug, slug, query))
-      )()
+      registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
     } else if (view === "board") {
-      registry.mount(
-        ticketsInSprintAtom(ticketsInSprintKey(orgSlug, slug, id))
-      )()
+      registry.mount(sprintBoard(boardRequest(orgSlug, slug, id)))()
     }
 
     return {
@@ -75,6 +49,6 @@ function sprintListQuery(
   search: SprintRouteSearch,
   id: GroupId
 ): TicketListQuery {
-  const query = ticketListQueryFromSearch(search)
-  return { ...query, filter: { ...query.filter, groupId: [id] } }
+  const { view: _view, ...query } = search
+  return { ...query, groupId: [id] }
 }

@@ -1,11 +1,23 @@
 import * as Random from "effect/Random"
 import * as Effect from "effect/Effect"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import {
+  RegistryContext,
+  useAtomRefresh,
+  useAtomSet,
+  useAtomValue
+} from "@effect/atom-react"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { Plus } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent
+} from "react"
 import { CollapsingLabel } from "@/components/SegmentedTabs"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import {
@@ -20,25 +32,20 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
 import { Kbd } from "@/components/ui/kbd"
-import { meAtom } from "@/atoms/auth"
-import { projectGitStatesBaseAtom } from "@/atoms/github"
-import { projectAtom, projectKey } from "@/atoms/projects"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
+import { me } from "@/atoms/auth"
+import { projectGitStates } from "@/atoms/github"
+import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
-  projectKey as sprintsKey,
-  sprintsListAtom,
-  useAddTicketsToSprint
-} from "@/atoms/sprints"
-import { quickCreateTicketAtom, ticketsListKeyForStatus } from "@/atoms/tickets"
+  assignTicketToSprint,
+  sprintList,
+  sprintListRequest
+} from "@/atoms/sprintList"
 import { useGlobalShortcut } from "@/lib/use-global-shortcut"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
-  TicketListQuery,
-  TicketStatus,
-  TicketType
-} from "@projectproject/shared"
+import type { Group, TicketListQuery, TicketType } from "@projectproject/shared"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 
 export function BacklogTicketCreator({
@@ -50,39 +57,42 @@ export function BacklogTicketCreator({
   slug: string
   query: TicketListQuery
 }) {
-  const projKey = projectKey(orgSlug, slug)
-  const sectionKey = ticketsListKeyForStatus(
-    orgSlug,
-    slug,
-    query,
-    "todo" as TicketStatus
+  const registry = useContext(RegistryContext)
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
   )
-  const create = useAtomSet(quickCreateTicketAtom(sectionKey), {
+  const create = useAtomSet(quickCreateBacklogTicket(req), {
     mode: "promiseExit"
   })
-  const createState = useAtomValue(quickCreateTicketAtom(sectionKey))
+  const createState = useAtomValue(quickCreateBacklogTicket(req))
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
     : null
-  const refreshGitStates = useAtomRefresh(projectGitStatesBaseAtom(projKey))
+  const projectReq = useMemo(
+    () => projectRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const refreshGitStates = useAtomRefresh(projectGitStates(projectReq))
   const navigate = useNavigate()
 
-  const me = useAtomValue(meAtom)
-  const viewerId = Result.isSuccess(me) ? me.value.id : ""
+  const viewer = useAtomValue(me())
+  const viewerId = Result.isSuccess(viewer) ? viewer.value.id : ""
 
-  const project = useAtomValue(projectAtom(projKey))
+  const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const projectPrefix = Result.isSuccess(project) ? project.value.key : "T"
 
-  const sprintListResult = useAtomValue(
-    sprintsListAtom(sprintsKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintListResult = useAtomValue(sprintList(sprintReq))
   const sprints = useMemo<ReadonlyArray<Group>>(
     () => (Result.isSuccess(sprintListResult) ? sprintListResult.value : []),
     [sprintListResult]
   )
   const hasSprints = sprints.some((s) => s.completedAt === null)
-  const addToSprint = useAddTicketsToSprint(sprintsKey(orgSlug, slug))
 
   const [title, setTitle] = useState("")
   const [type, setType] = useState<TicketType>("other")
@@ -117,7 +127,7 @@ export function BacklogTicketCreator({
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       if (selectedSprint) {
-        addToSprint({ groupId: selectedSprint.id, ticketIds: [ticket.id] })
+        assignTicketToSprint(registry, sprintReq, ticket.id, selectedSprint.id)
       }
       setTitle("")
       refreshGitStates()

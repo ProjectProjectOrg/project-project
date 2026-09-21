@@ -47,11 +47,19 @@ export const updateBacklogTicket = Atom.family(
       fn: (set) =>
         Api.runtime.fn(
           Effect.fn(function* (patch: UpdateTicketInput, get) {
-            const ticket = yield* Api.use((c) =>
-              c.tickets.update({ params: { ...req.params, id }, payload: patch })
+            const { ticket } = yield* Api.use((c) =>
+              c.tickets.update({
+                params: { ...req.params, id },
+                query: { sort: req.query.sort },
+                payload: patch
+              })
             )
             set(Result.map(get(backlog(req)), (s) => replaceTicket(s, ticket)))
-            yield* Reactivity.invalidate([Keys.ticket(project(req), id)])
+            yield* Reactivity.invalidate([
+              Keys.ticket(project(req), id),
+              Keys.ticketsIn(project(req)),
+              Keys.ticketPages(project(req))
+            ])
             return ticket
           })
         )
@@ -77,13 +85,23 @@ update({ priority: "high" })
    `current` already includes in-flight edits, so edits stack.
 4. `fn`: call the API, push the confirmed value with `set`, publish keys for
    other views, return. Never wait on another atom to hold the transition.
-5. Keys live in the atom module. Components send the payload only.
+5. Keys live in the atom module. Components send the payload only. Publish
+   every key needed by affected sibling queries, even when the initiating query
+   shares that key. Check all sources of composed views. Batch mutations that
+   partially succeed must invalidate server reads on failure too.
 6. A screen region that needs two queries composes them in
    `Atom.readable(read, (refresh) => { refresh(a); refresh(b) })` and wraps
    that. One wrapper per region.
 7. Structural changes (status move, reorder, add, remove) are reducers over
    the region's wrapper. Placeholders for created rows use a client id as the
-   React key and get swapped by `set` on response.
+   React key and get swapped by `set` on response. Loaded depth survives a
+   refresh, but cursor boundaries must follow refreshed pages rather than old
+   cursor strings. Expose failed-page state and retry that page.
+8. Rapid ticket edits retain unconfirmed payload fields when superseding an
+   earlier request. Mutation bookkeeping is registry/resource-scoped and never
+   becomes an additional source of rendered data.
+9. Use a consistent comparator while edits are pending and after confirmation.
+   Moving by a new field value while retaining old binary-search keys is invalid.
 
 ## Do not build these
 

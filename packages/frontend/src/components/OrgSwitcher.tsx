@@ -2,8 +2,8 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
-import { meAtom, setActiveOrganizationAtom } from "@/atoms/auth"
-import { userOrgsAtom } from "@/atoms/orgs"
+import { me, setActiveOrganization } from "@/atoms/auth"
+import { userOrgs } from "@/atoms/orgs"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +17,10 @@ import { m } from "@/paraglide/messages"
 import type { Org } from "@projectproject/shared"
 
 export function OrgSwitcher() {
-  const orgsResult = useAtomValue(userOrgsAtom)
-  const me = useAtomValue(meAtom)
+  const orgsResult = useAtomValue(userOrgs())
+  const viewer = useAtomValue(me())
   const params = useParams({ strict: false }) as { orgSlug?: string }
-  const setActive = useAtomSet(setActiveOrganizationAtom("me"))
+  const setActive = useAtomSet(setActiveOrganization)
   const navigate = useNavigate()
 
   if (!Result.isSuccess(orgsResult)) return null
@@ -29,7 +29,7 @@ export function OrgSwitcher() {
 
   const activeSlug =
     params.orgSlug ??
-    (Result.isSuccess(me) ? me.value.activeOrgSlug : null) ??
+    (Result.isSuccess(viewer) ? viewer.value.activeOrgSlug : null) ??
     null
 
   const sorted = [...orgs].sort((a, b) =>

@@ -14,16 +14,13 @@ import {
   UserRound
 } from "lucide-react"
 import {
-  cancelOrgInvitationAtom,
-  inviteOrgMemberAtom,
-  leaveOrgAtom,
-  orgInvitationKey,
-  orgMemberKey,
-  removeOrgMemberAtom,
-  transferOrgOwnershipAtom,
-  updateOrgMemberRoleAtom,
-  type OrgInvitation,
-  type OrgMember
+  cancelInvitation,
+  inviteMember,
+  leaveOrg,
+  orgRequest,
+  removeMember,
+  transferOwnership,
+  updateMemberRole
 } from "@/atoms/orgs"
 import {
   DropdownMenu,
@@ -42,7 +39,12 @@ import { MemberAvatar } from "@/components/MemberAvatar"
 import { orgActionErrorFromExit, type OrgActionError } from "@/lib/orgErrors"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
-import type { AssignableRole, OrgRole } from "@projectproject/shared"
+import type {
+  AssignableRole,
+  OrgInvitation,
+  OrgMember,
+  OrgRole
+} from "@projectproject/shared"
 
 const ROLE_META: Record<
   OrgRole,
@@ -82,8 +84,6 @@ export function OrgMembersSection({
 }) {
   const canManage = callerRole === "owner" || callerRole === "admin"
   const ownerCount = members.filter((member) => member.role === "owner").length
-  const callerMemberId =
-    members.find((member) => member.userId === callerUserId)?.id ?? ""
   const isLastOwner = callerRole === "owner" && ownerCount <= 1
   const [adding, setAdding] = useState(false)
 
@@ -99,14 +99,13 @@ export function OrgMembersSection({
         className="divide-y divide-border rounded-xl border border-border bg-background"
       >
         {members.map((member) => (
-          <li key={member.id}>
+          <li key={member.userId}>
             <MemberRow
               orgSlug={orgSlug}
               orgName={orgName}
               member={member}
               callerRole={callerRole}
-              callerMemberId={callerMemberId}
-              isSelf={member.userId === callerUserId}
+              callerUserId={callerUserId}
               ownerCount={ownerCount}
             />
           </li>
@@ -138,10 +137,9 @@ function AddMemberRow({
   orgSlug: string
   onFocusChange?: (focused: boolean) => void
 }) {
-  const invite = useAtomSet(inviteOrgMemberAtom(orgSlug), {
-    mode: "promiseExit"
-  })
-  const inviteState = useAtomValue(inviteOrgMemberAtom(orgSlug))
+  const req = orgRequest(orgSlug)
+  const invite = useAtomSet(inviteMember(req), { mode: "promiseExit" })
+  const inviteState = useAtomValue(inviteMember(req))
   const submitting = inviteState.waiting
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<AssignableRole>("member")
@@ -264,20 +262,19 @@ function MemberRow({
   orgName,
   member,
   callerRole,
-  callerMemberId,
-  isSelf,
+  callerUserId,
   ownerCount
 }: {
   orgSlug: string
   orgName: string
   member: OrgMember
   callerRole: OrgRole
-  callerMemberId: string
-  isSelf: boolean
+  callerUserId: string
   ownerCount: number
 }) {
   const meta = ROLE_META[member.role]
   const Icon = meta.icon
+  const isSelf = member.userId === callerUserId
   return (
     <div className="flex items-center gap-3 pl-3 pr-3 py-2.5">
       <MemberAvatar member={member} size={32} />
@@ -303,8 +300,7 @@ function MemberRow({
         orgName={orgName}
         member={member}
         callerRole={callerRole}
-        callerMemberId={callerMemberId}
-        isSelf={isSelf}
+        callerUserId={callerUserId}
         ownerCount={ownerCount}
       />
     </div>
@@ -360,18 +356,16 @@ function InvitationMenu({
   orgSlug: string
   invitation: OrgInvitation
 }) {
-  const key = orgInvitationKey(orgSlug, invitation.id)
-  const cancel = useAtomSet(cancelOrgInvitationAtom(key), {
-    mode: "promiseExit"
-  })
-  const cancelState = useAtomValue(cancelOrgInvitationAtom(key))
+  const key = { req: orgRequest(orgSlug), invitationId: invitation.id }
+  const cancel = useAtomSet(cancelInvitation(key), { mode: "promiseExit" })
+  const cancelState = useAtomValue(cancelInvitation(key))
   const canceling = cancelState.waiting
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
 
   async function onCancelInvite() {
     setError(null)
-    const exit = await cancel()
+    const exit = await cancel(undefined)
     if (Exit.isSuccess(exit)) {
       setConfirming(false)
     } else {
@@ -441,28 +435,28 @@ function MemberMenu({
   orgName,
   member,
   callerRole,
-  callerMemberId,
-  isSelf,
+  callerUserId,
   ownerCount
 }: {
   orgSlug: string
   orgName: string
   member: OrgMember
   callerRole: OrgRole
-  callerMemberId: string
-  isSelf: boolean
+  callerUserId: string
   ownerCount: number
 }) {
-  const mKey = orgMemberKey(orgSlug, member.id)
+  const req = orgRequest(orgSlug)
+  const memberKey = { req, userId: member.userId }
+  const isSelf = member.userId === callerUserId
   const navigate = useNavigate()
-  const update = useAtomSet(updateOrgMemberRoleAtom(mKey), {
+  const update = useAtomSet(updateMemberRole(memberKey), {
     mode: "promiseExit"
   })
-  const remove = useAtomSet(removeOrgMemberAtom(mKey), { mode: "promiseExit" })
-  const transfer = useAtomSet(transferOrgOwnershipAtom(orgSlug), {
+  const remove = useAtomSet(removeMember(memberKey), { mode: "promiseExit" })
+  const transfer = useAtomSet(transferOwnership({ req, callerUserId }), {
     mode: "promiseExit"
   })
-  const leave = useAtomSet(leaveOrgAtom(orgSlug), { mode: "promiseExit" })
+  const leave = useAtomSet(leaveOrg(req), { mode: "promiseExit" })
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<OrgActionError | null>(null)
@@ -482,7 +476,7 @@ function MemberMenu({
   async function onRemove() {
     setBusy(true)
     setError(null)
-    const exit = await remove()
+    const exit = await remove(undefined)
     setBusy(false)
     if (Exit.isSuccess(exit)) {
       setConfirm(null)
@@ -494,10 +488,7 @@ function MemberMenu({
   async function onTransfer() {
     setBusy(true)
     setError(null)
-    const exit = await transfer({
-      toMemberId: member.id,
-      selfMemberId: callerMemberId
-    })
+    const exit = await transfer({ userId: member.userId })
     setBusy(false)
     if (Exit.isSuccess(exit)) {
       setConfirm(null)
@@ -509,7 +500,7 @@ function MemberMenu({
   async function onLeave() {
     setBusy(true)
     setError(null)
-    const exit = await leave()
+    const exit = await leave(undefined)
     setBusy(false)
     if (Exit.isSuccess(exit)) {
       setConfirm(null)

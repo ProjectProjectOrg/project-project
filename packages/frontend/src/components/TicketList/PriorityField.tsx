@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -14,9 +13,12 @@ import {
   PRIORITY_ORDER
 } from "@/lib/priority-meta"
 import { m } from "@/paraglide/messages"
-import { ticketKey, updateTicketAtom } from "@/atoms/tickets"
 import { cn } from "@/lib/utils"
-import type { TicketId, TicketPriority } from "@projectproject/shared"
+import type {
+  TicketId,
+  TicketPriority,
+  UpdateTicketInput
+} from "@projectproject/shared"
 
 function PriorityMenuItems({
   current,
@@ -101,52 +103,68 @@ export function PrioritySelect({
 }
 
 export function PriorityButton({
-  orgSlug,
-  slug,
   ticket,
   stopPropagation,
-  sprintTicketsKey,
-  ticketSectionsKey,
-  onChange
+  onPatch,
+  waiting
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
-  sprintTicketsKey?: string
-  ticketSectionsKey?: string
-  onChange?: (value: TicketPriority) => void
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
+  const meta = PRIORITY_META[ticket.priority]
+  const Icon = meta.icon
+  const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
-    <PrioritySelect
-      value={ticket.priority}
-      stopPropagation={stopPropagation}
-      onChange={(priority) =>
-        onChange
-          ? onChange(priority)
-          : update({ priority, sprintTicketsKey, ticketSectionsKey })
-      }
-    />
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => stopPropagation && e.stopPropagation()}
+            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+            title={priorityLabel}
+          >
+            <span
+              className={cn(
+                "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
+                meta.className,
+                waiting && "animate-pulse"
+              )}
+            >
+              <Icon className="size-4" strokeWidth={1.75} />
+            </span>
+          </Hitbox>
+        }
+      />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <PriorityMenuItems
+          current={ticket.priority}
+          onSelect={(priority) => onPatch({ priority })}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
 export function PriorityBadgeTrigger({
-  orgSlug,
-  slug,
   ticket,
+  onPatch,
+  waiting,
   className
 }: {
-  orgSlug: string
-  slug: string
   ticket: { id: TicketId; priority: TicketPriority }
+  onPatch: (patch: UpdateTicketInput) => void
+  waiting: boolean
   className?: string
 }) {
-  const update = useAtomSet(
-    updateTicketAtom(ticketKey(orgSlug, slug, ticket.id))
-  )
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
@@ -162,10 +180,16 @@ export function PriorityBadgeTrigger({
             className={className}
           >
             <Icon
-              className={cn("size-3.5", meta.className)}
+              className={cn(
+                "size-3.5",
+                meta.className,
+                waiting && "animate-pulse"
+              )}
               strokeWidth={1.75}
             />
-            <span>{priorityLabel}</span>
+            <span className={cn(waiting && "animate-pulse")}>
+              {priorityLabel}
+            </span>
           </Button>
         }
       />
@@ -178,7 +202,7 @@ export function PriorityBadgeTrigger({
       >
         <PriorityMenuItems
           current={ticket.priority}
-          onSelect={(priority) => update({ priority })}
+          onSelect={(priority) => onPatch({ priority })}
         />
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
+import { projectRequest, updateProject } from "@/atoms/projects"
 import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { PageContainer } from "@/components/page"
@@ -21,7 +21,7 @@ function AboutTab() {
   const { orgSlug } = Route.useParams()
   const project = useProject()
   const update = useAtomSet(
-    updateProjectAtom(projectKey(orgSlug, project.slug))
+    updateProject(projectRequest(orgSlug, project.slug))
   )
   const [status, setStatus] = useState<SaveStatus>("idle")
 

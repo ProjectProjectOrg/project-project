@@ -4,24 +4,22 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import { useCallback } from "react"
 import { GitBranch, UserPlus, Workflow, X } from "lucide-react"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom
-} from "@/atoms/projectStatuses"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { useProjectRole } from "@/lib/projectRole"
 import { useProjectGitStatePolling } from "@/hooks/useProjectGitStatePolling"
 import {
-  projectAtom,
-  projectKey,
-  updateProjectSetupAtom
+  project,
+  projectRequest,
+  updateProject,
+  updateProjectSetup
 } from "@/atoms/projects"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import { projectGitStates } from "@/atoms/github"
 import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
-import { projectGitStatesAtom } from "@/atoms/github"
-import { everhourProjectStatusAtom } from "@/atoms/everhour"
+  everhourProjectRequest,
+  everhourProjectStatusAtom
+} from "@/atoms/everhour"
 import { ProjectBanner } from "@/components/ProjectBanner"
 import { RetainedProjectViews } from "@/components/RetainedProjectViews"
 import { useSidebarSection } from "@/components/SidebarSlot"
@@ -30,7 +28,6 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { NotFoundPage } from "@/components/NotFoundPage"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
-import { TagRenamesProvider } from "@/components/TagRenamesProvider"
 import { ProjectContext } from "./-context"
 import type { ProjectDetail as ProjectDetailType } from "@projectproject/shared"
 
@@ -39,11 +36,13 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
   loader: ({ context, params }) => {
     const { orgSlug, slug } = params
     const { registry } = context
-    registry.mount(projectAtom(projectKey(orgSlug, slug)))()
-    registry.mount(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))()
-    registry.mount(sprintsListAtom(sprintsProjectKey(orgSlug, slug)))()
-    registry.mount(projectStatusesAtom(projectStatusKey(orgSlug, slug)))()
-    registry.mount(everhourProjectStatusAtom(projectKey(orgSlug, slug)))()
+    registry.mount(project(projectRequest(orgSlug, slug)))()
+    registry.mount(ticketCounts(countsRequest(orgSlug, slug, {})))()
+    registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
+    registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
+    registry.mount(
+      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
+    )()
     return {
       crumb: [
         {
@@ -64,9 +63,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
 
 function ProjectLayout() {
   const { orgSlug, slug } = Route.useParams()
-  const project = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const req = projectRequest(orgSlug, slug)
+  const projectResult = useAtomValue(project(req))
+  const projectUpdate = useAtomValue(updateProject(req))
 
-  return Result.matchWithError(project, {
+  return Result.matchWithError(projectResult, {
     onInitial: () => (
       <PageContainer>
         <Skeleton />
@@ -96,29 +97,27 @@ function ProjectLayout() {
       />
     ),
     onSuccess: ({ value, waiting }) => (
-      <ProjectContext.Provider value={value}>
-        <TagRenamesProvider>
-          <ProjectGitStatePolling
+      <ProjectContext.Provider value={req}>
+        <ProjectGitStatePolling
+          orgSlug={orgSlug}
+          slug={slug}
+          enabled={value.github !== null}
+        />
+        <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
+        <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
+          <ProjectBanner
             orgSlug={orgSlug}
             slug={slug}
-            enabled={value.github !== null}
+            banner={value.banner}
+            waiting={waiting && projectUpdate.waiting}
           />
-          <ProjectSetupSlot orgSlug={orgSlug} slug={slug} project={value} />
-          <div className={cn("relative isolate flex flex-1 flex-col gap-3")}>
-            <ProjectBanner
-              orgSlug={orgSlug}
-              slug={slug}
-              banner={value.banner}
-              waiting={waiting}
-            />
-            <Outlet />
-            <RetainedProjectViews
-              key={`${orgSlug}/${slug}`}
-              orgSlug={orgSlug}
-              slug={slug}
-            />
-          </div>
-        </TagRenamesProvider>
+          <Outlet />
+          <RetainedProjectViews
+            key={`${orgSlug}/${slug}`}
+            orgSlug={orgSlug}
+            slug={slug}
+          />
+        </div>
       </ProjectContext.Provider>
     )
   })
@@ -174,9 +173,9 @@ function ProjectSetupRail({
   project: ProjectDetailType
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const gitStates = useAtomValue(projectGitStatesAtom(key))
-  const updateSetup = useAtomSet(updateProjectSetupAtom(key))
+  const req = projectRequest(orgSlug, slug)
+  const gitStates = useAtomValue(projectGitStates(req))
+  const updateSetup = useAtomSet(updateProjectSetup(req))
   if (!canManage) return null
 
   const brokenGithub =

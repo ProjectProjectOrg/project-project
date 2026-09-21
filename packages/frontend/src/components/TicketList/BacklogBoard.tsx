@@ -11,22 +11,14 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
 import {
-  loadMoreTicketsAtom,
-  pendingTicketStatusChangesAtom,
-  ticketKey,
-  ticketsCountKey,
-  ticketsListKeyForStatus,
-  ticketsSectionsKey,
-  updateTicketStatusAtom,
-  type TicketListRow,
-  type TicketSectionsValue
-} from "@/atoms/tickets"
-import { projectKey } from "@/atoms/projects"
-import {
-  projectKey as projectStatusKey,
-  projectStatusesAtom,
-  projectStatusesBaseAtom
-} from "@/atoms/projectStatuses"
+  backlogRequest,
+  loadMoreBacklog,
+  updateBacklogTicket,
+  type BacklogRequest,
+  type BacklogRow,
+  type BacklogValue
+} from "@/atoms/backlog"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { ErrorPage } from "@/components/ErrorPage"
@@ -53,24 +45,27 @@ const COLUMN_SCROLL_SELECTOR = "[data-virtual-sprint-column]"
 
 const NO_TICKETS: ReadonlyArray<Ticket> = []
 
-type BacklogBoardProps = {
+type BacklogBoardProps = Readonly<{
   orgSlug: string
   slug: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
-  snapshot: TicketSectionsValue
+  snapshot: BacklogValue
   reorderMode: boolean
   onEnterReorder: () => void
   onExitReorder: () => void
   dragOrder: ReadonlyArray<string> | null
   setDragOrder: (next: ReadonlyArray<string> | null) => void
-}
+}>
 
 export function BacklogBoard(props: BacklogBoardProps) {
   const { orgSlug, slug } = props
-  const statusKey = projectStatusKey(orgSlug, slug)
-  const statuses = useAtomValue(projectStatusesAtom(statusKey))
-  const refreshStatuses = useAtomRefresh(projectStatusesBaseAtom(statusKey))
+  const statusReq = useMemo(
+    () => statusesRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const statuses = useAtomValue(statusesFor(statusReq))
+  const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
 
   return Result.matchWithError(statuses, {
     onInitial: () => (
@@ -103,6 +98,10 @@ function BacklogBoardContent({
   dragOrder,
   setDragOrder
 }: BacklogBoardProps & { statuses: ReadonlyArray<ProjectStatus> }) {
+  const req = useMemo(
+    () => backlogRequest(orgSlug, slug, query),
+    [orgSlug, slug, query]
+  )
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
   const [frozenWidth, setFrozenWidth] = useState<number | null>(null)
@@ -126,18 +125,15 @@ function BacklogBoardContent({
     return () => document.removeEventListener("keydown", onKey)
   }, [reorderMode, onExitReorder])
 
-  const pending = useAtomValue(
-    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
-  )
   const registry = useContext(RegistryContext)
 
   const statusSlugs = useMemo(() => {
     const all = boardStatusesFor(statuses) as ReadonlyArray<TicketStatus>
-    const requested = query.filter?.status
+    const requested = query.status
     return requested !== undefined && requested.length > 0
       ? all.filter((s) => requested.includes(s))
       : all
-  }, [statuses, query.filter?.status])
+  }, [statuses, query.status])
 
   const order = dragOrder ?? statusSlugs
 
@@ -178,26 +174,8 @@ function BacklogBoardContent({
           .find((column) => column.status === src.status)
           ?.rows.find((r) => r.ticket.id === src.id)
         if (!row || row.pending) return
-        const ticket = row.ticket
-        registry.set(updateTicketStatusAtom(ticketKey(orgSlug, slug, src.id)), {
-          ticket,
-          status: dst.status as TicketStatus,
-          sourceSectionKey: ticketsListKeyForStatus(
-            orgSlug,
-            slug,
-            query,
-            src.status as TicketStatus
-          ),
-          destSectionKey: ticketsListKeyForStatus(
-            orgSlug,
-            slug,
-            query,
-            dst.status as TicketStatus
-          ),
-          countKey: ticketsCountKey(orgSlug, slug, {
-            filter: query.filter,
-            q: query.q
-          })
+        registry.set(updateBacklogTicket({ req, id: src.id }), {
+          status: dst.status as TicketStatus
         })
       }
     })
@@ -205,15 +183,7 @@ function BacklogBoardContent({
       cleanupAutoScroll()
       cleanupMonitor()
     }
-  }, [reorderMode, orgSlug, slug, query, registry])
-
-  const overlay = useMemo(
-    () =>
-      new Map<TicketId, string>(
-        [...pending].map(([id, change]) => [id, change.status])
-      ),
-    [pending]
-  )
+  }, [reorderMode, req, registry])
 
   return (
     <motion.div
@@ -242,7 +212,7 @@ function BacklogBoardContent({
               key={status}
               orgSlug={orgSlug}
               slug={slug}
-              ticketSectionsKey={ticketsSectionsKey(orgSlug, slug, query)}
+              backlogReq={req}
               status={status}
               statuses={statuses}
               tickets={column?.tickets ?? NO_TICKETS}
@@ -250,7 +220,6 @@ function BacklogBoardContent({
               members={members}
               isDraggable
               ordered={false}
-              overlay={overlay}
               inertTicketIds={inertTicketIds}
               lastFlash={null}
               reorderMode={reorderMode}
@@ -258,9 +227,7 @@ function BacklogBoardContent({
               footer={
                 column?.nextCursor != null ? (
                   <ColumnLoadMore
-                    orgSlug={orgSlug}
-                    slug={slug}
-                    query={query}
+                    req={req}
                     status={status as TicketStatus}
                     cursor={column.nextCursor}
                     remaining={Math.max(0, column.count - column.rows.length)}
@@ -275,16 +242,16 @@ function BacklogBoardContent({
   )
 }
 
-interface BoardColumn {
-  readonly status: string
-  readonly rows: ReadonlyArray<TicketListRow>
-  readonly tickets: ReadonlyArray<Ticket>
-  readonly count: number
-  readonly nextCursor: string | null
-}
+type BoardColumn = Readonly<{
+  status: string
+  rows: ReadonlyArray<BacklogRow>
+  tickets: ReadonlyArray<Ticket>
+  count: number
+  nextCursor: string | null
+}>
 
 function buildColumns(
-  snapshot: TicketSectionsValue,
+  snapshot: BacklogValue,
   statusSlugs: ReadonlyArray<TicketStatus>
 ): ReadonlyArray<BoardColumn> {
   return statusSlugs.map((status) => {
@@ -301,23 +268,18 @@ function buildColumns(
 }
 
 function ColumnLoadMore({
-  orgSlug,
-  slug,
-  query,
+  req,
   status,
   cursor,
   remaining
 }: {
-  orgSlug: string
-  slug: string
-  query: TicketListQuery
+  req: BacklogRequest
   status: TicketStatus
   cursor: string
   remaining: number
 }) {
-  const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
-  const loadMore = useAtomSet(loadMoreTicketsAtom(sectionKey))
-  const loadMoreState = useAtomValue(loadMoreTicketsAtom(sectionKey))
+  const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
+  const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
   const failed = Result.isFailure(loadMoreState)
 
   return (
@@ -333,7 +295,7 @@ function ColumnLoadMore({
         onSuccess: () => null
       })}
       <AutoLoad
-        key={sectionKey}
+        key={cursor}
         cursor={cursor}
         enabled={!loadMoreState.waiting && !failed}
         loadMore={() => loadMore()}

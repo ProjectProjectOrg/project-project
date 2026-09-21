@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   attachmentUrl,
   attachmentWidthForCss,
@@ -6,6 +6,7 @@ import {
   type ProjectIconImage
 } from "@projectproject/shared"
 import { CroppedImage } from "@/components/CroppedImage"
+import { preloadImage } from "@/lib/imagePreload"
 import { cn } from "@/lib/utils"
 
 export function ProjectIconDisplay({
@@ -29,6 +30,19 @@ export function ProjectIconDisplay({
     iconImage?.type === "sticker"
       ? iconImage.renderedAttachmentId
       : (iconImage?.sourceAttachmentId ?? null)
+  const source =
+    id === null || iconImage === null
+      ? null
+      : withAttachmentParams(attachmentUrl(orgSlug, id), {
+          width: attachmentWidthForCss(
+            size * iconImage.crop.zoom,
+            typeof window === "undefined" ? 1 : window.devicePixelRatio
+          )
+        })
+
+  useEffect(() => {
+    if (source) void preloadImage(source)
+  }, [source])
 
   const previousId = useRef(id)
   if (previousId.current !== id) {
@@ -36,7 +50,7 @@ export function ProjectIconDisplay({
     if (failed) setFailed(false)
   }
 
-  if (!iconImage || failed) {
+  if (!iconImage || failed || source === null) {
     return (
       <span className={className} style={emojiStyle}>
         {icon}
@@ -50,20 +64,7 @@ export function ProjectIconDisplay({
       style={{ width: size, height: size }}
     >
       <CroppedImage
-        src={withAttachmentParams(
-          attachmentUrl(
-            orgSlug,
-            iconImage.type === "sticker"
-              ? iconImage.renderedAttachmentId
-              : iconImage.sourceAttachmentId
-          ),
-          {
-            width: attachmentWidthForCss(
-              size * iconImage.crop.zoom,
-              typeof window === "undefined" ? 1 : window.devicePixelRatio
-            )
-          }
-        )}
+        src={source}
         crop={iconImage.crop}
         onError={() => setFailed(true)}
         className={cn(

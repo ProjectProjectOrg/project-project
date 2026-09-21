@@ -3,6 +3,7 @@ import { ErrorPage } from "@/components/ErrorPage"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Loader2 } from "lucide-react"
 import {
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -11,12 +12,13 @@ import {
 } from "react"
 import { Button } from "@/components/ui/button"
 import {
-  loadMoreTicketsAtom,
-  pendingTicketStatusChangesAtom,
-  ticketsListKeyForStatus,
-  type TicketSectionValue
-} from "@/atoms/tickets"
-import { projectKey } from "@/atoms/projects"
+  backlogRequest,
+  encodeTicketListQuery,
+  flatBacklogRequest,
+  loadMoreBacklog,
+  type BacklogRequest,
+  type BacklogSection
+} from "@/atoms/backlog"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type {
@@ -72,7 +74,7 @@ export function SectionList({
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
   count: number
-  page: TicketSectionValue
+  page: BacklogSection
   collapsed: boolean
   onToggleCollapsed: () => void
   members: ReadonlyArray<Member>
@@ -84,11 +86,16 @@ export function SectionList({
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
 }) {
-  const sectionKey =
-    listKey ?? ticketsListKeyForStatus(orgSlug, slug, query, status)
-  const pendingStatusChanges = useAtomValue(
-    pendingTicketStatusChangesAtom(projectKey(orgSlug, slug))
+  const req = useMemo(
+    () =>
+      creationVariant === "flat"
+        ? flatBacklogRequest(orgSlug, slug, query)
+        : backlogRequest(orgSlug, slug, query),
+    [creationVariant, orgSlug, slug, query]
   )
+  const sectionKey =
+    listKey ??
+    `${orgSlug}/${slug}/${status}/${encodeTicketListQuery(req.query)}`
   const [creating, setCreating] = useState(false)
 
   const { items } = page
@@ -172,15 +179,14 @@ export function SectionList({
                       aria-busy={pending}
                       className={cn(
                         "col-span-full grid grid-cols-subgrid",
-                        pending && "pointer-events-none animate-pulse",
-                        pendingStatusChanges.has(ticket.id) && "animate-pulse"
+                        pending && "pointer-events-none animate-pulse"
                       )}
                     >
                       <RowComponent
                         orgSlug={orgSlug}
                         slug={slug}
                         ticket={ticket}
-                        query={query}
+                        req={req}
                         members={members}
                         showSprintCol={showSprintCol}
                         showExtraActionsCol={showExtraActionsCol}
@@ -201,9 +207,7 @@ export function SectionList({
 
             {pagination ?? (
               <SectionPagination
-                orgSlug={orgSlug}
-                slug={slug}
-                query={query}
+                req={req}
                 collapsed={collapsed}
                 status={status}
                 page={page}
@@ -218,25 +222,20 @@ export function SectionList({
 }
 
 function SectionPagination({
-  orgSlug,
-  slug,
-  query,
+  req,
   status,
   page,
   count,
   collapsed
 }: {
-  orgSlug: string
-  slug: string
-  query: TicketListQuery
+  req: BacklogRequest
   status: TicketStatus
-  page: TicketSectionValue
+  page: BacklogSection
   count: number
   collapsed: boolean
 }) {
-  const sectionKey = ticketsListKeyForStatus(orgSlug, slug, query, status)
-  const loadMore = useAtomSet(loadMoreTicketsAtom(sectionKey))
-  const loadMoreState = useAtomValue(loadMoreTicketsAtom(sectionKey))
+  const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
+  const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
   const loadingMore = loadMoreState.waiting
 
   const { items, nextCursor } = page

@@ -1,5 +1,6 @@
-import { ULID_PATTERN } from "./schemas/Attachment"
-import { SLUG_PATTERN } from "./schemas/Project"
+import { Option, Schema } from "effect"
+import { AttachmentId } from "./schemas/Attachment"
+import { Slug } from "./schemas/Project"
 
 export const ATTACHMENT_URL_PREFIX = "/api/attachments"
 
@@ -10,9 +11,15 @@ export const attachmentDownloadUrl = (orgSlug: string, id: string): string =>
   `${attachmentUrl(orgSlug, id)}?download=1`
 
 export interface AttachmentRef {
-  readonly orgSlug: string
-  readonly id: string
+  readonly orgSlug: Slug
+  readonly id: AttachmentId
 }
+
+const AttachmentRefSchema = Schema.Struct({
+  orgSlug: Slug,
+  id: AttachmentId
+})
+const decodeAttachmentRef = Schema.decodeUnknownOption(AttachmentRefSchema)
 
 const stripQuery = (url: string): string => {
   const cut = url.search(/[?#]/)
@@ -25,10 +32,8 @@ export const parseAttachmentUrl = (url: string): AttachmentRef | null => {
   const parts = rest.split("/")
   if (parts.length !== 2) return null
   const [orgSlug, id] = parts
-  if (!orgSlug || !id) return null
-  if (!SLUG_PATTERN.test(orgSlug)) return null
-  if (!ULID_PATTERN.test(id)) return null
-  return { orgSlug, id }
+  const decoded = decodeAttachmentRef({ orgSlug, id })
+  return Option.getOrNull(decoded)
 }
 
 export const ATTACHMENT_WIDTH_RUNGS = [
@@ -58,6 +63,23 @@ const WIDTH_PARAM = "w"
 
 const DENSITY_PARAM = "d"
 
+const RawAttachmentViewParams = Schema.fromURLSearchParams(
+  Schema.Struct({
+    w: Schema.optionalKey(Schema.String),
+    d: Schema.optionalKey(Schema.String)
+  })
+)
+const PositiveIntegerFromString = Schema.FiniteFromString.check(
+  Schema.makeFilter((value: number) => Number.isInteger(value), {
+    expected: "an integer"
+  }),
+  Schema.isGreaterThan(0)
+)
+const decodeRawAttachmentViewParams = Schema.decodeOption(
+  RawAttachmentViewParams
+)
+const decodeAttachmentWidth = Schema.decodeOption(PositiveIntegerFromString)
+
 export type AttachmentDensity = "rich" | "compact"
 
 export interface AttachmentViewParams {
@@ -72,12 +94,14 @@ const searchParams = (url: string): URLSearchParams => {
 }
 
 export const attachmentViewParams = (url: string): AttachmentViewParams => {
-  const params = searchParams(url)
-  const raw = params.get(WIDTH_PARAM)
-  const parsed = raw === null ? Number.NaN : Number(raw)
+  const decoded = decodeRawAttachmentViewParams(searchParams(url))
+  if (Option.isNone(decoded)) return { width: null, density: "rich" }
+  const params = decoded.value
+  const width =
+    params.w === undefined ? Option.none() : decodeAttachmentWidth(params.w)
   return {
-    width: Number.isInteger(parsed) && parsed > 0 ? parsed : null,
-    density: params.get(DENSITY_PARAM) === "compact" ? "compact" : "rich"
+    width: Option.getOrNull(width),
+    density: params.d === "compact" ? "compact" : "rich"
   }
 }
 
@@ -101,17 +125,16 @@ export const withAttachmentParams = (
   }
 ): string => {
   const base = stripQuery(url)
-  const query: Array<string> = []
+  const query = new URLSearchParams()
   const width = params.width ?? null
   if (width !== null && Number.isFinite(width) && width > 0) {
-    query.push(
-      `${WIDTH_PARAM}=${encodeURIComponent(Math.max(1, Math.round(width)))}`
-    )
+    query.set(WIDTH_PARAM, String(Math.max(1, Math.round(width))))
   }
   if (params.density === "compact") {
-    query.push(`${DENSITY_PARAM}=compact`)
+    query.set(DENSITY_PARAM, "compact")
   }
-  return query.length === 0 ? base : `${base}?${query.join("&")}`
+  const encoded = query.toString()
+  return encoded.length === 0 ? base : `${base}?${encoded}`
 }
 
 export const formatAttachmentMarkdown = (input: {
@@ -129,10 +152,8 @@ export const formatAttachmentMarkdown = (input: {
   return `${input.kind === "image" ? "!" : ""}[${alt}](${url})`
 }
 
-const unanchored = (pattern: RegExp) => pattern.source.replace(/^\^|\$$/g, "")
-
 const ATTACHMENT_URL_CANDIDATE_RE = new RegExp(
-  `${ATTACHMENT_URL_PREFIX}/(?:${unanchored(SLUG_PATTERN)})/(?:${unanchored(ULID_PATTERN)})`,
+  `${ATTACHMENT_URL_PREFIX}/[^\\s/]+/[0-9A-Za-z]+`,
   "g"
 )
 

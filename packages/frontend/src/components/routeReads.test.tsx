@@ -16,14 +16,20 @@ import {
 } from "@tanstack/react-router"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { TicketDetail, ticketListQueryFromSearch } from "@projectproject/shared"
+import { GroupId, TicketDetail, TicketListQuery } from "@projectproject/shared"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
 import { Route as TicketRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
+import { backlogRequest } from "@/atoms/backlog"
+import { boardRequest } from "@/atoms/sprintBoard"
+import { stubFetch } from "@/api/testFetch"
 import { Row } from "./TicketList/Row"
 import { SprintBoardCard } from "./sprints/SprintBoardCard"
+
+const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
+const decodeGroupId = Schema.decodeSync(GroupId)
 
 vi.mock("@/routes/_authed/orgs/$orgSlug/projects/$slug/-context", () => ({
   useProject: () => ({ github: null })
@@ -41,10 +47,12 @@ function load<A, R>(
   return loader(args as A)
 }
 
+const fetchStub = stubFetch()
+
 beforeEach(() => {
   registry = Registry.make()
   requests = []
-  vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+  fetchStub.set((input) => {
     requests.push(
       new URL(
         input instanceof Request ? input.url : String(input),
@@ -59,7 +67,6 @@ afterEach(() => {
   cleanup()
   registry.dispose()
   localStorage.clear()
-  vi.unstubAllGlobals()
 })
 
 it("starts backlog sections alongside metadata without waiting, even with collapsed sections", async () => {
@@ -67,10 +74,10 @@ it("starts backlog sections alongside metadata without waiting, even with collap
     "projectproject:ticket-list-collapsed:org/project",
     JSON.stringify(["todo", "review"])
   )
-  const query = ticketListQueryFromSearch({
+  const query = decodeTicketListQuery({
     q: "search",
     status: ["review"],
-    sort: "title:desc"
+    sort: { key: "title", dir: "desc" }
   })
   expect(
     load(BacklogRoute.options.loader, {
@@ -83,7 +90,9 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   const sections = requests.find((url) => url.pathname.endsWith("/sections"))
   expect(sections?.searchParams.get("q")).toBe("search")
   expect(sections?.searchParams.has("status")).toBe(false)
-  expect(sections?.searchParams.get("sort")).toBe("title:desc")
+  expect(sections?.searchParams.get("sort")).toBe(
+    '{"key":"title","dir":"desc"}'
+  )
   expect(requests.map((url) => url.pathname)).toContain(
     "/api/orgs/org/projects/project/statuses"
   )
@@ -96,7 +105,14 @@ it.each(["board", "list", "description"] as const)(
       load(SprintRoute.options.loader, {
         context: { registry },
         params,
-        deps: { view, q: "needle", status: ["review"], groupId: ["G-2"] }
+        deps: {
+          ...decodeTicketListQuery({
+            q: "needle",
+            status: ["review"],
+            groupId: ["G-2"]
+          }),
+          view
+        }
       })
     ).toMatchObject({ crumb: { groupId: "G-1" } })
     await waitFor(() =>
@@ -123,7 +139,7 @@ it("starts the sprint index target's data as soon as the list resolves", async (
   const list = new Promise<Response>((resolve) => {
     resolveList = resolve
   })
-  vi.stubGlobal("fetch", (input: RequestInfo | URL) => {
+  fetchStub.set((input) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -200,7 +216,7 @@ it.each(["row", "card"] as const)(
           <SprintBoardCard
             orgSlug="org"
             slug="project"
-            sprintTicketsKey="org/project/G-1"
+            req={boardRequest("org", "project", decodeGroupId("G-1"))}
             ticket={ticket}
             members={[]}
           />
@@ -209,7 +225,7 @@ it.each(["row", "card"] as const)(
             orgSlug="org"
             slug="project"
             ticket={ticket}
-            query={ticketListQueryFromSearch({})}
+            req={backlogRequest("org", "project", decodeTicketListQuery({}))}
             members={[]}
             showSprintCol={false}
             showExtraActionsCol={false}

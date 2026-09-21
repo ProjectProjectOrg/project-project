@@ -3,7 +3,7 @@ import { sprintState, type Group, type GroupId } from "@projectproject/shared"
 
 export function backlogSprintSections(
   sprints: ReadonlyArray<Group>,
-  selected?: ReadonlyArray<GroupId | null>,
+  selected?: ReadonlyArray<GroupId | "ungrouped">,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())
 ): ReadonlyArray<Group | null> {
   const ordered = sprints.toSorted((a, b) => {
@@ -20,6 +20,6 @@ export function backlogSprintSections(
     ...ordered.filter((sprint) => sprintState(sprint, now) !== "planned")
   ]
   return selected?.length
-    ? sections.filter((sprint) => selected.includes(sprint?.id ?? null))
+    ? sections.filter((sprint) => selected.includes(sprint?.id ?? "ungrouped"))
     : sections
 }

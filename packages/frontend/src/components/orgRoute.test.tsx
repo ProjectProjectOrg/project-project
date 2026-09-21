@@ -2,8 +2,17 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { orgDetailAtom, restoreOrgAtom, softDeleteOrgAtom } from "@/atoms/orgs"
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
+import { orgDetail, orgRequest, restoreOrg, softDeleteOrg } from "@/atoms/orgs"
+import { stubFetch } from "@/api/testFetch"
 import { Route } from "@/routes/_authed/orgs/$orgSlug/route"
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -35,13 +44,15 @@ const initialOrg = {
   purgeAt: null as string | null
 }
 
+const fetchStub = stubFetch()
+
 function OrgConsumer() {
-  const org = useAtomValue(orgDetailAtom("test"))
+  const org = useAtomValue(orgDetail(orgRequest("test")))
   return <div>{Result.isSuccess(org) ? org.value.name : "Waiting for org"}</div>
 }
 
 function stubOrgFetch(handler: typeof fetch) {
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+  fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(
       input instanceof Request ? input.url : String(input),
       "http://localhost"
@@ -83,8 +94,9 @@ afterEach(() => {
   cleanup()
   registry.dispose()
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
+
+afterAll(() => vi.unstubAllGlobals())
 
 describe("org route data ownership", () => {
   it("shares a pending request between the loader, repeated preloads, and consumers", async () => {
@@ -99,7 +111,7 @@ describe("org route data ownership", () => {
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
     const secondLoad = load()
     renderLayout()
-    const release = registry.mount(orgDetailAtom("test"))
+    const release = registry.mount(orgDetail(orgRequest("test")))
     expect(screen.getByText("Loading organization")).toBeTruthy()
     expect(fetch).toHaveBeenCalledTimes(1)
 
@@ -147,13 +159,13 @@ describe("org route data ownership", () => {
     renderLayout()
     expect(await screen.findByText(initialOrg.name)).toBeTruthy()
 
-    registry.mount(softDeleteOrgAtom("test"))
-    registry.mount(restoreOrgAtom("test"))
-    act(() => registry.set(softDeleteOrgAtom("test"), undefined))
+    registry.mount(softDeleteOrg(orgRequest("test")))
+    registry.mount(restoreOrg(orgRequest("test")))
+    act(() => registry.set(softDeleteOrg(orgRequest("test")), undefined))
     expect(await screen.findByText("Deleted organization")).toBeTruthy()
     expect(screen.queryByText(initialOrg.name)).toBeNull()
 
-    act(() => registry.set(restoreOrgAtom("test"), undefined))
+    act(() => registry.set(restoreOrg(orgRequest("test")), undefined))
     expect(await screen.findByText(initialOrg.name)).toBeTruthy()
     expect(screen.queryByText("Deleted organization")).toBeNull()
   })

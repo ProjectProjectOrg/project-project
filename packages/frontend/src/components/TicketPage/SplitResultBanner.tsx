@@ -13,7 +13,9 @@ export function SplitResultBanner({
   slug: string
   created: ReadonlyArray<TicketId>
 }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate({
+    from: "/orgs/$orgSlug/projects/$slug/tickets/$id"
+  })
 
   return (
     <section className="flex items-start gap-2.5 rounded-xl border border-state-success/30 bg-state-success/5 px-4 py-3">
@@ -46,7 +48,7 @@ export function SplitResultBanner({
         onClick={() =>
           void navigate({
             to: ".",
-            search: (prev) => ({ ...prev, splitInto: undefined }),
+            search: ({ focusBody }) => (focusBody === 1 ? { focusBody } : {}),
             replace: true
           })
         }

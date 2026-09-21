@@ -8,14 +8,10 @@ import { Button } from "@/components/ui/button"
 import { ConfirmDeleteIcon } from "@/components/ConfirmDeleteIcon"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import { LexicalEditor } from "@/components/LexicalEditor"
-import { meAtom } from "@/atoms/auth"
+import { me } from "@/atoms/auth"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import {
-  commentKey,
-  deleteCommentAtom,
-  editCommentAtom
-} from "@/atoms/comments"
+import { commentsRequest, deleteComment, editComment } from "@/atoms/comments"
 import type { Comment, TicketId } from "@projectproject/shared"
 import { cn } from "@/lib/utils"
 
@@ -23,22 +19,28 @@ type Mode = "idle" | "edit"
 
 export function CommentRow({
   comment,
+  pending = false,
   orgSlug,
   slug,
   ticketId
 }: {
   comment: Comment
+  pending?: boolean
   orgSlug: string
   slug: string
   ticketId: TicketId
 }) {
-  const me = useAtomValue(meAtom)
-  const isAuthor = Result.isSuccess(me) && me.value.id === comment.author.id
-  const key = commentKey(orgSlug, slug, ticketId, comment.id)
-  const editState = useAtomValue(editCommentAtom(key))
-  const deleteState = useAtomValue(deleteCommentAtom(key))
-  const waiting = editState.waiting || deleteState.waiting
-  const deleteComment = useAtomSet(deleteCommentAtom(key), { mode: "promise" })
+  const viewer = useAtomValue(me())
+  const isAuthor =
+    !pending &&
+    Result.isSuccess(viewer) &&
+    viewer.value.id === comment.author.id
+  const req = commentsRequest(orgSlug, slug, ticketId)
+  const key = { req, commentId: comment.id }
+  const editState = useAtomValue(editComment(key))
+  const deleteState = useAtomValue(deleteComment(key))
+  const waiting = pending || editState.waiting || deleteState.waiting
+  const remove = useAtomSet(deleteComment(key), { mode: "promise" })
 
   return (
     <InlineForm.Root<Mode>
@@ -71,7 +73,7 @@ export function CommentRow({
                 ariaLabel={m.comments_delete_aria_label()}
                 message={m.comments_delete_confirm()}
                 onConfirm={async () => {
-                  await deleteComment()
+                  await remove()
                 }}
               />
             </div>
@@ -107,7 +109,10 @@ function EditForm({
   const [body, setBody] = useState(comment.body)
   const [error, setError] = useState<string | null>(null)
   const edit = useAtomSet(
-    editCommentAtom(commentKey(orgSlug, slug, ticketId, comment.id)),
+    editComment({
+      req: commentsRequest(orgSlug, slug, ticketId),
+      commentId: comment.id
+    }),
     { mode: "promise" }
   )
   const { close, busy, setBusy } = useInlineForm()

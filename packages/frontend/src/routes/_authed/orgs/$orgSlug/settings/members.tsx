@@ -1,8 +1,8 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
-import { meAtom } from "@/atoms/auth"
-import { orgDetailAtom, orgMembersAtom } from "@/atoms/orgs"
+import { me } from "@/atoms/auth"
+import { orgDetail, orgMembers, orgRequest } from "@/atoms/orgs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { OrgMembersSection } from "@/components/OrgMembersSection"
 import { m } from "@/paraglide/messages"
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/members")(
   {
     component: MembersSettings,
     loader: ({ context: { registry }, params: { orgSlug } }) => {
-      registry.mount(orgMembersAtom(orgSlug))()
+      registry.mount(orgMembers(orgRequest(orgSlug)))()
       return {
         crumb: { type: "static" as const, label: m.org_settings_members_tab() }
       }
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/members")(
 
 function MembersSettings() {
   const { orgSlug } = Route.useParams()
-  const detail = useAtomValue(orgDetailAtom(orgSlug))
+  const detail = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(detail, {
     onInitial: () => <MembersSkeleton />,
@@ -34,10 +34,10 @@ function MembersSettings() {
 }
 
 function MembersBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
-  const membersResult = useAtomValue(orgMembersAtom(orgSlug))
-  const me = useAtomValue(meAtom)
+  const membersResult = useAtomValue(orgMembers(orgRequest(orgSlug)))
+  const viewer = useAtomValue(me())
 
-  return Result.matchWithError(me, {
+  return Result.matchWithError(viewer, {
     onInitial: () => <MembersSkeleton />,
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,

@@ -5,15 +5,18 @@ import { afterEach, expect, it, vi } from "vitest"
 import { GroupId } from "@projectproject/shared"
 
 vi.mock("@effect/atom-react", () => ({
-  useAtomValue: () => Result.success([], { waiting: false })
+  useAtomValue: () => Result.success([], { waiting: false }),
+  useAtomSet: () => vi.fn()
 }))
 
-vi.mock("@/atoms/sprints", () => ({
-  projectKey: (orgSlug: string, slug: string) => `${orgSlug}/${slug}`,
-  sprintsListAtom: () => "sprints",
-  sprintMembershipAtom: () => "membership",
-  useAddTicketsToSprint: () => vi.fn(),
-  useRemoveTicketsFromSprint: () => vi.fn()
+vi.mock("@/atoms/sprintList", () => ({
+  sprintListRequest: (orgSlug: string, slug: string) => ({
+    params: { orgSlug, slug }
+  }),
+  sprintList: () => "sprints",
+  sprintMembership: () => "membership",
+  addTicketsToSprint: () => "add",
+  removeTicketsFromSprint: () => "remove"
 }))
 
 import { SprintSelect } from "./SprintField"

@@ -44,7 +44,7 @@ export const paginateSorted = <A>(
             if (s !== sort) {
               return dir === "asc" ? s > sort : s < sort
             }
-            return opts.id(item) > id
+            return dir === "asc" ? opts.id(item) > id : opts.id(item) < id
           })
           return idx < 0 ? sorted.length : idx
         })()

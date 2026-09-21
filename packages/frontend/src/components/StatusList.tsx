@@ -1,20 +1,15 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { generateKeyBetween } from "fractional-indexing"
 import { Reorder } from "motion/react"
 import { useMemo, useRef, useState } from "react"
 import type { ProjectStatus } from "@projectproject/shared"
-import {
-  projectKey,
-  projectStatusesAtom,
-  reorderStatusAtom
-} from "@/atoms/projectStatuses"
-import { ticketsCountAtom, ticketsCountKey } from "@/atoms/tickets"
+import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
+import { countsRequest, ticketCounts } from "@/atoms/ticketCounts"
 import { ErrorPage } from "@/components/ErrorPage"
-import { compareByOrderKey } from "@/components/sprints/board-utils"
+import { compareByOrderKey } from "@/lib/orderKey"
 import { StatusCreateRow } from "@/components/StatusCreateRow"
 import { StatusRow } from "@/components/StatusRow"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -23,7 +18,8 @@ type Props = {
 }
 
 export function StatusList({ orgSlug, slug }: Props) {
-  const result = useAtomValue(projectStatusesAtom(projectKey(orgSlug, slug)))
+  const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
+  const result = useAtomValue(statusesFor(req))
 
   return Result.matchWithError(result, {
     onInitial: () => (
@@ -33,26 +29,18 @@ export function StatusList({ orgSlug, slug }: Props) {
     ),
     onError: (error) => <ErrorPage error={error} contained />,
     onDefect: (defect) => <ErrorPage error={defect} contained />,
-    onSuccess: ({ value, waiting }) => (
-      <OrderedStatuses
-        orgSlug={orgSlug}
-        slug={slug}
-        statuses={value}
-        waiting={waiting}
-      />
+    onSuccess: ({ value }) => (
+      <OrderedStatuses orgSlug={orgSlug} slug={slug} statuses={value} />
     )
   })
 }
 
 type OrderedProps = Props & {
   statuses: ReadonlyArray<ProjectStatus>
-  waiting: boolean
 }
 
-function OrderedStatuses({ orgSlug, slug, statuses, waiting }: OrderedProps) {
-  const key = projectKey(orgSlug, slug)
-  const reorder = useAtomSet(reorderStatusAtom(key))
-  useAtomValue(ticketsCountAtom(ticketsCountKey(orgSlug, slug, {})))
+function OrderedStatuses({ orgSlug, slug, statuses }: OrderedProps) {
+  useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
 
   const sorted = useMemo(
     () => [...statuses].toSorted(compareByOrderKey),
@@ -65,35 +53,38 @@ function OrderedStatuses({ orgSlug, slug, statuses, waiting }: OrderedProps) {
   const orderRef = useRef(order)
   orderRef.current = order
 
-  const commitDrop = (statusSlug: string) => {
+  const commitDrop = (statusSlug: string): ProjectStatus["orderKey"] | null => {
     const list = orderRef.current
     const idx = list.findIndex((s) => s.slug === statusSlug)
     if (idx < 0) {
       setDragOrder(null)
-      return
+      return null
     }
     if (sorted[idx]?.slug === statusSlug) {
       setDragOrder(null)
-      return
+      return null
     }
     const prevKey = list[idx - 1]?.orderKey ?? null
     const nextKey = list[idx + 1]?.orderKey ?? null
     const newKey = generateKeyBetween(prevKey, nextKey)
-    reorder({ statusSlug, orderKey: newKey })
     setDragOrder(null)
+    return newKey as ProjectStatus["orderKey"]
   }
 
-  const moveBy = (statusSlug: string, delta: number) => {
+  const moveBy = (
+    statusSlug: string,
+    delta: number
+  ): ProjectStatus["orderKey"] | null => {
     const idx = sorted.findIndex((s) => s.slug === statusSlug)
     const targetIdx = idx + delta
-    if (idx < 0 || targetIdx < 0 || targetIdx >= sorted.length) return
+    if (idx < 0 || targetIdx < 0 || targetIdx >= sorted.length) return null
     const next = [...sorted]
     const [moved] = next.splice(idx, 1)
     next.splice(targetIdx, 0, moved)
     const prevKey = next[targetIdx - 1]?.orderKey ?? null
     const nextKey = next[targetIdx + 1]?.orderKey ?? null
     const newKey = generateKeyBetween(prevKey, nextKey)
-    reorder({ statusSlug, orderKey: newKey })
+    return newKey as ProjectStatus["orderKey"]
   }
 
   return (
@@ -103,7 +94,7 @@ function OrderedStatuses({ orgSlug, slug, statuses, waiting }: OrderedProps) {
         axis="y"
         values={order as ProjectStatus[]}
         onReorder={(next) => setDragOrder(next)}
-        className={cn("flex flex-col gap-0.5", waiting && "animate-pulse")}
+        className="flex flex-col gap-0.5"
       >
         {order.map((s, i) => (
           <StatusRow

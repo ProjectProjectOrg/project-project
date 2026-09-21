@@ -3,14 +3,14 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Link } from "@tanstack/react-router"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { orgDetailAtom } from "@/atoms/orgs"
-import { orgStorageAtom } from "@/atoms/storage"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { orgDetail, orgRequest } from "@/atoms/orgs"
+import { orgStorage, storageRequest } from "@/atoms/storage"
 import {
-  ticketBodyDraftAtom,
-  ticketKey,
-  updateTicketAtom
-} from "@/atoms/tickets"
+  ticketBodyDraft,
+  ticketRequest,
+  updateTicketDetail
+} from "@/atoms/ticketDetail"
 import {
   attachmentsForDescription,
   LexicalEditor,
@@ -40,13 +40,16 @@ export function DescriptionField({
   autoFocus: boolean
   onStatusChange: (status: SaveStatus) => void
 }) {
-  const tKey = ticketKey(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketAtom(tKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateTicketAtom(tKey))
-  const bodyDraft = useAtomValue(ticketBodyDraftAtom(tKey))
-  const setBodyDraft = useAtomSet(ticketBodyDraftAtom(tKey))
-  const storageResult = useAtomValue(orgStorageAtom(orgSlug))
-  const orgResult = useAtomValue(orgDetailAtom(orgSlug))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
+  )
+  const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateTicketDetail(req))
+  const bodyDraft = useAtomValue(ticketBodyDraft(req))
+  const setBodyDraft = useAtomSet(ticketBodyDraft(req))
+  const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
+  const orgResult = useAtomValue(orgDetail(orgRequest(orgSlug)))
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
   const canConnectStorage =

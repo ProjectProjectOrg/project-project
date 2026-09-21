@@ -2,7 +2,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState, type FormEvent } from "react"
-import { orgDetailAtom, orgKey, renameOrgAtom } from "@/atoms/orgs"
+import { orgDetail, orgRequest, renameOrg } from "@/atoms/orgs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/general")(
 
 function GeneralSettings() {
   const { orgSlug } = Route.useParams()
-  const result = useAtomValue(orgDetailAtom(orgSlug))
+  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
 
   return Result.matchWithError(result, {
     onInitial: () => <GeneralSkeleton />,
@@ -32,9 +32,9 @@ function GeneralSettings() {
 }
 
 function GeneralForm({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
-  const key = orgKey(orgSlug)
-  const rename = useAtomSet(renameOrgAtom(key), { mode: "promiseExit" })
-  const renameState = useAtomValue(renameOrgAtom(key))
+  const req = orgRequest(orgSlug)
+  const rename = useAtomSet(renameOrg(req), { mode: "promiseExit" })
+  const renameState = useAtomValue(renameOrg(req))
   const canEdit = org.role === "owner" || org.role === "admin"
   const [name, setName] = useState(org.name)
 

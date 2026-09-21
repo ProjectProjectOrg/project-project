@@ -9,12 +9,15 @@ import {
   useReducedMotion
 } from "motion/react"
 import { MoreHorizontal, SlidersHorizontal } from "lucide-react"
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
-import { projectKey, updateProjectAtom } from "@/atoms/projects"
 import {
-  projectKey as sprintsProjectKey,
-  sprintsListAtom
-} from "@/atoms/sprints"
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
+import { projectRequest, updateProject } from "@/atoms/projects"
+import { sprintList, sprintListRequest } from "@/atoms/sprintList"
 import { ActiveSprintLine } from "@/components/sprints/ActiveSprintLine"
 import {
   SprintDeleteMenu,
@@ -103,9 +106,11 @@ export function ProjectHeader({
     ? (sprintMatch.params as { groupId: string }).groupId
     : null
 
-  const sprintsResult = useAtomValue(
-    sprintsListAtom(sprintsProjectKey(orgSlug, slug))
+  const sprintReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
   )
+  const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsLoaded = Result.isSuccess(sprintsResult)
   const sprints = sprintsLoaded ? sprintsResult.value : []
   const sprint = sprintGroupId
@@ -245,9 +250,9 @@ function NameField({
   name: string
   canEdit: boolean
 }) {
-  const pKey = projectKey(orgSlug, slug)
-  const update = useAtomSet(updateProjectAtom(pKey), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateProjectAtom(pKey))
+  const req = projectRequest(orgSlug, slug)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const updateState = useAtomValue(updateProject(req))
   const saving = updateState.waiting
   const failed = Result.isFailure(updateState)
   const [editing, setEditing] = useState(false)

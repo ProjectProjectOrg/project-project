@@ -20,10 +20,10 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomValue } from "@effect/atom-react"
 import { Link, useMatches } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
-import { Fragment } from "react"
-import { projectAtom, projectKey } from "@/atoms/projects"
-import { sprintAtom, sprintKey } from "@/atoms/sprints"
-import { ticketAtom, ticketKey } from "@/atoms/tickets"
+import { Fragment, useMemo } from "react"
+import { project, projectRequest } from "@/atoms/projects"
+import { sprintDetail, sprintRequest } from "@/atoms/sprintDetail"
+import { ticketDetail, ticketRequest } from "@/atoms/ticketDetail"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import type { GroupId, TicketId } from "@projectproject/shared"
@@ -144,7 +144,11 @@ function SprintCrumb({
   groupId: GroupId
   isLast: boolean
 }) {
-  const result = useAtomValue(sprintAtom(sprintKey(orgSlug, slug, groupId)))
+  const req = useMemo(
+    () => sprintRequest(orgSlug, slug, groupId),
+    [orgSlug, slug, groupId]
+  )
+  const result = useAtomValue(sprintDetail(req))
   if (!Result.isSuccess(result)) {
     return (
       <span
@@ -174,7 +178,7 @@ function ProjectCrumb({
   slug: string
   isLast: boolean
 }) {
-  const result = useAtomValue(projectAtom(projectKey(orgSlug, slug)))
+  const result = useAtomValue(project(projectRequest(orgSlug, slug)))
   if (!Result.isSuccess(result)) {
     return (
       <span
@@ -206,7 +210,11 @@ function TicketCrumb({
   id: TicketId
   isLast: boolean
 }) {
-  const result = useAtomValue(ticketAtom(ticketKey(orgSlug, slug, id)))
+  const req = useMemo(
+    () => ticketRequest(orgSlug, slug, id),
+    [orgSlug, slug, id]
+  )
+  const result = useAtomValue(ticketDetail(req))
   const label = Result.isSuccess(result) ? result.value.title : id
   return (
     <CrumbText

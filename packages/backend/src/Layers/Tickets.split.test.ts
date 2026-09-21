@@ -18,7 +18,8 @@ import {
   TagName,
   TicketId,
   TicketStatus,
-  type User
+  type User,
+  UserId
 } from "@projectproject/shared"
 import { Attachments, type AttachmentsShape } from "../Services/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../Services/FigmaLinks"
@@ -43,6 +44,7 @@ const decodeStatus = Schema.decodeUnknownSync(TicketStatus)
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const decodeGroupColor = Schema.decodeUnknownSync(GroupColor)
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+const decodeUserId = Schema.decodeUnknownSync(UserId)
 
 function unexpected(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected ${method} call`))
@@ -121,6 +123,7 @@ const FakeGroups = Layer.succeed(Groups, {
   update: () => unexpected("Groups.update"),
   updateTickets: () => unexpected("Groups.updateTickets"),
   addTickets: () => unexpected("Groups.addTickets"),
+  removeTickets: () => unexpected("Groups.removeTickets"),
   updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
@@ -192,7 +195,7 @@ const FakeComments = Layer.succeed(Comments, {
 } satisfies CommentsShape)
 
 const fakeUser = (id: string): User => ({
-  id,
+  id: decodeUserId(id),
   email: `${id}@example.com`,
   name: id,
   username: null,
@@ -221,6 +224,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   projectFor: () => Effect.succeed(ticketIndexProject),
   list: () => Effect.succeed([]),
   query: () => Effect.succeed([]),
+  orderKeyFor: () => Effect.succeed(null),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
   existingIds: () => Effect.succeed(new Set()),

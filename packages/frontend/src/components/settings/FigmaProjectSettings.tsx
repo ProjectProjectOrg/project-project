@@ -4,9 +4,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   connectFigmaProjectAtom,
   disconnectFigmaProjectAtom,
+  figmaProjectRequest,
   figmaProjectStatusAtom
 } from "@/atoms/figma"
-import { projectKey } from "@/atoms/projects"
 import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,8 +27,8 @@ export function FigmaProjectSettings({
   slug: string
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
-  const status = useAtomValue(figmaProjectStatusAtom(key))
+  const req = figmaProjectRequest(orgSlug, slug)
+  const status = useAtomValue(figmaProjectStatusAtom(req))
 
   return Result.matchWithError(status, {
     onInitial: () => (
@@ -66,16 +66,16 @@ function FigmaProjectContent({
   waiting: boolean
   canManage: boolean
 }) {
-  const key = projectKey(orgSlug, slug)
+  const req = figmaProjectRequest(orgSlug, slug)
   const [accessToken, setAccessToken] = useState("")
-  const connect = useAtomSet(connectFigmaProjectAtom(key), {
+  const connect = useAtomSet(connectFigmaProjectAtom(req), {
     mode: "promise"
   })
-  const disconnect = useAtomSet(disconnectFigmaProjectAtom(key), {
+  const disconnect = useAtomSet(disconnectFigmaProjectAtom(req), {
     mode: "promise"
   })
-  const connectState = useAtomValue(connectFigmaProjectAtom(key))
-  const disconnectState = useAtomValue(disconnectFigmaProjectAtom(key))
+  const connectState = useAtomValue(connectFigmaProjectAtom(req))
+  const disconnectState = useAtomValue(disconnectFigmaProjectAtom(req))
   const busy = waiting || connectState.waiting || disconnectState.waiting
 
   const mutationError =

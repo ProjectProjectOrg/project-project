@@ -13,7 +13,8 @@ import {
   ProjectIcon,
   ProjectKey,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  UserId
 } from "@projectproject/shared"
 import type { GroupDetail, ProjectDetail, Role } from "@projectproject/shared"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
@@ -30,6 +31,7 @@ import {
 import * as TicketDocumentLock from "../ticketDocumentLock"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
+const userId = Schema.decodeSync(UserId)
 const setTestNow = TestClock.setTime(
   DateTime.toEpochMillis(DateTime.makeUnsafe("2026-05-19T00:00:00.000Z"))
 )
@@ -197,6 +199,8 @@ function makeFakeDocs(initial?: {
           .map(ticketIndexEntryFromDocument)
       }),
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
+    orderKeyFor: () =>
+      Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
     count: () => Effect.die(new Error("unexpected TicketIndex.count")),
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     existingIds: (_project, ticketIds) =>
@@ -275,7 +279,7 @@ function makeProjectDetail(role: Role): ProjectDetail {
     body: "# Project\n",
     members: [
       {
-        id: "user-1",
+        id: userId("user-1"),
         username: null,
         name: "User One",
         email: "user@example.com",
@@ -631,8 +635,9 @@ it.effect(
         destination: { kind: "backlog" }
       })
 
-      expect(result.completedAt).not.toBeNull()
-      expect(result.tickets).toEqual(["T-2"])
+      expect(result.target.completedAt).not.toBeNull()
+      expect(result.target.tickets).toEqual(["T-2"])
+      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
     }).pipe(
       Effect.provide(
         makeGroupsLayer(
@@ -671,9 +676,11 @@ it.effect(
         tickets: [ticketId("T-3"), ticketId("T-4")]
       })
 
-      yield* groups.complete("org", "user-1", "p", source.id, {
+      const result = yield* groups.complete("org", "user-1", "p", source.id, {
         destination: { kind: "sprint", groupId: dest.id }
       })
+
+      expect(result.carried.toSorted()).toEqual(["T-1", "T-3"])
 
       const sourceAfter = yield* groups.get("org", "user-1", "p", source.id)
       expect(sourceAfter.tickets).toEqual(["T-2"])
@@ -1366,6 +1373,105 @@ it.effect("addTickets serializes concurrent calls on the same project", () =>
     Effect.provide(
       makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
     )
+  )
+)
+
+it.effect(
+  "removeTickets drops ids without replacing the rest of the list",
+  () =>
+    Effect.gen(function* () {
+      const groups = yield* Groups
+      const sprint = yield* groups.create("org", "user-1", "p", {
+        name: "Sprint 1",
+        kind: "sprint",
+        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
+      })
+      const result = yield* groups.removeTickets(
+        "org",
+        "user-1",
+        "p",
+        sprint.id,
+        [ticketId("T-2")]
+      )
+      expect(result.target.tickets).toEqual(["T-1", "T-3"])
+      expect(result.evicted).toEqual([])
+    }).pipe(
+      Effect.provide(
+        makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+      )
+    )
+)
+
+it.effect("removeTickets is a no-op when none of the ids are members", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1")]
+    })
+    const result = yield* groups.removeTickets(
+      "org",
+      "user-1",
+      "p",
+      sprint.id,
+      [ticketId("T-2")]
+    )
+    expect(result.target.tickets).toEqual(["T-1"])
+    expect(result.evicted).toEqual([])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "admin" })
+    )
+  )
+)
+
+it.effect("removeTickets serializes with concurrent addTickets", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const sprint = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1"), ticketId("T-2")]
+    })
+    yield* Effect.all(
+      [
+        groups.removeTickets("org", "user-1", "p", sprint.id, [
+          ticketId("T-1")
+        ]),
+        groups.addTickets("org", "user-1", "p", sprint.id, [ticketId("T-3")])
+      ],
+      { concurrency: "unbounded" }
+    )
+    const after = yield* groups.get("org", "user-1", "p", sprint.id)
+    expect([...after.tickets].sort()).toEqual(["T-2", "T-3"])
+  }).pipe(
+    Effect.provide(
+      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "admin" })
+    )
+  )
+)
+
+it.effect("removeTickets refuses to mutate a completed sprint", () =>
+  Effect.gen(function* () {
+    const groups = yield* Groups
+    const created = yield* groups.create("org", "user-1", "p", {
+      name: "Sprint 1",
+      kind: "sprint",
+      tickets: [ticketId("T-1")]
+    })
+    yield* groups.complete("org", "user-1", "p", created.id, {
+      destination: { kind: "backlog" }
+    })
+    const outcome = yield* Effect.result(
+      groups.removeTickets("org", "user-1", "p", created.id, [ticketId("T-1")])
+    )
+    expect(outcome._tag).toBe("Failure")
+    if (outcome._tag === "Failure") {
+      expect(outcome.failure._tag).toBe("SprintCompletedImmutable")
+    }
+  }).pipe(
+    Effect.provide(makeGroupsLayer({ ticketIds: ["T-1"] }, { role: "admin" }))
   )
 )
 

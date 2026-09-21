@@ -1,13 +1,13 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
-import { commentsAtom, commentsKey } from "@/atoms/comments"
+import { useMemo } from "react"
+import { comments, commentsRequest } from "@/atoms/comments"
 import {
-  projectKey,
-  sprintMembershipAtom,
-  sprintsListAtom,
-  sprintsListBaseAtom
-} from "@/atoms/sprints"
+  sprintList,
+  sprintListRequest,
+  sprintMembership
+} from "@/atoms/sprintList"
 import { ErrorPage } from "@/components/ErrorPage"
 import { TicketPageHeader } from "@/components/TicketPage/TicketPageHeader"
 import { TicketPageShell } from "@/components/TicketPage/TicketPageShell"
@@ -30,13 +30,18 @@ export function TicketSplitPage({
   const router = useRouter()
   const canGoBack = useCanGoBack()
   const navigate = useNavigate()
-  const commentsResult = useAtomValue(
-    commentsAtom(commentsKey(orgSlug, slug, ticket.id))
+  const commentsReq = useMemo(
+    () => commentsRequest(orgSlug, slug, ticket.id),
+    [orgSlug, slug, ticket.id]
   )
-  const pKey = projectKey(orgSlug, slug)
-  const sprintsResult = useAtomValue(sprintsListAtom(pKey))
-  const sprintMembership = useAtomValue(sprintMembershipAtom(pKey))
-  const refreshSprints = useAtomRefresh(sprintsListBaseAtom(pKey))
+  const sprintsReq = useMemo(
+    () => sprintListRequest(orgSlug, slug),
+    [orgSlug, slug]
+  )
+  const commentsResult = useAtomValue(comments(commentsReq))
+  const sprintsResult = useAtomValue(sprintList(sprintsReq))
+  const membershipResult = useAtomValue(sprintMembership(sprintsReq))
+  const refreshSprints = useAtomRefresh(sprintList(sprintsReq))
 
   const returnToOrigin = (created: ReadonlyArray<TicketId>) => {
     if (created.length === 0 && canGoBack) {
@@ -53,7 +58,11 @@ export function TicketSplitPage({
   }
 
   const content = Result.matchWithError(
-    Result.all({ comments: commentsResult, sprints: sprintsResult }),
+    Result.all({
+      comments: commentsResult,
+      sprints: sprintsResult,
+      membership: membershipResult
+    }),
     {
       onInitial: () => (
         <DitherShell contained animated>
@@ -69,7 +78,7 @@ export function TicketSplitPage({
           ticket={ticket}
           members={members}
           commentCount={value.comments.length}
-          sprintId={sprintMembership.get(ticket.id)?.id ?? null}
+          sprintId={value.membership.get(ticket.id)?.id ?? null}
           onSplit={returnToOrigin}
           onCancel={() => returnToOrigin([])}
         />

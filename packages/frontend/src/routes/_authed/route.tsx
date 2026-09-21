@@ -22,8 +22,8 @@ import {
   motion,
   useReducedMotion
 } from "motion/react"
-import { logoutAtom, meAtom } from "@/atoms/auth"
-import { projectsListAtom } from "@/atoms/projects"
+import { logout, me } from "@/atoms/auth"
+import { projectsFor, projectsRequest } from "@/atoms/projects"
 import { Breadcrumbs } from "@/components/Breadcrumbs"
 import { ErrorPage } from "@/components/ErrorPage"
 import { LoaderOverlay } from "@/components/Loader/LoaderOverlay"
@@ -64,11 +64,11 @@ import type { LucideIcon } from "lucide-react"
 export const Route = createFileRoute("/_authed")({ component: AuthedLayout })
 
 function AuthedLayout() {
-  const me = useAtomValue(meAtom)
+  const viewer = useAtomValue(me())
   const { pathname } = useLocation()
   const { orgSlug } = useParams({ strict: false })
 
-  return Result.matchWithError(me, {
+  return Result.matchWithError(viewer, {
     onInitial: () => <LoaderOverlay active />,
     onError: () => <Navigate to="/login" replace />,
     onDefect: (defect) => <ErrorPage error={defect} />,
@@ -215,7 +215,7 @@ function ProjectsGroup({ orgSlug }: { orgSlug: string }) {
   const projectsBase = `/orgs/${orgSlug}/projects`
   const expanded =
     pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
-  const listResult = useAtomValue(projectsListAtom(orgSlug))
+  const listResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(listResult)
     ? [...listResult.value].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
@@ -458,7 +458,7 @@ function MobileNav({ user }: { user: User }) {
 }
 
 function UserMenu({ user }: { user: User }) {
-  const logout = useAtomSet(logoutAtom)
+  const signOut = useAtomSet(logout)
   const initial = (user.name?.charAt(0) ?? user.email.charAt(0)).toUpperCase()
 
   return (
@@ -515,7 +515,7 @@ function UserMenu({ user }: { user: User }) {
         ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => logout()}
+          onClick={() => signOut()}
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="size-4" strokeWidth={1.75} />
