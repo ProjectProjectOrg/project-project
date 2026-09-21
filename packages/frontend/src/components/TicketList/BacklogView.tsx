@@ -159,18 +159,17 @@ export function BacklogView({
             setDragOrder={setDragOrder}
           />
         )}
+        showSections={!isBoard && grouping === "sprint"}
         sections={
-          !isBoard && grouping === "sprint" ? (
-            <SprintSections
-              key={preferencesKey}
-              preferencesKey={preferencesKey}
-              orgSlug={orgSlug}
-              slug={slug}
-              query={query}
-              members={project.members}
-              extraRowActions={rowActions}
-            />
-          ) : undefined
+          <SprintSections
+            key={preferencesKey}
+            preferencesKey={preferencesKey}
+            orgSlug={orgSlug}
+            slug={slug}
+            query={query}
+            members={project.members}
+            extraRowActions={rowActions}
+          />
         }
       />
     </PageContainer>

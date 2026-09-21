@@ -126,3 +126,31 @@ export const TicketSections = Schema.Struct({
   sections: Schema.Record(TicketStatus, TicketListPage)
 })
 export type TicketSections = typeof TicketSections.Type
+
+export const SprintSectionUnscheduled = Schema.Literal("unscheduled")
+export type SprintSectionUnscheduled = typeof SprintSectionUnscheduled.Type
+
+export const SPRINT_SECTION_UNSCHEDULED: SprintSectionUnscheduled =
+  "unscheduled"
+
+export const SprintSectionKey = Schema.Union([
+  GroupId,
+  SprintSectionUnscheduled
+])
+export type SprintSectionKey = typeof SprintSectionKey.Type
+
+export const sprintSectionKey = (groupId: GroupId | null): SprintSectionKey =>
+  groupId === null ? SPRINT_SECTION_UNSCHEDULED : groupId
+
+export const TicketSprintSection = Schema.Struct({
+  key: SprintSectionKey,
+  count: Schema.Finite,
+  page: TicketListPage
+})
+export type TicketSprintSection = typeof TicketSprintSection.Type
+
+export const TicketSprintSections = Schema.Struct({
+  total: Schema.Finite,
+  sections: Schema.Array(TicketSprintSection)
+})
+export type TicketSprintSections = typeof TicketSprintSections.Type

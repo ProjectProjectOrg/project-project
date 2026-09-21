@@ -3,8 +3,6 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useCallback, useMemo, useState, type ReactNode } from "react"
 import { FilterX, ListChecks } from "lucide-react"
-import * as Schema from "effect/Schema"
-import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,7 +15,7 @@ import {
 } from "@/components/ui/empty"
 import { ErrorPage } from "@/components/ErrorPage"
 import { statusesFor, statusesRequest } from "@/atoms/projectStatuses"
-import type { BacklogValue } from "@/atoms/backlog"
+import type { BacklogSection, BacklogValue } from "@/atoms/backlog"
 import { m } from "@/paraglide/messages"
 import type {
   Group,
@@ -29,10 +27,10 @@ import type {
   TicketStatus
 } from "@projectproject/shared"
 import { SectionList } from "./SectionList"
+import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
 
-const CollapsedSchema = Schema.Array(Schema.String)
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
-const EMPTY_COLLAPSED: ReadonlyArray<string> = []
+const EMPTY_PAGE: BacklogSection = { items: [], nextCursor: null }
 
 export function SegmentedList({
   orgSlug,
@@ -124,24 +122,7 @@ export function SegmentedList({
     return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)
   }, [statuses, query.status, hasActiveFilter, byStatus])
 
-  const [collapsedRaw, setCollapsedRaw] = useLocalStorageState(
-    `projectproject:ticket-list-collapsed:${orgSlug}/${slug}`,
-    CollapsedSchema,
-    EMPTY_COLLAPSED
-  )
-  const [searchCollapsed, setSearchCollapsed] = useState<ReadonlyArray<string>>(
-    []
-  )
-  const collapsed = query.q ? searchCollapsed : collapsedRaw
-  const setCollapsed = query.q ? setSearchCollapsed : setCollapsedRaw
-  const collapsedSet = useMemo(() => new Set(collapsed), [collapsed])
-  const toggleCollapsed = (status: TicketStatus) => {
-    if (collapsedSet.has(status)) {
-      setCollapsed(collapsed.filter((s) => s !== status))
-    } else {
-      setCollapsed([...collapsed, status])
-    }
-  }
+  const persistKey = statusCollapseKey(orgSlug, slug)
 
   const showSprintCol =
     sprintMembership !== undefined && sprintMembership.size > 0
@@ -214,17 +195,17 @@ export function SegmentedList({
       className="flex flex-col gap-1 has-[[data-creating]]:[&>:not([data-creating])]:opacity-35"
     >
       {filteredStatuses.map((status) => (
-        <SectionList
+        <StatusSection
           key={status}
+          persistKey={persistKey}
+          searchQuery={query.q}
           orgSlug={orgSlug}
           slug={slug}
           status={status}
           statuses={statuses}
           query={query}
           count={byStatus[status] ?? 0}
-          page={sections[status] ?? { items: [], nextCursor: null }}
-          collapsed={collapsedSet.has(status)}
-          onToggleCollapsed={() => toggleCollapsed(status)}
+          page={sections[status] ?? EMPTY_PAGE}
           members={members}
           sprintMembership={sprintMembership}
           extraRowActions={extraRowActions}
@@ -236,5 +217,70 @@ export function SegmentedList({
         />
       ))}
     </div>
+  )
+}
+
+function StatusSection({
+  persistKey,
+  searchQuery,
+  orgSlug,
+  slug,
+  status,
+  statuses,
+  query,
+  count,
+  page,
+  members,
+  sprintMembership,
+  extraRowActions,
+  showSprintCol,
+  showExtraActionsCol,
+  activePreviewId,
+  onPreviewPointerEnter,
+  onPreviewOpenChange
+}: {
+  persistKey: string
+  searchQuery: string | undefined
+  orgSlug: string
+  slug: string
+  status: TicketStatus
+  statuses: ReadonlyArray<ProjectStatus>
+  query: TicketListQuery
+  count: number
+  page: BacklogSection
+  members: ReadonlyArray<Member>
+  sprintMembership?: ReadonlyMap<TicketId, Group>
+  extraRowActions?: (ticket: Ticket) => ReactNode
+  showSprintCol: boolean
+  showExtraActionsCol: boolean
+  activePreviewId: TicketId | null
+  onPreviewPointerEnter: (ticketId: TicketId) => void
+  onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
+}) {
+  const [collapsed, toggleCollapsed] = useCollapsedInSet(
+    persistKey,
+    status,
+    searchQuery
+  )
+  return (
+    <SectionList
+      orgSlug={orgSlug}
+      slug={slug}
+      status={status}
+      statuses={statuses}
+      query={query}
+      count={count}
+      page={page}
+      collapsed={collapsed}
+      onToggleCollapsed={toggleCollapsed}
+      members={members}
+      sprintMembership={sprintMembership}
+      extraRowActions={extraRowActions}
+      showSprintCol={showSprintCol}
+      showExtraActionsCol={showExtraActionsCol}
+      activePreviewId={activePreviewId}
+      onPreviewPointerEnter={onPreviewPointerEnter}
+      onPreviewOpenChange={onPreviewOpenChange}
+    />
   )
 }

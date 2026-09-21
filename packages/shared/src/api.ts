@@ -128,6 +128,7 @@ import {
   TicketOrderKeyQuery,
   TicketSearchQuery,
   TicketSections,
+  TicketSprintSections,
   TicketUpdateResult
 } from "./filters/Ticket"
 import {
@@ -1072,6 +1073,18 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketListHttpQuery,
         success: TicketSections,
+        error: [Unauthorized, NotFound]
+      }
+    )
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "sprintSections",
+      "/orgs/:orgSlug/projects/:slug/tickets/sprint-sections",
+      {
+        params: ProjectPath,
+        query: TicketListHttpQuery,
+        success: TicketSprintSections,
         error: [Unauthorized, NotFound]
       }
     )

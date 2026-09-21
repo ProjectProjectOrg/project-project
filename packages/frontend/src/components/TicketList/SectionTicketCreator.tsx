@@ -1,5 +1,6 @@
 import * as Random from "effect/Random"
 import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Exit from "effect/Exit"
@@ -29,9 +30,7 @@ import {
 import { BADGE_TONES } from "@/components/ui/badge"
 import {
   backlogRequest,
-  flatBacklogRequest,
-  quickCreateBacklogTicket,
-  quickCreateFlatBacklogTicket
+  quickCreateBacklogTicket
 } from "@/atoms/backlog"
 import { me } from "@/atoms/auth"
 import { project as projectView, projectRequest } from "@/atoms/projects"
@@ -40,15 +39,20 @@ import {
   sprintList,
   sprintListRequest
 } from "@/atoms/sprintList"
+import {
+  quickCreateSprintSectionsTicket,
+  sprintSectionsRequest
+} from "@/atoms/sprintSections"
 import { cn } from "@/lib/utils"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import type {
-  Group,
+import {
   GroupId,
-  TicketListQuery,
-  TicketStatus,
-  TicketType
+  sprintSectionKey,
+  type Group,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketType
 } from "@projectproject/shared"
 
 export function SectionTicketCreator({
@@ -73,9 +77,12 @@ export function SectionTicketCreator({
     () => backlogRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
   )
-  const flatReq = useMemo(
-    () => flatBacklogRequest(orgSlug, slug, query),
+  const sprintReqForCreate = useMemo(
+    () => sprintSectionsRequest(orgSlug, slug, query),
     [orgSlug, slug, query]
+  )
+  const sprintKey = sprintSectionKey(
+    Schema.is(GroupId)(query.groupId?.[0]) ? query.groupId[0] : null
   )
   const createSections = useAtomSet(quickCreateBacklogTicket(sectionsReq), {
     mode: "promiseExit"
@@ -83,12 +90,15 @@ export function SectionTicketCreator({
   const createSectionsState = useAtomValue(
     quickCreateBacklogTicket(sectionsReq)
   )
-  const createFlat = useAtomSet(quickCreateFlatBacklogTicket(flatReq), {
-    mode: "promiseExit"
-  })
-  const createFlatState = useAtomValue(quickCreateFlatBacklogTicket(flatReq))
-  const create = variant === "flat" ? createFlat : createSections
-  const createState = variant === "flat" ? createFlatState : createSectionsState
+  const createSprint = useAtomSet(
+    quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey }),
+    { mode: "promiseExit" }
+  )
+  const createSprintState = useAtomValue(
+    quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey })
+  )
+  const create = variant === "flat" ? createSprint : createSections
+  const createState = variant === "flat" ? createSprintState : createSectionsState
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()
@@ -117,10 +127,9 @@ export function SectionTicketCreator({
   const groupIdFilter = query.groupId
   const singleGroupIdFilter =
     groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
-  const activeSprintId: GroupId | null =
-    singleGroupIdFilter && singleGroupIdFilter !== "ungrouped"
-      ? singleGroupIdFilter
-      : null
+  const activeSprintId = Schema.is(GroupId)(singleGroupIdFilter)
+    ? singleGroupIdFilter
+    : null
   const isExplicitNoSprintFilter = singleGroupIdFilter === "ungrouped"
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =

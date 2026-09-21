@@ -1,7 +1,8 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite-plus"
-import react from "@vitejs/plugin-react"
+import react, { reactCompilerPreset } from "@vitejs/plugin-react"
+import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import { paraglideVitePlugin } from "@inlang/paraglide-js"
@@ -28,7 +29,9 @@ export default defineConfig(({ mode }) => ({
           })
         ]),
     react(),
-    ...(mode === "test" ? [] : [tailwindcss()]),
+    ...(mode === "test"
+      ? []
+      : [babel({ presets: [reactCompilerPreset()] }), tailwindcss()]),
     paraglideVitePlugin({
       project: path.resolve(__dirname, "project.inlang"),
       outdir: path.resolve(__dirname, "src/paraglide"),

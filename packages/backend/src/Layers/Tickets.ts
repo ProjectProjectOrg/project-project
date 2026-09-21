@@ -45,9 +45,11 @@ import {
   type TicketSearchQuery,
   type TicketSections,
   type TicketSort,
+  type TicketSprintSections,
   type TicketStatus,
   type TicketUpdateResult,
   type User,
+  sprintSectionKey,
   sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
@@ -493,6 +495,69 @@ export const TicketsLive = Layer.effect(
         { concurrency: 4 }
       )
       return { counts, sections: Object.fromEntries(pages) }
+    })
+
+    const sprintSections = Effect.fn("Tickets.sprintSections")(function* (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      query: TicketListQuery
+    ): Effect.fn.Return<TicketSprintSections, NotFound | MarkdownError> {
+      yield* ensureAccess(orgSlug, userId, slug)
+      const project = yield* ticketIndex.projectFor(orgSlug, slug)
+      const sprints = (yield* groups.list(orgSlug, userId, slug)).filter(
+        (group) => group.kind === "sprint"
+      )
+      const sectionIds: ReadonlyArray<GroupIdFilter> = query.groupId?.length
+        ? query.groupId
+        : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+      const projectGithub = yield* projects.getGithubIntegration(
+        orgSlug,
+        userId,
+        slug
+      )
+      const countQuery = { ...query, groupId: undefined }
+      const pages = yield* Effect.forEach(
+        sectionIds,
+        (groupId) =>
+          Effect.gen(function* () {
+            const members = yield* resolveGroupMembers(
+              project,
+              orgSlug,
+              userId,
+              slug,
+              [groupId]
+            )
+            const ticketIds = members === null ? undefined : [...members]
+            const counts = yield* ticketIndex.count(project, countQuery, {
+              viewerId: userId,
+              ticketIds
+            })
+            const entries = yield* ticketIndex.query(
+              project,
+              {
+                ...query,
+                groupId: undefined,
+                cursor: undefined
+              },
+              {
+                viewerId: userId,
+                ticketIds,
+                limit: TICKET_LIST_LIMIT + 1
+              }
+            )
+            return {
+              key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+              count: counts.total,
+              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
+            }
+          }),
+        { concurrency: 4 }
+      )
+      return {
+        total: pages.reduce((sum, section) => sum + section.count, 0),
+        sections: pages
+      }
     })
 
     const get = (
@@ -1941,6 +2006,7 @@ export const TicketsLive = Layer.effect(
     return {
       list,
       sections,
+      sprintSections,
       count,
       search,
       listInGroup,
