@@ -448,7 +448,13 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      refreshTokenReuseInterval: 0,
+      // Refresh tokens rotate on every use. Without an overlap window, a
+      // second presentation of an already-rotated token is treated as a
+      // breach and `invalidateRefreshFamily` deletes *every* refresh token
+      // for that client/user pair — forcing a full browser re-auth. MCP
+      // clients run as several long-lived processes sharing one credential,
+      // so concurrent refreshes across the access-token expiry are routine.
+      refreshTokenReuseInterval: 60,
       extensions: [
         {
           claims: {

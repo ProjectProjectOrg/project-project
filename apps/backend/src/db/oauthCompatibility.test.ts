@@ -428,11 +428,16 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     expect(refreshed.status, await refreshed.clone().text()).toBe(200)
     const rotated = Schema.decodeUnknownSync(Token)(await refreshed.json())
     expect(rotated.refresh_token).not.toBe(token.refresh_token)
+    // Within `refreshTokenReuseInterval` a retried refresh replays the rotated
+    // response instead of tripping breach detection, which would delete every
+    // refresh token for this client/user pair.
     const refreshReplay = await fetch(metadata.token_endpoint, {
       method: "POST",
       body: refreshBody
     })
-    expect(refreshReplay.status).toBe(400)
+    expect(refreshReplay.status, await refreshReplay.clone().text()).toBe(200)
+    const replayed = Schema.decodeUnknownSync(Token)(await refreshReplay.json())
+    expect(replayed.refresh_token).toBe(rotated.refresh_token)
     const replay = await fetch(metadata.token_endpoint, {
       method: "POST",
       body: tokenBody
