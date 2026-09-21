@@ -471,7 +471,8 @@ const makeFakeTicketIndex = (
           documents,
           query,
           options.viewerId,
-          options.ticketIds
+          options.ticketIds,
+          options.excludeTicketIds
         )
         for (const document of matching) {
           byStatus[document.status] = (byStatus[document.status] ?? 0) + 1

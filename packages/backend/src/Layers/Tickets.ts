@@ -517,7 +517,6 @@ export const TicketsLive = Layer.effect(
         userId,
         slug
       )
-      const allTicketIds = yield* ticketIndex.listIds(project)
       const claimed = new Set<string>()
       const bySprint = new Map<GroupId, Array<string>>()
       const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
@@ -539,29 +538,36 @@ export const TicketsLive = Layer.effect(
           bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
         }
       }
-      const unscheduled = allTicketIds.filter((id) => !claimed.has(id))
+      const claimedIds = [...claimed]
       const countQuery = { ...query, groupId: undefined }
       const pages = yield* Effect.forEach(
         sectionIds,
         (groupId) =>
           Effect.gen(function* () {
             const known =
-              groupId === "ungrouped" ? unscheduled : bySprint.get(groupId)
+              groupId === "ungrouped" ? undefined : bySprint.get(groupId)
             const ticketIds =
-              known !== undefined
-                ? known
-                : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
-                    groupId
-                  ]).pipe(
-                    Effect.map((members) =>
-                      members === null
-                        ? []
-                        : [...members].filter((id) => !claimed.has(id))
+              groupId === "ungrouped"
+                ? undefined
+                : known !== undefined
+                  ? known
+                  : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
+                      groupId
+                    ]).pipe(
+                      Effect.map((members) =>
+                        members === null
+                          ? []
+                          : [...members].filter((id) => !claimed.has(id))
+                      )
                     )
-                  )
+            const excludeTicketIds =
+              groupId === "ungrouped" && claimedIds.length > 0
+                ? claimedIds
+                : undefined
             const counts = yield* ticketIndex.count(project, countQuery, {
               viewerId: userId,
-              ticketIds
+              ticketIds,
+              excludeTicketIds
             })
             const entries = yield* ticketIndex.query(
               project,
@@ -573,34 +579,21 @@ export const TicketsLive = Layer.effect(
               {
                 viewerId: userId,
                 ticketIds,
+                excludeTicketIds,
                 limit: TICKET_LIST_LIMIT + 1
               }
             )
             return {
               key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
               count: counts.total,
-              page: ticketPage(
-                entries,
-                query,
-                projectGithub,
-                TICKET_LIST_LIMIT
-              ),
-              ticketIds
+              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
             }
           }),
         { concurrency: 4 }
       )
-      const uniqueIds = new Set<string>()
-      for (const section of pages) {
-        for (const id of section.ticketIds) uniqueIds.add(id)
-      }
-      const { total } = yield* ticketIndex.count(project, countQuery, {
-        viewerId: userId,
-        ticketIds: [...uniqueIds]
-      })
       return {
-        total,
-        sections: pages.map(({ key, count, page }) => ({ key, count, page }))
+        total: pages.reduce((sum, section) => sum + section.count, 0),
+        sections: pages
       }
     })
 
