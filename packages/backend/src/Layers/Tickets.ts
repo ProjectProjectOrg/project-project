@@ -37,6 +37,7 @@ import {
   UpdateTicketInput,
   Validation,
   type ProjectKey,
+  type GroupId,
   type GroupIdFilter,
   type TicketCountQuery,
   type TicketCounts,
@@ -516,30 +517,48 @@ export const TicketsLive = Layer.effect(
         userId,
         slug
       )
-      const memberships = yield* Effect.forEach(
-        sectionIds,
-        (groupId) =>
-          resolveGroupMembers(project, orgSlug, userId, slug, [groupId]).pipe(
-            Effect.map((members) => ({ groupId, members }))
-          ),
-        { concurrency: 4 }
-      )
+      const allTicketIds = yield* ticketIndex.listIds(project)
       const claimed = new Set<string>()
-      for (const { groupId, members } of memberships) {
-        if (groupId === "ungrouped" || members === null) continue
-        for (const id of members) claimed.add(id)
+      const bySprint = new Map<GroupId, Array<string>>()
+      const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
+        const ids: Array<string> = []
+        for (const id of tickets) {
+          if (claimed.has(id)) continue
+          claimed.add(id)
+          ids.push(id)
+        }
+        return ids
       }
+      for (const sprint of sprints) {
+        if (sprint.completedAt === null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      for (const sprint of sprints) {
+        if (sprint.completedAt !== null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      const unscheduled = allTicketIds.filter((id) => !claimed.has(id))
       const countQuery = { ...query, groupId: undefined }
       const pages = yield* Effect.forEach(
-        memberships,
-        ({ groupId, members }) =>
+        sectionIds,
+        (groupId) =>
           Effect.gen(function* () {
+            const known =
+              groupId === "ungrouped" ? unscheduled : bySprint.get(groupId)
             const ticketIds =
-              members === null
-                ? undefined
-                : groupId === "ungrouped"
-                  ? [...members].filter((id) => !claimed.has(id))
-                  : [...members]
+              known !== undefined
+                ? known
+                : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
+                    groupId
+                  ]).pipe(
+                    Effect.map((members) =>
+                      members === null
+                        ? []
+                        : [...members].filter((id) => !claimed.has(id))
+                    )
+                  )
             const counts = yield* ticketIndex.count(project, countQuery, {
               viewerId: userId,
               ticketIds
@@ -566,7 +585,7 @@ export const TicketsLive = Layer.effect(
                 projectGithub,
                 TICKET_LIST_LIMIT
               ),
-              ticketIds: ticketIds ?? []
+              ticketIds
             }
           }),
         { concurrency: 4 }
