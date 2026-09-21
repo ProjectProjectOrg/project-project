@@ -516,19 +516,30 @@ export const TicketsLive = Layer.effect(
         userId,
         slug
       )
-      const countQuery = { ...query, groupId: undefined }
-      const pages = yield* Effect.forEach(
+      const memberships = yield* Effect.forEach(
         sectionIds,
         (groupId) =>
+          resolveGroupMembers(project, orgSlug, userId, slug, [groupId]).pipe(
+            Effect.map((members) => ({ groupId, members }))
+          ),
+        { concurrency: 4 }
+      )
+      const claimed = new Set<string>()
+      for (const { groupId, members } of memberships) {
+        if (groupId === "ungrouped" || members === null) continue
+        for (const id of members) claimed.add(id)
+      }
+      const countQuery = { ...query, groupId: undefined }
+      const pages = yield* Effect.forEach(
+        memberships,
+        ({ groupId, members }) =>
           Effect.gen(function* () {
-            const members = yield* resolveGroupMembers(
-              project,
-              orgSlug,
-              userId,
-              slug,
-              [groupId]
-            )
-            const ticketIds = members === null ? undefined : [...members]
+            const ticketIds =
+              members === null
+                ? undefined
+                : groupId === "ungrouped"
+                  ? [...members].filter((id) => !claimed.has(id))
+                  : [...members]
             const counts = yield* ticketIndex.count(project, countQuery, {
               viewerId: userId,
               ticketIds
@@ -549,14 +560,28 @@ export const TicketsLive = Layer.effect(
             return {
               key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
               count: counts.total,
-              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
+              page: ticketPage(
+                entries,
+                query,
+                projectGithub,
+                TICKET_LIST_LIMIT
+              ),
+              ticketIds: ticketIds ?? []
             }
           }),
         { concurrency: 4 }
       )
+      const uniqueIds = new Set<string>()
+      for (const section of pages) {
+        for (const id of section.ticketIds) uniqueIds.add(id)
+      }
+      const { total } = yield* ticketIndex.count(project, countQuery, {
+        viewerId: userId,
+        ticketIds: [...uniqueIds]
+      })
       return {
-        total: pages.reduce((sum, section) => sum + section.count, 0),
-        sections: pages
+        total,
+        sections: pages.map(({ key, count, page }) => ({ key, count, page }))
       }
     })
 

@@ -2231,7 +2231,11 @@ it.effect(
   }
 )
 
-function sprintGroup(id: string, tickets: ReadonlyArray<string>): GroupDetail {
+function sprintGroup(
+  id: string,
+  tickets: ReadonlyArray<string>,
+  completedAt: Date | null = null
+): GroupDetail {
   return {
     id: groupId(id),
     name: id,
@@ -2240,7 +2244,7 @@ function sprintGroup(id: string, tickets: ReadonlyArray<string>): GroupDetail {
     color: groupColor("#94a3b8"),
     startsAt: null,
     endsAt: null,
-    completedAt: null,
+    completedAt,
     createdBy: "user-1",
     createdAt: isoDate("2026-01-01T00:00:00.000Z"),
     updatedAt: isoDate("2026-01-01T00:00:00.000Z"),
@@ -2336,6 +2340,53 @@ it.effect(
       })
       expect(selected.sections.map((section) => section.key)).toEqual([g2.id])
       expect(selected.total).toBe(0)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "sprintSections keeps completed-sprint tickets out of unscheduled and counts them once",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const { documents } = docs
+    documents.set("T-1", makeTicketDocument("T-1", { title: "done leftover" }))
+    documents.set("T-2", makeTicketDocument("T-2", { title: "still active" }))
+    documents.set("T-3", makeTicketDocument("T-3", { title: "unscheduled" }))
+    const done = sprintGroup(
+      "G-1",
+      ["T-1", "T-2"],
+      isoDate("2026-04-01T00:00:00.000Z")
+    )
+    const active = sprintGroup("G-2", ["T-2"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(documents),
+      groups: makeFakeSprintGroups([done, active])
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const snapshot = yield* tickets.sprintSections("org", "user-1", "p", {
+        sort: { key: "id", dir: "asc" }
+      })
+      const doneSection = snapshot.sections.find(
+        (section) => section.key === done.id
+      )
+      const activeSection = snapshot.sections.find(
+        (section) => section.key === active.id
+      )
+      const unscheduled = snapshot.sections.find(
+        (section) => section.key === "unscheduled"
+      )
+      expect(doneSection?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-1",
+        "T-2"
+      ])
+      expect(activeSection?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-2"
+      ])
+      expect(unscheduled?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-3"
+      ])
+      expect(snapshot.total).toBe(3)
     }).pipe(Effect.provide(layer))
   }
 )
