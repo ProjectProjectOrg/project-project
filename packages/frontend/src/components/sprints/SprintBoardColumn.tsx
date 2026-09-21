@@ -133,7 +133,7 @@ export function SprintBoardColumn({
         filter: { duration: QUICK_S, ease: REORDER_EASE },
         zIndex: { duration: 0 }
       }}
-      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background"
+      className="flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
     >
       <div
         data-column-header

@@ -42,7 +42,7 @@ function SprintBoardCardImpl({
     <DeferredDropdownMenus>
       <div
         className={cn(
-          "group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-card px-1.5 pt-3 pb-1.5 text-left outline-none hover:bg-muted [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
+          "group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 outline-none transition hover:bg-surface-4 hover:shadow-surface-1-hover [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
           updatePreview.waiting && "animate-pulse"
         )}
       >
