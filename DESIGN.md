@@ -244,9 +244,29 @@ The system is **flat by default**. No decorative drop shadows on rectangles, no 
 2. **Hairline borders.** A single 1px `--border` separates surfaces that share tone.
 3. **Modest shadow on floating UI only.** Popovers, dropdowns, menus — anything that lifts off a surface — gets a soft small shadow (`shadow-sm` / `shadow-md`). Never on a permanent rectangle.
 
+### The surface ladder
+
+Tonal layering runs out of room in light mode: once a surface reaches `--card` there is nothing lighter than white to stack on top of it, so a card nested in a light container goes invisible. The `--surface-1` … `--surface-8` ladder (ported from `@fluid/surfaces`, re-authored in OKLCH) is the answer, available as `bg-surface-N` / `shadow-surface-N`.
+
+**Both themes must layer the same way.** A container that recesses in dark recesses in light too, by a comparable perceptual amount. Concretely, against the app's content region (`bg-muted/60`, which composites to `0.222` dark and `0.982` light):
+
+| | dark | light |
+| --- | --- | --- |
+| content region | `0.222` | `0.982` |
+| `--surface-1` — recessed well | `0.205` (`-0.017`) | `0.955` (`-0.027`) |
+| `--surface-3` — raised card | `0.264` (`+0.059`) | `1.000` (`+0.045`) |
+
+The container steps **down** off the region and the card steps **up** out of the container, in both themes. Light's upward step is necessarily smaller because white is a hard ceiling, but it stays the same order of magnitude — not the near-flat `0.003` that fluid's stock light ladder would give.
+
+Fluid ships light as two hairline steps then flat white, leaning on shadow for everything above `--surface-3`. That suits a shadow-driven system; it does not suit ours, because our dark mode separates tonally and the two themes would stop behaving alike. The light values here are widened deliberately so they don't.
+
+Use the ladder when a surface must sit on another surface — board columns and their cards. A standalone card on the page canvas still uses `--card` plus a hairline `--border`; don't reach for the ladder where a single tonal step already reads.
+
+`--shadow-1` is `0 0 0 1px` at 6% black with no offset and no blur: it is a **hairline drawn as a ring**, not a lift. Preferring it over a real `border` keeps the element borderless in layout terms — no box-sizing shift, no extra px in a dense row — which is why board cards use it.
+
 ### Named Rules
 
-**The Flat Rectangles Rule.** Permanent surfaces (page, panels, cards, list rows) are flat. Shadows are reserved for elements that _lift_ off the surface — popovers, dropdowns, menus, drag previews. If a card has a shadow at rest, the shadow is wrong.
+**The Flat Rectangles Rule.** Permanent surfaces (page, panels, cards, list rows) are flat. Shadows are reserved for elements that _lift_ off the surface — popovers, dropdowns, menus, drag previews. If a card has a shadow at rest, the shadow is wrong. A zero-offset, zero-blur ring (`--shadow-1`) is not a shadow for the purposes of this rule — it is a hairline, and it is allowed at rest. `--shadow-2` and above add real offset and blur, so they stay off permanent rectangles.
 
 **The No Decorative Lift Rule.** Drop shadows on rectangles to "give them depth" — the Jira/Trello tell — are forbidden. Depth comes from tone and hairline borders.
 
