@@ -32,16 +32,10 @@ describe("dispatchStatusReorders", () => {
   it("reorders immediately and settles the mutation", async () => {
     const todoStatus = makeStatus(todo, "a")
     const doneStatus = makeStatus(done, "b")
+    const list = (statuses: ReadonlyArray<ProjectStatus>) =>
+      Promise.resolve(Response.json(encode(statuses)))
     let served = [todoStatus, doneStatus]
-    let finish = (_response: Response) => {}
-    fetchStub.set((_input, init) => {
-      if (init?.method === "PATCH") {
-        return new Promise<Response>((resolve) => {
-          finish = resolve
-        })
-      }
-      return Promise.resolve(Response.json(encode(served)))
-    })
+    fetchStub.set(() => list(served))
     const registry = AtomRegistry.make()
     const view = statusesFor(req)
     const dispatch = dispatchStatusReorders(req)
@@ -55,6 +49,13 @@ describe("dispatchStatusReorders", () => {
           waiting: false
         })
       )
+
+      let finishPatch!: (response: Response) => void
+      const patch = new Promise<Response>((resolve) => {
+        finishPatch = resolve
+      })
+      fetchStub.set(() => patch)
+
       registry.set(dispatch, [
         { statusSlug: todo, orderKey: Schema.decodeSync(OrderKey)("c") }
       ])
@@ -72,7 +73,8 @@ describe("dispatchStatusReorders", () => {
         { ...todoStatus, orderKey: Schema.decodeSync(OrderKey)("c") },
         doneStatus
       ]
-      finish(Response.json(Schema.encodeSync(ProjectStatus)(served[0]!)))
+      fetchStub.set(() => list(served))
+      finishPatch(Response.json(Schema.encodeSync(ProjectStatus)(served[0]!)))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     } finally {
       registry.dispose()
