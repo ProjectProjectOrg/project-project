@@ -1403,8 +1403,8 @@ it.effect(
         quick.id,
         created.id
       ])
-      expect(figmaLinks.calls[0]!.body).toContain("figma.com")
-      expect(figmaLinks.calls[2]!.body).toContain("edited")
+      expect(figmaLinks.calls[0].body).toContain("figma.com")
+      expect(figmaLinks.calls[2].body).toContain("edited")
     }).pipe(Effect.provide(layer))
   }
 )
@@ -1782,7 +1782,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     expect(page1.nextCursor).not.toBeNull()
     const page1Times = page1.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page1Times.length; i++) {
-      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
+      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i])
     }
 
     const page2 = yield* tickets.list("org", "user-1", "p", {
@@ -1793,7 +1793,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     expect(page2.nextCursor).toBeNull()
     const page2Times = page2.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page2Times.length; i++) {
-      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
+      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i])
     }
 
     const seen = new Set(page1.items.map((row) => row.ticket.id))
@@ -2334,7 +2334,10 @@ it.effect(
         groupId: [g1.id],
         cursor: g1Section?.page.nextCursor ?? undefined
       })
-      expect(next.items.map(({ ticket }) => ticket.id)).toEqual(["T-51", "T-52"])
+      expect(next.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-51",
+        "T-52"
+      ])
       expect(next.nextCursor).toBeNull()
       const selected = yield* tickets.sprintSections("org", "user-1", "p", {
         ...query,

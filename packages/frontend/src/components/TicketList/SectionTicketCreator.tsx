@@ -28,10 +28,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { BADGE_TONES } from "@/components/ui/badge"
-import {
-  backlogRequest,
-  quickCreateBacklogTicket
-} from "@/atoms/backlog"
+import { backlogRequest, quickCreateBacklogTicket } from "@/atoms/backlog"
 import { me } from "@/atoms/auth"
 import { project as projectView, projectRequest } from "@/atoms/projects"
 import {
@@ -91,14 +88,18 @@ export function SectionTicketCreator({
     quickCreateBacklogTicket(sectionsReq)
   )
   const createSprint = useAtomSet(
-    quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey }),
+    quickCreateSprintSectionsTicket({
+      req: sprintReqForCreate,
+      key: sprintKey
+    }),
     { mode: "promiseExit" }
   )
   const createSprintState = useAtomValue(
     quickCreateSprintSectionsTicket({ req: sprintReqForCreate, key: sprintKey })
   )
   const create = variant === "flat" ? createSprint : createSections
-  const createState = variant === "flat" ? createSprintState : createSectionsState
+  const createState =
+    variant === "flat" ? createSprintState : createSectionsState
   const submitting = createState.waiting
   const error = Result.isFailure(createState)
     ? m.tickets_create_error_fallback()

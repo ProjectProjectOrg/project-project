@@ -96,7 +96,11 @@ const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
   )
 )
 
-const pageQuery = (req: BacklogRequest, key: SprintSectionKey, cursor: string) =>
+const pageQuery = (
+  req: BacklogRequest,
+  key: SprintSectionKey,
+  cursor: string
+) =>
   Api.query("tickets", "list", {
     params: req.params,
     query: {
@@ -260,7 +264,7 @@ const insertByOrderKey = (
   let high = items.length
   while (low < high) {
     const middle = (low + high) >>> 1
-    const candidate = items[middle]!.orderKey
+    const candidate = items[middle].orderKey
     const sortsBefore =
       candidate === null ||
       (dir === "asc"
@@ -583,4 +587,3 @@ export const quickCreateSprintSectionsTicket = Atom.family(
         )
     })
 )
-
