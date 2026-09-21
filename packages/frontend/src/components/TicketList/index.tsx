@@ -132,14 +132,7 @@ function StatusSections({
   )
 
   return (
-    <div
-      aria-busy={result.waiting || Result.isInitial(result)}
-      className={
-        !Result.isFailure(result) && result.waiting && active
-          ? "animate-pulse motion-reduce:animate-none"
-          : undefined
-      }
-    >
+    <div aria-busy={result.waiting || Result.isInitial(result)}>
       {Result.matchWithError(result, {
         onInitial: renderSections,
         onError: renderFailure,
