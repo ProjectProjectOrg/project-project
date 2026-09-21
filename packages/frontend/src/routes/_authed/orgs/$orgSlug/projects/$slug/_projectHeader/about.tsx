@@ -6,10 +6,10 @@ import { LexicalEditor, type SaveStatus } from "@/components/LexicalEditor"
 import { MarkdownSaveIndicator } from "@/components/MarkdownSaveIndicator"
 import { PageContainer } from "@/components/page"
 import { m } from "@/paraglide/messages"
-import { useProject } from "./-context"
+import { useProject } from "../-context"
 
 export const Route = createFileRoute(
-  "/_authed/orgs/$orgSlug/projects/$slug/about"
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about"
 )({
   component: AboutTab,
   loader: () => ({

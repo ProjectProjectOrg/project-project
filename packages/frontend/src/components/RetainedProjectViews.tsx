@@ -22,7 +22,9 @@ export function RetainedProjectViews({
   const backlog = useMatches({
     select: (matches) =>
       matches.find(
-        (match) => match.routeId === "/_authed/orgs/$orgSlug/projects/$slug/"
+        (match) =>
+          match.routeId ===
+          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
       )
   })
   const sprint = useMatches({
@@ -30,7 +32,7 @@ export function RetainedProjectViews({
       matches.find(
         (match) =>
           match.routeId ===
-          "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+          "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
       )
   })
   const [lastBacklog, setLastBacklog] = useState(backlog?.search)

@@ -17,7 +17,7 @@ const SprintRouteSearchSchema = TicketListQuery.pipe(
 type SprintRouteSearch = typeof SprintRouteSearchSchema.Type
 
 export const Route = createFileRoute(
-  "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 )({
   component: () => null,
   validateSearch: Schema.toStandardSchemaV1(SprintRouteSearchSchema),
