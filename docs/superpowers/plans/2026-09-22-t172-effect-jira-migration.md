@@ -10,6 +10,43 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-22-t172-effect-jira-migration-design.md`
 
+## Execution status — paused 2026-09-22
+
+Paused at the user's request for continuation on another computer. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is in progress and unreviewed; Tasks 8–14 have not started.** Do not restart completed tasks or treat this branch as release-ready.
+
+- Implementation branch: `codex/T-172-effect-workflow`.
+- Pinned original base: `994455a26be958db47826c7425efedfdf84aea90`; design/plan restored in `4d06422f`.
+- Last reviewed implementation commit: `875ae6afc73d8c9b1b30ebf7ba234ed509732a08`.
+- Per-plan ledger, preflight table, rulings, briefs, reports and review evidence: `.superpowers/sdd/2026-09-22-t172-effect-jira-migration/`. This directory is Git-ignored and must travel with the handoff archive; a branch checkout alone does not include it.
+- Nothing has been pushed, merged or published. Original checkout and unrelated user-owned files remain untouched.
+
+| Task | Status | Reviewed commit range |
+| --- | --- | --- |
+| 1. Workflow contracts and memory runtime | Complete; review fix verified | `4d06422f..3d23bd5a` |
+| 2. Hidden-project visibility barrier | Complete; two review fix rounds verified | `3d23bd5a..dc023159` |
+| 3. Fenced projection and start handshake | Complete; review fix verified | `dc023159..43e1bf75` |
+| 4. Artifact store and manifest v2 | Complete; review approved | `43e1bf75..1418e791` |
+| 5. One-page Jira client | Complete; review fix verified | `1418e791..2c78bfdf` |
+| 6. Durable scan and configuration pause | Complete; review fix verified | `2c78bfdf..875ae6af` |
+| 7. Drafts and durable commands | In progress; uncommitted, unreviewed edits preserved separately | Resume from `875ae6af` |
+| 8. Immutable publication plan | Not started | — |
+| 9. Hidden materialization | Not started | — |
+| 10. Atomic publication | Not started | — |
+| 11. Cleanup and SQL runtime cutover | Not started | — |
+| 12. Wizard drafts and polling | Not started | — |
+| 13. Disposable browser harness | Not started | — |
+| 14. Release gates and branch cleanup | Not started | — |
+
+### Resume at Task 7
+
+Restore the handoff's `task-7-wip.patch` and SDD workspace before continuing. Preserved partial files: `MigrationProjection.ts`, `MigrationProjection.test.ts`, `Migrations.ts`, and new `Migrations.commands.test.ts`, all under `packages/backend/src/Jira/`. The latest saved focused run has 11 passing tests, including a real shared-PgClient SQL transaction/signal rollback test; this is partial evidence, not Task 7 completion. The previous implementer was interrupted before a final report, commit, full checks or independent review.
+
+Read `pause-handoff.md`, `task-7-context.md`, `task-7-rulings.md`, `task-7-protocol-preflight.md`, and `publication-protocol-rulings.md` in the restored SDD workspace. Resume Task 7 with a replacement implementer carrying the existing edits; follow its remaining TDD steps, commit boundary and independent review. Do not blindly apply the original command samples: the recorded amendments define current-gate routing, accepted configuration snapshots and atomic CAS/deferred submission. Deferred minors remain in the ledger for final whole-branch review.
+
+A separate, unfinished read-only investigation found that `Workflow.interrupt` does not itself drain active storage writes. Its observations and unapproved options are in `cleanup-write-boundary-notes.md`; resolve that Task 9/11 boundary before implementation. Tombstones or a new storage protocol are **not approved or implemented** by these notes.
+
+User authorization permits autonomous decisions within this migration; record every ruling. No push, merge, publication or shared-branch writes without approval. Never use the preserved preview database/bucket. Task 12 requires `react-useeffect`; Tasks 13–14 require `browser:control-in-app-browser`; final verification, most-capable whole-branch review and finishing-a-development-branch are still outstanding.
+
 ## Global Constraints
 
 - Begin implementation from PR 235 head `origin/feat/T-172-migrate-a-jira-cloud-project-into-projectproject` at `994455a26be958db47826c7425efedfdf84aea90`; the local branch with that name is stale at `463aff48` and must not be reset or overwritten.
@@ -111,7 +148,7 @@ Expected remote revision: `994455a26be958db47826c7425efedfdf84aea90`. Record any
 - Consumes: Existing `JiraMigrationSource`, `JiraMigrationDetail`, and tagged domain errors from the PR branch.
 - Produces: `JiraMigrationWorkflow`, `StartImportSignal`, `RetrySignal`, `startImportDeferred(scanRevision)`, `retryDeferred(failureSequence)`, their stable name helpers, `activityName(parts)`, and small Schema-encoded workflow/activity contracts. `JiraMigrationCleanupWorkflow` is introduced in Task 11.
 
-- [ ] **Step 1: Write contract and replay tests against the memory engine**
+- [x] **Step 1: Write contract and replay tests against the memory engine**
 
 ```ts
 it.effect("replays a completed activity without repeating its effect", () =>
@@ -137,13 +174,13 @@ it.effect("uses a new deferred generation after a retryable failure", () =>
 
 Also assert exact workflow tag, `StartImport/v1/{scanRevision}`, encoded payload round trips, encoded success/failure round trips, and defects are captured by the default workflow behavior.
 
-- [ ] **Step 2: Run the focused test and verify the missing contracts fail**
+- [x] **Step 2: Run the focused test and verify the missing contracts fail**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationWorkflow.test.ts`
 
 Expected: FAIL because `MigrationWorkflow.ts`, stable names, and the workflow layer do not exist.
 
-- [ ] **Step 3: Define the persisted Schemas and stable naming surface**
+- [x] **Step 3: Define the persisted Schemas and stable naming surface**
 
 ```ts
 export const JiraMigrationWorkflowCommand = Schema.Union([
@@ -214,7 +251,7 @@ export const JiraMigrationWorkflowError = JiraMigrationWorkflowFailure
 
 Define explicit Schemas for Activity references and errors. Do not put `Schema.Unknown`, OAuth credentials, response bodies, or bytes in any persisted result.
 
-- [ ] **Step 4: Add a minimal injectable workflow body and Activity constructor**
+- [x] **Step 4: Add a minimal injectable workflow body and Activity constructor**
 
 Create `makeJiraMigrationWorkflow(activities)` so tests can supply bounded fakes. Register one `v1/start` Activity, one deferred pause, and `Workflow.addFinalizer`; return small success data. The lifecycle becomes complete in Tasks 5–10, but Task 1 must prove execute, pause, resume, replay, and finalization with `WorkflowEngine.layerMemory`.
 
@@ -244,13 +281,13 @@ export const makeJiraMigrationWorkflow = (activities: MigrationActivities) =>
   )
 ```
 
-- [ ] **Step 5: Run the workflow contract test and backend typecheck**
+- [x] **Step 5: Run the workflow contract test and backend typecheck**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationWorkflow.test.ts && bun run typecheck`
 
 Expected: PASS with the Activity counter equal to one after replay.
 
-- [ ] **Step 6: Commit the persisted contract boundary**
+- [x] **Step 6: Commit the persisted contract boundary**
 
 ```bash
 git add packages/backend/src/Jira/MigrationWorkflow.ts packages/backend/src/Jira/MigrationActivities.ts packages/backend/src/Jira/MigrationWorkflow.test.ts packages/backend/src/Jira/Blocked.ts
@@ -285,7 +322,7 @@ git commit -m "feat(jira): define durable migration workflow contracts"
 - Consumes: Existing `projectIndex` joins and public authorization helpers.
 - Produces: nullable `projectIndex.publishedAt` and `publishedProject()` returning the Drizzle `isNotNull(projectIndex.publishedAt)` predicate.
 
-- [ ] **Step 1: Add failing public-visibility tests**
+- [x] **Step 1: Add failing public-visibility tests**
 
 Insert one normal row and one `publishedAt: null` row with otherwise valid ownership/membership. Assert the hidden slug is absent from project lists, returns `NotFound` from project lookup and ticket routes, is rejected by authorization, is absent from MCP resources, and is skipped by the index reconciler. Assert migration-internal direct lookup by project ID can still find it.
 
@@ -298,13 +335,13 @@ expect(yield* Effect.exit(projects.get(org.id, "hidden", user.id))).toMatchObjec
 })
 ```
 
-- [ ] **Step 2: Run the visibility tests and verify hidden rows leak**
+- [x] **Step 2: Run the visibility tests and verify hidden rows leak**
 
 Run: `cd packages/backend && bun run test -- src/Layers/Projects.access.test.ts src/Layers/TicketIndex.publication.test.ts src/main.test.ts`
 
 Expected: FAIL because `publishedAt` and the shared visibility predicate do not exist.
 
-- [ ] **Step 3: Add and generate the schema migration**
+- [x] **Step 3: Add and generate the schema migration**
 
 Add `publishedAt` as nullable timestamptz. Backfill existing projects from `createdAt`, then set a database default for normal inserts while keeping the column nullable for migration staging. Change `jira_migration.id` from UUID to text; add `workflowExecutionId`, `workflowAttempt`, `scanRevision`, `failureSequence`, `retainedUntil`, and `cleanupExecutionId`; do not remove lease fields in this task.
 
@@ -316,7 +353,7 @@ SET published_at = created_at
 WHERE published_at IS NULL;
 ```
 
-- [ ] **Step 4: Centralize and apply the public predicate**
+- [x] **Step 4: Centralize and apply the public predicate**
 
 ```ts
 export const publishedProject = () => isNotNull(projectIndex.publishedAt)
@@ -324,13 +361,13 @@ export const publishedProject = () => isNotNull(projectIndex.publishedAt)
 
 Add this predicate to every public query named in the Files section. Keep one explicit migration-internal repository path that selects by hidden project ID and does not use the predicate. Make normal project creation write `publishedAt: now` explicitly so behavior does not depend only on the database default.
 
-- [ ] **Step 5: Run schema, visibility, auth, route, and MCP tests**
+- [x] **Step 5: Run schema, visibility, auth, route, and MCP tests**
 
 Run: `cd packages/backend && bun run test -- src/Layers/Projects.access.test.ts src/Layers/TicketIndex.publication.test.ts src/Layers/Attachments.test.ts src/main.test.ts && bun run typecheck`
 
 Expected: PASS; the hidden project cannot be reached through any public seam.
 
-- [ ] **Step 6: Commit the visibility barrier**
+- [x] **Step 6: Commit the visibility barrier**
 
 ```bash
 git add packages/backend/src/db packages/backend/src/Layers packages/backend/src/auth.ts packages/backend/src/main.ts
@@ -355,7 +392,7 @@ git commit -m "feat(jira): hide unpublished migration projects"
 - Consumes: Task 1 workflow contract and Task 2 projection columns.
 - Produces: `JiraMigrationProjectionShape`, `JiraMigrationProjection`, `ProjectionOwner`, `AttemptFence`, `ensureCreated`, `beginRescan`, `saveConfiguration`, `advance`, `recordFailure`, `claimCleanup`, `releaseCleanup`, `deleteAfterCleanup`, `owned`, `listOwned`, `toDetail`, and `actionsFor`.
 
-- [ ] **Step 1: Write compare-and-set and handshake race tests**
+- [x] **Step 1: Write compare-and-set and handshake race tests**
 
 Cover these concrete cases: handler observes an already-created projection, handler waits while workflow start is delayed, concurrent conflicting sources under one request ID preserve only the engine-accepted source, bounded observation timeout leaves durable work running, repeated create with identical request/source converges, repeated request ID with a different source returns `Conflict`, two rescans from one revision produce one current attempt, a stale attempt cannot change progress, cleanup versus retry has one winner, and a late old-workflow finalizer cannot overwrite the new attempt.
 
@@ -373,13 +410,13 @@ it.effect("fences writes from a superseded workflow", () =>
   }))
 ```
 
-- [ ] **Step 2: Run the focused projection/service tests and verify they fail**
+- [x] **Step 2: Run the focused projection/service tests and verify they fail**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationProjection.test.ts src/Jira/Migrations.test.ts src/Jira/Migrations.actions.test.ts`
 
 Expected: FAIL because mutations still write queue state directly and lack execution fencing.
 
-- [ ] **Step 3: Move all row mapping and state transitions into the projection module**
+- [x] **Step 3: Move all row mapping and state transitions into the projection module**
 
 Use these stable input shapes:
 
@@ -409,7 +446,7 @@ export interface JiraMigrationProjectionShape {
 
 Every update uses a SQL `WHERE` clause matching all fence fields. Treat zero affected rows as stale work, not as permission to retry an unfenced update.
 
-- [ ] **Step 4: Change `JiraMigrations.create` to execute first and converge on the projection**
+- [x] **Step 4: Change `JiraMigrations.create` to execute first and converge on the projection**
 
 ```ts
 const executionId = yield* JiraMigrationWorkflow.execute({ command: createPayload }, {
@@ -430,13 +467,13 @@ With Wouter’s approval on 2026-09-22, the workflow’s first `v1/start` Activi
 
 Keep `JiraMigrationsLive` on the existing production implementation until Task 11. Expose `JiraMigrationsWorkflowLive` as a separately testable layer factory with required `Pick<JiraMigrationsShape, "run" | "cancel" | "discard">` constructor input. Task 7 supplies the real durable commands; Task 3 tests supply explicit operations. Do not reuse unfenced legacy discard, add temporary cleanup execution, or run workflow rows through the old worker. Task 3 owns the complete projection interface and cleanup CAS primitives; Task 11 wires the production workflow and cleanup runtime. This sequencing amendment was approved by Wouter alongside the handshake change.
 
-- [ ] **Step 5: Run projection, actions, handler, and type tests**
+- [x] **Step 5: Run projection, actions, handler, and type tests**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationProjection.test.ts src/Jira/Migrations.test.ts src/Jira/Migrations.actions.test.ts src/Jira/MigrationHandlers.test.ts && bun run typecheck`
 
 Expected: PASS; the public detail/actions shape is unchanged.
 
-- [ ] **Step 6: Commit the fenced projection**
+- [x] **Step 6: Commit the fenced projection**
 
 ```bash
 git add packages/backend/src/Jira/MigrationProjection.ts packages/backend/src/Jira/MigrationProjection.test.ts packages/backend/src/Jira/Migrations.ts packages/backend/src/Jira/Migrations.test.ts packages/backend/src/Jira/Migrations.actions.test.ts packages/backend/src/Jira/MigrationWorkflow.ts packages/backend/src/Jira/MigrationWorkflow.test.ts packages/backend/src/Jira/MigrationActivities.ts packages/backend/src/Jira/MigrationHandlers.test.ts docs/superpowers/specs/2026-09-22-t172-effect-jira-migration-design.md docs/superpowers/plans/2026-09-22-t172-effect-jira-migration.md
@@ -458,7 +495,7 @@ git commit -m "refactor(jira): make migrations a fenced workflow projection"
 - Consumes: Existing `OrgStorage` resolution and `S3Storage` object primitives.
 - Produces: `JiraArtifactRef`, `JiraMigrationArtifactsShape`, deterministic `artifactKey`, `writeJson`, `readJson`, `verify`, `listPrefix`, `deletePrefix`, and `JIRA_MIGRATION_MANIFEST_VERSION = 2`.
 
-- [ ] **Step 1: Write artifact identity, checksum, pagination, deletion, and manifest tests**
+- [x] **Step 1: Write artifact identity, checksum, pagination, deletion, and manifest tests**
 
 Assert identical logical coordinates overwrite the same key, changed bytes change the SHA-256 checksum, list follows every `ListObjectsV2` continuation token, delete removes every page, and manifest v2 round-trips every required category. Assert raw response bodies do not appear in the Activity result fixture.
 
@@ -472,13 +509,13 @@ expect(artifactKey({
 })).toBe("migrations/jira/m1/scan-3/raw/issues/page-0004-abc123.json")
 ```
 
-- [ ] **Step 2: Run artifact/storage/manifest tests and verify they fail**
+- [x] **Step 2: Run artifact/storage/manifest tests and verify they fail**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationArtifacts.test.ts src/Jira/Manifest.test.ts src/Layers/S3Storage.test.ts`
 
 Expected: FAIL because prefix listing and artifact-backed manifest v2 do not exist.
 
-- [ ] **Step 3: Extend the S3 service with paginated key listing**
+- [x] **Step 3: Extend the S3 service with paginated key listing**
 
 ```ts
 readonly listObjectKeys: (
@@ -489,7 +526,7 @@ readonly listObjectKeys: (
 
 Implement AWS `ListObjectsV2` pagination through Effect v4's `Stream.paginate`; reject a repeated continuation token with `S3Unavailable` instead of looping. Implement `deletePrefix` in `MigrationArtifacts` as bounded deletion over the returned exact keys.
 
-- [ ] **Step 4: Implement encoded artifact references and manifest v2**
+- [x] **Step 4: Implement encoded artifact references and manifest v2**
 
 ```ts
 export const JiraArtifactRef = Schema.Struct({
@@ -502,7 +539,7 @@ export const JiraArtifactRef = Schema.Struct({
 
 Manifest v2 stores artifact references and normalized records, not a `rawPages: Unknown[]` blob. Include source/project metadata, visible account caveat, field definitions, workflow metadata, issues, comments, changelogs, worklogs, watchers, votes, attachments, parents/subtasks, epics, sprints, versions/releases, rank, typed links, restrictions, product/app detection, custom fields, coverage, warnings, and schema/converter versions. Normalize every stable-ID collection before encoding.
 
-- [ ] **Step 5: Add corruption and secret-safe reference assertions**
+- [x] **Step 5: Add corruption and secret-safe reference assertions**
 
 Make `readJson` verify byte size and SHA-256 before Schema decoding. Add a fixture whose artifact contains a unique sensitive marker and assert workflow-facing references contain only key, content type, size, and checksum—not the marker or raw JSON.
 
@@ -520,7 +557,7 @@ const corrupted = yield* Effect.result(
 expect(corrupted._tag).toBe("Failure")
 ```
 
-- [ ] **Step 6: Run tests and commit the artifact contract**
+- [x] **Step 6: Run tests and commit the artifact contract**
 
 Run: `cd packages/backend && bun run test -- src/Jira/MigrationArtifacts.test.ts src/Jira/Manifest.test.ts src/Layers/S3Storage.test.ts && bun run typecheck`
 
@@ -541,7 +578,7 @@ git commit -m "feat(jira): persist versioned migration artifacts"
 - Consumes: Existing credential refresh and Jira transport services.
 - Produces: `JiraCursorPage<A>`, `JiraOffsetPage<A>`, `JiraRateLimited`, `JiraTransientFailure`, and one-request methods `searchIssuesPage`, `commentsPage`, `worklogsPage`, `changelogsPage`, `componentsPage`, `versionsPage`, `boardsPage`, `sprintsPage`, and `sprintIssuesPage`.
 
-- [ ] **Step 1: Write client boundary tests**
+- [x] **Step 1: Write client boundary tests**
 
 Assert each page method makes one Jira request, a `401` permits exactly one forced credential refresh, a second `401` becomes reconnect-required, network/`5xx` becomes a typed transient failure for the Activity layer, `429` is never slept or looped inside the client, and repeated cursors fail. Cover valid `Retry-After` delta seconds and HTTP dates, negative values, malformed values, and values above the maximum delay.
 
@@ -556,13 +593,13 @@ if (result._tag === "Failure") {
 expect(transport.requests).toHaveLength(1)
 ```
 
-- [ ] **Step 2: Run the client test and verify the manual loop fails expectations**
+- [x] **Step 2: Run the client test and verify the manual loop fails expectations**
 
 Run: `cd packages/backend && bun run test -- src/Jira/Client.test.ts`
 
 Expected: FAIL because the PR client owns pagination/sleep/retry loops and lacks the required typed failures.
 
-- [ ] **Step 3: Add decoded page and failure contracts**
+- [x] **Step 3: Add decoded page and failure contracts**
 
 ```ts
 export interface JiraCursorPage<A> {
@@ -586,7 +623,7 @@ export class JiraRateLimited extends Data.TaggedError("JiraRateLimited")<{
 
 Cap accepted `Retry-After` at the explicit module constant `MAX_RETRY_AFTER_MILLIS = 86_400_000`. Missing, malformed, negative, or larger values become `JiraTransientFailure({ reason: "invalid_retry_after" })`; they do not silently become zero or an unbounded wait.
 
-- [ ] **Step 4: Refactor transport to perform one logical request**
+- [x] **Step 4: Refactor transport to perform one logical request**
 
 Keep credential lookup immediately before every request and token rotation persistence after refresh. Return timeout/network/`5xx` as `JiraTransientFailure`; the Activity in Task 6 owns the bounded Effect `Schedule`. Keep convenience aggregate methods needed by site/project selection, but implement their pagination with Effect v4's `Stream.paginate` and repeated-cursor detection.
 
@@ -599,13 +636,13 @@ const searchIssuesPage = (input: SearchIssuesPageInput) =>
   }).pipe(Effect.map(toCursorPage))
 ```
 
-- [ ] **Step 5: Run client tests and typecheck**
+- [x] **Step 5: Run client tests and typecheck**
 
 Run: `cd packages/backend && bun run test -- src/Jira/Client.test.ts src/Jira/Credentials.test.ts && bun run typecheck`
 
 Expected: PASS; a `429` exits after one request with a validated delay.
 
-- [ ] **Step 6: Commit the client boundary**
+- [x] **Step 6: Commit the client boundary**
 
 ```bash
 git add packages/backend/src/Jira/ClientSchemas.ts packages/backend/src/Jira/Client.ts packages/backend/src/Jira/Client.test.ts packages/backend/src/Jira/Blocked.ts
@@ -632,7 +669,7 @@ git commit -m "refactor(jira): expose one-page client operations"
 - Consumes: Task 3 `AttemptFence`, Task 4 artifact store, Task 5 one-page client.
 - Produces: `JiraScanPageInput`, `JiraScanPageResult`, `makeScanPageActivity`, `scanPageActivityName`, `scanSnapshot`, and the workflow transition to `needs_configuration` followed by `StartImport/v1/{scanRevision}`.
 
-- [ ] **Step 1: Add failing scan replay, pagination, concurrency, and rate-limit tests**
+- [x] **Step 1: Add failing scan replay, pagination, concurrency, and rate-limit tests**
 
 Cover a successful multi-page issue scan, an issue with multi-page comments/changelogs/worklogs, bounded dependent-collection concurrency, a repeated Jira cursor, a backend restart after page two, an exact valid `Retry-After`, and exhausted transient failure resumed by `Retry/v1/{failureSequence}`. Assert the fake Jira server sees completed page requests once and the Activity result contains only refs/counts/cursor/warnings.
 
@@ -648,13 +685,13 @@ expect(result).toEqual({
 expect(JSON.stringify(result)).not.toContain("unique-raw-body-marker")
 ```
 
-- [ ] **Step 2: Run scan/workflow tests and verify the monolithic scan fails**
+- [x] **Step 2: Run scan/workflow tests and verify the monolithic scan fails**
 
 Run: `cd packages/backend && bun run test -- src/Jira/Scan.test.ts src/Jira/MigrationWorkflow.test.ts`
 
 Expected: FAIL because page-level Activities and durable retry generations are not wired.
 
-- [ ] **Step 3: Build stable page Activity names and deterministic writes**
+- [x] **Step 3: Build stable page Activity names and deterministic writes**
 
 ```ts
 export const scanPageActivityName = (input: {
@@ -677,7 +714,7 @@ export const scanPageActivityName = (input: {
 
 Each Activity fetches one page with a bounded exponential-backoff-and-jitter Effect `Schedule` for timeout/network/`5xx`, Schema-decodes it, writes raw and normalized JSON to Task 4 keys, fences its progress write, and returns a small encoded `JiraScanPageResult`. Hash opaque cursors before placing them in names; retain the source cursor only inside encoded Activity input. Do not retry `JiraRateLimited` inside the Activity.
 
-- [ ] **Step 4: Compose the full point-in-time scan with Effect Stream**
+- [x] **Step 4: Compose the full point-in-time scan with Effect Stream**
 
 Use `Stream.paginate` for Jira cursor and offset endpoints. Scan the complete manifest-v2 categories from Task 4. Use a named concurrency constant for issue-dependent collections and ensure every nested page has its own Activity. Keep normalization pure in `Scan.ts`; do not make the scanner itself a daemon or database poller.
 
@@ -695,7 +732,7 @@ const dependentPages = Stream.flatMap(
 )
 ```
 
-- [ ] **Step 5: Implement workflow retry loops and the configuration gate**
+- [x] **Step 5: Implement workflow retry loops and the configuration gate**
 
 On `JiraRateLimited`, run `DurableClock.sleep({ name, duration })` with a stable name containing the logical-unit coordinates and `operationTry`, increment `operationTry`, and rerun the same logical unit under a new Activity name. On exhausted transient/storage/markdown failure, atomically record a retryable failure and increment `failureSequence`, await `Retry/v1/{failureSequence}`, clear retention/failure through the same fence, increment `operationTry`, and continue. On missing/invalid authorization, project `reconnect_required` and await that generation's Retry deferred.
 
@@ -723,13 +760,13 @@ yield* projection.advance(fence, scanCompletePatch)
 yield* DurableDeferred.await(startImportDeferred(scanRevision))
 ```
 
-- [ ] **Step 6: Run replay and scan coverage**
+- [x] **Step 6: Run replay and scan coverage**
 
 Run: `cd packages/backend && bun run test -- src/Jira/Scan.test.ts src/Jira/MigrationWorkflow.test.ts src/Jira/MigrationArtifacts.test.ts && bun run typecheck`
 
 Expected: PASS; restart does not repeat completed pages, cursor repetition terminates with a typed failure, and exact rate-limit delay is observed by the test clock.
 
-- [ ] **Step 7: Commit durable scanning**
+- [x] **Step 7: Commit durable scanning**
 
 ```bash
 git add packages/backend/src/Jira/MigrationActivities.ts packages/backend/src/Jira/MigrationWorkflow.ts packages/backend/src/Jira/MigrationProjection.ts packages/backend/src/Jira/Scan.ts packages/backend/src/Jira/Scan.test.ts packages/backend/src/Jira/MigrationWorkflow.test.ts
