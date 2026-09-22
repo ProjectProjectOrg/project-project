@@ -1,14 +1,13 @@
 import { memo, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Link } from "@tanstack/react-router"
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { updateBacklogTicket, type BacklogRequest } from "@/atoms/backlog"
 import { TicketGitChip } from "@/components/TicketGit"
 import { TicketHoverCard } from "@/components/TicketHoverCard"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import type {
   Group,
   Member,
@@ -42,7 +41,7 @@ type RowProps = Readonly<{
 
 function RowImpl(props: RowProps) {
   if (props.onUpdate) {
-    return <RowView {...props} onPatch={props.onUpdate} waiting={false} />
+    return <RowView {...props} onPatch={props.onUpdate} />
   }
   return <BacklogMutatingRow {...props} />
 }
@@ -51,10 +50,7 @@ function BacklogMutatingRow(props: RowProps) {
   const update = useAtomSet(
     updateBacklogTicket({ req: props.req, id: props.ticket.id })
   )
-  const updateState = useAtomValue(
-    updateBacklogTicket({ req: props.req, id: props.ticket.id })
-  )
-  return <RowView {...props} onPatch={update} waiting={updateState.waiting} />
+  return <RowView {...props} onPatch={update} />
 }
 
 function RowView({
@@ -70,11 +66,9 @@ function RowView({
   previewOpen,
   onPreviewPointerEnter,
   onPreviewOpenChange,
-  onPatch,
-  waiting
+  onPatch
 }: RowProps & {
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
 }) {
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
@@ -99,10 +93,7 @@ function RowView({
         >
           <div
             ref={rowElement}
-            className={cn(
-              "relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20",
-              waiting && "animate-pulse"
-            )}
+            className="relative isolate col-span-full grid grid-cols-subgrid items-center gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 [&_button]:relative [&_button]:z-20 [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20"
           >
             <Link
               to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -144,14 +135,8 @@ function RowView({
               ticket={ticket}
               stopPropagation
               onPatch={onPatch}
-              waiting={waiting}
             />
-            <PriorityButton
-              ticket={ticket}
-              stopPropagation
-              onPatch={onPatch}
-              waiting={waiting}
-            />
+            <PriorityButton ticket={ticket} stopPropagation onPatch={onPatch} />
             <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
               <span>{idPrefix}-</span>
               <AnimatePresence initial={false} mode="popLayout">
@@ -184,14 +169,12 @@ function RowView({
                 ticket={ticket}
                 members={members}
                 onPatch={onPatch}
-                waiting={waiting}
                 className="hidden sm:inline-flex"
               />
             </div>
             <TypeButton
               ticket={ticket}
               onPatch={onPatch}
-              waiting={waiting}
               className="hidden sm:inline-flex"
             />
             {showExtraActionsCol && (

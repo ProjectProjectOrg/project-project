@@ -66,7 +66,6 @@ export function TicketPage({
   )
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const updateTicket = useAtomSet(updateTicketDetail(req))
-  const updateTicketState = useAtomValue(updateTicketDetail(req))
   const archiveTicketSet = useAtomSet(archiveTicket(req), {
     mode: "promiseExit"
   })
@@ -129,14 +128,9 @@ export function TicketPage({
           slug={slug}
           ticket={ticket}
           onPatch={updateTicket}
-          waiting={updateTicketState.waiting}
           meta={
             <>
-              <TypeBadgeTrigger
-                ticket={ticket}
-                onPatch={updateTicket}
-                waiting={updateTicketState.waiting}
-              />
+              <TypeBadgeTrigger ticket={ticket} onPatch={updateTicket} />
               {ticket.archivedAt !== null && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Archive className="size-3" strokeWidth={1.75} />
@@ -168,11 +162,7 @@ export function TicketPage({
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:border-border/60 lg:pl-5 lg:[scrollbar-gutter:stable]">
           <MetaRow label={m.tickets_page_meta_priority()}>
-            <PriorityBadgeTrigger
-              ticket={ticket}
-              onPatch={updateTicket}
-              waiting={updateTicketState.waiting}
-            />
+            <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_sprint()}>
             <SprintBadgeTrigger
@@ -186,7 +176,6 @@ export function TicketPage({
               ticket={ticket}
               members={members}
               onPatch={updateTicket}
-              waiting={updateTicketState.waiting}
             />
           </MetaRow>
           <MetaRow label={m.tickets_page_meta_tags()}>
