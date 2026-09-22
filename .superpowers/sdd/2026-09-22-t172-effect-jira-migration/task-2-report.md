@@ -94,3 +94,36 @@ Reviewed every changed query and migration artifact. The predicate accepts an op
 ## Concerns
 
 No Task 2 blocker. Backend typecheck remains nonzero on pre-existing repository diagnostics described above.
+
+## Review round 1 fixes
+
+- `Attachments.resolveForServing` now joins its owning project and requires `published_at` before the membership-or-organization-admin authorization fallback can reach S3 signing.
+- `FigmaLinks.resolveThumbnailUrl` now joins each referencing project and requires publication before authorization or thumbnail signing.
+- The organization attachment library excludes hidden owning projects from items, totals, summaries, visible ticket references, and deletion. A missing project row remains visible so genuine orphaned attachment cleanup continues to work.
+- Added a public HTTP ticket-list regression using `TicketsHandlerLive` and the real `TicketsLive` service. Its project-access adapter delegates to the real SQL-backed `Projects` service; a hidden project returns `404 { "_tag": "NotFound" }`.
+- Added a populated-table migration regression that applies the exact `published_at = created_at` backfill against an isolated database and verifies a later insert receives the database default.
+
+### Review RED
+
+```text
+PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:55432/projectproject_effect_v4_t172 bunx vp test run packages/backend/src/db/projectVisibility.test.ts --no-file-parallelism
+Test Files  1 failed (1)
+Tests  2 failed | 3 passed (5)
+```
+
+The pre-fix SQL regression received a signed URL for a hidden-only attachment and included hidden attachments in the organization library.
+
+### Review GREEN
+
+```text
+PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:55432/projectproject_effect_v4_t172 bunx vp test run packages/backend/src/db/projectVisibility.test.ts packages/backend/src/Layers/Attachments.test.ts packages/backend/src/Layers/FigmaLinks.test.ts --no-file-parallelism
+Test Files  3 passed (3)
+Tests  139 passed (139)
+```
+
+```text
+bun run --cwd packages/backend typecheck
+exit 1: existing repository Effect suggestions and diagnostics; no TypeScript errors in changed Task 2 files.
+```
+
+The full repository suite was already green before the review round. A subsequent root-suite invocation emitted the known jsdom/SQLite warnings but did not complete within the command collection window; the changed code is covered by the focused green suite above.

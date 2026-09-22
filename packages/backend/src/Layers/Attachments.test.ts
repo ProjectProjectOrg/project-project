@@ -383,9 +383,15 @@ const servingRow = {
 
 const servingDb = Layer.succeed(Db, {
   select: () => ({
-    from: () => ({
-      where: () => ({ limit: () => Effect.succeed([servingRow]) })
-    })
+    from: () => {
+      const query = {
+        innerJoin: () => query,
+        where: () => ({
+          limit: () => Effect.succeed([{ attachment: servingRow }])
+        })
+      }
+      return query
+    }
   })
 } as never)
 
@@ -479,24 +485,41 @@ const deletionHarness = (input: {
     Layer.provide(
       Layer.succeed(Db, {
         select: (shape?: Record<string, unknown>) => ({
-          from: (table: unknown) => ({
-            where: (cond: unknown) => {
-              void cond
-              const isSharerQuery = shape !== undefined
-              return {
-                limit: () =>
-                  Effect.succeed(
-                    table === projectImageReference
-                      ? input.imageSlot
-                        ? [{ slot: input.imageSlot }]
-                        : []
-                      : isSharerQuery
-                        ? (input.sharers ?? [])
-                        : [{ ...servingRow, status: input.status }]
-                  )
+          from: (table: unknown) => {
+            let joined = false
+            const query = {
+              leftJoin: () => {
+                joined = true
+                return query
+              },
+              where: (cond: unknown) => {
+                void cond
+                const isSharerQuery = shape !== undefined && "id" in shape
+                return {
+                  limit: () =>
+                    Effect.succeed(
+                      table === projectImageReference
+                        ? input.imageSlot
+                          ? [{ slot: input.imageSlot }]
+                          : []
+                        : isSharerQuery
+                          ? (input.sharers ?? [])
+                          : joined
+                            ? [
+                                {
+                                  attachment: {
+                                    ...servingRow,
+                                    status: input.status
+                                  }
+                                }
+                              ]
+                            : [{ ...servingRow, status: input.status }]
+                    )
+                }
               }
             }
-          })
+            return query
+          }
         }),
         delete: () => ({
           where: (cond: unknown) => ({
@@ -654,37 +677,45 @@ const listHarness = (input: {
     Layer.provide(
       Layer.succeed(Db, {
         select: (shape?: Record<string, unknown>) => ({
-          from: () => ({
-            where: (cond: unknown) => {
-              capture.where = cond
-              const isReferenceQuery =
-                shape !== undefined && "attachmentId" in shape
-              const isSummaryQuery = shape !== undefined && "objectKey" in shape
-              const settled = Effect.succeed(
-                isReferenceQuery
-                  ? (input.references ?? [])
-                  : isSummaryQuery
-                    ? rows
-                    : [{ total: input.total ?? 0 }]
-              ) as unknown as Record<string, unknown>
-              settled["orderBy"] = () => ({
-                limit: (n: number) => {
-                  capture.limit = n
-                  return {
-                    offset: (o: number) => {
-                      capture.offset = o
-                      return Effect.succeed(rows)
+          from: () => {
+            const query = {
+              leftJoin: () => query,
+              innerJoin: () => query,
+              where: (cond: unknown) => {
+                capture.where = cond
+                const isReferenceQuery =
+                  shape !== undefined && "attachmentId" in shape
+                const isSummaryQuery =
+                  shape !== undefined && "objectKey" in shape
+                const settled = Effect.succeed(
+                  isReferenceQuery
+                    ? (input.references ?? [])
+                    : isSummaryQuery
+                      ? rows
+                      : [{ total: input.total ?? 0 }]
+                ) as unknown as Record<string, unknown>
+                settled["orderBy"] = () => ({
+                  limit: (n: number) => {
+                    capture.limit = n
+                    return {
+                      offset: (o: number) => {
+                        capture.offset = o
+                        return Effect.succeed(
+                          rows.map((row) => ({ attachment: row }))
+                        )
+                      }
                     }
                   }
+                })
+                settled["groupBy"] = (grouped: unknown) => {
+                  capture.groupBy = grouped
+                  return Effect.succeed(rows)
                 }
-              })
-              settled["groupBy"] = (grouped: unknown) => {
-                capture.groupBy = grouped
-                return Effect.succeed(rows)
+                return settled
               }
-              return settled
             }
-          })
+            return query
+          }
         })
       } as never)
     ),

@@ -33,6 +33,7 @@ import {
 import {
   attachmentIndex,
   attachmentReference,
+  projectIndex,
   projectImageReference
 } from "../db/schema"
 import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
@@ -115,6 +116,9 @@ export const AttachmentsLive = Layer.effect(
       ticketId: row.ticketId,
       tickets
     })
+
+    const libraryAttachmentIsVisible = () =>
+      or(publishedProject(projectIndex), isNull(projectIndex.slug))!
 
     const prepare: AttachmentsShape["prepare"] = (
       orgSlug,
@@ -347,18 +351,23 @@ export const AttachmentsLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const rows = yield* db
-          .select()
+          .select({ attachment: attachmentIndex })
           .from(attachmentIndex)
+          .innerJoin(
+            projectIndex,
+            eq(projectIndex.slug, attachmentIndex.projectSlug)
+          )
           .where(
             and(
               eq(attachmentIndex.id, attachmentId),
-              eq(attachmentIndex.orgSlug, orgSlug)
+              eq(attachmentIndex.orgSlug, orgSlug),
+              publishedProject(projectIndex)
             )
           )
           .limit(1)
           .pipe(Effect.orDie)
 
-        const row = rows[0]
+        const row = rows[0]?.attachment
         if (!row || !isServableStatus(row.status)) {
           return yield* new NotFound()
         }
@@ -435,9 +444,13 @@ export const AttachmentsLive = Layer.effect(
         const where = and(...conditions)
 
         const items = yield* db
-          .select()
+          .select({ attachment: attachmentIndex })
           .from(attachmentIndex)
-          .where(where)
+          .leftJoin(
+            projectIndex,
+            eq(projectIndex.slug, attachmentIndex.projectSlug)
+          )
+          .where(and(where, libraryAttachmentIsVisible()))
           .orderBy(order(column), order(attachmentIndex.id))
           .limit(limit)
           .offset(attachmentPageOffset(params.page, limit))
@@ -453,10 +466,17 @@ export const AttachmentsLive = Layer.effect(
                   ticketId: attachmentReference.ticketId
                 })
                 .from(attachmentReference)
+                .innerJoin(
+                  projectIndex,
+                  eq(projectIndex.slug, attachmentReference.projectSlug)
+                )
                 .where(
-                  inArray(
-                    attachmentReference.attachmentId,
-                    items.map((row) => row.id)
+                  and(
+                    inArray(
+                      attachmentReference.attachmentId,
+                      items.map((row) => row.attachment.id)
+                    ),
+                    publishedProject(projectIndex)
                   )
                 )
                 .pipe(Effect.orDie)
@@ -475,12 +495,16 @@ export const AttachmentsLive = Layer.effect(
         const counted = yield* db
           .select({ total: sql<number>`count(*)::int` })
           .from(attachmentIndex)
-          .where(where)
+          .leftJoin(
+            projectIndex,
+            eq(projectIndex.slug, attachmentIndex.projectSlug)
+          )
+          .where(and(where, libraryAttachmentIsVisible()))
           .pipe(Effect.orDie)
 
         return {
-          items: items.map((row) =>
-            toAttachmentRow(row, byAttachment.get(row.id) ?? [])
+          items: items.map(({ attachment }) =>
+            toAttachmentRow(attachment, byAttachment.get(attachment.id) ?? [])
           ),
           total: Number(counted[0]?.total ?? 0)
         }
@@ -500,7 +524,16 @@ export const AttachmentsLive = Layer.effect(
             status: attachmentIndex.status
           })
           .from(attachmentIndex)
-          .where(eq(attachmentIndex.orgSlug, orgSlug))
+          .leftJoin(
+            projectIndex,
+            eq(projectIndex.slug, attachmentIndex.projectSlug)
+          )
+          .where(
+            and(
+              eq(attachmentIndex.orgSlug, orgSlug),
+              libraryAttachmentIsVisible()
+            )
+          )
           .pipe(Effect.orDie)
 
         return summarizeAttachments({ rows })
@@ -515,18 +548,23 @@ export const AttachmentsLive = Layer.effect(
         yield* requireOrgAdmin(currentOrg, orgSlug, userId)
 
         const rows = yield* db
-          .select()
+          .select({ attachment: attachmentIndex })
           .from(attachmentIndex)
+          .leftJoin(
+            projectIndex,
+            eq(projectIndex.slug, attachmentIndex.projectSlug)
+          )
           .where(
             and(
               eq(attachmentIndex.id, attachmentId),
-              eq(attachmentIndex.orgSlug, orgSlug)
+              eq(attachmentIndex.orgSlug, orgSlug),
+              libraryAttachmentIsVisible()
             )
           )
           .limit(1)
           .pipe(Effect.orDie)
 
-        const row = rows[0]
+        const row = rows[0]?.attachment
         if (!row) return yield* new NotFound()
         if (!isAttachmentDeletable(row)) return yield* new Forbidden()
         const bannerRefs = yield* db

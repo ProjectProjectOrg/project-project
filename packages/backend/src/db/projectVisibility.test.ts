@@ -1,24 +1,47 @@
 import { randomUUID } from "node:crypto"
 import { PgClient } from "@effect/sql-pg"
+import {
+  AppApi,
+  Authentication,
+  CurrentUser,
+  NotFound
+} from "@projectproject/shared"
+import { HttpRouter, HttpServer } from "effect/unstable/http"
+import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
+import * as Context from "effect/Context"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Redacted from "effect/Redacted"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { DbLive } from "../Layers/Db"
+import { AttachmentsLive } from "../Layers/Attachments"
+import { FigmaLinksLive } from "../Layers/FigmaLinks"
 import { ProjectsLive } from "../Layers/Projects"
 import { TicketIndexLive } from "../Layers/TicketIndex"
+import { TicketsLive } from "../Layers/Tickets"
 import { BannerPlaceholders } from "../Services/BannerPlaceholders"
+import { Attachments } from "../Services/Attachments"
+import { Comments } from "../Services/Comments"
+import { CurrentOrg } from "../Services/CurrentOrg"
+import { Db } from "../Services/Db"
+import { Figma } from "../Services/Figma"
+import { FigmaIntegrations } from "../Services/FigmaIntegrations"
 import { GitHub } from "../Services/GitHub"
+import { OrgStorage } from "../Services/OrgStorage"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import { Projects } from "../Services/Projects"
 import { TicketDocs } from "../Services/TicketDocs"
 import { TicketIndex } from "../Services/TicketIndex"
 import { Users } from "../Services/Users"
+import { FigmaLinks } from "../Services/FigmaLinks"
+import { Groups } from "../Services/Groups"
+import { S3Storage } from "../Services/S3Storage"
 import * as TicketDocumentLock from "../ticketDocumentLock"
+import { TicketsHandlerLive } from "../handlers/tickets"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -31,6 +54,58 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   let projectsRuntime: ManagedRuntime.ManagedRuntime<Projects, never>
   let ticketIndexRuntime: ManagedRuntime.ManagedRuntime<TicketIndex, never>
   let reconciledSlugs: ReadonlyArray<string> = []
+
+  const dbLayer = () =>
+    DbLive.pipe(
+      Layer.provideMerge(
+        PgClient.layer({ url: Redacted.make(databaseUrl!), maxConnections: 1 })
+      )
+    )
+
+  const ownerOrg = Layer.succeed(CurrentOrg, {
+    resolve: () =>
+      Effect.succeed({
+        organizationId,
+        orgSlug: `visibility-${organizationId}`,
+        role: "owner" as const
+      })
+  })
+
+  const apiRouter = Layer.effect(
+    HttpRouter.HttpRouter,
+    Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
+  )
+
+  const nonMemberProjects = Layer.succeed(Projects, {
+    requireMember: () => Effect.fail(new NotFound())
+  } as never)
+
+  const storage = Layer.succeed(OrgStorage, {
+    requireConnection: () =>
+      Effect.succeed({
+        endpoint: "https://storage.example.test",
+        bucket: "visibility",
+        region: "auto",
+        keyPrefix: null,
+        forcePathStyle: true,
+        accessKeyId: "key",
+        secretAccessKey: "secret"
+      })
+  } as never)
+
+  const insertAttachment = (id: string, projectSlug: string, status = "live") =>
+    pool.query(
+      "insert into attachment_index (id, organization_id, org_slug, project_slug, ticket_id, object_key, filename, content_type, byte_size, status, uploaded_by) values ($1, $2, $3, $4, 'T-1', $5, 'image.png', 'image/png', 10, $6, $7)",
+      [
+        id,
+        organizationId,
+        `visibility-${organizationId}`,
+        projectSlug,
+        `visibility/${id}.png`,
+        status,
+        userId
+      ]
+    )
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -169,6 +244,67 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     ).rejects.toMatchObject({ _tag: "NotFound" })
   })
 
+  it("returns HTTP 404 for the public hidden-project ticket list route", async () => {
+    const ticketsGroup = AppApi.groups.tickets
+    const projects = Layer.succeed(Projects, {
+      requireMember: (orgSlug: string, memberId: string, slug: string) =>
+        Effect.tryPromise({
+          try: () =>
+            projectsRuntime.runPromise(
+              Effect.flatMap(Projects, (service) =>
+                service.requireMember(orgSlug, memberId, slug)
+              )
+            ),
+          catch: (error) => error as NotFound
+        }).pipe(Effect.mapError(() => new NotFound()))
+    } as never)
+    const tickets = TicketsLive.pipe(
+      Layer.provide(Layer.succeed(TicketDocs, {} as never)),
+      Layer.provide(projects),
+      Layer.provide(Layer.succeed(GitHub, {} as never)),
+      Layer.provide(Layer.succeed(Groups, {} as never)),
+      Layer.provide(Layer.succeed(Comments, {} as never)),
+      Layer.provide(Layer.succeed(Attachments, {} as never)),
+      Layer.provide(Layer.succeed(FigmaLinks, {} as never)),
+      Layer.provide(Layer.succeed(Users, {} as never)),
+      Layer.provide(Layer.succeed(Db, {} as never)),
+      Layer.provide(Layer.succeed(TicketIndex, {} as never)),
+      Layer.provideMerge(TicketDocumentLock.layer)
+    )
+    const api = HttpApiBuilder.layer(
+      HttpApi.make(AppApi.identifier).add(ticketsGroup)
+    ).pipe(
+      Layer.provide(TicketsHandlerLive),
+      Layer.provide(tickets),
+      Layer.provide(ownerOrg),
+      Layer.provide(
+        Layer.succeed(Authentication, {
+          sessionCookie: (httpEffect) =>
+            Effect.provideService(httpEffect, CurrentUser, {
+              id: userId
+            } as never)
+        })
+      ),
+      Layer.provide(apiRouter)
+    )
+    const { handler, dispose } = HttpRouter.toWebHandler(
+      api.pipe(Layer.provideMerge(HttpServer.layerServices))
+    )
+    try {
+      const response = await handler(
+        new Request(
+          `http://localhost/api/orgs/visibility-${organizationId}/projects/hidden/tickets`,
+          { headers: { Cookie: "better-auth.session_token=test" } }
+        ),
+        Context.empty() as never
+      )
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({ _tag: "NotFound" })
+    } finally {
+      void dispose()
+    }
+  })
+
   it("skips unpublished projects during index reconciliation while direct migration lookup retains them", async () => {
     const summary = await ticketIndexRuntime.runPromise(
       Effect.flatMap(TicketIndex, (index) => index.reconcileAllProjects())
@@ -183,5 +319,209 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     ])
     expect(reconciledSlugs).toEqual(["published"])
     expect(hidden.rows).toEqual([{ id: hiddenId }])
+  })
+
+  it("keeps hidden-only attachment and thumbnail resources from reaching object signing", async () => {
+    const attachmentId = `hidden-attachment-${randomUUID()}`
+    const linkId = `hidden-figma-${randomUUID()}`
+    await insertAttachment(attachmentId, "hidden")
+    await pool.query(
+      "insert into figma_link_index (id, organization_id, org_slug, project_slug, file_key, node_id, kind, thumbnail_key) values ($1, $2, $3, 'hidden', 'file-key', null, 'design', 'visibility/thumbnail.png')",
+      [linkId, organizationId, `visibility-${organizationId}`]
+    )
+    await pool.query(
+      "insert into figma_reference (link_id, org_slug, project_slug, ticket_id) values ($1, $2, 'hidden', 'T-1')",
+      [linkId, `visibility-${organizationId}`]
+    )
+
+    let attachmentSigns = 0
+    const attachments = await Effect.runPromise(
+      Attachments.pipe(
+        Effect.flatMap((service) =>
+          Effect.exit(
+            service.resolveForServing(
+              `visibility-${organizationId}`,
+              attachmentId,
+              userId
+            )
+          )
+        ),
+        Effect.provide(
+          AttachmentsLive.pipe(
+            Layer.provide(dbLayer()),
+            Layer.provide(ownerOrg),
+            Layer.provide(storage),
+            Layer.provide(nonMemberProjects),
+            Layer.provide(
+              Layer.succeed(S3Storage, {
+                presignGet: () =>
+                  Effect.sync(() => {
+                    attachmentSigns += 1
+                    return "https://signed.example/attachment"
+                  })
+              } as never)
+            )
+          )
+        )
+      )
+    )
+
+    let thumbnailSigns = 0
+    const thumbnails = await Effect.runPromise(
+      FigmaLinks.pipe(
+        Effect.flatMap((service) =>
+          Effect.exit(
+            service.resolveThumbnailUrl(
+              `visibility-${organizationId}`,
+              userId,
+              linkId
+            )
+          )
+        ),
+        Effect.provide(
+          FigmaLinksLive.pipe(
+            Layer.provide(dbLayer()),
+            Layer.provide(ownerOrg),
+            Layer.provide(storage),
+            Layer.provide(nonMemberProjects),
+            Layer.provide(Layer.succeed(Figma, {} as never)),
+            Layer.provide(Layer.succeed(FigmaIntegrations, {} as never)),
+            Layer.provide(
+              Layer.succeed(S3Storage, {
+                presignGet: () =>
+                  Effect.sync(() => {
+                    thumbnailSigns += 1
+                    return "https://signed.example/thumbnail"
+                  })
+              } as never)
+            )
+          )
+        )
+      )
+    )
+
+    expect(attachments).toMatchObject({ _tag: "Failure" })
+    expect(thumbnails).toMatchObject({ _tag: "Failure" })
+    expect(attachmentSigns).toBe(0)
+    expect(thumbnailSigns).toBe(0)
+  })
+
+  it("shows published and orphaned attachment library records while excluding hidden project data", async () => {
+    const publishedAttachment = `published-attachment-${randomUUID()}`
+    const hiddenAttachment = `hidden-attachment-${randomUUID()}`
+    const orphanedAttachment = `orphaned-attachment-${randomUUID()}`
+    await insertAttachment(publishedAttachment, "published")
+    await insertAttachment(hiddenAttachment, "hidden")
+    await insertAttachment(orphanedAttachment, "deleted-project", "orphaned")
+    await pool.query(
+      "insert into attachment_reference (attachment_id, org_slug, project_slug, ticket_id) values ($1, $2, 'published', 'T-1'), ($1, $2, 'hidden', 'T-2')",
+      [publishedAttachment, `visibility-${organizationId}`]
+    )
+
+    const result = await Effect.runPromise(
+      Attachments.pipe(
+        Effect.flatMap((service) =>
+          Effect.all({
+            page: service.listForOrg(
+              `visibility-${organizationId}`,
+              userId,
+              {}
+            ),
+            summary: service.summarizeForOrg(
+              `visibility-${organizationId}`,
+              userId
+            )
+          })
+        ),
+        Effect.provide(
+          AttachmentsLive.pipe(
+            Layer.provide(dbLayer()),
+            Layer.provide(ownerOrg),
+            Layer.provide(storage),
+            Layer.provide(nonMemberProjects),
+            Layer.provide(Layer.succeed(S3Storage, {} as never))
+          )
+        )
+      )
+    )
+
+    expect(result.page.items.map((item) => item.id).sort()).toEqual(
+      [publishedAttachment, orphanedAttachment].sort()
+    )
+    expect(
+      result.page.items.find((item) => item.id === publishedAttachment)?.tickets
+    ).toEqual([{ projectSlug: "published", ticketId: "T-1" }])
+    expect(result.summary.count).toBe(2)
+  })
+
+  it("refuses to delete a hidden-project attachment from the organization library", async () => {
+    const attachmentId = `hidden-delete-${randomUUID()}`
+    await insertAttachment(attachmentId, "hidden")
+    let deletedObjects = 0
+    const result = await Effect.runPromise(
+      Attachments.pipe(
+        Effect.flatMap((service) =>
+          Effect.exit(
+            service.deleteForOrg(
+              `visibility-${organizationId}`,
+              attachmentId,
+              userId
+            )
+          )
+        ),
+        Effect.provide(
+          AttachmentsLive.pipe(
+            Layer.provide(dbLayer()),
+            Layer.provide(ownerOrg),
+            Layer.provide(storage),
+            Layer.provide(nonMemberProjects),
+            Layer.provide(
+              Layer.succeed(S3Storage, {
+                deleteObject: () =>
+                  Effect.sync(() => {
+                    deletedObjects += 1
+                  })
+              } as never)
+            )
+          )
+        )
+      )
+    )
+
+    expect(result).toMatchObject({ _tag: "Failure" })
+    expect(deletedObjects).toBe(0)
+    expect(
+      await pool.query("select id from attachment_index where id = $1", [
+        attachmentId
+      ])
+    ).toMatchObject({ rowCount: 1 })
+  })
+
+  it("backfills existing projects from created_at and defaults newly inserted projects to published", async () => {
+    const legacySlug = `legacy-${randomUUID()}`
+    const defaultSlug = `default-${randomUUID()}`
+    const createdAt = "2024-01-02T03:04:05.000Z"
+    await pool.query(
+      "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at, published_at) values ($1, $2, $3, 'LEGACY', 'Legacy', 'folder', '#3b82f6', $4, $5, null)",
+      [randomUUID(), legacySlug, organizationId, userId, createdAt]
+    )
+    await pool.query(
+      "update project_index set published_at = created_at where published_at is null"
+    )
+    await pool.query(
+      "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by) values ($1, $2, $3, 'DEFAULT', 'Default', 'folder', '#3b82f6', $4)",
+      [randomUUID(), defaultSlug, organizationId, userId]
+    )
+    const rows = await pool.query(
+      "select slug, created_at, published_at from project_index where slug = any($1)",
+      [[legacySlug, defaultSlug]]
+    )
+
+    expect(
+      rows.rows.find((row) => row.slug === legacySlug)?.published_at
+    ).toEqual(rows.rows.find((row) => row.slug === legacySlug)?.created_at)
+    expect(
+      rows.rows.find((row) => row.slug === defaultSlug)?.published_at
+    ).not.toBeNull()
   })
 })

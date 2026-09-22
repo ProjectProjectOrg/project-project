@@ -14,7 +14,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { ulid } from "ulid"
-import { figmaLinkIndex, figmaReference } from "../db/schema"
+import { figmaLinkIndex, figmaReference, projectIndex } from "../db/schema"
 import { publishedProject } from "../db/projectVisibility"
 import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
@@ -752,10 +752,15 @@ export const FigmaLinksLive = Layer.effect(
             figmaReference,
             eq(figmaReference.linkId, figmaLinkIndex.id)
           )
+          .innerJoin(
+            projectIndex,
+            eq(projectIndex.slug, figmaReference.projectSlug)
+          )
           .where(
             and(
               eq(figmaLinkIndex.id, linkId),
-              eq(figmaLinkIndex.orgSlug, orgSlug)
+              eq(figmaLinkIndex.orgSlug, orgSlug),
+              publishedProject(projectIndex)
             )
           )
           .pipe(Effect.orDie)
