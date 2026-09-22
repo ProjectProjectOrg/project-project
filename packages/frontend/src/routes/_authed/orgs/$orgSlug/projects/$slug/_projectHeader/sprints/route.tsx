@@ -3,7 +3,7 @@ import { SprintsLayout } from "@/components/sprints/SprintsLayout"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
-  "/_authed/orgs/$orgSlug/projects/$slug/sprints"
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints"
 )({
   component: SprintsTab,
   loader: () => ({

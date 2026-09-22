@@ -37,7 +37,6 @@ import { backlogSprintSections } from "./sprintGrouping"
 import { ErrorPage } from "@/components/ErrorPage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
-import { cn } from "@/lib/utils"
 import { Row } from "./Row"
 import { SectionList, TicketPagination } from "./SectionList"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
@@ -211,10 +210,7 @@ function SprintSection({
       .join(" – ")
   const selectedStatuses = query.status
   return (
-    <div
-      aria-busy={waiting}
-      className={cn(waiting && "animate-pulse motion-reduce:animate-none")}
-    >
+    <div aria-busy={waiting}>
       <SectionList
         listKey={listKey}
         orgSlug={orgSlug}

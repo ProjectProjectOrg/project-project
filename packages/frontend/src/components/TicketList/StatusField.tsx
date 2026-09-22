@@ -86,14 +86,12 @@ export function StatusBadgeTrigger({
   slug,
   ticket,
   onPatch,
-  waiting,
   className
 }: {
   orgSlug: string
   slug: string
   ticket: Ticket
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
   className?: string
 }) {
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
@@ -112,20 +110,13 @@ export function StatusBadgeTrigger({
             onClick={(e) => e.stopPropagation()}
             aria-label={m.tickets_status_aria_label({ label: statusLabel })}
             className={className}
-            disabled={waiting}
           >
             <Icon
-              className={cn(
-                "size-3.5",
-                meta.className,
-                waiting && "animate-pulse"
-              )}
+              className={cn("size-3.5", meta.className)}
               style={meta.color ? { color: meta.color } : undefined}
               strokeWidth={1.75}
             />
-            <span className={cn(waiting && "animate-pulse")}>
-              {statusLabel}
-            </span>
+            <span>{statusLabel}</span>
           </Button>
         }
       />
@@ -233,7 +224,6 @@ export function StatusButton({
   stopPropagation,
   size = "sm",
   onPatch,
-  waiting,
   disabled = false
 }: {
   orgSlug: string
@@ -242,7 +232,6 @@ export function StatusButton({
   stopPropagation?: boolean
   size?: "sm" | "lg"
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
   disabled?: boolean
 }) {
   const req = useMemo(() => statusesRequest(orgSlug, slug), [orgSlug, slug])
@@ -273,9 +262,9 @@ export function StatusButton({
                 : m.tickets_status_aria_label({ label: statusLabel })
             }
             title={statusLabel}
-            disabled={disabled || waiting}
+            disabled={disabled}
           >
-            <span className={cn(wrapperClass, waiting && "animate-pulse")}>
+            <span className={wrapperClass}>
               <Icon
                 className={iconClass}
                 style={meta.color ? { color: meta.color } : undefined}

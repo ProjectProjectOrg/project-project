@@ -99,7 +99,8 @@ export function ProjectHeader({
   const matches = useMatches()
   const sprintMatch = matches.find(
     (mt) =>
-      mt.routeId === "/_authed/orgs/$orgSlug/projects/$slug/sprints/$groupId"
+      mt.routeId ===
+      "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
   )
   const sprintGroupId = sprintMatch
     ? (sprintMatch.params as { groupId: string }).groupId

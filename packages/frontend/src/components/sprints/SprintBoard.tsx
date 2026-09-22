@@ -225,7 +225,6 @@ function SprintBoardContent({
       style={{ height: height ?? 240 }}
       className={cn(
         "overflow-x-auto",
-        waiting && "animate-pulse motion-reduce:animate-none",
         hasRightOverflow &&
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}

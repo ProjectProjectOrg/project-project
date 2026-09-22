@@ -392,6 +392,94 @@ describe("backlog status move", () => {
     }
   })
 
+  it("retains a status move when an assignee change supersedes it", async () => {
+    const doing = Schema.decodeSync(TicketStatus)("in_progress")
+    const bodies: Array<UpdateTicketInput> = []
+    const pending: Array<(response: Response) => void> = []
+    let served: ReadonlyArray<Ticket> = [ticket]
+    fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        bodies.push(
+          Schema.decodeUnknownSync(UpdateTicketInput)(
+            await new Response(init.body).json()
+          )
+        )
+        return new Promise<Response>((resolve) => pending.push(resolve))
+      }
+      const inTodo = served.filter((t) => t.status === ticket.status)
+      const inDoing = served.filter((t) => t.status === doing)
+      return Promise.resolve(
+        Response.json({
+          counts: {
+            total: served.length,
+            byStatus: { todo: inTodo.length, in_progress: inDoing.length }
+          },
+          sections: {
+            todo: { items: inTodo.map((t) => serverRow(t)), nextCursor: null },
+            in_progress: {
+              items: inDoing.map((t) => serverRow(t)),
+              nextCursor: null
+            }
+          }
+        })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = updateBacklogTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+
+      registry.set(mutation, { status: doing })
+      await vi.waitFor(() => expect(bodies).toHaveLength(1))
+      registry.set(mutation, { assignees: ["alice"] })
+      await vi.waitFor(() => expect(bodies).toHaveLength(2))
+
+      expect(bodies[0]).toEqual({ status: doing })
+      expect(bodies[1]).toEqual({ status: doing, assignees: ["alice"] })
+
+      const stacked = registry.get(view)
+      if (!AsyncResult.isSuccess(stacked))
+        throw new Error("no optimistic value")
+      expect(stacked.value.sections.todo.items).toHaveLength(0)
+      expect(stacked.value.sections.in_progress.items[0].ticket).toMatchObject({
+        status: doing,
+        assignees: ["alice"]
+      })
+
+      const confirmed = {
+        ...ticket,
+        status: doing,
+        assignees: ["alice"]
+      } satisfies Ticket
+      served = [confirmed]
+      pending[1]!(
+        Response.json(encodeUpdateResponse(asUpdateResult(confirmed)))
+      )
+
+      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ waiting: false })
+      )
+      const settled = registry.get(view)
+      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
+      expect(settled.value.sections.todo.items).toHaveLength(0)
+      expect(settled.value.sections.in_progress.items[0].ticket).toMatchObject({
+        status: doing,
+        assignees: ["alice"]
+      })
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("composes two stacked status moves out of `current`, not the original server value", async () => {
     const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
     const doneStatus = Schema.decodeSync(TicketStatus)("done")

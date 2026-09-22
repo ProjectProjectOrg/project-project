@@ -13,7 +13,9 @@ const BacklogRouteSearchSchema = TicketListQuery.pipe(
   })
 )
 
-export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug/")({
+export const Route = createFileRoute(
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+)({
   component: () => null,
   loaderDeps: ({ search }) => search,
   loader: ({

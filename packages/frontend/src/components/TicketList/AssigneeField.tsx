@@ -73,31 +73,18 @@ function Avatars({
 
 function TriggerVisual({
   variant,
-  resolved,
-  waiting
+  resolved
 }: {
   variant: AssigneeVariant
   resolved: ReadonlyArray<Member>
-  waiting: boolean
 }) {
   const empty = resolved.length === 0
   if (variant === "chip") {
     return (
       <>
-        {empty && (
-          <UserRound
-            className={cn("size-3.5", waiting && "animate-pulse")}
-            strokeWidth={1.75}
-          />
-        )}
-        <Avatars
-          resolved={resolved}
-          size={18}
-          className={cn(waiting && "animate-pulse")}
-        />
-        <span className={cn(waiting && "animate-pulse")}>
-          {chipLabel(resolved)}
-        </span>
+        {empty && <UserRound className="size-3.5" strokeWidth={1.75} />}
+        <Avatars resolved={resolved} size={18} />
+        <span>{chipLabel(resolved)}</span>
       </>
     )
   }
@@ -105,30 +92,16 @@ function TriggerVisual({
     return (
       <>
         {empty && (
-          <span
-            className={cn(
-              "grid size-6 place-items-center rounded-full text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground",
-              waiting && "animate-pulse"
-            )}
-          >
+          <span className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
             <UserRound className="size-4" strokeWidth={1.75} />
           </span>
         )}
-        <Avatars
-          resolved={resolved}
-          size={20}
-          className={cn(waiting && "animate-pulse")}
-        />
+        <Avatars resolved={resolved} size={20} />
       </>
     )
   }
   return (
-    <span
-      className={cn(
-        "inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground",
-        waiting && "animate-pulse"
-      )}
-    >
+    <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
       {empty && (
         <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/15">
           <UserRound className="size-3" strokeWidth={1.75} />
@@ -182,14 +155,12 @@ export function AssigneeSelect({
   value,
   onChange,
   members,
-  waiting = false,
   variant = "row",
   className
 }: {
   value: ReadonlyArray<string>
   onChange: (assignees: ReadonlyArray<string>) => void
   members: ReadonlyArray<Member>
-  waiting?: boolean
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -221,11 +192,7 @@ export function AssigneeSelect({
           className
         )}
       >
-        <TriggerVisual
-          variant={variant}
-          resolved={resolved}
-          waiting={waiting}
-        />
+        <TriggerVisual variant={variant} resolved={resolved} />
       </Trigger>
       <DropdownMenuContent
         align="start"
@@ -279,14 +246,12 @@ export function AssigneeField({
   ticket,
   members,
   onPatch,
-  waiting,
   variant = "row",
   className
 }: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -295,7 +260,6 @@ export function AssigneeField({
       value={ticket.assignees}
       onChange={(assignees) => onPatch({ assignees })}
       members={members}
-      waiting={waiting}
       variant={variant}
       className={className}
     />
@@ -306,7 +270,6 @@ export function AssigneePicker(props: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
 }) {
   return <AssigneeField {...props} variant="chip" />
 }

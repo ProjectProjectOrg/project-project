@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TYPE_LABELS, TYPE_META } from "@/lib/ticket-meta"
 import { m } from "@/paraglide/messages"
-import { cn } from "@/lib/utils"
 import type {
   TicketId,
   TicketType,
@@ -83,12 +82,10 @@ export function TypeSelect({
 export function TypeBadgeTrigger({
   ticket,
   onPatch,
-  waiting,
   className
 }: {
   ticket: { id: TicketId; type: TicketType }
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
   className?: string
 }) {
   const meta = TYPE_META[ticket.type]
@@ -105,11 +102,8 @@ export function TypeBadgeTrigger({
             aria-label={m.tickets_type_aria_label({ label: typeLabel })}
             className={className}
           >
-            <Icon
-              className={cn("size-3.5", waiting && "animate-pulse")}
-              strokeWidth={1.75}
-            />
-            <span className={cn(waiting && "animate-pulse")}>{typeLabel}</span>
+            <Icon className="size-3.5" strokeWidth={1.75} />
+            <span>{typeLabel}</span>
           </Button>
         }
       />
@@ -149,14 +143,12 @@ export function TypeButton({
   ticket,
   className,
   iconOnly,
-  onPatch,
-  waiting
+  onPatch
 }: {
   ticket: { id: TicketId; type: TicketType }
   className?: string
   iconOnly?: boolean
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
 }) {
   const meta = TYPE_META[ticket.type]
   const Icon = meta.icon
@@ -173,12 +165,7 @@ export function TypeButton({
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
               className={className}
             >
-              <span
-                className={cn(
-                  "grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground",
-                  waiting && "animate-pulse"
-                )}
-              >
+              <span className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
                 <Icon className="size-4" strokeWidth={1.75} />
               </span>
             </Hitbox>
@@ -190,12 +177,7 @@ export function TypeButton({
               aria-label={m.tickets_type_aria_label({ label: typeLabel })}
               className={className}
             >
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground",
-                  waiting && "animate-pulse"
-                )}
-              >
+              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
                 <Icon className="size-3.5" strokeWidth={1.75} />
                 <span className="grid justify-items-start whitespace-nowrap">
                   {Object.entries(TYPE_LABELS).map(([type, label]) => (
