@@ -7,12 +7,17 @@ import {
   CurrentUser,
   type User
 } from "@projectproject/shared"
-import { DateTime, Effect, Layer, Stream } from "effect"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
+import { DateTime, Effect, Layer, Redacted, Stream } from "effect"
+import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { OrgStorage } from "../Services/OrgStorage"
-import { JiraClient, type JiraCallError } from "./Client"
+import {
+  JiraClient,
+  JiraClientLive,
+  JiraTransportLive,
+  type JiraCallError
+} from "./Client"
 import { JiraCredentials } from "./Credentials"
 import { JiraHandlerLive } from "./Handlers"
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
@@ -44,7 +49,8 @@ const authentication = Layer.succeed(Authentication)({
 })
 const dependenciesFor = (
   failure?: JiraCallError,
-  failureAt: "sites" | "projects" = "sites"
+  failureAt: "sites" | "projects" = "sites",
+  clientLayer?: Layer.Layer<JiraClient>
 ) =>
   Layer.mergeAll(
     Layer.succeed(JiraCredentials)({
@@ -82,62 +88,63 @@ const dependenciesFor = (
           secretAccessKey: "test"
         })
     }),
-    Layer.succeed(JiraClient)({
-      accessibleSites: (userId) => {
-        if (failure && failureAt === "sites") return Effect.fail(failure)
-        expect(userId).toBe("user-1")
-        return Effect.succeed([
-          {
-            cloudId: "cloud-1",
-            name: "Example",
-            url: "https://example.atlassian.net",
-            avatarUrl: null
-          }
-        ])
-      },
-      projects: (userId, cloudId) => {
-        if (failure && failureAt === "projects") return Effect.fail(failure)
-        expect([userId, cloudId]).toEqual(["user-1", "cloud-1"])
-        return Effect.succeed([
-          {
-            id: "10000",
-            key: "APP",
-            name: "Application",
-            projectTypeKey: null,
-            simplified: null,
-            style: null,
-            avatarUrl: null
-          }
-        ])
-      },
-      searchIssuesPage: unused,
-      commentsPage: unused,
-      worklogsPage: unused,
-      changelogsPage: unused,
-      componentsPage: unused,
-      versionsPage: unused,
-      boardsPage: unused,
-      sprintsPage: unused,
-      sprintIssuesPage: unused,
-      currentUser: unused,
-      project: unused,
-      projectStatuses: unused,
-      fields: unused,
-      priorities: unused,
-      components: unused,
-      versions: unused,
-      searchIssues: unused,
-      comments: unused,
-      worklogs: unused,
-      changelogs: unused,
-      watchers: unused,
-      votes: unused,
-      boards: unused,
-      boardConfiguration: unused,
-      sprints: unused,
-      sprintIssues: unused,
-      attachmentContent: () => Stream.die("unused")
-    })
+    clientLayer ??
+      Layer.succeed(JiraClient)({
+        accessibleSites: (userId) => {
+          if (failure && failureAt === "sites") return Effect.fail(failure)
+          expect(userId).toBe("user-1")
+          return Effect.succeed([
+            {
+              cloudId: "cloud-1",
+              name: "Example",
+              url: "https://example.atlassian.net",
+              avatarUrl: null
+            }
+          ])
+        },
+        projects: (userId, cloudId) => {
+          if (failure && failureAt === "projects") return Effect.fail(failure)
+          expect([userId, cloudId]).toEqual(["user-1", "cloud-1"])
+          return Effect.succeed([
+            {
+              id: "10000",
+              key: "APP",
+              name: "Application",
+              projectTypeKey: null,
+              simplified: null,
+              style: null,
+              avatarUrl: null
+            }
+          ])
+        },
+        searchIssuesPage: unused,
+        commentsPage: unused,
+        worklogsPage: unused,
+        changelogsPage: unused,
+        componentsPage: unused,
+        versionsPage: unused,
+        boardsPage: unused,
+        sprintsPage: unused,
+        sprintIssuesPage: unused,
+        currentUser: unused,
+        project: unused,
+        projectStatuses: unused,
+        fields: unused,
+        priorities: unused,
+        components: unused,
+        versions: unused,
+        searchIssues: unused,
+        comments: unused,
+        worklogs: unused,
+        changelogs: unused,
+        watchers: unused,
+        votes: unused,
+        boards: unused,
+        boardConfiguration: unused,
+        sprints: unused,
+        sprintIssues: unused,
+        attachmentContent: () => Stream.die("unused")
+      })
   )
 
 const dependencies = dependenciesFor()
@@ -326,4 +333,110 @@ for (const failureAt of ["sites", "projects"] as const) {
         })
     )
   }
+}
+
+for (const kind of ["body reset", "malformed JSON"] as const) {
+  it.effect(
+    `preserves public error classification for live ${kind} responses`,
+    () =>
+      Effect.gen(function* () {
+        let requests = 0
+        const fetch = Layer.succeed(
+          FetchHttpClient.Fetch,
+          Object.assign(
+            async () => {
+              requests += 1
+              const body =
+                kind === "body reset"
+                  ? new ReadableStream<Uint8Array>({
+                      start(controller) {
+                        controller.enqueue(new TextEncoder().encode("["))
+                        controller.error(
+                          new TypeError("socket reset during body read")
+                        )
+                      }
+                    })
+                  : "{"
+              return new Response(body, {
+                status: 200,
+                headers: { "content-type": "application/json" }
+              })
+            },
+            { preconnect: () => undefined }
+          )
+        )
+        const jira = JiraClientLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              JiraTransportLive.pipe(Layer.provide(FetchHttpClient.layer)),
+              Layer.succeed(JiraCredentials)({
+                status: unused,
+                beginConnect: unused,
+                completeConnect: unused,
+                completeConnectWithReturnPath: unused,
+                returnPathForState: unused,
+                accessTokenFor: () =>
+                  Effect.succeed({ token: Redacted.make("token") }),
+                disconnect: unused,
+                markReconnectRequired: unused
+              })
+            )
+          ),
+          Layer.provideMerge(fetch)
+        )
+        const dependencies = Layer.mergeAll(
+          dependenciesFor(undefined, "sites", jira),
+          fetch,
+          Layer.succeed(JiraMigrations)({
+            list: unused,
+            get: unused,
+            create: unused,
+            configure: unused,
+            rescan: unused,
+            run: unused,
+            cancel: unused,
+            discard: unused
+          })
+        )
+        const handlers = Layer.mergeAll(
+          JiraHandlerLive,
+          JiraMigrationsHandlerLive
+        ).pipe(
+          Layer.provide(dependencies),
+          HttpRouter.provideRequest(dependencies),
+          Layer.provideMerge(authentication)
+        )
+        yield* Effect.gen(function* () {
+          const client = yield* HttpApiTest.groups(AppApi, [
+            "jira",
+            "jiraMigrations"
+          ])
+          const selected = yield* Effect.result(client.jira.sites())
+          const created = yield* Effect.result(
+            client.jiraMigrations.create({
+              params: { orgSlug: "organization" },
+              payload: {
+                requestId: "body-failure",
+                cloudId: "cloud-1",
+                projectId: "10000"
+              }
+            })
+          )
+          for (const result of [selected, created]) {
+            expect(result).toMatchObject({
+              _tag: "Failure",
+              failure: {
+                _tag: "JiraError",
+                reason: kind === "body reset" ? "network" : "invalid_response"
+              }
+            })
+            if (result._tag === "Failure")
+              expect(result.failure).not.toHaveProperty("operation")
+          }
+          expect(requests).toBe(2)
+        }).pipe(
+          Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+        )
+      })
+  )
 }

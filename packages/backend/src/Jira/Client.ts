@@ -21,8 +21,7 @@ import * as Stream from "effect/Stream"
 import {
   FetchHttpClient,
   HttpClient,
-  HttpClientRequest,
-  HttpClientResponse
+  HttpClientRequest
 } from "effect/unstable/http"
 import {
   JiraRateLimited,
@@ -120,11 +119,16 @@ export const JiraTransportLive = Layer.effect(
           Effect.map((response) => ({
             status: response.status,
             headers: response.headers,
-            json: HttpClientResponse.schemaBodyJson(Schema.Unknown)(
-              response
-            ).pipe(
-              Effect.mapError(
-                () => new JiraError({ reason: "invalid_response" })
+            json: response.text.pipe(
+              Effect.mapError(() => new JiraError({ reason: "network" })),
+              Effect.flatMap((text) =>
+                Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+                  text
+                ).pipe(
+                  Effect.mapError(
+                    () => new JiraError({ reason: "invalid_response" })
+                  )
+                )
               )
             ),
             stream: response.stream.pipe(

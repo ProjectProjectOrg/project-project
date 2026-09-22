@@ -14,11 +14,13 @@ import * as Ref from "effect/Ref"
 import * as Stream from "effect/Stream"
 import * as Schema from "effect/Schema"
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
+import { FetchHttpClient } from "effect/unstable/http"
 import { JiraCredentials } from "./Credentials"
 import {
   JiraClient,
   JiraClientLive,
   JiraTransport,
+  JiraTransportLive,
   paginateCursor,
   paginateOffset,
   type JiraClientShape,
@@ -1260,6 +1262,70 @@ describe("Retry-After HTTP-date formats", () => {
               ? { _tag: "JiraTransientFailure", reason: "invalid_retry_after" }
               : { _tag: "JiraRateLimited", retryAfterMillis: expected }
         })
+      })
+    )
+  }
+})
+
+describe("Jira live JSON response transport", () => {
+  for (const [kind, expected] of [
+    [
+      "body reset",
+      { _tag: "JiraTransientFailure", operation: "fields", reason: "network" }
+    ],
+    ["malformed JSON", { _tag: "JiraError", reason: "invalid_response" }],
+    ["invalid schema", { _tag: "JiraError", reason: "invalid_response" }]
+  ] as const) {
+    it.effect(`classifies ${kind} after successful response headers`, () =>
+      Effect.gen(function* () {
+        let requests = 0
+        const fetch = Layer.succeed(
+          FetchHttpClient.Fetch,
+          Object.assign(
+            async (
+              _input: Parameters<typeof globalThis.fetch>[0],
+              init?: Parameters<typeof globalThis.fetch>[1]
+            ) => {
+              requests += 1
+              expect(new Headers(init?.headers).get("authorization")).toBe(
+                "Bearer token"
+              )
+              const body =
+                kind === "body reset"
+                  ? new ReadableStream<Uint8Array>({
+                      start(controller) {
+                        controller.enqueue(new TextEncoder().encode("["))
+                        controller.error(
+                          new TypeError("socket reset during body read")
+                        )
+                      }
+                    })
+                  : kind === "malformed JSON"
+                    ? "{"
+                    : "{}"
+              return new Response(body, {
+                status: 200,
+                headers: { "content-type": "application/json" }
+              })
+            },
+            { preconnect: () => undefined }
+          )
+        )
+        const live = JiraClientLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              JiraTransportLive.pipe(Layer.provide(FetchHttpClient.layer)),
+              Layer.succeed(JiraCredentials, stubCredentials)
+            )
+          ),
+          Layer.provideMerge(fetch)
+        )
+        const result = yield* Effect.gen(function* () {
+          const client = yield* JiraClient
+          return yield* Effect.result(client.fields("user", "cloud"))
+        }).pipe(Effect.provide(live))
+        expect(result).toMatchObject({ _tag: "Failure", failure: expected })
+        expect(requests).toBe(1)
       })
     )
   }
