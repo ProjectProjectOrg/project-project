@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**User workflow override, 2026-09-22:** Continue implementation without independent reviews between tasks. Keep focused behavioral tests, typechecks, self-review and resumable task commits. Run one comprehensive review after implementation, explicitly checking every task's requirements and the integration between tasks. Carry existing deferred findings and all unreviewed task ranges into that review. Do not repeat passing broad checks on unchanged code; broaden verification for changed integration boundaries, failures and the final release gate. This instruction supersedes per-task review requirements in the execution skills and older handoff text.
+
 **Goal:** Replace PR 235's hand-rolled Jira migration worker with a restart-safe Effect Workflow implementation that satisfies every T-172 migration, privacy, atomic-publication, cancellation, discard, and retention requirement.
 
 **Architecture:** Keep `JiraMigrations` as the only application-facing service and turn `jira_migration` into a fenced UI projection. Effect Workflow owns lifecycle state; small, versioned Activities write deterministic artifacts and hidden project state; one PostgreSQL transaction flips the project visible and records success. DurableDeferred handles user gates and retries, DurableClock handles Jira rate limits, and a separate cleanup workflow owns reset, discard, expiry, and post-success cleanup.
@@ -10,9 +12,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-22-t172-effect-jira-migration-design.md`
 
-## Execution status — paused 2026-09-22
+## Execution status — resumed on Linux 2026-09-22
 
-Paused at the user's request for continuation on another computer. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is in progress and unreviewed; Tasks 8–14 have not started.** Do not restart completed tasks or treat this branch as release-ready.
+Restored in `/home/wouter/web/project-project-t172-effect` with disposable local PostgreSQL and MinIO available. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is in progress; Tasks 8–14 have not started.** Independent review for Tasks 7 onward is deferred to the final comprehensive review at the user's request. Do not restart completed tasks or treat this branch as release-ready.
 
 - Implementation branch: `codex/T-172-effect-workflow`.
 - Pinned original base: `994455a26be958db47826c7425efedfdf84aea90`; design/plan restored in `4d06422f`.
@@ -39,9 +41,9 @@ Paused at the user's request for continuation on another computer. **Tasks 1–6
 
 ### Resume at Task 7
 
-Restore the handoff's `task-7-wip.patch` and SDD workspace before continuing. Preserved partial files: `MigrationProjection.ts`, `MigrationProjection.test.ts`, `Migrations.ts`, and new `Migrations.commands.test.ts`, all under `packages/backend/src/Jira/`. The latest saved focused run has 11 passing tests, including a real shared-PgClient SQL transaction/signal rollback test; this is partial evidence, not Task 7 completion. The previous implementer was interrupted before a final report, commit, full checks or independent review.
+The handoff patch and SDD workspace are already restored and implementation has continued. Do not reapply the patch. Consult `resume-linux.md`, `progress.md` and `task-7-report.md` in the SDD workspace for the latest checkpoint and verification evidence; the original handoff's test counts are historical.
 
-Read `pause-handoff.md`, `task-7-context.md`, `task-7-rulings.md`, `task-7-protocol-preflight.md`, and `publication-protocol-rulings.md` in the restored SDD workspace. Resume Task 7 with a replacement implementer carrying the existing edits; follow its remaining TDD steps, commit boundary and independent review. Do not blindly apply the original command samples: the recorded amendments define current-gate routing, accepted configuration snapshots and atomic CAS/deferred submission. Deferred minors remain in the ledger for final whole-branch review.
+Read `task-7-context.md`, `task-7-rulings.md`, `task-7-protocol-preflight.md`, and `publication-protocol-rulings.md` in the restored SDD workspace. Continue Task 7 with the existing edits, finish its covering checks and commit, then advance directly to Task 8. Do not blindly apply the original command samples: the recorded amendments define current-gate routing, accepted configuration snapshots and atomic CAS/deferred submission. Deferred minors and Tasks 7 onward remain in scope for the final comprehensive review.
 
 A separate, unfinished read-only investigation found that `Workflow.interrupt` does not itself drain active storage writes. Its observations and unapproved options are in `cleanup-write-boundary-notes.md`; resolve that Task 9/11 boundary before implementation. Tombstones or a new storage protocol are **not approved or implemented** by these notes.
 
@@ -1605,3 +1607,7 @@ git commit -m "test(jira): prove durable migration release gates"
 - [ ] Real SQL kill/restart tests pass during active scan, configuration wait, and rate-limit sleep.
 - [ ] Browser happy path, reconnect/retry, and cancel/discard pass.
 - [ ] Backend, shared, frontend, browser, typecheck, lint, and format gates pass.
+
+### Task 7 continuation amendments (2026-09-22)
+
+The controller-approved command protocol in the design's Task 7 amendments supersedes the original ready-always-StartImport and CAS-then-signal snippets. Add required materialize callback integration in `MigrationActivities.ts`, with explicit test callbacks and no production default. Preserve the shared-PgClient atomic acceptance/signal boundary and current-gate/accepted-snapshot checkpoint merges. Extend claim/release with required mode-specific reset/discard predicates; update isolated callers, prove hidden ready/reconnect reset versus discard eligibility and race losers, and retain the narrow delete-after-cleanup guard. The mode change is implemented and covered by SQL RED/GREEN. Production composition remains Task 11. See the Task 7 report for the resumable implementation checkpoint and exact validation commands.

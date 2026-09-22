@@ -141,6 +141,7 @@ export const makeJiraMigrationWorkflow = <R>(
       yield* activities.scan({ payload, executionId })
       const identity = migrationIdentity(payload, executionId)
       yield* DurableDeferred.await(startImportDeferred(identity.scanRevision))
+      yield* activities.materialize({ payload, executionId })
       return { migrationId: identity.migrationId }
     })
   )
@@ -148,7 +149,8 @@ export const makeJiraMigrationWorkflow = <R>(
 export const makeProjectionMigrationActivities = (
   projection: JiraMigrationProjectionShape,
   finalize: MigrationActivities<WorkflowEngine.WorkflowEngine>["finalize"],
-  scan: MigrationActivities<WorkflowEngine.WorkflowEngine>["scan"]
+  scan: MigrationActivities<WorkflowEngine.WorkflowEngine>["scan"],
+  materialize: MigrationActivities<WorkflowEngine.WorkflowEngine>["materialize"]
 ): MigrationActivities<WorkflowEngine.WorkflowEngine> => ({
   start: ({ payload, executionId }) =>
     Effect.gen(function* () {
@@ -169,7 +171,8 @@ export const makeProjectionMigrationActivities = (
       }))
     ),
   finalize,
-  scan
+  scan,
+  materialize
 })
 
 export const runScanUnit = <A>(

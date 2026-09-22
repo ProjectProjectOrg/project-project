@@ -31,27 +31,38 @@ import {
 } from "./ScanV2"
 import { DateTime } from "effect"
 
-export interface MigrationActivities<R = never> {
-  readonly scan: (input: {
-    readonly payload: JiraMigrationWorkflowPayloadValue
-    readonly executionId: string
-  }) => Effect.Effect<
+export type MigrationActivityInput = Readonly<{
+  payload: JiraMigrationWorkflowPayloadValue
+  executionId: string
+}>
+
+export type MigrationActivities<R = never> = Readonly<{
+  scan: (
+    input: MigrationActivityInput
+  ) => Effect.Effect<
     void,
     JiraMigrationWorkflowFailureValue,
     | R
     | import("effect/unstable/workflow/WorkflowEngine").WorkflowEngine
     | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
   >
-
-  readonly start: (input: {
-    readonly payload: JiraMigrationWorkflowPayloadValue
-    readonly executionId: string
-  }) => Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>
-  readonly finalize: (input: {
-    readonly executionId: string
-    readonly exit: Exit.Exit<unknown, unknown>
-  }) => Effect.Effect<void, never, R>
-}
+  materialize: (
+    input: MigrationActivityInput
+  ) => Effect.Effect<
+    void,
+    JiraMigrationWorkflowFailureValue,
+    R | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
+  >
+  start: (
+    input: MigrationActivityInput
+  ) => Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>
+  finalize: (
+    input: Readonly<{
+      executionId: string
+      exit: Exit.Exit<unknown, unknown>
+    }>
+  ) => Effect.Effect<void, never, R>
+}>
 
 export const activityName = (parts: ReadonlyArray<string | number>) =>
   `v1/${parts.map(String).join("/")}`

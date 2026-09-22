@@ -5,9 +5,10 @@ import {
   Authentication,
   Conflict,
   CurrentUser,
+  JiraMigrationConfiguration,
   type User
 } from "@projectproject/shared"
-import { DateTime, Effect, Layer, Redacted, Stream } from "effect"
+import { DateTime, Effect, Layer, Redacted, Schema, Stream } from "effect"
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { CurrentOrg } from "../Services/CurrentOrg"
@@ -450,3 +451,83 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
       })
   )
 }
+
+it.effect(
+  "preserves whole incomplete configuration and expected revision at the authorized command boundary",
+  () =>
+    Effect.gen(function* () {
+      const configuration = yield* Schema.decodeUnknownEffect(
+        JiraMigrationConfiguration
+      )({
+        destination: { name: "Application", slug: "application", key: "APP" },
+        identities: [],
+        statuses: [],
+        issueTypes: [],
+        priorities: [],
+        tags: [],
+        activeFutureSprintChoices: [],
+        restrictedContent: { policy: "exclude" as const },
+        skippedAttachmentIds: [],
+        attachmentSkipsAccepted: false
+      })
+      const dependencies = Layer.mergeAll(
+        dependenciesFor(),
+        Layer.succeed(JiraMigrations)({
+          list: unused,
+          get: unused,
+          create: unused,
+          run: unused,
+          rescan: unused,
+          cancel: unused,
+          discard: unused,
+          configure: (
+            organizationId,
+            userId,
+            migrationId,
+            expectedRevision,
+            draft
+          ) => {
+            expect({
+              organizationId,
+              userId,
+              migrationId,
+              expectedRevision,
+              draft
+            }).toEqual({
+              organizationId: "org-1",
+              userId: "user-1",
+              migrationId: "draft-1",
+              expectedRevision: 7,
+              draft: configuration
+            })
+            return Effect.fail(
+              new Conflict({ reason: "jira_migration_revision_conflict" })
+            )
+          }
+        })
+      )
+      const handlers = JiraMigrationsHandlerLive.pipe(
+        Layer.provide(dependencies),
+        HttpRouter.provideRequest(dependencies),
+        Layer.provideMerge(authentication)
+      )
+      yield* Effect.gen(function* () {
+        const client = yield* HttpApiTest.groups(AppApi, ["jiraMigrations"])
+        const result = yield* Effect.result(
+          client.jiraMigrations.configure({
+            params: { orgSlug: "organization", migrationId: "draft-1" },
+            payload: { expectedRevision: 7, configuration }
+          })
+        )
+        expect(result).toMatchObject({
+          _tag: "Failure",
+          failure: {
+            _tag: "Conflict",
+            reason: "jira_migration_revision_conflict"
+          }
+        })
+      }).pipe(
+        Effect.provide(Layer.mergeAll(handlers, HttpServer.layerServices))
+      )
+    })
+)

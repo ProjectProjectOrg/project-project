@@ -14,6 +14,37 @@ const decodeConnection = Schema.decodeUnknownSync(JiraConnection)
 const connectedAt = DateTime.makeUnsafe("2026-09-14T12:00:00Z")
 
 describe("JiraMigration schemas", () => {
+  it("allows incomplete decision arrays while retaining destination and restriction validation", () => {
+    const draft = {
+      destination: { name: "Application", slug: "application", key: "APP" },
+      identities: [],
+      statuses: [],
+      issueTypes: [],
+      priorities: [],
+      tags: [],
+      activeFutureSprintChoices: [],
+      restrictedContent: { policy: "exclude" },
+      skippedAttachmentIds: [],
+      attachmentSkipsAccepted: false
+    }
+    expect(Schema.decodeUnknownSync(JiraMigrationConfiguration)(draft)).toEqual(
+      draft
+    )
+    for (const key of ["name", "slug", "key"] as const)
+      expect(() =>
+        Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+          ...draft,
+          destination: { ...draft.destination, [key]: "" }
+        })
+      ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+        ...draft,
+        restrictedContent: {}
+      })
+    ).toThrow()
+  })
+
   it.each([
     {
       status: "disconnected",

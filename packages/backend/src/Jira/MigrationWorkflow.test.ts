@@ -181,6 +181,7 @@ describe("Jira migration workflow contracts", () => {
       const startCalls = yield* Ref.make(0)
       const finalizeCalls = yield* Ref.make(0)
       const layer = makeJiraMigrationWorkflow({
+        materialize: () => Effect.void,
         scan: () => Effect.void,
         start: () => Ref.update(startCalls, (count) => count + 1),
         finalize: () => Ref.update(finalizeCalls, (count) => count + 1)
@@ -210,9 +211,43 @@ describe("Jira migration workflow contracts", () => {
     })
   )
 
+  it.effect(
+    "keeps import work alive after StartImport and interrupts its durable retry wait",
+    () =>
+      Effect.gen(function* () {
+        const entered = yield* Deferred.make<void>()
+        const finalized = yield* Deferred.make<boolean>()
+        const layer = makeJiraMigrationWorkflow({
+          start: () => Effect.void,
+          scan: () => Effect.void,
+          materialize: () =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined)
+              yield* DurableDeferred.await(retryDeferred(9))
+            }),
+          finalize: ({ exit }) =>
+            Deferred.succeed(finalized, Exit.isFailure(exit)).pipe(
+              Effect.asVoid
+            )
+        }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+        yield* Effect.gen(function* () {
+          const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+            discard: true
+          })
+          yield* completeStartImport(id, 1)
+          yield* waitUntilSuspended(id)
+          expect(yield* Deferred.isDone(entered)).toBe(true)
+          expect(yield* Deferred.isDone(finalized)).toBe(false)
+          yield* JiraMigrationWorkflow.interrupt(id)
+          expect(yield* Deferred.await(finalized)).toBe(true)
+        }).pipe(Effect.provide(layer))
+      })
+  )
+
   it.effect("uses the initial scan revision and execution id for create", () =>
     Effect.gen(function* () {
       const layer = makeJiraMigrationWorkflow({
+        materialize: () => Effect.void,
         scan: () => Effect.void,
         start: () => Effect.void,
         finalize: () => Effect.void
@@ -237,6 +272,7 @@ describe("Jira migration workflow contracts", () => {
     () =>
       Effect.gen(function* () {
         const layer = makeJiraMigrationWorkflow({
+          materialize: () => Effect.void,
           scan: () => Effect.void,
           start: () => Effect.die("start defect"),
           finalize: () => Effect.void
@@ -286,6 +322,7 @@ describe("durable snapshot workflow", () => {
         return Effect.succeed(scanFixtureResponse(request))
       })
       const layer = makeJiraMigrationWorkflow({
+        materialize: () => Effect.void,
         start: () => Effect.void,
         scan: () =>
           Effect.gen(function* () {
@@ -378,6 +415,7 @@ const snapshotHarness = (
   }
   const receipts = new Map<string, number>()
   const layer = makeJiraMigrationWorkflow({
+    materialize: () => Effect.void,
     start: () => Effect.void,
     finalize: () => Effect.void,
     scan: () =>
