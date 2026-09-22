@@ -155,6 +155,10 @@ describe("Jira migration workflow contracts", () => {
           rescanPayload,
           { discard: true }
         )
+        yield* waitUntilSuspended(executionId)
+
+        expect(yield* Ref.get(startCalls)).toBe(1)
+
         yield* JiraMigrationWorkflow.resume(executionId)
         yield* waitUntilSuspended(executionId)
 
