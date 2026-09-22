@@ -187,3 +187,43 @@ export const JiraIssueSearchInput = Schema.Struct({
   expand: Schema.optional(Schema.Array(Schema.String))
 })
 export type JiraIssueSearchInput = typeof JiraIssueSearchInput.Type
+
+export interface JiraCursorPage<A> {
+  readonly values: ReadonlyArray<A>
+  readonly nextPageToken: string | null
+}
+
+export interface JiraOffsetPage<A> {
+  readonly values: ReadonlyArray<A>
+  readonly startAt: number
+  readonly maxResults: number
+  readonly total: number | null
+  readonly isLast: boolean
+}
+
+export interface JiraPageInput {
+  readonly userId: string
+  readonly cloudId: string
+}
+export interface JiraOffsetPageInput extends JiraPageInput {
+  readonly startAt?: number
+}
+export interface JiraIssuePageInput extends JiraOffsetPageInput {
+  readonly issueIdOrKey: string
+}
+export interface JiraProjectPageInput extends JiraOffsetPageInput {
+  readonly projectIdOrKey: string
+}
+export interface JiraSprintsPageInput extends JiraOffsetPageInput {
+  readonly boardId: number
+}
+export interface JiraSearchIssuesPageInput
+  extends JiraPageInput, JiraIssueSearchInput {
+  readonly nextPageToken?: string | null
+}
+export interface JiraSprintIssuesPageInput extends JiraPageInput {
+  readonly boardId: number
+  readonly sprintId: number
+  readonly fields: ReadonlyArray<string>
+  readonly nextPageToken?: string | null
+}

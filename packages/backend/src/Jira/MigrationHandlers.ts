@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { requireOrgAdmin, CurrentOrg } from "../Services/CurrentOrg"
 import { OrgStorage } from "../Services/OrgStorage"
-import { JiraClient } from "./Client"
+import { JiraClient, toPublicJiraError } from "./Client"
 import { JiraMigrations } from "./Migrations"
 
 const contextFor = (orgSlug: string) =>
@@ -52,10 +52,14 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
             })
           )
           const jira = yield* JiraClient
-          const sites = yield* jira.accessibleSites(user.id)
+          const sites = yield* jira
+            .accessibleSites(user.id)
+            .pipe(Effect.mapError(toPublicJiraError))
           const site = sites.find(({ cloudId }) => cloudId === payload.cloudId)
           if (!site) return yield* new JiraResourceNotFound()
-          const projects = yield* jira.projects(user.id, site.cloudId)
+          const projects = yield* jira
+            .projects(user.id, site.cloudId)
+            .pipe(Effect.mapError(toPublicJiraError))
           const project = projects.find(({ id }) => id === payload.projectId)
           if (!project) return yield* new JiraResourceNotFound()
           const migrations = yield* JiraMigrations

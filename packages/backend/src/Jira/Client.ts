@@ -2,12 +2,15 @@ import {
   JiraAccessDenied,
   JiraError,
   JiraNotConnected,
-  JiraRateLimited,
+  JiraRateLimited as PublicJiraRateLimited,
   JiraReconnectRequired,
   JiraResourceNotFound,
   type JiraProjectChoice,
   type JiraSite
 } from "@projectproject/shared"
+import * as Clock from "effect/Clock"
+import * as DateTime from "effect/DateTime"
+import * as Option from "effect/Option"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -21,6 +24,11 @@ import {
   HttpClientRequest,
   HttpClientResponse
 } from "effect/unstable/http"
+import {
+  JiraRateLimited,
+  JiraTransientFailure,
+  MAX_RETRY_AFTER_MILLIS
+} from "./Blocked"
 import { JiraCredentials } from "./Credentials"
 import {
   JiraBoard,
@@ -41,6 +49,13 @@ import {
   JiraVotes,
   JiraWatchers,
   JiraWorklog,
+  type JiraCursorPage,
+  type JiraOffsetPage,
+  type JiraIssuePageInput,
+  type JiraProjectPageInput,
+  type JiraSprintsPageInput,
+  type JiraSearchIssuesPageInput,
+  type JiraSprintIssuesPageInput,
   type JiraIssueSearchInput as JiraIssueSearchInputType
 } from "./ClientSchemas"
 
@@ -50,6 +65,7 @@ export type JiraCallError =
   | JiraAccessDenied
   | JiraResourceNotFound
   | JiraRateLimited
+  | JiraTransientFailure
   | JiraError
 
 export interface JiraTransportRequest {
@@ -121,65 +137,94 @@ export const JiraTransportLive = Layer.effect(
   })
 )
 
-interface CursorPage<A> {
-  readonly values: ReadonlyArray<A>
-  readonly nextPageToken: string | null
-}
-
 export const paginateCursor = <A, E>(
-  fetchPage: (cursor: string | null) => Effect.Effect<CursorPage<A>, E>
+  fetchPage: (cursor: string | null) => Effect.Effect<JiraCursorPage<A>, E>
 ): Effect.Effect<ReadonlyArray<A>, E | JiraError> =>
-  Effect.gen(function* () {
-    const values: Array<A> = []
-    const seen = new Set<string>()
-    let cursor: string | null = null
-    while (true) {
-      const page: CursorPage<A> = yield* fetchPage(cursor)
-      values.push(...page.values)
-      if (page.nextPageToken === null) return values
-      if (seen.has(page.nextPageToken)) {
+  Stream.paginate(
+    { cursor: null as string | null, seen: new Set<string>() },
+    Effect.fn(function* ({ cursor, seen }) {
+      const page = yield* fetchPage(cursor)
+      if (page.nextPageToken === null)
+        return [page.values, Option.none()] as const
+      if (seen.has(page.nextPageToken))
         return yield* new JiraError({ reason: "invalid_response" })
-      }
-      seen.add(page.nextPageToken)
-      cursor = page.nextPageToken
-    }
-  })
-
-interface OffsetPage<A> {
-  readonly values: ReadonlyArray<A>
-  readonly startAt: number
-  readonly maxResults: number
-  readonly total?: number
-  readonly isLast?: boolean
-}
+      return [
+        page.values,
+        Option.some({
+          cursor: page.nextPageToken,
+          seen: new Set([...seen, page.nextPageToken])
+        })
+      ] as const
+    })
+  ).pipe(Stream.runCollect)
 
 export const paginateOffset = <A, E>(
-  fetchPage: (startAt: number) => Effect.Effect<OffsetPage<A>, E>
+  fetchPage: (startAt: number) => Effect.Effect<JiraOffsetPage<A>, E>
 ): Effect.Effect<ReadonlyArray<A>, E | JiraError> =>
-  Effect.gen(function* () {
-    const values: Array<A> = []
-    let startAt = 0
-    while (true) {
-      const page: OffsetPage<A> = yield* fetchPage(startAt)
-      values.push(...page.values)
-      if (page.isLast === true) return values
+  Stream.paginate(
+    0,
+    Effect.fn(function* (startAt) {
+      const page = yield* fetchPage(startAt)
       const next = page.startAt + page.maxResults
-      if (!Number.isFinite(next) || page.maxResults <= 0 || next <= startAt) {
+      if (
+        page.startAt !== startAt ||
+        !Number.isSafeInteger(next) ||
+        page.maxResults <= 0
+      ) {
         return yield* new JiraError({ reason: "invalid_response" })
       }
-      if (page.total !== undefined && next >= page.total) return values
-      if (
-        page.total === undefined &&
-        page.isLast === undefined &&
-        page.values.length < page.maxResults
-      ) {
-        return values
-      }
-      startAt = next
-    }
-  })
+      return [
+        page.values,
+        page.isLast || (page.total !== null && next >= page.total)
+          ? Option.none()
+          : Option.some(next)
+      ] as const
+    })
+  ).pipe(Stream.runCollect)
+
+export const toPublicJiraError = (error: JiraCallError) => {
+  if (error._tag === "JiraRateLimited")
+    return new PublicJiraRateLimited({
+      retryAfterSeconds: error.retryAfterMillis / 1000
+    })
+  if (error._tag === "JiraTransientFailure")
+    return new JiraError({
+      reason:
+        error.reason === "invalid_retry_after"
+          ? "invalid_response"
+          : error.reason
+    })
+  return error
+}
 
 export interface JiraClientShape {
+  readonly searchIssuesPage: (
+    input: JiraSearchIssuesPageInput
+  ) => Effect.Effect<JiraCursorPage<JiraIssue>, JiraCallError>
+  readonly commentsPage: (
+    input: JiraIssuePageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraComment>, JiraCallError>
+  readonly worklogsPage: (
+    input: JiraIssuePageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraWorklog>, JiraCallError>
+  readonly changelogsPage: (
+    input: JiraIssuePageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraChangelog>, JiraCallError>
+  readonly componentsPage: (
+    input: JiraProjectPageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraComponent>, JiraCallError>
+  readonly versionsPage: (
+    input: JiraProjectPageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraVersion>, JiraCallError>
+  readonly boardsPage: (
+    input: JiraProjectPageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraBoard>, JiraCallError>
+  readonly sprintsPage: (
+    input: JiraSprintsPageInput
+  ) => Effect.Effect<JiraOffsetPage<JiraSprint>, JiraCallError>
+  readonly sprintIssuesPage: (
+    input: JiraSprintIssuesPageInput
+  ) => Effect.Effect<JiraCursorPage<JiraIssueReference>, JiraCallError>
   readonly accessibleSites: (
     userId: string
   ) => Effect.Effect<ReadonlyArray<JiraSite>, JiraCallError>
@@ -216,32 +261,32 @@ export interface JiraClientShape {
     userId: string,
     cloudId: string,
     projectIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraComponent.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraComponent>, JiraCallError>
   readonly versions: (
     userId: string,
     cloudId: string,
     projectIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraVersion.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraVersion>, JiraCallError>
   readonly searchIssues: (
     userId: string,
     cloudId: string,
     input: JiraIssueSearchInputType
-  ) => Effect.Effect<ReadonlyArray<typeof JiraIssue.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraIssue>, JiraCallError>
   readonly comments: (
     userId: string,
     cloudId: string,
     issueIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraComment.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraComment>, JiraCallError>
   readonly worklogs: (
     userId: string,
     cloudId: string,
     issueIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraWorklog.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraWorklog>, JiraCallError>
   readonly changelogs: (
     userId: string,
     cloudId: string,
     issueIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraChangelog.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraChangelog>, JiraCallError>
   readonly watchers: (
     userId: string,
     cloudId: string,
@@ -256,7 +301,7 @@ export interface JiraClientShape {
     userId: string,
     cloudId: string,
     projectIdOrKey: string
-  ) => Effect.Effect<ReadonlyArray<typeof JiraBoard.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraBoard>, JiraCallError>
   readonly boardConfiguration: (
     userId: string,
     cloudId: string,
@@ -266,17 +311,14 @@ export interface JiraClientShape {
     userId: string,
     cloudId: string,
     boardId: number
-  ) => Effect.Effect<ReadonlyArray<typeof JiraSprint.Type>, JiraCallError>
+  ) => Effect.Effect<ReadonlyArray<JiraSprint>, JiraCallError>
   readonly sprintIssues: (
     userId: string,
     cloudId: string,
     boardId: number,
     sprintId: number,
     fields: ReadonlyArray<string>
-  ) => Effect.Effect<
-    ReadonlyArray<typeof JiraIssueReference.Type>,
-    JiraCallError
-  >
+  ) => Effect.Effect<ReadonlyArray<JiraIssueReference>, JiraCallError>
   readonly attachmentContent: (
     userId: string,
     cloudId: string,
@@ -300,107 +342,172 @@ const softwareBase = (cloudId: string) =>
 
 const pathPart = (value: string | number) => encodeURIComponent(String(value))
 
-const retryAfterSeconds = (
-  headers: Readonly<Record<string, string | undefined>>
-): number => {
-  const header = headers["retry-after"]
-  if (header === undefined) return 0
-  const seconds = Number(header)
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : 0
+const RetryAfterSeconds = Schema.String.check(Schema.isPattern(/^\d+$/))
+const ImfDatePattern =
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}:\d{2}:\d{2}) GMT$/
+const Rfc850DatePattern =
+  /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2}) (\d{2}:\d{2}:\d{2}) GMT$/
+const AsctimeDatePattern =
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ( \d|\d{2}) (\d{2}:\d{2}:\d{2}) (\d{4})$/
+const RetryAfterDate = Schema.Union([
+  Schema.String.check(Schema.isPattern(ImfDatePattern)),
+  Schema.String.check(Schema.isPattern(Rfc850DatePattern)),
+  Schema.String.check(Schema.isPattern(AsctimeDatePattern))
+])
+
+const httpDateMillis = (header: string | undefined, now: number) => {
+  const decoded = Schema.decodeUnknownOption(RetryAfterDate)(header)
+  if (Option.isNone(decoded)) return NaN
+  let canonical = decoded.value
+  const rfc850 = canonical.match(Rfc850DatePattern)
+  const asctime = canonical.match(AsctimeDatePattern)
+  if (rfc850) {
+    const limit = DateTime.add(DateTime.makeUnsafe(now), { years: 50 })
+    let year =
+      Math.floor(DateTime.toPartsUtc(limit).year / 100) * 100 +
+      Number(rfc850[4])
+    const normalized = () =>
+      `${rfc850[1].slice(0, 3)}, ${rfc850[2]} ${rfc850[3]} ${year} ${rfc850[5]} GMT`
+    const candidate = DateTime.make(normalized())
+    if (
+      Option.isSome(candidate) &&
+      DateTime.toEpochMillis(candidate.value) > DateTime.toEpochMillis(limit)
+    )
+      year -= 100
+    canonical = normalized()
+  } else if (asctime) {
+    canonical = `${asctime[1]}, ${asctime[3].trim().padStart(2, "0")} ${asctime[2]} ${asctime[5]} ${asctime[4]} GMT`
+  }
+  const date = DateTime.make(canonical)
+  return Option.isSome(date) &&
+    DateTime.toDateUtc(date.value).toUTCString() === canonical
+    ? DateTime.toEpochMillis(date.value)
+    : NaN
 }
 
-const TRANSIENT_BACKOFF_MS = [1000, 2000, 4000] as const
+const RetryDelay = Schema.Finite.check(
+  Schema.isBetween({ minimum: 0, maximum: MAX_RETRY_AFTER_MILLIS })
+)
+
+const rateLimited = Effect.fn("JiraClient.rateLimited")(function* (
+  operation: string,
+  header: string | undefined
+) {
+  const now = yield* Clock.currentTimeMillis
+  const seconds = Schema.decodeUnknownOption(RetryAfterSeconds)(header)
+  const millis = Option.isSome(seconds)
+    ? Number(seconds.value) * 1000
+    : httpDateMillis(header, now) - now
+  return yield* validatedRateLimit(operation, millis)
+})
+
+const validatedRateLimit = (operation: string, millis: number) =>
+  Schema.decodeUnknownEffect(RetryDelay)(millis).pipe(
+    Effect.mapError(
+      () =>
+        new JiraTransientFailure({ operation, reason: "invalid_retry_after" })
+    ),
+    Effect.flatMap((retryAfterMillis) =>
+      Effect.fail(new JiraRateLimited({ operation, retryAfterMillis }))
+    )
+  )
+
+const transportFailure = (operation: string) => (error: JiraCallError) =>
+  error._tag === "JiraError" &&
+  (error.reason === "network" ||
+    error.reason === "timeout" ||
+    error.reason === "server_error")
+    ? new JiraTransientFailure({ operation, reason: error.reason })
+    : error
 
 export const JiraClientLive = Layer.effect(
   JiraClient,
   Effect.gen(function* () {
     const transport = yield* JiraTransport
     const credentials = yield* JiraCredentials
-
-    const send = Effect.fn("JiraClient.send")(function* (input: {
-      readonly userId: string
-      readonly method: "GET" | "POST"
-      readonly url: string
-      readonly body?: unknown
-    }) {
-      let refreshed = false
-      let retries = 0
-      let waitedSeconds = 0
-      let transientRetries = 0
-      let access = yield* credentials.accessTokenFor(input.userId)
-      while (true) {
-        const attempt = yield* Effect.result(
-          transport.execute({
-            method: input.method,
-            url: input.url,
-            headers: {
-              accept: "application/json",
-              authorization: `Bearer ${Redacted.value(access.token)}`
-            },
-            body: input.body
-          })
+    const accessToken = (
+      userId: string,
+      operation: string,
+      forceRefresh = false
+    ) =>
+      credentials
+        .accessTokenFor(
+          userId,
+          forceRefresh ? { forceRefresh: true } : undefined
         )
-        if (attempt._tag === "Failure") {
-          if (transientRetries >= TRANSIENT_BACKOFF_MS.length) {
-            return yield* attempt.failure
-          }
-          yield* Effect.sleep(TRANSIENT_BACKOFF_MS[transientRetries]!)
-          transientRetries += 1
-          continue
-        }
-        const response = attempt.success
-        if (response.status === 401) {
-          if (refreshed) {
-            yield* credentials.markReconnectRequired(
-              input.userId,
-              "invalid_grant"
-            )
-            return yield* new JiraReconnectRequired({
-              reason: "invalid_grant"
-            })
-          }
-          access = yield* credentials.accessTokenFor(input.userId, {
-            forceRefresh: true
-          })
-          refreshed = true
-          continue
-        }
-        if (response.status === 403) return yield* new JiraAccessDenied()
-        if (response.status === 404) return yield* new JiraResourceNotFound()
-        if (response.status === 429) {
-          const delay = retryAfterSeconds(response.headers)
-          if (retries >= 4 || waitedSeconds + delay > 60) {
-            return yield* new JiraRateLimited({ retryAfterSeconds: delay })
-          }
-          retries += 1
-          waitedSeconds += delay
-          yield* Effect.sleep(delay * 1000)
-          continue
-        }
-        if (response.status >= 500) {
-          if (transientRetries >= TRANSIENT_BACKOFF_MS.length) {
-            return yield* new JiraError({ reason: "server_error" })
-          }
-          yield* Effect.sleep(TRANSIENT_BACKOFF_MS[transientRetries]!)
-          transientRetries += 1
-          continue
-        }
-        if (response.status < 200 || response.status >= 300) {
-          return yield* new JiraError({ reason: "invalid_response" })
-        }
-        return response
-      }
+        .pipe(
+          Effect.catchTag("JiraRateLimited", (error) =>
+            validatedRateLimit(operation, error.retryAfterSeconds * 1000)
+          ),
+          Effect.mapError((error) =>
+            error._tag === "JiraError"
+              ? transportFailure(operation)(error)
+              : error
+          )
+        )
+
+    const authorize = Effect.fn("JiraClient.authorize")(function* (
+      userId: string,
+      operation: string,
+      execute: (
+        token: string
+      ) => Effect.Effect<JiraTransportResponse, JiraCallError>
+    ) {
+      const access = yield* accessToken(userId, operation)
+      const first = yield* execute(Redacted.value(access.token)).pipe(
+        Effect.mapError(transportFailure(operation))
+      )
+      if (first.status !== 401) return first
+      const refreshed = yield* accessToken(userId, operation, true)
+      const second = yield* execute(Redacted.value(refreshed.token)).pipe(
+        Effect.mapError(transportFailure(operation))
+      )
+      if (second.status !== 401) return second
+      yield* credentials.markReconnectRequired(userId, "invalid_grant")
+      return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
+    })
+
+    const checkResponse = Effect.fn("JiraClient.checkResponse")(function* (
+      response: JiraTransportResponse,
+      operation: string
+    ) {
+      if (response.status === 403) return yield* new JiraAccessDenied()
+      if (response.status === 404) return yield* new JiraResourceNotFound()
+      if (response.status === 429)
+        return yield* rateLimited(operation, response.headers["retry-after"])
+      if (response.status >= 500)
+        return yield* new JiraTransientFailure({
+          operation,
+          reason: "server_error"
+        })
+      if (response.status < 200 || response.status >= 300)
+        return yield* new JiraError({ reason: "invalid_response" })
+      return response
     })
 
     const requestJson = <A>(
       userId: string,
+      operation: string,
       method: "GET" | "POST",
       url: string,
-      schema: Schema.Codec<A, unknown, never, never>,
+      schema: Schema.Codec<A, unknown>,
       body?: unknown
     ): Effect.Effect<A, JiraCallError> =>
-      send({ userId, method, url, body }).pipe(
-        Effect.flatMap((response) => response.json),
+      authorize(userId, operation, (token) =>
+        transport.execute({
+          method,
+          url,
+          headers: {
+            accept: "application/json",
+            authorization: `Bearer ${token}`
+          },
+          body
+        })
+      ).pipe(
+        Effect.flatMap((response) => checkResponse(response, operation)),
+        Effect.flatMap((response) =>
+          response.json.pipe(Effect.mapError(transportFailure(operation)))
+        ),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
         Effect.mapError((error) =>
           error._tag === "SchemaError"
@@ -409,143 +516,180 @@ export const JiraClientLive = Layer.effect(
         )
       )
 
-    const accessibleSites = (userId: string) =>
-      requestJson(
-        userId,
-        "GET",
-        "https://api.atlassian.com/oauth/token/accessible-resources",
-        Schema.Array(
-          Schema.Struct({
-            id: Schema.String,
-            name: Schema.String,
-            url: Schema.String,
-            avatarUrl: Schema.optional(Schema.String)
-          })
-        )
-      ).pipe(
-        Effect.map((sites) =>
-          sites.map((site) => ({
-            cloudId: site.id,
-            name: site.name,
-            url: site.url,
-            avatarUrl: site.avatarUrl ?? null
-          }))
-        )
-      )
-
-    const offsetPage = <A>(
-      schema: Schema.Codec<A, unknown, never, never>,
-      field = "values"
-    ) =>
-      Schema.Struct({
-        [field]: Schema.Array(schema),
-        startAt: Schema.Finite,
-        maxResults: Schema.Finite,
-        total: Schema.optional(Schema.Finite),
-        isLast: Schema.optional(Schema.Boolean)
-      })
-
-    const readOffset = <A>(input: {
-      readonly userId: string
-      readonly url: (startAt: number) => string
-      readonly schema: Schema.Codec<A, unknown, never, never>
-      readonly field?: string
-    }) =>
-      paginateOffset((startAt) =>
-        requestJson(
-          input.userId,
-          "GET",
-          input.url(startAt),
-          offsetPage(input.schema, input.field)
-        ).pipe(
-          Effect.map((page) => ({
-            values: page[input.field ?? "values"] as ReadonlyArray<A>,
-            startAt: page.startAt,
-            maxResults: page.maxResults,
-            total: page.total,
-            isLast: page.isLast
-          }))
-        )
-      )
-
-    const withOffset = (url: string, startAt: number) => {
-      const value = new URL(url)
-      value.searchParams.set("startAt", String(startAt))
-      value.searchParams.set("maxResults", "100")
-      return value.toString()
-    }
-
-    const projects = (userId: string, cloudId: string) =>
-      readOffset({
-        userId,
-        url: (startAt) =>
-          withOffset(`${platformBase(cloudId)}/project/search`, startAt),
-        schema: JiraProject
-      }).pipe(
-        Effect.map((values) =>
-          values.map((project) => ({
-            id: project.id,
-            key: project.key,
-            name: project.name,
-            projectTypeKey: project.projectTypeKey ?? null,
-            simplified: project.simplified ?? null,
-            style: project.style ?? null,
-            avatarUrl:
-              typeof project.avatarUrls?.["48x48"] === "string"
-                ? project.avatarUrls["48x48"]
-                : null
-          }))
-        )
-      )
-
     const direct = <A>(
       userId: string,
+      operation: string,
       url: string,
-      schema: Schema.Codec<A, unknown, never, never>
-    ) => requestJson(userId, "GET", url, schema)
+      schema: Schema.Codec<A, unknown>
+    ) => requestJson(userId, operation, "GET", url, schema)
 
-    const issueOffset = <A>(
+    const readOffsetPage = <A>(
       userId: string,
+      operation: string,
       url: string,
-      schema: Schema.Codec<A, unknown, never, never>,
-      field: string
-    ) =>
-      readOffset({
+      schema: Schema.Codec<A, unknown>,
+      field: string,
+      startAt = 0
+    ): Effect.Effect<JiraOffsetPage<A>, JiraCallError> => {
+      const target = new URL(url)
+      target.searchParams.set("startAt", String(startAt))
+      target.searchParams.set("maxResults", "100")
+      return direct(
         userId,
-        url: (startAt) => withOffset(url, startAt),
-        schema,
-        field
-      })
+        operation,
+        target.toString(),
+        Schema.Struct({
+          values: Schema.Array(schema),
+          startAt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+          maxResults: Schema.Int.check(Schema.isGreaterThan(0)),
+          total: Schema.optional(
+            Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+          ),
+          isLast: Schema.optional(Schema.Boolean)
+        }).pipe(Schema.encodeKeys({ values: field }))
+      ).pipe(
+        Effect.flatMap((page) => {
+          if (page.startAt !== startAt)
+            return Effect.fail(new JiraError({ reason: "invalid_response" }))
+          const values = page.values
+          return Effect.succeed({
+            values,
+            startAt: page.startAt,
+            maxResults: page.maxResults,
+            total: page.total ?? null,
+            isLast:
+              page.isLast ??
+              (page.total === undefined
+                ? values.length < page.maxResults
+                : page.startAt + page.maxResults >= page.total)
+          })
+        })
+      )
+    }
 
-    const searchIssues = (
-      userId: string,
-      cloudId: string,
-      input: JiraIssueSearchInputType
-    ) =>
-      paginateCursor((nextPageToken) =>
-        requestJson(
-          userId,
-          "POST",
-          `${platformBase(cloudId)}/search/jql`,
-          Schema.Struct({
-            issues: Schema.Array(JiraIssue),
-            nextPageToken: Schema.optional(Schema.String)
-          }),
-          {
-            jql: input.jql,
-            fields: input.fields,
-            ...(input.expand && input.expand.length > 0
-              ? { expand: input.expand.join(",") }
-              : {}),
-            maxResults: 100,
-            ...(nextPageToken ? { nextPageToken } : {})
-          }
-        ).pipe(
-          Effect.map((page) => ({
-            values: page.issues,
-            nextPageToken: page.nextPageToken ?? null
-          }))
+    const searchIssuesPage = (input: JiraSearchIssuesPageInput) =>
+      requestJson(
+        input.userId,
+        "issues",
+        "POST",
+        `${platformBase(input.cloudId)}/search/jql`,
+        Schema.Struct({
+          issues: Schema.Array(JiraIssue),
+          nextPageToken: Schema.optional(Schema.NullOr(Schema.String))
+        }),
+        {
+          jql: input.jql,
+          fields: input.fields,
+          ...(input.expand && input.expand.length > 0
+            ? { expand: input.expand.join(",") }
+            : {}),
+          maxResults: 100,
+          ...(input.nextPageToken != null
+            ? { nextPageToken: input.nextPageToken }
+            : {})
+        }
+      ).pipe(
+        Effect.flatMap((page) =>
+          page.nextPageToken != null &&
+          page.nextPageToken === input.nextPageToken
+            ? Effect.fail(new JiraError({ reason: "invalid_response" }))
+            : Effect.succeed({
+                values: page.issues,
+                nextPageToken: page.nextPageToken ?? null
+              })
         )
+      )
+
+    const sprintIssuesPage = (input: JiraSprintIssuesPageInput) => {
+      const url = new URL(
+        `${softwareBase(input.cloudId)}/board/${pathPart(input.boardId)}/sprint/${pathPart(input.sprintId)}/issue`
+      )
+      url.searchParams.set("fields", input.fields.join(","))
+      url.searchParams.set("maxResults", "100")
+      if (input.nextPageToken != null)
+        url.searchParams.set("nextPageToken", input.nextPageToken)
+      return direct(
+        input.userId,
+        "sprintIssues",
+        url.toString(),
+        Schema.Struct({
+          issues: Schema.Array(JiraIssueReference),
+          nextPageToken: Schema.optional(Schema.NullOr(Schema.String))
+        })
+      ).pipe(
+        Effect.flatMap((page) =>
+          page.nextPageToken != null &&
+          page.nextPageToken === input.nextPageToken
+            ? Effect.fail(new JiraError({ reason: "invalid_response" }))
+            : Effect.succeed({
+                values: page.issues,
+                nextPageToken: page.nextPageToken ?? null
+              })
+        )
+      )
+    }
+    const commentsPage = (input: JiraIssuePageInput) =>
+      readOffsetPage(
+        input.userId,
+        "comments",
+        `${platformBase(input.cloudId)}/issue/${pathPart(input.issueIdOrKey)}/comment`,
+        JiraComment,
+        "comments",
+        input.startAt
+      )
+    const worklogsPage = (input: JiraIssuePageInput) =>
+      readOffsetPage(
+        input.userId,
+        "worklogs",
+        `${platformBase(input.cloudId)}/issue/${pathPart(input.issueIdOrKey)}/worklog`,
+        JiraWorklog,
+        "worklogs",
+        input.startAt
+      )
+    const changelogsPage = (input: JiraIssuePageInput) =>
+      readOffsetPage(
+        input.userId,
+        "changelogs",
+        `${platformBase(input.cloudId)}/issue/${pathPart(input.issueIdOrKey)}/changelog`,
+        JiraChangelog,
+        "values",
+        input.startAt
+      )
+    const componentsPage = (input: JiraProjectPageInput) =>
+      readOffsetPage(
+        input.userId,
+        "components",
+        `${platformBase(input.cloudId)}/project/${pathPart(input.projectIdOrKey)}/component`,
+        JiraComponent,
+        "values",
+        input.startAt
+      )
+    const versionsPage = (input: JiraProjectPageInput) =>
+      readOffsetPage(
+        input.userId,
+        "versions",
+        `${platformBase(input.cloudId)}/project/${pathPart(input.projectIdOrKey)}/version`,
+        JiraVersion,
+        "values",
+        input.startAt
+      )
+    const boardsPage = (input: JiraProjectPageInput) =>
+      readOffsetPage(
+        input.userId,
+        "boards",
+        `${agileBase(input.cloudId)}/board?projectKeyOrId=${pathPart(input.projectIdOrKey)}`,
+        JiraBoard,
+        "values",
+        input.startAt
+      )
+    const sprintsPage = (input: JiraSprintsPageInput) =>
+      readOffsetPage(
+        input.userId,
+        "sprints",
+        `${agileBase(input.cloudId)}/board/${pathPart(input.boardId)}/sprint`,
+        JiraSprint,
+        "values",
+        input.startAt
       )
 
     const attachmentContent = (
@@ -556,193 +700,210 @@ export const JiraClientLive = Layer.effect(
     ) =>
       Stream.unwrap(
         Effect.gen(function* () {
-          let access = yield* credentials.accessTokenFor(userId)
+          const operation = "attachmentContent"
           const initialUrl = `${platformBase(cloudId)}/attachment/content/${pathPart(attachmentId)}`
-          let url = initialUrl
-          let authorization: string | undefined =
-            `Bearer ${Redacted.value(access.token)}`
-          let redirects = 0
-          let refreshed = false
-          while (redirects <= 3) {
-            const headers: Record<string, string> = {}
-            if (authorization) headers.authorization = authorization
-            if (range) headers.range = range
-            const response = yield* transport.execute({
-              method: "GET",
-              url,
-              headers
-            })
-            if ([200, 206].includes(response.status)) return response.stream
-            if (response.status >= 300 && response.status < 400) {
+          const follow = Effect.fn("JiraClient.attachmentRedirects")(function* (
+            token: string
+          ) {
+            let url = initialUrl
+            let authorization: string | undefined = `Bearer ${token}`
+            for (let redirects = 0; redirects <= 3; redirects += 1) {
+              if (redirects > 0 && authorization !== undefined) {
+                const access = yield* accessToken(userId, operation)
+                authorization = `Bearer ${Redacted.value(access.token)}`
+              }
+              const response = yield* transport.execute({
+                method: "GET",
+                url,
+                headers: {
+                  ...(authorization ? { authorization } : {}),
+                  ...(range ? { range } : {})
+                }
+              })
+              if (response.status < 300 || response.status >= 400)
+                return response
               const location = response.headers.location
-              if (!location) {
+              if (!location)
                 return yield* new JiraError({ reason: "invalid_response" })
-              }
-              const next = new URL(location, url)
-              if (next.protocol !== "https:") {
+              const next = yield* Effect.try({
+                try: () => new URL(location, url),
+                catch: () => new JiraError({ reason: "invalid_response" })
+              })
+              if (next.protocol !== "https:")
                 return yield* new JiraError({ reason: "invalid_response" })
-              }
               if (next.origin !== new URL(url).origin) authorization = undefined
               url = next.toString()
-              redirects += 1
-              continue
             }
-            if (response.status === 401) {
-              if (!refreshed) {
-                access = yield* credentials.accessTokenFor(userId, {
-                  forceRefresh: true
-                })
-                authorization = `Bearer ${Redacted.value(access.token)}`
-                url = initialUrl
-                redirects = 0
-                refreshed = true
-                continue
-              }
-              yield* credentials.markReconnectRequired(userId, "invalid_grant")
-              return yield* new JiraReconnectRequired({
-                reason: "invalid_grant"
-              })
-            }
-            if (response.status === 403) return yield* new JiraAccessDenied()
-            if (response.status === 404) {
-              return yield* new JiraResourceNotFound()
-            }
-            if (response.status === 429) {
-              return yield* new JiraRateLimited({
-                retryAfterSeconds: retryAfterSeconds(response.headers)
-              })
-            }
-            return yield* new JiraError({
-              reason:
-                response.status >= 500 ? "server_error" : "invalid_response"
-            })
-          }
-          return yield* new JiraError({ reason: "invalid_response" })
+            return yield* new JiraError({ reason: "invalid_response" })
+          })
+          const response = yield* authorize(userId, operation, follow)
+          yield* checkResponse(response, operation)
+          if (response.status !== 200 && response.status !== 206)
+            return yield* new JiraError({ reason: "invalid_response" })
+          return response.stream.pipe(
+            Stream.mapError(transportFailure(operation))
+          )
         })
       )
 
     return JiraClient.of({
-      accessibleSites,
+      searchIssuesPage,
+      commentsPage,
+      worklogsPage,
+      changelogsPage,
+      componentsPage,
+      versionsPage,
+      boardsPage,
+      sprintsPage,
+      sprintIssuesPage,
+      accessibleSites: (userId) =>
+        direct(
+          userId,
+          "sites",
+          "https://api.atlassian.com/oauth/token/accessible-resources",
+          Schema.Array(
+            Schema.Struct({
+              id: Schema.String,
+              name: Schema.String,
+              url: Schema.String,
+              avatarUrl: Schema.optional(Schema.String)
+            })
+          )
+        ).pipe(
+          Effect.map((sites) =>
+            sites.map((site) => ({
+              cloudId: site.id,
+              name: site.name,
+              url: site.url,
+              avatarUrl: site.avatarUrl ?? null
+            }))
+          )
+        ),
+      projects: (userId, cloudId) =>
+        paginateOffset((startAt) =>
+          readOffsetPage(
+            userId,
+            "projects",
+            `${platformBase(cloudId)}/project/search`,
+            JiraProject,
+            "values",
+            startAt
+          )
+        ).pipe(
+          Effect.map((projects) =>
+            projects.map((project) => ({
+              id: project.id,
+              key: project.key,
+              name: project.name,
+              projectTypeKey: project.projectTypeKey ?? null,
+              simplified: project.simplified ?? null,
+              style: project.style ?? null,
+              avatarUrl:
+                typeof project.avatarUrls?.["48x48"] === "string"
+                  ? project.avatarUrls["48x48"]
+                  : null
+            }))
+          )
+        ),
       currentUser: (userId, cloudId) =>
-        direct(userId, `${platformBase(cloudId)}/myself`, JiraUser),
-      projects,
+        direct(
+          userId,
+          "currentUser",
+          `${platformBase(cloudId)}/myself`,
+          JiraUser
+        ),
       project: (userId, cloudId, projectIdOrKey) =>
         direct(
           userId,
+          "project",
           `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}`,
           JiraProject
         ),
       projectStatuses: (userId, cloudId, projectIdOrKey) =>
         direct(
           userId,
+          "projectStatuses",
           `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}/statuses`,
           Schema.Array(JiraIssueTypeStatuses)
         ),
       fields: (userId, cloudId) =>
         direct(
           userId,
+          "fields",
           `${platformBase(cloudId)}/field`,
           Schema.Array(JiraField)
         ),
       priorities: (userId, cloudId) =>
         direct(
           userId,
+          "priorities",
           `${platformBase(cloudId)}/priority`,
           Schema.Array(JiraPriority)
-        ),
-      components: (userId, cloudId, projectIdOrKey) =>
-        issueOffset(
-          userId,
-          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}/component`,
-          JiraComponent,
-          "values"
-        ),
-      versions: (userId, cloudId, projectIdOrKey) =>
-        issueOffset(
-          userId,
-          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}/version`,
-          JiraVersion,
-          "values"
-        ),
-      searchIssues,
-      comments: (userId, cloudId, issueIdOrKey) =>
-        issueOffset(
-          userId,
-          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/comment`,
-          JiraComment,
-          "comments"
-        ),
-      worklogs: (userId, cloudId, issueIdOrKey) =>
-        issueOffset(
-          userId,
-          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/worklog`,
-          JiraWorklog,
-          "worklogs"
-        ),
-      changelogs: (userId, cloudId, issueIdOrKey) =>
-        issueOffset(
-          userId,
-          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/changelog`,
-          JiraChangelog,
-          "values"
         ),
       watchers: (userId, cloudId, issueIdOrKey) =>
         direct(
           userId,
+          "watchers",
           `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/watchers`,
           JiraWatchers
         ),
       votes: (userId, cloudId, issueIdOrKey) =>
         direct(
           userId,
+          "votes",
           `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/votes`,
           JiraVotes
-        ),
-      boards: (userId, cloudId, projectIdOrKey) =>
-        issueOffset(
-          userId,
-          `${agileBase(cloudId)}/board?projectKeyOrId=${pathPart(projectIdOrKey)}`,
-          JiraBoard,
-          "values"
         ),
       boardConfiguration: (userId, cloudId, boardId) =>
         direct(
           userId,
+          "boardConfiguration",
           `${agileBase(cloudId)}/board/${pathPart(boardId)}/configuration`,
           JiraBoardConfiguration
         ),
-      sprints: (userId, cloudId, boardId) =>
-        issueOffset(
-          userId,
-          `${agileBase(cloudId)}/board/${pathPart(boardId)}/sprint`,
-          JiraSprint,
-          "values"
+      searchIssues: (userId, cloudId, input) =>
+        paginateCursor((nextPageToken) =>
+          searchIssuesPage({ userId, cloudId, ...input, nextPageToken })
         ),
       sprintIssues: (userId, cloudId, boardId, sprintId, fields) =>
-        paginateCursor((nextPageToken) => {
-          const url = new URL(
-            `${softwareBase(cloudId)}/board/${pathPart(boardId)}/sprint/${pathPart(sprintId)}/issue`
-          )
-          url.searchParams.set("fields", fields.join(","))
-          url.searchParams.set("maxResults", "100")
-          if (nextPageToken) {
-            url.searchParams.set("nextPageToken", nextPageToken)
-          }
-          return requestJson(
+        paginateCursor((nextPageToken) =>
+          sprintIssuesPage({
             userId,
-            "GET",
-            url.toString(),
-            Schema.Struct({
-              issues: Schema.Array(JiraIssueReference),
-              nextPageToken: Schema.optional(Schema.String)
-            })
-          ).pipe(
-            Effect.map((page) => ({
-              values: page.issues,
-              nextPageToken: page.nextPageToken ?? null
-            }))
-          )
-        }),
+            cloudId,
+            boardId,
+            sprintId,
+            fields,
+            nextPageToken
+          })
+        ),
+      comments: (userId, cloudId, issueIdOrKey) =>
+        paginateOffset((startAt) =>
+          commentsPage({ userId, cloudId, issueIdOrKey, startAt })
+        ),
+      worklogs: (userId, cloudId, issueIdOrKey) =>
+        paginateOffset((startAt) =>
+          worklogsPage({ userId, cloudId, issueIdOrKey, startAt })
+        ),
+      changelogs: (userId, cloudId, issueIdOrKey) =>
+        paginateOffset((startAt) =>
+          changelogsPage({ userId, cloudId, issueIdOrKey, startAt })
+        ),
+      components: (userId, cloudId, projectIdOrKey) =>
+        paginateOffset((startAt) =>
+          componentsPage({ userId, cloudId, projectIdOrKey, startAt })
+        ),
+      versions: (userId, cloudId, projectIdOrKey) =>
+        paginateOffset((startAt) =>
+          versionsPage({ userId, cloudId, projectIdOrKey, startAt })
+        ),
+      boards: (userId, cloudId, projectIdOrKey) =>
+        paginateOffset((startAt) =>
+          boardsPage({ userId, cloudId, projectIdOrKey, startAt })
+        ),
+      sprints: (userId, cloudId, boardId) =>
+        paginateOffset((startAt) =>
+          sprintsPage({ userId, cloudId, boardId, startAt })
+        ),
       attachmentContent
     })
   })

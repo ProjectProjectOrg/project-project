@@ -6,7 +6,7 @@ import {
 } from "@projectproject/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { JiraClient } from "./Client"
+import { JiraClient, toPublicJiraError } from "./Client"
 import { JiraCredentials } from "./Credentials"
 
 export const JiraHandlerLive = HttpApiBuilder.group(
@@ -32,30 +32,30 @@ export const JiraHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const client = yield* JiraClient
-          return yield* client
-            .accessibleSites(user.id)
-            .pipe(
-              Effect.catchTag("JiraResourceNotFound", () =>
-                Effect.fail(new JiraError({ reason: "invalid_response" }))
-              )
+          return yield* client.accessibleSites(user.id).pipe(
+            Effect.mapError(toPublicJiraError),
+            Effect.catchTag("JiraResourceNotFound", () =>
+              Effect.fail(new JiraError({ reason: "invalid_response" }))
             )
+          )
         })
       )
       .handle("projects", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const client = yield* JiraClient
-          const sites = yield* client
-            .accessibleSites(user.id)
-            .pipe(
-              Effect.catchTag("JiraResourceNotFound", () =>
-                Effect.fail(new JiraError({ reason: "invalid_response" }))
-              )
+          const sites = yield* client.accessibleSites(user.id).pipe(
+            Effect.mapError(toPublicJiraError),
+            Effect.catchTag("JiraResourceNotFound", () =>
+              Effect.fail(new JiraError({ reason: "invalid_response" }))
             )
+          )
           if (!sites.some((site) => site.cloudId === params.cloudId)) {
             return yield* new JiraResourceNotFound()
           }
-          return yield* client.projects(user.id, params.cloudId)
+          return yield* client
+            .projects(user.id, params.cloudId)
+            .pipe(Effect.mapError(toPublicJiraError))
         })
       )
 )
