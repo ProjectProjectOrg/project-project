@@ -29,6 +29,7 @@ type TicketListProps = Readonly<{
   creator?: ReactNode
   toolbar: ReactNode
   sections?: ReactNode
+  showSections?: boolean
   alternate?: (args: {
     key: string
     query: TicketListQuery
@@ -41,8 +42,10 @@ export function TicketList({
   creator,
   toolbar,
   sections,
+  showSections = false,
   ...props
 }: TicketListProps) {
+  const statusSections = <StatusSections {...props} />
   return (
     <div className="group/list flex flex-col gap-3">
       {creator ?? (
@@ -54,7 +57,18 @@ export function TicketList({
       )}
       <div className="flex flex-col gap-3 transition-opacity duration-200 ease-out group-has-[form[data-active]]/list:opacity-35">
         {toolbar}
-        {sections ?? <StatusSections {...props} />}
+        {sections ? (
+          <>
+            <Activity mode={showSections ? "hidden" : "visible"}>
+              {statusSections}
+            </Activity>
+            <Activity mode={showSections ? "visible" : "hidden"}>
+              {sections}
+            </Activity>
+          </>
+        ) : (
+          statusSections
+        )}
       </div>
     </div>
   )
@@ -132,14 +146,7 @@ function StatusSections({
   )
 
   return (
-    <div
-      aria-busy={result.waiting || Result.isInitial(result)}
-      className={
-        !Result.isFailure(result) && result.waiting && active
-          ? "animate-pulse motion-reduce:animate-none"
-          : undefined
-      }
-    >
+    <div aria-busy={result.waiting || Result.isInitial(result)}>
       {Result.matchWithError(result, {
         onInitial: renderSections,
         onError: renderFailure,

@@ -86,11 +86,21 @@ it("starts backlog sections alongside metadata without waiting, even with collap
       deps: query
     })
   ).toBeUndefined()
-  await waitFor(() => expect(requests).toHaveLength(4))
-  const sections = requests.find((url) => url.pathname.endsWith("/sections"))
+  await waitFor(() => expect(requests).toHaveLength(5))
+  const sections = requests.find((url) =>
+    url.pathname.endsWith("/tickets/sections")
+  )
+  const sprintSections = requests.find((url) =>
+    url.pathname.endsWith("/tickets/sprint-sections")
+  )
   expect(sections?.searchParams.get("q")).toBe("search")
   expect(sections?.searchParams.has("status")).toBe(false)
   expect(sections?.searchParams.get("sort")).toBe(
+    '{"key":"title","dir":"desc"}'
+  )
+  expect(sprintSections?.searchParams.get("q")).toBe("search")
+  expect(sprintSections?.searchParams.get("status")).toBe("review")
+  expect(sprintSections?.searchParams.get("sort")).toBe(
     '{"key":"title","dir":"desc"}'
   )
   expect(requests.map((url) => url.pathname)).toContain(

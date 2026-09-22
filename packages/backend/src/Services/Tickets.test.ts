@@ -13,6 +13,8 @@ import {
   NotFound,
   padNumericIdSort,
   paginateSorted,
+  GroupColor,
+  GroupId,
   ProjectKey,
   RateLimited,
   TICKET_LIST_LIMIT,
@@ -20,6 +22,7 @@ import {
   TicketStatus,
   UserId,
   tryDecodeCursor,
+  type GroupDetail,
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
@@ -57,6 +60,8 @@ import { Users, type UsersShape } from "./Users"
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
+const groupId = Schema.decodeUnknownSync(GroupId)
+const groupColor = Schema.decodeUnknownSync(GroupColor)
 const projectKey = Schema.decodeUnknownSync(ProjectKey)
 const userId = Schema.decodeUnknownSync(UserId)
 const githubIntegration = {
@@ -466,7 +471,8 @@ const makeFakeTicketIndex = (
           documents,
           query,
           options.viewerId,
-          options.ticketIds
+          options.ticketIds,
+          options.excludeTicketIds
         )
         for (const document of matching) {
           byStatus[document.status] = (byStatus[document.status] ?? 0) + 1
@@ -599,8 +605,8 @@ function makeTicketsLayer(
   ticketDocsLayer: Layer.Layer<TicketDocs>,
   options: {
     readonly projects?: Layer.Layer<Projects>
-    readonly github?: Layer.Layer<GitHub>
     readonly groups?: Layer.Layer<Groups>
+    readonly github?: Layer.Layer<GitHub>
     readonly ticketIndex?: Layer.Layer<TicketIndex>
     readonly attachments?: Layer.Layer<Attachments>
     readonly figmaLinks?: Layer.Layer<FigmaLinks>
@@ -1397,8 +1403,8 @@ it.effect(
         quick.id,
         created.id
       ])
-      expect(figmaLinks.calls[0]!.body).toContain("figma.com")
-      expect(figmaLinks.calls[2]!.body).toContain("edited")
+      expect(figmaLinks.calls[0].body).toContain("figma.com")
+      expect(figmaLinks.calls[2].body).toContain("edited")
     }).pipe(Effect.provide(layer))
   }
 )
@@ -1776,7 +1782,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     expect(page1.nextCursor).not.toBeNull()
     const page1Times = page1.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page1Times.length; i++) {
-      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i]!)
+      expect(page1Times[i - 1]).toBeGreaterThan(page1Times[i])
     }
 
     const page2 = yield* tickets.list("org", "user-1", "p", {
@@ -1787,7 +1793,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     expect(page2.nextCursor).toBeNull()
     const page2Times = page2.items.map((row) => row.ticket.createdAt.getTime())
     for (let i = 1; i < page2Times.length; i++) {
-      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i]!)
+      expect(page2Times[i - 1]).toBeGreaterThan(page2Times[i])
     }
 
     const seen = new Set(page1.items.map((row) => row.ticket.id))
@@ -2225,3 +2231,163 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+function sprintGroup(
+  id: string,
+  tickets: ReadonlyArray<string>,
+  completedAt: Date | null = null
+): GroupDetail {
+  return {
+    id: groupId(id),
+    name: id,
+    kind: "sprint",
+    tickets: tickets.map((id) => ticketId(id)),
+    color: groupColor("#94a3b8"),
+    startsAt: null,
+    endsAt: null,
+    completedAt,
+    createdBy: "user-1",
+    createdAt: isoDate("2026-01-01T00:00:00.000Z"),
+    updatedAt: isoDate("2026-01-01T00:00:00.000Z"),
+    body: ""
+  }
+}
+
+function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
+  const byId = new Map(sprints.map((sprint) => [sprint.id, sprint]))
+  const isGroupId = Schema.is(GroupId)
+  return Layer.succeed(Groups, {
+    list: () => Effect.succeed(sprints),
+    listPaged: () => unexpected("Groups.listPaged"),
+    listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
+    get: (_orgSlug, _userId, _slug, id) => {
+      if (!isGroupId(id)) return Effect.fail(new NotFound())
+      const sprint = byId.get(id)
+      return sprint === undefined
+        ? Effect.fail(new NotFound())
+        : Effect.succeed(sprint)
+    },
+    create: () => unexpected("Groups.create"),
+    update: () => unexpected("Groups.update"),
+    updateTickets: () => unexpected("Groups.updateTickets"),
+    addTickets: () => unexpected("Groups.addTickets"),
+    removeTickets: () => unexpected("Groups.removeTickets"),
+    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
+    complete: () => unexpected("Groups.complete"),
+    remove: () => unexpected("Groups.remove"),
+    ensureSprintAssignable: () => Effect.void,
+    setSprintMembership: () => Effect.void,
+    removeTicketFromAllGroups: () => Effect.void
+  } satisfies GroupsShape)
+}
+
+it.effect(
+  "sprintSections returns matching counts and independently paginated sprint pages",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const { documents } = docs
+    for (let index = 1; index <= 52; index++) {
+      documents.set(
+        `T-${index}`,
+        makeTicketDocument(`T-${index}`, { title: `sprint ${index}` })
+      )
+    }
+    documents.set(
+      "T-53",
+      makeTicketDocument("T-53", { title: "unscheduled leftover" })
+    )
+    const sprintIds = Array.from({ length: 52 }, (_, index) => `T-${index + 1}`)
+    const g1 = sprintGroup("G-1", sprintIds)
+    const g2 = sprintGroup("G-2", [])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(documents),
+      groups: makeFakeSprintGroups([g1, g2])
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* Tickets
+      const query = { sort: { key: "id", dir: "asc" } } as const
+      const snapshot = yield* tickets.sprintSections(
+        "org",
+        "user-1",
+        "p",
+        query
+      )
+      expect(snapshot.total).toBe(53)
+      const g1Section = snapshot.sections.find(
+        (section) => section.key === g1.id
+      )
+      const g2Section = snapshot.sections.find(
+        (section) => section.key === g2.id
+      )
+      const unscheduled = snapshot.sections.find(
+        (section) => section.key === "unscheduled"
+      )
+      expect(g1Section?.count).toBe(52)
+      expect(g1Section?.page.items).toHaveLength(50)
+      expect(g1Section?.page.nextCursor).not.toBeNull()
+      expect(g2Section?.page.items).toEqual([])
+      expect(unscheduled?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-53"
+      ])
+      const next = yield* tickets.list("org", "user-1", "p", {
+        ...query,
+        groupId: [g1.id],
+        cursor: g1Section?.page.nextCursor ?? undefined
+      })
+      expect(next.items.map(({ ticket }) => ticket.id)).toEqual([
+        "T-51",
+        "T-52"
+      ])
+      expect(next.nextCursor).toBeNull()
+      const selected = yield* tickets.sprintSections("org", "user-1", "p", {
+        ...query,
+        groupId: [g2.id]
+      })
+      expect(selected.sections.map((section) => section.key)).toEqual([g2.id])
+      expect(selected.total).toBe(0)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("sprintSections assigns each ticket to one section", () => {
+  const docs = makeFakeTicketDocs([])
+  const { documents } = docs
+  documents.set("T-1", makeTicketDocument("T-1", { title: "done leftover" }))
+  documents.set("T-2", makeTicketDocument("T-2", { title: "still active" }))
+  documents.set("T-3", makeTicketDocument("T-3", { title: "unscheduled" }))
+  const done = sprintGroup(
+    "G-1",
+    ["T-1", "T-2"],
+    isoDate("2026-04-01T00:00:00.000Z")
+  )
+  const active = sprintGroup("G-2", ["T-2"])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(documents),
+    groups: makeFakeSprintGroups([done, active])
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* Tickets
+    const snapshot = yield* tickets.sprintSections("org", "user-1", "p", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const doneSection = snapshot.sections.find(
+      (section) => section.key === done.id
+    )
+    const activeSection = snapshot.sections.find(
+      (section) => section.key === active.id
+    )
+    const unscheduled = snapshot.sections.find(
+      (section) => section.key === "unscheduled"
+    )
+    expect(doneSection?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+      "T-1"
+    ])
+    expect(activeSection?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+      "T-2"
+    ])
+    expect(unscheduled?.page.items.map(({ ticket }) => ticket.id)).toEqual([
+      "T-3"
+    ])
+    expect(snapshot.total).toBe(3)
+  }).pipe(Effect.provide(layer))
+})

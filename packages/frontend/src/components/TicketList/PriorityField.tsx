@@ -105,13 +105,11 @@ export function PrioritySelect({
 export function PriorityButton({
   ticket,
   stopPropagation,
-  onPatch,
-  waiting
+  onPatch
 }: {
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
 }) {
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
@@ -130,8 +128,7 @@ export function PriorityButton({
             <span
               className={cn(
                 "grid size-6 place-items-center rounded-full transition-colors group-hover/hitbox:bg-foreground/5",
-                meta.className,
-                waiting && "animate-pulse"
+                meta.className
               )}
             >
               <Icon className="size-4" strokeWidth={1.75} />
@@ -157,12 +154,10 @@ export function PriorityButton({
 export function PriorityBadgeTrigger({
   ticket,
   onPatch,
-  waiting,
   className
 }: {
   ticket: { id: TicketId; priority: TicketPriority }
   onPatch: (patch: UpdateTicketInput) => void
-  waiting: boolean
   className?: string
 }) {
   const meta = PRIORITY_META[ticket.priority]
@@ -180,16 +175,10 @@ export function PriorityBadgeTrigger({
             className={className}
           >
             <Icon
-              className={cn(
-                "size-3.5",
-                meta.className,
-                waiting && "animate-pulse"
-              )}
+              className={cn("size-3.5", meta.className)}
               strokeWidth={1.75}
             />
-            <span className={cn(waiting && "animate-pulse")}>
-              {priorityLabel}
-            </span>
+            <span>{priorityLabel}</span>
           </Button>
         }
       />

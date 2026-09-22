@@ -9,7 +9,6 @@ export function TicketPageHeader({
   ticket,
   readOnly = false,
   onPatch,
-  waiting = false,
   meta
 }: {
   orgSlug: string
@@ -17,7 +16,6 @@ export function TicketPageHeader({
   ticket: TicketDetail
   readOnly?: boolean
   onPatch?: (patch: UpdateTicketInput) => void
-  waiting?: boolean
   meta?: ReactNode
 }) {
   return (
@@ -30,7 +28,6 @@ export function TicketPageHeader({
           size="lg"
           disabled={readOnly}
           onPatch={onPatch ?? noopPatch}
-          waiting={waiting}
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">

@@ -37,6 +37,7 @@ import {
   UpdateTicketInput,
   Validation,
   type ProjectKey,
+  type GroupId,
   type GroupIdFilter,
   type TicketCountQuery,
   type TicketCounts,
@@ -45,9 +46,11 @@ import {
   type TicketSearchQuery,
   type TicketSections,
   type TicketSort,
+  type TicketSprintSections,
   type TicketStatus,
   type TicketUpdateResult,
   type User,
+  sprintSectionKey,
   sprintState
 } from "@projectproject/shared"
 import { Attachments } from "../Services/Attachments"
@@ -493,6 +496,105 @@ export const TicketsLive = Layer.effect(
         { concurrency: 4 }
       )
       return { counts, sections: Object.fromEntries(pages) }
+    })
+
+    const sprintSections = Effect.fn("Tickets.sprintSections")(function* (
+      orgSlug: string,
+      userId: string,
+      slug: string,
+      query: TicketListQuery
+    ): Effect.fn.Return<TicketSprintSections, NotFound | MarkdownError> {
+      yield* ensureAccess(orgSlug, userId, slug)
+      const project = yield* ticketIndex.projectFor(orgSlug, slug)
+      const sprints = (yield* groups.list(orgSlug, userId, slug)).filter(
+        (group) => group.kind === "sprint"
+      )
+      const sectionIds: ReadonlyArray<GroupIdFilter> = query.groupId?.length
+        ? query.groupId
+        : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+      const projectGithub = yield* projects.getGithubIntegration(
+        orgSlug,
+        userId,
+        slug
+      )
+      const claimed = new Set<string>()
+      const bySprint = new Map<GroupId, Array<string>>()
+      const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
+        const ids: Array<string> = []
+        for (const id of tickets) {
+          if (claimed.has(id)) continue
+          claimed.add(id)
+          ids.push(id)
+        }
+        return ids
+      }
+      for (const sprint of sprints) {
+        if (sprint.completedAt === null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      for (const sprint of sprints) {
+        if (sprint.completedAt !== null) {
+          bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+        }
+      }
+      const claimedIds = [...claimed]
+      const countQuery = { ...query, groupId: undefined }
+      const pages = yield* Effect.forEach(
+        sectionIds,
+        (groupId) =>
+          Effect.gen(function* () {
+            const known =
+              groupId === "ungrouped" ? undefined : bySprint.get(groupId)
+            const ticketIds =
+              groupId === "ungrouped"
+                ? undefined
+                : known !== undefined
+                  ? known
+                  : yield* resolveGroupMembers(project, orgSlug, userId, slug, [
+                      groupId
+                    ]).pipe(
+                      Effect.map((members) =>
+                        members === null
+                          ? []
+                          : [...members].filter((id) => !claimed.has(id))
+                      )
+                    )
+            const excludeTicketIds =
+              groupId === "ungrouped" && claimedIds.length > 0
+                ? claimedIds
+                : undefined
+            const counts = yield* ticketIndex.count(project, countQuery, {
+              viewerId: userId,
+              ticketIds,
+              excludeTicketIds
+            })
+            const entries = yield* ticketIndex.query(
+              project,
+              {
+                ...query,
+                groupId: undefined,
+                cursor: undefined
+              },
+              {
+                viewerId: userId,
+                ticketIds,
+                excludeTicketIds,
+                limit: TICKET_LIST_LIMIT + 1
+              }
+            )
+            return {
+              key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+              count: counts.total,
+              page: ticketPage(entries, query, projectGithub, TICKET_LIST_LIMIT)
+            }
+          }),
+        { concurrency: 4 }
+      )
+      return {
+        total: pages.reduce((sum, section) => sum + section.count, 0),
+        sections: pages
+      }
     })
 
     const get = (
@@ -1941,6 +2043,7 @@ export const TicketsLive = Layer.effect(
     return {
       list,
       sections,
+      sprintSections,
       count,
       search,
       listInGroup,
