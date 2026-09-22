@@ -3,13 +3,16 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 import {
   normalizeEtag,
   S3Endpoint,
@@ -63,9 +66,9 @@ const attempt = <A>(run: () => Promise<A>) =>
       })
   })
 
-const withClient = Effect.fn("S3Storage.withClient")(function* <A>(
+const withClientEffect = Effect.fn("S3Storage.withClientEffect")(function* <A>(
   connection: S3Connection,
-  use: (client: S3Client) => Promise<A>
+  use: (client: S3Client) => Effect.Effect<A, S3Unavailable>
 ) {
   yield* Schema.decodeEffect(S3Endpoint)(connection.endpoint).pipe(
     Effect.mapError(
@@ -79,8 +82,17 @@ const withClient = Effect.fn("S3Storage.withClient")(function* <A>(
   )
   return yield* Effect.acquireUseRelease(
     Effect.sync(() => clientFor(connection)),
-    (client) => attempt(() => use(client)),
+    use,
     (client) => Effect.sync(() => client.destroy())
+  )
+})
+
+const withClient = Effect.fn("S3Storage.withClient")(function* <A>(
+  connection: S3Connection,
+  use: (client: S3Client) => Promise<A>
+) {
+  return yield* withClientEffect(connection, (client) =>
+    attempt(() => use(client))
   )
 })
 
@@ -118,6 +130,62 @@ export const S3StorageLive = Layer.succeed(
           }
           throw cause
         }
+      }),
+    listObjectKeys: (connection, prefix) =>
+      withClientEffect(connection, (client) => {
+        const seen = new Set<string>()
+        return Stream.paginate<string | undefined, string, S3Unavailable>(
+          undefined,
+          (continuationToken) =>
+            attempt(() =>
+              client.send(
+                new ListObjectsV2Command({
+                  Bucket: connection.bucket,
+                  Prefix: prefix,
+                  ContinuationToken: continuationToken
+                })
+              )
+            ).pipe(
+              Effect.flatMap((page) => {
+                const keys = (page.Contents ?? []).flatMap(({ Key }) =>
+                  Key === undefined ? [] : [Key]
+                )
+                const next = page.NextContinuationToken
+                if (!page.IsTruncated && next !== undefined) {
+                  return Effect.fail(
+                    new S3Unavailable({
+                      reason: "unexpected_continuation_token",
+                      retryable: false
+                    })
+                  )
+                }
+                if (page.IsTruncated && (next === undefined || next === "")) {
+                  return Effect.fail(
+                    new S3Unavailable({
+                      reason: "missing_continuation_token",
+                      retryable: false
+                    })
+                  )
+                }
+                if (
+                  next !== undefined &&
+                  (next === continuationToken || seen.has(next))
+                ) {
+                  return Effect.fail(
+                    new S3Unavailable({
+                      reason: "repeated_continuation_token",
+                      retryable: false
+                    })
+                  )
+                }
+                if (continuationToken !== undefined) seen.add(continuationToken)
+                return Effect.succeed([
+                  keys,
+                  next === undefined ? Option.none() : Option.some(next)
+                ] as const)
+              })
+            )
+        ).pipe(Stream.runCollect)
       }),
     presignPut: (connection, key, contentType, expiresInSeconds) =>
       withClient(connection, (client) =>

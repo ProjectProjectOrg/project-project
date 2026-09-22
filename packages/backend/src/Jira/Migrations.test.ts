@@ -40,6 +40,7 @@ const unreachableStorage = Layer.mergeAll(
   Layer.succeed(S3Storage)({
     putObject: () => Effect.die("unused"),
     getObject: () => Effect.die("unused"),
+    listObjectKeys: () => Effect.die("unused"),
     presignPut: () => Effect.die("unused"),
     presignGet: () => Effect.die("unused"),
     headObject: () => Effect.die("unused"),

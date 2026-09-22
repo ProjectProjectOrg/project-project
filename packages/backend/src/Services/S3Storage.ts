@@ -85,6 +85,10 @@ export interface S3StorageShape {
     connection: S3Connection,
     key: string
   ) => Effect.Effect<Uint8Array | null, S3Unavailable>
+  readonly listObjectKeys: (
+    connection: S3Connection,
+    prefix: string
+  ) => Effect.Effect<ReadonlyArray<string>, S3Unavailable>
   readonly presignPut: (
     connection: S3Connection,
     key: string,

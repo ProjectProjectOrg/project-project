@@ -1,6 +1,8 @@
 import * as Schema from "effect/Schema"
+import { JiraArtifactRef } from "./MigrationArtifacts"
 
-export const JIRA_MIGRATION_MANIFEST_VERSION = 1 as const
+export const JIRA_MIGRATION_MANIFEST_VERSION = 2 as const
+export const JIRA_MIGRATION_MANIFEST_V1_VERSION = 1 as const
 
 export const JiraAdfWarning = Schema.Struct({
   path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
@@ -172,8 +174,8 @@ export const JiraManifestRawPage = Schema.Struct({
 })
 export type JiraManifestRawPage = typeof JiraManifestRawPage.Type
 
-export const JiraMigrationManifest = Schema.Struct({
-  version: Schema.Literal(JIRA_MIGRATION_MANIFEST_VERSION),
+export const JiraMigrationManifestV1 = Schema.Struct({
+  version: Schema.Literal(JIRA_MIGRATION_MANIFEST_V1_VERSION),
   migrationId: Schema.NonEmptyString,
   source: JiraManifestSource,
   identities: Schema.Array(JiraManifestIdentity),
@@ -189,7 +191,324 @@ export const JiraMigrationManifest = Schema.Struct({
   coverage: Schema.Array(JiraManifestCoverage),
   rawPages: Schema.Array(JiraManifestRawPage)
 })
-export type JiraMigrationManifest = typeof JiraMigrationManifest.Type
+export type JiraMigrationManifestV1 = typeof JiraMigrationManifestV1.Type
+
+export const JiraMigrationManifest = JiraMigrationManifestV1
+export type JiraMigrationManifest = JiraMigrationManifestV1
+
+const NonNegativeInt = Schema.Int.pipe(
+  Schema.check(Schema.isGreaterThanOrEqualTo(0))
+)
+
+export const JiraManifestSourceV2 = Schema.Struct({
+  cloudId: Schema.NonEmptyString,
+  siteUrl: Schema.NonEmptyString,
+  projectId: Schema.NonEmptyString,
+  projectKey: Schema.NonEmptyString,
+  projectName: Schema.NonEmptyString,
+  scannedAt: Schema.NonEmptyString,
+  visibleAccount: Schema.Struct({
+    accountId: Schema.NonEmptyString,
+    displayName: Schema.NonEmptyString,
+    caveat: Schema.NonEmptyString
+  })
+})
+
+export const JiraManifestWorkflowRunV2 = Schema.Struct({
+  executionId: Schema.NonEmptyString,
+  attempt: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)))
+})
+
+export const JiraManifestFieldDefinitionV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  key: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  type: Schema.NonEmptyString
+})
+
+export const JiraManifestWorkflowV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  statusIds: Schema.Array(Schema.NonEmptyString)
+})
+
+export const JiraManifestIdentityV2 = Schema.Struct({
+  accountId: Schema.NonEmptyString,
+  displayName: Schema.NonEmptyString,
+  emailAddress: Schema.NullOr(Schema.String),
+  active: Schema.NullOr(Schema.Boolean),
+  accountType: Schema.NullOr(Schema.String)
+})
+
+export const JiraManifestStatusV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  categoryKey: Schema.NullOr(Schema.String)
+})
+
+export const JiraManifestIssueTypeV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  subtask: Schema.Boolean
+})
+
+export const JiraManifestPriorityV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString
+})
+
+export const JiraManifestComponentV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  description: Schema.NullOr(Schema.String)
+})
+
+export const JiraManifestIssueV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  key: Schema.NonEmptyString,
+  issueNumber: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
+  summary: Schema.NonEmptyString,
+  descriptionArtifact: Schema.NullOr(JiraArtifactRef),
+  statusId: Schema.NonEmptyString,
+  issueTypeId: Schema.NonEmptyString,
+  priorityId: Schema.NullOr(Schema.String),
+  assigneeAccountId: Schema.NullOr(Schema.String),
+  reporterAccountId: Schema.NullOr(Schema.String),
+  labelIds: Schema.Array(Schema.String),
+  componentIds: Schema.Array(Schema.String),
+  createdAt: Schema.NonEmptyString,
+  updatedAt: Schema.NonEmptyString
+})
+
+export const JiraManifestCommentV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  authorAccountId: Schema.NonEmptyString,
+  bodyArtifact: JiraArtifactRef,
+  createdAt: Schema.NonEmptyString,
+  updatedAt: Schema.NullOr(Schema.String),
+  restricted: Schema.Boolean
+})
+
+export const JiraManifestChangelogV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  authorAccountId: Schema.NullOr(Schema.String),
+  createdAt: Schema.NonEmptyString,
+  changes: Schema.Array(
+    Schema.Struct({
+      fieldId: Schema.NonEmptyString,
+      from: Schema.NullOr(Schema.String),
+      to: Schema.NullOr(Schema.String)
+    })
+  )
+})
+
+export const JiraManifestWorklogV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  authorAccountId: Schema.NonEmptyString,
+  seconds: NonNegativeInt,
+  startedAt: Schema.NonEmptyString,
+  bodyArtifact: Schema.NullOr(JiraArtifactRef),
+  restricted: Schema.Boolean
+})
+
+export const JiraManifestWatcherV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  accountId: Schema.NonEmptyString
+})
+
+export const JiraManifestVoteV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  accountId: Schema.NonEmptyString
+})
+
+export const JiraManifestAttachmentV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  filename: Schema.NonEmptyString,
+  mimeType: Schema.NonEmptyString,
+  byteSize: NonNegativeInt,
+  contentArtifact: JiraArtifactRef
+})
+
+export const JiraManifestParentSubtaskV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  parentIssueId: Schema.NonEmptyString,
+  subtaskIssueId: Schema.NonEmptyString
+})
+
+export const JiraManifestEpicV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  key: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  issueIds: Schema.Array(Schema.NonEmptyString)
+})
+
+export const JiraManifestSprintV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  state: Schema.Literals(["completed", "active", "future", "other"]),
+  issueIds: Schema.Array(Schema.NonEmptyString),
+  startsAt: Schema.NullOr(Schema.String),
+  endsAt: Schema.NullOr(Schema.String)
+})
+
+export const JiraManifestVersionReleaseV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  released: Schema.Boolean,
+  releaseDate: Schema.NullOr(Schema.String),
+  issueIds: Schema.Array(Schema.NonEmptyString)
+})
+
+export const JiraManifestRankV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  issueId: Schema.NonEmptyString,
+  rank: Schema.NonEmptyString
+})
+
+export const JiraManifestLinkV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  type: Schema.NonEmptyString,
+  inwardIssueId: Schema.NonEmptyString,
+  outwardIssueId: Schema.NonEmptyString
+})
+
+export const JiraManifestRestrictionV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  targetKind: Schema.Literals(["issue", "comment", "worklog"]),
+  targetId: Schema.NonEmptyString,
+  source: Schema.NonEmptyString
+})
+
+export const JiraManifestProductAppV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  kind: Schema.Literals(["product", "app"]),
+  name: Schema.NonEmptyString,
+  detected: Schema.Boolean
+})
+
+export const JiraManifestCustomFieldV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.NonEmptyString,
+  type: Schema.NonEmptyString,
+  valuesArtifact: JiraArtifactRef
+})
+
+export const JiraManifestWarningV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  category: Schema.NonEmptyString,
+  message: Schema.NonEmptyString
+})
+
+export const JiraManifestVersionV2 = Schema.Struct({
+  id: Schema.NonEmptyString,
+  version: Schema.NonEmptyString
+})
+
+export const JiraMigrationManifestV2 = Schema.Struct({
+  version: Schema.Literal(JIRA_MIGRATION_MANIFEST_VERSION),
+  migrationId: Schema.NonEmptyString,
+  scanRevision: NonNegativeInt,
+  source: JiraManifestSourceV2,
+  workflow: JiraManifestWorkflowRunV2,
+  fieldDefinitions: Schema.Array(JiraManifestFieldDefinitionV2),
+  workflows: Schema.Array(JiraManifestWorkflowV2),
+  identities: Schema.Array(JiraManifestIdentityV2),
+  statuses: Schema.Array(JiraManifestStatusV2),
+  issueTypes: Schema.Array(JiraManifestIssueTypeV2),
+  priorities: Schema.Array(JiraManifestPriorityV2),
+  components: Schema.Array(JiraManifestComponentV2),
+  issues: Schema.Array(JiraManifestIssueV2),
+  comments: Schema.Array(JiraManifestCommentV2),
+  changelogs: Schema.Array(JiraManifestChangelogV2),
+  worklogs: Schema.Array(JiraManifestWorklogV2),
+  watchers: Schema.Array(JiraManifestWatcherV2),
+  votes: Schema.Array(JiraManifestVoteV2),
+  attachments: Schema.Array(JiraManifestAttachmentV2),
+  parentsSubtasks: Schema.Array(JiraManifestParentSubtaskV2),
+  epics: Schema.Array(JiraManifestEpicV2),
+  sprints: Schema.Array(JiraManifestSprintV2),
+  versionsReleases: Schema.Array(JiraManifestVersionReleaseV2),
+  ranks: Schema.Array(JiraManifestRankV2),
+  links: Schema.Array(JiraManifestLinkV2),
+  restrictions: Schema.Array(JiraManifestRestrictionV2),
+  productApps: Schema.Array(JiraManifestProductAppV2),
+  customFields: Schema.Array(JiraManifestCustomFieldV2),
+  coverage: Schema.Array(JiraManifestCoverage),
+  warnings: Schema.Array(JiraManifestWarningV2),
+  rawArtifacts: Schema.Array(JiraArtifactRef),
+  schemaVersions: Schema.Array(JiraManifestVersionV2),
+  converterVersions: Schema.Array(JiraManifestVersionV2)
+})
+export type JiraMigrationManifestV2 = typeof JiraMigrationManifestV2.Type
+
+export function normalizeJiraMigrationManifestV2(
+  manifest: JiraMigrationManifestV2
+): JiraMigrationManifestV2 {
+  return {
+    ...manifest,
+    fieldDefinitions: sortBy(manifest.fieldDefinitions, ({ id }) => id),
+    workflows: sortBy(manifest.workflows, ({ id }) => id).map((workflow) => ({
+      ...workflow,
+      statusIds: sortStrings(workflow.statusIds)
+    })),
+    identities: sortBy(manifest.identities, ({ accountId }) => accountId),
+    statuses: sortBy(manifest.statuses, ({ id }) => id),
+    issueTypes: sortBy(manifest.issueTypes, ({ id }) => id),
+    priorities: sortBy(manifest.priorities, ({ id }) => id),
+    components: sortBy(manifest.components, ({ id }) => id),
+    issues: sortBy(manifest.issues, ({ id }) => id).map((issue) => ({
+      ...issue,
+      labelIds: sortStrings(issue.labelIds),
+      componentIds: sortStrings(issue.componentIds)
+    })),
+    comments: sortBy(manifest.comments, ({ id }) => id),
+    changelogs: sortBy(manifest.changelogs, ({ id }) => id).map(
+      (changelog) => ({
+        ...changelog,
+        changes: sortBy(
+          changelog.changes,
+          ({ fieldId, from, to }) =>
+            `${fieldId}\u0000${from ?? ""}\u0000${to ?? ""}`
+        )
+      })
+    ),
+    worklogs: sortBy(manifest.worklogs, ({ id }) => id),
+    watchers: sortBy(manifest.watchers, ({ id }) => id),
+    votes: sortBy(manifest.votes, ({ id }) => id),
+    attachments: sortBy(manifest.attachments, ({ id }) => id),
+    parentsSubtasks: sortBy(manifest.parentsSubtasks, ({ id }) => id),
+    epics: sortBy(manifest.epics, ({ id }) => id).map((epic) => ({
+      ...epic,
+      issueIds: sortStrings(epic.issueIds)
+    })),
+    sprints: sortBy(manifest.sprints, ({ id }) => id).map((sprint) => ({
+      ...sprint,
+      issueIds: sortStrings(sprint.issueIds)
+    })),
+    versionsReleases: sortBy(manifest.versionsReleases, ({ id }) => id).map(
+      (version) => ({
+        ...version,
+        issueIds: sortStrings(version.issueIds)
+      })
+    ),
+    ranks: sortBy(manifest.ranks, ({ id }) => id),
+    links: sortBy(manifest.links, ({ id }) => id),
+    restrictions: sortBy(manifest.restrictions, ({ id }) => id),
+    productApps: sortBy(manifest.productApps, ({ id }) => id),
+    customFields: sortBy(manifest.customFields, ({ id }) => id),
+    coverage: sortBy(manifest.coverage, ({ category }) => category),
+    warnings: sortBy(manifest.warnings, ({ id }) => id),
+    rawArtifacts: sortBy(manifest.rawArtifacts, ({ key }) => key),
+    schemaVersions: sortBy(manifest.schemaVersions, ({ id }) => id),
+    converterVersions: sortBy(manifest.converterVersions, ({ id }) => id)
+  }
+}
 
 export function normalizeJiraManifest(
   manifest: JiraMigrationManifest
