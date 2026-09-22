@@ -126,4 +126,34 @@ bun run --cwd packages/backend typecheck
 exit 1: existing repository Effect suggestions and diagnostics; no TypeScript errors in changed Task 2 files.
 ```
 
-The full repository suite was already green before the review round. A subsequent root-suite invocation emitted the known jsdom/SQLite warnings but did not complete within the command collection window; the changed code is covered by the focused green suite above.
+The full repository suite was already green before the review round. Two subsequent `bun run test` invocations emitted the known jsdom/SQLite warnings and each returned from command collection after 30.2 seconds without final test output or an executable session ID. An immediate `pgrep -fal 'vp test|vitest|vite-plus'` check found no remaining test process. The final exit status is therefore unavailable; the changed code is covered by the focused green suite above.
+
+## Review round 2 fixes
+
+- Attachment serving now uses the same published-or-missing-owner rule as the organization library. Existing unpublished owners remain blocked, while a genuinely missing owner keeps the organization-admin fallback and can receive a signed orphan attachment URL.
+- The upgrade regression now reads and executes the actual migration SQL file. It creates a temporary PostgreSQL schema in a transaction with populated pre-migration `project_index` and `jira_migration` tables, executes every migration statement in order, verifies `legacy.published_at = legacy.created_at`, verifies the post-migration default on a new insert, and rolls the schema back.
+
+### Review round 2 RED
+
+```text
+PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:55432/projectproject_effect_v4_t172 bunx vp test run packages/backend/src/db/projectVisibility.test.ts --no-file-parallelism
+Test Files  1 failed (1)
+Tests  2 failed | 6 passed (8)
+```
+
+The new orphan-serving assertion failed with `NotFound` before S3 signing because `resolveForServing` used an inner project join. The second failure was the existing library fixture counting the newly inserted orphan; it was made resilient to independent orphan fixtures before GREEN.
+
+### Review round 2 GREEN
+
+```text
+PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:55432/projectproject_effect_v4_t172 bunx vp test run packages/backend/src/db/projectVisibility.test.ts packages/backend/src/Layers/Attachments.test.ts --no-file-parallelism
+Test Files  2 passed (2)
+Tests  95 passed (95)
+```
+
+```text
+bun run --cwd packages/backend typecheck
+TYPECHECK_EXIT=1
+```
+
+Typecheck remains nonzero only on the repository's existing Effect diagnostics; there are no TypeScript errors in the changed files.

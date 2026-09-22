@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { readFile } from "node:fs/promises"
 import { PgClient } from "@effect/sql-pg"
 import {
   AppApi,
@@ -406,6 +408,48 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     expect(thumbnailSigns).toBe(0)
   })
 
+  it("serves a genuine orphaned attachment to an organization admin", async () => {
+    const attachmentId = `orphaned-serving-${randomUUID()}`
+    await insertAttachment(attachmentId, "deleted-project", "orphaned")
+    let signs = 0
+    const result = await Effect.runPromise(
+      Attachments.pipe(
+        Effect.flatMap((service) =>
+          Effect.exit(
+            service.resolveForServing(
+              `visibility-${organizationId}`,
+              attachmentId,
+              userId
+            )
+          )
+        ),
+        Effect.provide(
+          AttachmentsLive.pipe(
+            Layer.provide(dbLayer()),
+            Layer.provide(ownerOrg),
+            Layer.provide(storage),
+            Layer.provide(nonMemberProjects),
+            Layer.provide(
+              Layer.succeed(S3Storage, {
+                presignGet: () =>
+                  Effect.sync(() => {
+                    signs += 1
+                    return "https://signed.example/orphan"
+                  })
+              } as never)
+            )
+          )
+        )
+      )
+    )
+
+    expect(result).toMatchObject({
+      _tag: "Success",
+      value: { url: "https://signed.example/orphan" }
+    })
+    expect(signs).toBe(1)
+  })
+
   it("shows published and orphaned attachment library records while excluding hidden project data", async () => {
     const publishedAttachment = `published-attachment-${randomUUID()}`
     const hiddenAttachment = `hidden-attachment-${randomUUID()}`
@@ -445,13 +489,14 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       )
     )
 
-    expect(result.page.items.map((item) => item.id).sort()).toEqual(
-      [publishedAttachment, orphanedAttachment].sort()
-    )
+    const ids = result.page.items.map((item) => item.id)
+    expect(ids).toContain(publishedAttachment)
+    expect(ids).toContain(orphanedAttachment)
+    expect(ids).not.toContain(hiddenAttachment)
     expect(
       result.page.items.find((item) => item.id === publishedAttachment)?.tickets
     ).toEqual([{ projectSlug: "published", ticketId: "T-1" }])
-    expect(result.summary.count).toBe(2)
+    expect(result.summary.count).toBe(3)
   })
 
   it("refuses to delete a hidden-project attachment from the organization library", async () => {
@@ -498,30 +543,48 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   })
 
   it("backfills existing projects from created_at and defaults newly inserted projects to published", async () => {
-    const legacySlug = `legacy-${randomUUID()}`
-    const defaultSlug = `default-${randomUUID()}`
     const createdAt = "2024-01-02T03:04:05.000Z"
-    await pool.query(
-      "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at, published_at) values ($1, $2, $3, 'LEGACY', 'Legacy', 'folder', '#3b82f6', $4, $5, null)",
-      [randomUUID(), legacySlug, organizationId, userId, createdAt]
+    const schema = `migration_visibility_${randomUUID().replaceAll("-", "")}`
+    const migration = await readFile(
+      new URL(
+        "./migrations/20260922120000_jira_effect_workflow/migration.sql",
+        import.meta.url
+      ),
+      "utf8"
     )
-    await pool.query(
-      "update project_index set published_at = created_at where published_at is null"
-    )
-    await pool.query(
-      "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by) values ($1, $2, $3, 'DEFAULT', 'Default', 'folder', '#3b82f6', $4)",
-      [randomUUID(), defaultSlug, organizationId, userId]
-    )
-    const rows = await pool.query(
-      "select slug, created_at, published_at from project_index where slug = any($1)",
-      [[legacySlug, defaultSlug]]
-    )
+    const client = await pool.connect()
+    try {
+      await client.query("begin")
+      await client.query(`create schema "${schema}"`)
+      await client.query(`set local search_path to "${schema}"`)
+      await client.query(
+        "create table project_index (slug text primary key, created_at timestamp with time zone not null)"
+      )
+      await client.query("create table jira_migration (id uuid not null)")
+      await client.query(
+        "insert into project_index (slug, created_at) values ('legacy', $1)",
+        [createdAt]
+      )
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        const sql = statement.trim()
+        if (sql !== "") await client.query(sql)
+      }
+      await client.query(
+        "insert into project_index (slug, created_at) values ('default', now())"
+      )
+      const rows = await client.query(
+        "select slug, created_at, published_at from project_index order by slug"
+      )
 
-    expect(
-      rows.rows.find((row) => row.slug === legacySlug)?.published_at
-    ).toEqual(rows.rows.find((row) => row.slug === legacySlug)?.created_at)
-    expect(
-      rows.rows.find((row) => row.slug === defaultSlug)?.published_at
-    ).not.toBeNull()
+      expect(
+        rows.rows.find((row) => row.slug === "legacy")?.published_at
+      ).toEqual(rows.rows.find((row) => row.slug === "legacy")?.created_at)
+      expect(
+        rows.rows.find((row) => row.slug === "default")?.published_at
+      ).not.toBeNull()
+    } finally {
+      await client.query("rollback")
+      client.release()
+    }
   })
 })

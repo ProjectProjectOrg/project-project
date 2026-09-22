@@ -385,7 +385,7 @@ const servingDb = Layer.succeed(Db, {
   select: () => ({
     from: () => {
       const query = {
-        innerJoin: () => query,
+        leftJoin: () => query,
         where: () => ({
           limit: () => Effect.succeed([{ attachment: servingRow }])
         })

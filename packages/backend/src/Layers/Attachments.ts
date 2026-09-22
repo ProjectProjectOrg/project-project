@@ -353,7 +353,7 @@ export const AttachmentsLive = Layer.effect(
         const rows = yield* db
           .select({ attachment: attachmentIndex })
           .from(attachmentIndex)
-          .innerJoin(
+          .leftJoin(
             projectIndex,
             eq(projectIndex.slug, attachmentIndex.projectSlug)
           )
@@ -361,7 +361,7 @@ export const AttachmentsLive = Layer.effect(
             and(
               eq(attachmentIndex.id, attachmentId),
               eq(attachmentIndex.orgSlug, orgSlug),
-              publishedProject(projectIndex)
+              libraryAttachmentIsVisible()
             )
           )
           .limit(1)
