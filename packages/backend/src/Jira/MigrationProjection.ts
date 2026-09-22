@@ -373,6 +373,13 @@ export interface TransitionInput {
   readonly expectedRevision: number
   readonly action: "run" | "cancel"
 }
+export const JiraScanResumeResult = Schema.Union([
+  Schema.TaggedStruct("Resumed", {}),
+  Schema.TaggedStruct("AwaitRetry", { failureSequence: Schema.Int }),
+  Schema.TaggedStruct("Rejected", {})
+])
+export type JiraScanResumeResult = typeof JiraScanResumeResult.Type
+
 export interface JiraMigrationProjectionShape {
   readonly recordScanFailure: (
     fence: AttemptFence,
@@ -386,7 +393,7 @@ export interface JiraMigrationProjectionShape {
   readonly resumeScan: (
     fence: AttemptFence,
     failureSequence: number
-  ) => Effect.Effect<boolean, JiraError>
+  ) => Effect.Effect<JiraScanResumeResult, JiraError>
   readonly recordScanProgress: (
     fence: AttemptFence,
     pageKey: string,
@@ -801,23 +808,32 @@ export class JiraMigrationProjection extends Context.Service<
                 .where(
                   and(
                     fenceWhere(fence),
-                    eq(jiraMigration.failureSequence, sequence),
                     isNull(jiraMigration.cleanupExecutionId)
                   )
                 )
                 .for("update")
               const row = rows[0]
-              if (!row) return false
-              if (row.scanAt !== null)
-                return ["needs_configuration", "ready", "migrating"].includes(
+              if (!row) return { _tag: "Rejected" } as const
+              const scanned =
+                row.scanAt !== null &&
+                ["needs_configuration", "ready", "migrating"].includes(
                   row.status
                 )
-              if (row.status === "scanning") return true
-              if (
-                row.status !== "failed" &&
-                row.status !== "reconnect_required"
-              )
-                return false
+              const retryable =
+                row.scanAt === null &&
+                row.failureRetryable === true &&
+                ["failed", "reconnect_required"].includes(row.status)
+              if (!scanned && !retryable && row.status !== "scanning")
+                return { _tag: "Rejected" } as const
+              if (row.failureSequence > sequence)
+                return {
+                  _tag: "AwaitRetry",
+                  failureSequence: row.failureSequence
+                } as const
+              if (row.failureSequence !== sequence)
+                return { _tag: "Rejected" } as const
+              if (scanned || row.status === "scanning")
+                return { _tag: "Resumed" } as const
               const now = yield* DateTime.nowAsDate
               yield* tx
                 .update(jiraMigration)
@@ -837,7 +853,7 @@ export class JiraMigrationProjection extends Context.Service<
                     isNull(jiraMigration.cleanupExecutionId)
                   )
                 )
-              return true
+              return { _tag: "Resumed" } as const
             })
           )
           .pipe(Effect.mapError(databaseError))

@@ -2,7 +2,10 @@ import * as DurableDeferred from "effect/unstable/workflow/DurableDeferred"
 import type * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
 import * as Workflow from "effect/unstable/workflow/Workflow"
 import * as Effect from "effect/Effect"
-import type { JiraMigrationProjectionShape } from "./MigrationProjection"
+import {
+  JiraScanResumeResult,
+  type JiraMigrationProjectionShape
+} from "./MigrationProjection"
 import * as Schema from "effect/Schema"
 import {
   makeFinalizeMigrationActivity,
@@ -210,16 +213,22 @@ export const runScanUnit = <A>(
         })
         if (sequence === null)
           return yield* scanFailure("jira_migration_superseded")
-        yield* DurableDeferred.await(retryDeferred(sequence))
-        const resumed = yield* Activity.make({
-          name: `v1/scan-resume/${operationKey}/${sequence}`,
-          success: Schema.Boolean,
-          error: JiraScanFailure,
-          execute: dependencies
-            .resume(context, sequence)
-            .pipe(Effect.mapError(scanError))
-        })
-        if (!resumed) return yield* scanFailure("jira_migration_superseded")
+        let awaitedSequence = sequence
+        while (true) {
+          yield* DurableDeferred.await(retryDeferred(awaitedSequence))
+          const resumed = yield* Activity.make({
+            name: `v1/scan-resume/${operationKey}/${awaitedSequence}`,
+            success: JiraScanResumeResult,
+            error: JiraScanFailure,
+            execute: dependencies
+              .resume(context, awaitedSequence)
+              .pipe(Effect.mapError(scanError))
+          })
+          if (resumed._tag === "Resumed") break
+          if (resumed._tag === "Rejected")
+            return yield* scanFailure("jira_migration_superseded")
+          awaitedSequence = resumed.failureSequence
+        }
       }
       operationTry++
     }

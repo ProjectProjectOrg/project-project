@@ -432,8 +432,11 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         })
         expect(yield* p.completeScan(fence(row), scan)).toBe(true)
         expect((yield* p.owned(input, row.id)).status).toBe("migrating")
-        expect(yield* p.resumeScan(fence(row), 1)).toBe(true)
-        expect(yield* p.resumeScan(fence(row), 0)).toBe(false)
+        expect(yield* p.resumeScan(fence(row), 1)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(fence(row), 0)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 1
+        })
         expect((yield* p.owned(input, row.id)).status).toBe("migrating")
 
         yield* p.recordFailure(fence(row), {
@@ -539,8 +542,8 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           { concurrency: 2 }
         )
         expect(sequences).toEqual([1, 1])
-        expect(yield* p.resumeScan(current, 1)).toBe(true)
-        expect(yield* p.resumeScan(current, 1)).toBe(true)
+        expect(yield* p.resumeScan(current, 1)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(current, 1)).toEqual({ _tag: "Resumed" })
         yield* p.advance(current, { checkpoint: {}, progressDone: 4 })
         expect(yield* p.recordScanFailure(current, "issues/0/0", failure)).toBe(
           1
@@ -549,16 +552,30 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         expect(yield* p.recordScanFailure(current, "issues/0/1", failure)).toBe(
           2
         )
-        expect(yield* p.resumeScan(current, 1)).toBe(false)
+        expect(yield* p.resumeScan(current, 1)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 2
+        })
         expect((yield* p.owned(input, row.id)).failureSequence).toBe(2)
         expect(
           yield* p.resumeScan({ ...current, workflowAttempt: 99 }, 2)
-        ).toBe(false)
+        ).toEqual({ _tag: "Rejected" })
+        expect(
+          yield* p.resumeScan({ ...current, workflowExecutionId: "other" }, 1)
+        ).toEqual({ _tag: "Rejected" })
+        expect((yield* p.owned(input, row.id)).status).toBe("failed")
+        expect(yield* p.resumeScan(current, 2)).toEqual({ _tag: "Resumed" })
+        expect(yield* p.resumeScan(current, 1)).toEqual({
+          _tag: "AwaitRetry",
+          failureSequence: 2
+        })
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
+        yield* p.recordScanFailure(current, "issues/0/2", failure)
         yield* p.claimCleanup(current, {
           executionId: "cleanup",
           expectedRevision: (yield* p.owned(input, row.id)).revision
         })
-        expect(yield* p.resumeScan(current, 2)).toBe(false)
+        expect(yield* p.resumeScan(current, 2)).toEqual({ _tag: "Rejected" })
         expect(
           yield* p.recordScanFailure(current, "issues/0/2", failure)
         ).toBeNull()

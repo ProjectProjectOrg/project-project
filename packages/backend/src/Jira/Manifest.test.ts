@@ -475,3 +475,30 @@ it.each([
     })
   }
 )
+
+it("rejects ordinary issue types claimed as subtasks while preserving valid subtask references", async () => {
+  expect(
+    await Effect.runPromise(Effect.result(validateScanManifestV2(manifestV2)))
+  ).toMatchObject({
+    _tag: "Failure",
+    failure: {
+      _tag: "JiraScanFailure",
+      reason: "jira_migration_invalid_subtask"
+    }
+  })
+  const valid = {
+    ...manifestV2,
+    issueTypes: [
+      ...manifestV2.issueTypes,
+      { id: "subtask", name: "Subtask", subtask: true }
+    ],
+    issues: manifestV2.issues.map((issue) =>
+      issue.id === "issue-2"
+        ? Object.assign({}, issue, { issueTypeId: "subtask" })
+        : issue
+    )
+  }
+  expect(
+    await Effect.runPromise(Effect.result(validateScanManifestV2(valid)))
+  ).toMatchObject({ _tag: "Success" })
+})

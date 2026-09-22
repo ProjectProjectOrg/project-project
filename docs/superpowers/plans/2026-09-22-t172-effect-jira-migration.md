@@ -741,6 +741,8 @@ Controller-approved Task 6 amendments: retain original client JSON in private ra
 
 Task 6 final replay amendment: snapshot identity options in a checksum-bound artifact using the existing coordinate Activity family with kind `identity-options`; build-manifest requires that reference. Persisted scan context supplies scan/generated timestamps. Rebuild determinism covers changed providers and advanced clocks. Replayed completion after configuration/run acceptance must match the original manifest identity/checksum and preserve the saved gate/status; exact-generation resume must also preserve those scanned states. Null and concurrent checkpoint patches retain private receipt maps.
 
+Task 6 review fix: internal resume results distinguish `Resumed`, `AwaitRetry { failureSequence }`, and `Rejected`; orchestration iteratively joins a newer same-execution retry generation, including one already accepted, without weakening exact-generation CAS. True subtask relationships require the normalized type flag; ordinary epic children remain in epic membership. Add controlled two-generation overlap, real SQL stale-owner/cleanup controls, and exact epic/subtask semantic regressions.
+
 ### Task 7: Server-Side Drafts, Run, Retry, Reconnect, Rescan, and Cancel
 
 **Files:**

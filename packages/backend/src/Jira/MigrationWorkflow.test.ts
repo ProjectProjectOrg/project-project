@@ -37,7 +37,7 @@ import {
   scanFixtureResponse,
   scanIssue
 } from "./ScanTestSupport"
-import { Clock } from "effect"
+import { Clock, Deferred } from "effect"
 import * as TestClock from "effect/testing/TestClock"
 import type { JiraArtifactRef } from "./MigrationArtifacts"
 import { scanUser } from "./ScanTestSupport"
@@ -296,7 +296,7 @@ describe("durable snapshot workflow", () => {
               artifacts,
               progress: () => Effect.succeed(true),
               recordFailure: () => Effect.sync(() => ++sequence),
-              resume: () => Effect.succeed(true),
+              resume: () => Effect.succeed({ _tag: "Resumed" }),
               identityOptions: Effect.succeed([]),
               configured: (_fence, result) =>
                 Effect.sync(() => {
@@ -363,7 +363,11 @@ const snapshotHarness = (
   fixture: ReturnType<typeof makeScanTestLayer>,
   identityOptions: import("./MigrationActivities").ScanSnapshotDependencies["identityOptions"] = Effect.succeed(
     []
-  )
+  ),
+  hooks: {
+    readonly recorded: (sequence: number) => Effect.Effect<void>
+    readonly beforeResume: (sequence: number) => Effect.Effect<void>
+  } = { recorded: () => Effect.void, beforeResume: () => Effect.void }
 ) => {
   const state = {
     sequence: 0,
@@ -392,13 +396,23 @@ const snapshotHarness = (
               state.reasons.push(failure.reason)
               receipts.set(key, state.sequence)
               return state.sequence
-            }),
+            }).pipe(Effect.tap(hooks.recorded)),
           resume: (_fence, sequence) =>
-            Effect.sync(() => {
-              if (sequence !== state.sequence) return false
-              state.failed = false
-              return true
-            }),
+            hooks.beforeResume(sequence).pipe(
+              Effect.andThen(
+                Effect.sync(() => {
+                  if (sequence < state.sequence)
+                    return {
+                      _tag: "AwaitRetry",
+                      failureSequence: state.sequence
+                    } as const
+                  if (sequence !== state.sequence)
+                    return { _tag: "Rejected" } as const
+                  state.failed = false
+                  return { _tag: "Resumed" } as const
+                })
+              )
+            ),
           configured: (_fence, result) =>
             Effect.sync(() => {
               state.configured++
@@ -534,7 +548,9 @@ describe("scan retry and coverage", () => {
                   fixVersions: [{ id: "v1" }],
                   ...(id === 1
                     ? { issuetype: { id: "epic" } }
-                    : { parent: { id: "1" } }),
+                    : id === 6
+                      ? { issuetype: { id: "subtask" }, parent: { id: "2" } }
+                      : { parent: { id: "1" } }),
                   security: { id: "restricted" },
                   issuelinks:
                     id === 1
@@ -560,6 +576,12 @@ describe("scan retry and coverage", () => {
               {
                 id: "epic",
                 name: "Epic",
+                statuses: [{ id: "s1", name: "Todo" }]
+              },
+              {
+                id: "subtask",
+                name: "Subtask",
+                subtask: true,
                 statuses: [{ id: "s1", name: "Todo" }]
               }
             ])
@@ -877,3 +899,73 @@ it.effect(
     }).pipe(Effect.provide(harness.layer))
   }
 )
+
+for (const alreadyAccepted of [false, true]) {
+  it.effect(
+    `joins a newer sibling generation that is ${alreadyAccepted ? "already accepted" : "still pending"}`,
+    () =>
+      Effect.gen(function* () {
+        const generationTwo = yield* Deferred.make<void>()
+        const releaseOlderResume = yield* Deferred.make<void>()
+        const releaseNewerFailure = yield* Deferred.make<void>()
+        let firstGenerationResumes = 0
+        let unavailable = true
+        const fixture = makeScanTestLayer((request) =>
+          Effect.succeed(
+            unavailable && /\/(comment|worklog)\?/.test(request.url)
+              ? response({}, 503)
+              : scanFixtureResponse(request)
+          )
+        )
+        const harness = snapshotHarness(fixture, Effect.succeed([]), {
+          recorded: (sequence) =>
+            sequence === 2
+              ? Deferred.succeed(generationTwo, undefined).pipe(
+                  Effect.andThen(
+                    alreadyAccepted
+                      ? Deferred.await(releaseNewerFailure)
+                      : Effect.void
+                  )
+                )
+              : Effect.void,
+          beforeResume: (sequence) =>
+            Effect.suspend(() => {
+              if (sequence === 1 && ++firstGenerationResumes === 2)
+                return Deferred.await(releaseOlderResume)
+              return Effect.void
+            })
+        })
+        yield* Effect.gen(function* () {
+          const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+            discard: true
+          })
+          yield* TestClock.adjust("5 seconds")
+          yield* waitUntilSuspended(id)
+          expect(harness.state.reasons).toHaveLength(2)
+          yield* completeRetry(id, 1)
+          yield* TestClock.adjust("5 seconds")
+          yield* Deferred.await(generationTwo)
+          expect(harness.state.sequence).toBe(2)
+          unavailable = false
+          if (alreadyAccepted) {
+            harness.state.failed = false
+            yield* completeRetry(id, 2)
+            yield* Deferred.succeed(releaseNewerFailure, undefined)
+          }
+          yield* Deferred.succeed(releaseOlderResume, undefined)
+          yield* waitUntilSuspended(id)
+          if (!alreadyAccepted) {
+            expect(harness.state.configured).toBe(0)
+            yield* completeRetry(id, 2)
+            yield* waitUntilSuspended(id)
+          }
+          expect(harness.state.configured).toBe(1)
+          expect(harness.state.sequence).toBe(2)
+          yield* completeStartImport(id, 1)
+          expect(yield* JiraMigrationWorkflow.execute(createPayload)).toEqual({
+            migrationId: id
+          })
+        }).pipe(Effect.provide(harness.layer))
+      })
+  )
+}

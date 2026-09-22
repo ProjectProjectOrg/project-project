@@ -543,3 +543,84 @@ it("blocks configuration when a raw artifact referenced by a completed page has 
     }).pipe(withScanTestWorkflow, Effect.provide(fixture.layer))
   )
 })
+
+import { buildScanManifestV2, prepareScanV2, type ScanChunk } from "./ScanV2"
+import { scanUser } from "./ScanTestSupport"
+
+const relationshipArtifact = (key: string) => ({
+  key,
+  contentType: "application/json",
+  byteSize: 2,
+  sha256: "a".repeat(64)
+})
+
+it("keeps ordinary epic children out of subtask relationships", () =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const values: ReadonlyArray<Pick<ScanChunk, "kind" | "values">> = [
+        { kind: "account", values: [scanUser] },
+        { kind: "project", values: [{ id: "10000", key: "APP", name: "App" }] },
+        {
+          kind: "statuses",
+          values: [
+            {
+              id: "epic",
+              name: "Epic",
+              subtask: false,
+              statuses: [{ id: "s1", name: "Todo" }]
+            },
+            {
+              id: "story",
+              name: "Story",
+              subtask: false,
+              statuses: [{ id: "s1", name: "Todo" }]
+            },
+            {
+              id: "subtask",
+              name: "Subtask",
+              subtask: true,
+              statuses: [{ id: "s1", name: "Todo" }]
+            }
+          ]
+        },
+        {
+          kind: "issues",
+          values: [1, 2, 3].map((id) => ({
+            id: String(id),
+            key: `APP-${id}`,
+            fields: {
+              ...scanIssue(id).fields,
+              priority: undefined,
+              components: [],
+              issuetype: {
+                id: id === 1 ? "epic" : id === 2 ? "story" : "subtask"
+              },
+              ...(id > 1 ? { parent: { id: String(id - 1) } } : {})
+            }
+          }))
+        }
+      ]
+      const chunks = values.map((value) => ({
+        kind: value.kind,
+        values: value.values,
+        parentId: null,
+        warnings: [],
+        raw: relationshipArtifact(`raw/${value.kind}`),
+        normalized: relationshipArtifact(`normalized/${value.kind}`)
+      }))
+      const prepared = yield* prepareScanV2(scanContext, chunks, [])
+      const refs = new Map(
+        prepared.documents.map((document) => [
+          `${document.kind}:${document.id}`,
+          relationshipArtifact(`${document.kind}/${document.id}`)
+        ])
+      )
+      const manifest = yield* buildScanManifestV2(prepared, refs)
+      expect(manifest.parentsSubtasks).toEqual([
+        { id: "3", parentIssueId: "2", subtaskIssueId: "3" }
+      ])
+      expect(manifest.epics).toEqual([
+        { id: "1", key: "APP-1", name: "Issue 1", issueIds: ["2"] }
+      ])
+    })
+  ))

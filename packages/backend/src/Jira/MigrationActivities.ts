@@ -16,7 +16,7 @@ import {
   JiraArtifactRef,
   type JiraMigrationArtifactsShape
 } from "./MigrationArtifacts"
-import type { AttemptFence } from "./MigrationProjection"
+import type { AttemptFence, JiraScanResumeResult } from "./MigrationProjection"
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
 import {
   JiraMigrationRequirements,
@@ -497,7 +497,7 @@ export interface ScanSnapshotDependencies extends ScanPageDependencies {
   readonly resume: (
     fence: AttemptFence,
     failureSequence: number
-  ) => Effect.Effect<boolean, JiraError>
+  ) => Effect.Effect<JiraScanResumeResult, JiraError>
 }
 export const makeIdentityOptionsActivity = (
   context: JiraScanContext,

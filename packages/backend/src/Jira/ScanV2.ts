@@ -324,7 +324,13 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       metadataArtifact: ref("attachment", attachment.id)
     })),
     parentsSubtasks: legacy.manifest.issues
-      .filter((issue) => issue.parentIssueId !== null)
+      .filter(
+        (issue) =>
+          issue.parentIssueId !== null &&
+          legacy.manifest.issueTypes.some(
+            (type) => type.id === issue.issueTypeId && type.subtask
+          )
+      )
       .map((issue) => ({
         id: issue.id,
         parentIssueId: issue.parentIssueId,
@@ -502,9 +508,19 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
     for (const value of [...manifest.watchers, ...manifest.votes])
       if (!identities.has(value.accountId))
         return yield* scanFailure("jira_migration_invalid_reference")
-    for (const relation of manifest.parentsSubtasks)
-      if (!issues.has(relation.subtaskIssueId))
+    for (const relation of manifest.parentsSubtasks) {
+      const child = manifest.issues.find(
+        (issue) => issue.id === relation.subtaskIssueId
+      )
+      if (child === undefined)
         return yield* scanFailure("jira_migration_invalid_reference")
+      if (
+        !manifest.issueTypes.some(
+          (type) => type.id === child.issueTypeId && type.subtask
+        )
+      )
+        return yield* scanFailure("jira_migration_invalid_subtask")
+    }
     for (const issue of manifest.issues) {
       if (
         !statuses.has(issue.statusId) ||
