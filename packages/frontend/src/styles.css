@@ -880,3 +880,13 @@ html.dark .prose-md .token.coord {
   pointer-events: auto;
   transition-delay: 0.25s;
 }
+
+/* React never runs the unmount a popup scheduled while its tree was hidden. */
+[data-retained-stale]
+  :is(
+    [data-slot="popover-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"]
+  ):not([data-open]) {
+  display: none !important;
+}

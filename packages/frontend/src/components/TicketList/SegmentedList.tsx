@@ -1,7 +1,7 @@
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useCallback, useMemo, useState, type ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 import { FilterX, ListChecks } from "lucide-react"
 import { boardStatusesFor } from "@/components/sprints/board-utils"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ import type {
 } from "@projectproject/shared"
 import { SectionList } from "./SectionList"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
+import { useTicketPreview } from "./useTicketPreview"
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
 const EMPTY_PAGE: BacklogSection = { items: [], nextCursor: null }
@@ -73,18 +74,7 @@ export function SegmentedList({
       resetScroll: false
     })
   }
-  const [activePreviewId, setActivePreviewId] = useState<TicketId | null>(null)
-  const handlePreviewPointerEnter = useCallback((ticketId: TicketId) => {
-    setActivePreviewId((current) => (current === ticketId ? current : null))
-  }, [])
-  const handlePreviewOpenChange = useCallback(
-    (ticketId: TicketId, open: boolean) => {
-      setActivePreviewId((current) =>
-        open ? ticketId : current === ticketId ? null : current
-      )
-    },
-    []
-  )
+  const preview = useTicketPreview()
 
   const statusReq = useMemo(
     () => statusesRequest(orgSlug, slug),
@@ -211,9 +201,9 @@ export function SegmentedList({
           extraRowActions={extraRowActions}
           showSprintCol={showSprintCol}
           showExtraActionsCol={showExtraActionsCol}
-          activePreviewId={activePreviewId}
-          onPreviewPointerEnter={handlePreviewPointerEnter}
-          onPreviewOpenChange={handlePreviewOpenChange}
+          activePreviewId={preview.activePreviewId}
+          onPreviewPointerEnter={preview.onPreviewPointerEnter}
+          onPreviewOpenChange={preview.onPreviewOpenChange}
         />
       ))}
     </div>

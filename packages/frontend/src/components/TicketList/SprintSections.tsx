@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type ReactNode,
-  type ComponentProps
-} from "react"
+import { useMemo, type ReactNode, type ComponentProps } from "react"
 import { useAtomRefresh, useAtomValue, useAtomSet } from "@effect/atom-react"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
@@ -39,6 +33,7 @@ import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import { Row } from "./Row"
 import { SectionList, TicketPagination } from "./SectionList"
+import { useTicketPreview } from "./useTicketPreview"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 
@@ -76,17 +71,7 @@ export function SprintSections(props: Props) {
     () => sprintSectionsRequest(props.orgSlug, props.slug, props.query),
     [props.orgSlug, props.slug, props.query]
   )
-  const [preview, setPreview] = useState<TicketId | null>(null)
-  const onPreviewPointerEnter = useCallback(
-    (id: TicketId) =>
-      setPreview((current) => (current === id ? current : null)),
-    []
-  )
-  const onPreviewOpenChange = useCallback(
-    (id: TicketId, open: boolean) =>
-      setPreview((current) => (open ? id : current === id ? null : current)),
-    []
-  )
+  const preview = useTicketPreview()
   const groupsResult = useAtomValue(sprintList(groupsReq))
   const snapshotResult = useAtomValue(sprintSections(snapshotReq))
   const refreshGroups = useAtomRefresh(sprintList(groupsReq))
@@ -113,9 +98,9 @@ export function SprintSections(props: Props) {
               page={section?.page ?? EMPTY_PAGE}
               count={section?.count ?? 0}
               waiting={waiting}
-              activePreviewId={preview}
-              onPreviewPointerEnter={onPreviewPointerEnter}
-              onPreviewOpenChange={onPreviewOpenChange}
+              activePreviewId={preview.activePreviewId}
+              onPreviewPointerEnter={preview.onPreviewPointerEnter}
+              onPreviewOpenChange={preview.onPreviewOpenChange}
             />
           )
         })}
