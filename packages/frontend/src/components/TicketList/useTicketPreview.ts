@@ -3,9 +3,6 @@ import type { TicketId } from "@projectproject/shared"
 
 export function useTicketPreview() {
   const [activePreviewId, setActivePreviewId] = useState<TicketId | null>(null)
-  const [mountedPreviewId, setMountedPreviewId] = useState<TicketId | null>(
-    null
-  )
   const onPreviewPointerEnter = useCallback((ticketId: TicketId) => {
     setActivePreviewId((current) => (current === ticketId ? current : null))
   }, [])
@@ -14,19 +11,8 @@ export function useTicketPreview() {
       setActivePreviewId((current) =>
         open ? ticketId : current === ticketId ? null : current
       )
-      if (open) setMountedPreviewId(ticketId)
     },
     []
   )
-  const onPreviewDismiss = useCallback(() => {
-    setActivePreviewId(null)
-    setMountedPreviewId(null)
-  }, [])
-  return {
-    activePreviewId,
-    mountedPreviewId,
-    onPreviewPointerEnter,
-    onPreviewOpenChange,
-    onPreviewDismiss
-  }
+  return { activePreviewId, onPreviewPointerEnter, onPreviewOpenChange }
 }

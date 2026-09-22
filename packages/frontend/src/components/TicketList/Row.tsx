@@ -1,4 +1,4 @@
-import { memo, useRef, type ReactNode } from "react"
+import { memo, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
@@ -36,10 +36,8 @@ type RowProps = Readonly<{
   extraRowActions?: (ticket: Ticket) => ReactNode
   pending?: boolean
   previewOpen: boolean
-  previewMounted: boolean
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
-  onPreviewDismiss: () => void
 }>
 
 function RowImpl(props: RowProps) {
@@ -70,10 +68,8 @@ function RowView({
   extraRowActions,
   pending,
   previewOpen,
-  previewMounted,
   onPreviewPointerEnter,
   onPreviewOpenChange,
-  onPreviewDismiss,
   onPatch,
   waiting
 }: RowProps & {
@@ -84,6 +80,7 @@ function RowView({
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
+  const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
   }
@@ -96,6 +93,7 @@ function RowView({
         <Popover
           open={previewOpen}
           onOpenChange={(nextOpen) => {
+            if (nextOpen) setPreviewMounted(true)
             onPreviewOpenChange(ticket.id, nextOpen)
           }}
         >
@@ -111,7 +109,6 @@ function RowView({
               params={{ orgSlug, slug, id: ticket.id }}
               preload="intent"
               data-row-link
-              onClick={onPreviewDismiss}
               className="col-start-4 row-start-1 flex min-w-0 self-stretch items-center outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
             >
               <PopoverTrigger

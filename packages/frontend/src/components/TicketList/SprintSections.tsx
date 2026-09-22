@@ -108,10 +108,8 @@ export function SprintSections(props: Props) {
                 setCollapsed({ ...collapsed, [id]: !isCollapsed })
               }
               activePreviewId={preview.activePreviewId}
-              mountedPreviewId={preview.mountedPreviewId}
               onPreviewPointerEnter={preview.onPreviewPointerEnter}
               onPreviewOpenChange={preview.onPreviewOpenChange}
-              onPreviewDismiss={preview.onPreviewDismiss}
             />
           )
         })}
@@ -142,10 +140,8 @@ type SprintSectionProps = Props &
     collapsed: boolean
     onToggleCollapsed: () => void
     activePreviewId: TicketId | null
-    mountedPreviewId: TicketId | null
     onPreviewPointerEnter: (id: TicketId) => void
     onPreviewOpenChange: (id: TicketId, open: boolean) => void
-    onPreviewDismiss: () => void
   }>
 
 function SprintSection({
@@ -153,10 +149,8 @@ function SprintSection({
   collapsed,
   onToggleCollapsed,
   activePreviewId,
-  mountedPreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
-  onPreviewDismiss,
   ...props
 }: SprintSectionProps) {
   const { orgSlug, slug, members, extraRowActions } = props
@@ -246,10 +240,8 @@ function SprintSection({
         showSprintCol
         showExtraActionsCol
         activePreviewId={activePreviewId}
-        mountedPreviewId={mountedPreviewId}
         onPreviewPointerEnter={onPreviewPointerEnter}
         onPreviewOpenChange={onPreviewOpenChange}
-        onPreviewDismiss={onPreviewDismiss}
       />
     ) : (
       <div

@@ -221,10 +221,8 @@ export function SegmentedList({
           showSprintCol={showSprintCol}
           showExtraActionsCol={showExtraActionsCol}
           activePreviewId={preview.activePreviewId}
-          mountedPreviewId={preview.mountedPreviewId}
           onPreviewPointerEnter={preview.onPreviewPointerEnter}
           onPreviewOpenChange={preview.onPreviewOpenChange}
-          onPreviewDismiss={preview.onPreviewDismiss}
         />
       ))}
     </div>

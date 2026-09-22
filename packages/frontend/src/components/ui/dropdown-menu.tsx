@@ -4,6 +4,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
+import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
 import { cn } from "@/lib/utils"
 
 const DeferMenusContext = React.createContext(false)
@@ -54,24 +55,10 @@ function DeferredDropdownMenu({
   )
 }
 
-const noop = () => {}
-
 function DropdownMenuPortal({
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.Portal>) {
-  const restore = React.useRef<(() => void) | null>(null)
-  const portalRef = React.useCallback((element: HTMLElement | null) => {
-    if (element === null) return noop
-    restore.current?.()
-    const display = element.style.getPropertyValue("display")
-    const priority = element.style.getPropertyPriority("display")
-    restore.current = () => {
-      element.style.setProperty("display", display, priority)
-    }
-    return () => {
-      element.style.setProperty("display", "none", "important")
-    }
-  }, [])
+  const portalRef = useActivityHiddenPortalRef()
   return <MenuPrimitive.Portal ref={portalRef} {...props} />
 }
 

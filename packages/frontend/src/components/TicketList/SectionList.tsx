@@ -51,10 +51,8 @@ export function SectionList({
   showSprintCol,
   showExtraActionsCol,
   activePreviewId,
-  mountedPreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
-  onPreviewDismiss,
   heading,
   canCreate = true,
   pagination,
@@ -85,10 +83,8 @@ export function SectionList({
   showSprintCol: boolean
   showExtraActionsCol: boolean
   activePreviewId: TicketId | null
-  mountedPreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
-  onPreviewDismiss: () => void
 }) {
   const req = useMemo(
     () =>
@@ -200,10 +196,8 @@ export function SectionList({
                         extraRowActions={extraRowActions}
                         pending={pending}
                         previewOpen={activePreviewId === ticket.id}
-                        previewMounted={mountedPreviewId === ticket.id}
                         onPreviewPointerEnter={onPreviewPointerEnter}
                         onPreviewOpenChange={onPreviewOpenChange}
-                        onPreviewDismiss={onPreviewDismiss}
                       />
                     </div>
                   )
