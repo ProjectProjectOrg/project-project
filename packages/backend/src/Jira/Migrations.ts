@@ -576,6 +576,7 @@ export const JiraMigrationsWorkflowLive = (
             })
           const command = {
             _tag: "Rescan" as const,
+            supersededExecutionId: row.workflowExecutionId!,
             migrationId,
             expectedRevision,
             workflowAttempt: row.workflowAttempt + 1,

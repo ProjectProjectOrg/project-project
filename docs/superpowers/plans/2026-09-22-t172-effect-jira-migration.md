@@ -156,6 +156,7 @@ export const JiraMigrationWorkflowCommand = Schema.Union([
   }),
   Schema.Struct({
     _tag: Schema.Literal("Rescan"),
+    supersededExecutionId: Schema.NonEmptyString,
     migrationId: Schema.NonEmptyString,
     expectedRevision: Schema.Int,
     workflowAttempt: Schema.Int,
@@ -425,7 +426,7 @@ if (!matchesSource(row, createPayload.source)) {
 return yield* projection.toDetail(row)
 ```
 
-With Wouter’s approval on 2026-09-22, the workflow’s first `v1/start` Activity is the sole caller that creates the projection through `ensureCreated`; handlers never insert it. This avoids conflicting-source callers racing a source into the projection that the engine did not accept. Use the approved rescan idempotency key `{migrationId}:{workflowAttempt}:{expectedRevision}` so a rescan rejected at an earlier projection revision cannot be reused as current execution. Same-revision requests still converge. Implement rescan as execute-next-attempt followed by idempotent `beginRescan`; after the compare-and-set installs the new execution, interrupt the superseded execution. Preserve all eight public `JiraMigrationsShape` methods.
+With Wouter’s approval on 2026-09-22, the workflow’s first `v1/start` Activity is the sole caller that creates the projection through `ensureCreated`; handlers never insert it. This avoids conflicting-source callers racing a source into the projection that the engine did not accept. Use the approved rescan idempotency key `{migrationId}:{workflowAttempt}:{expectedRevision}` so a rescan rejected at an earlier projection revision cannot be reused as current execution. Same-revision requests still converge. Implement rescan as execute-next-attempt followed by idempotent `beginRescan`; persist `supersededExecutionId` in the Rescan command from the owned row before enqueue. Initial `beginRescan` validates that predecessor, and both installation and exact-target replay return it. Durable start always retries the predecessor interrupt idempotently after `beginRescan`, closing the crash window between installation and interruption. Preserve all eight public `JiraMigrationsShape` methods.
 
 Keep `JiraMigrationsLive` on the existing production implementation until Task 11. Expose `JiraMigrationsWorkflowLive` as a separately testable layer factory with required `Pick<JiraMigrationsShape, "run" | "cancel" | "discard">` constructor input. Task 7 supplies the real durable commands; Task 3 tests supply explicit operations. Do not reuse unfenced legacy discard, add temporary cleanup execution, or run workflow rows through the old worker. Task 3 owns the complete projection interface and cleanup CAS primitives; Task 11 wires the production workflow and cleanup runtime. This sequencing amendment was approved by Wouter alongside the handshake change.
 

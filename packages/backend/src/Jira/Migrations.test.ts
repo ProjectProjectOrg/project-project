@@ -306,6 +306,92 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     )
   })
 
+  it("replays rescan start after installation and interrupts the persisted predecessor", async () => {
+    const owner = await createOwner()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const activities = makeProjectionMigrationActivities(
+          projection,
+          () => Effect.void
+        )
+        const workflow = makeJiraMigrationWorkflow({
+          ...activities,
+          start: (input) =>
+            Effect.gen(function* () {
+              if (input.payload.command._tag === "Rescan") {
+                yield* projection
+                  .beginRescan({
+                    ...input.payload.command,
+                    executionId: input.executionId
+                  })
+                  .pipe(Effect.orDie)
+              }
+              yield* activities.start(input)
+            })
+        }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+        yield* Effect.gen(function* () {
+          const originalExecutionId = yield* JiraMigrationWorkflow.execute(
+            {
+              command: {
+                _tag: "Create",
+                ...owner,
+                requestId: randomUUID(),
+                source
+              }
+            },
+            { discard: true }
+          )
+          while (true) {
+            const result =
+              yield* JiraMigrationWorkflow.poll(originalExecutionId)
+            if (Option.isSome(result) && result.value._tag === "Suspended")
+              break
+            yield* Effect.yieldNow
+          }
+          const original = yield* projection.owned(owner, originalExecutionId)
+          yield* projection.advance(fenceFor(original)!, {
+            status: "needs_configuration",
+            phase: "configuration"
+          })
+          const scanned = yield* projection.owned(owner, originalExecutionId)
+          const command = {
+            _tag: "Rescan" as const,
+            migrationId: originalExecutionId,
+            supersededExecutionId: originalExecutionId,
+            expectedRevision: scanned.revision,
+            workflowAttempt: 2,
+            scanRevision: 2
+          }
+          const nextExecutionId = yield* JiraMigrationWorkflow.execute(
+            { command },
+            { discard: true }
+          )
+          while (true) {
+            const result = yield* JiraMigrationWorkflow.poll(nextExecutionId)
+            if (Option.isSome(result) && result.value._tag === "Suspended")
+              break
+            yield* Effect.yieldNow
+          }
+          const predecessor = yield* JiraMigrationWorkflow.poll(
+            originalExecutionId
+          ).pipe(Effect.repeat({ while: Option.isNone }))
+          expect(predecessor).toMatchObject({
+            _tag: "Some",
+            value: { _tag: "Complete", exit: { _tag: "Failure" } }
+          })
+          expect(
+            yield* projection.owned(owner, originalExecutionId)
+          ).toMatchObject({
+            workflowAttempt: 2,
+            workflowExecutionId: nextExecutionId,
+            status: "scanning"
+          })
+        }).pipe(Effect.provide(workflow))
+      }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    )
+  })
+
   it("can rescan after an earlier execution lost its projection revision race", async () => {
     const owner = await createOwner()
     await Effect.runPromise(
@@ -355,6 +441,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               command: {
                 _tag: "Rescan",
                 migrationId: created.id,
+                supersededExecutionId: original.workflowExecutionId!,
                 expectedRevision: scanned.revision,
                 workflowAttempt: 2,
                 scanRevision: 2
@@ -381,7 +468,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           const accepted = yield* projection.owned(owner, created.id)
           const execution = yield* JiraMigrationWorkflow.poll(
             accepted.workflowExecutionId!
-          )
+          ).pipe(Effect.repeat({ while: Option.isNone }))
           expect(execution).toMatchObject({
             _tag: "Some",
             value: { _tag: "Suspended" }

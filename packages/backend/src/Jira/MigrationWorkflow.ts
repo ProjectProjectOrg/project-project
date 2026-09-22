@@ -30,6 +30,7 @@ export const JiraMigrationWorkflowCommand = Schema.Union([
     source: PersistedJiraMigrationSource
   }),
   Schema.TaggedStruct("Rescan", {
+    supersededExecutionId: Schema.NonEmptyString,
     migrationId: Schema.NonEmptyString,
     expectedRevision: Schema.Int,
     workflowAttempt: Schema.Int,
@@ -134,9 +135,7 @@ export const makeProjectionMigrationActivities = (
           ...payload.command,
           executionId
         })
-        if (row.supersededExecutionId !== null) {
-          yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
-        }
+        yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
       }
     }).pipe(
       Effect.mapError((error) => ({

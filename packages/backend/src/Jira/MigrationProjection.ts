@@ -329,6 +329,7 @@ export interface EnsureCreatedInput extends ProjectionOwner {
   readonly executionId: string
 }
 export interface BeginRescanInput {
+  readonly supersededExecutionId: string
   readonly migrationId: string
   readonly expectedRevision: number
   readonly workflowAttempt: number
@@ -336,7 +337,7 @@ export interface BeginRescanInput {
   readonly executionId: string
 }
 export interface BeginRescanResult extends JiraMigrationRow {
-  readonly supersededExecutionId: string | null
+  readonly supersededExecutionId: string
 }
 export interface SaveConfigurationInput {
   readonly owner: ProjectionOwner
@@ -534,8 +535,13 @@ export class JiraMigrationProjection extends Context.Service<
             value.workflowExecutionId === input.executionId &&
             value.workflowAttempt === input.workflowAttempt &&
             value.scanRevision === input.scanRevision
-          if (target(row)) return { ...row, supersededExecutionId: null }
+          if (target(row))
+            return {
+              ...row,
+              supersededExecutionId: input.supersededExecutionId
+            }
           if (
+            row.workflowExecutionId !== input.supersededExecutionId ||
             row.revision !== input.expectedRevision ||
             input.workflowAttempt !== row.workflowAttempt + 1 ||
             input.scanRevision !== row.scanRevision + 1 ||
@@ -580,7 +586,7 @@ export class JiraMigrationProjection extends Context.Service<
           if (updated[0])
             return {
               ...updated[0],
-              supersededExecutionId: row.workflowExecutionId
+              supersededExecutionId: input.supersededExecutionId
             }
           const replay = yield* db
             .select()
@@ -589,7 +595,10 @@ export class JiraMigrationProjection extends Context.Service<
             .limit(1)
             .pipe(Effect.mapError(databaseError))
           if (replay[0] && target(replay[0]))
-            return { ...replay[0], supersededExecutionId: null }
+            return {
+              ...replay[0],
+              supersededExecutionId: input.supersededExecutionId
+            }
           return yield* conflict()
         }
       )

@@ -47,6 +47,7 @@ const createPayload = {
 const rescanPayload = {
   command: {
     _tag: "Rescan" as const,
+    supersededExecutionId: "previous-execution",
     migrationId: "migration-1",
     expectedRevision: 4,
     workflowAttempt: 2,

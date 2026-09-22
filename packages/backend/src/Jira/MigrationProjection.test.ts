@@ -133,6 +133,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           yield* Effect.result(
             p.beginRescan({
               migrationId: input.executionId,
+              supersededExecutionId: "legacy-execution",
               expectedRevision: 0,
               workflowAttempt: 1,
               scanRevision: 1,
@@ -160,16 +161,32 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const ready = yield* p.owned(input, old.id)
         const next = {
           migrationId: old.id,
+          supersededExecutionId: input.executionId,
           expectedRevision: ready.revision,
           workflowAttempt: 2,
           scanRevision: 2,
           executionId: "rescan-execution"
         }
+        expect(
+          yield* Effect.result(
+            p.beginRescan({
+              ...next,
+              supersededExecutionId: "wrong-predecessor"
+            })
+          )
+        ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
         const rescans = yield* Effect.all(
           [p.beginRescan(next), p.beginRescan(next)],
           { concurrency: "unbounded" }
         )
         expect(rescans.map((row) => row.workflowAttempt)).toEqual([2, 2])
+        expect(rescans.map((row) => row.supersededExecutionId)).toEqual([
+          input.executionId,
+          input.executionId
+        ])
+        expect((yield* p.beginRescan(next)).supersededExecutionId).toBe(
+          input.executionId
+        )
         expect(yield* p.advance(fence(old), { progressDone: 99 })).toBe(false)
         expect(
           yield* p.advance(
