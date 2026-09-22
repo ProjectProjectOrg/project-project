@@ -176,7 +176,7 @@ export const JiraMigrationWorkflow = Workflow.make(
     idempotencyKey: ({ command }) =>
       command._tag === "Create"
         ? `create:${command.organizationId}:${command.userId}:${command.requestId}`
-        : `${command.migrationId}:${command.workflowAttempt}`
+        : `${command.migrationId}:${command.workflowAttempt}:${command.expectedRevision}`
   }
 )
 
@@ -346,6 +346,9 @@ git commit -m "feat(jira): hide unpublished migration projects"
 - Modify: `packages/backend/src/Jira/Migrations.test.ts`
 - Modify: `packages/backend/src/Jira/Migrations.actions.test.ts`
 - Modify: `packages/backend/src/Jira/MigrationWorkflow.ts`
+- Modify: `packages/backend/src/Jira/MigrationWorkflow.test.ts`
+- Modify: `packages/backend/src/Jira/MigrationActivities.ts`
+- Modify: this plan and the authoritative design for the approved handshake amendment
 
 **Interfaces:**
 - Consumes: Task 1 workflow contract and Task 2 projection columns.
@@ -353,7 +356,7 @@ git commit -m "feat(jira): hide unpublished migration projects"
 
 - [ ] **Step 1: Write compare-and-set and handshake race tests**
 
-Cover these concrete cases: handler inserts first, workflow inserts first, repeated create with identical request/source converges, repeated request ID with a different source returns `Conflict`, two rescans from one revision produce one current attempt, a stale attempt cannot change progress, cleanup versus retry has one winner, and a late old-workflow finalizer cannot overwrite the new attempt.
+Cover these concrete cases: handler observes an already-created projection, handler waits while workflow start is delayed, concurrent conflicting sources under one request ID preserve only the engine-accepted source, bounded observation timeout leaves durable work running, repeated create with identical request/source converges, repeated request ID with a different source returns `Conflict`, two rescans from one revision produce one current attempt, a stale attempt cannot change progress, cleanup versus retry has one winner, and a late old-workflow finalizer cannot overwrite the new attempt.
 
 ```ts
 it.effect("fences writes from a superseded workflow", () =>
@@ -411,11 +414,20 @@ Every update uses a SQL `WHERE` clause matching all fence fields. Treat zero aff
 const executionId = yield* JiraMigrationWorkflow.execute({ command: createPayload }, {
   discard: true
 })
-yield* projection.ensureCreated({ ...createPayload, executionId })
-return yield* projection.owned(owner, executionId)
+const row = yield* projection.owned(owner, executionId).pipe(
+  Effect.retry({ while: (error) => error._tag === "NotFound", schedule: Schedule.spaced("20 millis") }),
+  Effect.timeout("1 second"),
+  Effect.mapError((error) => error._tag === "JiraError" ? error : new JiraError({ reason: "timeout" }))
+)
+if (!matchesSource(row, createPayload.source)) {
+  return yield* new Conflict({ reason: "jira_migration_request_conflict" })
+}
+return yield* projection.toDetail(row)
 ```
 
-Make the workflow's first `v1/start` Activity call the same `ensureCreated`. Implement rescan as execute-next-attempt followed by idempotent `beginRescan`; after the compare-and-set installs the new execution, interrupt the superseded execution. Preserve all eight public `JiraMigrationsShape` methods.
+With Wouter’s approval on 2026-09-22, the workflow’s first `v1/start` Activity is the sole caller that creates the projection through `ensureCreated`; handlers never insert it. This avoids conflicting-source callers racing a source into the projection that the engine did not accept. Use the approved rescan idempotency key `{migrationId}:{workflowAttempt}:{expectedRevision}` so a rescan rejected at an earlier projection revision cannot be reused as current execution. Same-revision requests still converge. Implement rescan as execute-next-attempt followed by idempotent `beginRescan`; after the compare-and-set installs the new execution, interrupt the superseded execution. Preserve all eight public `JiraMigrationsShape` methods.
+
+Keep `JiraMigrationsLive` on the existing production implementation until Task 11. Expose `JiraMigrationsWorkflowLive` as a separately testable layer factory with required `Pick<JiraMigrationsShape, "run" | "cancel" | "discard">` constructor input. Task 7 supplies the real durable commands; Task 3 tests supply explicit operations. Do not reuse unfenced legacy discard, add temporary cleanup execution, or run workflow rows through the old worker. Task 3 owns the complete projection interface and cleanup CAS primitives; Task 11 wires the production workflow and cleanup runtime. This sequencing amendment was approved by Wouter alongside the handshake change.
 
 - [ ] **Step 5: Run projection, actions, handler, and type tests**
 
@@ -426,7 +438,7 @@ Expected: PASS; the public detail/actions shape is unchanged.
 - [ ] **Step 6: Commit the fenced projection**
 
 ```bash
-git add packages/backend/src/Jira/MigrationProjection.ts packages/backend/src/Jira/MigrationProjection.test.ts packages/backend/src/Jira/Migrations.ts packages/backend/src/Jira/Migrations.test.ts packages/backend/src/Jira/Migrations.actions.test.ts packages/backend/src/Jira/MigrationWorkflow.ts
+git add packages/backend/src/Jira/MigrationProjection.ts packages/backend/src/Jira/MigrationProjection.test.ts packages/backend/src/Jira/Migrations.ts packages/backend/src/Jira/Migrations.test.ts packages/backend/src/Jira/Migrations.actions.test.ts packages/backend/src/Jira/MigrationWorkflow.ts packages/backend/src/Jira/MigrationWorkflow.test.ts packages/backend/src/Jira/MigrationActivities.ts packages/backend/src/Jira/MigrationHandlers.test.ts docs/superpowers/specs/2026-09-22-t172-effect-jira-migration-design.md docs/superpowers/plans/2026-09-22-t172-effect-jira-migration.md
 git commit -m "refactor(jira): make migrations a fenced workflow projection"
 ```
 

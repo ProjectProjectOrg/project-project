@@ -3,11 +3,8 @@ import {
   JiraError,
   JiraMigrationConfiguration,
   JiraMigrationDetail,
-  JiraMigrationRequirements,
-  JiraMigrationScanSummary,
   NotFound,
   Validation,
-  type JiraMigrationActions,
   type JiraMigrationSummary
 } from "@projectproject/shared"
 import { and, desc, eq } from "drizzle-orm"
@@ -15,7 +12,9 @@ import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Schema from "effect/Schema"
+import * as Schedule from "effect/Schedule"
+import * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
+import { JiraMigrationWorkflow } from "./MigrationWorkflow"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import {
   attachmentIndex,
@@ -27,24 +26,24 @@ import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { ProjectDocs } from "../Services/ProjectDocs"
 import { S3Storage } from "../Services/S3Storage"
-import { buildJiraStatusCreateOptions } from "./Mappings"
 
-const PersistedJiraMigrationScanSummary = Schema.Struct({
-  ...JiraMigrationScanSummary.fields,
-  scannedAt: Schema.DateTimeUtcFromString
-})
-
-const JiraMigrationCheckpoint = Schema.Struct({
-  scan: Schema.optional(
-    Schema.Struct({
-      summary: PersistedJiraMigrationScanSummary,
-      requirements: JiraMigrationRequirements
-    })
-  )
-})
-export type JiraMigrationCheckpoint = typeof JiraMigrationCheckpoint.Type
-
-type JiraMigrationRow = typeof jiraMigration.$inferSelect
+import {
+  actionsFor,
+  decodeConfiguration,
+  isCompleteJiraConfiguration,
+  decodeCheckpoint,
+  toDetail,
+  toSummary,
+  type JiraMigrationRow,
+  JiraMigrationProjection,
+  matchesSource,
+  fenceFor
+} from "./MigrationProjection"
+export {
+  actionsFor,
+  isCompleteJiraConfiguration,
+  type JiraMigrationCheckpoint
+} from "./MigrationProjection"
 
 export interface JiraMigrationSource {
   readonly cloudId: string
@@ -113,265 +112,6 @@ export class JiraMigrations extends Context.Service<
   JiraMigrations,
   JiraMigrationsShape
 >()("@projectproject/backend/Jira/Migrations/JiraMigrations") {}
-
-const dateTime = (value: Date) => DateTime.fromDateUnsafe(value)
-
-export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
-  canConfigure:
-    row.status === "needs_configuration" ||
-    row.status === "ready" ||
-    (row.status === "failed" && row.scanAt !== null),
-  canRun:
-    row.status === "ready" ||
-    (row.status === "failed" && row.failureRetryable === true),
-  canRescan: [
-    "needs_configuration",
-    "ready",
-    "failed",
-    "reconnect_required",
-    "cancelled"
-  ].includes(row.status),
-  canCancel: row.status !== "cancelled" && row.status !== "succeeded",
-  canRetry:
-    (row.status === "failed" && row.failureRetryable === true) ||
-    row.status === "reconnect_required",
-  canDiscard: row.status === "failed" || row.status === "cancelled"
-})
-
-const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
-  id: row.id,
-  sourceCloudId: row.sourceCloudId,
-  sourceProjectId: row.sourceProjectId,
-  sourceProjectKey: row.sourceProjectKey,
-  sourceProjectName: row.sourceProjectName,
-  status: row.status,
-  phase: row.phase,
-  revision: row.revision,
-  progress: {
-    phase: row.phase,
-    done: row.progressDone,
-    total: row.progressTotal
-  },
-  destinationProjectSlug: row.destinationProjectSlug,
-  createdAt: dateTime(row.createdAt),
-  updatedAt: dateTime(row.updatedAt)
-})
-
-const decodeCheckpoint = (value: unknown) =>
-  value == null
-    ? Effect.succeed<JiraMigrationCheckpoint>({})
-    : Schema.decodeUnknownEffect(JiraMigrationCheckpoint)(
-        enrichPersistedCheckpoint(value)
-      ).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
-      )
-
-const decodeConfiguration = (value: unknown) =>
-  value == null
-    ? Effect.succeed<JiraMigrationConfiguration | null>(null)
-    : Schema.decodeUnknownEffect(JiraMigrationConfiguration)(value).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
-      )
-
-const toDetail = (row: JiraMigrationRow) =>
-  Effect.gen(function* () {
-    const checkpoint = yield* decodeCheckpoint(row.checkpoint)
-    const configuration = yield* decodeConfiguration(row.configuration)
-    return {
-      ...toSummary(row),
-      scanSummary: checkpoint.scan?.summary ?? null,
-      requirements: checkpoint.scan?.requirements ?? null,
-      configuration,
-      actions: actionsFor(row),
-      failure:
-        row.failureReason === null
-          ? null
-          : {
-              reason: row.failureReason,
-              retryable: row.failureRetryable === true
-            },
-      reportPath: row.reportPath,
-      finishedAt: row.finishedAt === null ? null : dateTime(row.finishedAt)
-    } satisfies JiraMigrationDetail
-  })
-
-const exactlyOne = <A>(
-  values: ReadonlyArray<A>,
-  key: (value: A) => string,
-  required: ReadonlyArray<string>
-) => {
-  const counts = new Map<string, number>()
-  for (const value of values) {
-    const itemKey = key(value)
-    counts.set(itemKey, (counts.get(itemKey) ?? 0) + 1)
-  }
-  return (
-    counts.size === required.length &&
-    required.every((itemKey) => counts.get(itemKey) === 1)
-  )
-}
-
-export const isCompleteJiraConfiguration = (
-  configuration: JiraMigrationConfiguration,
-  requirements: JiraMigrationRequirements
-): boolean => {
-  const identitiesValid =
-    exactlyOne(
-      configuration.identities,
-      ({ jiraAccountId }) => jiraAccountId,
-      requirements.identities.map(({ jiraAccountId }) => jiraAccountId)
-    ) &&
-    configuration.identities.every(
-      ({ projectProjectUserId }) =>
-        projectProjectUserId === null ||
-        requirements.identityOptions.some(
-          ({ id }) => id === projectProjectUserId
-        )
-    )
-  const statusesValid =
-    exactlyOne(
-      configuration.statuses,
-      ({ jiraStatusId }) => jiraStatusId,
-      requirements.statuses.map(({ jiraStatusId }) => jiraStatusId)
-    ) &&
-    configuration.statuses.every((mapping) => {
-      if (mapping.createStatus === true) {
-        return requirements.statuses.some(
-          ({ jiraStatusId, createOption }) =>
-            jiraStatusId === mapping.jiraStatusId &&
-            createOption?.slug === mapping.projectStatusSlug
-        )
-      }
-      return requirements.statusOptions.some(
-        ({ slug }) => slug === mapping.projectStatusSlug
-      )
-    })
-  const issueTypesValid = exactlyOne(
-    configuration.issueTypes,
-    ({ jiraIssueTypeId }) => jiraIssueTypeId,
-    requirements.issueTypes.map(({ jiraIssueTypeId }) => jiraIssueTypeId)
-  )
-  const prioritiesValid = exactlyOne(
-    configuration.priorities,
-    ({ jiraPriorityId }) => jiraPriorityId,
-    requirements.priorities.map(({ jiraPriorityId }) => jiraPriorityId)
-  )
-  const tagsValid = exactlyOne(
-    configuration.tags,
-    ({ source }) => `${source.kind}:${source.value}`,
-    requirements.tags.map(({ source }) => `${source.kind}:${source.value}`)
-  )
-  const sprintChoicesValid =
-    exactlyOne(
-      configuration.activeFutureSprintChoices,
-      ({ jiraIssueId }) => jiraIssueId,
-      requirements.activeFutureSprintChoices.map(
-        ({ jiraIssueId }) => jiraIssueId
-      )
-    ) &&
-    configuration.activeFutureSprintChoices.every((choice) => {
-      if (choice.jiraSprintId === null) return true
-      const requirement = requirements.activeFutureSprintChoices.find(
-        ({ jiraIssueId }) => jiraIssueId === choice.jiraIssueId
-      )
-      return requirement?.options.some(
-        ({ jiraSprintId }) => jiraSprintId === choice.jiraSprintId
-      )
-    })
-  const forcedSkips = requirements.attachments
-    .filter(({ forcedSkipReason }) => forcedSkipReason !== null)
-    .map(({ jiraAttachmentId }) => jiraAttachmentId)
-  const knownAttachments = new Set(
-    requirements.attachments.map(({ jiraAttachmentId }) => jiraAttachmentId)
-  )
-  const skipped = new Set(configuration.skippedAttachmentIds)
-  const attachmentsValid =
-    skipped.size === configuration.skippedAttachmentIds.length &&
-    configuration.skippedAttachmentIds.every((id) =>
-      knownAttachments.has(id)
-    ) &&
-    forcedSkips.every((id) => skipped.has(id)) &&
-    (skipped.size === 0 || configuration.attachmentSkipsAccepted)
-  return (
-    identitiesValid &&
-    statusesValid &&
-    issueTypesValid &&
-    prioritiesValid &&
-    tagsValid &&
-    sprintChoicesValid &&
-    attachmentsValid
-  )
-}
-
-function enrichPersistedCheckpoint(value: unknown): unknown {
-  if (!isRecord(value) || !isRecord(value.scan)) return value
-  const requirements = value.scan.requirements
-  if (!isRecord(requirements)) return value
-  const sourceStatuses = Array.isArray(requirements.statuses)
-    ? requirements.statuses.filter(isRecord).flatMap((status) =>
-        typeof status.jiraStatusId === "string" &&
-        typeof status.name === "string" &&
-        (typeof status.categoryKey === "string" || status.categoryKey === null)
-          ? [
-              {
-                id: status.jiraStatusId,
-                name: status.name,
-                categoryKey: status.categoryKey
-              }
-            ]
-          : []
-      )
-    : []
-  const createOptions = new Map(
-    buildJiraStatusCreateOptions(sourceStatuses).map((candidate) => [
-      candidate.sourceStatusId,
-      candidate.createOption
-    ])
-  )
-  const statuses = Array.isArray(requirements.statuses)
-    ? requirements.statuses.map((status) =>
-        isRecord(status) && !("createOption" in status)
-          ? {
-              ...status,
-              createOption:
-                typeof status.jiraStatusId === "string"
-                  ? (createOptions.get(status.jiraStatusId) ?? null)
-                  : null
-            }
-          : status
-      )
-    : requirements.statuses
-  const statusOptions = Array.isArray(requirements.statusOptions)
-    ? requirements.statusOptions.map((option) => {
-        if (!isRecord(option) || ("icon" in option && "color" in option)) {
-          return option
-        }
-        const style = baselineStatusStyle(option.slug)
-        return { ...option, ...style }
-      })
-    : requirements.statusOptions
-  return {
-    ...value,
-    scan: {
-      ...value.scan,
-      requirements: { ...requirements, statuses, statusOptions }
-    }
-  }
-}
-
-function baselineStatusStyle(slug: unknown) {
-  if (slug === "in_progress") {
-    return { icon: "CircleDot", color: "#3b82f6" }
-  }
-  if (slug === "done") {
-    return { icon: "CircleCheck", color: "#22c55e" }
-  }
-  return { icon: "CircleDashed", color: "#a3a3a3" }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 export const JiraMigrationsLive = Layer.effect(
   JiraMigrations,
@@ -767,3 +507,117 @@ export const JiraMigrationsLive = Layer.effect(
     })
   })
 )
+
+export const JiraMigrationsWorkflowLive = (
+  commands: Pick<JiraMigrationsShape, "run" | "cancel" | "discard">
+) =>
+  Layer.effect(
+    JiraMigrations,
+    Effect.gen(function* () {
+      const projection = yield* JiraMigrationProjection
+      const engine = yield* WorkflowEngine.WorkflowEngine
+      const create = Effect.fn("JiraMigrations.create")(
+        function* (
+          organizationId: string,
+          userId: string,
+          requestId: string,
+          source: JiraMigrationSource
+        ) {
+          const executionId = yield* JiraMigrationWorkflow.execute(
+            {
+              command: {
+                _tag: "Create",
+                organizationId,
+                userId,
+                requestId,
+                source
+              }
+            },
+            { discard: true }
+          )
+          const row = yield* projection
+            .owned({ organizationId, userId }, executionId)
+            .pipe(
+              Effect.retry({
+                while: (error) => error._tag === "NotFound",
+                schedule: Schedule.spaced("20 millis")
+              }),
+              Effect.timeout("1 second"),
+              Effect.mapError((error) =>
+                error._tag === "JiraError"
+                  ? error
+                  : new JiraError({ reason: "timeout" })
+              )
+            )
+          if (!matchesSource(row, source))
+            return yield* new Conflict({
+              reason: "jira_migration_request_conflict"
+            })
+          return yield* projection.toDetail(row)
+        },
+        Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+      )
+      const rescan = Effect.fn("JiraMigrations.rescan")(
+        function* (
+          organizationId: string,
+          userId: string,
+          migrationId: string,
+          expectedRevision: number
+        ) {
+          const owner = { organizationId, userId }
+          const row = yield* projection.owned(owner, migrationId)
+          if (row.revision !== expectedRevision || !fenceFor(row))
+            return yield* new Conflict({
+              reason: "jira_migration_revision_conflict"
+            })
+          if (!actionsFor(row).canRescan)
+            return yield* new Validation({
+              reason: "jira_migration_rescan_not_allowed"
+            })
+          const command = {
+            _tag: "Rescan" as const,
+            migrationId,
+            expectedRevision,
+            workflowAttempt: row.workflowAttempt + 1,
+            scanRevision: row.scanRevision + 1
+          }
+          const executionId = yield* JiraMigrationWorkflow.execute(
+            { command },
+            { discard: true }
+          )
+          yield* projection.beginRescan({ ...command, executionId })
+          yield* JiraMigrationWorkflow.interrupt(row.workflowExecutionId!)
+          return yield* projection
+            .owned(owner, migrationId)
+            .pipe(Effect.flatMap(projection.toDetail))
+        },
+        Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+      )
+      return JiraMigrations.of({
+        ...commands,
+        create,
+        rescan,
+        list: (organizationId, userId) =>
+          projection
+            .listOwned({ organizationId, userId })
+            .pipe(Effect.map((rows) => rows.map(toSummary))),
+        get: (organizationId, userId, migrationId) =>
+          projection
+            .owned({ organizationId, userId }, migrationId)
+            .pipe(Effect.flatMap(projection.toDetail)),
+        configure: (
+          organizationId,
+          userId,
+          migrationId,
+          expectedRevision,
+          configuration
+        ) =>
+          projection.saveConfiguration({
+            owner: { organizationId, userId },
+            migrationId,
+            expectedRevision,
+            configuration
+          })
+      })
+    })
+  )

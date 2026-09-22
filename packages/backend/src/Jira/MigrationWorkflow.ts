@@ -1,6 +1,8 @@
 import * as DurableDeferred from "effect/unstable/workflow/DurableDeferred"
+import type * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
 import * as Workflow from "effect/unstable/workflow/Workflow"
 import * as Effect from "effect/Effect"
+import type { JiraMigrationProjectionShape } from "./MigrationProjection"
 import * as Schema from "effect/Schema"
 import {
   makeFinalizeMigrationActivity,
@@ -65,7 +67,7 @@ export const JiraMigrationWorkflow = Workflow.make(
     idempotencyKey: ({ command }) =>
       command._tag === "Create"
         ? `create:${command.organizationId}:${command.userId}:${command.requestId}`
-        : `${command.migrationId}:${command.workflowAttempt}`
+        : `${command.migrationId}:${command.workflowAttempt}:${command.expectedRevision}`
   }
 )
 
@@ -99,7 +101,9 @@ const migrationIdentity = (
         scanRevision: payload.command.scanRevision
       }
 
-export const makeJiraMigrationWorkflow = (activities: MigrationActivities) =>
+export const makeJiraMigrationWorkflow = <R>(
+  activities: MigrationActivities<R>
+) =>
   JiraMigrationWorkflow.toLayer((payload, executionId) =>
     Effect.gen(function* () {
       yield* Workflow.addFinalizer((exit) =>
@@ -116,3 +120,30 @@ export const makeJiraMigrationWorkflow = (activities: MigrationActivities) =>
       return { migrationId: identity.migrationId }
     })
   )
+
+export const makeProjectionMigrationActivities = (
+  projection: JiraMigrationProjectionShape,
+  finalize: MigrationActivities<WorkflowEngine.WorkflowEngine>["finalize"]
+): MigrationActivities<WorkflowEngine.WorkflowEngine> => ({
+  start: ({ payload, executionId }) =>
+    Effect.gen(function* () {
+      if (payload.command._tag === "Create") {
+        yield* projection.ensureCreated({ ...payload.command, executionId })
+      } else {
+        const row = yield* projection.beginRescan({
+          ...payload.command,
+          executionId
+        })
+        if (row.supersededExecutionId !== null) {
+          yield* JiraMigrationWorkflow.interrupt(row.supersededExecutionId)
+        }
+      }
+    }).pipe(
+      Effect.mapError((error) => ({
+        _tag: "JiraMigrationWorkflowFailure" as const,
+        reason: error.reason,
+        retryable: error._tag === "JiraError"
+      }))
+    ),
+  finalize
+})

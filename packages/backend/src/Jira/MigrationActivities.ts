@@ -8,22 +8,22 @@ import type {
   JiraMigrationWorkflowPayloadValue
 } from "./MigrationWorkflow"
 
-export interface MigrationActivities {
+export interface MigrationActivities<R = never> {
   readonly start: (input: {
     readonly payload: JiraMigrationWorkflowPayloadValue
     readonly executionId: string
-  }) => Effect.Effect<void, JiraMigrationWorkflowFailureValue>
+  }) => Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>
   readonly finalize: (input: {
     readonly executionId: string
     readonly exit: Exit.Exit<unknown, unknown>
-  }) => Effect.Effect<void>
+  }) => Effect.Effect<void, never, R>
 }
 
 export const activityName = (parts: ReadonlyArray<string | number>) =>
   `v1/${parts.map(String).join("/")}`
 
-export const makeStartMigrationActivity = (
-  execute: Effect.Effect<void, JiraMigrationWorkflowFailureValue>,
+export const makeStartMigrationActivity = <R>(
+  execute: Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>,
   error: typeof JiraMigrationWorkflowFailure
 ) =>
   Activity.make({
@@ -33,7 +33,9 @@ export const makeStartMigrationActivity = (
     execute
   })
 
-export const makeFinalizeMigrationActivity = (execute: Effect.Effect<void>) =>
+export const makeFinalizeMigrationActivity = <R>(
+  execute: Effect.Effect<void, never, R>
+) =>
   Activity.make({
     name: activityName(["finalize"]),
     success: Schema.Void,

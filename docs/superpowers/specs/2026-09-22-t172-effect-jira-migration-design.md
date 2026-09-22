@@ -2,7 +2,7 @@
 
 Date: 2026-09-22
 
-Status: Proposed replacement architecture for PR 235
+Status: Approved replacement architecture for PR 235; create handshake, rescan identity, and staged composition amended with Wouter’s approval on 2026-09-22
 
 Source requirements: [T-172](https://projectproject.missler.xyz/orgs/project-project/projects/project-project/tickets/T-172)
 
@@ -109,6 +109,8 @@ The SQL-backed SingleRunner supplies sharding, runners, runner storage, and mess
 
 The workflow layers are scoped as part of `AppLive`. `Worker.ts`, its detached fiber, and its polling schedule are removed.
 
+Until Task 11's production cutover, `JiraMigrationsLive` remains the existing production implementation. Task 3 exposes a separate `JiraMigrationsWorkflowLive` layer factory for isolated composition and tests; production does not provide or run it beside the worker. The factory requires implementations of the existing `run`, `cancel`, and `discard` methods, supplied by Task 7's durable command orchestration. Tests supply explicit operations for these later-task boundaries. Legacy discard is not reused for workflow rows because its unfenced deletion and swallowed cleanup errors violate cleanup ownership. Task 3 supplies the fenced projection claim, release, and delete-last primitives; Task 11 supplies the actual cleanup runtime. Task 11 replaces the production layer and removes compatibility code; no workflow-created row is sent to the old worker.
+
 If ProjectProject later runs multiple backend replicas, the workflow definition and domain interfaces remain unchanged. Only the cluster runner topology changes.
 
 ## Persisted identity and versioning
@@ -147,21 +149,21 @@ For `create`:
 1. The handler executes `JiraMigrationWorkflow` with a create payload and `discard: true`.
 2. The idempotency key is derived from organization ID, initiating user ID, and the caller's request ID.
 3. The returned workflow execution ID is the public migration ID.
-4. The handler idempotently inserts the projection row using that execution ID.
-5. The workflow's first Activity calls the same idempotent projection operation.
-6. The handler reads and returns the projection.
+4. The workflow's first `v1/start` Activity is the sole creator of the projection row, using the source accepted by the engine and that execution ID.
+5. The handler observes the owned projection with a bounded one-second wait and 20 ms polling interval. It never inserts a projection.
+6. The handler compares every requested source field against the accepted projection and returns its existing public detail shape. A mismatch returns the existing `Conflict`; if the projection is not available within the bound, the existing `JiraError({ reason: "timeout" })` is returned without cancelling durable execution.
 
 The projection operation compares the complete source identity. Reusing a request ID for a different Jira cloud or project returns the existing conflict instead of silently reusing the first payload.
 
-If the handler disappears after enqueue, the workflow still creates the projection. If the workflow wins the race, the handler observes the existing row. Retrying the same request reaches the same execution ID and row. There is no row-before-enqueue failure window.
+If the handler disappears after enqueue, the workflow still creates the projection. Retrying the same request reaches the same execution ID and row. There is no row-before-enqueue failure window. Concurrent callers with different sources cannot race an unaccepted source into the projection: only the engine-accepted payload can create it. This replaces the original handler-or-workflow insertion handshake, whose two writers could disagree about the accepted source.
 
 For a rescan after a prior execution has completed or been superseded, the payload carries the existing migration ID, expected projection revision, next workflow attempt, and next scan revision. The workflow idempotency key is:
 
 ```text
-{migrationId}:{workflowAttempt}
+{migrationId}:{workflowAttempt}:{expectedRevision}
 ```
 
-The handler validates the current action before enqueue; the workflow compare-and-set remains authoritative against races. After enqueue, both the handler and the workflow's first Activity call the same idempotent compare-and-set operation. It records the new execution ID and fences the previous execution. The operation succeeds when it performs the expected revision change or observes the exact target execution already installed. Concurrent rescans derived from the same revision therefore converge on one attempt rather than creating two active snapshots.
+The handler validates the current action before enqueue; the workflow compare-and-set remains authoritative against races. After enqueue, both the handler and the workflow's first Activity call the same idempotent compare-and-set operation. It records the new execution ID and fences the previous execution. The operation succeeds when it performs the expected revision change or observes the exact target execution already installed. Concurrent rescans derived from the same revision therefore converge on one attempt rather than creating two active snapshots. Including the expected revision gives a later request a distinct execution when an earlier rescan lost its projection revision race. It cannot install an execution whose persisted start already failed against an older revision. This identity amendment was approved before the workflow was deployed.
 
 ## Projection model
 

@@ -28,6 +28,12 @@ const row = (overrides: Partial<Row>): Row =>
     checkpoint: null,
     progressDone: 0,
     progressTotal: null,
+    workflowExecutionId: "execution-1",
+    workflowAttempt: 1,
+    scanRevision: 1,
+    failureSequence: 0,
+    retainedUntil: null,
+    cleanupExecutionId: null,
     leaseId: null,
     leaseExpiresAt: null,
     scanAt: scannedAt,
@@ -43,6 +49,11 @@ const row = (overrides: Partial<Row>): Row =>
   }) as Row
 
 describe("actionsFor a failed migration", () => {
+  it("blocks actions while cleanup owns the migration", () => {
+    expect(
+      Object.values(actionsFor(row({ cleanupExecutionId: "cleanup-1" })))
+    ).toEqual(Array(6).fill(false))
+  })
   it("lets the user return to mapping when the scan survived", () => {
     const actions = actionsFor(row({}))
 

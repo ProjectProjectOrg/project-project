@@ -81,7 +81,7 @@ describe("Jira migration workflow contracts", () => {
       "create:organization-1:user-1:request-1"
     )
     expect(JiraMigrationWorkflow.idempotencyKey(rescanPayload)).toBe(
-      "migration-1:2"
+      "migration-1:2:4"
     )
     expect(activityName(["start"])).toBe("v1/start")
     expect(

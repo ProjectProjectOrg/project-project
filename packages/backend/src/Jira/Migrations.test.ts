@@ -3,6 +3,14 @@ import { PgClient } from "@effect/sql-pg"
 import { JiraMigrationRequirements } from "@projectproject/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
+import { Deferred, Fiber, Option } from "effect"
+import { WorkflowEngine } from "effect/unstable/workflow"
+import { JiraMigrationProjection, fenceFor } from "./MigrationProjection"
+import {
+  JiraMigrationWorkflow,
+  makeJiraMigrationWorkflow,
+  makeProjectionMigrationActivities
+} from "./MigrationWorkflow"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -18,7 +26,8 @@ import { S3Storage } from "../Services/S3Storage"
 import {
   isCompleteJiraConfiguration,
   JiraMigrations,
-  JiraMigrationsLive
+  JiraMigrationsLive,
+  JiraMigrationsWorkflowLive
 } from "./Migrations"
 
 const unreachableStorage = Layer.mergeAll(
@@ -50,6 +59,7 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
   let pool: Pool
   let layer: Layer.Layer<JiraMigrations>
+  let projectionLayer: Layer.Layer<JiraMigrationProjection>
   const userIds: Array<string> = []
   const organizationIds: Array<string> = []
 
@@ -70,6 +80,10 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       Layer.provideMerge(
         PgClient.layer({ url: Redacted.make(databaseUrl as string) })
       )
+    )
+    projectionLayer = JiraMigrationProjection.layer.pipe(
+      Layer.provide(database),
+      Layer.orDie
     )
     layer = JiraMigrationsLive.pipe(
       Layer.provide(Layer.mergeAll(database, unreachableStorage)),
@@ -113,6 +127,328 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     projectKey: "APP",
     projectName: "Application"
   }
+
+  it("uses only the engine-accepted source when concurrent handlers arrive before start", async () => {
+    const owner = await createOwner()
+    const requestId = randomUUID()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const entered = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const activities = makeProjectionMigrationActivities(
+          projection,
+          () => Effect.void
+        )
+        const workflow = makeJiraMigrationWorkflow({
+          ...activities,
+          start: (input) =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined)
+              yield* Deferred.await(release)
+              yield* activities.start(input)
+            })
+        })
+        const service = JiraMigrationsWorkflowLive({
+          run: () => Effect.die("Task 7 command not exercised"),
+          cancel: () => Effect.die("Task 7 command not exercised"),
+          discard: () => Effect.die("Task 7 command not exercised")
+        }).pipe(
+          Layer.provideMerge(workflow),
+          Layer.provide(WorkflowEngine.layerMemory)
+        )
+        yield* Effect.gen(function* () {
+          const migrations = yield* JiraMigrations
+          const first = yield* migrations
+            .create(owner.organizationId, owner.userId, requestId, source)
+            .pipe(Effect.forkChild)
+          yield* Deferred.await(entered)
+          const otherSource = {
+            ...source,
+            projectName: "Different project name"
+          }
+          const conflicting = yield* migrations
+            .create(owner.organizationId, owner.userId, requestId, otherSource)
+            .pipe(Effect.result, Effect.forkChild)
+          yield* Effect.sleep("50 millis")
+          expect(yield* projection.listOwned(owner)).toHaveLength(0)
+          yield* Deferred.succeed(release, undefined)
+          const created = yield* Fiber.join(first)
+          const conflict = yield* Fiber.join(conflicting)
+          expect(created.sourceProjectName).toBe("Application")
+          expect(created.id).toBe(
+            yield* JiraMigrationWorkflow.executionId({
+              command: { _tag: "Create", ...owner, requestId, source }
+            })
+          )
+          expect(conflict).toMatchObject({
+            _tag: "Failure",
+            failure: {
+              _tag: "Conflict",
+              reason: "jira_migration_request_conflict"
+            }
+          })
+          const repeated = yield* Effect.all(
+            Array.from({ length: 4 }, () =>
+              migrations.create(
+                owner.organizationId,
+                owner.userId,
+                requestId,
+                source
+              )
+            ),
+            { concurrency: "unbounded" }
+          )
+          expect(repeated.map((row) => row.id)).toEqual(
+            Array(4).fill(created.id)
+          )
+          expect(yield* projection.listOwned(owner)).toHaveLength(1)
+        }).pipe(Effect.provide(service))
+      }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    )
+  })
+
+  it("installs rescan before the delayed start and rejects a real old-workflow finalizer", async () => {
+    const owner = await createOwner()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const release = yield* Deferred.make<void>()
+        const finalized = yield* Deferred.make<boolean>()
+        const activities = makeProjectionMigrationActivities(
+          projection,
+          () => Effect.void
+        )
+        const workflow = makeJiraMigrationWorkflow({
+          ...activities,
+          start: (input) =>
+            Effect.gen(function* () {
+              if (input.payload.command._tag === "Rescan")
+                yield* Deferred.await(release)
+              yield* activities.start(input)
+            }),
+          finalize: ({ executionId }) =>
+            projection
+              .recordFailure(
+                {
+                  migrationId: executionId,
+                  workflowExecutionId: executionId,
+                  workflowAttempt: 1
+                },
+                { reason: "old-finalizer", retryable: false }
+              )
+              .pipe(
+                Effect.orDie,
+                Effect.flatMap((changed) =>
+                  Deferred.succeed(finalized, changed)
+                ),
+                Effect.asVoid
+              )
+        })
+        const service = JiraMigrationsWorkflowLive({
+          run: () => Effect.die("unused"),
+          cancel: () => Effect.die("unused"),
+          discard: () => Effect.die("unused")
+        }).pipe(
+          Layer.provideMerge(workflow),
+          Layer.provideMerge(WorkflowEngine.layerMemory)
+        )
+        yield* Effect.gen(function* () {
+          const migrations = yield* JiraMigrations
+          const created = yield* migrations.create(
+            owner.organizationId,
+            owner.userId,
+            randomUUID(),
+            source
+          )
+          while (true) {
+            const result = yield* JiraMigrationWorkflow.poll(created.id)
+            if (Option.isSome(result) && result.value._tag === "Suspended")
+              break
+            yield* Effect.yieldNow
+          }
+          const original = yield* projection.owned(owner, created.id)
+          yield* projection.advance(fenceFor(original)!, {
+            status: "needs_configuration",
+            phase: "configuration"
+          })
+          const scanned = yield* projection.owned(owner, created.id)
+          const rescanned = yield* migrations.rescan(
+            owner.organizationId,
+            owner.userId,
+            created.id,
+            scanned.revision
+          )
+          expect(rescanned.id).toBe(created.id)
+          expect(rescanned.status).toBe("scanning")
+          expect(yield* Deferred.await(finalized)).toBe(false)
+          const current = yield* projection.owned(owner, created.id)
+          expect(current).toMatchObject({
+            workflowAttempt: 2,
+            scanRevision: 2,
+            failureReason: null
+          })
+          expect(current.workflowExecutionId).not.toBe(created.id)
+          yield* Deferred.succeed(release, undefined)
+          while (true) {
+            const result = yield* JiraMigrationWorkflow.poll(
+              current.workflowExecutionId!
+            )
+            if (Option.isSome(result) && result.value._tag === "Suspended")
+              break
+            yield* Effect.yieldNow
+          }
+          expect((yield* projection.owned(owner, created.id)).revision).toBe(
+            current.revision
+          )
+        }).pipe(Effect.provide(service))
+      }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    )
+  })
+
+  it("can rescan after an earlier execution lost its projection revision race", async () => {
+    const owner = await createOwner()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const release = yield* Deferred.make<void>()
+        const entered = yield* Deferred.make<void>()
+        const activities = makeProjectionMigrationActivities(
+          projection,
+          () => Effect.void
+        )
+        const workflow = makeJiraMigrationWorkflow({
+          ...activities,
+          start: (input) =>
+            Effect.gen(function* () {
+              if (input.payload.command._tag === "Rescan") {
+                yield* Deferred.succeed(entered, undefined)
+                yield* Deferred.await(release)
+              }
+              yield* activities.start(input)
+            })
+        })
+        const service = JiraMigrationsWorkflowLive({
+          run: () => Effect.die("unused"),
+          cancel: () => Effect.die("unused"),
+          discard: () => Effect.die("unused")
+        }).pipe(
+          Layer.provideMerge(workflow),
+          Layer.provideMerge(WorkflowEngine.layerMemory)
+        )
+        yield* Effect.gen(function* () {
+          const migrations = yield* JiraMigrations
+          const created = yield* migrations.create(
+            owner.organizationId,
+            owner.userId,
+            randomUUID(),
+            source
+          )
+          const original = yield* projection.owned(owner, created.id)
+          yield* projection.advance(fenceFor(original)!, {
+            status: "needs_configuration",
+            phase: "configuration"
+          })
+          const scanned = yield* projection.owned(owner, created.id)
+          const abandonedExecutionId = yield* JiraMigrationWorkflow.execute(
+            {
+              command: {
+                _tag: "Rescan",
+                migrationId: created.id,
+                expectedRevision: scanned.revision,
+                workflowAttempt: 2,
+                scanRevision: 2
+              }
+            },
+            { discard: true }
+          )
+          yield* Deferred.await(entered)
+          yield* projection.advance(fenceFor(original)!, { progressDone: 1 })
+          yield* Deferred.succeed(release, undefined)
+          while (true) {
+            const result =
+              yield* JiraMigrationWorkflow.poll(abandonedExecutionId)
+            if (Option.isSome(result) && result.value._tag === "Complete") break
+            yield* Effect.yieldNow
+          }
+          const latest = yield* projection.owned(owner, created.id)
+          yield* migrations.rescan(
+            owner.organizationId,
+            owner.userId,
+            created.id,
+            latest.revision
+          )
+          const accepted = yield* projection.owned(owner, created.id)
+          const execution = yield* JiraMigrationWorkflow.poll(
+            accepted.workflowExecutionId!
+          )
+          expect(execution).toMatchObject({
+            _tag: "Some",
+            value: { _tag: "Suspended" }
+          })
+        }).pipe(Effect.provide(service))
+      }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    )
+  })
+
+  it("returns timeout without cancelling a delayed durable start", async () => {
+    const owner = await createOwner()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const release = yield* Deferred.make<void>()
+        const started = yield* Deferred.make<void>()
+        const activities = makeProjectionMigrationActivities(
+          projection,
+          () => Effect.void
+        )
+        const workflow = makeJiraMigrationWorkflow({
+          ...activities,
+          start: (input) =>
+            Effect.gen(function* () {
+              yield* Deferred.await(release)
+              yield* activities.start(input)
+              yield* Deferred.succeed(started, undefined)
+            })
+        })
+        const service = JiraMigrationsWorkflowLive({
+          run: () => Effect.die("Task 7 command not exercised"),
+          cancel: () => Effect.die("Task 7 command not exercised"),
+          discard: () => Effect.die("Task 7 command not exercised")
+        }).pipe(
+          Layer.provideMerge(workflow),
+          Layer.provide(WorkflowEngine.layerMemory)
+        )
+        yield* Effect.gen(function* () {
+          const migrations = yield* JiraMigrations
+          const requestId = randomUUID()
+          expect(
+            yield* Effect.result(
+              migrations.create(
+                owner.organizationId,
+                owner.userId,
+                requestId,
+                source
+              )
+            )
+          ).toMatchObject({
+            _tag: "Failure",
+            failure: { _tag: "JiraError", reason: "timeout" }
+          })
+          expect(yield* projection.listOwned(owner)).toHaveLength(0)
+          yield* Deferred.succeed(release, undefined)
+          yield* Deferred.await(started)
+          const created = yield* migrations.create(
+            owner.organizationId,
+            owner.userId,
+            requestId,
+            source
+          )
+          expect(created.sourceProjectId).toBe("10000")
+        }).pipe(Effect.provide(service))
+      }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    )
+  })
 
   it("creates idempotently and rejects request id reuse for another source", async () => {
     const owner = await createOwner()
@@ -323,7 +659,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     expect(detail.requirements?.statuses[0]?.createOption).toMatchObject({
       slug: "done_eb9ac9db",
       icon: "CircleCheck",
-      color: "#22c55e",
+      color: "#f16f7e",
       isTerminal: false
     })
     expect(detail.requirements?.statusOptions[0]).toEqual({
