@@ -14,9 +14,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-22-t172-effect-jira-migration-design.md`
 
-## Execution status — resumed on Linux 2026-09-22
+## Execution status — paused for the night 2026-09-22
 
-Restored in `/home/wouter/web/project-project-t172-effect` with disposable local PostgreSQL and MinIO available. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is checkpointed with an unresolved SQL-engine retry wake-up bug. Task 8 and independent portions of Tasks 10 and 13 are active in parallel; other work remains pending.** Independent review for Tasks 7 onward is deferred to the final comprehensive review at the user's request. Do not restart completed tasks or treat this branch as release-ready.
+User requested stopping for today. Resume from `docs/superpowers/handoffs/2026-09-22-t172-linux-pause.md`. Restored checkout is `/home/wouter/web/project-project-t172-effect`; disposable PostgreSQL and MinIO are stopped with data retained. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is checkpointed with an unresolved SQL-engine retry wake-up bug. Task 8 and Task 13 fixtures are preserved as unfinished work; Task 10 pure index builders are committed in `35b8a70`; other work remains pending.** Independent review for Tasks 7 onward is deferred to the final comprehensive review at the user's request. Do not restart completed tasks or treat this branch as release-ready.
 
 - Implementation branch: `codex/T-172-effect-workflow`.
 - Pinned original base: `994455a26be958db47826c7425efedfdf84aea90`; design/plan restored in `4d06422f`.
@@ -33,13 +33,13 @@ Restored in `/home/wouter/web/project-project-t172-effect` with disposable local
 | 5. One-page Jira client | Complete; review fix verified | `1418e791..2c78bfdf` |
 | 6. Durable scan and configuration pause | Complete; review fix verified | `2c78bfdf..875ae6af` |
 | 7. Drafts and durable commands | Application checkpoint; engine wake-up regression unresolved | `875ae6af..faa228a`, final review pending |
-| 8. Immutable publication plan | In progress | Final review pending |
+| 8. Immutable publication plan | Paused WIP; agent reported93/93, final closeout pending | Final review pending |
 | 9. Hidden materialization | Not started | — |
-| 10. Atomic publication | Pure index builders in progress; publication integration pending | Final review pending |
+| 10. Atomic publication | Pure index builders committed35b8a70; publication integration pending | Final review pending |
 | 11. Cleanup and SQL runtime cutover | Not started | — |
 | 12. Wizard drafts and polling | Not started | — |
-| 13. Disposable browser harness | Fake Jira/OAuth fixtures in progress; harness integration pending | Final review pending |
-| 14. Release gates and branch cleanup | Not started | — |
+| 13. Disposable browser harness | Fixture WIP paused; verification and harness integration pending | Final review pending |
+| 14. Release gates and branch cleanup | Unused assets removedfd6e16f; release/browser checks pending | Final review pending |
 
 ### Resume at Task 7
 

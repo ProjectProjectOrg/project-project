@@ -9,10 +9,17 @@ import {
   buildTagCandidates,
   findTagCollisions,
   resolveTagDestinations,
+  type JiraMappingSource,
   type JiraMigrationMappings
 } from "./Mappings"
-
+import { Effect, Schema } from "effect"
+import { JiraMigrationConfiguration, TicketId } from "@projectproject/shared"
+import { JiraMigrationManifestV2 } from "./Manifest"
+import { jiraConfigurationToMappings, jiraV2MappingSource } from "./Mappings"
 export type JiraPreflightBlockerCode =
+  | "incompatible-project-key"
+  | "invalid-configuration"
+  | "foreign-mapping-decision"
   | "duplicate-source-id"
   | "duplicate-source-key"
   | "duplicate-mapping-decision"
@@ -41,39 +48,35 @@ export type JiraPreflightWarningCode =
   | "subtask-flattened"
   | "restricted-content-included"
 
-export type JiraPreflightFinding<Code extends string> = {
-  readonly code: Code
-  readonly subjectId: string
-  readonly detail: string | null
-}
+export type JiraPreflightFinding<Code extends string> = Readonly<{
+  code: Code
+  subjectId: string
+  detail: string | null
+}>
 
-export type JiraAttachmentPreflight = {
-  readonly sourceAttachmentId: string
-  readonly action: "migrate" | "skip"
-  readonly reason: "too-large" | "unsupported-mime" | "unavailable" | null
-}
+export type JiraAttachmentPreflight = Readonly<{
+  sourceAttachmentId: string
+  action: "migrate" | "skip"
+  reason: "too-large" | "unsupported-mime" | "unavailable" | null
+}>
 
-export type JiraPreflightEnvironment = {
-  readonly existingProjectSlugs: ReadonlyArray<string>
-  readonly existingProjectKeys: ReadonlyArray<string>
-  readonly existingTicketIds: ReadonlyArray<string>
-  readonly existingUserIds: ReadonlyArray<string>
-  readonly existingStatusSlugs: ReadonlyArray<string>
-}
+export type JiraPreflightEnvironment = Readonly<{
+  existingProjectSlugs: ReadonlyArray<string>
+  existingProjectKeys: ReadonlyArray<string>
+  existingTicketIds: ReadonlyArray<string>
+  existingUserIds: ReadonlyArray<string>
+  existingStatusSlugs: ReadonlyArray<string>
+}>
 
-export type JiraPreflightResult = {
-  readonly ready: boolean
-  readonly blockers: ReadonlyArray<
-    JiraPreflightFinding<JiraPreflightBlockerCode>
-  >
-  readonly warnings: ReadonlyArray<
-    JiraPreflightFinding<JiraPreflightWarningCode>
-  >
-  readonly attachments: ReadonlyArray<JiraAttachmentPreflight>
-}
+export type JiraPreflightResult = Readonly<{
+  ready: boolean
+  blockers: ReadonlyArray<JiraPreflightFinding<JiraPreflightBlockerCode>>
+  warnings: ReadonlyArray<JiraPreflightFinding<JiraPreflightWarningCode>>
+  attachments: ReadonlyArray<JiraAttachmentPreflight>
+}>
 
 export function preflightJiraMigration(
-  manifest: JiraMigrationManifest,
+  manifest: JiraMappingSource & Pick<JiraMigrationManifest, "comments">,
   mappings: JiraMigrationMappings,
   environment: JiraPreflightEnvironment
 ): JiraPreflightResult {
@@ -356,10 +359,10 @@ function classifyAttachment(
 }
 
 function findManifestDuplicates(
-  manifest: JiraMigrationManifest,
+  manifest: JiraMappingSource & Pick<JiraMigrationManifest, "comments">,
   blockers: Array<JiraPreflightFinding<JiraPreflightBlockerCode>>
 ): void {
-  const collections: ReadonlyArray<ReadonlyArray<{ readonly id: string }>> = [
+  const collections: ReadonlyArray<ReadonlyArray<Readonly<{ id: string }>>> = [
     manifest.statuses,
     manifest.issueTypes,
     manifest.priorities,
@@ -491,3 +494,186 @@ function compareNullableStrings(
 function priorityMappingKey(sourcePriorityId: string | null): string {
   return sourcePriorityId === null ? "priority:none" : sourcePriorityId
 }
+
+export const decodeFrozenManifest = Schema.decodeUnknownEffect(
+  JiraMigrationManifestV2
+)
+export const JiraPreflightEnvironmentSchema = Schema.Struct({
+  existingProjectSlugs: Schema.Array(Schema.String),
+  existingProjectKeys: Schema.Array(Schema.String),
+  existingTicketIds: Schema.Array(Schema.String),
+  existingUserIds: Schema.Array(Schema.String),
+  existingStatusSlugs: Schema.Array(Schema.String)
+})
+export class JiraPublicationInvalid extends Schema.TaggedError<JiraPublicationInvalid>()(
+  "JiraPublicationInvalid",
+  {
+    reasons: Schema.Array(Schema.String)
+  }
+) {
+  override get message() {
+    return this.reasons.join(", ")
+  }
+}
+export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
+  function* (
+    input: Readonly<{
+      manifest: JiraMigrationManifestV2
+      configuration: JiraMigrationConfiguration
+      environment: JiraPreflightEnvironment
+    }>
+  ) {
+    const manifest = yield* decodeFrozenManifest(input.manifest)
+    const configuration = yield* Schema.decodeUnknownEffect(
+      JiraMigrationConfiguration
+    )(input.configuration)
+    const environment = yield* Schema.decodeUnknownEffect(
+      JiraPreflightEnvironmentSchema
+    )(input.environment)
+    const source = {
+      ...jiraV2MappingSource(manifest),
+      comments: manifest.comments.map((comment) => ({
+        ...comment,
+        authorDisplayName: "",
+        body: { markdown: "", adf: null, warnings: [], references: [] },
+        raw: null
+      }))
+    }
+    const mappings = jiraConfigurationToMappings(source, configuration)
+    const result = preflightJiraMigration(source, mappings, environment)
+    const excludedIssueIds = new Set(
+      configuration.restrictedContent.policy === "exclude"
+        ? manifest.restrictions
+            .filter((restriction) => restriction.targetKind === "issue")
+            .map((restriction) => restriction.targetId)
+        : []
+    )
+    const blockers = result.blockers.filter(
+      (blocker) =>
+        blocker.code !== "unacknowledged-attachment-skip" ||
+        !manifest.attachments.some(
+          (attachment) =>
+            attachment.id === blocker.subjectId &&
+            excludedIssueIds.has(attachment.issueId)
+        )
+    )
+    for (const status of manifest.statuses)
+      if (!configuration.statuses.some((x) => x.jiraStatusId === status.id))
+        addFinding(blockers, "missing-status-mapping", status.id)
+    for (const type of manifest.issueTypes)
+      if (!configuration.issueTypes.some((x) => x.jiraIssueTypeId === type.id))
+        addFinding(blockers, "missing-type-mapping", type.id)
+    for (const priority of manifest.priorities)
+      if (
+        !configuration.priorities.some((x) => x.jiraPriorityId === priority.id)
+      )
+        addFinding(blockers, "missing-priority-mapping", priority.id)
+
+    if (
+      configuration.destination.key !== manifest.source.projectKey ||
+      manifest.issues.some(
+        (issue) =>
+          !Schema.is(TicketId)(issue.key) ||
+          issue.key !== `${configuration.destination.key}-${issue.issueNumber}`
+      )
+    )
+      addFinding(
+        blockers,
+        "incompatible-project-key",
+        configuration.destination.key
+      )
+    const validateChoices = (
+      provided: ReadonlyArray<string>,
+      allowed: ReadonlyArray<string>
+    ) => {
+      for (const id of provided)
+        if (!allowed.includes(id))
+          addFinding(blockers, "foreign-mapping-decision", id)
+      for (const id of duplicateStrings(provided))
+        addFinding(blockers, "duplicate-mapping-decision", id)
+    }
+    validateChoices(
+      configuration.identities.map((x) => x.jiraAccountId),
+      manifest.identities.map((x) => x.accountId)
+    )
+    validateChoices(
+      configuration.statuses.map((x) => x.jiraStatusId),
+      manifest.statuses.map((x) => x.id)
+    )
+    validateChoices(
+      configuration.issueTypes.map((x) => x.jiraIssueTypeId),
+      manifest.issueTypes.map((x) => x.id)
+    )
+    validateChoices(
+      configuration.priorities.map((x) => x.jiraPriorityId),
+      manifest.priorities.map((x) => x.id)
+    )
+    validateChoices(
+      configuration.skippedAttachmentIds,
+      manifest.attachments.map((x) => x.id)
+    )
+    validateChoices(
+      configuration.activeFutureSprintChoices.map((x) => x.jiraIssueId),
+      buildOpenSprintConflicts(source).map((x) => x.sourceIssueId)
+    )
+    validateChoices(
+      configuration.tags.map((x) => `${x.source.kind}:${x.source.value}`),
+      buildTagCandidates(source).map((x) => `${x.sourceKind}:${x.sourceValue}`)
+    )
+    if (
+      configuration.skippedAttachmentIds.length > 0 &&
+      !configuration.attachmentSkipsAccepted
+    )
+      addFinding(blockers, "unacknowledged-attachment-skip", "consent")
+    const createOptions = new Map(
+      buildJiraStatusCreateOptions(manifest.statuses).map((option) => [
+        option.sourceStatusId,
+        option.createOption
+      ])
+    )
+    for (const mapping of configuration.statuses) {
+      if (mapping.createStatus) {
+        const candidate = createOptions.get(mapping.jiraStatusId)
+        if (!candidate || candidate.slug !== mapping.projectStatusSlug)
+          addFinding(blockers, "invalid-created-status", mapping.jiraStatusId)
+        else if (environment.existingStatusSlugs.includes(candidate.slug))
+          addFinding(blockers, "created-status-collision", mapping.jiraStatusId)
+      } else if (
+        !environment.existingStatusSlugs.includes(mapping.projectStatusSlug)
+      )
+        addFinding(blockers, "invalid-destination-status", mapping.jiraStatusId)
+    }
+    const created = configuration.statuses
+      .filter((mapping) => mapping.createStatus)
+      .flatMap((mapping) => {
+        const candidate = createOptions.get(mapping.jiraStatusId)
+        return candidate
+          ? [{ sourceId: mapping.jiraStatusId, ...candidate }]
+          : []
+      })
+    for (const candidate of created)
+      if (
+        created.some(
+          (other) =>
+            other.sourceId !== candidate.sourceId &&
+            (other.slug === candidate.slug ||
+              other.label === candidate.label) &&
+            (other.label !== candidate.label || other.icon !== candidate.icon)
+        )
+      )
+        addFinding(blockers, "created-status-collision", candidate.sourceId)
+    const attachments = result.attachments.map((attachment) =>
+      configuration.skippedAttachmentIds.includes(attachment.sourceAttachmentId)
+        ? { ...attachment, action: "skip" as const }
+        : attachment
+    )
+    return {
+      ...result,
+      attachments,
+      blockers: blockers.toSorted(compareFindings),
+      ready: blockers.length === 0,
+      mappings,
+      source
+    }
+  }
+)

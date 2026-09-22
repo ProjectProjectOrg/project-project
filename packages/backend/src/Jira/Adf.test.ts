@@ -622,3 +622,21 @@ describe("convertAdfToMarkdown", () => {
     )
   })
 })
+
+it("preserves readable text on an unsupported leaf without appending its raw payload", () => {
+  const result = convertAdfToMarkdown({
+    type: "doc",
+    content: [
+      {
+        type: "appWidget",
+        text: "Readable fallback",
+        attrs: { secretImplementation: "opaque-app-payload" }
+      }
+    ]
+  })
+  expect(result.markdown).toBe("Readable fallback")
+  expect(result.markdown).not.toContain("opaque-app-payload")
+  expect(result.warnings).toEqual([
+    { path: ["content", 0], nodeType: "appWidget", reason: "unsupported-node" }
+  ])
+})

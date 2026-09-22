@@ -666,3 +666,15 @@ describe("preflight honours wizard tag renames", () => {
     )
   })
 })
+
+it("assigns generated status colors independently of source ordering and keeps them nonterminal", () => {
+  const statuses = [
+    { id: "z", name: "Quality Review", categoryKey: "done" },
+    { id: "a", name: "Implementation", categoryKey: "indeterminate" }
+  ]
+  const first = buildJiraStatusCreateOptions(statuses)
+  expect(buildJiraStatusCreateOptions(statuses.toReversed())).toEqual(first)
+  expect(first.every((value) => value.createOption?.isTerminal === false)).toBe(
+    true
+  )
+})

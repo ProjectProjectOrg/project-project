@@ -1,43 +1,43 @@
 import { Option, Schema } from "effect"
 
-export type AdfConversionWarning = {
-  readonly path: ReadonlyArray<string | number>
-  readonly nodeType: string
-  readonly reason: string
-}
+export type AdfConversionWarning = Readonly<{
+  path: ReadonlyArray<string | number>
+  nodeType: string
+  reason: string
+}>
 
-export type AdfReference = {
-  readonly kind: "jira-issue" | "jira-attachment" | "jira-user"
-  readonly sourceId: string
-  readonly placeholder: string
-  readonly originalUrl: string | null
-  readonly fallbackText: string
-}
+export type AdfReference = Readonly<{
+  kind: "jira-issue" | "jira-attachment" | "jira-user"
+  sourceId: string
+  placeholder: string
+  originalUrl: string | null
+  fallbackText: string
+}>
 
-export type AdfConversionResult = {
-  readonly markdown: string
-  readonly warnings: ReadonlyArray<AdfConversionWarning>
-  readonly references: ReadonlyArray<AdfReference>
-}
+export type AdfConversionResult = Readonly<{
+  markdown: string
+  warnings: ReadonlyArray<AdfConversionWarning>
+  references: ReadonlyArray<AdfReference>
+}>
 
-export type AdfReferenceDestination = {
-  readonly url: string
-  readonly text?: string
-  readonly embed?: boolean
-}
+export type AdfReferenceDestination = Readonly<{
+  url: string
+  text?: string
+  embed?: boolean
+}>
 
-type AdfNode = {
-  readonly type: string
-  readonly text?: string | undefined
-  readonly attrs?: Readonly<Record<string, unknown>> | undefined
-  readonly marks?: ReadonlyArray<AdfMark> | undefined
-  readonly content?: ReadonlyArray<AdfNode> | undefined
-}
+type AdfNode = Readonly<{
+  type: string
+  text?: string | undefined
+  attrs?: Readonly<Record<string, unknown>> | undefined
+  marks?: ReadonlyArray<AdfMark> | undefined
+  content?: ReadonlyArray<AdfNode> | undefined
+}>
 
-type AdfMark = {
-  readonly type: string
-  readonly attrs?: Readonly<Record<string, unknown>> | undefined
-}
+type AdfMark = Readonly<{
+  type: string
+  attrs?: Readonly<Record<string, unknown>> | undefined
+}>
 
 const AdfMarkSchema: Schema.Codec<AdfMark> = Schema.Struct({
   type: Schema.String,
@@ -56,10 +56,10 @@ const AdfNodeSchema: Schema.Codec<AdfNode> = Schema.Struct({
 
 const decodeAdfNode = Schema.decodeUnknownOption(AdfNodeSchema)
 
-type ConversionState = {
-  readonly warnings: Array<AdfConversionWarning>
-  readonly references: Array<AdfReference>
-}
+type ConversionState = Readonly<{
+  warnings: Array<AdfConversionWarning>
+  references: Array<AdfReference>
+}>
 
 export function convertAdfToMarkdown(input: unknown): AdfConversionResult {
   const decoded = decodeAdfNode(input)
@@ -408,7 +408,7 @@ function longestRun(value: string, character: string): number {
 }
 
 function stringAttribute(
-  value: { readonly attrs?: Readonly<Record<string, unknown>> | undefined },
+  value: Readonly<{ attrs?: Readonly<Record<string, unknown>> | undefined }>,
   key: string
 ): string | null {
   const attribute = value.attrs?.[key]
@@ -454,7 +454,7 @@ function jiraIssueId(url: string): string | null {
 
 function jiraLinkReference(
   marks: ReadonlyArray<AdfMark>
-): { readonly url: string; readonly sourceId: string } | null {
+): Readonly<{ url: string; sourceId: string }> | null {
   for (const mark of marks) {
     if (mark.type !== "link") continue
     const url = stringAttribute(mark, "href")
@@ -482,6 +482,7 @@ function safeReadableFallback(
   path: ReadonlyArray<string | number>
 ): string {
   const fallback =
+    node.text ??
     stringAttribute(node, "text") ??
     stringAttribute(node, "alt") ??
     stringAttribute(node, "label") ??

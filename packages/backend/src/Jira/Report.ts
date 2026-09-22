@@ -2,19 +2,29 @@ import type { JiraMigrationMappings } from "./Mappings"
 import type { JiraMigrationManifest } from "./Manifest"
 import type { JiraPreflightResult } from "./Preflight"
 import type { JiraPublicationPlan } from "./PublicationPlan"
-
-export interface JiraMigrationOutcomeInput {
-  readonly migrationId: string
-  readonly orgSlug: string
-  readonly siteName: string
-  readonly manifest: JiraMigrationManifest
-  readonly mappings: JiraMigrationMappings
-  readonly preflight: JiraPreflightResult
-  readonly plan: JiraPublicationPlan
-  readonly copiedAttachmentIds: ReadonlyArray<string>
-  readonly userLabelsById: Readonly<Record<string, string>>
-  readonly completedAt: string
-}
+import { createHash } from "node:crypto"
+import { Option, Schema } from "effect"
+import {
+  JiraConvertedText as ArchivedConvertedText,
+  JiraManifestSourceV2
+} from "./Manifest"
+import {
+  canonicalJiraJson,
+  type JiraPreparedPublicationV1,
+  type JiraAttachmentOutcome
+} from "./PublicationPlan"
+export type JiraMigrationOutcomeInput = Readonly<{
+  migrationId: string
+  orgSlug: string
+  siteName: string
+  manifest: JiraMigrationManifest
+  mappings: JiraMigrationMappings
+  preflight: JiraPreflightResult
+  plan: JiraPublicationPlan
+  copiedAttachmentIds: ReadonlyArray<string>
+  userLabelsById: Readonly<Record<string, string>>
+  completedAt: string
+}>
 
 const restrictionPolicy = (mappings: JiraMigrationMappings) =>
   mappings.restrictions.some(
@@ -350,4 +360,333 @@ ${
         ])
       )}\n`
 }`
+}
+
+const ArchiveExclusion = Schema.Struct({
+  sourceId: Schema.String,
+  category: Schema.String,
+  restrictionSource: Schema.String,
+  contentSha256: Schema.String,
+  excludedReason: Schema.String
+})
+export const JiraPlannedArchive = Schema.Struct({
+  version: Schema.Literal(1),
+  manifestVersion: Schema.Literal(2),
+  migrationId: Schema.String,
+  source: Schema.JsonObject,
+  restrictionPolicy: Schema.Literals(["exclude", "include"]),
+  categories: Schema.Record(Schema.String, Schema.Array(Schema.Json)),
+  exclusions: Schema.Array(ArchiveExclusion),
+  mappings: Schema.JsonObject,
+  attachmentOutcomes: Schema.Array(Schema.Json),
+  schemaVersions: Schema.Array(Schema.Json),
+  converterVersions: Schema.Array(Schema.Json)
+})
+export const JiraPlannedReport = Schema.Struct({
+  version: Schema.Literal(1),
+  partialSuccess: Schema.Boolean,
+  nativeCounts: Schema.Record(Schema.String, Schema.Int),
+  archivedCounts: Schema.Record(Schema.String, Schema.Int),
+  markdown: Schema.String
+})
+const CustomFieldValues = Schema.Array(
+  Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
+)
+
+export function buildJiraArchiveV2(
+  prepared: JiraPreparedPublicationV1,
+  outcomes: ReadonlyArray<JiraAttachmentOutcome>
+) {
+  const manifest = prepared.manifest
+  const exclude = prepared.configuration.restrictedContent.policy === "exclude"
+  const restriction = (kind: string, id: string) =>
+    exclude
+      ? manifest.restrictions.find(
+          (x) => x.targetKind === kind && x.targetId === id
+        )
+      : undefined
+  const excludedIssue = (id: string) => restriction("issue", id)
+  const values = new Map(
+    prepared.source.artifacts.map((x) => [x.ref.key, x.value])
+  )
+  const exclusions: Array<typeof ArchiveExclusion.Type> = []
+  const tombstone = (
+    category: string,
+    sourceId: string,
+    restrictionSource: string,
+    content: Schema.Json,
+    excludedReason = "excluded_by_user"
+  ) => {
+    const row = {
+      sourceId,
+      category,
+      restrictionSource,
+      contentSha256: createHash("sha256")
+        .update(canonicalJiraJson(content))
+        .digest("hex"),
+      excludedReason
+    }
+    exclusions.push(row)
+    return row
+  }
+  const categories: Record<string, ReadonlyArray<Schema.Json>> = {}
+  categories.issues = manifest.issues.map(
+    ({ descriptionArtifact, ...issue }) => {
+      const description =
+        descriptionArtifact === null
+          ? null
+          : values.get(descriptionArtifact.key)!
+      const restricted = excludedIssue(issue.id)
+      return restricted
+        ? tombstone("issues", issue.id, restricted.source, {
+            ...issue,
+            description
+          })
+        : { ...issue, description }
+    }
+  )
+  categories.comments = manifest.comments.map(
+    ({ bodyArtifact, ...comment }) => {
+      const body = values.get(bodyArtifact.key)!
+      const restricted =
+        restriction("comment", comment.id) ?? excludedIssue(comment.issueId)
+      return restricted
+        ? tombstone("comments", comment.id, restricted.source, {
+            ...comment,
+            body
+          })
+        : { ...comment, body }
+    }
+  )
+  categories.worklogs = manifest.worklogs.map(
+    ({ bodyArtifact, ...worklog }) => {
+      const body = bodyArtifact === null ? null : values.get(bodyArtifact.key)!
+      const restricted =
+        restriction("worklog", worklog.id) ?? excludedIssue(worklog.issueId)
+      return restricted
+        ? tombstone("worklogs", worklog.id, restricted.source, {
+            ...worklog,
+            body
+          })
+        : { ...worklog, body }
+    }
+  )
+  categories.attachments = manifest.attachments.map(
+    ({ metadataArtifact, ...attachment }) => {
+      const restricted = excludedIssue(attachment.issueId)
+      return restricted
+        ? tombstone("attachments", attachment.id, restricted.source, attachment)
+        : {
+            ...attachment,
+            ...(exclude ? {} : { raw: values.get(metadataArtifact.key)! })
+          }
+    }
+  )
+  categories.customFields = manifest.customFields.map(
+    ({ valuesArtifact, ...field }) => ({
+      ...field,
+      values: Schema.decodeUnknownSync(CustomFieldValues)(
+        values.get(valuesArtifact.key)
+      ).map((value) =>
+        excludedIssue(value.issueId)
+          ? tombstone(
+              "customFields",
+              `${field.id}:${value.issueId}`,
+              excludedIssue(value.issueId)!.source,
+              value
+            )
+          : value
+      )
+    })
+  )
+  const owned = {
+    changelogs: manifest.changelogs,
+    watchers: manifest.watchers,
+    votes: manifest.votes,
+    ranks: manifest.ranks
+  }
+  for (const [category, records] of Object.entries(owned))
+    categories[category] = records.map((record) =>
+      excludedIssue(record.issueId)
+        ? tombstone(
+            category,
+            record.id,
+            excludedIssue(record.issueId)!.source,
+            record
+          )
+        : record
+    )
+  categories.rawArtifacts = manifest.rawArtifacts.map((ref): Schema.Json => {
+    if (!exclude) return { ref, raw: values.get(ref.key)! }
+    const row = {
+      sourceId: ref.key,
+      category: "rawArtifacts",
+      restrictionSource: "mixed-envelope",
+      contentSha256: ref.sha256,
+      excludedReason: "opaque_envelope_content_omitted"
+    }
+    exclusions.push(row)
+    return { ...row, byteSize: ref.byteSize }
+  })
+  const metadata = {
+    fieldDefinitions: manifest.fieldDefinitions,
+    workflows: manifest.workflows,
+    identities: manifest.identities,
+    statuses: manifest.statuses,
+    issueTypes: manifest.issueTypes,
+    priorities: manifest.priorities,
+    components: manifest.components,
+    parentsSubtasks: manifest.parentsSubtasks,
+    epics: manifest.epics,
+    sprints: manifest.sprints,
+    versionsReleases: manifest.versionsReleases,
+    links: manifest.links,
+    restrictions: manifest.restrictions,
+    productApps: manifest.productApps,
+    coverage: manifest.coverage,
+    warnings: manifest.warnings
+  }
+  for (const [category, records] of Object.entries(metadata))
+    categories[category] = records
+  return Schema.decodeUnknownSync(JiraPlannedArchive)({
+    version: 1,
+    manifestVersion: 2,
+    migrationId: manifest.migrationId,
+    source: {
+      ...manifest.source,
+      description: prepared.source.projectDescription
+    },
+    restrictionPolicy: prepared.configuration.restrictedContent.policy,
+    categories,
+    exclusions: exclusions.toSorted((a, b) =>
+      `${a.category}:${a.sourceId}`.localeCompare(
+        `${b.category}:${b.sourceId}`,
+        "en"
+      )
+    ),
+    mappings: prepared.configuration,
+    attachmentOutcomes: outcomes,
+    schemaVersions: [
+      ...manifest.schemaVersions,
+      { id: "archive", version: "1" },
+      { id: "publication-plan", version: "1" }
+    ],
+    converterVersions: manifest.converterVersions
+  })
+}
+
+export function buildJiraReportV2(
+  archive: typeof JiraPlannedArchive.Type,
+  nativeCounts: Readonly<Record<string, number>>
+) {
+  const archivedCounts = Object.fromEntries(
+    Object.entries(archive.categories).map(([category, values]) => [
+      category,
+      values.length
+    ])
+  )
+  const outcomes = Schema.decodeUnknownSync(
+    Schema.Array(Schema.Struct({ kind: Schema.String }))
+  )(archive.attachmentOutcomes)
+  const coverage = Schema.decodeUnknownSync(
+    Schema.Array(
+      Schema.Struct({
+        category: Schema.String,
+        visibility: Schema.String,
+        reason: Schema.NullOr(Schema.String)
+      })
+    )
+  )(archive.categories.coverage ?? [])
+  const partialSuccess =
+    outcomes.some((x) => x.kind !== "copied") ||
+    archive.exclusions.some((x) => x.excludedReason === "excluded_by_user") ||
+    coverage.some((x) => x.visibility !== "complete")
+  const decodeTextRecord = Schema.decodeUnknownOption(
+    Schema.Struct({
+      id: Schema.String,
+      description: Schema.optional(Schema.NullOr(ArchivedConvertedText)),
+      body: Schema.optional(ArchivedConvertedText)
+    })
+  )
+  const degradation = [
+    ...(archive.categories.issues ?? []),
+    ...(archive.categories.comments ?? [])
+  ].flatMap((record) => {
+    const decoded = decodeTextRecord(record)
+    if (Option.isNone(decoded)) return []
+    return [
+      ...(decoded.value.description?.warnings ?? []),
+      ...(decoded.value.body?.warnings ?? [])
+    ].map((warning) => [decoded.value.id, warning.nodeType, warning.reason])
+  })
+  const markdown = [
+    "# Jira migration report",
+    "",
+    `Migration: ${archive.migrationId}`,
+    canonicalJiraJson(
+      Schema.decodeUnknownSync(JiraManifestSourceV2)(archive.source)
+    ),
+    "Only data visible to the connected Jira account was scanned. Inaccessible data may be absent.",
+    "",
+    `Partial success: ${partialSuccess ? "yes" : "no"}`,
+    `Restriction policy: ${archive.restrictionPolicy}`,
+    "",
+    "## Native records",
+    table(
+      ["Category", "Count"],
+      Object.entries(nativeCounts).map(([key, count]) => [key, `${count}`])
+    ),
+    "",
+    "## Archived categories",
+    table(
+      ["Category", "Count"],
+      Object.entries(archivedCounts)
+        .toSorted(([a], [b]) => (a < b ? -1 : 1))
+        .map(([key, count]) => [key, `${count}`])
+    ),
+    "",
+    "## Mapping decisions",
+    canonicalJiraJson(archive.mappings),
+    "",
+    "## Transformations",
+    "Subtasks are flattened. Epics, releases, custom fields, links and unsupported products remain archive provenance. Unsupported ADF degrades to readable content; conversion warnings and original allowed ADF are retained with each source record. Source issue-key gaps are preserved.",
+    "",
+    "## ADF conversion warnings",
+    table(["Source", "Node", "Decision"], degradation),
+    "",
+    "## Attachment outcomes",
+    canonicalJiraJson(archive.attachmentOutcomes),
+    "",
+    "## Exclusions and skips",
+    table(
+      ["Category", "Source", "Reason"],
+      archive.exclusions.map((x) => [
+        escapeCell(x.category),
+        escapeCell(x.sourceId),
+        x.excludedReason
+      ])
+    ),
+    "",
+    "## Coverage and warnings",
+    table(
+      ["Category", "Visibility", "Reason"],
+      coverage.map((x) => [
+        escapeCell(x.category),
+        x.visibility,
+        escapeCell(x.reason ?? "")
+      ])
+    ),
+    canonicalJiraJson(archive.categories.warnings ?? []),
+    "",
+    "## Schema and converter versions",
+    canonicalJiraJson(archive.schemaVersions),
+    canonicalJiraJson(archive.converterVersions)
+  ].join("\n")
+  return Schema.decodeUnknownSync(JiraPlannedReport)({
+    version: 1,
+    partialSuccess,
+    nativeCounts,
+    archivedCounts,
+    markdown
+  })
 }

@@ -14,7 +14,7 @@ import {
 } from "@projectproject/shared"
 import * as Schema from "effect/Schema"
 import type { JiraMigrationConfiguration } from "@projectproject/shared"
-import type { JiraMigrationManifest } from "./Manifest"
+import type { JiraMigrationManifest, JiraMigrationManifestV2 } from "./Manifest"
 
 export const JiraIdentityResolution = Schema.Union([
   Schema.Struct({
@@ -98,36 +98,36 @@ export type TicketIdMapping = JiraMigrationMappings["ticketIds"][number]
 
 export type JiraTagSourceKind = "label" | "component"
 
-export type JiraTagCandidate = {
-  readonly sourceId: string
-  readonly sourceKind: JiraTagSourceKind
-  readonly sourceValue: string
-  readonly destinationTag: string | null
-  readonly changed: boolean
-}
+export type JiraTagCandidate = Readonly<{
+  sourceId: string
+  sourceKind: JiraTagSourceKind
+  sourceValue: string
+  destinationTag: string | null
+  changed: boolean
+}>
 
-export type JiraTagCollision = {
-  readonly destinationTag: string
-  readonly sourceIds: ReadonlyArray<string>
-}
+export type JiraTagCollision = Readonly<{
+  destinationTag: string
+  sourceIds: ReadonlyArray<string>
+}>
 
-export type OpenSprintConflict = {
-  readonly sourceIssueId: string
-  readonly candidateGroupIds: ReadonlyArray<string>
-}
+export type OpenSprintConflict = Readonly<{
+  sourceIssueId: string
+  candidateGroupIds: ReadonlyArray<string>
+}>
 
-export type JiraStatusCreateOption = {
-  readonly slug: string
-  readonly label: string
-  readonly icon: "CircleDashed" | "CircleDot" | "CircleCheck"
-  readonly color: string
-  readonly isTerminal: false
-}
+export type JiraStatusCreateOption = Readonly<{
+  slug: string
+  label: string
+  icon: "CircleDashed" | "CircleDot" | "CircleCheck"
+  color: string
+  isTerminal: false
+}>
 
-export type JiraStatusCreateCandidate = {
-  readonly sourceStatusId: string
-  readonly createOption: JiraStatusCreateOption | null
-}
+export type JiraStatusCreateCandidate = Readonly<{
+  sourceStatusId: string
+  createOption: JiraStatusCreateOption | null
+}>
 
 export function buildJiraStatusCreateOptions(
   statuses: ReadonlyArray<
@@ -137,24 +137,26 @@ export function buildJiraStatusCreateOptions(
     >
   >
 ): ReadonlyArray<JiraStatusCreateCandidate> {
-  const candidates = statuses.map((status) => {
-    const style = statusStyle(status.categoryKey)
-    const derived = deriveStatusSlug(status.name)
-    const slug =
-      Schema.is(StatusSlug)(derived) && Schema.is(StatusLabel)(status.name)
-        ? derived
-        : null
-    return {
-      sourceStatusId: status.id,
-      baseSlug: slug,
-      descriptor: {
-        label: status.name,
-        ...style,
-        color: "",
-        isTerminal: false as const
+  const candidates = statuses
+    .toSorted((a, b) => compareStrings(a.id, b.id))
+    .map((status) => {
+      const style = statusStyle(status.categoryKey)
+      const derived = deriveStatusSlug(status.name)
+      const slug =
+        Schema.is(StatusSlug)(derived) && Schema.is(StatusLabel)(status.name)
+          ? derived
+          : null
+      return {
+        sourceStatusId: status.id,
+        baseSlug: slug,
+        descriptor: {
+          label: status.name,
+          ...style,
+          color: "",
+          isTerminal: false as const
+        }
       }
-    }
-  })
+    })
   const bySlug = new Map<string, Array<(typeof candidates)[number]>>()
   for (const candidate of candidates) {
     if (candidate.baseSlug === null) continue
@@ -213,7 +215,7 @@ export function buildJiraStatusCreateOptions(
 }
 
 export function buildDefaultTicketIdMappings(
-  manifest: JiraMigrationManifest
+  manifest: JiraMappingSource
 ): ReadonlyArray<TicketIdMapping> {
   return manifest.issues
     .filter(({ key }) => Schema.is(TicketId)(key))
@@ -244,7 +246,7 @@ export function normalizeJiraTag(
 }
 
 export function buildTagCandidates(
-  manifest: JiraMigrationManifest
+  manifest: JiraMappingSource
 ): ReadonlyArray<JiraTagCandidate> {
   const labels = new Set(manifest.issues.flatMap(({ labels }) => labels))
   const candidates: Array<JiraTagCandidate> = []
@@ -281,7 +283,7 @@ export function findTagCollisions(
 }
 
 export function buildOpenSprintConflicts(
-  manifest: JiraMigrationManifest
+  manifest: JiraMappingSource
 ): ReadonlyArray<OpenSprintConflict> {
   const openMemberships = new Map<string, Array<string>>()
   for (const group of manifest.groups) {
@@ -351,7 +353,7 @@ function compareStrings(left: string, right: string): number {
 const UNPRIORITISED_DESTINATION = "med" as const
 
 export function jiraConfigurationToMappings(
-  manifest: JiraMigrationManifest,
+  manifest: JiraMappingSource,
   configuration: JiraMigrationConfiguration
 ): JiraMigrationMappings {
   const restrictionResolution =
@@ -436,7 +438,7 @@ export function jiraConfigurationToMappings(
 }
 
 export function resolveTagDestinations(
-  manifest: JiraMigrationManifest,
+  manifest: JiraMappingSource,
   mappings: JiraMigrationMappings
 ): ReadonlyMap<string, string | null> {
   const overrides = new Map(
@@ -452,4 +454,67 @@ export function resolveTagDestinations(
         candidate.destinationTag
     ])
   )
+}
+
+export type JiraMappingSource = Pick<
+  JiraMigrationManifest,
+  | "issues"
+  | "identities"
+  | "statuses"
+  | "issueTypes"
+  | "priorities"
+  | "components"
+  | "groups"
+  | "restrictions"
+  | "attachments"
+  | "coverage"
+>
+
+export function jiraV2MappingSource(
+  manifest: JiraMigrationManifestV2
+): JiraMappingSource {
+  return {
+    identities: manifest.identities.map((value) => ({ ...value, raw: null })),
+    statuses: manifest.statuses.map((value) => ({ ...value, raw: null })),
+    issueTypes: manifest.issueTypes.map((value) => ({ ...value, raw: null })),
+    priorities: manifest.priorities.map((value) => ({ ...value, raw: null })),
+    components: manifest.components.map((value) => ({ ...value, raw: null })),
+    issues: manifest.issues.map((issue) => ({
+      ...issue,
+      description: null,
+      labels: issue.labelIds,
+      groupIds: manifest.sprints
+        .filter((sprint) => sprint.issueIds.includes(issue.id))
+        .map((sprint) => sprint.id),
+      parentIssueId:
+        manifest.parentsSubtasks.find(
+          (parent) => parent.subtaskIssueId === issue.id
+        )?.parentIssueId ?? null,
+      attachmentIds: manifest.attachments
+        .filter((attachment) => attachment.issueId === issue.id)
+        .map((attachment) => attachment.id),
+      restricted: manifest.restrictions.some(
+        (restriction) =>
+          restriction.targetKind === "issue" &&
+          restriction.targetId === issue.id
+      ),
+      raw: null
+    })),
+    groups: manifest.sprints.map((sprint) => ({
+      ...sprint,
+      kind: "sprint",
+      description: null,
+      completedAt:
+        sprint.state === "completed"
+          ? (sprint.endsAt ?? manifest.source.scannedAt)
+          : null,
+      raw: null
+    })),
+    restrictions: manifest.restrictions.map((value) => ({
+      ...value,
+      raw: null
+    })),
+    attachments: manifest.attachments.map((value) => ({ ...value, raw: null })),
+    coverage: manifest.coverage
+  }
 }
