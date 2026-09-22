@@ -21,6 +21,7 @@ import {
   member,
   organization
 } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { CurrentOrg } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
@@ -151,7 +152,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                     RAW: (table, _operators) =>
                       _operators.and(
                         _operators.eq(table.organizationId, org.organizationId),
-                        _operators.eq(table.slug, returnProjectSlug)
+                        _operators.eq(table.slug, returnProjectSlug),
+                        publishedProject(table)
                       )!
                   }
                 })
@@ -426,7 +428,8 @@ export const GitHubIntegrationsLive = Layer.effect(
                         _operators.eq(
                           table.organizationId,
                           session.organizationId
-                        )
+                        ),
+                        publishedProject(table)
                       )!
                   }
                 })

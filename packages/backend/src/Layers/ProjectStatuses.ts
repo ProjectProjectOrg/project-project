@@ -17,6 +17,7 @@ import {
 } from "@projectproject/shared"
 import { Db } from "../Services/Db"
 import { projectStatus } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { Projects } from "../Services/Projects"
 import {
   ProjectStatuses,
@@ -52,7 +53,11 @@ export const ProjectStatusesLive = Layer.effect(
         .findFirst({
           columns: { id: true },
           where: {
-            RAW: (table, _operators) => _operators.eq(table.slug, slug)!
+            RAW: (table, _operators) =>
+              _operators.and(
+                _operators.eq(table.slug, slug),
+                publishedProject(table)
+              )!
           }
         })
         .pipe(

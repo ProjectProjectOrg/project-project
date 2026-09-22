@@ -16,6 +16,7 @@ import {
   type UpdateTagInput
 } from "@projectproject/shared"
 import { projectTag } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { Db } from "../Services/Db"
 import type { MarkdownError } from "../Services/Markdown"
 import { Projects } from "../Services/Projects"
@@ -47,7 +48,11 @@ export const TagsLive = Layer.effect(
         .findFirst({
           columns: { id: true },
           where: {
-            RAW: (table, _operators) => _operators.eq(table.slug, slug)!
+            RAW: (table, _operators) =>
+              _operators.and(
+                _operators.eq(table.slug, slug),
+                publishedProject(table)
+              )!
           }
         })
         .pipe(

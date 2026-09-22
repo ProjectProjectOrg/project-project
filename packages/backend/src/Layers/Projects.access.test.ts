@@ -3,7 +3,10 @@ import { expect } from "vitest"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
+import { PgDialect } from "drizzle-orm/pg-core"
 import { BannerPlaceholders } from "../Services/BannerPlaceholders"
+import { projectIndex } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { Db } from "../Services/Db"
 import { GitHub } from "../Services/GitHub"
 import { ProjectDocs } from "../Services/ProjectDocs"
@@ -13,6 +16,14 @@ import { TicketIndex } from "../Services/TicketIndex"
 import { Users } from "../Services/Users"
 import * as TicketDocumentLock from "../ticketDocumentLock"
 import { ProjectsLive } from "./Projects"
+
+it("builds the public project visibility predicate", () => {
+  const dialect = new PgDialect()
+  expect(dialect.sqlToQuery(publishedProject()).sql).toBe(
+    '("project_index"."published_at" is not null)'
+  )
+  expect(projectIndex.publishedAt).toBeDefined()
+})
 
 for (const scenario of [
   { projectRole: "owner", orgRole: null, allowed: true, queries: 4 },

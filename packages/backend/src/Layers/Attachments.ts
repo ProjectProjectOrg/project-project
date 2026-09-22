@@ -39,6 +39,7 @@ import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
 import { Projects } from "../Services/Projects"
+import { publishedProject } from "../db/projectVisibility"
 import {
   attachmentObjectKey,
   S3Storage,
@@ -80,7 +81,11 @@ export const AttachmentsLive = Layer.effect(
           .findFirst({
             columns: { organizationId: true },
             where: {
-              RAW: (table, _operators) => _operators.eq(table.slug, slug)!
+              RAW: (table, _operators) =>
+                _operators.and(
+                  _operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           .pipe(Effect.orDie)

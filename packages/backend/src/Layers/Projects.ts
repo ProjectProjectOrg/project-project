@@ -50,6 +50,7 @@ import {
   projectMember,
   projectStatus
 } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { bannerNeedsPlaceholder } from "../bannerPlaceholder"
 import {
   iconImageSlots,
@@ -187,7 +188,8 @@ export const ProjectsLive = Layer.effect(
               RAW: (table, _operators) =>
                 _operators.and(
                   _operators.eq(table.slug, slug),
-                  _operators.eq(table.organizationId, organizationId)
+                  _operators.eq(table.organizationId, organizationId),
+                  publishedProject(table)
                 )!
             }
           })
@@ -439,7 +441,12 @@ export const ProjectsLive = Layer.effect(
               ? yield* db
                   .select(baseSelect)
                   .from(projectIndex)
-                  .where(eq(projectIndex.organizationId, organizationId))
+                  .where(
+                    and(
+                      eq(projectIndex.organizationId, organizationId),
+                      publishedProject()
+                    )
+                  )
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
               : yield* db
@@ -452,7 +459,12 @@ export const ProjectsLive = Layer.effect(
                       eq(projectMember.userId, userId)
                     )
                   )
-                  .where(eq(projectIndex.organizationId, organizationId))
+                  .where(
+                    and(
+                      eq(projectIndex.organizationId, organizationId),
+                      publishedProject()
+                    )
+                  )
                   .orderBy(asc(projectIndex.createdAt))
                   .pipe(Effect.orDie)
           const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
@@ -706,6 +718,7 @@ export const ProjectsLive = Layer.effect(
               color: identity.color,
               createdBy,
               createdAt,
+              publishedAt: createdAt,
               organizationId
             })
             .returning()

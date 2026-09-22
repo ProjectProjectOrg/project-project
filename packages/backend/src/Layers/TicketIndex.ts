@@ -46,6 +46,7 @@ import {
   projectIntegrationLink,
   ticketIndex
 } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { parseCommentsRegion } from "../comments-region"
 import { Db } from "../Services/Db"
 import {
@@ -393,7 +394,11 @@ export const TicketIndexLive = Layer.effect(
             eq(organization.id, projectIndex.organizationId)
           )
           .where(
-            and(eq(organization.slug, orgSlug), eq(projectIndex.slug, slug))
+            and(
+              eq(organization.slug, orgSlug),
+              eq(projectIndex.slug, slug),
+              publishedProject()
+            )
           )
           .limit(1)
           .pipe(Effect.orDie)
@@ -731,6 +736,7 @@ export const TicketIndexLive = Layer.effect(
           and(
             eq(organization.slug, orgSlug),
             eq(projectIndex.slug, slug),
+            publishedProject(),
             eq(ticketIndex.ticketId, id)
           )
         )
@@ -973,6 +979,7 @@ export const TicketIndexLive = Layer.effect(
       })
       .from(projectIndex)
       .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
+      .where(publishedProject())
       .pipe(Effect.orDie)
 
     const rebuildProject = (project: TicketIndexProject) =>

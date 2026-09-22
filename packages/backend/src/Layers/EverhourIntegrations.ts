@@ -25,6 +25,7 @@ import {
   userEverhourIntegration
 } from "../db/schema"
 import { Db } from "../Services/Db"
+import { publishedProject } from "../db/projectVisibility"
 import { Everhour } from "../Services/Everhour"
 import type {
   EverhourClientError,
@@ -287,7 +288,11 @@ export const EverhourIntegrationsLive = Layer.effect(
       db.query.projectIndex
         .findFirst({
           where: {
-            RAW: (table, _operators) => _operators.eq(table.id, projectId)!
+            RAW: (table, _operators) =>
+              _operators.and(
+                _operators.eq(table.id, projectId),
+                publishedProject(table)
+              )!
           }
         })
         .pipe(

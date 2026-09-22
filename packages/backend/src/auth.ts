@@ -18,6 +18,7 @@ import {
   projectMember,
   user
 } from "./db/schema"
+import { publishedProject } from "./db/projectVisibility"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -101,7 +102,9 @@ async function projectOwnerSlugs(organizationId: string, userId: string) {
         eq(projectMember.role, "owner")
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
 }
 
 function projectsRoot() {
@@ -188,7 +191,9 @@ async function cleanupRemovedOrgMemberProjectAccess(
         eq(projectMember.userId, userId)
       )
     )
-    .where(eq(projectIndex.organizationId, organizationId))
+    .where(
+      and(eq(projectIndex.organizationId, organizationId), publishedProject())
+    )
   const slugs = rows.map((row) => row.slug)
   await Promise.all(
     slugs.map((slug) =>
@@ -384,7 +389,8 @@ export const auth = betterAuth({
                 projectIndex,
                 and(
                   eq(projectIndex.slug, projectInviteGrant.projectSlug),
-                  eq(projectIndex.id, projectInviteGrant.projectId)
+                  eq(projectIndex.id, projectInviteGrant.projectId),
+                  publishedProject()
                 )
               )
               .where(eq(projectInviteGrant.invitationId, invitation.id))

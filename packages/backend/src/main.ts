@@ -71,6 +71,7 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { projectIndex } from "./db/schema"
+import { publishedProject } from "./db/projectVisibility"
 import { AttachmentsHandlerLive } from "./handlers/attachments"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { attachmentRoutes } from "./http/attachmentRoutes"
@@ -124,6 +125,7 @@ export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
       const [{ value }] = yield* db
         .select({ value: count() })
         .from(projectIndex)
+        .where(publishedProject())
       return { projectCount: value }
     }).pipe(Effect.orDie)
   )

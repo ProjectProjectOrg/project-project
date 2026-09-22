@@ -129,6 +129,29 @@ describe.skipIf(!databaseUrl)("stateless MCP", () => {
         ).token
       }
     }
+    for (const [id, slug, key, publishedAt] of [
+      [randomUUID(), "mcp-published", "MCP1", "2026-09-22T12:00:00.000Z"],
+      [randomUUID(), "mcp-hidden", "MCP2", null]
+    ] as const) {
+      await pool.query(
+        "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, published_at) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        [
+          id,
+          slug,
+          orgId,
+          key,
+          slug,
+          "folder",
+          "#3b82f6",
+          userIds[0],
+          publishedAt
+        ]
+      )
+      await pool.query(
+        "insert into project_member (project_slug, project_id, user_id, role) values ($1, $2, $3, 'owner')",
+        [slug, id, userIds[0]]
+      )
+    }
     const { McpHttpLive } = await import("./McpHttp")
     const { McpServerLive } = await import("./McpServer")
     const { BackendServicesLive, BackendInfrastructureLive } =
@@ -191,6 +214,32 @@ describe.skipIf(!databaseUrl)("stateless MCP", () => {
       expect(transport.sessionId).toBeUndefined()
     }
     const first = clients[0]
+    expect(
+      await first.callTool({
+        name: "list_projects",
+        arguments: { orgSlug: orgId }
+      })
+    ).toMatchObject({
+      content: [
+        {
+          type: "text",
+          text: expect.stringContaining("mcp-published")
+        }
+      ]
+    })
+    expect(
+      await first.callTool({
+        name: "list_projects",
+        arguments: { orgSlug: orgId }
+      })
+    ).not.toMatchObject({
+      content: [
+        {
+          type: "text",
+          text: expect.stringContaining("mcp-hidden")
+        }
+      ]
+    })
     const { tools } = await first.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual(
       Object.keys(McpTools).sort()

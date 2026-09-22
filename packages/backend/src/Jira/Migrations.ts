@@ -405,13 +405,27 @@ export const JiraMigrationsLive = Layer.effect(
         row.destinationProjectSlug ?? configuration?.destination.slug ?? null
       if (stagedSlug === null) return
 
-      const published = yield* db
-        .select({ id: projectIndex.id })
-        .from(projectIndex)
-        .where(eq(projectIndex.slug, stagedSlug))
-        .limit(1)
-        .pipe(Effect.orDie)
-      if (published[0]) return
+      const stagedProject =
+        row.destinationProjectId === null
+          ? yield* db
+              .select({
+                id: projectIndex.id,
+                publishedAt: projectIndex.publishedAt
+              })
+              .from(projectIndex)
+              .where(eq(projectIndex.slug, stagedSlug))
+              .limit(1)
+              .pipe(Effect.orDie)
+          : yield* db
+              .select({
+                id: projectIndex.id,
+                publishedAt: projectIndex.publishedAt
+              })
+              .from(projectIndex)
+              .where(eq(projectIndex.id, row.destinationProjectId))
+              .limit(1)
+              .pipe(Effect.orDie)
+      if (stagedProject[0] && stagedProject[0].publishedAt !== null) return
 
       const staged = yield* db
         .select({

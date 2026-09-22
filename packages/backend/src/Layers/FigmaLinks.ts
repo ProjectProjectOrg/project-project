@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { ulid } from "ulid"
 import { figmaLinkIndex, figmaReference } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { CurrentOrg, requireOrgAdmin } from "../Services/CurrentOrg"
 import { Db } from "../Services/Db"
 import {
@@ -470,7 +471,10 @@ export const FigmaLinksLive = Layer.effect(
         const existing = found[0]
         if (existing !== undefined) {
           const now = yield* DateTime.nowAsDate
-          return { id: existing.id, resolve: needsFigmaMetadata(existing, now) }
+          return {
+            id: existing.id,
+            resolve: needsFigmaMetadata(existing, now)
+          }
         }
 
         const inserted = yield* db
@@ -595,7 +599,11 @@ export const FigmaLinksLive = Layer.effect(
           const project = yield* db.query.projectIndex.findFirst({
             columns: { organizationId: true },
             where: {
-              RAW: (table, operators) => operators.eq(table.slug, slug)!
+              RAW: (table, operators) =>
+                operators.and(
+                  operators.eq(table.slug, slug),
+                  publishedProject(table)
+                )!
             }
           })
           if (project === undefined) return yield* new NotFound()

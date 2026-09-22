@@ -18,6 +18,7 @@ import {
   projectEverhourIntegration,
   projectIntegrationLink
 } from "../db/schema"
+import { publishedProject } from "../db/projectVisibility"
 import { Db } from "../Services/Db"
 import { Everhour, type EverhourTimeRecord } from "../Services/Everhour"
 import {
@@ -352,7 +353,10 @@ export const EverhourTimeTrackingLive = Layer.effect(
               columns: { slug: true },
               where: {
                 RAW: (table, _operators) =>
-                  _operators.eq(table.id, link.projectId)!
+                  _operators.and(
+                    _operators.eq(table.id, link.projectId),
+                    publishedProject(table)
+                  )!
               }
             })
             .pipe(Effect.orDie)

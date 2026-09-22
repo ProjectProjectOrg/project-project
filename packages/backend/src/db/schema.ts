@@ -89,7 +89,8 @@ export const projectIndex = pgTable(
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
-      .defaultNow()
+      .defaultNow(),
+    publishedAt: timestamp("published_at", { withTimezone: true }).defaultNow()
   },
   (table) => [
     unique("project_index_id_organization_uidx").on(
@@ -834,7 +835,7 @@ export const userJiraOauthState = pgTable(
 export const jiraMigration = pgTable(
   "jira_migration",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey(),
     requestId: text("request_id").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -871,6 +872,12 @@ export const jiraMigration = pgTable(
     checkpoint: jsonb("checkpoint").$type<unknown>(),
     progressDone: integer("progress_done").notNull().default(0),
     progressTotal: integer("progress_total"),
+    workflowExecutionId: text("workflow_execution_id"),
+    workflowAttempt: integer("workflow_attempt").notNull().default(0),
+    scanRevision: integer("scan_revision").notNull().default(0),
+    failureSequence: integer("failure_sequence").notNull().default(0),
+    retainedUntil: timestamp("retained_until", { withTimezone: true }),
+    cleanupExecutionId: text("cleanup_execution_id"),
     leaseId: uuid("lease_id"),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     scanAt: timestamp("scan_at", { withTimezone: true }),
