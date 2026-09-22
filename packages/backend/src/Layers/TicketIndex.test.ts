@@ -3,10 +3,12 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vite-plus/test"
-import { TicketId, TicketStatus } from "@projectproject/shared"
+import { TagName, TicketId, TicketStatus } from "@projectproject/shared"
 import {
+  commentIndexRowsFor,
   detectTicketIndexDrift,
   makeTicketIndexReconciler,
+  ticketIndexRowsFor,
   ticketIndexHasDrift,
   type TicketIndexReconcilerDeps
 } from "./TicketIndex"
@@ -15,6 +17,7 @@ import type { TicketIndexProject } from "../Services/TicketIndex"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
+const tagName = Schema.decodeUnknownSync(TagName)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
 const project: TicketIndexProject = {
@@ -48,6 +51,149 @@ const doc = (
   body: "",
   commentsRegion: "",
   ...overrides
+})
+
+describe("ticketIndexRowsFor", () => {
+  it.effect(
+    "normalizes every ticket document into its database insert row",
+    () =>
+      Effect.sync(() => {
+        const tags = [tagName("backend"), tagName("urgent")]
+        const assignees = ["user-2", "user-3"]
+        const createdAt = at("2026-05-01T01:02:03.000Z")
+        const updatedAt = at("2026-05-02T04:05:06.000Z")
+        const archivedAt = at("2026-05-03T07:08:09.000Z")
+        const document = doc("T-27", updatedAt.toISOString(), {
+          title: "Ship pure index builders",
+          status: ticketStatus("in_progress"),
+          type: "chore",
+          priority: "high",
+          tags,
+          assignees,
+          branch: "chore/T-27-index-builders",
+          pr: 172,
+          prState: "merged",
+          lastTransitionedPr: 171,
+          archivedAt,
+          createdBy: "user-4",
+          createdAt,
+          updatedAt
+        })
+
+        const rows = ticketIndexRowsFor(project, [document])
+
+        expect(rows).toEqual([
+          {
+            organizationId: "org-1",
+            orgSlug: "acme",
+            projectId: "project-1",
+            projectSlug: "demo",
+            ticketId: ticketId("T-27"),
+            title: "Ship pure index builders",
+            status: ticketStatus("in_progress"),
+            type: "chore",
+            priority: "high",
+            tags: [tagName("backend"), tagName("urgent")],
+            assignees: ["user-2", "user-3"],
+            branch: "chore/T-27-index-builders",
+            pr: 172,
+            prState: "merged",
+            lastTransitionedPr: 171,
+            archivedAt,
+            createdBy: "user-4",
+            createdAt,
+            updatedAt
+          }
+        ])
+        expect(rows[0]!.tags).not.toBe(tags)
+        expect(rows[0]!.assignees).not.toBe(assignees)
+      })
+  )
+})
+
+describe("commentIndexRowsFor", () => {
+  it.effect(
+    "preserves parsed comment ids, attribution, origins, and dates",
+    () =>
+      Effect.sync(() => {
+        const document = doc("T-28", "2026-05-06T00:00:00.000Z", {
+          commentsRegion: `<!-- comments:start -->
+<!-- comment:legacy-comment -->
+---
+author: user-1
+createdAt: 2026-05-01T01:02:03.000Z
+---
+Legacy comment
+<!-- comment:linked-jira-comment -->
+---
+author:
+  kind: user
+  userId: user-2
+origin: jira
+createdAt: 2026-05-02T02:03:04.000Z
+editedAt: 2026-05-03T03:04:05.000Z
+---
+Linked Jira comment
+<!-- comment:snapshot-jira-comment -->
+---
+author:
+  kind: jira
+  displayName: Former Jira User
+  accountId: jira-account-1
+origin: jira
+createdAt: 2026-05-04T04:05:06.000Z
+---
+Snapshot Jira comment
+<!-- comment:malformed-comment -->
+---
+origin: native
+createdAt: 2026-05-05T05:06:07.000Z
+---
+Missing author
+<!-- comments:end -->
+`
+        })
+
+        expect(commentIndexRowsFor(project, [document])).toEqual([
+          {
+            id: "legacy-comment",
+            projectSlug: "demo",
+            ticketId: ticketId("T-28"),
+            origin: "native",
+            authorKind: "user",
+            authorId: "user-1",
+            jiraDisplayName: null,
+            jiraAccountId: null,
+            createdAt: at("2026-05-01T01:02:03.000Z"),
+            editedAt: null
+          },
+          {
+            id: "linked-jira-comment",
+            projectSlug: "demo",
+            ticketId: ticketId("T-28"),
+            origin: "jira",
+            authorKind: "user",
+            authorId: "user-2",
+            jiraDisplayName: null,
+            jiraAccountId: null,
+            createdAt: at("2026-05-02T02:03:04.000Z"),
+            editedAt: at("2026-05-03T03:04:05.000Z")
+          },
+          {
+            id: "snapshot-jira-comment",
+            projectSlug: "demo",
+            ticketId: ticketId("T-28"),
+            origin: "jira",
+            authorKind: "jira",
+            authorId: null,
+            jiraDisplayName: "Former Jira User",
+            jiraAccountId: "jira-account-1",
+            createdAt: at("2026-05-04T04:05:06.000Z"),
+            editedAt: null
+          }
+        ])
+      })
+  )
 })
 
 describe("detectTicketIndexDrift", () => {
