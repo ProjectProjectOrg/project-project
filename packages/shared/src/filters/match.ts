@@ -3,8 +3,8 @@ import type {
   TicketStatus,
   TicketType
 } from "../schemas/Ticket"
-import type { TicketFilter, TicketListQuery } from "./Ticket"
 import type { UserId } from "../schemas/User"
+import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 export interface MatchableTicket {
   readonly id: string

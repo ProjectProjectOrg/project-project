@@ -6,6 +6,7 @@
 //
 
 import * as Schema from "effect/Schema"
+
 import { GitState } from "./GitState"
 import { GroupId } from "./GroupId"
 import { ProjectKey } from "./Project"

@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "endOfLine": "lf",
+  "semi": false,
+  "singleQuote": false,
+  "trailingComma": "none",
+  "arrowParens": "always",
+  "objectWrap": "preserve",
+  "sortImports": {
+    "internalPattern": ["@projectproject/", "@/"],
+    "newlinesBetween": true
+  },
+  "sortPackageJson": true,
+  "overrides": [
+    {
+      "files": ["apps/frontend/**/*.{js,jsx,ts,tsx}"],
+      "options": {
+        "sortTailwindcss": {
+          "stylesheet": "./apps/frontend/src/styles.css",
+          "functions": ["cn", "clsx", "cva"]
+        }
+      }
+    }
+  ],
+  "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".superpowers/**",
+    ".windsurf/**",
+    "opensrc/**",
+    "tools/oxlint/anti-slop/**",
+    "**/node_modules",
+    "**/dist",
+    "**/build",
+    "**/.next",
+    "**/db/migrations/**/snapshot.json",
+    "packages/db/src/migrations/**/snapshot.json",
+    "docs/everhour-api-schema.yml",
+    "bun.lock",
+    "**/routeTree.gen.ts",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "**/*.md"
+  ]
+}

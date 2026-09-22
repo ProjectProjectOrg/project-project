@@ -1,9 +1,11 @@
 import path from "node:path"
 
-const packageNamePattern = /(?:^|[/\\])packages[/\\]([^/\\]+)(?:[/\\]|$)/
+const workspaceNamePattern =
+  /(?:^|[/\\])(apps|packages)[/\\]([^/\\]+)(?:[/\\]|$)/
 
-function packageNameFor(filePath) {
-  return packageNamePattern.exec(filePath)?.[1]
+function workspaceNameFor(filePath) {
+  const match = workspaceNamePattern.exec(filePath)
+  return match ? `${match[1]}/${match[2]}` : undefined
 }
 
 function filenameFromContext(context) {
@@ -35,9 +37,9 @@ function reportIfCrossPackage(context, node) {
     return
   }
 
-  const fromPackage = packageNameFor(filename)
+  const fromPackage = workspaceNameFor(filename)
   const resolvedImport = path.resolve(path.dirname(filename), source)
-  const toPackage = packageNameFor(resolvedImport)
+  const toPackage = workspaceNameFor(resolvedImport)
 
   if (fromPackage && toPackage && fromPackage !== toPackage) {
     context.report({

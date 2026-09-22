@@ -1,0 +1,157 @@
+import type {
+  CompleteSprintInput,
+  CompleteSprintOutput,
+  GroupId,
+  CreateGroupInput,
+  CursorPayload,
+  Forbidden,
+  Group,
+  GroupDetail,
+  GroupFilter,
+  NotFound,
+  SprintCompletedImmutable,
+  SprintState,
+  TicketId,
+  UpdateGroupInput,
+  UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput,
+  UpdateTicketOrderInput,
+  Validation
+} from "@pp/shared"
+import * as Context from "effect/Context"
+import type * as Effect from "effect/Effect"
+
+import type { MarkdownError } from "../markdown/Markdown"
+
+export interface GroupsShape {
+  readonly list: (
+    orgSlug: string,
+    userId: string,
+    slug: string
+  ) => Effect.Effect<ReadonlyArray<Group>, NotFound | MarkdownError>
+  readonly listPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    filter: GroupFilter | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
+  readonly listSprintsPaged: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    state: SprintState | undefined,
+    cursor: CursorPayload | undefined,
+    limit: number
+  ) => Effect.Effect<
+    { items: ReadonlyArray<Group>; nextCursor: string | null },
+    NotFound | MarkdownError
+  >
+  readonly get: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<GroupDetail, NotFound | MarkdownError>
+  readonly create: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    input: CreateGroupInput
+  ) => Effect.Effect<Group, NotFound | Forbidden | Validation | MarkdownError>
+  readonly update: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: UpdateGroupInput
+  ) => Effect.Effect<
+    GroupDetail,
+    NotFound | Forbidden | Validation | MarkdownError
+  >
+  readonly updateTickets: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: UpdateGroupTicketsInput
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly addTickets: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    ticketIds: ReadonlyArray<TicketId>
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly removeTickets: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    ticketIds: ReadonlyArray<TicketId>
+  ) => Effect.Effect<
+    UpdateGroupTicketsOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly updateTicketOrder: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: UpdateTicketOrderInput
+  ) => Effect.Effect<
+    GroupDetail,
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+  >
+  readonly complete: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string,
+    input: CompleteSprintInput
+  ) => Effect.Effect<
+    CompleteSprintOutput,
+    NotFound | Forbidden | SprintCompletedImmutable | Validation | MarkdownError
+  >
+  readonly remove: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    id: string
+  ) => Effect.Effect<void, NotFound | Forbidden | MarkdownError>
+  readonly ensureSprintAssignable: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    sprintIds: ReadonlyArray<GroupId>
+  ) => Effect.Effect<
+    void,
+    NotFound | Forbidden | SprintCompletedImmutable | MarkdownError
+  >
+  readonly setSprintMembership: (
+    orgSlug: string,
+    slug: string,
+    ticketId: TicketId,
+    sprintId: GroupId | null,
+    options?: { readonly after?: TicketId | null }
+  ) => Effect.Effect<void, MarkdownError>
+  readonly removeTicketFromAllGroups: (
+    orgSlug: string,
+    slug: string,
+    ticketId: string
+  ) => Effect.Effect<void, MarkdownError>
+}
+
+export class Groups extends Context.Service<Groups, GroupsShape>()(
+  "@pp/server-core/groups/Groups"
+) {}

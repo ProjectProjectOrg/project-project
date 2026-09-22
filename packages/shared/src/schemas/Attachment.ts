@@ -63,7 +63,7 @@ export const ATTACHMENT_CONTENT_TYPES = [
 export type AttachmentContentType = (typeof ATTACHMENT_CONTENT_TYPES)[number]
 
 const normalizeContentType = (value: string) =>
-  value.split(";")[0]!.trim().toLowerCase()
+  value.split(";")[0].trim().toLowerCase()
 
 export const isAllowedAttachmentContentType = (value: string): boolean =>
   (ATTACHMENT_CONTENT_TYPES as readonly string[]).includes(

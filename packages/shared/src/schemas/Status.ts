@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+
 import { TagColor } from "./Tag"
 
 export const BASELINE_STATUS_SLUGS = ["todo", "in_progress", "done"] as const

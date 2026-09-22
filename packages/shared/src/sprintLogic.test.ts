@@ -1,19 +1,20 @@
-import { describe, expect, it } from "vite-plus/test"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
+import { describe, expect, it } from "vitest"
+
 import {
   GroupColor,
   GroupId,
   type Group,
   type GroupKind
 } from "./schemas/Group"
+import { StatusSlug } from "./schemas/Status"
+import { isCarryover, type TicketStatus } from "./schemas/Ticket"
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
   sprintState
 } from "./sprintLogic"
-import { isCarryover, type TicketStatus } from "./schemas/Ticket"
-import { StatusSlug } from "./schemas/Status"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const groupColor = Schema.decodeUnknownSync(GroupColor)

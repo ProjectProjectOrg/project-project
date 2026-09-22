@@ -22,17 +22,20 @@ data/
 
 # Bun
 .bun
+.turbo/
 
 # Serena MCP server's per-project state. Its own internal .gitignore
 # already excludes the cache and project.local.yml, but the remaining
 # files (project.yml, memories) are tied to a single developer's setup —
 # don't share via the repo.
 .serena/
-storage/
+/storage/
+/apps/backend/storage/
+/packages/backend/storage/
 
 # Paraglide generated runtime — recompiled by the Vite plugin from
-# packages/frontend/messages/*.json on each dev/build.
-packages/frontend/src/paraglide/
+# apps/frontend/messages/*.json on each dev/build.
+apps/frontend/src/paraglide/
 
 # Claude Code local state (project skills are committed)
 .claude/*

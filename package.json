@@ -2,43 +2,55 @@
   "name": "projectproject",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
+  "type": "module",
   "scripts": {
-    "dev:backend": "vp run --filter @projectproject/backend dev",
-    "dev:frontend": "vp run --filter @projectproject/frontend dev",
+    "dev:backend": "turbo run dev --filter @pp/backend",
+    "dev:frontend": "turbo run dev --filter @pp/frontend",
     "dev:db": "docker compose up --wait --wait-timeout 60 postgres",
     "dev:stop": "docker compose stop postgres",
-    "dev": "vp run dev:db && vp run --filter @projectproject/backend --filter @projectproject/frontend --parallel dev",
-    "build": "vp run --filter @projectproject/frontend build",
-    "test": "vp test run",
-    "typecheck": "vp run -r typecheck",
-    "lint": "vp lint",
-    "lint:fix": "vp lint --fix",
-    "format": "vp fmt",
-    "format:check": "vp fmt --check",
+    "dev": "bun run dev:db && turbo run dev --filter @pp/backend --filter @pp/frontend",
+    "build": "turbo run build --filter @pp/frontend",
+    "test": "PROJECTPROJECT_TEST_DATABASE_NAME=projectproject_effect_v4_$(bun -e 'console.log(crypto.randomUUID().replaceAll(\"-\", \"\").slice(0, 16))') bun run test:isolated",
+    "test:all": "turbo run test --concurrency=1",
+    "test:cleanup": "bun scripts/setup-test-db.ts --cleanup",
+    "test:isolated": "test_exit=0; bun run test:setup && DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME bun run test:migrate && PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME BETTER_AUTH_SECRET=isolated-effect-v4-oauth-compatibility-test-secret bun run test:all || test_exit=$?; bun run test:cleanup || { cleanup_exit=$?; if [ $test_exit -eq 0 ]; then test_exit=$cleanup_exit; fi; }; exit $test_exit",
+    "test:migrate": "bun run --filter @pp/db db:migrate",
+    "test:setup": "bun scripts/setup-test-db.ts",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint lint:root",
+    "lint:fix": "turbo run lint:fix lint:root:fix",
+    "lint:root": "oxlint . --ignore-pattern 'apps/**' --ignore-pattern 'packages/**'",
+    "lint:root:fix": "oxlint . --fix --ignore-pattern 'apps/**' --ignore-pattern 'packages/**'",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch",
-    "check": "vp check && vp run typecheck",
-    "test:db": "vp test run --project backend packages/backend/src/db packages/backend/src/Layers/OAuthApplications.test.ts packages/backend/src/Layers/McpHttp.test.ts packages/backend/src/Layers/GitHubIntegrations.test.ts --no-file-parallelism"
+    "check": "bun run format:check && bun run lint && bun run typecheck",
+    "test:db": "vitest run --project db --project server-core --project backend --no-file-parallelism"
   },
   "devDependencies": {
     "@effect/tsgo": "0.41.0",
     "@oxlint/plugins": "1.79.0",
     "@types/node": "^22.10.0",
     "effect": "4.0.0-rc.112",
-    "kysely": "0.27.6",
+    "oxfmt": "0.59.0",
+    "oxlint": "1.79.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "turbo": "2.10.9",
     "typescript": "7.0.2",
-    "vite-plus": "0.3.0"
-  },
-  "packageManager": "bun@1.4.2",
-  "engines": {
-    "node": "^22.18.0 || >=24.11.0",
-    "bun": ">=1.3.13"
+    "vite": "8.1.5",
+    "vitest": "4.1.11"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.0",
-    "vitest": "4.1.11"
-  }
+    "@better-auth/oauth-provider": "1.7.3",
+    "@effect/platform-node-shared": "4.0.0-rc.112"
+  },
+  "engines": {
+    "bun": ">=1.3.13",
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "packageManager": "bun@1.4.2"
 }

@@ -1,7 +1,8 @@
 import * as Schema from "effect/Schema"
-import { User } from "./User"
-import { TicketId } from "./Ticket"
+
 import { Slug } from "./Project"
+import { TicketId } from "./Ticket"
+import { User } from "./User"
 
 export const CommentId = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^c_[A-Za-z0-9_-]+$/)),
