@@ -90,6 +90,16 @@ const dependenciesFor = (
     }),
     clientLayer ??
       Layer.succeed(JiraClient)({
+        snapshots: {
+          currentUser: () => Effect.die("unused"),
+          project: () => Effect.die("unused"),
+          projectStatuses: () => Effect.die("unused"),
+          fields: () => Effect.die("unused"),
+          priorities: () => Effect.die("unused"),
+          watchers: () => Effect.die("unused"),
+          votes: () => Effect.die("unused"),
+          boardConfiguration: () => Effect.die("unused")
+        },
         accessibleSites: (userId) => {
           if (failure && failureAt === "sites") return Effect.fail(failure)
           expect(userId).toBe("user-1")

@@ -644,7 +644,7 @@ describe("Jira one-page boundary", () => {
             const client = yield* JiraClient
             return yield* requestPage(client, fixture)
           }).pipe(Effect.provide(clientLayer(transport)))
-          expect(page).toEqual(
+          expect(page).toMatchObject(
             "cursor" in fixture
               ? { values: [fixture.item], nextPageToken: "next" }
               : {
@@ -914,7 +914,7 @@ describe("Jira boundary edge cases", () => {
               )
             )
           )
-          expect(result).toEqual(fixture.expected)
+          expect(result).toEqual({ ...fixture.expected, raw: fixture.body })
         })
     )
   }
@@ -1329,4 +1329,59 @@ describe("Jira live JSON response transport", () => {
       })
     )
   }
+})
+
+describe("scan source provenance", () => {
+  it("keeps original page and metadata JSON including unknown fields", async () => {
+    const raw = {
+      issues: [
+        {
+          id: "1",
+          key: "APP-1",
+          fields: { summary: "x" },
+          hiddenExtension: "nested-marker"
+        }
+      ],
+      nextPageToken: null,
+      unknownEnvelope: "envelope-marker"
+    }
+    const projectRaw = {
+      id: "1",
+      key: "APP",
+      name: "Application",
+      hiddenExtension: "metadata-marker"
+    }
+    const layer = clientLayer(
+      JiraTransport.of({
+        execute: (request) =>
+          Effect.succeed({
+            status: 200,
+            headers: {},
+            json: Effect.succeed(request.method === "POST" ? raw : projectRaw),
+            stream: Stream.empty
+          })
+      }),
+      stubCredentials
+    )
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* JiraClient
+        const page = yield* client.searchIssuesPage({
+          userId: "u",
+          cloudId: "c",
+          jql: "project = APP",
+          fields: ["*all"]
+        })
+        expect(page.raw).toEqual(raw)
+        expect(page.values[0]).not.toHaveProperty("hiddenExtension")
+        const snapshot = yield* client.snapshots.project("u", "c", "1")
+        expect(snapshot.raw).toEqual(projectRaw)
+        expect(snapshot.value).toEqual({
+          id: "1",
+          key: "APP",
+          name: "Application"
+        })
+      }).pipe(Effect.provide(layer))
+    )
+  })
 })

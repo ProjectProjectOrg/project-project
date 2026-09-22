@@ -332,7 +332,10 @@ export const JiraManifestAttachmentV2 = Schema.Struct({
   filename: Schema.NonEmptyString,
   mimeType: Schema.NonEmptyString,
   byteSize: NonNegativeInt,
-  contentArtifact: JiraArtifactRef
+  metadataArtifact: JiraArtifactRef,
+  downloadUrl: Schema.NullOr(Schema.String),
+  jiraUrl: Schema.NullOr(Schema.String),
+  downloadAllowed: Schema.Boolean
 })
 
 export const JiraManifestParentSubtaskV2 = Schema.Struct({

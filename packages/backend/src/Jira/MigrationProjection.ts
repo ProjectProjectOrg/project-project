@@ -22,6 +22,7 @@ import {
 import { Context, DateTime, Effect, Layer, Predicate, Schema } from "effect"
 import { jiraMigration } from "../db/schema"
 import { Db } from "../Services/Db"
+import { JiraArtifactRef } from "./MigrationArtifacts"
 import { buildJiraStatusCreateOptions } from "./Mappings"
 import type {
   JiraMigrationSource,
@@ -34,8 +35,13 @@ const PersistedJiraMigrationScanSummary = Schema.Struct({
 })
 
 const JiraMigrationCheckpoint = Schema.Struct({
+  scanFailureReceipts: Schema.optional(
+    Schema.Record(Schema.String, Schema.Int)
+  ),
+  scanPages: Schema.optional(Schema.Record(Schema.String, Schema.Int)),
   scan: Schema.optional(
     Schema.Struct({
+      manifest: Schema.optional(JiraArtifactRef),
       summary: PersistedJiraMigrationScanSummary,
       requirements: JiraMigrationRequirements
     })
@@ -368,6 +374,33 @@ export interface TransitionInput {
   readonly action: "run" | "cancel"
 }
 export interface JiraMigrationProjectionShape {
+  readonly recordScanFailure: (
+    fence: AttemptFence,
+    operationKey: string,
+    failure: {
+      readonly reason: string
+      readonly retryable: boolean
+      readonly reconnect: boolean
+    }
+  ) => Effect.Effect<number | null, JiraError>
+  readonly resumeScan: (
+    fence: AttemptFence,
+    failureSequence: number
+  ) => Effect.Effect<boolean, JiraError>
+  readonly recordScanProgress: (
+    fence: AttemptFence,
+    pageKey: string,
+    count: number
+  ) => Effect.Effect<boolean, JiraError>
+  readonly completeScan: (
+    fence: AttemptFence,
+    scan: {
+      readonly manifest: JiraArtifactRef
+      readonly summary: JiraMigrationScanSummary
+      readonly requirements: JiraMigrationRequirements
+    }
+  ) => Effect.Effect<boolean, JiraError>
+
   readonly ensureCreated: (
     input: EnsureCreatedInput
   ) => Effect.Effect<JiraMigrationRow, Conflict | JiraError>
@@ -638,6 +671,11 @@ export class JiraMigrationProjection extends Context.Service<
           .update(jiraMigration)
           .set({
             ...patch,
+            ...(patch.checkpoint === undefined
+              ? {}
+              : {
+                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages')`
+                }),
             updatedAt: now,
             revision: sqlFragment`${jiraMigration.revision} + 1`
           })
@@ -686,6 +724,225 @@ export class JiraMigrationProjection extends Context.Service<
             return rows.length > 0
           }
         )
+      const recordScanFailure: JiraMigrationProjectionShape["recordScanFailure"] =
+        (fence, operationKey, failure) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const rows = yield* tx
+                  .select()
+                  .from(jiraMigration)
+                  .where(
+                    and(
+                      fenceWhere(fence),
+                      isNull(jiraMigration.cleanupExecutionId)
+                    )
+                  )
+                  .for("update")
+                const row = rows[0]
+                if (
+                  !row ||
+                  ["succeeded", "cancelled", "cancelling"].includes(row.status)
+                )
+                  return null
+                const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+                const receipt = checkpoint.scanFailureReceipts?.[operationKey]
+                if (receipt !== undefined) return receipt
+                const alreadyFailed =
+                  row.status === "failed" || row.status === "reconnect_required"
+                const sequence = alreadyFailed
+                  ? row.failureSequence
+                  : row.failureSequence + 1
+                const now = yield* DateTime.now
+                yield* tx
+                  .update(jiraMigration)
+                  .set({
+                    checkpoint: yield* Schema.encodeEffect(
+                      JiraMigrationCheckpoint
+                    )({
+                      ...checkpoint,
+                      scanFailureReceipts: {
+                        ...checkpoint.scanFailureReceipts,
+                        [operationKey]: sequence
+                      }
+                    }),
+                    ...(!alreadyFailed
+                      ? {
+                          status: failure.reconnect
+                            ? ("reconnect_required" as const)
+                            : ("failed" as const),
+                          failureReason: failure.reason,
+                          failureRetryable: failure.retryable,
+                          failureSequence: sequence,
+                          finishedAt: DateTime.toDate(now),
+                          retainedUntil: DateTime.toDate(
+                            DateTime.add(now, { days: 30 })
+                          )
+                        }
+                      : {}),
+                    updatedAt: DateTime.toDate(now),
+                    revision: row.revision + 1
+                  })
+                  .where(fenceWhere(fence))
+                return sequence
+              })
+            )
+            .pipe(Effect.mapError(databaseError))
+      const resumeScan: JiraMigrationProjectionShape["resumeScan"] = (
+        fence,
+        sequence
+      ) =>
+        db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const rows = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    eq(jiraMigration.failureSequence, sequence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+                .for("update")
+              const row = rows[0]
+              if (!row) return false
+              if (row.scanAt !== null)
+                return ["needs_configuration", "ready", "migrating"].includes(
+                  row.status
+                )
+              if (row.status === "scanning") return true
+              if (
+                row.status !== "failed" &&
+                row.status !== "reconnect_required"
+              )
+                return false
+              const now = yield* DateTime.nowAsDate
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  status: "scanning",
+                  failureReason: null,
+                  failureRetryable: null,
+                  finishedAt: null,
+                  retainedUntil: null,
+                  updatedAt: now,
+                  revision: row.revision + 1
+                })
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    eq(jiraMigration.failureSequence, sequence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+              return true
+            })
+          )
+          .pipe(Effect.mapError(databaseError))
+      const recordScanProgress: JiraMigrationProjectionShape["recordScanProgress"] =
+        (fence, pageKey, count) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const rows = yield* tx
+                  .select()
+                  .from(jiraMigration)
+                  .where(
+                    and(
+                      fenceWhere(fence),
+                      isNull(jiraMigration.cleanupExecutionId)
+                    )
+                  )
+                  .for("update")
+                const row = rows[0]
+                if (
+                  !row ||
+                  !["scanning", "failed", "reconnect_required"].includes(
+                    row.status
+                  )
+                )
+                  return false
+                const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+                if (checkpoint.scanPages?.[pageKey] !== undefined) return true
+                const scanPages = { ...checkpoint.scanPages, [pageKey]: count }
+                const now = yield* DateTime.nowAsDate
+                yield* tx
+                  .update(jiraMigration)
+                  .set({
+                    checkpoint: yield* Schema.encodeEffect(
+                      JiraMigrationCheckpoint
+                    )({ ...checkpoint, scanPages }),
+                    progressDone: Object.values(scanPages).reduce(
+                      (sum, value) => sum + value,
+                      0
+                    ),
+                    updatedAt: now,
+                    revision: row.revision + 1
+                  })
+                  .where(fenceWhere(fence))
+                return true
+              })
+            )
+            .pipe(Effect.mapError(databaseError))
+      const completeScan: JiraMigrationProjectionShape["completeScan"] = (
+        fence,
+        scan
+      ) =>
+        db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const rows = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+                .for("update")
+              const row = rows[0]
+              if (!row) return false
+              const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+              if (
+                ["needs_configuration", "ready", "migrating"].includes(
+                  row.status
+                ) &&
+                row.scanAt !== null
+              ) {
+                const persisted = checkpoint.scan?.manifest
+                return (
+                  persisted !== undefined &&
+                  persisted.key === scan.manifest.key &&
+                  persisted.sha256 === scan.manifest.sha256 &&
+                  persisted.byteSize === scan.manifest.byteSize &&
+                  persisted.contentType === scan.manifest.contentType
+                )
+              }
+              if (row.status !== "scanning") return false
+              const encoded = yield* Schema.encodeEffect(
+                JiraMigrationCheckpoint
+              )({ ...checkpoint, scan })
+              const now = yield* DateTime.nowAsDate
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  checkpoint: encoded,
+                  status: "needs_configuration",
+                  phase: "configuration",
+                  scanAt: DateTime.toDate(scan.summary.scannedAt),
+                  manifestVersion: 2,
+                  progressTotal: row.progressDone,
+                  updatedAt: now,
+                  revision: row.revision + 1
+                })
+                .where(fenceWhere(fence))
+              return true
+            })
+          )
+          .pipe(Effect.mapError(databaseError))
       const saveConfiguration = Effect.fn(
         "JiraMigrationProjection.saveConfiguration"
       )(function* (input: SaveConfigurationInput) {
@@ -835,6 +1092,10 @@ export class JiraMigrationProjection extends Context.Service<
         beginRescan,
         advance,
         recordFailure,
+        recordScanFailure,
+        resumeScan,
+        recordScanProgress,
+        completeScan,
         saveConfiguration,
         claimCleanup,
         releaseCleanup,

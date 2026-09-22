@@ -5,7 +5,10 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { DateTime, Effect, Layer, Redacted, Schema } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
-import { JiraMigrationConfiguration } from "@projectproject/shared"
+import {
+  JiraMigrationConfiguration,
+  JiraMigrationRequirements
+} from "@projectproject/shared"
 import { DbLive } from "../Layers/Db"
 import {
   JiraMigrationProjection,
@@ -346,36 +349,44 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           skippedAttachmentIds: [],
           attachmentSkipsAccepted: false
         })
-        yield* p.advance(fence(row), {
-          status: "needs_configuration",
-          phase: "configuration",
-          scanAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-22T00:00:00Z")),
-          checkpoint: {
-            scan: {
-              requirements,
-              summary: {
-                siteName: source.siteName,
-                siteUrl: source.siteUrl,
-                projectName: source.projectName,
-                projectKey: source.projectKey,
-                scannedAt: "2026-09-22T00:00:00Z",
-                counts: {
-                  identities: 0,
-                  statuses: 0,
-                  issueTypes: 1,
-                  priorities: 0,
-                  tags: 0,
-                  issues: 0,
-                  comments: 0,
-                  attachments: 0,
-                  groups: 0,
-                  restrictions: 0
-                },
-                visibilityWarnings: []
-              }
-            }
+        const scan = {
+          manifest: {
+            key: `migrations/jira/${row.id}/scan-1/manifest/manifest-v2/snapshot.json`,
+            sha256: "a".repeat(64),
+            byteSize: 10,
+            contentType: "application/json"
+          },
+          requirements: yield* Schema.decodeUnknownEffect(
+            JiraMigrationRequirements
+          )(requirements),
+          summary: {
+            siteName: source.siteName,
+            siteUrl: source.siteUrl,
+            projectName: source.projectName,
+            projectKey: source.projectKey,
+            scannedAt: DateTime.makeUnsafe("2026-09-22T00:00:00Z"),
+            counts: {
+              identities: 0,
+              statuses: 0,
+              issueTypes: 1,
+              priorities: 0,
+              tags: 0,
+              issues: 0,
+              comments: 0,
+              attachments: 0,
+              groups: 0,
+              restrictions: 0
+            },
+            visibilityWarnings: []
           }
+        }
+        yield* p.recordScanFailure(fence(row), "metadata/0", {
+          reason: "network",
+          retryable: true,
+          reconnect: false
         })
+        yield* p.resumeScan(fence(row), 1)
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
         const scanned = yield* p.owned(input, row.id)
         const save = {
           owner: input,
@@ -401,6 +412,30 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           }
         })
         expect(complete.status).toBe("ready")
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
+        const replayed = yield* p.owned(input, row.id)
+        expect(replayed.status).toBe("ready")
+        expect(replayed.checkpoint).toMatchObject({
+          scanFailureReceipts: { "metadata/0": 1 }
+        })
+        expect(
+          yield* p.completeScan(fence(row), {
+            ...scan,
+            manifest: { ...scan.manifest, sha256: "b".repeat(64) }
+          })
+        ).toBe(false)
+        yield* p.transition({
+          owner: input,
+          migrationId: row.id,
+          expectedRevision: replayed.revision,
+          action: "run"
+        })
+        expect(yield* p.completeScan(fence(row), scan)).toBe(true)
+        expect((yield* p.owned(input, row.id)).status).toBe("migrating")
+        expect(yield* p.resumeScan(fence(row), 1)).toBe(true)
+        expect(yield* p.resumeScan(fence(row), 0)).toBe(false)
+        expect((yield* p.owned(input, row.id)).status).toBe("migrating")
+
         yield* p.recordFailure(fence(row), {
           reason: "network",
           retryable: true
@@ -481,6 +516,94 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             p.owned({ ...input, userId: "someone-else" }, row.id)
           )
         ).toMatchObject({ _tag: "Failure", failure: { _tag: "NotFound" } })
+      }).pipe(Effect.provide(layer))
+    )
+  })
+  it("retains failure receipts across concurrent failures, retry acceptance, and checkpoint writes", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        const current = fence(row)
+        const failure = {
+          reason: "jira_network",
+          retryable: true,
+          reconnect: false
+        }
+        const sequences = yield* Effect.all(
+          [
+            p.recordScanFailure(current, "issues/0/0", failure),
+            p.recordScanFailure(current, "comments/1/0", failure)
+          ],
+          { concurrency: 2 }
+        )
+        expect(sequences).toEqual([1, 1])
+        expect(yield* p.resumeScan(current, 1)).toBe(true)
+        expect(yield* p.resumeScan(current, 1)).toBe(true)
+        yield* p.advance(current, { checkpoint: {}, progressDone: 4 })
+        expect(yield* p.recordScanFailure(current, "issues/0/0", failure)).toBe(
+          1
+        )
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
+        expect(yield* p.recordScanFailure(current, "issues/0/1", failure)).toBe(
+          2
+        )
+        expect(yield* p.resumeScan(current, 1)).toBe(false)
+        expect((yield* p.owned(input, row.id)).failureSequence).toBe(2)
+        expect(
+          yield* p.resumeScan({ ...current, workflowAttempt: 99 }, 2)
+        ).toBe(false)
+        yield* p.claimCleanup(current, {
+          executionId: "cleanup",
+          expectedRevision: (yield* p.owned(input, row.id)).revision
+        })
+        expect(yield* p.resumeScan(current, 2)).toBe(false)
+        expect(
+          yield* p.recordScanFailure(current, "issues/0/2", failure)
+        ).toBeNull()
+      }).pipe(Effect.provide(layer))
+    )
+  })
+  it("merges checkpoint progress and failure receipts atomically under concurrent writes", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const row = yield* p.ensureCreated(input)
+        const current = fence(row)
+        yield* Effect.all(
+          [
+            p.recordScanFailure(current, "page/0", {
+              reason: "network",
+              retryable: true,
+              reconnect: false
+            }),
+            p.advance(current, {
+              checkpoint: { scanFailureReceipts: { stale: 99 } }
+            }),
+            p.recordScanProgress(current, "page1", 5)
+          ],
+          { concurrency: 3 }
+        )
+        expect(yield* p.recordScanProgress(current, "page1", 50)).toBe(true)
+        yield* p.advance(current, { checkpoint: null })
+        const failed = yield* p.owned(input, row.id)
+        expect(failed.progressDone).toBe(5)
+        expect(failed.checkpoint).toEqual({
+          scanFailureReceipts: { "page/0": 1 },
+          scanPages: { page1: 5 }
+        })
+        expect(failed.status).toBe("failed")
+        yield* p.resumeScan(current, 1)
+        expect(
+          yield* p.recordScanFailure(current, "page/0", {
+            reason: "network",
+            retryable: true,
+            reconnect: false
+          })
+        ).toBe(1)
+        expect((yield* p.owned(input, row.id)).status).toBe("scanning")
       }).pipe(Effect.provide(layer))
     )
   })

@@ -27,6 +27,12 @@ import {
   findTagCollisions
 } from "./Mappings"
 import { JiraMigrationManifest, normalizeJiraManifest } from "./Manifest"
+import { Option, Stream } from "effect"
+import {
+  scanFailure,
+  type JiraScanPageInput,
+  type JiraScanPageResult
+} from "./MigrationActivities"
 
 export interface JiraScanInput {
   readonly migrationId: string
@@ -587,3 +593,35 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
     } satisfies JiraMigrationScanSummary
     return { manifest, requirements, summary }
   })
+
+export const ISSUE_DEPENDENT_CONCURRENCY = 4
+export type JiraScanCollectionInput = Omit<
+  JiraScanPageInput,
+  "cursor" | "pageOrdinal" | "operationTry"
+>
+export const scanCollection = <E, R>(
+  input: JiraScanCollectionInput,
+  run: (input: JiraScanPageInput) => Effect.Effect<JiraScanPageResult, E, R>
+) =>
+  Stream.paginate(
+    { cursor: null as string | null, pageOrdinal: 0, seen: new Set<string>() },
+    Effect.fn(function* (state) {
+      const page = yield* run({
+        ...input,
+        cursor: state.cursor,
+        pageOrdinal: state.pageOrdinal,
+        operationTry: 0
+      })
+      if (page.nextCursor === null) return [[page], Option.none()] as const
+      if (page.nextCursor === state.cursor || state.seen.has(page.nextCursor))
+        return yield* scanFailure("jira_migration_repeated_cursor")
+      return [
+        [page],
+        Option.some({
+          cursor: page.nextCursor,
+          pageOrdinal: state.pageOrdinal + 1,
+          seen: new Set([...state.seen, page.nextCursor])
+        })
+      ] as const
+    })
+  ).pipe(Stream.runCollect)

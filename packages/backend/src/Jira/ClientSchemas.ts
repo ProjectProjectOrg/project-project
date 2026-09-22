@@ -188,12 +188,19 @@ export const JiraIssueSearchInput = Schema.Struct({
 })
 export type JiraIssueSearchInput = typeof JiraIssueSearchInput.Type
 
+export interface JiraSnapshot<A> {
+  readonly raw: unknown
+  readonly value: A
+}
+
 export interface JiraCursorPage<A> {
+  readonly raw: unknown
   readonly values: ReadonlyArray<A>
   readonly nextPageToken: string | null
 }
 
 export interface JiraOffsetPage<A> {
+  readonly raw: unknown
   readonly values: ReadonlyArray<A>
   readonly startAt: number
   readonly maxResults: number

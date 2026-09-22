@@ -48,6 +48,7 @@ import {
   JiraVotes,
   JiraWatchers,
   JiraWorklog,
+  type JiraSnapshot,
   type JiraCursorPage,
   type JiraOffsetPage,
   type JiraIssuePageInput,
@@ -142,7 +143,9 @@ export const JiraTransportLive = Layer.effect(
 )
 
 export const paginateCursor = <A, E>(
-  fetchPage: (cursor: string | null) => Effect.Effect<JiraCursorPage<A>, E>
+  fetchPage: (
+    cursor: string | null
+  ) => Effect.Effect<Omit<JiraCursorPage<A>, "raw">, E>
 ): Effect.Effect<ReadonlyArray<A>, E | JiraError> =>
   Stream.paginate(
     { cursor: null as string | null, seen: new Set<string>() },
@@ -163,7 +166,9 @@ export const paginateCursor = <A, E>(
   ).pipe(Stream.runCollect)
 
 export const paginateOffset = <A, E>(
-  fetchPage: (startAt: number) => Effect.Effect<JiraOffsetPage<A>, E>
+  fetchPage: (
+    startAt: number
+  ) => Effect.Effect<Omit<JiraOffsetPage<A>, "raw">, E>
 ): Effect.Effect<ReadonlyArray<A>, E | JiraError> =>
   Stream.paginate(
     0,
@@ -201,7 +206,26 @@ export const toPublicJiraError = (error: JiraCallError) => {
   return error
 }
 
+type SnapshotMethod<F> = F extends (
+  ...args: infer Args
+) => Effect.Effect<infer A, JiraCallError>
+  ? (...args: Args) => Effect.Effect<JiraSnapshot<A>, JiraCallError>
+  : never
 export interface JiraClientShape {
+  readonly snapshots: {
+    readonly [
+      K in
+        | "currentUser"
+        | "project"
+        | "projectStatuses"
+        | "fields"
+        | "priorities"
+        | "watchers"
+        | "votes"
+        | "boardConfiguration"
+    ]: SnapshotMethod<JiraClientShape[K]>
+  }
+
   readonly searchIssuesPage: (
     input: JiraSearchIssuesPageInput
   ) => Effect.Effect<JiraCursorPage<JiraIssue>, JiraCallError>
@@ -489,14 +513,14 @@ export const JiraClientLive = Layer.effect(
       return response
     })
 
-    const requestJson = <A>(
+    const requestSnapshot = <A>(
       userId: string,
       operation: string,
       method: "GET" | "POST",
       url: string,
       schema: Schema.Codec<A, unknown>,
       body?: unknown
-    ): Effect.Effect<A, JiraCallError> =>
+    ): Effect.Effect<JiraSnapshot<A>, JiraCallError> =>
       authorize(userId, operation, (token) =>
         transport.execute({
           method,
@@ -512,13 +536,36 @@ export const JiraClientLive = Layer.effect(
         Effect.flatMap((response) =>
           response.json.pipe(Effect.mapError(transportFailure(operation)))
         ),
-        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+        Effect.flatMap((raw) =>
+          Schema.decodeUnknownEffect(schema)(raw).pipe(
+            Effect.map((value) => ({ raw, value }))
+          )
+        ),
         Effect.mapError((error) =>
           error._tag === "SchemaError"
             ? new JiraError({ reason: "invalid_response" })
             : error
         )
       )
+
+    const requestJson = <A>(
+      userId: string,
+      operation: string,
+      method: "GET" | "POST",
+      url: string,
+      schema: Schema.Codec<A, unknown>,
+      body?: unknown
+    ) =>
+      requestSnapshot(userId, operation, method, url, schema, body).pipe(
+        Effect.map(({ value }) => value)
+      )
+
+    const directSnapshot = <A>(
+      userId: string,
+      operation: string,
+      url: string,
+      schema: Schema.Codec<A, unknown>
+    ) => requestSnapshot(userId, operation, "GET", url, schema)
 
     const direct = <A>(
       userId: string,
@@ -538,7 +585,7 @@ export const JiraClientLive = Layer.effect(
       const target = new URL(url)
       target.searchParams.set("startAt", String(startAt))
       target.searchParams.set("maxResults", "100")
-      return direct(
+      return directSnapshot(
         userId,
         operation,
         target.toString(),
@@ -552,11 +599,12 @@ export const JiraClientLive = Layer.effect(
           isLast: Schema.optional(Schema.Boolean)
         }).pipe(Schema.encodeKeys({ values: field }))
       ).pipe(
-        Effect.flatMap((page) => {
+        Effect.flatMap(({ raw, value: page }) => {
           if (page.startAt !== startAt)
             return Effect.fail(new JiraError({ reason: "invalid_response" }))
           const values = page.values
           return Effect.succeed({
+            raw,
             values,
             startAt: page.startAt,
             maxResults: page.maxResults,
@@ -572,7 +620,7 @@ export const JiraClientLive = Layer.effect(
     }
 
     const searchIssuesPage = (input: JiraSearchIssuesPageInput) =>
-      requestJson(
+      requestSnapshot(
         input.userId,
         "issues",
         "POST",
@@ -593,11 +641,12 @@ export const JiraClientLive = Layer.effect(
             : {})
         }
       ).pipe(
-        Effect.flatMap((page) =>
+        Effect.flatMap(({ raw, value: page }) =>
           page.nextPageToken != null &&
           page.nextPageToken === input.nextPageToken
             ? Effect.fail(new JiraError({ reason: "invalid_response" }))
             : Effect.succeed({
+                raw,
                 values: page.issues,
                 nextPageToken: page.nextPageToken ?? null
               })
@@ -612,7 +661,7 @@ export const JiraClientLive = Layer.effect(
       url.searchParams.set("maxResults", "100")
       if (input.nextPageToken != null)
         url.searchParams.set("nextPageToken", input.nextPageToken)
-      return direct(
+      return directSnapshot(
         input.userId,
         "sprintIssues",
         url.toString(),
@@ -621,11 +670,12 @@ export const JiraClientLive = Layer.effect(
           nextPageToken: Schema.optional(Schema.NullOr(Schema.String))
         })
       ).pipe(
-        Effect.flatMap((page) =>
+        Effect.flatMap(({ raw, value: page }) =>
           page.nextPageToken != null &&
           page.nextPageToken === input.nextPageToken
             ? Effect.fail(new JiraError({ reason: "invalid_response" }))
             : Effect.succeed({
+                raw,
                 values: page.issues,
                 nextPageToken: page.nextPageToken ?? null
               })
@@ -750,7 +800,87 @@ export const JiraClientLive = Layer.effect(
         })
       )
 
+    const snapshots: JiraClientShape["snapshots"] = {
+      currentUser: (userId, cloudId) =>
+        directSnapshot(
+          userId,
+          "currentUser",
+          `${platformBase(cloudId)}/myself`,
+          JiraUser
+        ),
+      project: (userId, cloudId, projectIdOrKey) =>
+        directSnapshot(
+          userId,
+          "project",
+          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}`,
+          JiraProject
+        ),
+      projectStatuses: (userId, cloudId, projectIdOrKey) =>
+        directSnapshot(
+          userId,
+          "projectStatuses",
+          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}/statuses`,
+          Schema.Array(JiraIssueTypeStatuses)
+        ),
+      fields: (userId, cloudId) =>
+        directSnapshot(
+          userId,
+          "fields",
+          `${platformBase(cloudId)}/field`,
+          Schema.Array(JiraField)
+        ),
+      priorities: (userId, cloudId) =>
+        directSnapshot(
+          userId,
+          "priorities",
+          `${platformBase(cloudId)}/priority`,
+          Schema.Array(JiraPriority)
+        ),
+      watchers: (userId, cloudId, issueIdOrKey) =>
+        directSnapshot(
+          userId,
+          "watchers",
+          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/watchers`,
+          JiraWatchers
+        ),
+      votes: (userId, cloudId, issueIdOrKey) =>
+        directSnapshot(
+          userId,
+          "votes",
+          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/votes`,
+          JiraVotes
+        ),
+      boardConfiguration: (userId, cloudId, boardId) =>
+        directSnapshot(
+          userId,
+          "boardConfiguration",
+          `${agileBase(cloudId)}/board/${pathPart(boardId)}/configuration`,
+          JiraBoardConfiguration
+        )
+    }
     return JiraClient.of({
+      snapshots,
+      currentUser: (...args) =>
+        snapshots.currentUser(...args).pipe(Effect.map(({ value }) => value)),
+      project: (...args) =>
+        snapshots.project(...args).pipe(Effect.map(({ value }) => value)),
+      projectStatuses: (...args) =>
+        snapshots
+          .projectStatuses(...args)
+          .pipe(Effect.map(({ value }) => value)),
+      fields: (...args) =>
+        snapshots.fields(...args).pipe(Effect.map(({ value }) => value)),
+      priorities: (...args) =>
+        snapshots.priorities(...args).pipe(Effect.map(({ value }) => value)),
+      watchers: (...args) =>
+        snapshots.watchers(...args).pipe(Effect.map(({ value }) => value)),
+      votes: (...args) =>
+        snapshots.votes(...args).pipe(Effect.map(({ value }) => value)),
+      boardConfiguration: (...args) =>
+        snapshots
+          .boardConfiguration(...args)
+          .pipe(Effect.map(({ value }) => value)),
+
       searchIssuesPage,
       commentsPage,
       worklogsPage,
@@ -808,62 +938,6 @@ export const JiraClientLive = Layer.effect(
                   : null
             }))
           )
-        ),
-      currentUser: (userId, cloudId) =>
-        direct(
-          userId,
-          "currentUser",
-          `${platformBase(cloudId)}/myself`,
-          JiraUser
-        ),
-      project: (userId, cloudId, projectIdOrKey) =>
-        direct(
-          userId,
-          "project",
-          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}`,
-          JiraProject
-        ),
-      projectStatuses: (userId, cloudId, projectIdOrKey) =>
-        direct(
-          userId,
-          "projectStatuses",
-          `${platformBase(cloudId)}/project/${pathPart(projectIdOrKey)}/statuses`,
-          Schema.Array(JiraIssueTypeStatuses)
-        ),
-      fields: (userId, cloudId) =>
-        direct(
-          userId,
-          "fields",
-          `${platformBase(cloudId)}/field`,
-          Schema.Array(JiraField)
-        ),
-      priorities: (userId, cloudId) =>
-        direct(
-          userId,
-          "priorities",
-          `${platformBase(cloudId)}/priority`,
-          Schema.Array(JiraPriority)
-        ),
-      watchers: (userId, cloudId, issueIdOrKey) =>
-        direct(
-          userId,
-          "watchers",
-          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/watchers`,
-          JiraWatchers
-        ),
-      votes: (userId, cloudId, issueIdOrKey) =>
-        direct(
-          userId,
-          "votes",
-          `${platformBase(cloudId)}/issue/${pathPart(issueIdOrKey)}/votes`,
-          JiraVotes
-        ),
-      boardConfiguration: (userId, cloudId, boardId) =>
-        direct(
-          userId,
-          "boardConfiguration",
-          `${agileBase(cloudId)}/board/${pathPart(boardId)}/configuration`,
-          JiraBoardConfiguration
         ),
       searchIssues: (userId, cloudId, input) =>
         paginateCursor((nextPageToken) =>

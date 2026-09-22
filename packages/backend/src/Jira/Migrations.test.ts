@@ -139,6 +139,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const release = yield* Deferred.make<void>()
         const activities = makeProjectionMigrationActivities(
           projection,
+          () => Effect.void,
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -218,6 +219,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const finalized = yield* Deferred.make<boolean>()
         const activities = makeProjectionMigrationActivities(
           projection,
+          () => Effect.void,
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -314,6 +316,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const projection = yield* JiraMigrationProjection
         const activities = makeProjectionMigrationActivities(
           projection,
+          () => Effect.void,
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -402,6 +405,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const entered = yield* Deferred.make<void>()
         const activities = makeProjectionMigrationActivities(
           projection,
+          () => Effect.void,
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -488,6 +492,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const started = yield* Deferred.make<void>()
         const activities = makeProjectionMigrationActivities(
           projection,
+          () => Effect.void,
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({

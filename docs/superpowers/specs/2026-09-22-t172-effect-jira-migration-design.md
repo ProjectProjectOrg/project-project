@@ -123,8 +123,8 @@ Activity names include the minimum coordinates needed to distinguish semantic wo
 
 ```text
 v1/start
-v1/scan/project
-v1/scan/fields
+v1/scan/project/{scanRevision}/{pageOrdinal}/{cursorHash}/{operationTry}
+v1/scan/fields/{scanRevision}/{pageOrdinal}/{cursorHash}/{operationTry}
 v1/scan/issues/{scanRevision}/{pageOrdinal}/{cursorHash}/{operationTry}
 v1/scan/comments/{scanRevision}/{issueId}/{pageOrdinal}/{cursorHash}/{operationTry}
 v1/build-manifest/{scanRevision}
@@ -642,3 +642,22 @@ PR 235 is not release-ready until:
 - cancellation cannot result in a `cancelled` migration with a visible project
 - explicit discard and 30-day cleanup preserve a recovery handle on cleanup failure
 - the full backend, shared, frontend, and browser verification suites pass
+
+
+## Scan contract amendments before deployment (Task 6)
+
+The internal Jira client now exposes the original JSON alongside decoded page values through `raw`. Explicit `snapshots.currentUser/project/projectStatuses/fields/priorities/watchers/votes/boardConfiguration` methods return `{ raw, value }`. Legacy decoded methods retain their prior return shapes. Original envelope and unknown nested fields belong only in organization storage; neither page nor build-manifest Activity results contain them.
+
+All scan metadata Activities use the same revision, ordinal, cursor-hash, and operation-try coordinates as issue pages. The metadata names above replace the earlier bare metadata sketches before deployment. Issue pages omit a parent segment; dependent pages include the encoded parent ID. Sprint-issue parents use `boardId:sprintId`. Attachment metadata has a separate per-issue Activity reading the frozen issue chunk. The initial build remains `v1/build-manifest/{scanRevision}`; retry attempts append `/{operationTry}`. `v1/scan-context` freezes the identifiers and timestamp on first execution. No deployed workflow history is changed.
+
+Manifest v2 attachments use `metadataArtifact`, nullable `downloadUrl` and `jiraUrl`, and `downloadAllowed`. A frozen scan does not claim a binary `contentArtifact`; actual binary-copy references belong to later import/materialization outputs. The separately named legacy v1 contract remains unchanged.
+
+Optional collection access failures are explicit coverage: 403 means `permission_denied`; 404 means `unsupported_or_missing`. Watchers, votes, boards, board configuration, sprints, sprint membership, comments, changelogs and worklogs may record an unavailable diagnostic artifact, empty normalized values, and partial coverage. Required project/issues/mapping metadata, authentication failures, rate limits, transient failures, malformed responses and storage failures are never converted into optional-data success.
+
+The projection checkpoint privately retains `scanFailureReceipts` (logical operation plus operation try to accepted failure sequence) and `scanPages` (logical page coordinates to count). Row-locked transactions atomically merge these idempotency receipts with projection state. Concurrent failures may join the active generation. A replay returns the original receipt even after that generation's retry has resumed; only an exact-generation, current-attempt retry can clear failure and retention fields. Concurrent checkpoint/progress writes preserve both receipt maps atomically. Configuration completion preserves receipts and never resets an already saved ready/configuration state. New scan revisions clear the maps. These are projection idempotency receipts, not an execution queue.
+
+`MigrationActivities.scan` and all scan dependencies are required. `makeProjectionScanDependencies` supplies real fenced progress, failure-generation, resume and configuration operations. Isolated composition remains in force until Task 11; this task does not enable the workflow alongside the legacy worker. Memory tests retain one engine/history across resume; abrupt SQL process-restart proof remains Task 11.
+
+Identity options are frozen in `v1/scan/identity-options/{scanRevision}/0/{sha256(empty)}/{operationTry}`. Its result is only a checksum-bound normalized artifact reference. Build-manifest requires, reads and verifies that reference rather than calling the identity provider again. The persisted scan context supplies every scan/generated timestamp; sorted normalized chunks and coordinate-based warning IDs keep rebuilt manifest/requirements bytes stable after time advances or the identity provider changes.
+
+After scan completion, replayed `completeScan` accepts only the same attempt and exactly matching manifest key, checksum, size and content type in `needs_configuration`, `ready` or `migrating`; it returns success without mutating saved drafts, configuration gates or status. Exact-generation `resumeScan` likewise leaves those already-scanned states intact. A mismatched manifest, newer failure generation, cancellation/terminal status or cleanup claim is rejected. Task 7 retry acceptance derives scanning versus migrating from the current phase/gate.

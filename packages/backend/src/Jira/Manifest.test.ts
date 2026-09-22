@@ -9,6 +9,8 @@ import {
   normalizeJiraMigrationManifestV2,
   type JiraMigrationManifestV2 as JiraMigrationManifestV2Type
 } from "./Manifest"
+import { Effect } from "effect"
+import { validateScanManifestV2 } from "./ScanV2"
 
 const manifest: JiraMigrationManifest = {
   version: 1 as const,
@@ -294,7 +296,10 @@ const manifestV2: JiraMigrationManifestV2Type = {
       filename: "design.png",
       mimeType: "image/png",
       byteSize: 10,
-      contentArtifact: artifact("attachment-1.json")
+      downloadUrl: null,
+      jiraUrl: null,
+      downloadAllowed: false,
+      metadataArtifact: artifact("attachment-1.json")
     }
   ],
   parentsSubtasks: [
@@ -417,3 +422,56 @@ describe("JiraMigrationManifestV2", () => {
     expect(manifestV2.fieldDefinitions[0]?.id).toBe("field-2")
   })
 })
+
+it("requires scan attachment metadata rather than claiming downloaded binary content", () => {
+  const attachment = JiraMigrationManifestV2.fields.attachments.value
+  expect(
+    Schema.decodeUnknownOption(attachment)({
+      id: "a",
+      issueId: "i",
+      filename: "a.png",
+      mimeType: "image/png",
+      byteSize: 2,
+      contentArtifact: artifact("binary")
+    })._tag
+  ).toBe("None")
+})
+
+it.each([
+  { ...manifestV2, issues: [...manifestV2.issues, manifestV2.issues[0]] },
+  {
+    ...manifestV2,
+    comments: manifestV2.comments.map((comment) => ({
+      ...comment,
+      issueId: "missing"
+    }))
+  },
+  {
+    ...manifestV2,
+    issues: manifestV2.issues.map((issue) => ({
+      ...issue,
+      statusId: "missing"
+    }))
+  },
+  {
+    ...manifestV2,
+    restrictions: [
+      {
+        id: "missing",
+        targetKind: "comment" as const,
+        targetId: "missing",
+        source: "role"
+      }
+    ]
+  }
+])(
+  "rejects duplicate identities and dangling internal manifest references",
+  async (manifest) => {
+    expect(
+      await Effect.runPromise(Effect.result(validateScanManifestV2(manifest)))
+    ).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "JiraScanFailure", retryable: false }
+    })
+  }
+)

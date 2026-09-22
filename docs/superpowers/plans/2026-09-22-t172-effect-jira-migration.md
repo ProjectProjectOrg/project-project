@@ -615,6 +615,12 @@ git commit -m "refactor(jira): expose one-page client operations"
 ### Task 6: Durable Scan Activities and Configuration Pause
 
 **Files:**
+- Create: `packages/backend/src/Jira/ScanV2.ts`
+- Create: `packages/backend/src/Jira/ScanTestSupport.ts` (test-only external-boundary fixtures)
+- Modify: `packages/backend/src/Jira/Client.ts`, `ClientSchemas.ts`, `Client.test.ts` (original JSON snapshot boundary)
+- Modify: `packages/backend/src/Jira/Manifest.ts`, `Manifest.test.ts` (undeployed v2 metadataArtifact amendment)
+- Modify: `packages/backend/src/Jira/MigrationProjection.test.ts`, `MigrationHandlers.test.ts`, `Migrations.test.ts` (projection and explicit compatibility fixtures)
+
 - Modify: `packages/backend/src/Jira/MigrationActivities.ts`
 - Modify: `packages/backend/src/Jira/MigrationWorkflow.ts`
 - Modify: `packages/backend/src/Jira/Scan.ts`
@@ -729,6 +735,11 @@ Expected: PASS; restart does not repeat completed pages, cursor repetition termi
 git add packages/backend/src/Jira/MigrationActivities.ts packages/backend/src/Jira/MigrationWorkflow.ts packages/backend/src/Jira/MigrationProjection.ts packages/backend/src/Jira/Scan.ts packages/backend/src/Jira/Scan.test.ts packages/backend/src/Jira/MigrationWorkflow.test.ts
 git commit -m "feat(jira): scan through durable page activities"
 ```
+
+
+Controller-approved Task 6 amendments: retain original client JSON in private raw snapshots; metadata Activity names use revision/ordinal/hash/try; manifest v2 attachment references name metadata explicitly; optional inaccessible collections produce partial coverage; projection receipt maps preserve accepted failure generations and page counts across reply loss and concurrent checkpoint writes. See the authoritative design's Task 6 contract amendments. `MigrationActivities.scan` and all callbacks are required, with isolated composition until Task 11. The delivered pure v2 normalizer lives in `ScanV2.ts`; existing `Scan.ts` legacy builder remains available.
+
+Task 6 final replay amendment: snapshot identity options in a checksum-bound artifact using the existing coordinate Activity family with kind `identity-options`; build-manifest requires that reference. Persisted scan context supplies scan/generated timestamps. Rebuild determinism covers changed providers and advanced clocks. Replayed completion after configuration/run acceptance must match the original manifest identity/checksum and preserve the saved gate/status; exact-generation resume must also preserve those scanned states. Null and concurrent checkpoint patches retain private receipt maps.
 
 ### Task 7: Server-Side Drafts, Run, Retry, Reconnect, Rescan, and Cancel
 
