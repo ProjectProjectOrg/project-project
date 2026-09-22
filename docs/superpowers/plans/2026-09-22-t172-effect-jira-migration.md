@@ -4,6 +4,8 @@
 
 **User workflow override, 2026-09-22:** Continue implementation without independent reviews between tasks. Keep focused behavioral tests, typechecks, self-review and resumable task commits. Run one comprehensive review after implementation, explicitly checking every task's requirements and the integration between tasks. Carry existing deferred findings and all unreviewed task ranges into that review. Do not repeat passing broad checks on unchanged code; broaden verification for changed integration boundaries, failures and the final release gate. This instruction supersedes per-task review requirements in the execution skills and older handoff text.
 
+**User parallel-work override, 2026-09-22:** Run independent implementation work concurrently wherever file ownership is disjoint and shared interfaces are stable. Split dependent tasks into independently verifiable portions when useful; keep their integration portions pending. Coordinate contract changes before consumers proceed, serialize shared-index commits, and preserve focused verification. This supersedes the execution skill's single-implementer restriction. The final comprehensive review remains the only independent review gate.
+
 **Goal:** Replace PR 235's hand-rolled Jira migration worker with a restart-safe Effect Workflow implementation that satisfies every T-172 migration, privacy, atomic-publication, cancellation, discard, and retention requirement.
 
 **Architecture:** Keep `JiraMigrations` as the only application-facing service and turn `jira_migration` into a fenced UI projection. Effect Workflow owns lifecycle state; small, versioned Activities write deterministic artifacts and hidden project state; one PostgreSQL transaction flips the project visible and records success. DurableDeferred handles user gates and retries, DurableClock handles Jira rate limits, and a separate cleanup workflow owns reset, discard, expiry, and post-success cleanup.
@@ -14,7 +16,7 @@
 
 ## Execution status — resumed on Linux 2026-09-22
 
-Restored in `/home/wouter/web/project-project-t172-effect` with disposable local PostgreSQL and MinIO available. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is in progress; Tasks 8–14 have not started.** Independent review for Tasks 7 onward is deferred to the final comprehensive review at the user's request. Do not restart completed tasks or treat this branch as release-ready.
+Restored in `/home/wouter/web/project-project-t172-effect` with disposable local PostgreSQL and MinIO available. **Tasks 1–6 are implemented, committed and independently reviewed. Task 7 is checkpointed with an unresolved SQL-engine retry wake-up bug. Task 8 and independent portions of Tasks 10 and 13 are active in parallel; other work remains pending.** Independent review for Tasks 7 onward is deferred to the final comprehensive review at the user's request. Do not restart completed tasks or treat this branch as release-ready.
 
 - Implementation branch: `codex/T-172-effect-workflow`.
 - Pinned original base: `994455a26be958db47826c7425efedfdf84aea90`; design/plan restored in `4d06422f`.
@@ -30,13 +32,13 @@ Restored in `/home/wouter/web/project-project-t172-effect` with disposable local
 | 4. Artifact store and manifest v2 | Complete; review approved | `43e1bf75..1418e791` |
 | 5. One-page Jira client | Complete; review fix verified | `1418e791..2c78bfdf` |
 | 6. Durable scan and configuration pause | Complete; review fix verified | `2c78bfdf..875ae6af` |
-| 7. Drafts and durable commands | In progress; uncommitted, unreviewed edits preserved separately | Resume from `875ae6af` |
-| 8. Immutable publication plan | Not started | — |
+| 7. Drafts and durable commands | Application checkpoint; engine wake-up regression unresolved | `875ae6af..faa228a`, final review pending |
+| 8. Immutable publication plan | In progress | Final review pending |
 | 9. Hidden materialization | Not started | — |
-| 10. Atomic publication | Not started | — |
+| 10. Atomic publication | Pure index builders in progress; publication integration pending | Final review pending |
 | 11. Cleanup and SQL runtime cutover | Not started | — |
 | 12. Wizard drafts and polling | Not started | — |
-| 13. Disposable browser harness | Not started | — |
+| 13. Disposable browser harness | Fake Jira/OAuth fixtures in progress; harness integration pending | Final review pending |
 | 14. Release gates and branch cleanup | Not started | — |
 
 ### Resume at Task 7
