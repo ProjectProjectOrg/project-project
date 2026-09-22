@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema"
 import * as Result from "effect/unstable/reactivity/AsyncResult"
 import { Inbox } from "lucide-react"
 import {
+  sprintSectionKey,
   sprintState,
   type Group,
   type Member,
@@ -21,25 +22,28 @@ import {
 } from "@projectproject/shared"
 import {
   encodeTicketListQuery,
-  flatBacklog,
-  flatBacklogRequest,
-  loadMoreFlatBacklog,
-  updateFlatBacklogTicket,
-  type BacklogRequest
+  type BacklogRequest,
+  type BacklogSection
 } from "@/atoms/backlog"
 import { sprintList, sprintListRequest } from "@/atoms/sprintList"
+import {
+  loadMoreSprintSections,
+  sprintSections,
+  sprintSectionsRequest,
+  updateSprintSectionsTicket,
+  type SprintSectionsValue
+} from "@/atoms/sprintSections"
 import { backlogSprintSections } from "./sprintGrouping"
-import { useLocalStorageState } from "@/hooks/useLocalStorageState"
 import { ErrorPage } from "@/components/ErrorPage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 import { Row } from "./Row"
 import { SectionList, TicketPagination } from "./SectionList"
 import { SprintStateIcon } from "@/components/sprints/SprintChip"
+import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
-const CollapseSchema = Schema.Record(Schema.String, Schema.Boolean)
-const EMPTY_COLLAPSE: Readonly<Record<string, boolean>> = {}
+const EMPTY_PAGE: BacklogSection = { items: [], nextCursor: null }
 
 type Props = Readonly<{
   preferencesKey: string
@@ -63,28 +67,15 @@ const queryHasActiveFilter = (query: TicketListQuery) =>
   query.archived !== undefined
 
 export function SprintSections(props: Props) {
-  const req = useMemo(
+  const persistKey = sprintCollapseKey(props.preferencesKey)
+  const groupsReq = useMemo(
     () => sprintListRequest(props.orgSlug, props.slug),
     [props.orgSlug, props.slug]
   )
-  const [collapseOverrides, setCollapseOverrides] = useLocalStorageState(
-    `projectproject:sprint-sections-collapsed:${props.preferencesKey}`,
-    CollapseSchema,
-    EMPTY_COLLAPSE
+  const snapshotReq = useMemo(
+    () => sprintSectionsRequest(props.orgSlug, props.slug, props.query),
+    [props.orgSlug, props.slug, props.query]
   )
-  const [searchState, setSearchState] = useState({
-    query: props.query.q,
-    collapsed: EMPTY_COLLAPSE
-  })
-  const collapsed = props.query.q
-    ? searchState.query === props.query.q
-      ? searchState.collapsed
-      : EMPTY_COLLAPSE
-    : collapseOverrides
-  const setCollapsed = (next: Readonly<Record<string, boolean>>) => {
-    if (props.query.q) setSearchState({ query: props.query.q, collapsed: next })
-    else setCollapseOverrides(next)
-  }
   const [preview, setPreview] = useState<TicketId | null>(null)
   const onPreviewPointerEnter = useCallback(
     (id: TicketId) =>
@@ -96,31 +87,32 @@ export function SprintSections(props: Props) {
       setPreview((current) => (open ? id : current === id ? null : current)),
     []
   )
-  const result = useAtomValue(sprintList(req))
-  const refresh = useAtomRefresh(sprintList(req))
-  const groups = Option.getOrUndefined(Result.value(result))
+  const groupsResult = useAtomValue(sprintList(groupsReq))
+  const snapshotResult = useAtomValue(sprintSections(snapshotReq))
+  const refreshGroups = useAtomRefresh(sprintList(groupsReq))
+  const refreshSnapshot = useAtomRefresh(sprintSections(snapshotReq))
+  const groups = Option.getOrUndefined(Result.value(groupsResult))
+  const snapshot = Option.getOrUndefined(Result.value(snapshotResult))
+  const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
-    groups ? (
+    groups && snapshot ? (
       <div
         style={{ overflowAnchor: "none" }}
         className="flex flex-col gap-1 has-[[data-creating]]:[&>:not(:has([data-creating]))]:opacity-35"
       >
         {backlogSprintSections(groups, props.query.groupId).map((sprint) => {
-          const id = sprint?.id ?? "unscheduled"
-          const isCollapsed =
-            collapsed[id] ??
-            (!props.query.q &&
-              sprint !== null &&
-              sprintState(sprint) !== "planned")
+          const id = sprintSectionKey(sprint?.id ?? null)
+          const section = snapshot.sections.find((entry) => entry.key === id)
           return (
             <SprintSection
               key={id}
               {...props}
+              persistKey={persistKey}
+              snapshotReq={snapshotReq}
               sprint={sprint}
-              collapsed={isCollapsed}
-              onToggleCollapsed={() =>
-                setCollapsed({ ...collapsed, [id]: !isCollapsed })
-              }
+              page={section?.page ?? EMPTY_PAGE}
+              count={section?.count ?? 0}
+              waiting={waiting}
               activePreviewId={preview}
               onPreviewPointerEnter={onPreviewPointerEnter}
               onPreviewOpenChange={onPreviewOpenChange}
@@ -134,49 +126,69 @@ export function SprintSections(props: Props) {
         className="h-32 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
       />
     )
+  const refresh = () => {
+    refreshGroups()
+    refreshSnapshot()
+  }
   const renderFailure = (error: unknown) => (
     <>
       <ErrorPage error={error} reset={refresh} contained />
-      {groups && renderSections()}
+      {groups && snapshot && renderSections()}
     </>
   )
-  return Result.matchWithError(result, {
+  return Result.matchWithError(groupsResult, {
     onInitial: renderSections,
     onError: renderFailure,
     onDefect: renderFailure,
-    onSuccess: renderSections
+    onSuccess: () =>
+      Result.matchWithError(snapshotResult, {
+        onInitial: renderSections,
+        onError: renderFailure,
+        onDefect: renderFailure,
+        onSuccess: renderSections
+      })
   })
 }
 
 type SprintSectionProps = Props &
   Readonly<{
+    persistKey: string
+    snapshotReq: BacklogRequest
     sprint: Group | null
-    collapsed: boolean
-    onToggleCollapsed: () => void
+    page: BacklogSection
+    count: number
+    waiting: boolean
     activePreviewId: TicketId | null
     onPreviewPointerEnter: (id: TicketId) => void
     onPreviewOpenChange: (id: TicketId, open: boolean) => void
   }>
 
 function SprintSection({
+  persistKey,
+  snapshotReq,
   sprint,
-  collapsed,
-  onToggleCollapsed,
+  page,
+  count,
+  waiting,
   activePreviewId,
   onPreviewPointerEnter,
   onPreviewOpenChange,
   ...props
 }: SprintSectionProps) {
+  const id = sprintSectionKey(sprint?.id ?? null)
+  const [collapsed, onToggleCollapsed] = useCollapsedInRecord(
+    persistKey,
+    id,
+    props.query.q,
+    !props.query.q && sprint !== null && sprintState(sprint) !== "planned"
+  )
   const { orgSlug, slug, members, extraRowActions } = props
-  const req = flatBacklogRequest(orgSlug, slug, {
+  const query = {
     ...props.query,
-    groupId: [sprint?.id ?? "ungrouped"],
+    groupId: [sprint?.id ?? "ungrouped"] as TicketListQuery["groupId"],
     cursor: undefined
-  })
-  const query = req.query
-  const listKey = encodeTicketListQuery(req.query)
-  const result = useAtomValue(flatBacklog(req))
-  const refresh = useAtomRefresh(flatBacklog(req))
+  }
+  const listKey = encodeTicketListQuery(query)
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
   const stateLabel =
@@ -197,9 +209,8 @@ function SprintSection({
       )
       .join(" – ")
   const selectedStatuses = query.status
-  const active = Option.getOrUndefined(Result.value(result))
-  const renderSection = () =>
-    active ? (
+  return (
+    <div aria-busy={waiting}>
       <SectionList
         listKey={listKey}
         orgSlug={orgSlug}
@@ -231,18 +242,21 @@ function SprintSection({
             ? m.tickets_no_filter_matches()
             : undefined
         }
-        count={active.count}
-        page={active}
+        count={count}
+        page={page}
         pagination={
-          <FlatSectionPagination
-            req={req}
-            count={active.count}
-            loaded={active.items.length}
-            nextCursor={active.nextCursor}
+          <SprintSectionPagination
+            req={snapshotReq}
+            sectionKey={id}
+            count={count}
+            loaded={page.items.length}
+            nextCursor={page.nextCursor}
             collapsed={collapsed}
           />
         }
-        rowComponent={FlatRow}
+        rowComponent={(rowProps) => (
+          <SprintRow {...rowProps} snapshotReq={snapshotReq} />
+        )}
         creationVariant="flat"
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
@@ -257,36 +271,19 @@ function SprintSection({
         onPreviewPointerEnter={onPreviewPointerEnter}
         onPreviewOpenChange={onPreviewOpenChange}
       />
-    ) : (
-      <div
-        aria-busy="true"
-        className="h-16 animate-pulse rounded-lg bg-muted/40 motion-reduce:animate-none"
-      />
-    )
-  const renderFailure = (error: unknown) => (
-    <>
-      <ErrorPage error={error} reset={refresh} contained />
-      {active && renderSection()}
-    </>
-  )
-  return (
-    <div aria-busy={result.waiting || Result.isInitial(result)}>
-      {Result.matchWithError(result, {
-        onInitial: renderSection,
-        onError: renderFailure,
-        onDefect: renderFailure,
-        onSuccess: renderSection
-      })}
     </div>
   )
 }
 
-function FlatRow(props: ComponentProps<typeof Row>) {
+function SprintRow({
+  snapshotReq,
+  ...props
+}: ComponentProps<typeof Row> & { snapshotReq: BacklogRequest }) {
   const update = useAtomSet(
-    updateFlatBacklogTicket({ req: props.req, id: props.ticket.id })
+    updateSprintSectionsTicket({ req: snapshotReq, id: props.ticket.id })
   )
   const state = useAtomValue(
-    updateFlatBacklogTicket({ req: props.req, id: props.ticket.id })
+    updateSprintSectionsTicket({ req: snapshotReq, id: props.ticket.id })
   )
   return (
     <>
@@ -309,21 +306,23 @@ function FlatRow(props: ComponentProps<typeof Row>) {
   )
 }
 
-function FlatSectionPagination({
+function SprintSectionPagination({
   req,
+  sectionKey,
   count,
   loaded,
   nextCursor,
   collapsed
 }: {
   req: BacklogRequest
+  sectionKey: SprintSectionsValue["sections"][number]["key"]
   count: number
   loaded: number
   nextCursor: string | null
   collapsed: boolean
 }) {
-  const loadMore = useAtomSet(loadMoreFlatBacklog(req))
-  const state = useAtomValue(loadMoreFlatBacklog(req))
+  const loadMore = useAtomSet(loadMoreSprintSections({ req, key: sectionKey }))
+  const state = useAtomValue(loadMoreSprintSections({ req, key: sectionKey }))
   return (
     <TicketPagination
       nextCursor={nextCursor}

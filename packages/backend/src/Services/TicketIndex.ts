@@ -33,6 +33,7 @@ export interface TicketIndexQueryOptions {
 export interface TicketIndexCountOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
+  readonly excludeTicketIds?: ReadonlyArray<string>
 }
 
 export interface TicketIndexCounts {

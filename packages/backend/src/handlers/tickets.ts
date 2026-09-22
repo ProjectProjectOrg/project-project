@@ -26,6 +26,20 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           )
         }).pipe(dieOnMarkdown)
       )
+      .handle("sprintSections", ({ params, query }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const currentOrg = yield* CurrentOrg
+          const org = yield* currentOrg.resolve(params.orgSlug, user.id)
+          const tickets = yield* Tickets
+          return yield* tickets.sprintSections(
+            org.orgSlug,
+            user.id,
+            params.slug,
+            query
+          )
+        }).pipe(dieOnMarkdown)
+      )
       .handle("list", ({ params, query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

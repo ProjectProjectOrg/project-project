@@ -32,6 +32,7 @@ import type {
   TicketListQuery,
   TicketSections,
   TicketSort,
+  TicketSprintSections,
   TicketUpdateResult,
   UpdateTicketInput,
   Validation
@@ -49,6 +50,12 @@ export interface TicketsShape {
     slug: string,
     query: TicketListQuery
   ) => Effect.Effect<TicketSections, NotFound | MarkdownError>
+  readonly sprintSections: (
+    orgSlug: string,
+    userId: string,
+    slug: string,
+    query: TicketListQuery
+  ) => Effect.Effect<TicketSprintSections, NotFound | MarkdownError>
   readonly list: (
     orgSlug: string,
     userId: string,

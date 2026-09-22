@@ -9,6 +9,10 @@ import {
   type ReactNode
 } from "react"
 
+const OVERSCAN = 12
+const MOUNT_MARGIN = 336
+const UNMOUNT_MARGIN = 3000
+
 export function VirtualRows({
   rowKeys,
   className,
@@ -31,7 +35,7 @@ export function VirtualRows({
     []
   )
   const getItemKey = useCallback((index: number) => rowKeys[index], [rowKeys])
-  const overscan = useDeferredOverscan(getScrollElement, 6)
+  const overscan = useDeferredOverscan(getScrollElement, OVERSCAN)
   // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
   const virtualizer = useVirtualizer<HTMLElement, HTMLLIElement>({
     count: rowKeys.length,
@@ -65,10 +69,13 @@ export function VirtualRows({
     let height = 0
     let viewportHeight = 0
     const updateNearViewport = () => {
-      setNearViewport(
-        margin < root.scrollTop + viewportHeight + 336 &&
-          margin + height > root.scrollTop - 336
-      )
+      setNearViewport((current) => {
+        const band = current ? UNMOUNT_MARGIN : MOUNT_MARGIN
+        return (
+          margin < root.scrollTop + viewportHeight + band &&
+          margin + height > root.scrollTop - band
+        )
+      })
     }
     const measure = () => {
       const listRect = list.getBoundingClientRect()
