@@ -75,7 +75,10 @@ const recentQuery = (scoped: ScopedRequest) =>
   Api.query("tickets", "recent", {
     params: scoped.req.params,
     timeToLive: "2 minutes",
-    reactivityKeys: listensTo(scoped)
+    reactivityKeys: [
+      ...listensTo(scoped),
+      ...scoped.scopes.map(Keys.ticketActivity)
+    ]
   })
 
 const withProjects = (
@@ -148,34 +151,44 @@ export const recentTickets = Atom.family((req: OrgTicketsRequest) =>
 
 export type OrgTicketKey = Readonly<{
   req: OrgTicketsRequest
+  viewerId: string
   projectSlug: string
   id: TicketId
 }>
 
+type KeepsTicket = (ticket: Ticket, key: OrgTicketKey) => boolean
+
 export const patchOrgTicket = (
   value: OrgTicketsValue,
-  key: Readonly<{ projectSlug: string; id: TicketId }>,
-  update: (ticket: Ticket) => Ticket
+  key: OrgTicketKey,
+  update: (ticket: Ticket) => Ticket,
+  keeps: KeepsTicket
 ): OrgTicketsValue => ({
   ...value,
-  tickets: value.tickets.map((item) =>
-    item.project.slug === key.projectSlug && item.ticket.id === key.id
-      ? { ...item, ticket: update(item.ticket) }
-      : item
-  )
+  tickets: value.tickets.flatMap((item) => {
+    if (item.project.slug !== key.projectSlug || item.ticket.id !== key.id) {
+      return [item]
+    }
+    const ticket = update(item.ticket)
+    return keeps(ticket, key) ? [{ ...item, ticket }] : []
+  })
 })
 
 const updateOrgTicket = (
   name: string,
   view: typeof myTickets,
-  unsavedPatch: (key: OrgTicketKey) => Atom.Writable<UpdateTicketInput>
+  unsavedPatch: (key: OrgTicketKey) => Atom.Writable<UpdateTicketInput>,
+  keeps: KeepsTicket
 ) =>
   Atom.family((key: OrgTicketKey) =>
     Atom.optimisticFn(view(key.req), {
       reducer: (current, patch: UpdateTicketInput) =>
         AsyncResult.map(current, (value) =>
-          patchOrgTicket(value, key, (ticket) =>
-            applyTicketPatch(ticket, patch)
+          patchOrgTicket(
+            value,
+            key,
+            (ticket) => applyTicketPatch(ticket, patch),
+            keeps
           )
         ),
       fn: (set) =>
@@ -209,7 +222,7 @@ const updateOrgTicket = (
             if (get(unsaved) === payload) get.set(unsaved, {})
             set(
               AsyncResult.map(get(view(key.req)), (value) =>
-                patchOrgTicket(value, key, () => updated)
+                patchOrgTicket(value, key, () => updated, keeps)
               )
             )
             const scope = projectScope(key.req.params.orgSlug, key.projectSlug)
@@ -236,30 +249,37 @@ const unsavedRecentTicketPatch = Atom.family((_key: OrgTicketKey) =>
 export const updateMyTicket = updateOrgTicket(
   "updateMyTicket",
   myTickets,
-  unsavedMyTicketPatch
+  unsavedMyTicketPatch,
+  (ticket, key) => ticket.assignees.includes(key.viewerId)
 )
 
 export const updateRecentTicket = updateOrgTicket(
   "updateRecentTicket",
   recentTickets,
-  unsavedRecentTicketPatch
+  unsavedRecentTicketPatch,
+  () => true
 )
 
-export const myTicketBoard = Atom.family((req: OrgTicketsRequest) =>
-  Atom.readable(
+const statusesOf = (req: OrgTicketsRequest, slug: string) =>
+  statusesFor(statusesRequest(req.params.orgSlug, slug))
+
+export const myTicketBoard = Atom.family((req: OrgTicketsRequest) => {
+  let lastSlugs: ReadonlyArray<string> = []
+  return Atom.readable(
     (get) => {
       const mine = get(myTickets(req))
       return AsyncResult.flatMap(mine, ({ tickets }) => {
         const slugs = [...new Set(tickets.map(({ project }) => project.slug))]
+        lastSlugs = slugs
         return AsyncResult.map(
           AsyncResult.all([
             mine,
             AsyncResult.all(
               slugs.map((slug) =>
-                AsyncResult.map(
-                  get(statusesFor(statusesRequest(req.params.orgSlug, slug))),
-                  (statuses) => ({ projectSlug: slug, statuses })
-                )
+                AsyncResult.map(get(statusesOf(req, slug)), (statuses) => ({
+                  projectSlug: slug,
+                  statuses
+                }))
               )
             )
           ]),
@@ -274,9 +294,12 @@ export const myTicketBoard = Atom.family((req: OrgTicketsRequest) =>
         )
       })
     },
-    (refresh) => refresh(myTickets(req))
+    (refresh) => {
+      refresh(myTickets(req))
+      for (const slug of lastSlugs) refresh(statusesOf(req, slug))
+    }
   )
-)
+})
 
 export type ProjectTicketGroup = Readonly<{
   project: Project

@@ -7,6 +7,7 @@ import { BOARD_CARD_SLOT_CLASS } from "@/components/sprints/BoardColumnShell"
 import { SprintBoardCard } from "@/components/sprints/SprintBoardCard"
 import { Row, rowGridClassName } from "@/components/TicketList/Row"
 import { useTicketPreview } from "@/components/TicketList/useTicketPreview"
+import { me } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import type {
   OrgTicket,
@@ -17,6 +18,16 @@ import type {
 const NO_MEMBERS: ReadonlyArray<Member> = []
 
 export type OrgTicketUpdate = typeof updateMyTicket
+
+const useTicketKey = (req: OrgTicketsRequest, item: OrgTicket) => {
+  const viewer = useAtomValue(me())
+  return {
+    req,
+    viewerId: Result.isSuccess(viewer) ? viewer.value.id : "",
+    projectSlug: item.project.slug,
+    id: item.ticket.id
+  }
+}
 
 const useProjectMembers = (orgSlug: string, slug: string) => {
   const result = useAtomValue(project(projectRequest(orgSlug, slug)))
@@ -45,7 +56,7 @@ export function DashboardRow({
   onPreviewOpenChange
 }: DashboardRowProps) {
   const { orgSlug } = req.params
-  const key = { req, projectSlug: item.project.slug, id: item.ticket.id }
+  const key = useTicketKey(req, item)
   const members = useProjectMembers(orgSlug, item.project.slug)
   const patch = useAtomSet(update(key))
   const state = useAtomValue(update(key))
@@ -84,7 +95,7 @@ export function DashboardRow({
 
 export function DashboardCard({ req, item, update }: DashboardTicketProps) {
   const { orgSlug } = req.params
-  const key = { req, projectSlug: item.project.slug, id: item.ticket.id }
+  const key = useTicketKey(req, item)
   const members = useProjectMembers(orgSlug, item.project.slug)
   const patch = useAtomSet(update(key))
   const state = useAtomValue(update(key))

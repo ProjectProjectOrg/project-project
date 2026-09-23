@@ -332,6 +332,7 @@ describe("updateMyTicket", () => {
     const board = myTicketBoard(req)
     const mutation = updateMyTicket({
       req,
+      viewerId: "user-1",
       projectSlug: "web",
       id: webTicketId
     })
@@ -420,6 +421,35 @@ describe("myTicketsByProject", () => {
           ["web", ["WEB-2", "WEB-1"]]
         ])
       )
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("updateMyTicket unassignment", () => {
+  it("drops a ticket from my tickets as soon as I unassign myself", async () => {
+    serve(
+      { mine: [row("web", "WEB-1", "todo")], nextCursor: null, recent: [] },
+      [],
+      () => new Promise<Response>(() => {})
+    )
+    const registry = AtomRegistry.make()
+    const list = myTickets(req)
+    const mutation = updateMyTicket({
+      req,
+      viewerId: "user-1",
+      projectSlug: "web",
+      id: webTicketId
+    })
+    registry.mount(list)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(successOf(registry.get(list)).tickets).toHaveLength(1)
+      )
+      registry.set(mutation, { assignees: [] })
+      expect(successOf(registry.get(list)).tickets).toEqual([])
     } finally {
       registry.dispose()
     }

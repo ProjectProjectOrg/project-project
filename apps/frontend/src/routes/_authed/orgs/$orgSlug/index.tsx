@@ -9,6 +9,7 @@ import * as Result from "effect/unstable/reactivity/AsyncResult"
 import * as Registry from "effect/unstable/reactivity/AtomRegistry"
 import { ArrowRight, Plus } from "lucide-react"
 
+import { DashboardGitSync } from "@/components/Dashboard/DashboardGitSync"
 import {
   MyTicketsSection,
   RecentTicketsSection,
@@ -136,6 +137,7 @@ function Dashboard() {
 
       <MyTicketsSection orgSlug={orgSlug} view={view} onViewChange={setView} />
       <RecentTicketsSection orgSlug={orgSlug} />
+      <DashboardGitSync orgSlug={orgSlug} />
     </PageContainer>
   )
 }
