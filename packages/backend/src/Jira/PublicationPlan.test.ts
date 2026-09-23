@@ -982,6 +982,16 @@ it("requires actual outcomes and permits only individually accepted skips", asyn
   )
   expect(partial.plan.indexes.attachments).toEqual([])
   expect(partial.plan.report.partialSuccess).toBe(true)
+  expect(partial.plan.report.markdown).toContain(
+    "Download each skipped attachment from Jira and upload it to its destination ticket in ProjectProject."
+  )
+  expect(partial.plan.report.markdown).toContain("image.png")
+  expect(partial.plan.report.markdown).toContain(
+    "/orgs/acme/projects/application/tickets/APP-1"
+  )
+  expect(partial.plan.report.markdown).toContain(
+    "https://example.atlassian.net/browse/APP-1"
+  )
 })
 
 it("removes excluded bodies and opaque nested envelopes from every permanent output while disclosure retains them", async () => {

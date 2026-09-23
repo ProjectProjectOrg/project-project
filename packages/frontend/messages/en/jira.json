@@ -144,6 +144,7 @@
   "jira_migration_step_statuses": "Map statuses",
   "jira_migration_step_types": "Map issue types",
   "jira_migration_success_description": "The destination is published and ready to use.",
+  "jira_migration_success_skipped": "Skipped attachments are listed in {reportPath}, with links to their Jira issues and destination tickets. Download each file from Jira, then upload it to that ticket in ProjectProject. Update old Jira links in the ticket text if needed.",
   "jira_migration_success_title": "Migration complete",
   "jira_migration_tag_destination_label": "Destination tag name",
   "jira_migration_type_bug": "Bug",

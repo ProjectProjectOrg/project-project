@@ -31,6 +31,8 @@ import {
 import { finalizeJiraMigrationAttempt, scanSnapshot } from "./MigrationWorkflow"
 import * as MigrationWorkflow from "./MigrationWorkflow"
 import { JiraPublicationInvalid } from "./Preflight"
+import * as CleanupWorkflow from "./CleanupWorkflow"
+import * as Exit from "effect/Exit"
 
 const fenceForInput = (input: MigrationActivityInput): AttemptFence => ({
   migrationId:
@@ -62,6 +64,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
   const artifacts = yield* JiraMigrationArtifacts
   const orgStorage = yield* OrgStorage
   const s3 = yield* S3Storage
+  const cleanup = yield* CleanupWorkflow.makeJiraCleanupCommands
 
   const readAttempt = (fence: AttemptFence) =>
     Effect.gen(function* () {
@@ -175,18 +178,54 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
         return yield* Effect.fail(
           failure("jira_migration_prepared_attempt_conflict", false)
         )
+      const dependencies = JiraImport.makeJiraMaterializationDependencies(
+        prepared,
+        fence,
+        {
+          connection,
+          jira,
+          s3,
+          artifacts
+        }
+      )
+      const receipt = (sourceAttachmentId: string, failed: boolean) =>
+        Effect.gen(function* () {
+          const recorded = yield* (
+            failed
+              ? projection.recordAttachmentFailure(
+                  fence,
+                  accepted.configurationRevision,
+                  sourceAttachmentId
+                )
+              : projection.recordAttachmentSuccess(
+                  fence,
+                  accepted.configurationRevision,
+                  sourceAttachmentId
+                )
+          ).pipe(Effect.mapError(materializationFailure))
+          if (!recorded)
+            return yield* Effect.fail(
+              failure("jira_migration_superseded", false)
+            )
+        })
       return yield* materializeJiraPreparedPublication(
         {
           scanRevision: row.scanRevision,
           configurationRevision: accepted.configurationRevision,
           attachments: prepared.attachments
         },
-        JiraImport.makeJiraMaterializationDependencies(prepared, fence, {
-          connection,
-          jira,
-          s3,
-          artifacts
-        })
+        {
+          ...dependencies,
+          copyAttachment: (attachment) =>
+            dependencies.copyAttachment(attachment).pipe(
+              Effect.tapError(() =>
+                attachment.decision === "copy"
+                  ? receipt(attachment.sourceAttachmentId, true)
+                  : Effect.void
+              ),
+              Effect.tap(() => receipt(attachment.sourceAttachmentId, false))
+            )
+        }
       )
     })
 
@@ -231,6 +270,25 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
         .where(eq(jiraMigration.workflowExecutionId, input.executionId))
         .limit(1)
       if (!row) return
+      if (Exit.isSuccess(input.exit) && row.status === "succeeded") {
+        yield* cleanup
+          .start({
+            migrationId: row.id,
+            workflowExecutionId: input.executionId,
+            workflowAttempt: row.workflowAttempt,
+            expectedRevision: row.revision,
+            mode: "post_success"
+          })
+          .pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError(
+                "Jira post-success cleanup submission failed",
+                cause
+              )
+            )
+          )
+        return
+      }
       yield* finalizeJiraMigrationAttempt(
         projection,
         {

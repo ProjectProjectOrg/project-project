@@ -302,6 +302,7 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
         : [identity.projectProjectUserId]
     )
   ])
+  const plannedTicketIds = new Set(manifest.issues.map((issue) => issue.key))
   const source = yield* resolveJiraPublicationSource(
     input.orgSlug,
     manifest,
@@ -322,22 +323,35 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
       .map((user) => ({
         userId: user.id,
         username: user.username ?? user.email
-      })),
+      }))
+      .toSorted((left, right) => left.userId.localeCompare(right.userId, "en")),
     environment: {
       existingProjectSlugs: projects
-        .filter((project) => project.id !== projectId)
+        .filter(
+          (project) =>
+            project.id !== projectId &&
+            project.slug === input.configuration.destination.slug
+        )
         .map((project) => project.slug),
       existingProjectKeys: projects
         .filter(
           (project) =>
             project.organizationId === input.organizationId &&
-            project.id !== projectId
+            project.id !== projectId &&
+            project.key === input.configuration.destination.key
         )
         .map((project) => project.key),
       existingTicketIds: tickets
-        .filter((ticket) => ticket.projectId !== projectId)
+        .filter(
+          (ticket) =>
+            ticket.projectId !== projectId &&
+            plannedTicketIds.has(ticket.ticketId)
+        )
         .map((ticket) => ticket.ticketId),
-      existingUserIds: allUsers.map((user) => user.id),
+      existingUserIds: allUsers
+        .filter((user) => linkedUserIds.has(user.id))
+        .map((user) => user.id)
+        .toSorted(),
       existingStatusSlugs: BASELINE_STATUS_SEED.map((status) => status.slug)
     },
     source
@@ -484,17 +498,29 @@ export const verifyJiraPermanentArchive = Effect.fn(
     return yield* new JiraPublicationInvalid({
       reasons: ["published-archive-project-conflict"]
     })
-  const { plan, publicationRevision } = yield* loadJiraPublicationPlan(
-    orgSlug,
-    checkpoint.publishedPlan.planRef,
-    artifacts
-  )
+  const archive = checkpoint.publishedPlan.archive
+  const verifiedArchive = archive
+    ? archive
+    : yield* Effect.gen(function* () {
+        const { plan, publicationRevision } = yield* loadJiraPublicationPlan(
+          orgSlug,
+          checkpoint.publishedPlan!.planRef,
+          artifacts
+        )
+        if (
+          plan.migrationId !== migration.id ||
+          plan.project.id !== project.id ||
+          plan.project.slug !== project.slug ||
+          publicationRevision !== checkpoint.publishedPlan!.publicationRevision
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["published-archive-plan-conflict"]
+          })
+        return plan.archiveDocument
+      })
   if (
-    plan.migrationId !== migration.id ||
-    plan.project.id !== project.id ||
-    plan.project.slug !== project.slug ||
-    publicationRevision !== checkpoint.publishedPlan.publicationRevision ||
-    !safeJiraDocumentPath(plan.archiveDocument.path, migration.id)
+    verifiedArchive.path !== `imports/jira/${migration.id}/archive.json` ||
+    !/^[a-f0-9]{64}$/.test(verifiedArchive.sha256)
   )
     return yield* new JiraPublicationInvalid({
       reasons: ["published-archive-plan-conflict"]
@@ -503,7 +529,7 @@ export const verifyJiraPermanentArchive = Effect.fn(
     .readFileString(
       path.join(
         markdown.projectDir(orgSlug, project.slug),
-        plan.archiveDocument.path
+        verifiedArchive.path
       )
     )
     .pipe(
@@ -512,8 +538,7 @@ export const verifyJiraPermanentArchive = Effect.fn(
       )
     )
   if (
-    createHash("sha256").update(stored).digest("hex") !==
-    plan.archiveDocument.sha256
+    createHash("sha256").update(stored).digest("hex") !== verifiedArchive.sha256
   )
     return yield* new JiraPublicationInvalid({
       reasons: ["published-archive-checksum-conflict"]
@@ -880,7 +905,11 @@ export const publishJiraMigrationAtomically = Effect.fn(
               ...checkpoint,
               publishedPlan: {
                 planRef: input.planRef,
-                publicationRevision: input.publicationRevision
+                publicationRevision: input.publicationRevision,
+                archive: {
+                  path: plan.archiveDocument.path,
+                  sha256: plan.archiveDocument.sha256
+                }
               }
             }),
             finishedAt: now,

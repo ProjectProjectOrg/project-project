@@ -8,7 +8,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { DbLive } from "../Layers/Db"
 import { Db } from "../Services/Db"
 import { JiraMigrationProjection } from "./MigrationProjection"
-import { selectExpiredJiraMigrations } from "./Retention"
+import {
+  selectExpiredJiraMigrations,
+  selectPendingPostSuccessCleanup
+} from "./Retention"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -110,5 +113,96 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
         mode: "expire"
       }
     ])
+  })
+
+  it("retries post-success cleanup until completion is recorded", async () => {
+    const owner = { organizationId: randomUUID(), userId: randomUUID() }
+    owners.push(owner)
+    await pool.query(
+      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$2,$3,false,now(),now())',
+      [owner.userId, "Retention", `${owner.userId}@example.test`]
+    )
+    await pool.query(
+      'insert into "organization" (id,name,slug,created_at) values ($1,$2,$3,now())',
+      [owner.organizationId, "Retention", owner.organizationId]
+    )
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const created = yield* projection.ensureCreated({
+          ...owner,
+          requestId: randomUUID(),
+          executionId: randomUUID(),
+          source: {
+            cloudId: "cloud-1",
+            siteName: "Example",
+            siteUrl: "https://example.atlassian.net",
+            projectId: "10000",
+            projectKey: "APP",
+            projectName: "Application"
+          }
+        })
+        const fence = {
+          migrationId: created.id,
+          workflowExecutionId: created.workflowExecutionId!,
+          workflowAttempt: created.workflowAttempt
+        }
+        yield* Effect.promise(() =>
+          pool.query(
+            "update jira_migration set status = 'succeeded', checkpoint = $2::jsonb where id = $1",
+            [
+              created.id,
+              {
+                publishedPlan: {
+                  planRef: {
+                    key: "published-plan.json",
+                    contentType: "application/json",
+                    byteSize: 1,
+                    sha256: "a".repeat(64)
+                  },
+                  publicationRevision: "b".repeat(64),
+                  archive: {
+                    path: `imports/jira/${created.id}/archive.json`,
+                    sha256: "c".repeat(64)
+                  }
+                }
+              }
+            ]
+          )
+        )
+        const pending = yield* selectPendingPostSuccessCleanup
+        expect(pending).toEqual([
+          { ...fence, expectedRevision: created.revision, mode: "post_success" }
+        ])
+        expect(
+          yield* projection.claimCleanup(fence, {
+            expectedRevision: created.revision,
+            executionId: "first-cleanup",
+            mode: "post_success"
+          })
+        ).toBe(true)
+        expect(yield* selectPendingPostSuccessCleanup).toEqual([])
+        expect(
+          yield* projection.releaseCleanup(
+            fence,
+            "first-cleanup",
+            "post_success"
+          )
+        ).toBe(true)
+        expect(yield* selectPendingPostSuccessCleanup).toHaveLength(1)
+        const retry = yield* projection.owned(owner, created.id)
+        expect(
+          yield* projection.claimCleanup(fence, {
+            expectedRevision: retry.revision,
+            executionId: "second-cleanup",
+            mode: "post_success"
+          })
+        ).toBe(true)
+        expect(
+          yield* projection.completePostSuccessCleanup(fence, "second-cleanup")
+        ).toBe(true)
+        expect(yield* selectPendingPostSuccessCleanup).toEqual([])
+      }).pipe(Effect.provide(layer))
+    )
   })
 })

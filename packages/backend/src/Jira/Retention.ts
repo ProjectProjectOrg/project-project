@@ -36,25 +36,49 @@ export const selectExpiredJiraMigrations = Effect.gen(function* () {
   })
 })
 
+export const selectPendingPostSuccessCleanup = Effect.gen(function* () {
+  const db = yield* Db
+  const rows = yield* db
+    .select()
+    .from(jiraMigration)
+    .where(
+      and(
+        sql`${jiraMigration.status} = 'succeeded'`,
+        isNull(jiraMigration.cleanupExecutionId),
+        sql`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'publishedPlan'`,
+        sql`not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'postSuccessCleanupCompleted')`,
+        sql`not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'remoteWritesMayStillCommit')`
+      )
+    )
+    .orderBy(jiraMigration.finishedAt)
+    .limit(100)
+  return rows.flatMap((row): ReadonlyArray<JiraMigrationCleanupCommand> => {
+    const fence = fenceFor(row)
+    return fence === null
+      ? []
+      : [{ ...fence, expectedRevision: row.revision, mode: "post_success" }]
+  })
+})
+
 export const runJiraMigrationRetention = (
   cleanup: JiraMigrationCleanupCommands
 ) =>
-  selectExpiredJiraMigrations.pipe(
-    Effect.flatMap((commands) =>
-      Effect.forEach(
-        commands,
-        (command) =>
-          cleanup
-            .start(command)
-            .pipe(
-              Effect.catchCause((cause) =>
-                Effect.logError("Jira migration expiry cleanup failed", cause)
-              )
-            ),
-        { discard: true }
-      )
+  Effect.gen(function* () {
+    const expired = yield* selectExpiredJiraMigrations
+    const succeeded = yield* selectPendingPostSuccessCleanup
+    yield* Effect.forEach(
+      [...expired, ...succeeded],
+      (command) =>
+        cleanup
+          .start(command)
+          .pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError("Jira migration retention cleanup failed", cause)
+            )
+          ),
+      { discard: true }
     )
-  )
+  })
 
 export const JiraMigrationRetentionLive = (
   cleanup: JiraMigrationCleanupCommands

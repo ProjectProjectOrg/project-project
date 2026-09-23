@@ -1,6 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, expect, it } from "vite-plus/test"
-import type { JiraMigrationDetail } from "@projectproject/shared"
+import {
+  JiraMigrationConfiguration,
+  type JiraMigrationDetail
+} from "@projectproject/shared"
+import { Schema } from "effect"
 import { m } from "@/paraglide/messages"
 import { JiraProgressStep } from "./JiraProgressStep"
 import { JiraTerminalStep } from "./JiraTerminalStep"
@@ -58,4 +62,34 @@ it("shows retry and rescan failures inline on the terminal screen", () => {
   expect(screen.getByRole("alert").textContent).toContain(
     "The Jira migration could not be updated. Try again."
   )
+})
+
+it("shows how to replace skipped attachments after a successful import", () => {
+  render(
+    <JiraTerminalStep
+      detail={{
+        ...terminalDetail,
+        status: "succeeded",
+        destinationProjectSlug: null,
+        reportPath: "imports/jira/migration-1/report.md",
+        configuration: Schema.decodeUnknownSync(JiraMigrationConfiguration)({
+          destination: { name: "Application", slug: "application", key: "APP" },
+          identities: [],
+          statuses: [],
+          issueTypes: [],
+          priorities: [],
+          tags: [],
+          activeFutureSprintChoices: [],
+          restrictedContent: { policy: "exclude" },
+          skippedAttachmentIds: ["attachment-1"],
+          attachmentSkipsAccepted: true
+        })
+      }}
+      orgSlug="example"
+      waiting={false}
+    />
+  )
+
+  expect(screen.getByText(/Download each file from Jira/)).toBeTruthy()
+  expect(screen.getByText(/imports\/jira\/migration-1\/report.md/)).toBeTruthy()
 })

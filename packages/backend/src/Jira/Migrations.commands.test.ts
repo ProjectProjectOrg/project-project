@@ -1481,6 +1481,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
             yield* Deferred.await(failedSignal)
             const failed = yield* p.owned(owner, created.id)
+            yield* p.settleRemoteWrites(fenceFor(failed)!)
             const held: JiraMigrationProjectionShape = {
               ...p,
               owned: (requestedOwner, id) =>

@@ -577,7 +577,17 @@ export function buildJiraArchiveV2(
 
 export function buildJiraReportV2(
   archive: typeof JiraPlannedArchive.Type,
-  nativeCounts: Readonly<Record<string, number>>
+  nativeCounts: Readonly<Record<string, number>>,
+  manualAttachments: ReadonlyArray<
+    Readonly<{
+      sourceAttachmentId: string
+      filename: string
+      sourceIssueKey: string
+      targetTicketId: string
+      sourceIssueUrl: string
+      targetTicketUrl: string
+    }>
+  > = []
 ) {
   const archivedCounts = Object.fromEntries(
     Object.entries(archive.categories).map(([category, values]) => [
@@ -657,6 +667,28 @@ export function buildJiraReportV2(
     "## Attachment outcomes",
     canonicalJiraJson(archive.attachmentOutcomes),
     "",
+    ...(manualAttachments.length === 0
+      ? []
+      : [
+          "## Manual attachment replacement",
+          "Download each skipped attachment from Jira and upload it to its destination ticket in ProjectProject. Update any old Jira link in the ticket text if the new file should appear there.",
+          "",
+          table(
+            [
+              "File",
+              "Jira issue",
+              "ProjectProject ticket",
+              "Jira attachment ID"
+            ],
+            manualAttachments.map((attachment) => [
+              escapeCell(attachment.filename),
+              `[${escapeCell(attachment.sourceIssueKey)}](${attachment.sourceIssueUrl})`,
+              `[${escapeCell(attachment.targetTicketId)}](${attachment.targetTicketUrl})`,
+              escapeCell(attachment.sourceAttachmentId)
+            ])
+          ),
+          ""
+        ]),
     "## Exclusions and skips",
     table(
       ["Category", "Source", "Reason"],

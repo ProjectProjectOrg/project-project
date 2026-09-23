@@ -52,7 +52,10 @@ export const JiraMigrationCheckpoint = Schema.Struct({
   publishedPlan: Schema.optional(
     Schema.Struct({
       planRef: JiraArtifactRef,
-      publicationRevision: Schema.String
+      publicationRevision: Schema.String,
+      archive: Schema.optional(
+        Schema.Struct({ path: Schema.String, sha256: Schema.String })
+      )
     })
   ),
   remoteWritesMayStillCommit: Schema.optional(
@@ -72,6 +75,13 @@ export const JiraMigrationCheckpoint = Schema.Struct({
     Schema.Record(Schema.String, Schema.Int)
   ),
   scanPages: Schema.optional(Schema.Record(Schema.String, Schema.Int)),
+  failedAttachments: Schema.optional(
+    Schema.Struct({
+      configurationRevision: Schema.Int,
+      ids: Schema.Array(Schema.NonEmptyString)
+    })
+  ),
+  postSuccessCleanupCompleted: Schema.optional(Schema.Literal(true)),
   scan: Schema.optional(
     Schema.Struct({
       manifest: Schema.optional(JiraArtifactRef),
@@ -451,6 +461,19 @@ export type JiraMigrationCleanupMode =
 export type JiraMigrationProjectionShape = Readonly<{
   beginRemoteWrites: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
   settleRemoteWrites: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
+  recordAttachmentFailure: (
+    fence: AttemptFence,
+    configurationRevision: number,
+    sourceAttachmentId: string
+  ) => Effect.Effect<boolean, JiraError>
+  recordAttachmentSuccess: (
+    fence: AttemptFence,
+    configurationRevision: number,
+    sourceAttachmentId: string
+  ) => Effect.Effect<boolean, JiraError>
+  unresolvedFailedAttachments: (
+    input: AttemptFence & Readonly<{ expectedRevision: number }>
+  ) => Effect.Effect<ReadonlyArray<string>, Conflict | JiraError>
   finalizeInterrupted: (
     fence: AttemptFence
   ) => Effect.Effect<boolean, JiraError>
@@ -514,6 +537,10 @@ export type JiraMigrationProjectionShape = Readonly<{
     fence: AttemptFence,
     executionId: string,
     mode: JiraMigrationCleanupMode
+  ) => Effect.Effect<boolean, JiraError>
+  completePostSuccessCleanup: (
+    fence: AttemptFence,
+    executionId: string
   ) => Effect.Effect<boolean, JiraError>
   completeResetCleanup: (
     fence: AttemptFence,
@@ -679,6 +706,107 @@ export class JiraMigrationProjection extends Context.Service<
               })
             )
             .pipe(Effect.mapError(databaseError))
+      const recordAttachmentOutcome = (
+        fence: AttemptFence,
+        configurationRevision: number,
+        sourceAttachmentId: string,
+        failed: boolean
+      ) =>
+        db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const [row] = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(fenceWhere(fence))
+                .for("update")
+              if (
+                !row ||
+                row.status !== "migrating" ||
+                row.cleanupExecutionId !== null ||
+                row.destinationProjectId === null
+              )
+                return false
+              const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+              if (
+                checkpoint.acceptedConfiguration?.configurationRevision !==
+                configurationRevision
+              )
+                return false
+              const previous =
+                checkpoint.failedAttachments?.configurationRevision ===
+                configurationRevision
+                  ? checkpoint.failedAttachments.ids
+                  : []
+              const ids = failed
+                ? [...new Set([...previous, sourceAttachmentId])].toSorted()
+                : previous.filter((id) => id !== sourceAttachmentId)
+              if (
+                checkpoint.failedAttachments?.configurationRevision ===
+                  configurationRevision &&
+                ids.length === previous.length
+              )
+                return true
+              const now = yield* DateTime.nowAsDate
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  checkpoint: yield* Schema.encodeEffect(
+                    JiraMigrationCheckpoint
+                  )({
+                    ...checkpoint,
+                    failedAttachments: { configurationRevision, ids }
+                  }),
+                  updatedAt: now,
+                  revision: row.revision + 1
+                })
+                .where(fenceWhere(fence))
+              return true
+            })
+          )
+          .pipe(Effect.mapError(databaseError))
+      const recordAttachmentFailure: JiraMigrationProjectionShape["recordAttachmentFailure"] =
+        (fence, configurationRevision, sourceAttachmentId) =>
+          recordAttachmentOutcome(
+            fence,
+            configurationRevision,
+            sourceAttachmentId,
+            true
+          )
+      const recordAttachmentSuccess: JiraMigrationProjectionShape["recordAttachmentSuccess"] =
+        (fence, configurationRevision, sourceAttachmentId) =>
+          recordAttachmentOutcome(
+            fence,
+            configurationRevision,
+            sourceAttachmentId,
+            false
+          )
+      const unresolvedFailedAttachments: JiraMigrationProjectionShape["unresolvedFailedAttachments"] =
+        Effect.fn("JiraMigrationProjection.unresolvedFailedAttachments")(
+          function* (input) {
+            const [row] = yield* db
+              .select()
+              .from(jiraMigration)
+              .where(fenceWhere(input))
+              .limit(1)
+              .pipe(Effect.mapError(databaseError))
+            if (
+              !row ||
+              row.revision !== input.expectedRevision ||
+              row.destinationProjectId === null ||
+              row.cleanupExecutionId !== null
+            )
+              return yield* conflict()
+            const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+            const failedAttachments = checkpoint.failedAttachments
+            return failedAttachments !== undefined &&
+              checkpoint.acceptedConfiguration !== undefined &&
+              failedAttachments.configurationRevision ===
+                checkpoint.acceptedConfiguration.configurationRevision
+              ? failedAttachments.ids
+              : []
+          }
+        )
       const owned = Effect.fn("JiraMigrationProjection.owned")(function* (
         owner: ProjectionOwner,
         migrationId: string
@@ -1371,6 +1499,43 @@ export class JiraMigrationProjection extends Context.Service<
             return rows.length > 0
           }
         )
+      const completePostSuccessCleanup: JiraMigrationProjectionShape["completePostSuccessCleanup"] =
+        (fence, executionId) =>
+          db
+            .transaction((tx) =>
+              Effect.gen(function* () {
+                const [row] = yield* tx
+                  .select()
+                  .from(jiraMigration)
+                  .where(fenceWhere(fence))
+                  .for("update")
+                if (!row || row.status !== "succeeded") return false
+                const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+                if (
+                  row.cleanupExecutionId === null &&
+                  checkpoint.postSuccessCleanupCompleted === true
+                )
+                  return true
+                if (row.cleanupExecutionId !== executionId) return false
+                const now = yield* DateTime.nowAsDate
+                yield* tx
+                  .update(jiraMigration)
+                  .set({
+                    cleanupExecutionId: null,
+                    checkpoint: yield* Schema.encodeEffect(
+                      JiraMigrationCheckpoint
+                    )({
+                      ...checkpoint,
+                      postSuccessCleanupCompleted: true
+                    }),
+                    updatedAt: now,
+                    revision: row.revision + 1
+                  })
+                  .where(fenceWhere(fence))
+                return true
+              })
+            )
+            .pipe(Effect.mapError(databaseError))
       const deleteAfterCleanup: JiraMigrationProjectionShape["deleteAfterCleanup"] =
         Effect.fn("JiraMigrationProjection.deleteAfterCleanup")(
           function* (fence, executionId) {
@@ -1420,6 +1585,9 @@ export class JiraMigrationProjection extends Context.Service<
       return JiraMigrationProjection.of({
         beginRemoteWrites,
         settleRemoteWrites,
+        recordAttachmentFailure,
+        recordAttachmentSuccess,
+        unresolvedFailedAttachments,
         ensureCreated,
         finalizeInterrupted,
         beginRescan,
@@ -1432,6 +1600,7 @@ export class JiraMigrationProjection extends Context.Service<
         saveConfiguration,
         claimCleanup,
         releaseCleanup,
+        completePostSuccessCleanup,
         completeResetCleanup,
         deleteAfterCleanup,
         owned,

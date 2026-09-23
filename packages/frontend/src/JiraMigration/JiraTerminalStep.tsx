@@ -26,7 +26,11 @@ export function JiraTerminalStep({
     return (
       <TerminalSurface
         title={m.jira_migration_success_title()}
-        description={m.jira_migration_success_description()}
+        description={
+          detail.configuration?.skippedAttachmentIds.length && detail.reportPath
+            ? `${m.jira_migration_success_description()} ${m.jira_migration_success_skipped({ reportPath: detail.reportPath })}`
+            : m.jira_migration_success_description()
+        }
       >
         {detail.destinationProjectSlug ? (
           <Button

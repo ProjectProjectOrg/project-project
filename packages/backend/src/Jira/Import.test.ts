@@ -744,6 +744,21 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             expect(reloaded.projectId).toBe(prepared.projectId)
             expect(reloaded.attachments).toEqual(prepared.attachments)
             expect(yield* callbacks.createHidden).toBe(prepared.projectId)
+            yield* Effect.promise(() =>
+              pool.query(
+                "insert into project_index (id,slug,organization_id,key,name,icon,color,created_by,published_at) values ($1,$2,$3,$4,$5,$6,$7,$8,now())",
+                [
+                  randomUUID(),
+                  `unrelated-${randomUUID()}`,
+                  organizationId,
+                  "OTHER",
+                  "Other project",
+                  "📦",
+                  "#777777",
+                  userId
+                ]
+              )
+            )
             expect(yield* preparation).toEqual(preparedRef)
             const attachmentOutcome = yield* callbacks.copyAttachment(
               prepared.attachments[0]!
@@ -945,7 +960,11 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             )).rows
             expect(publishedMigration?.checkpoint?.publishedPlan).toEqual({
               planRef: finalized.planRef,
-              publicationRevision: loaded.publicationRevision
+              publicationRevision: loaded.publicationRevision,
+              archive: {
+                path: loaded.plan.archiveDocument.path,
+                sha256: loaded.plan.archiveDocument.sha256
+              }
             })
             expect(
               yield* projection.beginRemoteWrites(publishInput.fence)
@@ -970,6 +989,8 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                   )
               }
             )
+            yield* verifyArchive
+            stored.delete(finalized.planRef.key)
             yield* verifyArchive
             const archivePath = `${root}/orgs/${prepared.orgSlug}/projects/${prepared.configuration.destination.slug}/${loaded.plan.archiveDocument.path}`
             yield* fs.writeFileString(archivePath, "tampered archive")

@@ -1,6 +1,7 @@
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
 import * as BunPath from "@effect/platform-bun/BunPath"
 import * as Layer from "effect/Layer"
+import * as Effect from "effect/Effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import { AttachmentUploadsLive } from "./Layers/AttachmentUploads"
 import { AttachmentsLive } from "./Layers/Attachments"
@@ -40,8 +41,11 @@ import { UsersLive } from "./Layers/Users"
 import { JiraClientLive, JiraTransportLive } from "./Jira/Client"
 import { JiraCredentialsLive } from "./Jira/Credentials"
 import { JiraOAuthConfigLive, JiraTokenEndpointLive } from "./Jira/OAuth"
-import { JiraMigrationsLive } from "./Jira/Migrations"
-import { JiraMigrationWorkerLive } from "./Jira/Worker"
+import { JiraMigrationsDurableLive } from "./Jira/Migrations"
+import * as JiraCleanupWorkflow from "./Jira/CleanupWorkflow"
+import { JiraMigrationProjection } from "./Jira/MigrationProjection"
+import { JiraMigrationRetentionLive } from "./Jira/Retention"
+import { JiraWorkflowsLive } from "./Jira/WorkflowRuntime"
 
 const JiraServicesLive = JiraClientLive.pipe(
   Layer.provideMerge(JiraTransportLive),
@@ -53,6 +57,19 @@ const JiraServicesLive = JiraClientLive.pipe(
       Layer.provideMerge(SecretCryptoLive)
     )
   )
+)
+
+const JiraDurableServicesLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const cleanup = yield* JiraCleanupWorkflow.makeJiraCleanupCommands
+    const projection = yield* JiraMigrationProjection
+    return Layer.mergeAll(
+      JiraMigrationsDurableLive(cleanup, {
+        unresolvedFailedAttachments: projection.unresolvedFailedAttachments
+      }),
+      JiraMigrationRetentionLive(cleanup)
+    )
+  })
 )
 
 export const BackendInfrastructureLive = Layer.mergeAll(
@@ -100,7 +117,8 @@ export const BackendServicesLive = TagsLive.pipe(
     Layer.provideMerge(BannerPlaceholdersLive),
     Layer.provideMerge(UsersLive),
     Layer.provideMerge(TicketIndexLive),
-    Layer.provideMerge(JiraMigrationsLive),
+    Layer.provideMerge(JiraDurableServicesLive),
+    Layer.provideMerge(JiraWorkflowsLive),
     Layer.provideMerge(ProjectDocsLive),
     Layer.provideMerge(TicketDocsLive),
     Layer.provideMerge(GroupDocsLive),
@@ -128,7 +146,6 @@ export const BackendRuntimeLive = BackendServicesLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
-export const JiraMigrationBackgroundLive = JiraMigrationWorkerLive
 export {
   JiraWorkflowEngineLive,
   JiraWorkflowsLive

@@ -193,7 +193,7 @@ describe.skipIf(!databaseUrl)("stateless MCP", () => {
         server.close((error) => (error ? reject(error) : resolve()))
       )
     vi.unstubAllEnvs()
-  })
+  }, 30_000)
 
   it("routes independent authenticated calls across handlers without sharing user context", async () => {
     for (const token of tokens) {

@@ -14,7 +14,7 @@ import { S3Storage } from "../Services/S3Storage"
 import { JiraClient } from "./Client"
 import { JiraMigrationProjection } from "./MigrationProjection"
 import { JiraMigrationWorkflow } from "./MigrationWorkflow"
-import { makeScanTestLayer } from "./ScanTestSupport"
+import { makeScanTestLayer, scanFixtureResponse } from "./ScanTestSupport"
 import { JiraWorkflowsLive } from "./WorkflowRuntime"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -46,7 +46,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
     await pool.end()
   })
 
-  it("keeps completed scan pages when the SQL runner restarts at configuration", async () => {
+  it("keeps completed scan pages across mid-scan and configuration restarts", async () => {
     const owner = { organizationId: randomUUID(), userId: randomUUID() }
     owners.push(owner)
     await pool.query(
@@ -57,7 +57,12 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
       'insert into "organization" (id,name,slug,created_at) values ($1,$2,$3,now())',
       [owner.organizationId, "Example", owner.organizationId]
     )
-    const fixture = makeScanTestLayer()
+    let blockIssue = true
+    const fixture = makeScanTestLayer((request) =>
+      request.url.includes("/search/jql") && blockIssue
+        ? Effect.never
+        : Effect.succeed(scanFixtureResponse(request))
+    )
     const objects = new Map<string, Uint8Array>()
     const connection = {
       endpoint: "https://test.invalid",
@@ -151,11 +156,13 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
         const id = yield* JiraMigrationWorkflow.execute(payload, {
           discard: true
         })
-        const projection = yield* JiraMigrationProjection
-        yield* projection.owned(owner, id).pipe(
-          Effect.retry({ schedule: Schedule.spaced("10 millis") }),
+        yield* Effect.sync(() =>
+          fixture.requests.some((request) =>
+            request.url.includes("/search/jql")
+          )
+        ).pipe(
           Effect.repeat({
-            while: (row) => row.status === "scanning",
+            until: (seen) => seen,
             schedule: Schedule.spaced("10 millis")
           }),
           Effect.timeout("10 seconds")
@@ -163,8 +170,27 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
         return id
       }).pipe(Effect.provide(layer))
     )
+    blockIssue = false
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projection = yield* JiraMigrationProjection
+        const row = yield* projection.owned(owner, migrationId).pipe(
+          Effect.repeat({
+            while: (current) => current.status === "scanning",
+            schedule: Schedule.spaced("10 millis")
+          }),
+          Effect.timeout("10 seconds")
+        )
+        expect(row.status).toBe("needs_configuration")
+      }).pipe(Effect.provide(layer))
+    )
     const callsBeforeRestart = fixture.requests.length
     expect(callsBeforeRestart).toBeGreaterThan(0)
+    expect(
+      fixture.requests.filter((request) =>
+        new URL(request.url).pathname.endsWith("/project/10000")
+      )
+    ).toHaveLength(1)
     await Effect.runPromise(
       Effect.gen(function* () {
         yield* JiraMigrationWorkflow.resume(migrationId)
@@ -174,5 +200,5 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
       }).pipe(Effect.provide(layer))
     )
     expect(fixture.requests).toHaveLength(callsBeforeRestart)
-  }, 20_000)
+  }, 45_000)
 })

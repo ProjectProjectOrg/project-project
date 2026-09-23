@@ -264,7 +264,7 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         payload.mode === "reset_import"
           ? projection.completeResetCleanup(fence, executionId)
           : payload.mode === "post_success"
-            ? projection.releaseCleanup(fence, executionId, "post_success")
+            ? projection.completePostSuccessCleanup(fence, executionId)
             : projection.deleteAfterCleanup(fence, executionId)
       ).pipe(Effect.mapError(() => cleanupFailure("cleanup-completion-failed")))
       if (!completed)

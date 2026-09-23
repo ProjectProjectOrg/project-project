@@ -87,6 +87,116 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     workflowAttempt: row.workflowAttempt
   })
 
+  it("retains only failed attachment IDs for the current fenced configuration", async () => {
+    const input = await fixture()
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        const current = fence(created)
+        yield* p.completeScan(current, {
+          ...emptyScan,
+          requirements: {
+            ...emptyScan.requirements,
+            attachments: [
+              {
+                jiraAttachmentId: "a-1",
+                filename: "one.txt",
+                byteSize: 1,
+                forcedSkipReason: null
+              },
+              {
+                jiraAttachmentId: "a-2",
+                filename: "two.txt",
+                byteSize: 1,
+                forcedSkipReason: null
+              }
+            ]
+          }
+        })
+        const scanned = yield* p.owned(input, created.id)
+        const ready = yield* p.saveConfiguration({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: scanned.revision,
+          configuration: emptyConfiguration
+        })
+        const running = yield* p.transition({
+          owner: input,
+          migrationId: created.id,
+          expectedRevision: ready.revision,
+          action: "run"
+        })
+        yield* p.advance(current, { destinationProjectId: randomUUID() })
+        expect(
+          yield* p.recordAttachmentFailure(current, running.revision, "a-1")
+        ).toBe(true)
+        expect(
+          yield* p.recordAttachmentFailure(current, running.revision, "a-2")
+        ).toBe(true)
+        expect(
+          yield* p.recordAttachmentSuccess(current, running.revision, "a-1")
+        ).toBe(true)
+        const row = yield* p.owned(input, created.id)
+        expect(
+          yield* p.unresolvedFailedAttachments({
+            ...current,
+            expectedRevision: row.revision
+          })
+        ).toEqual(["a-2"])
+        expect(
+          yield* p.recordAttachmentFailure(
+            current,
+            running.revision - 1,
+            "stale"
+          )
+        ).toBe(false)
+        expect(
+          (yield* Effect.result(
+            p.unresolvedFailedAttachments({
+              ...current,
+              expectedRevision: row.revision - 1
+            })
+          ))._tag
+        ).toBe("Failure")
+        yield* p.recordFailure(current, {
+          reason: "jira_migration_materialization_failed",
+          retryable: true
+        })
+        const failed = yield* p.owned(input, created.id)
+        const unresolved = yield* p.unresolvedFailedAttachments({
+          ...current,
+          expectedRevision: failed.revision
+        })
+        const corrected = {
+          ...emptyConfiguration,
+          skippedAttachmentIds: ["a-2"],
+          attachmentSkipsAccepted: true
+        }
+        expect(
+          (yield* Effect.result(
+            p.saveConfiguration({
+              owner: input,
+              migrationId: created.id,
+              expectedRevision: failed.revision,
+              configuration: { ...corrected, skippedAttachmentIds: ["a-1"] },
+              unresolvedFailedAttachmentIds: unresolved
+            })
+          ))._tag
+        ).toBe("Failure")
+        expect(
+          (yield* p.saveConfiguration({
+            owner: input,
+            migrationId: created.id,
+            expectedRevision: failed.revision,
+            configuration: corrected,
+            unresolvedFailedAttachmentIds: unresolved
+          })).status
+        ).toBe("ready")
+      }).pipe(Effect.provide(layer))
+    )
+  })
+
   it("retains a recovery handle until remote writes have a known terminal outcome", async () => {
     const input = await fixture()
     await Effect.runPromise(

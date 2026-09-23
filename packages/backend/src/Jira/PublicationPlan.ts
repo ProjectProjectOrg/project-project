@@ -1353,15 +1353,37 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       ]
     })
     const archive = buildJiraArchiveV2(prepared, outcomes)
-    const report = buildJiraReportV2(archive, {
-      tickets: tickets.length,
-      comments: comments.length,
-      groups: groups.length,
-      tags: tags.length,
-      statuses: statuses.length,
-      attachments: attachments.length,
-      members: members.length
-    })
+    const report = buildJiraReportV2(
+      archive,
+      {
+        tickets: tickets.length,
+        comments: comments.length,
+        groups: groups.length,
+        tags: tags.length,
+        statuses: statuses.length,
+        attachments: attachments.length,
+        members: members.length
+      },
+      outcomes.flatMap((outcome) => {
+        if (outcome.kind !== "skipped") return []
+        const attachment = prepared.attachments.find(
+          (item) => item.sourceAttachmentId === outcome.sourceAttachmentId
+        )!
+        const issue = prepared.manifest.issues.find(
+          (item) => item.id === attachment.issueId
+        )!
+        return [
+          {
+            sourceAttachmentId: outcome.sourceAttachmentId,
+            filename: attachment.filename,
+            sourceIssueKey: issue.key,
+            targetTicketId: attachment.ticketId,
+            sourceIssueUrl: `${prepared.manifest.source.siteUrl.replace(/\/$/, "")}/browse/${encodeURIComponent(issue.key)}`,
+            targetTicketUrl: `/orgs/${encodeURIComponent(prepared.orgSlug)}/projects/${encodeURIComponent(project.slug)}/tickets/${encodeURIComponent(attachment.ticketId)}`
+          }
+        ]
+      })
+    )
     const plan = yield* Schema.decodeUnknownEffect(JiraPublicationPlanV1)({
       version: 1,
       manifestVersion: 2,
