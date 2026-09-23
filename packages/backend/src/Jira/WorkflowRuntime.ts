@@ -2,12 +2,12 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster"
-import { makeJiraCleanupActivities } from "./CleanupOperations"
-import { makeJiraMigrationCleanupWorkflow } from "./CleanupWorkflow"
+import * as CleanupOperations from "./CleanupOperations"
+import * as CleanupWorkflow from "./CleanupWorkflow"
 import { JiraMigrationArtifactsLive } from "./MigrationArtifacts"
 import { JiraMigrationProjection } from "./MigrationProjection"
-import { makeJiraProductionActivities } from "./MigrationProduction"
-import { makeJiraMigrationWorkflow } from "./MigrationWorkflow"
+import * as MigrationProduction from "./MigrationProduction"
+import * as MigrationWorkflow from "./MigrationWorkflow"
 
 export const JiraWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
   Layer.provide(SingleRunner.layer({ runnerStorage: "sql" })),
@@ -16,10 +16,16 @@ export const JiraWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 
 export const JiraWorkflowsLive = Layer.mergeAll(
   Layer.unwrap(
-    Effect.map(makeJiraProductionActivities, makeJiraMigrationWorkflow)
+    Effect.map(
+      MigrationProduction.makeJiraProductionActivities,
+      MigrationWorkflow.makeJiraMigrationWorkflow
+    )
   ),
   Layer.unwrap(
-    Effect.map(makeJiraCleanupActivities, makeJiraMigrationCleanupWorkflow)
+    Effect.map(
+      CleanupOperations.makeJiraCleanupActivities,
+      CleanupWorkflow.makeJiraMigrationCleanupWorkflow
+    )
   )
 ).pipe(
   Layer.provideMerge(JiraWorkflowEngineLive),

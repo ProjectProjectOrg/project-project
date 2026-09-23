@@ -12,10 +12,10 @@ import { JiraClient } from "./Client"
 import {
   loadJiraPreparedPublication,
   loadJiraPublicationPlan,
-  makeJiraMaterializationDependencies,
   prepareJiraPublicationFromSnapshot,
   publishJiraMigrationAtomically
 } from "./Import"
+import * as JiraImport from "./Import"
 import {
   materializeJiraPreparedPublication,
   prepareJiraPublicationReference,
@@ -28,12 +28,8 @@ import {
   JiraMigrationProjection,
   type AttemptFence
 } from "./MigrationProjection"
-import {
-  finalizeJiraMigrationAttempt,
-  makeProjectionMigrationActivities,
-  makeProjectionScanDependencies,
-  scanSnapshot
-} from "./MigrationWorkflow"
+import { finalizeJiraMigrationAttempt, scanSnapshot } from "./MigrationWorkflow"
+import * as MigrationWorkflow from "./MigrationWorkflow"
 import { JiraPublicationInvalid } from "./Preflight"
 
 const fenceForInput = (input: MigrationActivityInput): AttemptFence => ({
@@ -118,7 +114,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
           siteUrl: row.sourceSiteUrl,
           scannedAt
         },
-        makeProjectionScanDependencies(projection, {
+        MigrationWorkflow.makeProjectionScanDependencies(projection, {
           client: jira,
           artifacts,
           identityOptions
@@ -185,7 +181,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
           configurationRevision: accepted.configurationRevision,
           attachments: prepared.attachments
         },
-        makeJiraMaterializationDependencies(prepared, fence, {
+        JiraImport.makeJiraMaterializationDependencies(prepared, fence, {
           connection,
           jira,
           s3,
@@ -250,7 +246,7 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
       )
     )
 
-  return makeProjectionMigrationActivities(
+  return MigrationWorkflow.makeProjectionMigrationActivities(
     projection,
     finalize,
     scan,
