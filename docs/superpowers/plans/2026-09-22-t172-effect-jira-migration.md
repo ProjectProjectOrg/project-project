@@ -1046,6 +1046,8 @@ yield* verifyHiddenProjectIdentity(fence, plan.project)
 
 Use one Activity per attachment and bounded batches for document writes. Resolve every final ticket and attachment target before writing; apply two-pass rewrites; overwrite deterministic hidden paths. Write archive and report to final paths under `imports/jira/{migrationId}/`. Store attachment index rows as pending, keyed by Task 8's Jira-ID-derived target ID.
 
+For v1, sort final documents by path with code-point ordering, reject duplicate paths, and split them into batches of 32. Batch ordinals are zero-based and enter `v1/import/write-documents/{publicationRevision}/batch/{ordinal}/{operationTry}`. This rule and the names are persisted identities; changing the batch size or ordering requires a new version.
+
 ```ts
 yield* Effect.forEach(plan.attachments, copyAttachmentActivity, {
   concurrency: ATTACHMENT_CONCURRENCY

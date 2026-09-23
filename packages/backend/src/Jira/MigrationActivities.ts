@@ -67,6 +67,98 @@ export type MigrationActivities<R = never> = Readonly<{
 export const activityName = (parts: ReadonlyArray<string | number>) =>
   `v1/${parts.map(String).join("/")}`
 
+export const JIRA_DOCUMENT_BATCH_SIZE = 32
+
+export const jiraDocumentBatches = <A extends Readonly<{ path: string }>>(
+  documents: ReadonlyArray<A>
+): ReadonlyArray<ReadonlyArray<A>> => {
+  const sorted = documents.toSorted((left, right) =>
+    left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+  )
+  if (new Set(sorted.map(({ path }) => path)).size !== sorted.length)
+    throw new Error("Duplicate Jira publication document path")
+  const batches: Array<ReadonlyArray<A>> = []
+  for (
+    let offset = 0;
+    offset < sorted.length;
+    offset += JIRA_DOCUMENT_BATCH_SIZE
+  )
+    batches.push(sorted.slice(offset, offset + JIRA_DOCUMENT_BATCH_SIZE))
+  return batches
+}
+
+export const jiraPreflightActivityName = (
+  scanRevision: number,
+  configurationRevision: number,
+  operationTry: number
+) =>
+  activityName([
+    "import",
+    "preflight",
+    scanRevision,
+    configurationRevision,
+    operationTry
+  ])
+
+export const jiraCreateHiddenActivityName = (
+  scanRevision: number,
+  configurationRevision: number,
+  operationTry: number
+) =>
+  activityName([
+    "import",
+    "create-hidden",
+    scanRevision,
+    configurationRevision,
+    operationTry
+  ])
+
+export const jiraFinalizePlanActivityName = (
+  scanRevision: number,
+  configurationRevision: number,
+  outcomeSetSha256: string,
+  operationTry: number
+) =>
+  activityName([
+    "import",
+    "finalize-plan",
+    scanRevision,
+    configurationRevision,
+    outcomeSetSha256,
+    operationTry
+  ])
+
+export const jiraCopyAttachmentActivityName = (
+  sourceAttachmentId: string,
+  operationTry: number
+) =>
+  activityName([
+    "import",
+    "attachment",
+    encodeURIComponent(sourceAttachmentId),
+    operationTry
+  ])
+
+export const jiraWriteDocumentsActivityName = (
+  publicationRevision: string,
+  batchOrdinal: number,
+  operationTry: number
+) =>
+  activityName([
+    "import",
+    "write-documents",
+    publicationRevision,
+    "batch",
+    batchOrdinal,
+    operationTry
+  ])
+
+export const jiraPublicationActivityName = (
+  operation: "write-archive" | "write-report" | "verify" | "publish",
+  publicationRevision: string,
+  operationTry: number
+) => activityName(["import", operation, publicationRevision, operationTry])
+
 export const makeStartMigrationActivity = <R>(
   execute: Effect.Effect<void, JiraMigrationWorkflowFailureValue, R>,
   error: typeof JiraMigrationWorkflowFailure

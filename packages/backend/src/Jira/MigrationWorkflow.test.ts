@@ -9,6 +9,14 @@ import * as Ref from "effect/Ref"
 import * as Schema from "effect/Schema"
 import { DurableDeferred, WorkflowEngine } from "effect/unstable/workflow"
 import {
+  JIRA_DOCUMENT_BATCH_SIZE,
+  jiraCopyAttachmentActivityName,
+  jiraCreateHiddenActivityName,
+  jiraDocumentBatches,
+  jiraFinalizePlanActivityName,
+  jiraPreflightActivityName,
+  jiraPublicationActivityName,
+  jiraWriteDocumentsActivityName,
   makeFinalizeMigrationActivity,
   makeStartMigrationActivity
 } from "./MigrationActivities"
@@ -110,6 +118,41 @@ const completeStartImport = (executionId: string, scanRevision: number) => {
 }
 
 describe("Jira migration workflow contracts", () => {
+  it("keeps import Activity names and sorted document batches stable", () => {
+    const documents = Array.from({ length: 65 }, (_, index) => ({
+      path: `tickets/APP-${String(index + 1).padStart(3, "0")}.md`
+    }))
+    const paths = jiraDocumentBatches(documents.toReversed()).map((batch) =>
+      batch.map(({ path }) => path)
+    )
+
+    expect(JIRA_DOCUMENT_BATCH_SIZE).toBe(32)
+    expect(paths.map((batch) => batch.length)).toEqual([32, 32, 1])
+    expect(paths.flat()).toEqual(documents.map(({ path }) => path))
+    expect(jiraDocumentBatches(documents)).toEqual(
+      jiraDocumentBatches(documents.toReversed())
+    )
+    expect(() =>
+      jiraDocumentBatches([{ path: "duplicate" }, { path: "duplicate" }])
+    ).toThrow("Duplicate Jira publication document path")
+    expect(jiraPreflightActivityName(3, 7, 2)).toBe("v1/import/preflight/3/7/2")
+    expect(jiraCreateHiddenActivityName(3, 7, 2)).toBe(
+      "v1/import/create-hidden/3/7/2"
+    )
+    expect(jiraFinalizePlanActivityName(3, 7, "abc", 2)).toBe(
+      "v1/import/finalize-plan/3/7/abc/2"
+    )
+    expect(jiraCopyAttachmentActivityName("attachment/1", 2)).toBe(
+      "v1/import/attachment/attachment%2F1/2"
+    )
+    expect(jiraWriteDocumentsActivityName("revision", 1, 2)).toBe(
+      "v1/import/write-documents/revision/batch/1/2"
+    )
+    expect(jiraPublicationActivityName("verify", "revision", 2)).toBe(
+      "v1/import/verify/revision/2"
+    )
+  })
+
   it("keeps persisted names and idempotency keys stable", () => {
     expect(JiraMigrationWorkflow._tag).toBe("ProjectProject/JiraMigration/v1")
     expect(JiraMigrationWorkflow.idempotencyKey(createPayload)).toBe(
