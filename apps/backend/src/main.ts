@@ -1,4 +1,4 @@
-import { McpLive } from "./Layers/Mcp"
+import { createHmac, timingSafeEqual } from "node:crypto"
 // apps/backend/src/main.ts
 //
 // Backend entry point. This file's only job is to wire up the HttpApi from
@@ -57,8 +57,6 @@ import { McpLive } from "./Layers/Mcp"
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
 
-import { createHmac, timingSafeEqual } from "node:crypto"
-
 import { Db } from "@pp/db"
 import { projectIndex } from "@pp/db/schema"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
@@ -106,6 +104,7 @@ import { attachmentRoutes } from "./http/attachmentRoutes"
 import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
 import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
 import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
+import { McpLive } from "./Layers/Mcp"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 
 // Exported so tests can compose them without booting a real Bun server.

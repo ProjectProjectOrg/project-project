@@ -1,5 +1,3 @@
-import * as Option from "effect/Option"
-import { McpRequestUser } from "./McpRequestUser"
 import { randomUUID, randomBytes } from "node:crypto"
 
 import {
@@ -61,6 +59,7 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
@@ -74,6 +73,7 @@ import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 import { attachmentUploadRoute } from "../http/attachmentUploadRoutes"
 import { mappedToolErrorText } from "./errorMap"
 import { handlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
   id: "user-1",

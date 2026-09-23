@@ -160,7 +160,12 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
           yield* Effect.promise(() =>
             pool.query(
               "INSERT INTO oauth_refresh_token (id, token, client_id, user_id, expires_at, created_at, scopes) VALUES ($1, $1, $1, $2, now(), $3, $4)",
-              [older, userA, utcTimestamp("2026-09-07T12:03:00.000Z"), ["openid"]]
+              [
+                older,
+                userA,
+                utcTimestamp("2026-09-07T12:03:00.000Z"),
+                ["openid"]
+              ]
             )
           )
           const service = yield* OAuthApplications

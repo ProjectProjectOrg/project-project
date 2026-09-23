@@ -1,21 +1,29 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
+import { createHash, randomUUID } from "node:crypto"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer, type Server } from "node:http"
-import { createHash, randomUUID } from "node:crypto"
-import { Pool } from "pg"
+import { tmpdir } from "node:os"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { join } from "node:path"
+
+import { requireMcpAuth } from "@better-auth/mcp"
+import { migrationsFolder } from "@pp/db"
+import { betterAuth } from "better-auth"
+import { makeSignature } from "better-auth/crypto"
+import { toNodeHandler } from "better-auth/node"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { betterAuth } from "better-auth"
-import { toNodeHandler } from "better-auth/node"
-import { makeSignature } from "better-auth/crypto"
-import { requireMcpAuth } from "@better-auth/mcp"
-import { Effect, FileSystem, Layer, Schema } from "effect"
+import { Layer, Schema } from "effect"
 import { HttpRouter } from "effect/unstable/http"
-import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
+import { Pool } from "pg"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 vi.mock("../auth/cimdTransport", () => ({
   fetchClientMetadataResource: vi.fn()
 }))
+
+const httpFetch = globalThis.fetch.bind(globalThis)
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const Client = Schema.Struct({ client_id: Schema.String })
@@ -33,7 +41,6 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   let cookie: string
   let clientId: string | undefined
   let projectsDir: string
-  let filesystem: FileSystem.FileSystem
   let handleMcp: (request: Request) => Promise<Response>
   let disposeMcp = async () => {}
   const migratedClientId = randomUUID()
@@ -53,7 +60,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/migrations`
+      migrationsFolder
     })
     server = createServer()
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -65,13 +72,8 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     vi.stubEnv("BETTER_AUTH_URL", baseUrl)
     vi.stubEnv("MCP_RESOURCE_URL", baseUrl)
     vi.stubEnv("BETTER_AUTH_SECRET", secret)
-    filesystem = await Effect.runPromise(
-      Effect.provide(FileSystem.FileSystem, BunFileSystem.layer)
-    )
-    projectsDir = await Effect.runPromise(
-      filesystem.makeTempDirectory({
-        prefix: "projectproject-effect-v4-oauth-"
-      })
+    projectsDir = await mkdtemp(
+      join(tmpdir(), "projectproject-effect-v4-oauth-")
     )
     vi.stubEnv("PROJECTS_DIR", projectsDir)
     vi.stubEnv("GITHUB_APP_ID", "123")
@@ -119,9 +121,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const results = await Promise.allSettled([
       disposeMcp(),
       projectsDir
-        ? Effect.runPromise(
-            filesystem.remove(projectsDir, { recursive: true, force: true })
-          )
+        ? rm(projectsDir, { recursive: true, force: true })
         : Promise.resolve(),
       (async () => {
         if (!pool) return
@@ -176,10 +176,9 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   })
 
   it("migrates malformed legacy metadata without copying clients missing redirects", async () => {
-    const migration = await Effect.runPromise(
-      filesystem.readFileString(
-        `${import.meta.dirname}/migrations/20260907091000_better_auth_17/migration.sql`
-      )
+    const migration = await readFile(
+      `${migrationsFolder}/20260907091000_better_auth_17/migration.sql`,
+      "utf8"
     )
     const backfill = migration
       .split("--> statement-breakpoint")
@@ -223,7 +222,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   })
 
   it("discovers, registers, and reauthorizes migrated clients with resource-bound PKCE tokens", async () => {
-    const discovery = await fetch(
+    const discovery = await httpFetch(
       `${baseUrl}/.well-known/oauth-authorization-server/api/auth`
     )
     expect(discovery.status).toBe(200)
@@ -238,7 +237,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       `${baseUrl}/api/auth/oauth2/authorize`
     )
     const resource = `${baseUrl}/mcp`
-    const resourceMetadata = await fetch(
+    const resourceMetadata = await httpFetch(
       `${baseUrl}/.well-known/oauth-protected-resource/mcp`
     )
     expect(resourceMetadata.status).toBe(200)
@@ -252,7 +251,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     expect(protectedMetadata.authorization_servers).toContain(
       `${baseUrl}/api/auth`
     )
-    const registration = await fetch(metadata.registration_endpoint, {
+    const registration = await httpFetch(metadata.registration_endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -309,7 +308,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     const consentUrl = new URL(authorization.headers.get("location")!, baseUrl)
     expect(consentUrl.pathname).toBe("/oauth/consent")
     expect(consentUrl.searchParams.has("sig")).toBe(true)
-    const tampered = await fetch(`${baseUrl}/api/auth/oauth2/consent`, {
+    const tampered = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie, origin: baseUrl },
       body: JSON.stringify({
@@ -318,7 +317,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       })
     })
     expect(tampered.status, await tampered.clone().text()).toBe(400)
-    const consent = await fetch(`${baseUrl}/api/auth/oauth2/consent`, {
+    const consent = await httpFetch(`${baseUrl}/api/auth/oauth2/consent`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie, origin: baseUrl },
       body: JSON.stringify({
@@ -341,7 +340,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       code_verifier: verifier,
       resource
     })
-    const tokenResponse = await fetch(metadata.token_endpoint, {
+    const tokenResponse = await httpFetch(metadata.token_endpoint, {
       method: "POST",
       body: tokenBody
     })
@@ -421,7 +420,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
       refresh_token: token.refresh_token,
       resource
     })
-    const refreshed = await fetch(metadata.token_endpoint, {
+    const refreshed = await httpFetch(metadata.token_endpoint, {
       method: "POST",
       body: refreshBody
     })
@@ -431,14 +430,14 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     // Within `refreshTokenReuseInterval` a retried refresh replays the rotated
     // response instead of tripping breach detection, which would delete every
     // refresh token for this client/user pair.
-    const refreshReplay = await fetch(metadata.token_endpoint, {
+    const refreshReplay = await httpFetch(metadata.token_endpoint, {
       method: "POST",
       body: refreshBody
     })
     expect(refreshReplay.status, await refreshReplay.clone().text()).toBe(200)
     const replayed = Schema.decodeUnknownSync(Token)(await refreshReplay.json())
     expect(replayed.refresh_token).toBe(rotated.refresh_token)
-    const replay = await fetch(metadata.token_endpoint, {
+    const replay = await httpFetch(metadata.token_endpoint, {
       method: "POST",
       body: tokenBody
     })
@@ -446,7 +445,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
   })
 
   it("advertises Client ID Metadata Document support", async () => {
-    const response = await fetch(
+    const response = await httpFetch(
       `${baseUrl}/.well-known/oauth-authorization-server/api/auth`
     )
     expect(response.status).toBe(200)
@@ -486,7 +485,7 @@ describe.skipIf(!databaseUrl)("MCP OAuth provider compatibility", () => {
     authorize.searchParams.set("code_challenge", challenge)
     authorize.searchParams.set("code_challenge_method", "S256")
     authorize.searchParams.set("resource", `${baseUrl}/mcp`)
-    const response = await fetch(authorize, {
+    const response = await httpFetch(authorize, {
       headers: {
         cookie,
         accept: "text/html",

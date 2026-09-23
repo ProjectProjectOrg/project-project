@@ -1,5 +1,3 @@
-import * as Option from "effect/Option"
-import { McpRequestUser } from "./McpRequestUser"
 import { it } from "@effect/vitest"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
@@ -15,19 +13,15 @@ import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as Tickets from "@pp/server-core/tickets/Tickets"
 import * as Users from "@pp/server-core/users/Users"
-import {
-  McpTools,
-  NotFound,
-  Org,
-  OrgStorageStatus,
-  User
-} from "@pp/shared"
+import { McpTools, NotFound, Org, OrgStorageStatus, User } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
 import { handlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
 
 const user = Schema.decodeSync(User)({
   id: "user-1",

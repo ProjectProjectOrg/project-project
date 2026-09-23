@@ -15,6 +15,7 @@ import { ChevronRight, KeyRound } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useMemo, useState } from "react"
 
+import { ErrorPage } from "@/components/ErrorPage"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,7 +25,6 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { CodeSnippet } from "@/components/ui/code-snippet"
-import { ErrorPage } from "@/components/ErrorPage"
 import {
   type OAuthApplicationsRequest,
   oauthApplicationsRequest,

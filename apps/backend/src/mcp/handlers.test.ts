@@ -1,10 +1,4 @@
-import * as Option from "effect/Option"
-import { McpRequestUser } from "./McpRequestUser"
 import { describe, expect, it } from "@effect/vitest"
-import {
-  CallToolRequestSchema,
-  type CallToolRequest
-} from "@modelcontextprotocol/sdk/types.js"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
@@ -37,6 +31,7 @@ import { Tickets, type TicketsShape } from "@pp/server-core/tickets/Tickets"
 import { Users } from "@pp/server-core/users/Users"
 import {
   McpTools,
+  type McpToolName,
   BranchNotFound,
   Forbidden,
   GroupId,
@@ -50,11 +45,12 @@ import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { currentUserStorage } from "./currentUserStorage"
-import { registerAllTools } from "./dispatch"
-import { handlers } from "./handlers"
+import { handlers, toolkitHandlers } from "./handlers"
+import { McpRequestUser } from "./McpRequestUser"
+import { toolFailure, type McpToolFailure } from "./toolkit"
 
 type ToolResult = {
   content: ReadonlyArray<{ type: "text"; text: string }>
@@ -70,44 +66,44 @@ type HandlerServices =
     ? R
     : never
 
-type Registered = Map<string, (input: unknown) => Promise<ToolResult>>
+type Registered = Map<string, (input: unknown) => Effect.Effect<ToolResult>>
 
 const parseJson = (text: string) => JSON.parse(text)
 
 const register = (runtime: Context.Context<HandlerServices>): Registered => {
   const registered: Registered = new Map()
-  const fakeServer = captureToolCalls(registered)
-  registerAllTools(
-    fakeServer as Parameters<typeof registerAllTools>[0],
-    runtime,
-    handlers
-  )
+  for (const name of Object.keys(McpTools) as ReadonlyArray<McpToolName>) {
+    registered.set(name, (input) =>
+      Schema.decodeUnknownEffect(McpTools[name].input)(input).pipe(
+        Effect.flatMap((decoded) =>
+          (
+            toolkitHandlers[name] as (
+              input: unknown
+            ) => Effect.Effect<unknown, McpToolFailure, HandlerServices>
+          )(decoded)
+        ),
+        Effect.flatMap((value) =>
+          Schema.encodeUnknownEffect(McpTools[name].output)(value)
+        ),
+        Effect.map(
+          (value): ToolResult => ({
+            content: [{ type: "text", text: JSON.stringify(value, null, 2) }]
+          })
+        ),
+        toolFailure,
+        Effect.catch((failure) =>
+          Effect.succeed<ToolResult>({
+            isError: true,
+            content: [{ type: "text", text: failure.message }]
+          })
+        ),
+        Effect.provideService(McpRequestUser, Option.some(fakeUser)),
+        Effect.provide(runtime)
+      )
+    )
+  }
   return registered
 }
-
-const captureToolCalls = (
-  registered: Map<string, (input: unknown) => Promise<ToolResult>>
-) => ({
-  setRequestHandler: (
-    schema: unknown,
-    handler: (request: CallToolRequest) => Promise<ToolResult>
-  ) => {
-    if (schema !== CallToolRequestSchema) return
-    for (const name of Object.keys(McpTools)) {
-      registered.set(name, (input) =>
-        handler({
-          method: "tools/call",
-          params: {
-            name,
-            arguments: Schema.decodeUnknownSync(
-              Schema.Record(Schema.String, Schema.Unknown)
-            )(input)
-          }
-        })
-      )
-    }
-  }
-})
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
@@ -157,8 +153,7 @@ const TicketsStub = Layer.succeed(Tickets, {
 } as unknown as TicketsShape)
 
 const fakeUser = { id: "u-1" } as User
-const withFakeUser = <T>(fn: () => Promise<T>) =>
-  currentUserStorage.run(fakeUser, fn)
+const withFakeUser = <T>(fn: () => Effect.Effect<T>) => Effect.suspend(fn)
 const EmptyStub = <T>(tag: T) => Layer.succeed(tag as any, {})
 
 const ProjectsStub = Layer.succeed(Projects, {
@@ -245,7 +240,7 @@ const TestLayer = Layer.mergeAll(
   ProjectStatusesStub
 )
 
-describe("MCP dispatcher → list_tickets", () => {
+describe("MCP handlers → list_tickets", () => {
   it.effect("threads the requested limit through to Tickets.list", () =>
     Effect.gen(function* () {
       capturedListLimits.length = 0
@@ -254,7 +249,7 @@ describe("MCP dispatcher → list_tickets", () => {
       const registered = register(runtime)
       const cb = registered.get("list_tickets")
       expect(cb).toBeDefined()
-      const result = yield* Effect.promise(() =>
+      const result = yield* Effect.suspend(() =>
         withFakeUser(() =>
           cb!({
             orgSlug: "acme",
@@ -277,12 +272,12 @@ describe("MCP dispatcher → list_tickets", () => {
   )
 })
 
-describe("MCP dispatcher → list_statuses", () => {
+describe("MCP handlers → list_statuses", () => {
   it.effect("returns both the stable slug and user-facing label", () =>
     Effect.gen(function* () {
       const runtime = yield* Effect.context<HandlerServices>()
       const registered = register(runtime)
-      const result = yield* Effect.promise(() =>
+      const result = yield* Effect.suspend(() =>
         withFakeUser(() =>
           registered.get("list_statuses")!({
             orgSlug: "acme",
@@ -299,13 +294,13 @@ describe("MCP dispatcher → list_statuses", () => {
   )
 })
 
-describe("MCP dispatcher → doc tools", () => {
+describe("MCP handlers → doc tools", () => {
   it.effect("get_project_doc returns DocFile-shaped JSON envelope", () =>
     Effect.gen(function* () {
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("get_project_doc")
       expect(cb).toBeDefined()
-      const result = yield* Effect.promise(() =>
+      const result = yield* Effect.suspend(() =>
         withFakeUser(() => cb!({ orgSlug: "acme", projectSlug: "demo" }))
       )
 
@@ -323,7 +318,7 @@ describe("MCP dispatcher → doc tools", () => {
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("get_group_doc")
       expect(cb).toBeDefined()
-      const result = yield* Effect.promise(() =>
+      const result = yield* Effect.suspend(() =>
         withFakeUser(() =>
           cb!({ orgSlug: "acme", projectSlug: "demo", id: "G-1" })
         )
@@ -341,7 +336,7 @@ describe("MCP dispatcher → doc tools", () => {
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("get_ticket_doc")
       expect(cb).toBeDefined()
-      const result = yield* Effect.promise(() =>
+      const result = yield* Effect.suspend(() =>
         withFakeUser(() =>
           cb!({ orgSlug: "acme", projectSlug: "demo", id: "T-1" })
         )
@@ -357,7 +352,7 @@ describe("MCP dispatcher → doc tools", () => {
   it.effect.skip("placeholder", () => Effect.void)
 })
 
-describe("MCP dispatcher → write tools", () => {
+describe("MCP handlers → write tools", () => {
   const fakeTicketDetail = {
     ...fakeTicket,
     creator: null,
@@ -459,8 +454,8 @@ describe("MCP dispatcher → write tools", () => {
       captured.create = undefined
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("create_ticket")!
-      yield* Effect.promise(async () => {
-        const result = await withFakeUser(() =>
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
           cb({
             orgSlug: "acme",
             projectSlug: "demo",
@@ -494,8 +489,8 @@ describe("MCP dispatcher → write tools", () => {
       captured.update = undefined
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("update_ticket")!
-      yield* Effect.promise(async () => {
-        const result = await withFakeUser(() =>
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
           cb({
             orgSlug: "acme",
             projectSlug: "demo",
@@ -517,8 +512,8 @@ describe("MCP dispatcher → write tools", () => {
       captured.createComment = undefined
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("create_comment")!
-      yield* Effect.promise(async () => {
-        const result = await withFakeUser(() =>
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
           cb({
             orgSlug: "acme",
             projectSlug: "demo",
@@ -543,8 +538,8 @@ describe("MCP dispatcher → write tools", () => {
     Effect.gen(function* () {
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("attach_branch")!
-      yield* Effect.promise(async () => {
-        const result = await withFakeUser(() =>
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
           cb({
             orgSlug: "acme",
             projectSlug: "demo",
@@ -564,8 +559,8 @@ describe("MCP dispatcher → write tools", () => {
     Effect.gen(function* () {
       const registered = register(yield* Effect.context<HandlerServices>())
       const cb = registered.get("attach_branch")!
-      yield* Effect.promise(async () => {
-        const result = await withFakeUser(() =>
+      yield* Effect.gen(function* () {
+        const result = yield* withFakeUser(() =>
           cb({
             orgSlug: "acme",
             projectSlug: "demo",
@@ -606,8 +601,8 @@ describe("MCP dispatcher → write tools", () => {
       Effect.gen(function* () {
         const registered = register(yield* Effect.context<HandlerServices>())
         const cb = registered.get("rebuild_ticket_index")!
-        yield* Effect.promise(async () => {
-          const result = await withFakeUser(() =>
+        yield* Effect.gen(function* () {
+          const result = yield* withFakeUser(() =>
             cb({ orgSlug: "acme", projectSlug: "demo" })
           )
 
@@ -631,8 +626,8 @@ describe("MCP dispatcher → write tools", () => {
       Effect.gen(function* () {
         const registered = register(yield* Effect.context<HandlerServices>())
         const cb = registered.get("rebuild_ticket_index")!
-        yield* Effect.promise(async () => {
-          const result = await withFakeUser(() =>
+        yield* Effect.gen(function* () {
+          const result = yield* withFakeUser(() =>
             cb({ orgSlug: "acme", projectSlug: "demo" })
           )
 
@@ -645,7 +640,7 @@ describe("MCP dispatcher → write tools", () => {
   it.effect.skip("placeholder2", () => Effect.void)
 })
 
-describe("MCP dispatcher → add_tickets_to_group", () => {
+describe("MCP handlers → add_tickets_to_group", () => {
   const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
   const makeGroupsStub = (behaviour: "ok" | "completed" = "ok") => {
@@ -734,7 +729,7 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
           ticketIds: ["T-2", "T-2", "T-3"]
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBeUndefined()
       expect(addTicketsCaptured.orgSlug).toBe("acme")
@@ -760,7 +755,7 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
           ticketIds: ["T-2"]
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBe(true)
       expect(result.content[0].text.toLowerCase()).toContain("sprint")
@@ -770,7 +765,7 @@ describe("MCP dispatcher → add_tickets_to_group", () => {
   it.effect.skip("placeholder", () => Effect.void)
 })
 
-describe("MCP dispatcher → sprint writes", () => {
+describe("MCP handlers → sprint writes", () => {
   const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 
   const baseGroup = (
@@ -882,7 +877,7 @@ describe("MCP dispatcher → sprint writes", () => {
             name: "Sprint 5"
           }
         )
-        const result = yield* Effect.promise(() => call())
+        const result = yield* Effect.suspend(() => call())
 
         expect(result.isError).toBeUndefined()
         expect(createSprint.captured.createInput?.kind).toBe("sprint")
@@ -904,7 +899,7 @@ describe("MCP dispatcher → sprint writes", () => {
           body: "## Goal\n- ship it"
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBeUndefined()
       expect(updateSprint.captured.updateInput).toEqual({
@@ -927,7 +922,7 @@ describe("MCP dispatcher → sprint writes", () => {
           name: "should fail"
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBe(true)
       expect(result.content[0].text.toLowerCase()).toContain("not_a_sprint")
@@ -948,7 +943,7 @@ describe("MCP dispatcher → sprint writes", () => {
           destination: { kind: "backlog" }
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBeUndefined()
       expect(completeSprint.captured.completeInput).toEqual({
@@ -970,7 +965,7 @@ describe("MCP dispatcher → sprint writes", () => {
           destination: { kind: "backlog" }
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBe(true)
       expect(result.content[0].text.toLowerCase()).toContain("not_a_sprint")
@@ -991,7 +986,7 @@ describe("MCP dispatcher → sprint writes", () => {
           destination: { kind: "backlog" }
         }
       )
-      const result = yield* Effect.promise(() => call())
+      const result = yield* Effect.suspend(() => call())
 
       expect(result.isError).toBe(true)
       // Specific surfaced text — confirms SprintCompletedImmutable's mapping
@@ -1005,7 +1000,7 @@ describe("MCP dispatcher → sprint writes", () => {
   it.effect.skip("placeholder", () => Effect.void)
 })
 
-describe("MCP dispatcher → NotFound retained", () => {
+describe("MCP handlers → NotFound retained", () => {
   const HiddenProjectsStub = Layer.succeed(Projects, {
     requireMember: (_o: any, _u: any, _s: any) => Effect.fail(new NotFound())
   } as unknown as ProjectsShape)
@@ -1030,14 +1025,14 @@ describe("MCP dispatcher → NotFound retained", () => {
       Effect.gen(function* () {
         const registered = register(yield* Effect.context<HandlerServices>())
         const cb = registered.get("get_ticket_doc")
-        const result = yield* Effect.promise(() =>
+        const result = yield* Effect.suspend(() =>
           withFakeUser(() =>
             cb!({ orgSlug: "acme", projectSlug: "demo", id: "T-1" })
           )
         )
 
         expect(result.isError).toBe(true)
-        expect(result.content[0].text.toLowerCase()).toContain("not found")
+        expect(result.content[0].text).toBe("Not found.")
       }).pipe(Effect.provide(HiddenLayer))
   )
 })

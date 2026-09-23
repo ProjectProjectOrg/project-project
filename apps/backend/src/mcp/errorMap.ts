@@ -1,16 +1,16 @@
-import type * as Schema from "effect/Schema"
+import type { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
+import type {
+  GroupIdTaken,
+  MarkdownError,
+  TicketIdTaken
+} from "@pp/server-core/markdown/Markdown"
 import type {
   AttachmentNotUploaded,
   BranchExists,
   BranchProtected,
   McpToolError
-} from "@projectproject/shared"
-import type { BetterAuthError } from "../Services/BetterAuth"
-import type {
-  GroupIdTaken,
-  MarkdownError,
-  TicketIdTaken
-} from "../Services/Markdown"
+} from "@pp/shared"
+import type * as Schema from "effect/Schema"
 
 type BackendToolError =
   | AttachmentNotUploaded

@@ -1,9 +1,12 @@
-import { and, eq, inArray } from "drizzle-orm"
 import { createResourceServerChallenge } from "@better-auth/oauth-provider"
+import { Db } from "@pp/db"
+import { oauthConsent } from "@pp/db/auth-schema"
+import { Users } from "@pp/server-core/users/Users"
 import {
   createDpopReplayStore,
   verifyAccessTokenRequest
 } from "better-auth/oauth2"
+import { and, eq, inArray } from "drizzle-orm"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
@@ -14,11 +17,9 @@ import {
   HttpServerRequest,
   HttpServerResponse
 } from "effect/unstable/http"
+
 import { auth, mcpResource } from "../auth"
-import { oauthConsent } from "../db/auth-schema"
 import { McpRequestUser } from "../mcp/McpRequestUser"
-import { Db } from "../Services/Db"
-import { Users } from "../Services/Users"
 
 class TokenRejected extends Data.TaggedError("TokenRejected")<{
   readonly cause: unknown

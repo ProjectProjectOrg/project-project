@@ -1,6 +1,4 @@
-import { legacyMcpResources } from "./auth/legacyMcpResources"
 import { cimd } from "@better-auth/cimd"
-import { fetchClientMetadataResource } from "./auth/cimdTransport"
 import { mcp } from "@better-auth/mcp"
 import * as BunServices from "@effect/platform-bun/BunServices"
 import * as authSchema from "@pp/db/auth-schema"
@@ -16,13 +14,16 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, jwt, magicLink, organization } from "better-auth/plugins"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { FileSystem, Path, Schema, Struct } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import matter from "gray-matter"
+
+import { fetchClientMetadataResource } from "./auth/cimdTransport"
+import { legacyMcpResources } from "./auth/legacyMcpResources"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 

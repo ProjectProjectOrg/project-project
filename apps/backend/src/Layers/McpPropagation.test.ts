@@ -1,11 +1,12 @@
-import { describe, expect, test } from "vite-plus/test"
+import type { User } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import { HttpRouter } from "effect/unstable/http"
 import { McpProtocol, McpServer, Tool, Toolkit } from "effect/unstable/ai"
-import type { User } from "@projectproject/shared"
+import { HttpRouter } from "effect/unstable/http"
+import { describe, expect, test } from "vitest"
+
 import { McpRequestUser } from "../mcp/McpRequestUser"
 
 const WhoAmI = Tool.make("who_am_i", {

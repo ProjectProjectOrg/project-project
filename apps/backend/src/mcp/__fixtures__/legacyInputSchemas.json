@@ -262,154 +262,160 @@
   "list_tickets": {
     "type": "object",
     "properties": {
-      "orgSlug": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "minLength": 1,
-        "maxLength": 64
+      "status": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+$",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
-      "projectSlug": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-        "minLength": 1,
-        "maxLength": 64
+      "type": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["feat", "bug", "chore", "other"]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
-      "filter": {
+      "assignee": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["mine", "unassigned"]
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tags": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9 -]{0,30}$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "hasBranch": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "hasPr": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "updatedAfter": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "groupId": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["ungrouped"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^G-[1-9][0-9]*$"
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "archived": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sort": {
         "anyOf": [
           {
             "type": "object",
             "properties": {
-              "status": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9_]+$",
-                      "minLength": 1,
-                      "maxLength": 40
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+              "key": {
+                "type": "string",
+                "enum": ["id", "created", "updated", "title", "priority"]
               },
-              "type": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "enum": ["feat", "bug", "chore", "other"]
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "assignee": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": ["mine"]
-                        },
-                        {
-                          "type": "null"
-                        },
-                        {
-                          "type": "string"
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "tags": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "pattern": "^[a-z0-9][a-z0-9 -]{0,30}$"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "hasBranch": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "hasPr": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "updatedAfter": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "groupId": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "pattern": "^G-[1-9][0-9]*$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "archived": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+              "dir": {
+                "type": "string",
+                "enum": ["asc", "desc"]
               }
             },
+            "required": ["key", "dir"],
             "additionalProperties": true
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "q": {
+        "anyOf": [
+          {
+            "type": "string"
           },
           {
             "type": "null"
@@ -425,6 +431,18 @@
             "type": "null"
           }
         ]
+      },
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
       },
       "limit": {
         "anyOf": [

@@ -1,19 +1,24 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import { randomUUID } from "node:crypto"
-import { Pool } from "pg"
-import { drizzle } from "drizzle-orm/node-postgres"
-import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { Clock, FileSystem } from "effect"
-import * as BunFileSystem from "@effect/platform-bun/BunFileSystem"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { mkdtemp, rm } from "node:fs/promises"
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer, type Server } from "node:http"
-import { toNodeHandler } from "better-auth/node"
-import * as Effect from "effect/Effect"
-import * as Layer from "effect/Layer"
-import { HttpRouter } from "effect/unstable/http"
-import { McpTools } from "@projectproject/shared"
+import { tmpdir } from "node:os"
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { join } from "node:path"
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
+import { migrationsFolder } from "@pp/db"
+import { McpTools } from "@pp/shared"
+import { toNodeHandler } from "better-auth/node"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as DateTime from "effect/DateTime"
+import * as Layer from "effect/Layer"
+import { HttpRouter } from "effect/unstable/http"
+import { Pool } from "pg"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -34,7 +39,6 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   let server: Server
   const clients: Array<Client> = []
   let pool: Pool
-  let filesystem: FileSystem.FileSystem
   let projectsDir: string
   let dispose: (() => Promise<void>) | undefined
   let handlers: Array<(request: Request) => Promise<Response>> = []
@@ -119,14 +123,9 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), {
-      migrationsFolder: `${import.meta.dirname}/../db/migrations`
+      migrationsFolder
     })
-    filesystem = await Effect.runPromise(
-      Effect.provide(FileSystem.FileSystem, BunFileSystem.layer)
-    )
-    projectsDir = await Effect.runPromise(
-      filesystem.makeTempDirectory({ prefix: "projectproject-mcp-test-" })
-    )
+    projectsDir = await mkdtemp(join(tmpdir(), "projectproject-mcp-test-"))
     server = createServer()
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const address = server.address()
@@ -174,9 +173,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
             aud: resource,
             iss: `${baseUrl}/api/auth`,
             exp:
-              Math.floor(
-                (await Effect.runPromise(Clock.currentTimeMillis)) / 1000
-              ) + 3600
+              Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) + 3600
           }
         }
       })
@@ -192,9 +189,8 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
                 aud: resource,
                 iss: `${baseUrl}/api/auth`,
                 exp:
-                  Math.floor(
-                    (await Effect.runPromise(Clock.currentTimeMillis)) / 1000
-                  ) - 3600
+                  Math.floor(DateTime.nowUnsafe().epochMilliseconds / 1000) -
+                  3600
               }
             }
           })
@@ -222,10 +218,7 @@ describe.skipIf(!databaseUrl)("MCP endpoint", () => {
   afterAll(async () => {
     await Promise.all(clients.map((client) => client.close()))
     await dispose?.()
-    if (projectsDir)
-      await Effect.runPromise(
-        filesystem.remove(projectsDir, { recursive: true, force: true })
-      )
+    if (projectsDir) await rm(projectsDir, { recursive: true, force: true })
     if (pool) {
       await pool.query("DELETE FROM oauth_client WHERE client_id=$1", [
         clientId
