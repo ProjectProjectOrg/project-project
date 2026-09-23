@@ -137,26 +137,27 @@ function Dashboard() {
         <p>{m.org_dashboard_subtitle()}</p>
       </PageHeader>
 
-      {Result.matchWithError(list, {
-        onInitial: () => <TilesSkeleton />,
-        onError: () => <NewProjectCTA orgSlug={orgSlug} />,
-        onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
-        onSuccess: ({ value }) =>
-          value.length === 0 ? (
-            <NewProjectCTA orgSlug={orgSlug} />
-          ) : (
-            <RecentProjects orgSlug={orgSlug} projects={value} />
-          )
-      })}
-
       <div className="@container/dashboard">
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start">
-          <MyTicketsSection
-            orgSlug={orgSlug}
-            view={view}
-            onViewChange={setView}
-          />
-          <RecentTicketsSection orgSlug={orgSlug} />
+        <div className="flex flex-col gap-6 @5xl/dashboard:gap-12">
+          {Result.matchWithError(list, {
+            onInitial: () => <TilesSkeleton />,
+            onError: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onDefect: () => <NewProjectCTA orgSlug={orgSlug} />,
+            onSuccess: ({ value }) =>
+              value.length === 0 ? (
+                <NewProjectCTA orgSlug={orgSlug} />
+              ) : (
+                <RecentProjects orgSlug={orgSlug} projects={value} />
+              )
+          })}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
+            <MyTicketsSection
+              orgSlug={orgSlug}
+              view={view}
+              onViewChange={setView}
+            />
+            <RecentTicketsSection orgSlug={orgSlug} />
+          </div>
         </div>
       </div>
       <DashboardGitSync orgSlug={orgSlug} />
