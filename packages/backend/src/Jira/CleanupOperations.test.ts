@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto"
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { Effect, Layer, Redacted } from "effect"
+import { ConfigProvider, Effect, Layer, Redacted } from "effect"
+import { WorkflowEngine } from "effect/unstable/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { DbLive } from "../Layers/Db"
+import { MarkdownLive } from "../Layers/Markdown"
 import { projectIndex } from "../db/schema"
 import { Db } from "../Services/Db"
 import { OrgStorage } from "../Services/OrgStorage"
@@ -14,6 +17,10 @@ import { S3Storage } from "../Services/S3Storage"
 import { JiraMigrationArtifacts } from "./MigrationArtifacts"
 import { JiraMigrationProjection } from "./MigrationProjection"
 import { makeJiraCleanupActivities } from "./CleanupOperations"
+import {
+  makeJiraCleanupCommands,
+  makeJiraMigrationCleanupWorkflow
+} from "./CleanupWorkflow"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -123,7 +130,20 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
     const layer = Layer.mergeAll(
       JiraMigrationProjection.layer.pipe(Layer.provideMerge(DbLive)),
       fakes
-    ).pipe(Layer.provideMerge(pg), Layer.orDie)
+    ).pipe(
+      Layer.provideMerge(
+        MarkdownLive.pipe(
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })
+            )
+          )
+        )
+      ),
+      Layer.provideMerge(BunServices.layer),
+      Layer.provideMerge(pg),
+      Layer.orDie
+    )
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const projection = yield* JiraMigrationProjection
@@ -186,18 +206,24 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           destinationProjectSlug: slug
         })
         const ready = yield* projection.owned(owner, created.id)
-        const payload = {
-          migrationId: created.id,
-          mode: "reset_import" as const,
-          cleanupGeneration: ready.revision + 1
-        }
         const activities = yield* makeJiraCleanupActivities
-        expect(yield* activities.claim(payload, "cleanup-execution")).toBe(true)
-        yield* activities.deleteCopiedObjects(payload, "cleanup-execution")
-        yield* activities.deletePendingAttachments(payload, "cleanup-execution")
-        yield* activities.deleteHiddenDocuments(payload, "cleanup-execution")
-        yield* activities.deleteHiddenProject(payload, "cleanup-execution")
-        yield* activities.complete(payload, "cleanup-execution")
+        const cleanupLayer = makeJiraMigrationCleanupWorkflow(activities).pipe(
+          Layer.provideMerge(WorkflowEngine.layerMemory)
+        )
+        const resetResult = yield* Effect.gen(function* () {
+          const commands = yield* makeJiraCleanupCommands
+          const command = {
+            ...fence,
+            expectedRevision: ready.revision,
+            mode: "reset_import" as const
+          }
+          const cleanupExecutionId = yield* commands.start(command)
+          return yield* commands.awaitReset({
+            ...command,
+            cleanupExecutionId
+          })
+        }).pipe(Effect.provide(cleanupLayer))
+        expect(resetResult.revision).toBeGreaterThan(ready.revision)
         const reset = yield* projection.owned(owner, created.id)
         yield* projection.recordFailure(fence, {
           reason: "discard-after-reset",

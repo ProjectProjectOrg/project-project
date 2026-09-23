@@ -2,6 +2,16 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { Activity, Workflow } from "effect/unstable/workflow"
+import * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
+import { Conflict, JiraError } from "@projectproject/shared"
+import { eq } from "drizzle-orm"
+import { jiraMigration } from "../db/schema"
+import { Db } from "../Services/Db"
+import type {
+  JiraMigrationCleanupCommand,
+  JiraMigrationCleanupCommands
+} from "./Migrations"
+import { fenceFor } from "./MigrationProjection"
 
 export const JiraMigrationCleanupFailure = Schema.TaggedStruct(
   "JiraMigrationCleanupFailure",
@@ -132,3 +142,57 @@ export const makeJiraMigrationCleanupWorkflow = <R>(
       yield* run("complete", activities.complete(payload, executionId))
     })
   )
+
+export const makeJiraCleanupCommands = Effect.gen(function* () {
+  const db = yield* Db
+  const engine = yield* WorkflowEngine.WorkflowEngine
+  const payloadFor = (input: JiraMigrationCleanupCommand) => ({
+    migrationId: input.migrationId,
+    mode: input.mode,
+    cleanupGeneration: input.expectedRevision + 1
+  })
+  const provideEngine = <A, E>(
+    effect: Effect.Effect<A, E, WorkflowEngine.WorkflowEngine>
+  ) => Effect.provideService(effect, WorkflowEngine.WorkflowEngine, engine)
+  const start: JiraMigrationCleanupCommands["start"] = (input) =>
+    provideEngine(
+      JiraMigrationCleanupWorkflow.execute(payloadFor(input), {
+        discard: true
+      })
+    )
+  const awaitReset: JiraMigrationCleanupCommands["awaitReset"] = (input) =>
+    Effect.gen(function* () {
+      const payload = payloadFor(input)
+      const executionId = yield* provideEngine(
+        JiraMigrationCleanupWorkflow.execute(payload, { discard: true })
+      )
+      if (executionId !== input.cleanupExecutionId)
+        return yield* new Conflict({
+          reason: "jira_migration_revision_conflict"
+        })
+      yield* provideEngine(JiraMigrationCleanupWorkflow.execute(payload)).pipe(
+        Effect.mapError(() => new JiraError({ reason: "server_error" }))
+      )
+      const [row] = yield* db
+        .select()
+        .from(jiraMigration)
+        .where(eq(jiraMigration.id, input.migrationId))
+        .limit(1)
+        .pipe(Effect.mapError(() => new JiraError({ reason: "server_error" })))
+      const fence = row && fenceFor(row)
+      if (
+        !row ||
+        !fence ||
+        fence.workflowExecutionId !== input.workflowExecutionId ||
+        fence.workflowAttempt !== input.workflowAttempt ||
+        row.cleanupExecutionId !== null ||
+        row.destinationProjectId !== null ||
+        row.revision < payload.cleanupGeneration + 1
+      )
+        return yield* new Conflict({
+          reason: "jira_migration_revision_conflict"
+        })
+      return { fence, revision: row.revision }
+    })
+  return { start, awaitReset } satisfies JiraMigrationCleanupCommands
+})
