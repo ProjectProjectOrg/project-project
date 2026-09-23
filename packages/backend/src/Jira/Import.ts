@@ -48,7 +48,10 @@ import type { ProjectDocsShape } from "../Services/ProjectDocs"
 import type { TicketDocsShape } from "../Services/TicketDocs"
 import type { TicketIndexShape } from "../Services/TicketIndex"
 import type { JiraClientShape } from "./Client"
-import { jiraConfigurationToMappings } from "./Mappings"
+import {
+  jiraConfigurationToMappings,
+  jiraDestinationTicketId
+} from "./Mappings"
 import {
   canonicalJiraJson,
   JiraMigrationManifestV2,
@@ -300,7 +303,11 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
         : [identity.projectProjectUserId]
     )
   ])
-  const plannedTicketIds = new Set(manifest.issues.map((issue) => issue.key))
+  const plannedTicketIds = new Set<string>(
+    manifest.issues.map(({ issueNumber }) =>
+      jiraDestinationTicketId(input.configuration.destination.key, issueNumber)
+    )
+  )
   const source = yield* resolveJiraPublicationSource(
     input.orgSlug,
     manifest,

@@ -13,7 +13,7 @@ import {
   type JiraMigrationMappings
 } from "./Mappings"
 import { Effect, Schema } from "effect"
-import { JiraMigrationConfiguration, TicketId } from "@projectproject/shared"
+import { JiraMigrationConfiguration } from "@projectproject/shared"
 import { JiraMigrationManifestV2 } from "./Manifest"
 import {
   jiraConfigurationToMappings,
@@ -574,11 +574,9 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
         addFinding(blockers, "missing-priority-mapping", priority.id)
 
     if (
-      configuration.destination.key !== manifest.source.projectKey ||
       manifest.issues.some(
         (issue) =>
-          !Schema.is(TicketId)(issue.key) ||
-          issue.key !== `${configuration.destination.key}-${issue.issueNumber}`
+          issue.key !== `${manifest.source.projectKey}-${issue.issueNumber}`
       )
     )
       addFinding(

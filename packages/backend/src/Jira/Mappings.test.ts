@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import * as Schema from "effect/Schema"
 import {
   BASELINE_STATUS_COLORS,
+  CreatableProjectKey,
   TAG_DEFAULT_PALETTE
 } from "@projectproject/shared"
 import type { JiraMigrationManifest } from "./Manifest"
@@ -255,9 +256,25 @@ describe("buildDefaultTicketIdMappings", () => {
       ]
     }
 
-    expect(buildDefaultTicketIdMappings(manifest)).toEqual([
+    expect(
+      buildDefaultTicketIdMappings(
+        manifest,
+        Schema.decodeSync(CreatableProjectKey)("APP")
+      )
+    ).toEqual([
       { sourceIssueId: "10001", destinationTicketId: "APP-1" },
+      { sourceIssueId: "10002", destinationTicketId: "APP-2" },
       { sourceIssueId: "10004", destinationTicketId: "APP-4" }
+    ])
+    expect(
+      buildDefaultTicketIdMappings(
+        manifest,
+        Schema.decodeSync(CreatableProjectKey)("NEW")
+      )
+    ).toEqual([
+      { sourceIssueId: "10001", destinationTicketId: "NEW-1" },
+      { sourceIssueId: "10002", destinationTicketId: "NEW-2" },
+      { sourceIssueId: "10004", destinationTicketId: "NEW-4" }
     ])
   })
 })

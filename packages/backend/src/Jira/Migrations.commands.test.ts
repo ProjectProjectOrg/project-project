@@ -224,10 +224,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     start: () => Effect.die("Unexpected cleanup start"),
     awaitReset: () => Effect.die("Unexpected reset wait")
   }
-  const artifacts = (issueKeys: ReadonlyArray<string> = []) => ({
+  const artifacts = (issueNumbers: ReadonlyArray<number> = []) => ({
     readJson: <A>(_orgSlug: string, _ref: unknown, schema: Schema.Decoder<A>) =>
       Schema.decodeUnknownEffect(schema)({
-        issues: issueKeys.map((key) => ({ key }))
+        issues: issueNumbers.map((issueNumber) => ({ issueNumber }))
       }).pipe(
         Effect.mapError(
           () => new JiraArtifactError({ key: "manifest", reason: "schema" })
@@ -237,7 +237,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
   const commandLayer = (
     cleanup = unexpectedCleanup,
     unresolvedFailedAttachmentIds: ReadonlyArray<string> = [],
-    issueKeys: ReadonlyArray<string> = []
+    issueNumbers: ReadonlyArray<number> = []
   ) =>
     JiraMigrationsDurableLive(
       cleanup,
@@ -245,7 +245,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
         unresolvedFailedAttachments: () =>
           Effect.succeed(unresolvedFailedAttachmentIds)
       },
-      artifacts(issueKeys)
+      artifacts(issueNumbers)
     )
   const scanningWorkflow = (
     p: JiraMigrationProjectionShape,
@@ -337,6 +337,29 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             { kind: "project_key", value: "APP" },
             { kind: "ticket_id", value: "APP-1" }
           ])
+          const changed = yield* migrations.configure(
+            owner.organizationId,
+            owner.userId,
+            scanned.id,
+            ready.revision,
+            yield* Schema.decodeUnknownEffect(JiraMigrationConfiguration)({
+              ...configuration,
+              destination: {
+                ...configuration.destination,
+                slug: "new-application",
+                key: "NEW"
+              }
+            })
+          )
+          expect(
+            yield* migrations.destinationConflicts(
+              owner.organizationId,
+              owner.userId,
+              owner.organizationId,
+              scanned.id,
+              changed.revision
+            )
+          ).toEqual([])
           const stale = yield* Effect.exit(
             migrations.destinationConflicts(
               owner.organizationId,
@@ -350,7 +373,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
         }).pipe(
           Effect.provide(
             Layer.merge(
-              commandLayer(undefined, [], ["APP-1"]),
+              commandLayer(undefined, [], [1]),
               scanningWorkflow(projection, owner)
             )
           )

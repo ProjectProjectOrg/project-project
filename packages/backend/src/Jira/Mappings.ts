@@ -215,18 +215,23 @@ export function buildJiraStatusCreateOptions(
 }
 
 export function buildDefaultTicketIdMappings(
-  manifest: JiraMappingSource
+  manifest: JiraMappingSource,
+  destinationKey: CreatableProjectKey
 ): ReadonlyArray<TicketIdMapping> {
   return manifest.issues
-    .filter(({ key }) => Schema.is(TicketId)(key))
-    .map(({ id, key }) => ({
+    .map(({ id, issueNumber }) => ({
       sourceIssueId: id,
-      destinationTicketId: Schema.decodeSync(TicketId)(key)
+      destinationTicketId: jiraDestinationTicketId(destinationKey, issueNumber)
     }))
     .toSorted((left, right) =>
       compareStrings(left.destinationTicketId, right.destinationTicketId)
     )
 }
+
+export const jiraDestinationTicketId = (
+  destinationKey: CreatableProjectKey,
+  issueNumber: number
+): TicketId => Schema.decodeSync(TicketId)(`${destinationKey}-${issueNumber}`)
 
 export function normalizeJiraTag(
   sourceValue: string,
@@ -420,7 +425,10 @@ export function jiraConfigurationToMappings(
           ]
         : [])
     ],
-    ticketIds: buildDefaultTicketIdMappings(manifest),
+    ticketIds: buildDefaultTicketIdMappings(
+      manifest,
+      configuration.destination.key
+    ),
     restrictions: manifest.restrictions.map(({ id }) => ({
       restrictionId: id,
       resolution: restrictionResolution

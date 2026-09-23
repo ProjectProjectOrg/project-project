@@ -26,6 +26,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { projectIndex, ticketIndex } from "../db/schema"
 import { Db } from "../Services/Db"
 import { type JiraMigrationArtifactsShape } from "./MigrationArtifacts"
+import { jiraDestinationTicketId } from "./Mappings"
 import { jiraProjectIdFor } from "./PublicationPlan"
 import {
   actionsFor,
@@ -287,7 +288,7 @@ export const jiraDestinationConflicts = (
     organizationId: string
     currentProjectId: string
     destination: JiraMigrationConfiguration["destination"]
-    issueKeys: ReadonlyArray<string>
+    destinationTicketIds: ReadonlyArray<string>
     projects: ReadonlyArray<
       Readonly<{
         id: string
@@ -307,13 +308,14 @@ export const jiraDestinationConflicts = (
       .filter(({ organizationId }) => organizationId === input.organizationId)
       .map(({ id }) => id)
   )
-  const issueKeys = new Set(input.issueKeys)
+  const destinationTicketIds = new Set(input.destinationTicketIds)
   const ticketIds = [
     ...new Set(
       input.tickets
         .filter(
           ({ projectId, ticketId }) =>
-            organizationProjectIds.has(projectId) && issueKeys.has(ticketId)
+            organizationProjectIds.has(projectId) &&
+            destinationTicketIds.has(ticketId)
         )
         .map(({ ticketId }) => ticketId)
     )
@@ -593,7 +595,13 @@ export const JiraMigrationsDurableLive = (
                 orgSlug,
                 checkpoint.scan.manifest,
                 Schema.Struct({
-                  issues: Schema.Array(Schema.Struct({ key: Schema.String }))
+                  issues: Schema.Array(
+                    Schema.Struct({
+                      issueNumber: Schema.Int.pipe(
+                        Schema.check(Schema.isGreaterThanOrEqualTo(1))
+                      )
+                    })
+                  )
                 })
               )
               .pipe(
@@ -612,12 +620,19 @@ export const JiraMigrationsDurableLive = (
               .pipe(
                 Effect.mapError(() => new JiraError({ reason: "server_error" }))
               )
-            const issueKeys = manifest.issues.map(({ key }) => key)
-            const issueKeyBatches = Array.from(
-              { length: Math.ceil(issueKeys.length / 1000) },
-              (_, index) => issueKeys.slice(index * 1000, (index + 1) * 1000)
+            const destinationTicketIds = manifest.issues.map(
+              ({ issueNumber }) =>
+                jiraDestinationTicketId(
+                  configuration.destination.key,
+                  issueNumber
+                )
             )
-            const tickets = (yield* Effect.forEach(issueKeyBatches, (batch) =>
+            const ticketIdBatches = Array.from(
+              { length: Math.ceil(destinationTicketIds.length / 1000) },
+              (_, index) =>
+                destinationTicketIds.slice(index * 1000, (index + 1) * 1000)
+            )
+            const tickets = (yield* Effect.forEach(ticketIdBatches, (batch) =>
               db
                 .select({
                   projectId: ticketIndex.projectId,
@@ -640,7 +655,7 @@ export const JiraMigrationsDurableLive = (
               organizationId,
               currentProjectId: jiraProjectIdFor(migrationId),
               destination: configuration.destination,
-              issueKeys,
+              destinationTicketIds,
               projects,
               tickets
             })

@@ -855,19 +855,45 @@ describe("immutable v2 publication", () => {
     expect(same.bytes).toEqual(result.bytes)
     expect(same.publicationRevision).toBe(result.publicationRevision)
   })
-  it("blocks incompatible keys and collisions before preparing", async () => {
+  it("remaps ticket IDs with a changed key and blocks collisions on the final IDs", async () => {
     const input = preparationInput()
+    const changed = {
+      ...input,
+      configuration: {
+        ...input.configuration,
+        destination: { ...input.configuration.destination, key: "OTHER" }
+      },
+      environment: {
+        ...input.environment,
+        existingProjectKeys: ["APP"],
+        existingTicketIds: ["APP-4"]
+      }
+    }
+    const prepared = await Effect.runPromise(prepareJiraPublication(changed))
+    const result = await Effect.runPromise(
+      finalizeJiraPublication(prepared, [])
+    )
+    expect(result.plan.indexes.tickets.map(({ ticketId }) => ticketId)).toEqual(
+      ["OTHER-1", "OTHER-4"]
+    )
+    expect(result.plan.documents.map(({ path }) => path)).toContain(
+      "tickets/OTHER-1.md"
+    )
+    expect(result.plan.tickets[0]?.sourceIssueKey).toBe("APP-1")
     await expect(
       Effect.runPromise(
         prepareJiraPublication({
-          ...input,
-          configuration: {
-            ...input.configuration,
-            destination: { ...input.configuration.destination, key: "OTHER" }
+          ...changed,
+          environment: {
+            ...changed.environment,
+            existingTicketIds: ["OTHER-4"]
           }
         })
       )
-    ).rejects.toThrow("incompatible-project-key")
+    ).rejects.toThrow("ticket-id-collision")
+  })
+  it("blocks destination identity collisions before preparing", async () => {
+    const input = preparationInput()
     await expect(
       Effect.runPromise(
         prepareJiraPublication({

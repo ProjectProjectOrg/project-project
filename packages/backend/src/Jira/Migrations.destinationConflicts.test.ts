@@ -22,7 +22,7 @@ it("reports exact global slug, organization key, and ticket ID conflicts", () =>
       organizationId: "current-org",
       currentProjectId: "current-project",
       destination,
-      issueKeys: ["APP-1", "APP-2"],
+      destinationTicketIds: ["APP-1", "APP-2"],
       projects: [
         {
           id: "another-org-project",
