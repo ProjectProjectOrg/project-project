@@ -19,9 +19,15 @@ import {
 } from "./PublicationPlan"
 import {
   loadJiraPublicationPlan,
+  loadJiraPreparedPublication,
   makeJiraMaterializationDependencies,
-  persistJiraPublicationPlan
+  persistJiraPublicationPlan,
+  persistJiraPreparedPublication
 } from "./Import"
+import type {
+  JiraArtifactRef,
+  JiraMigrationArtifactsShape
+} from "./MigrationArtifacts"
 const convertedText = (
   markdown: string,
   references: JiraConvertedText["references"]
@@ -626,6 +632,47 @@ describe("immutable v2 publication", () => {
     expect(
       Schema.decodeUnknownSync(JiraPublicationPlanV1)(stored).project.slug
     ).toBe("application")
+  })
+
+  it("stores the prepared publication behind a checksum-bound artifact reference", async () => {
+    const prepared = await Effect.runPromise(
+      prepareJiraPublication(preparationInput())
+    )
+    let stored: unknown = null
+    let identity = ""
+    const ref = {
+      key: "migrations/jira/migration-1/scan-1/publication/prepared-v1/test.json",
+      contentType: "application/json",
+      byteSize: 100,
+      sha256: "b".repeat(64)
+    }
+    const artifacts: Pick<
+      JiraMigrationArtifactsShape,
+      "writeJson" | "verify" | "readJson"
+    > = {
+      writeJson: (_orgSlug, coordinates, value) =>
+        Effect.sync(() => {
+          identity = coordinates.identity
+          stored = value
+          return ref
+        }),
+      verify: () => Effect.void,
+      readJson: <A>(
+        _orgSlug: string,
+        _ref: JiraArtifactRef,
+        schema: Schema.Decoder<A>
+      ) => Schema.decodeUnknownEffect(schema)(stored).pipe(Effect.orDie)
+    }
+    const saved = await Effect.runPromise(
+      persistJiraPreparedPublication(prepared, artifacts)
+    )
+    expect(saved).toEqual(ref)
+    expect(identity).toMatch(/^[a-f0-9]{64}$/)
+    expect(
+      await Effect.runPromise(
+        loadJiraPreparedPublication(prepared.orgSlug, ref, artifacts)
+      )
+    ).toEqual(prepared)
   })
   it("stores the finalized plan under its content revision with a bounded batch count", async () => {
     const prepared = await Effect.runPromise(

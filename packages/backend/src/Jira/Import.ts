@@ -70,9 +70,9 @@ import type {
 import {
   createJiraPublicationPlan,
   finalizeJiraPublication,
+  JiraPreparedPublicationV1,
   JiraPublicationPlanV1,
   type JiraAttachmentOutcome,
-  type JiraPreparedPublicationV1,
   type JiraPublicationPlan
 } from "./PublicationPlan"
 
@@ -148,6 +148,51 @@ export const buildJiraImportPlan = (
     environment,
     attachmentUrlsBySourceId
   ).result
+
+export const persistJiraPreparedPublication = Effect.fn(
+  "JiraImport.persistPreparedPublication"
+)(function* (
+  prepared: JiraPreparedPublicationV1,
+  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
+) {
+  const encoded = yield* Schema.encodeEffect(JiraPreparedPublicationV1)(
+    prepared
+  )
+  const identity = createHash("sha256")
+    .update(canonicalJiraJson(encoded))
+    .digest("hex")
+  return yield* artifacts.writeJson(
+    prepared.orgSlug,
+    {
+      migrationId: prepared.manifest.migrationId,
+      scanRevision: prepared.manifest.scanRevision,
+      area: "publication",
+      kind: "prepared-v1",
+      identity
+    },
+    prepared
+  )
+})
+
+export const loadJiraPreparedPublication = Effect.fn(
+  "JiraImport.loadPreparedPublication"
+)(function* (
+  orgSlug: string,
+  ref: JiraArtifactRef,
+  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
+) {
+  yield* artifacts.verify(orgSlug, ref)
+  const prepared = yield* artifacts.readJson(
+    orgSlug,
+    ref,
+    JiraPreparedPublicationV1
+  )
+  if (prepared.orgSlug !== orgSlug)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["prepared-publication-org-conflict"]
+    })
+  return prepared
+})
 
 export const persistJiraPublicationPlan = Effect.fn(
   "JiraImport.persistPublicationPlan"
