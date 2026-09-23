@@ -46,6 +46,7 @@ describe("Jira browser fixtures", () => {
           "happy_path",
           "rate_limited_once",
           "reconnect_once",
+          "pause_issue_page",
           "pause_attachment"
         ])
         expect(fixture.categories).toEqual(

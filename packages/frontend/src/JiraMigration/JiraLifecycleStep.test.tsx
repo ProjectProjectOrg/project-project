@@ -67,6 +67,26 @@ it("shows retry and rescan failures inline on the terminal screen", () => {
   )
 })
 
+it("explains that discarding a cancelled migration can leave its recovery record visible", () => {
+  render(
+    <JiraTerminalStep
+      detail={{
+        ...terminalDetail,
+        status: "cancelled",
+        actions: { ...terminalDetail.actions, canDiscard: true }
+      }}
+      orgSlug="example"
+      waiting={false}
+      onDiscard={() => {}}
+    />
+  )
+
+  expect(
+    screen.getByText(/may remain visible until cleanup is safe/)
+  ).toBeTruthy()
+  expect(screen.getByRole("button", { name: "Request discard" })).toBeTruthy()
+})
+
 it("shows Jira and destination links with replacement guidance after a successful import", async () => {
   fetchStub.set(async () =>
     Response.json([

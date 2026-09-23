@@ -20,6 +20,7 @@ export const JiraBrowserScenario = Schema.Literals([
   "happy_path",
   "rate_limited_once",
   "reconnect_once",
+  "pause_issue_page",
   "pause_attachment"
 ])
 
@@ -658,6 +659,11 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
             "retry-after": "1"
           })
         }
+        if (
+          current.scenario === "pause_issue_page" &&
+          logicalPage.operation === "issues"
+        )
+          return yield* Effect.never
         if (logicalPage.operation === "attachmentContent") {
           const supported = logicalPage.page === "attachment-2"
           const bytes = supported
