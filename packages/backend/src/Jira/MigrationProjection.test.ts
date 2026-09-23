@@ -128,27 +128,16 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             expectedRevision: failed.revision,
             executionId: "cleanup"
           })
-        ).toBe(true)
-        expect(yield* p.deleteAfterCleanup(current, "cleanup")).toBe(false)
-        expect(yield* p.releaseCleanup(current, "cleanup", "discard")).toBe(
-          true
-        )
-        const released = yield* p.owned(input, created.id)
-        expect(released.cleanupExecutionId).toBeNull()
-        expect(released.checkpoint).toMatchObject({
+        ).toBe(false)
+        const pending = yield* p.owned(input, created.id)
+        expect(pending.cleanupExecutionId).toBeNull()
+        expect(pending.revision).toBe(failed.revision)
+        expect(pending.checkpoint).toMatchObject({
           remoteWritesMayStillCommit: {
             workflowExecutionId: current.workflowExecutionId,
             workflowAttempt: current.workflowAttempt
           }
         })
-        expect(
-          yield* p.claimCleanup(current, {
-            mode: "discard",
-            expectedRevision: released.revision,
-            executionId: "cleanup-retry"
-          })
-        ).toBe(true)
-        const claimed = yield* p.owned(input, created.id)
         expect(
           yield* p.settleRemoteWrites({
             ...current,
@@ -157,8 +146,17 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         ).toBe(false)
         expect(yield* p.settleRemoteWrites(current)).toBe(true)
         expect((yield* p.owned(input, created.id)).revision).toBe(
-          claimed.revision
+          failed.revision
         )
+        expect(
+          yield* p.claimCleanup(current, {
+            mode: "discard",
+            expectedRevision: failed.revision,
+            executionId: "cleanup-retry"
+          })
+        ).toBe(true)
+        const claimed = yield* p.owned(input, created.id)
+        expect(claimed.cleanupExecutionId).toBe("cleanup-retry")
         expect(yield* p.deleteAfterCleanup(current, "cleanup-retry")).toBe(true)
       }).pipe(Effect.provide(layer))
     )

@@ -1309,6 +1309,7 @@ export class JiraMigrationProjection extends Context.Service<
                   fenceWhere(fence),
                   eq(jiraMigration.revision, input.expectedRevision),
                   isNull(jiraMigration.cleanupExecutionId),
+                  sqlFragment`not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'remoteWritesMayStillCommit')`,
                   input.mode === "reset_import"
                     ? isNotNull(jiraMigration.destinationProjectId)
                     : undefined,
