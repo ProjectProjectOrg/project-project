@@ -109,11 +109,17 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
     )
     expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
     const content = "---\nname: Application\n---\n# Application\n"
+    const archive = '{"version":1}'
     const documents = [
       {
         path: "project.md",
         content,
         sha256: createHash("sha256").update(content).digest("hex")
+      },
+      {
+        path: `imports/jira/${migrationId}/archive.json`,
+        content: archive,
+        sha256: createHash("sha256").update(archive).digest("hex")
       }
     ]
     const writeDocuments = Effect.scoped(
@@ -136,12 +142,27 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           projectSlug: slug,
           documents
         }).pipe(Effect.provide(markdownLayer))
-        expect(yield* write).toBe(1)
-        expect(yield* write).toBe(1)
+        expect(yield* write).toBe(2)
+        expect(yield* write).toBe(2)
         const stored = yield* fs.readFileString(
           `${root}/orgs/${organizationId}/projects/${slug}/project.md`
         )
         expect(stored).toBe(content)
+        expect(
+          yield* fs.readFileString(
+            `${root}/orgs/${organizationId}/projects/${slug}/imports/jira/${migrationId}/archive.json`
+          )
+        ).toBe(archive)
+        const unsafe = yield* Effect.result(
+          writeJiraHiddenDocuments({
+            fence: input.fence,
+            projectId,
+            orgSlug: organizationId,
+            projectSlug: slug,
+            documents: [{ ...documents[0]!, path: "../escape.md" }]
+          }).pipe(Effect.provide(markdownLayer))
+        )
+        expect(unsafe._tag).toBe("Failure")
       })
     ).pipe(Effect.provide(Layer.mergeAll(layer, BunServices.layer)))
     await Effect.runPromise(writeDocuments)

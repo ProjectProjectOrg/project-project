@@ -225,9 +225,11 @@ export type JiraHiddenDocumentsInput = Readonly<{
   documents: JiraPublicationPlanV1["documents"]
 }>
 
-const safeJiraDocumentPath = (relative: string) =>
+const safeJiraDocumentPath = (relative: string, migrationId: string) =>
   relative === "project.md" ||
-  /^(tickets|groups)\/[A-Za-z0-9_-]+\.md$/.test(relative)
+  /^(tickets|groups)\/[A-Za-z0-9_-]+\.md$/.test(relative) ||
+  relative === `imports/jira/${migrationId}/archive.json` ||
+  relative === `imports/jira/${migrationId}/report.md`
 
 export const writeJiraHiddenDocuments = Effect.fn(
   "JiraImport.writeHiddenDocuments"
@@ -245,7 +247,7 @@ export const writeJiraHiddenDocuments = Effect.fn(
     })
   for (const document of input.documents) {
     if (
-      !safeJiraDocumentPath(document.path) ||
+      !safeJiraDocumentPath(document.path, input.fence.migrationId) ||
       createHash("sha256").update(document.content).digest("hex") !==
         document.sha256
     )
