@@ -406,6 +406,18 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
         )
       ).rows
     ).toEqual([{ id: attachmentId, status: "pending", object_key: objectKey }])
+    const migrationCreatedAt = (
+      await pool.query("select created_at from jira_migration where id = $1", [
+        migrationId
+      ])
+    ).rows[0]?.created_at
+    const attachmentCreatedAt = (
+      await pool.query(
+        "select created_at from attachment_index where id = $1",
+        [attachmentId]
+      )
+    ).rows[0]?.created_at
+    expect(attachmentCreatedAt).toEqual(migrationCreatedAt)
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {

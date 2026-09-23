@@ -370,17 +370,18 @@ export const copyJiraPreparedAttachment = Effect.fn(
         project.slug !== input.projectSlug ||
         org?.slug !== input.orgSlug
       )
-        return false
+        return null
       const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
-      return (
-        checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
-          fence.workflowExecutionId &&
+      return checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
+        fence.workflowExecutionId &&
         checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
           fence.workflowAttempt
-      )
+        ? migration.createdAt
+        : null
     })
   )
-  if (!(yield* attemptIsCurrent))
+  const migrationCreatedAt = yield* attemptIsCurrent
+  if (migrationCreatedAt === null)
     return yield* new JiraPublicationInvalid({
       reasons: ["stale-materialization-attempt"]
     })
@@ -464,7 +465,8 @@ export const copyJiraPreparedAttachment = Effect.fn(
           byteSize: attachment.byteSize,
           contentHash: contentSha256,
           status: "pending",
-          uploadedBy: input.uploadedBy
+          uploadedBy: input.uploadedBy,
+          createdAt: migrationCreatedAt
         })
         .onConflictDoNothing()
       const [row] = yield* tx
@@ -484,7 +486,8 @@ export const copyJiraPreparedAttachment = Effect.fn(
         row.byteSize !== attachment.byteSize ||
         row.contentHash !== contentSha256 ||
         row.status !== "pending" ||
-        row.uploadedBy !== input.uploadedBy
+        row.uploadedBy !== input.uploadedBy ||
+        row.createdAt.getTime() !== migrationCreatedAt.getTime()
       )
         return yield* new JiraPublicationInvalid({
           reasons: ["attachment-identity-conflict"]
