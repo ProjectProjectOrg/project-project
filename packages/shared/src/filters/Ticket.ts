@@ -144,7 +144,7 @@ export type ProjectTicketsPreview = typeof ProjectTicketsPreview.Type
 export const MY_TICKETS_PAGE_SIZE = TICKET_LIST_LIMIT
 export const MY_TICKETS_PER_PROJECT = 5
 export const MY_TICKETS_DONE_WINDOW_DAYS = 7
-export const RECENT_TICKETS_LIMIT = 10
+export const RECENT_TICKETS_LIMIT = 5
 
 export const MyTicketsQuery = Schema.Struct({
   cursor: Schema.optional(Schema.String)
