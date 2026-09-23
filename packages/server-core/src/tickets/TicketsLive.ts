@@ -35,6 +35,7 @@ import {
   extractAttachmentRefs,
   TicketId,
   UpdateTicketInput,
+  UserId,
   Validation,
   type ProjectKey,
   type GroupId,
@@ -94,6 +95,7 @@ import {
 import { Tickets, type TicketsShape } from "./Tickets"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeUserId = Schema.decodeUnknownSync(UserId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 
 type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
@@ -170,15 +172,15 @@ function indexEntryToTicket(
 export function recentActivityOf(
   entry: Pick<TicketIndexTouchedEntry, "lastCommentAt"> &
     Readonly<{ entry: Pick<TicketIndexEntry, "createdBy" | "createdAt"> }>,
-  viewerId: string
+  viewerId: UserId
 ): RecentTicketActivity {
   const created =
     entry.entry.createdBy === viewerId ? entry.entry.createdAt : null
   const commented = entry.lastCommentAt
   if (commented !== null && (created === null || commented >= created)) {
-    return { tag: "commented", at: commented }
+    return { tag: "commented", actor: viewerId, at: commented }
   }
-  if (created !== null) return { tag: "created", at: created }
+  if (created !== null) return { tag: "created", actor: viewerId, at: created }
   return { tag: "assigned" }
 }
 
@@ -424,10 +426,11 @@ export const TicketsLive = Layer.effect(
         limit: RECENT_TICKETS_LIMIT
       })
       const rows = yield* orgTicketRows(orgSlug, userId, entries)
+      const viewerId = makeUserId(userId)
       return rows.map(
         (row, index): RecentTicketRow => ({
           ...row,
-          activity: recentActivityOf(entries[index]!, userId)
+          activity: recentActivityOf(entries[index]!, viewerId)
         })
       )
     })

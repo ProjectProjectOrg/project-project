@@ -98,13 +98,19 @@ export type OrgTicketRow = typeof OrgTicketRow.Type
 export const RecentTicketActivity = Schema.Union([
   Schema.Struct({
     tag: Schema.Literal("commented"),
+    actor: UserId,
     at: Schema.DateFromString
   }),
   Schema.Struct({
     tag: Schema.Literal("created"),
+    actor: UserId,
     at: Schema.DateFromString
   }),
-  Schema.Struct({ tag: Schema.Literal("assigned") })
+  Schema.Struct({
+    tag: Schema.Literal("assigned"),
+    actor: Schema.optional(UserId),
+    at: Schema.optional(Schema.DateFromString)
+  })
 ])
 export type RecentTicketActivity = typeof RecentTicketActivity.Type
 

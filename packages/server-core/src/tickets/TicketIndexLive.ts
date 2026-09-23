@@ -637,14 +637,20 @@ export const TicketIndexLive = Layer.effect(
         eq(commentIndex.projectSlug, ticketIndex.projectSlug),
         eq(commentIndex.ticketId, ticketIndex.ticketId)
       )
+      const lastCommentAt = drizzleSql<Date | null>`(
+        select max(${commentIndex.createdAt})
+        from ${commentIndex}
+        where ${viewerComments}
+      )`
+      const activityAt = drizzleSql`greatest(
+        case when ${ticketIndex.createdBy} = ${options.viewerId}
+          then ${ticketIndex.createdAt} end,
+        ${lastCommentAt}
+      )`
       return db
         .select({
           ...getTableColumns(ticketIndex),
-          lastCommentAt: drizzleSql<Date | null>`(
-            select max(${commentIndex.createdAt})
-            from ${commentIndex}
-            where ${viewerComments}
-          )`.mapWith(commentIndex.createdAt)
+          lastCommentAt: lastCommentAt.mapWith(commentIndex.createdAt)
         })
         .from(ticketIndex)
         .where(
@@ -661,7 +667,11 @@ export const TicketIndexLive = Layer.effect(
             )
           ])
         )
-        .orderBy(desc(ticketIndex.updatedAt), desc(ticketIndex.ticketId))
+        .orderBy(
+          drizzleSql`${activityAt} desc nulls last`,
+          desc(ticketIndex.updatedAt),
+          desc(ticketIndex.ticketId)
+        )
         .limit(Math.max(1, options.limit))
         .pipe(
           Effect.map((rows) =>

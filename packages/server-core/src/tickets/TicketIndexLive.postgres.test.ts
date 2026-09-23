@@ -970,10 +970,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           limit: 10
         })
         expect(idsOf(touched)).toEqual([
-          `${alphaSlug}:AL-1`,
-          `${betaSlug}:BE-1`,
           `${betaSlug}:BE-2`,
           `${alphaSlug}:AL-3`,
+          `${alphaSlug}:AL-1`,
+          `${betaSlug}:BE-1`,
           `${alphaSlug}:AL-2`
         ])
 
