@@ -91,6 +91,31 @@ export type JiraMaterializationDependencies<
   >
 }>
 
+export const prepareJiraPublicationReference = <R>(
+  input: Readonly<{
+    scanRevision: number
+    configurationRevision: number
+  }>,
+  dependencies: Readonly<{
+    error: typeof JiraMigrationWorkflowFailure
+    prepare: Effect.Effect<
+      JiraArtifactRef,
+      JiraMigrationWorkflowFailureValue,
+      R
+    >
+  }>
+) =>
+  Activity.make({
+    name: jiraPreflightActivityName(
+      input.scanRevision,
+      input.configurationRevision,
+      0
+    ),
+    success: JiraArtifactRef,
+    error: dependencies.error,
+    execute: dependencies.prepare
+  })
+
 export const materializeJiraPreparedPublication = <
   A extends Readonly<{ sourceAttachmentId: string }>,
   R

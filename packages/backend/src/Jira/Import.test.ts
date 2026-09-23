@@ -27,14 +27,19 @@ import {
   ensureHiddenJiraProject,
   groupColors,
   loadJiraPublicationPlan,
+  loadJiraPreparedPublication,
   makeJiraMaterializationDependencies,
   nextTicketNumberFor,
+  prepareJiraPublicationFromSnapshot,
   publishJiraMigrationAtomically,
   verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
 } from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
-import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
+import {
+  JiraMigrationConfiguration,
+  TAG_DEFAULT_PALETTE
+} from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
 import {
   JiraPublicationPlanV1,
@@ -531,35 +536,39 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       value: { id: "jira-file" }
     }
     const sourceManifest = manifestV2(migrationId)
+    const migrationManifest = {
+      ...sourceManifest,
+      attachments: [
+        {
+          id: "jira-file",
+          issueId: "issue-1",
+          filename: "file.png",
+          mimeType: "image/png",
+          byteSize: attachmentBytes.length,
+          metadataArtifact: metadata.ref,
+          downloadUrl: "https://example.test/file",
+          jiraUrl: null,
+          downloadAllowed: true
+        }
+      ]
+    }
+    const acceptedConfiguration = Schema.decodeUnknownSync(
+      JiraMigrationConfiguration
+    )({
+      ...configuration,
+      destination: { name: "Application", slug, key: "APP" },
+      identities: configuration.identities.map((identity) =>
+        identity.projectProjectUserId === null
+          ? identity
+          : { ...identity, projectProjectUserId: userId }
+      )
+    })
     const prepared = await Effect.runPromise(
       prepareJiraPublication({
-        manifest: {
-          ...sourceManifest,
-          attachments: [
-            {
-              id: "jira-file",
-              issueId: "issue-1",
-              filename: "file.png",
-              mimeType: "image/png",
-              byteSize: attachmentBytes.length,
-              metadataArtifact: metadata.ref,
-              downloadUrl: "https://example.test/file",
-              jiraUrl: null,
-              downloadAllowed: true
-            }
-          ]
-        },
+        manifest: migrationManifest,
         manifestSha256: "a".repeat(64),
         configurationRevision: 1,
-        configuration: {
-          ...configuration,
-          destination: { name: "Application", slug, key: "APP" },
-          identities: configuration.identities.map((identity) =>
-            identity.projectProjectUserId === null
-              ? identity
-              : { ...identity, projectProjectUserId: userId }
-          )
-        },
+        configuration: acceptedConfiguration,
         migrationCreatedAt,
         organizationId,
         orgSlug: organizationId,
@@ -586,6 +595,14 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       secretAccessKey: "test"
     }
     const stored = new Map<string, unknown>()
+    const manifestRef = {
+      key: `migrations/jira/${migrationId}/scan-1/manifest/current.json`,
+      contentType: "application/json",
+      byteSize: 1,
+      sha256: "a".repeat(64)
+    }
+    stored.set(manifestRef.key, migrationManifest)
+    stored.set(metadata.ref.key, metadata.value)
     const storedAttachments = new Map<string, Uint8Array>()
     const callbacks = makeJiraMaterializationDependencies(
       prepared,
@@ -654,7 +671,56 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             )
           )
           const run = Effect.gen(function* () {
+            const preparation = prepareJiraPublicationFromSnapshot(
+              {
+                fence: {
+                  migrationId,
+                  workflowExecutionId: migrationId,
+                  workflowAttempt: 1
+                },
+                manifestRef,
+                configurationRevision: 1,
+                configuration: acceptedConfiguration,
+                migrationCreatedAt,
+                organizationId,
+                orgSlug: organizationId,
+                ownerId: userId,
+                connection
+              },
+              {
+                readJson: (_orgSlug, ref, schema) =>
+                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
+                    Effect.orDie
+                  ),
+                writeJson: (_orgSlug, coordinates, value) =>
+                  Effect.sync(() => {
+                    const ref = {
+                      key: `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`,
+                      contentType: "application/json",
+                      byteSize: 1,
+                      sha256: "b".repeat(64)
+                    }
+                    stored.set(ref.key, value)
+                    return ref
+                  })
+              }
+            )
+            const preparedRef = yield* preparation
+            const reloaded = yield* loadJiraPreparedPublication(
+              organizationId,
+              preparedRef,
+              {
+                verify: () => Effect.void,
+                readJson: (_orgSlug, ref, schema) =>
+                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
+                    Effect.orDie
+                  )
+              }
+            )
+            expect(reloaded.projectId).toBe(prepared.projectId)
+            expect(reloaded.attachments).toEqual(prepared.attachments)
             expect(yield* callbacks.createHidden).toBe(prepared.projectId)
+            expect(yield* preparation).toEqual(preparedRef)
             const attachmentOutcome = yield* callbacks.copyAttachment(
               prepared.attachments[0]!
             )

@@ -667,7 +667,7 @@ export function jiraAttachmentId(
     )
   )
 }
-const projectIdFor = (migrationId: string) => {
+export const jiraProjectIdFor = (migrationId: string) => {
   const hex = digest(JSON.stringify(["jira-project-v1", migrationId]))
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`
 }
@@ -847,7 +847,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
         )
       },
       version: 1,
-      projectId: projectIdFor(input.manifest.migrationId),
+      projectId: jiraProjectIdFor(input.manifest.migrationId),
       attachments
     })
     return freezeJiraValue(structuredClone(prepared))

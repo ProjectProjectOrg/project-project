@@ -74,9 +74,11 @@ import type {
 import {
   createJiraPublicationPlan,
   finalizeJiraPublication,
+  jiraProjectIdFor,
   JiraPreparedPublicationV1,
   JiraPublicationPlanV1,
   JiraResolvedSource,
+  prepareJiraPublication,
   type JiraAttachmentOutcome,
   type JiraPublicationPlan
 } from "./PublicationPlan"
@@ -222,6 +224,120 @@ export const resolveJiraPublicationSource = Effect.fn(
         })
     )
   )
+})
+
+export type JiraPublicationSnapshotInput = Readonly<{
+  fence: AttemptFence
+  manifestRef: JiraArtifactRef
+  configurationRevision: number
+  configuration: JiraMigrationConfiguration
+  migrationCreatedAt: string
+  organizationId: string
+  orgSlug: string
+  ownerId: string
+  connection: S3Connection
+}>
+
+export const prepareJiraPublicationFromSnapshot = Effect.fn(
+  "JiraImport.prepareFromSnapshot"
+)(function* (
+  input: JiraPublicationSnapshotInput,
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "writeJson">
+) {
+  const db = yield* Db
+  const manifest = yield* artifacts.readJson(
+    input.orgSlug,
+    input.manifestRef,
+    JiraMigrationManifestV2
+  )
+  if (
+    manifest.migrationId !== input.fence.migrationId ||
+    manifest.workflow.executionId !== input.fence.workflowExecutionId ||
+    manifest.workflow.attempt !== input.fence.workflowAttempt
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["scan-manifest-attempt-conflict"]
+    })
+  const [org] = yield* db
+    .select({ slug: organization.slug })
+    .from(organization)
+    .where(eq(organization.id, input.organizationId))
+  if (!org || org.slug !== input.orgSlug)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["publication-organization-conflict"]
+    })
+  const projectId = jiraProjectIdFor(input.fence.migrationId)
+  const projects = yield* db
+    .select({
+      id: projectIndex.id,
+      slug: projectIndex.slug,
+      key: projectIndex.key,
+      organizationId: projectIndex.organizationId
+    })
+    .from(projectIndex)
+  const tickets = yield* db
+    .select({
+      projectId: ticketIndex.projectId,
+      ticketId: ticketIndex.ticketId
+    })
+    .from(ticketIndex)
+    .where(eq(ticketIndex.organizationId, input.organizationId))
+  const allUsers = yield* db
+    .select({
+      id: userTable.id,
+      username: userTable.username,
+      email: userTable.email
+    })
+    .from(userTable)
+  const linkedUserIds = new Set([
+    input.ownerId,
+    ...input.configuration.identities.flatMap((identity) =>
+      identity.projectProjectUserId === null
+        ? []
+        : [identity.projectProjectUserId]
+    )
+  ])
+  const source = yield* resolveJiraPublicationSource(
+    input.orgSlug,
+    manifest,
+    artifacts
+  )
+  const prepared = yield* prepareJiraPublication({
+    manifest,
+    manifestSha256: input.manifestRef.sha256,
+    configurationRevision: input.configurationRevision,
+    configuration: input.configuration,
+    migrationCreatedAt: input.migrationCreatedAt,
+    organizationId: input.organizationId,
+    orgSlug: input.orgSlug,
+    ownerId: input.ownerId,
+    storageKeyPrefix: input.connection.keyPrefix ?? "",
+    users: allUsers
+      .filter((user) => linkedUserIds.has(user.id))
+      .map((user) => ({
+        userId: user.id,
+        username: user.username ?? user.email
+      })),
+    environment: {
+      existingProjectSlugs: projects
+        .filter((project) => project.id !== projectId)
+        .map((project) => project.slug),
+      existingProjectKeys: projects
+        .filter(
+          (project) =>
+            project.organizationId === input.organizationId &&
+            project.id !== projectId
+        )
+        .map((project) => project.key),
+      existingTicketIds: tickets
+        .filter((ticket) => ticket.projectId !== projectId)
+        .map((ticket) => ticket.ticketId),
+      existingUserIds: allUsers.map((user) => user.id),
+      existingStatusSlugs: BASELINE_STATUS_SEED.map((status) => status.slug)
+    },
+    source
+  })
+  return yield* persistJiraPreparedPublication(prepared, artifacts)
 })
 
 export const persistJiraPreparedPublication = Effect.fn(
