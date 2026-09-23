@@ -16,6 +16,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import {
   JiraMigrationManifestV2,
+  canonicalJiraJson,
   type JiraConvertedText,
   type JiraMigrationManifest
 } from "./Manifest"
@@ -25,19 +26,26 @@ import {
   copyJiraPreparedAttachment,
   ensureHiddenJiraProject,
   groupColors,
+  loadJiraPublicationPlan,
   makeJiraMaterializationDependencies,
   nextTicketNumberFor,
+  publishJiraMigrationAtomically,
   verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
 } from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
-import { jiraAttachmentId, prepareJiraPublication } from "./PublicationPlan"
+import {
+  JiraPublicationPlanV1,
+  jiraAttachmentId,
+  prepareJiraPublication
+} from "./PublicationPlan"
 import { DbLive } from "../Layers/Db"
 import { MarkdownLive } from "../Layers/Markdown"
 import { attachmentObjectKey, type S3Connection } from "../Services/S3Storage"
 import { attachmentUrl, TicketId } from "@projectproject/shared"
+import { JiraMigrationProjection } from "./MigrationProjection"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -512,9 +520,35 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
         migrationId
       ])
     ).rows[0]!.created_at.toISOString()
+    const attachmentBytes = new TextEncoder().encode("Imported Jira file")
+    const metadata = {
+      ref: {
+        key: `migrations/jira/${migrationId}/scan-1/raw/attachments/file.json`,
+        sha256: "b".repeat(64),
+        byteSize: 1,
+        contentType: "application/json"
+      },
+      value: { id: "jira-file" }
+    }
+    const sourceManifest = manifestV2(migrationId)
     const prepared = await Effect.runPromise(
       prepareJiraPublication({
-        manifest: manifestV2(migrationId),
+        manifest: {
+          ...sourceManifest,
+          attachments: [
+            {
+              id: "jira-file",
+              issueId: "issue-1",
+              filename: "file.png",
+              mimeType: "image/png",
+              byteSize: attachmentBytes.length,
+              metadataArtifact: metadata.ref,
+              downloadUrl: "https://example.test/file",
+              jiraUrl: null,
+              downloadAllowed: true
+            }
+          ]
+        },
         manifestSha256: "a".repeat(64),
         configurationRevision: 1,
         configuration: {
@@ -539,7 +573,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           existingUserIds: [userId],
           existingStatusSlugs: ["todo", "in_progress", "done"]
         },
-        source: { projectDescription: null, artifacts: [] }
+        source: { projectDescription: null, artifacts: [metadata] }
       })
     )
     const connection: S3Connection = {
@@ -552,16 +586,28 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
       secretAccessKey: "test"
     }
     const stored = new Map<string, unknown>()
+    const storedAttachments = new Map<string, Uint8Array>()
     const callbacks = makeJiraMaterializationDependencies(
       prepared,
       { migrationId, workflowExecutionId: migrationId, workflowAttempt: 1 },
       {
         connection,
-        jira: { attachmentContent: () => Stream.empty },
+        jira: { attachmentContent: () => Stream.fromIterable([attachmentBytes]) },
         s3: {
-          getObject: () => Effect.succeed(null),
-          putObject: () => Effect.void,
-          headObject: () => Effect.succeed(null)
+          getObject: (_connection, key) =>
+            Effect.succeed(storedAttachments.get(key) ?? null),
+          putObject: (_connection, key, _contentType, bytes) =>
+            Effect.sync(() => void storedAttachments.set(key, bytes)),
+          headObject: (_connection, key) =>
+            Effect.succeed(
+              storedAttachments.has(key)
+                ? {
+                    byteSize: storedAttachments.get(key)!.length,
+                    contentType: "image/png",
+                    contentHash: null
+                  }
+                : null
+            )
         },
         artifacts: {
           writeJson: (_orgSlug, coordinates, value) =>
@@ -607,7 +653,11 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           )
           const run = Effect.gen(function* () {
             expect(yield* callbacks.createHidden).toBe(prepared.projectId)
-            const finalized = yield* callbacks.finalizePlan([])
+            const attachmentOutcome = yield* callbacks.copyAttachment(
+              prepared.attachments[0]!
+            )
+            expect(attachmentOutcome.kind).toBe("copied")
+            const finalized = yield* callbacks.finalizePlan([attachmentOutcome])
             for (
               let ordinal = 0;
               ordinal < finalized.documentBatchCount;
@@ -619,18 +669,186 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             const verified = yield* callbacks.verify(finalized.planRef)
             expect(verified.planSha256).toBe(finalized.publicationRevision)
             expect(verified.documentCount).toBeGreaterThanOrEqual(3)
-            expect(verified.attachmentCount).toBe(0)
+            expect(verified.attachmentCount).toBe(1)
+            const [before] = (
+              yield* Effect.promise(() =>
+                pool.query("select published_at from project_index where id = $1", [
+                  prepared.projectId
+                ])
+              )
+            ).rows
+            expect(before?.published_at).toBeNull()
+            const projection = yield* JiraMigrationProjection
+            expect(
+              yield* projection.settleRemoteWrites({
+                migrationId,
+                workflowExecutionId: migrationId,
+                workflowAttempt: 1
+              })
+            ).toBe(true)
+            const loaded = yield* loadJiraPublicationPlan(
+              prepared.orgSlug,
+              finalized.planRef,
+              {
+                verify: () => Effect.void,
+                readJson: (_orgSlug, ref, schema) =>
+                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
+                    Effect.orDie
+                  )
+              }
+            )
+            const publishInput = {
+              fence: {
+                migrationId,
+                workflowExecutionId: migrationId,
+                workflowAttempt: 1
+              },
+              plan: loaded.plan,
+              publicationRevision: loaded.publicationRevision,
+              verified
+            }
+            const missingAttachmentId = jiraAttachmentId(
+              migrationId,
+              "missing-attachment",
+              migrationCreatedAt
+            )
+            const invalidPlan = {
+              ...loaded.plan,
+              indexes: {
+                ...loaded.plan.indexes,
+                attachmentReferences: [
+                  {
+                    attachmentId: missingAttachmentId,
+                    orgSlug: prepared.orgSlug,
+                    projectSlug: prepared.configuration.destination.slug,
+                    ticketId: loaded.plan.tickets[0]!.id,
+                    createdAt: migrationCreatedAt
+                  }
+                ]
+              }
+            }
+            const invalidRevision = createHash("sha256")
+              .update(
+                canonicalJiraJson(
+                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(
+                    invalidPlan
+                  )
+                )
+              )
+              .digest("hex")
+            expect(
+              (
+                yield* Effect.result(
+                  publishJiraMigrationAtomically({
+                    ...publishInput,
+                    plan: invalidPlan,
+                    publicationRevision: invalidRevision,
+                    verified: { ...verified, planSha256: invalidRevision }
+                  })
+                )
+              )._tag
+            ).toBe("Failure")
+            const [afterRollback] = (
+              yield* Effect.promise(() =>
+                pool.query("select published_at from project_index where id = $1", [
+                  prepared.projectId
+                ])
+              )
+            ).rows
+            expect(afterRollback?.published_at).toBeNull()
+            const [statusCount] = (
+              yield* Effect.promise(() =>
+                pool.query("select count(*)::int as count from project_status where project_id = $1", [
+                  prepared.projectId
+                ])
+              )
+            ).rows
+            expect(statusCount?.count).toBe(0)
+            yield* Effect.promise(() =>
+              pool.query("update jira_migration set status = 'cancelling' where id = $1", [
+                migrationId
+              ])
+            )
+            expect(
+              (yield* Effect.result(publishJiraMigrationAtomically(publishInput)))._tag
+            ).toBe("Failure")
+            yield* Effect.promise(() =>
+              pool.query("update jira_migration set status = 'migrating' where id = $1", [
+                migrationId
+              ])
+            )
+            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(true)
+            expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(true)
+            const [liveAttachment] = (
+              yield* Effect.promise(() =>
+                pool.query(
+                  "select status from attachment_index where id = $1",
+                  [prepared.attachments[0]!.id]
+                )
+              )
+            ).rows
+            expect(liveAttachment?.status).toBe("live")
+            const foreignPlan = {
+              ...publishInput.plan,
+              reportDocument: {
+                ...publishInput.plan.reportDocument,
+                path: `imports/jira/${migrationId}/foreign-report.md`
+              }
+            }
+            const foreignRevision = createHash("sha256")
+              .update(
+                canonicalJiraJson(
+                  yield* Schema.encodeEffect(JiraPublicationPlanV1)(foreignPlan)
+                )
+              )
+              .digest("hex")
+            expect(
+              (
+                yield* Effect.result(
+                  publishJiraMigrationAtomically({
+                    ...publishInput,
+                    plan: foreignPlan,
+                    publicationRevision: foreignRevision,
+                    verified: { ...verified, planSha256: foreignRevision }
+                  })
+                )
+              )._tag
+            ).toBe("Failure")
+            expect(
+              yield* projection.finalizeInterrupted({
+                migrationId,
+                workflowExecutionId: migrationId,
+                workflowAttempt: 1
+              })
+            ).toBe(false)
           }).pipe(Effect.provide(markdownLayer))
           yield* run
         })
-      ).pipe(Effect.provide(Layer.mergeAll(dbLayer, BunServices.layer)))
+      ).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            dbLayer,
+            BunServices.layer,
+            JiraMigrationProjection.layer.pipe(Layer.provide(dbLayer))
+          )
+        )
+      )
     )
     const [project] = (
       await pool.query("select published_at from project_index where id = $1", [
         prepared.projectId
       ])
     ).rows
-    expect(project?.published_at).toBeNull()
+    expect(project?.published_at).not.toBeNull()
+    const [migration] = (
+      await pool.query("select status,destination_project_id from jira_migration where id = $1", [
+        migrationId
+      ])
+    ).rows
+    expect(migration).toEqual({
+      status: "succeeded",
+      destination_project_id: prepared.projectId
+    })
   })
 })
 

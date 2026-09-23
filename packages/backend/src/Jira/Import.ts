@@ -23,6 +23,8 @@ import {
 import { generateKeyBetween } from "fractional-indexing"
 import {
   attachmentIndex,
+  attachmentReference,
+  commentIndex,
   jiraMigration,
   organization,
   projectIndex,
@@ -314,6 +316,218 @@ export const makeJiraMaterializationDependencies = (
       )
   }
 }
+
+export type JiraAtomicPublicationInput = Readonly<{
+  fence: AttemptFence
+  plan: JiraPublicationPlanV1
+  publicationRevision: string
+  verified: Readonly<{
+    planSha256: string
+    documentCount: number
+    attachmentCount: number
+    unresolvedReferenceCount: 0
+  }>
+}>
+
+export const publishJiraMigrationAtomically = Effect.fn(
+  "JiraImport.publishAtomically"
+)(function* (input: JiraAtomicPublicationInput) {
+  const db = yield* Db
+  const { fence, plan, verified } = input
+  const encoded = yield* Schema.encodeEffect(JiraPublicationPlanV1)(plan)
+  const checksum = createHash("sha256")
+    .update(canonicalJiraJson(encoded))
+    .digest("hex")
+  const copied = plan.attachments.filter(
+    (attachment) => attachment.kind === "copied"
+  )
+  if (
+    plan.migrationId !== fence.migrationId ||
+    input.publicationRevision !== checksum ||
+    verified.planSha256 !== checksum ||
+    verified.documentCount !== plan.documents.length + 2 ||
+    verified.attachmentCount !== copied.length ||
+    verified.unresolvedReferenceCount !== 0
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["publication-verification-mismatch"]
+    })
+  return yield* Effect.uninterruptible(
+    db.transaction((tx) =>
+      Effect.gen(function* () {
+        const [migration] = yield* tx
+          .select()
+          .from(jiraMigration)
+          .where(eq(jiraMigration.id, fence.migrationId))
+          .for("update")
+        const [project] = yield* tx
+          .select()
+          .from(projectIndex)
+          .where(eq(projectIndex.id, plan.project.id))
+          .for("update")
+        if (
+          !migration ||
+          migration.workflowExecutionId !== fence.workflowExecutionId ||
+          migration.workflowAttempt !== fence.workflowAttempt ||
+          !project
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["stale-publication-attempt"]
+          })
+        if (migration.status === "succeeded") {
+          if (
+            project.publishedAt !== null &&
+            migration.destinationProjectId === project.id &&
+            migration.destinationProjectSlug === project.slug &&
+            migration.reportPath === plan.reportDocument.path
+          )
+            return true
+          return yield* new JiraPublicationInvalid({
+            reasons: ["publication-replay-conflict"]
+          })
+        }
+        const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+        const plannedProject = plan.indexes.project
+        if (
+          migration.status !== "migrating" ||
+          migration.cleanupExecutionId !== null ||
+          checkpoint.remoteWritesMayStillCommit !== undefined ||
+          project.publishedAt !== null ||
+          project.organizationId !== migration.organizationId ||
+          project.id !== plannedProject.id ||
+          project.slug !== plannedProject.slug ||
+          project.key !== plannedProject.key ||
+          project.name !== plannedProject.name ||
+          project.icon !== plannedProject.icon ||
+          project.color !== plannedProject.color ||
+          project.nextTicketNumber !== plannedProject.nextTicketNumber ||
+          project.createdBy !== plannedProject.createdBy ||
+          project.createdAt.toISOString() !== plannedProject.createdAt
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["hidden-project-identity-conflict"]
+          })
+        if (plan.indexes.statuses.length > 0)
+          yield* tx.insert(projectStatus).values(
+            plan.indexes.statuses.map((row) => ({
+              ...row,
+              createdAt: toDate(row.createdAt)
+            }))
+          )
+        if (plan.indexes.tags.length > 0)
+          yield* tx.insert(projectTag).values(
+            plan.indexes.tags.map((row) => ({
+              ...row,
+              createdAt: toDate(row.createdAt)
+            }))
+          )
+        if (plan.indexes.members.length > 0)
+          yield* tx.insert(projectMember).values(
+            plan.indexes.members.map((row) => ({
+              ...row,
+              createdAt: toDate(row.createdAt)
+            }))
+          )
+        if (plan.indexes.tickets.length > 0)
+          yield* tx.insert(ticketIndex).values(
+            plan.indexes.tickets.map((row) => ({
+              ...row,
+              tags: [...row.tags],
+              assignees: [...row.assignees],
+              createdAt: toDate(row.createdAt),
+              updatedAt: toDate(row.updatedAt)
+            }))
+          )
+        if (plan.indexes.comments.length > 0)
+          yield* tx.insert(commentIndex).values(
+            plan.indexes.comments.map((row) => ({
+              ...row,
+              createdAt: toDate(row.createdAt),
+              editedAt: row.editedAt === null ? null : toDate(row.editedAt)
+            }))
+          )
+        if (plan.indexes.attachmentReferences.length > 0)
+          yield* tx.insert(attachmentReference).values(
+            plan.indexes.attachmentReferences.map((row) => ({
+              ...row,
+              createdAt: toDate(row.createdAt)
+            }))
+          )
+        for (const planned of plan.indexes.attachments) {
+          const [pending] = yield* tx
+            .select()
+            .from(attachmentIndex)
+            .where(eq(attachmentIndex.id, planned.id))
+            .for("update")
+          if (
+            !pending ||
+            pending.status !== "pending" ||
+            pending.organizationId !== planned.organizationId ||
+            pending.orgSlug !== planned.orgSlug ||
+            pending.projectSlug !== planned.projectSlug ||
+            pending.ticketId !== planned.ticketId ||
+            pending.objectKey !== planned.objectKey ||
+            pending.filename !== planned.filename ||
+            pending.contentType !== planned.contentType ||
+            pending.byteSize !== planned.byteSize ||
+            pending.contentHash !== planned.contentHash ||
+            pending.uploadedBy !== planned.uploadedBy ||
+            pending.createdAt.toISOString() !== planned.createdAt
+          )
+            return yield* new JiraPublicationInvalid({
+              reasons: ["attachment-identity-conflict"]
+            })
+          yield* tx
+            .update(attachmentIndex)
+            .set({
+              status: "live",
+              committedAt: toDate(planned.committedAt)
+            })
+            .where(eq(attachmentIndex.id, planned.id))
+        }
+        const now = yield* DateTime.nowAsDate
+        const published = yield* tx
+          .update(projectIndex)
+          .set({ publishedAt: now })
+          .where(and(eq(projectIndex.id, project.id), drizzleSql`${projectIndex.publishedAt} is null`))
+          .returning({ id: projectIndex.id })
+        if (published.length !== 1)
+          return yield* new JiraPublicationInvalid({
+            reasons: ["publication-race-lost"]
+          })
+        const succeeded = yield* tx
+          .update(jiraMigration)
+          .set({
+            status: "succeeded",
+            phase: "succeeded",
+            destinationProjectId: project.id,
+            destinationProjectSlug: project.slug,
+            reportPath: plan.reportDocument.path,
+            finishedAt: now,
+            retainedUntil: null,
+            failureReason: null,
+            failureRetryable: null,
+            revision: drizzleSql`${jiraMigration.revision} + 1`,
+            updatedAt: now
+          })
+          .where(
+            and(
+              eq(jiraMigration.id, fence.migrationId),
+              eq(jiraMigration.workflowExecutionId, fence.workflowExecutionId),
+              eq(jiraMigration.workflowAttempt, fence.workflowAttempt),
+              eq(jiraMigration.status, "migrating")
+            )
+          )
+          .returning({ id: jiraMigration.id })
+        if (succeeded.length !== 1)
+          return yield* new JiraPublicationInvalid({
+            reasons: ["publication-race-lost"]
+          })
+        return true
+      })
+    )
+  )
+})
 
 export type HiddenJiraProjectInput = Readonly<{
   fence: AttemptFence
