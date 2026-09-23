@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
-import { TagName } from "./Tag"
+import { describe, expect, it } from "vitest"
+
 import {
   JiraConnection,
   JiraMigrationConfiguration,
@@ -9,6 +9,7 @@ import {
   JiraProjectChoice,
   JiraSite
 } from "./JiraMigration"
+import { TagName } from "./Tag"
 
 const decodeConnection = Schema.decodeUnknownSync(JiraConnection)
 const connectedAt = DateTime.makeUnsafe("2026-09-14T12:00:00Z")

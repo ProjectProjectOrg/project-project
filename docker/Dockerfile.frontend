@@ -12,26 +12,28 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
 COPY package.json bun.lock* bun.lockb* tsconfig.base.json ./
+COPY packages/db/package.json ./packages/db/
+COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
-COPY packages/backend/package.json ./packages/backend/
-COPY packages/frontend/package.json ./packages/frontend/
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
 RUN bun install --frozen-lockfile
 
-COPY vite.config.ts ./
-COPY tools ./tools
 COPY packages/shared ./packages/shared
-COPY packages/frontend ./packages/frontend
+COPY apps/frontend ./apps/frontend
 
 # Vite reads `import.meta.env.*` at build time. The frontend itself talks
 # to a same-origin /api, so no API-URL env is needed. Note the flag order:
 # `bun run --cwd <dir> <script>` runs the script in that workspace;
 # `bun --cwd <dir> run <script>` is a different command that just lists
 # scripts. We learned this the noisy way.
-RUN bun run --cwd packages/frontend build
+RUN bun run --cwd apps/frontend build
 
 FROM nginx:1.27-alpine AS runtime
-COPY --from=build /app/packages/frontend/dist /usr/share/nginx/html
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx.locations /etc/nginx/app.locations
 
 EXPOSE 80
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=5 \
+  CMD wget --quiet --output-document=- http://127.0.0.1/ > /dev/null || exit 1

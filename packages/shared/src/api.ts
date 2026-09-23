@@ -14,6 +14,8 @@
 // downstream service calls. The `:orgSlug` is the URL-canonical source of
 // "which org am I acting in?" — see `services/CurrentOrg.ts` for the resolver.
 
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
 import {
   HttpApi,
   HttpApiEndpoint,
@@ -21,138 +23,8 @@ import {
   HttpApiSchema,
   OpenApi
 } from "effect/unstable/httpapi"
-import * as Schema from "effect/Schema"
-import * as Effect from "effect/Effect"
-import { User } from "./schemas/User"
-import {
-  InviteMemberInput,
-  Org,
-  OrgDetail,
-  OrgInvitation,
-  OrgMember,
-  OrgMembers,
-  RenameOrgInput,
-  TransferOrgOwnershipInput,
-  UpdateMemberRoleInput,
-  UserInvitation
-} from "./schemas/Org"
-import {
-  AddMemberInput,
-  ConnectGithubInput,
-  CreateProjectInput,
-  GithubRepoPage,
-  GithubOrgIntegrationStatus,
-  Project,
-  ProjectDetail,
-  Slug,
-  StartGithubInstallInput,
-  StartGithubInstallResponse,
-  TransferOwnershipInput,
-  UpdateMemberInput,
-  UpdateProjectInput,
-  UpdateProjectSetupInput
-} from "./schemas/Project"
-import {
-  ArchiveTicketInput,
-  CreateTicketInput,
-  QuickCreateTicketInput,
-  SplitTicketInput,
-  SplitTicketResult,
-  Ticket,
-  TicketDetail,
-  TicketId,
-  UpdateTicketInput
-} from "./schemas/Ticket"
-import {
-  AttachBranchInput,
-  BranchListResponse,
-  CreateBranchInput,
-  GitStatesResponse,
-  OpenPrInput,
-  OpenPrResult
-} from "./schemas/GitState"
-import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
-import {
-  CreateStatusInput,
-  ProjectStatus,
-  ReorderStatusInput,
-  StatusSlug,
-  UpdateStatusInput
-} from "./schemas/Status"
-import {
-  Comment,
-  CommentId,
-  CreateCommentInput,
-  UpdateCommentInput
-} from "./schemas/Comment"
-import { OAuthApplication } from "./schemas/OAuthApplication"
-import {
-  ConnectEverhourProfileInput,
-  EverhourProjectIntegrationStatus,
-  EverhourSyncSummary,
-  PersonalEverhour
-} from "./schemas/Everhour"
-import {
-  ActiveTimer,
-  LogTimeInput,
-  StartSprintTimerInput,
-  StartTimerInput,
-  TicketTimeSummary,
-  WorkTypeOption
-} from "./schemas/TimeTracking"
-import {
-  ConnectFigmaProjectInput,
-  FigmaLinkMetadata,
-  FigmaProjectIntegrationStatus,
-  PersonalFigma
-} from "./schemas/Figma"
-import {
-  ConfigureJiraMigrationInput,
-  CreateJiraMigrationInput,
-  JiraConnection,
-  JiraMigrationDetail,
-  JiraMigrationDestinationConflict,
-  JiraMigrationRevisionInput,
-  JiraMigrationSummary,
-  JiraSkippedAttachment,
-  JiraProjectChoice,
-  JiraSite
-} from "./schemas/JiraMigration"
-import {
-  CompleteSprintInput,
-  CompleteSprintOutput,
-  CreateGroupInput,
-  Group,
-  GroupDetail,
-  GroupId,
-  UpdateGroupInput,
-  UpdateGroupTicketsInput,
-  UpdateGroupTicketsOutput,
-  UpdateTicketOrderInput
-} from "./schemas/Group"
-import {
-  DEFAULT_TICKET_SORT,
-  TicketSort,
-  TicketCountQuery,
-  TicketCounts,
-  TicketListPage,
-  TicketListQuery,
-  TicketOrderKeyQuery,
-  TicketSearchQuery,
-  TicketSections,
-  TicketSprintSections,
-  TicketUpdateResult
-} from "./filters/Ticket"
-import {
-  Attachment,
-  AttachmentListPage,
-  AttachmentListParams,
-  AttachmentSummary,
-  ConnectStorageInput,
-  OrgStorageStatus,
-  PrepareAttachmentInput,
-  PrepareAttachmentResult
-} from "./schemas/Attachment"
+
+import { Authentication } from "./Authentication"
 import {
   AttachmentNotUploaded,
   AttachmentTooLarge,
@@ -195,7 +67,136 @@ import {
   Unauthorized,
   Validation
 } from "./errors"
-import { Authentication } from "./Authentication"
+import {
+  DEFAULT_TICKET_SORT,
+  TicketSort,
+  TicketCountQuery,
+  TicketCounts,
+  TicketListPage,
+  TicketListQuery,
+  TicketOrderKeyQuery,
+  TicketSearchQuery,
+  TicketSections,
+  TicketSprintSections,
+  TicketUpdateResult
+} from "./filters/Ticket"
+import {
+  Attachment,
+  AttachmentListPage,
+  AttachmentListParams,
+  AttachmentSummary,
+  ConnectStorageInput,
+  OrgStorageStatus,
+  PrepareAttachmentInput,
+  PrepareAttachmentResult
+} from "./schemas/Attachment"
+import {
+  Comment,
+  CommentId,
+  CreateCommentInput,
+  UpdateCommentInput
+} from "./schemas/Comment"
+import {
+  ConnectEverhourProfileInput,
+  EverhourProjectIntegrationStatus,
+  EverhourSyncSummary,
+  PersonalEverhour
+} from "./schemas/Everhour"
+import {
+  ConnectFigmaProjectInput,
+  FigmaLinkMetadata,
+  FigmaProjectIntegrationStatus,
+  PersonalFigma
+} from "./schemas/Figma"
+import {
+  AttachBranchInput,
+  BranchListResponse,
+  CreateBranchInput,
+  GitStatesResponse,
+  OpenPrInput,
+  OpenPrResult
+} from "./schemas/GitState"
+import {
+  CompleteSprintInput,
+  CompleteSprintOutput,
+  CreateGroupInput,
+  Group,
+  GroupDetail,
+  GroupId,
+  UpdateGroupInput,
+  UpdateGroupTicketsInput,
+  UpdateGroupTicketsOutput,
+  UpdateTicketOrderInput
+} from "./schemas/Group"
+import {
+  ConfigureJiraMigrationInput,
+  CreateJiraMigrationInput,
+  JiraConnection,
+  JiraMigrationDetail,
+  JiraMigrationDestinationConflict,
+  JiraMigrationRevisionInput,
+  JiraMigrationSummary,
+  JiraProjectChoice,
+  JiraSite,
+  JiraSkippedAttachment
+} from "./schemas/JiraMigration"
+import { OAuthApplication } from "./schemas/OAuthApplication"
+import {
+  InviteMemberInput,
+  Org,
+  OrgDetail,
+  OrgInvitation,
+  OrgMember,
+  OrgMembers,
+  RenameOrgInput,
+  TransferOrgOwnershipInput,
+  UpdateMemberRoleInput,
+  UserInvitation
+} from "./schemas/Org"
+import {
+  AddMemberInput,
+  ConnectGithubInput,
+  CreateProjectInput,
+  GithubRepoPage,
+  GithubOrgIntegrationStatus,
+  Project,
+  ProjectDetail,
+  Slug,
+  StartGithubInstallInput,
+  StartGithubInstallResponse,
+  TransferOwnershipInput,
+  UpdateMemberInput,
+  UpdateProjectInput,
+  UpdateProjectSetupInput
+} from "./schemas/Project"
+import {
+  CreateStatusInput,
+  ProjectStatus,
+  ReorderStatusInput,
+  StatusSlug,
+  UpdateStatusInput
+} from "./schemas/Status"
+import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
+import {
+  ArchiveTicketInput,
+  CreateTicketInput,
+  QuickCreateTicketInput,
+  SplitTicketInput,
+  SplitTicketResult,
+  Ticket,
+  TicketDetail,
+  TicketId,
+  UpdateTicketInput
+} from "./schemas/Ticket"
+import {
+  ActiveTimer,
+  LogTimeInput,
+  StartSprintTimerInput,
+  StartTimerInput,
+  TicketTimeSummary,
+  WorkTypeOption
+} from "./schemas/TimeTracking"
+import { User } from "./schemas/User"
 
 const HealthResponse = Schema.Struct({
   status: Schema.Literal("ok")

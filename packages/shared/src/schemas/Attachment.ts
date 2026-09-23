@@ -65,7 +65,7 @@ export const ATTACHMENT_CONTENT_TYPES = [
 export type AttachmentContentType = (typeof ATTACHMENT_CONTENT_TYPES)[number]
 
 const normalizeContentType = (value: string) =>
-  value.split(";")[0]!.trim().toLowerCase()
+  value.split(";")[0].trim().toLowerCase()
 
 export const attachmentUploadContentType = (
   filename: string,

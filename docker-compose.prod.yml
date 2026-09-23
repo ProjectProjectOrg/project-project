@@ -85,7 +85,8 @@ services:
     <<: *image-web
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       # NPM on the host (or wherever) reverse-proxies to this port. Bind
       # only to localhost if NPM is on the same VM; bind to 0.0.0.0 (the

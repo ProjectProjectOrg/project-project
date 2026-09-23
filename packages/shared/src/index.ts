@@ -1,8 +1,8 @@
-// Public surface of the @projectproject/shared package.
+// Public surface of the @pp/shared package.
 //
 // Re-export every value that the backend or frontend should be able to import.
 // As you complete Chapter 2 exercises, add the new modules here so consumers
-// can import them via `@projectproject/shared`.
+// can import them via `@pp/shared`.
 
 export * from "./api"
 export * from "./errors"

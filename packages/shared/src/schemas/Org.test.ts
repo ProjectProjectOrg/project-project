@@ -1,6 +1,7 @@
-import { expect, it } from "vite-plus/test"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
+import { expect, it } from "vitest"
+
 import { InviteMemberInput } from "./Org"
 
 const decode = Schema.decodeUnknownExit(InviteMemberInput)

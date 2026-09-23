@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema"
+
 import { StatusSlug } from "./Status"
 
 export const ChecksStatus = Schema.Literals([

@@ -1,6 +1,6 @@
-import { expect, it } from "vite-plus/test"
-import * as Effect from "effect/Effect"
+import { it } from "@effect/vitest"
 import * as Cause from "effect/Cause"
+import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Ref from "effect/Ref"
@@ -13,6 +13,8 @@ import {
   HttpApiMiddleware,
   HttpApiTest
 } from "effect/unstable/httpapi"
+import { expect } from "vitest"
+
 import { AppApi } from "./api"
 import { Authentication, CurrentUser } from "./Authentication"
 import {
@@ -108,8 +110,9 @@ const makeHarness = Effect.gen(function* () {
   return { client, received, receivedUpdate }
 })
 
-it("preserves every sort and direction through the production HTTP endpoints", async () => {
-  await Effect.runPromise(
+it.effect(
+  "preserves every sort and direction through the production HTTP endpoints",
+  () =>
     Effect.gen(function* () {
       const { client, received, receivedUpdate } = yield* makeHarness
       for (const key of SortKey.literals) {
@@ -128,42 +131,40 @@ it("preserves every sort and direction through the production HTTP endpoints", a
         }
       }
     }).pipe(Effect.scoped)
-  )
-})
+)
 
-it("preserves filters and keeps an omitted update sort absent", async () => {
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const { client, received, receivedUpdate } = yield* makeHarness
-      const query = yield* Schema.decodeEffect(TicketListQuery)({
-        sort: { key: "updated", dir: "desc" },
-        status: ["todo", "in_progress"],
-        type: ["bug"],
-        hasBranch: false,
-        archived: true,
-        q: "same day",
-        cursor: "next-page",
-        updatedAfter: "2026-09-15T10:11:12.345Z"
-      })
-      yield* client.tickets.list({ params, query })
-      expect(yield* Ref.get(received)).toEqual(query)
-      yield* client.tickets.update({
-        params: { ...params, id: ticket.id },
-        query: {},
-        payload: {}
-      })
-      expect(yield* Ref.get(receivedUpdate)).toEqual({})
-      yield* client.tickets.sections({
-        params,
-        query: { sort: DEFAULT_TICKET_SORT }
-      })
-      expect((yield* Ref.get(received)).sort).toEqual(DEFAULT_TICKET_SORT)
-    }).pipe(Effect.scoped)
-  )
-})
+it.effect("preserves filters and keeps an omitted update sort absent", () =>
+  Effect.gen(function* () {
+    const { client, received, receivedUpdate } = yield* makeHarness
+    const query = yield* Schema.decodeEffect(TicketListQuery)({
+      sort: { key: "updated", dir: "desc" },
+      status: ["todo", "in_progress"],
+      type: ["bug"],
+      hasBranch: false,
+      archived: true,
+      q: "same day",
+      cursor: "next-page",
+      updatedAfter: "2026-09-15T10:11:12.345Z"
+    })
+    yield* client.tickets.list({ params, query })
+    expect(yield* Ref.get(received)).toEqual(query)
+    yield* client.tickets.update({
+      params: { ...params, id: ticket.id },
+      query: {},
+      payload: {}
+    })
+    expect(yield* Ref.get(receivedUpdate)).toEqual({})
+    yield* client.tickets.sections({
+      params,
+      query: { sort: DEFAULT_TICKET_SORT }
+    })
+    expect((yield* Ref.get(received)).sort).toEqual(DEFAULT_TICKET_SORT)
+  }).pipe(Effect.scoped)
+)
 
-it("defaults omitted list sorts and rejects malformed sorts at the HTTP boundary", async () => {
-  await Effect.runPromise(
+it.effect(
+  "defaults omitted list sorts and rejects malformed sorts at the HTTP boundary",
+  () =>
     Effect.gen(function* () {
       for (const sort of [
         undefined,
@@ -222,5 +223,4 @@ it("defaults omitted list sorts and rejects malformed sorts at the HTTP boundary
         }
       }
     }).pipe(Effect.scoped)
-  )
-})
+)

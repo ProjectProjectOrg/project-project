@@ -8,8 +8,9 @@
 // `Project` is the full record (used by list responses for now; later by /get).
 
 import * as Schema from "effect/Schema"
-import { UserId } from "./User"
+
 import { AttachmentId } from "./Attachment"
+import { UserId } from "./User"
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 

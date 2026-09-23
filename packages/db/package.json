@@ -1,0 +1,37 @@
+{
+  "name": "@pp/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth-schema": "./src/auth-schema.ts",
+    "./projectVisibility": "./src/projectVisibility.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --no-file-parallelism",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@effect/sql-pg": "4.0.0-rc.112",
+    "@pp/shared": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5-169397b",
+    "effect": "4.0.0-rc.112",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-rc.112",
+    "@types/pg": "^8.20.0",
+    "better-auth": "1.7.3",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "1.0.0-rc.5-ab785fc",
+    "vitest": "4.1.11"
+  }
+}

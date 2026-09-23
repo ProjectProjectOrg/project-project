@@ -11,7 +11,7 @@ The primary goal is **learning Effect deeply by building something real**. Secon
 | Layer              | Choice                                   | Why                                                                       |
 | ------------------ | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Runtime            | Bun                                      | Fast, native TypeScript, native workspaces, single binary in containers   |
-| Monorepo           | Bun workspaces                           | No Turborepo/Nx — keep it minimal                                         |
+| Monorepo           | Bun workspaces + Turborepo               | Bun owns packages/runtime; Turbo owns the task graph and cache            |
 | Backend framework  | `@effect/platform` HttpApi               | Schema-first API, derives OpenAPI spec, derives typed client              |
 | Database           | Postgres                                 | Auth, sessions, OAuth tokens, project index                               |
 | ORM                | Drizzle + `@effect/sql-drizzle`          | Drizzle ergonomics, Effect connection/transaction layers                  |
@@ -26,7 +26,7 @@ The primary goal is **learning Effect deeply by building something real**. Secon
 | Testing            | `@effect/vitest` + React Testing Library | Effect-aware test runtime, layer mocking                                  |
 | Container          | Docker Compose                           | One file, runs on the homelab                                             |
 
-> **Effect version:** start on **v3 stable**. The team explicitly recommends v3 for production right now; v4 is in beta and Schema lives under `effect/unstable/schema`. Migrate after v4 LTS.
+> **Effect version:** the repository uses Effect v4. Schema is available from `effect/Schema`, and Effect-aware compiler diagnostics are enabled through `@effect/tsgo`.
 
 ---
 
@@ -34,73 +34,45 @@ The primary goal is **learning Effect deeply by building something real**. Secon
 
 ```
 projectproject/
-├── bun.lockb
+├── bun.lock
 ├── package.json                      # workspaces config
+├── turbo.json                        # task graph, cache policy, outputs
 ├── docker-compose.yml
 ├── docker/
-│   └── Dockerfile
+│   ├── Dockerfile.backend
+│   └── Dockerfile.frontend
 ├── data/                             # bind-mounted into container; gitignored
 │   └── projects/
 │       └── <project-slug>/
 │           ├── project.md
 │           └── tickets/
 │               └── <ticket-id>.md
-├── packages/
-│   ├── shared/                       # HttpApi definition, Schemas, shared types
-│   │   ├── package.json
-│   │   └── src/
-│   │       ├── api.ts                # HttpApi.make("projectproject").add(...)
-│   │       ├── schemas/
-│   │       │   ├── Project.ts
-│   │       │   ├── Ticket.ts
-│   │       │   └── User.ts
-│   │       └── errors.ts             # tagged errors used in both ends
+├── apps/
 │   ├── backend/
 │   │   ├── package.json
 │   │   └── src/
-│   │       ├── main.ts               # entry point
-│   │       ├── server.ts             # HttpApiBuilder wiring
-│   │       ├── services/             # domain services as Layers
-│   │       │   ├── Db.ts
-│   │       │   ├── Auth.ts
-│   │       │   ├── Projects.ts
-│   │       │   ├── Tickets.ts
-│   │       │   ├── Markdown.ts
-│   │       │   └── GitHub.ts
-│   │       ├── handlers/             # one file per HttpApi group
-│   │       │   ├── projects.ts
-│   │       │   ├── tickets.ts
-│   │       │   └── auth.ts
-│   │       └── db/
-│   │           ├── schema.ts         # Drizzle schema
-│   │           └── migrations/
+│   │       ├── main.ts               # Bun entry point + HTTP wiring
+│   │       ├── handlers/              # typed HttpApi handlers
+│   │       ├── mcp/                   # MCP transport handlers
+│   │       └── Layers/                # transport and auth integrations
 │   └── frontend/
 │       ├── package.json
-│       ├── app.config.ts             # TanStack Start config
+│       ├── vite.config.ts
 │       └── src/
-│           ├── routes/               # file-based routes
-│           │   ├── __root.tsx
-│           │   ├── index.tsx
-│           │   ├── login.tsx
-│           │   ├── projects.index.tsx
-│           │   ├── projects.$slug.tsx
-│           │   └── projects.$slug.tickets.$id.tsx
-│           ├── runtime.ts            # Atom.runtime + Layers
-│           ├── atoms/
-│           │   ├── auth.ts
-│           │   ├── projects.ts
-│           │   └── tickets.ts
-│           ├── services/
-│           │   └── ApiClient.ts      # HttpApiClient.make(AppApi)
+│           ├── routes/                # TanStack Router file routes
+│           ├── atoms/                 # Effect Atom data layer
+│           ├── forms/                 # TanStack Form flows
 │           ├── components/
-│           │   ├── Editor.tsx        # Lexical
-│           │   ├── TicketTable.tsx   # TanStack Table
-│           │   └── ui/               # BaseUI-based primitives
+│           │   └── ui/                # shared app primitives
 │           └── lib/
+├── packages/
+│   ├── db/                            # Drizzle schema, migrations, and DB layers
+│   ├── server-core/                   # server services, live layers, and domain logic
+│   └── shared/                        # HttpApi, schemas, errors, pure invariants
 └── README.md
 ```
 
-The `shared/` package is the keystone. The HttpApi defined there is **the contract** — backend implements it, frontend consumes it, OpenAPI spec is derived from it.
+The workspace packages use the `@pp/*` namespace. `@pp/shared` is the cross-process keystone: the backend implements its HttpApi, the frontend consumes it, and the OpenAPI specification is derived from it. `@pp/db` owns the complete database boundary. `@pp/server-core` owns the reusable server implementation, while `@pp/backend` remains the transport, authentication, and runtime composition application.
 
 ---
 
@@ -334,10 +306,10 @@ MarkdownLive   GitHubLive         BetterAuthLive
 Handlers stay thin — they're plumbing. All logic is in services.
 
 ```ts
-// packages/backend/src/handlers/projects.ts
+// apps/backend/src/handlers/projects.ts
 import { HttpApiBuilder } from "@effect/platform"
 import { Effect } from "effect"
-import { AppApi } from "@projectproject/shared"
+import { AppApi } from "@pp/shared"
 import { Projects } from "../services/Projects"
 import { Auth } from "../services/Auth"
 
@@ -375,7 +347,7 @@ The handler has no idea whether the data lives in markdown, postgres, or a sandw
 ### Markdown service in detail
 
 ```ts
-// packages/backend/src/services/Markdown.ts
+// apps/backend/src/services/Markdown.ts
 export class Markdown extends Context.Tag("Markdown")<
   Markdown,
   {
@@ -425,7 +397,7 @@ The permission check is a single function per action, called at the top of every
 ### The runtime + atoms (recap)
 
 ```ts
-// frontend/src/runtime.ts
+// apps/frontend/src/runtime.ts
 import { Layer } from "effect"
 import { Atom } from "@effect-atom/atom-react"
 import { ApiClient } from "./services/ApiClient"
@@ -435,9 +407,9 @@ export const runtime = Atom.runtime(AppLayer)
 ```
 
 ```ts
-// frontend/src/services/ApiClient.ts
+// apps/frontend/src/services/ApiClient.ts
 import { FetchHttpClient, HttpApiClient } from "@effect/platform"
-import { AppApi } from "@projectproject/shared"
+import { AppApi } from "@pp/shared"
 import { Effect } from "effect"
 
 export class ApiClient extends Effect.Service<ApiClient>()("ApiClient", {
@@ -453,7 +425,7 @@ That's it for the codegen story — `HttpApiClient.make(AppApi)` reads the share
 ### Atom families = query keys
 
 ```ts
-// frontend/src/atoms/projects.ts
+// apps/frontend/src/atoms/projects.ts
 import { Atom } from "@effect-atom/atom-react"
 import { Effect } from "effect"
 import { runtime } from "../runtime"
@@ -494,7 +466,7 @@ export const createProjectAtom = runtime.fn(
 TanStack Start in SPA mode, file-based routing. The auth gate is a route-tree concern — wrap protected routes in a layout that reads `meAtom` and redirects to `/login` if missing.
 
 ```tsx
-// frontend/src/routes/_authed.tsx
+// apps/frontend/src/routes/_authed.tsx
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async ({ context }) => {
     const me = await context.registry.get(meAtom)
@@ -714,18 +686,13 @@ This is the payoff of the markdown-first data model. Project state is already pl
 
 ### What the MCP server is
 
-- A second listener on the backend process, speaking MCP over stdio (for desktop agent integrations like Claude Code) and over HTTP (for hosted agents). Same Effect runtime, same services as the HTTP API.
+- A Streamable HTTP endpoint at `/mcp` on the backend process. It uses the same Effect runtime and services as the HTTP API.
 - Authenticated. Each MCP client carries a project-scoped token issued from the user's session. The token grants the same access the user has in the web UI — no superuser MCP path.
 - Read-mostly in v1. Write tools (create ticket, append doc) come in a second pass; the v1 surface is read tools so AI agents can gather context without unilaterally mutating state.
 
 ### Transport
 
-Two modes:
-
-1. **stdio** — for users running an agent locally that can spawn the MCP server as a subprocess. The server reads a long-lived API token from `MARKMATE_MCP_TOKEN` env var, validates it against the same Better Auth session table, then serves MCP over stdin/stdout. This is how Claude Code, Cursor, and similar tools consume MCP.
-2. **HTTP / SSE** — same MCP shape served over HTTP at `/mcp/*`, for agents running off-host. Protected by the same session cookie or a bearer token.
-
-The server itself is one Effect program; the transport is a layer choice.
+MCP is served over Streamable HTTP at `/mcp`. Clients authenticate through the OAuth flow exposed by the backend and receive access scoped to the consenting user. There is no stdio transport or separate MCP process.
 
 ### Tool surface (v1, read-only)
 
@@ -756,8 +723,8 @@ These are the underlying markdown files, served verbatim. Agents that prefer to 
 
 ```
 Backend process
-├── HTTP listener  (existing, /api/*)
-├── MCP listener   (new, stdio | /mcp/*)
+├── HttpApi and integration routes  (/api/*)
+├── Streamable HTTP MCP endpoint    (/mcp)
 └── Same service layers (Projects, Tickets, Docs, GitHub, Markdown, Db, Auth)
 ```
 
@@ -903,7 +870,7 @@ Build it in vertical slices, not horizontal layers. Each phase ends with somethi
 
 ### Phase 0 — Skeleton (1 evening)
 
-- Bun workspaces set up
+- Bun workspaces and the Turborepo task graph set up
 - `shared/` exports `AppApi` with one trivial endpoint (`GET /health`)
 - `backend/` runs an HttpApi server implementing it
 - `frontend/` runs TanStack Start, calls the endpoint via `HttpApiClient.make(AppApi)`
@@ -965,8 +932,7 @@ Detailed design: `docs/superpowers/specs/2026-05-03-git-connection-design.md`.
 
 ### Phase 8 — MCP server (1–2 evenings)
 
-- MCP listener as a sibling transport to the HTTP API, sharing the Effect runtime and service layers
-- stdio transport (token via `MARKMATE_MCP_TOKEN`) and HTTP transport at `/mcp/*`
+- Streamable HTTP MCP endpoint at `/mcp`, sharing the backend Effect runtime and service layers
 - Read-only tool surface (`list_projects`, `get_project`, `list_tickets`, `get_ticket`, `search_tickets`, `list_docs`, `get_doc`, `search_docs`, `git_state`, `me`)
 - Resource URIs (`markmate://...`) mapped to the markdown files
 

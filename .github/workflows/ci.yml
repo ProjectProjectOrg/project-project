@@ -28,25 +28,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: voidzero-dev/setup-vp@v1.19.0
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
-          cache: true
-          run-install: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
 
       - name: Install
-        run: vp install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Check
-        run: vp run check
+        run: bun run check
+
+      - name: Migrate test database
+        run: bun run test:migrate
+        env:
+          DATABASE_URL: postgres://postgres:effect-v4-test@127.0.0.1:5432/projectproject_effect_v4_test
 
       - name: Test
-        run: vp run test
-
-      - name: Database compatibility
-        run: vp run test:db
+        run: bun run test:all
         env:
+          BETTER_AUTH_SECRET: isolated-effect-v4-oauth-compatibility-test-secret
           PROJECTPROJECT_TEST_DATABASE_URL: postgres://postgres:effect-v4-test@127.0.0.1:5432/projectproject_effect_v4_test
 
       - name: Build
-        run: vp run build
+        run: bun run build

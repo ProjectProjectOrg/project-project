@@ -1,5 +1,6 @@
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
+
 import type { Group } from "./schemas/Group"
 
 const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())

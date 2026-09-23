@@ -1,11 +1,12 @@
-import * as Schema from "effect/Schema"
 import * as Effect from "effect/Effect"
-import { TicketStatus, TicketType } from "../schemas/Ticket"
-import { TagName } from "../schemas/Tag"
+import * as Schema from "effect/Schema"
+
+import { Page } from "../Pagination"
 import { GroupId } from "../schemas/Group"
+import { TagName } from "../schemas/Tag"
+import { TicketStatus, TicketType } from "../schemas/Ticket"
 import { Ticket, TicketDetail } from "../schemas/Ticket"
 import { UserId } from "../schemas/User"
-import { Page } from "../Pagination"
 
 export const SortKey = Schema.Literals([
   "id",
