@@ -33,6 +33,7 @@ import {
   nextTicketNumberFor,
   prepareJiraPublicationFromSnapshot,
   publishJiraMigrationAtomically,
+  verifyJiraPermanentArchive,
   verifyJiraHiddenMaterialization,
   writeJiraHiddenDocuments
 } from "./Import"
@@ -901,6 +902,25 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               planRef: finalized.planRef,
               publicationRevision: loaded.publicationRevision
             })
+            const verifyArchive = verifyJiraPermanentArchive(
+              publishInput.fence,
+              prepared.orgSlug,
+              {
+                verify: () => Effect.void,
+                readJson: (_orgSlug, ref, schema) =>
+                  Schema.decodeUnknownEffect(schema)(stored.get(ref.key)).pipe(
+                    Effect.orDie
+                  )
+              }
+            )
+            yield* verifyArchive
+            const archivePath = `${root}/orgs/${prepared.orgSlug}/projects/${prepared.configuration.destination.slug}/${loaded.plan.archiveDocument.path}`
+            yield* fs.writeFileString(archivePath, "tampered archive")
+            expect((yield* Effect.result(verifyArchive))._tag).toBe("Failure")
+            yield* fs.writeFileString(
+              archivePath,
+              loaded.plan.archiveDocument.content
+            )
             expect(yield* publishJiraMigrationAtomically(publishInput)).toBe(
               true
             )

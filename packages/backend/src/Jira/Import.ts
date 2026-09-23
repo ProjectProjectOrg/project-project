@@ -432,6 +432,94 @@ export const loadJiraPublicationPlan = Effect.fn(
   return { plan, publicationRevision }
 })
 
+export const verifyJiraPermanentArchive = Effect.fn(
+  "JiraImport.verifyPermanentArchive"
+)(function* (
+  fence: AttemptFence,
+  orgSlug: string,
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "verify">
+) {
+  const db = yield* Db
+  const markdown = yield* Markdown
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const [migration] = yield* db
+    .select()
+    .from(jiraMigration)
+    .where(eq(jiraMigration.id, fence.migrationId))
+    .limit(1)
+  if (
+    !migration ||
+    migration.workflowExecutionId !== fence.workflowExecutionId ||
+    migration.workflowAttempt !== fence.workflowAttempt ||
+    migration.status !== "succeeded" ||
+    migration.destinationProjectId === null ||
+    migration.destinationProjectSlug === null
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["published-archive-attempt-conflict"]
+    })
+  const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+  if (!checkpoint.publishedPlan)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["published-archive-plan-missing"]
+    })
+  const [project] = yield* db
+    .select()
+    .from(projectIndex)
+    .where(eq(projectIndex.id, migration.destinationProjectId))
+    .limit(1)
+  const [org] = yield* db
+    .select({ slug: organization.slug })
+    .from(organization)
+    .where(eq(organization.id, migration.organizationId))
+    .limit(1)
+  if (
+    !project ||
+    project.publishedAt === null ||
+    project.organizationId !== migration.organizationId ||
+    project.slug !== migration.destinationProjectSlug ||
+    org?.slug !== orgSlug
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["published-archive-project-conflict"]
+    })
+  const { plan, publicationRevision } = yield* loadJiraPublicationPlan(
+    orgSlug,
+    checkpoint.publishedPlan.planRef,
+    artifacts
+  )
+  if (
+    plan.migrationId !== migration.id ||
+    plan.project.id !== project.id ||
+    plan.project.slug !== project.slug ||
+    publicationRevision !== checkpoint.publishedPlan.publicationRevision ||
+    !safeJiraDocumentPath(plan.archiveDocument.path, migration.id)
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["published-archive-plan-conflict"]
+    })
+  const stored = yield* fs
+    .readFileString(
+      path.join(
+        markdown.projectDir(orgSlug, project.slug),
+        plan.archiveDocument.path
+      )
+    )
+    .pipe(
+      Effect.mapError(
+        () => new JiraPublicationInvalid({ reasons: ["missing-archive"] })
+      )
+    )
+  if (
+    createHash("sha256").update(stored).digest("hex") !==
+    plan.archiveDocument.sha256
+  )
+    return yield* new JiraPublicationInvalid({
+      reasons: ["published-archive-checksum-conflict"]
+    })
+})
+
 export const makeJiraMaterializationDependencies = (
   prepared: JiraPreparedPublicationV1,
   fence: AttemptFence,
