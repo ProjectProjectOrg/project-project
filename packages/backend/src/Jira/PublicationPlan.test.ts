@@ -983,7 +983,7 @@ it("requires actual outcomes and permits only individually accepted skips", asyn
   expect(partial.plan.indexes.attachments).toEqual([])
   expect(partial.plan.report.partialSuccess).toBe(true)
   expect(partial.plan.report.markdown).toContain(
-    "Upload it to the destination ticket only if its type is supported and it is at most 25 MB."
+    "Upload it to the destination ticket only if its type is supported and its size is between 1 byte and 25 MB."
   )
   expect(partial.plan.report.markdown).toContain("image.png")
   expect(partial.plan.report.markdown).toContain(
