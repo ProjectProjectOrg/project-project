@@ -114,49 +114,56 @@ function ConfiguredJiraMigrationForm({
     defaultValues: buildJiraMigrationDraft(requirements, detail.configuration),
     onSubmit: async () => {
       setValidationError(null)
-      if (await saveDraft()) await run({ expectedRevision: revision.current })
+      if (!(await saveDraft(false))) return
+      const result = await run({ expectedRevision: revision.current })
+      if (!Exit.isSuccess(result)) setSavedRevision(revision.current)
     },
     onSubmitInvalid: () => {
       setValidationError(m.jira_migration_mapping_required())
     }
   })
 
-  const saveDraft = useCallback(async (): Promise<boolean> => {
-    const operation = saveQueue.current.then(async () => {
-      try {
-        const configured = await configure({
-          expectedRevision: revision.current,
-          configuration: toPartialJiraMigrationConfiguration(form.state.values)
-        })
-        if (!Exit.isSuccess(configured)) {
-          setValidationError(
-            jiraMigrationSaveErrorMessage(
-              Option.getOrUndefined(Cause.findErrorOption(configured.cause))
+  const saveDraft = useCallback(
+    async (publishRevision = true): Promise<boolean> => {
+      const operation = saveQueue.current.then(async () => {
+        try {
+          const configured = await configure({
+            expectedRevision: revision.current,
+            configuration: toPartialJiraMigrationConfiguration(
+              form.state.values
             )
-          )
+          })
+          if (!Exit.isSuccess(configured)) {
+            setValidationError(
+              jiraMigrationSaveErrorMessage(
+                Option.getOrUndefined(Cause.findErrorOption(configured.cause))
+              )
+            )
+            return false
+          }
+          revision.current = configured.value.revision
+          if (publishRevision) setSavedRevision(configured.value.revision)
+          setValidationError(null)
+          return true
+        } catch {
+          setValidationError(m.jira_migration_error_generic())
           return false
         }
-        revision.current = configured.value.revision
-        setSavedRevision(configured.value.revision)
-        setValidationError(null)
-        return true
-      } catch {
-        setValidationError(m.jira_migration_error_generic())
-        return false
-      }
-    })
-    saveQueue.current = operation
-    return await new Promise<boolean>((resolve) => {
-      const timeout = window.setTimeout(() => {
-        setValidationError(m.jira_migration_save_timeout())
-        resolve(false)
-      }, 10000)
-      void operation.then((saved) => {
-        window.clearTimeout(timeout)
-        resolve(saved)
       })
-    })
-  }, [configure, form, setSavedRevision, setValidationError])
+      saveQueue.current = operation
+      return await new Promise<boolean>((resolve) => {
+        const timeout = window.setTimeout(() => {
+          setValidationError(m.jira_migration_save_timeout())
+          resolve(false)
+        }, 10000)
+        void operation.then((saved) => {
+          window.clearTimeout(timeout)
+          resolve(saved)
+        })
+      })
+    },
+    [configure, form, setSavedRevision, setValidationError]
+  )
 
   useEffect(() => {
     draftSaveRef.current = saveDraft

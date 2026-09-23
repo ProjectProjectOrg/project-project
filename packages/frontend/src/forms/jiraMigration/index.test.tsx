@@ -1,5 +1,6 @@
 import { createRef, useRef, useState } from "react"
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -9,22 +10,30 @@ import {
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
+import type * as Atom from "effect/unstable/reactivity/Atom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type {
   JiraMigrationDetail,
   JiraMigrationRequirements
 } from "@projectproject/shared"
 import { Conflict } from "@projectproject/shared"
+import { jiraDestinationConflictsAtom } from "@/atoms/jiraMigration"
 import { JiraMigrationForm, type JiraDraftSave } from "."
 
-const mocks = vi.hoisted(() => ({ mutate: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  observedAtoms: [] as Array<unknown>
+}))
 
 vi.mock("@effect/atom-react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@effect/atom-react")>()
   return {
     ...actual,
     useAtomSet: () => mocks.mutate,
-    useAtomValue: () => AsyncResult.success([]),
+    useAtomValue: (atom: Atom.Atom<unknown>) => {
+      mocks.observedAtoms.push(atom)
+      return AsyncResult.success([])
+    },
     useAtomRefresh: () => vi.fn()
   }
 })
@@ -32,6 +41,7 @@ vi.mock("@effect/atom-react", async (importOriginal) => {
 afterEach(() => {
   cleanup()
   mocks.mutate.mockReset()
+  mocks.observedAtoms.length = 0
 })
 
 beforeEach(() => {
@@ -359,5 +369,36 @@ describe("JiraMigrationForm restricted content", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm and migrate" }))
 
     await waitFor(() => expect(mocks.mutate).toHaveBeenCalled())
+  })
+
+  it("does not recheck conflicts after the final save while migration starts", async () => {
+    renderReview({ issueCount: 0, commentCount: 0, worklogCount: 0 })
+    const nextRevisionConflicts = jiraDestinationConflictsAtom({
+      params: { orgSlug: "example", migrationId: "migration" },
+      query: { expectedRevision: 15 }
+    })
+    let failRun: ((exit: ReturnType<typeof Exit.fail>) => void) | undefined
+    mocks.mutate
+      .mockResolvedValueOnce(Exit.succeed({ ...detail, revision: 15 }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            failRun = resolve
+          })
+      )
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and migrate" }))
+    await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(2))
+
+    expect(mocks.observedAtoms).not.toContain(nextRevisionConflicts)
+
+    await act(async () => {
+      failRun?.(
+        Exit.fail(new Conflict({ reason: "jira_migration_revision_conflict" }))
+      )
+    })
+    await waitFor(() =>
+      expect(mocks.observedAtoms).toContain(nextRevisionConflicts)
+    )
   })
 })
