@@ -42,6 +42,12 @@ export const VerifiedJiraMaterialization = Schema.Struct({
 export type VerifiedJiraMaterialization =
   typeof VerifiedJiraMaterialization.Type
 
+export type JiraReadyPublication = Readonly<{
+  projectId: string
+  planRef: JiraArtifactRef
+  verified: VerifiedJiraMaterialization
+}>
+
 export type JiraMaterializationDependencies<
   A extends Readonly<{ sourceAttachmentId: string }>,
   R
@@ -243,6 +249,14 @@ export type MigrationActivities<R = never> = Readonly<{
   >
   materialize: (
     input: MigrationActivityInput
+  ) => Effect.Effect<
+    JiraReadyPublication,
+    JiraMigrationWorkflowFailureValue,
+    R | import("effect/unstable/workflow/WorkflowEngine").WorkflowInstance
+  >
+  publish: (
+    input: MigrationActivityInput,
+    ready: JiraReadyPublication
   ) => Effect.Effect<
     void,
     JiraMigrationWorkflowFailureValue,

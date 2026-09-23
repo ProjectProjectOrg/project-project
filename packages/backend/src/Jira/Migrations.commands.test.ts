@@ -62,6 +62,21 @@ import {
 } from "./Migrations"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const readyPublication = {
+  projectId: "project-1",
+  planRef: {
+    key: "migrations/jira/test/publication/plan.json",
+    contentType: "application/json",
+    byteSize: 1,
+    sha256: "a".repeat(64)
+  },
+  verified: {
+    planSha256: "a".repeat(64),
+    documentCount: 0,
+    attachmentCount: 0,
+    unresolvedReferenceCount: 0 as const
+  }
+}
 const configuration = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
   destination: { name: "Application", slug: "application", key: "APP" },
   identities: [],
@@ -229,7 +244,11 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             Effect.asVoid,
             Effect.orDie
           ),
-        () => DurableDeferred.await(retryDeferred(999)).pipe(Effect.asVoid)
+        () =>
+          DurableDeferred.await(retryDeferred(999)).pipe(
+            Effect.as(readyPublication)
+          ),
+        () => Effect.void
       )
     )
   const createScanned = Effect.fn(function* (
@@ -472,8 +491,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             () =>
               Deferred.succeed(entered, undefined).pipe(
                 Effect.andThen(DurableDeferred.await(retryDeferred(999))),
-                Effect.asVoid
-              )
+                Effect.as(readyPublication)
+              ),
+            () => Effect.void
           )
         )
         yield* Effect.gen(function* () {
@@ -575,7 +595,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 yield* Deferred.succeed(secondFailure, undefined)
                 yield* DurableDeferred.await(retryDeferred(2))
                 yield* Deferred.succeed(finished, undefined)
-              })
+                return readyPublication
+              }),
+            () => Effect.void
           )
         )
         yield* Effect.gen(function* () {
@@ -899,7 +921,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     .pipe(Effect.orDie)
                 }),
               () =>
-                DurableDeferred.await(retryDeferred(999)).pipe(Effect.asVoid)
+                DurableDeferred.await(retryDeferred(999)).pipe(
+                  Effect.as(readyPublication)
+                ),
+              () => Effect.void
             )
           )
           yield* Effect.gen(function* () {
@@ -1308,6 +1333,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 yield* p.completeScan(fenceFor(row)!, scan).pipe(Effect.orDie)
                 yield* Deferred.succeed(completed, undefined)
               }),
+            () => Effect.succeed(readyPublication),
             () => Effect.void
           )
         )
@@ -1441,6 +1467,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   ).pipe(Effect.orDie)
                   yield* Deferred.succeed(retried, undefined)
                 }),
+              () => Effect.succeed(readyPublication),
               () => Effect.void
             )
           )

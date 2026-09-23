@@ -607,8 +607,7 @@ export class JiraMigrationProjection extends Context.Service<
                         workflowAttempt: fence.workflowAttempt
                       }
                     }),
-                    updatedAt: now,
-                    revision: row.revision + 1
+                    updatedAt: now
                   })
                   .where(fenceWhere(fence))
                 return true
@@ -643,8 +642,7 @@ export class JiraMigrationProjection extends Context.Service<
                     checkpoint: yield* Schema.encodeEffect(
                       JiraMigrationCheckpoint
                     )(settled),
-                    updatedAt: now,
-                    revision: row.revision + 1
+                    updatedAt: now
                   })
                   .where(fenceWhere(fence))
                 return true

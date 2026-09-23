@@ -96,6 +96,9 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const current = fence(created)
         expect(yield* p.beginRemoteWrites(current)).toBe(true)
         expect(yield* p.beginRemoteWrites(current)).toBe(true)
+        expect((yield* p.owned(input, created.id)).revision).toBe(
+          created.revision
+        )
         yield* p.recordFailure(current, {
           reason: "ambiguous_upload",
           retryable: true
@@ -145,6 +148,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             executionId: "cleanup-retry"
           })
         ).toBe(true)
+        const claimed = yield* p.owned(input, created.id)
         expect(
           yield* p.settleRemoteWrites({
             ...current,
@@ -152,6 +156,9 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           })
         ).toBe(false)
         expect(yield* p.settleRemoteWrites(current)).toBe(true)
+        expect((yield* p.owned(input, created.id)).revision).toBe(
+          claimed.revision
+        )
         expect(yield* p.deleteAfterCleanup(current, "cleanup-retry")).toBe(true)
       }).pipe(Effect.provide(layer))
     )

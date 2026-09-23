@@ -96,6 +96,22 @@ const rescanPayload = {
   }
 }
 
+const readyPublication = {
+  projectId: "project-1",
+  planRef: {
+    key: "migrations/jira/migration-1/publication/plan.json",
+    contentType: "application/json",
+    byteSize: 1,
+    sha256: "a".repeat(64)
+  },
+  verified: {
+    planSha256: "a".repeat(64),
+    documentCount: 0,
+    attachmentCount: 0,
+    unresolvedReferenceCount: 0 as const
+  }
+}
+
 const waitUntilSuspended = (executionId: string) =>
   Effect.gen(function* () {
     while (true) {
@@ -138,51 +154,50 @@ describe("Jira migration workflow contracts", () => {
           scan: () => Effect.void,
           finalize: () => Effect.void,
           materialize: () =>
-            Effect.gen(function* () {
-              const ready = yield* materializeJiraPreparedPublication(
-                {
-                  scanRevision: 1,
-                  configurationRevision: 2,
-                  attachments: [{ sourceAttachmentId: "attachment-1" }]
-                },
-                {
-                  error: JiraMigrationWorkflowFailure,
-                  createHidden: record("hidden").pipe(Effect.as("project-1")),
-                  copyAttachment: (attachment) =>
-                    record(`attachment-${attachment.sourceAttachmentId}`).pipe(
-                      Effect.as({
-                        sourceAttachmentId: attachment.sourceAttachmentId,
-                        kind: "skipped" as const
-                      })
-                    ),
-                  finalizePlan: () =>
-                    record("plan").pipe(
-                      Effect.as({
-                        planRef,
-                        publicationRevision: "b".repeat(64),
-                        documentBatchCount: 2
-                      })
-                    ),
-                  writeDocumentBatch: (_planRef, ordinal) =>
-                    record(`batch-${ordinal}`).pipe(Effect.as(32)),
-                  writeArchive: () => record("archive").pipe(Effect.as(1)),
-                  writeReport: () => record("report").pipe(Effect.as(1)),
-                  verify: () =>
-                    record("verify").pipe(
-                      Effect.as({
-                        planSha256: "b".repeat(64),
-                        documentCount: 66,
-                        attachmentCount: 0,
-                        unresolvedReferenceCount: 0 as const
-                      })
-                    )
-                }
-              )
-              yield* publishJiraPreparedPublication(ready, {
+            materializeJiraPreparedPublication(
+              {
+                scanRevision: 1,
+                configurationRevision: 2,
+                attachments: [{ sourceAttachmentId: "attachment-1" }]
+              },
+              {
                 error: JiraMigrationWorkflowFailure,
-                publish: () => record("publish").pipe(Effect.as(true))
-              })
-            })
+                createHidden: record("hidden").pipe(Effect.as("project-1")),
+                copyAttachment: (attachment) =>
+                  record(`attachment-${attachment.sourceAttachmentId}`).pipe(
+                    Effect.as({
+                      sourceAttachmentId: attachment.sourceAttachmentId,
+                      kind: "skipped" as const
+                    })
+                  ),
+                finalizePlan: () =>
+                  record("plan").pipe(
+                    Effect.as({
+                      planRef,
+                      publicationRevision: "b".repeat(64),
+                      documentBatchCount: 2
+                    })
+                  ),
+                writeDocumentBatch: (_planRef, ordinal) =>
+                  record(`batch-${ordinal}`).pipe(Effect.as(32)),
+                writeArchive: () => record("archive").pipe(Effect.as(1)),
+                writeReport: () => record("report").pipe(Effect.as(1)),
+                verify: () =>
+                  record("verify").pipe(
+                    Effect.as({
+                      planSha256: "b".repeat(64),
+                      documentCount: 66,
+                      attachmentCount: 0,
+                      unresolvedReferenceCount: 0 as const
+                    })
+                  )
+              }
+            ),
+          publish: (_input, ready) =>
+            publishJiraPreparedPublication(ready, {
+              error: JiraMigrationWorkflowFailure,
+              publish: () => record("publish").pipe(Effect.as(true))
+            }).pipe(Effect.asVoid)
         }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
         yield* Effect.gen(function* () {
           const executionId = yield* JiraMigrationWorkflow.execute(
@@ -317,7 +332,8 @@ describe("Jira migration workflow contracts", () => {
       const startCalls = yield* Ref.make(0)
       const finalizeCalls = yield* Ref.make(0)
       const layer = makeJiraMigrationWorkflow({
-        materialize: () => Effect.void,
+        materialize: () => Effect.succeed(readyPublication),
+        publish: () => Effect.void,
         scan: () => Effect.void,
         start: () => Ref.update(startCalls, (count) => count + 1),
         finalize: () => Ref.update(finalizeCalls, (count) => count + 1)
@@ -360,7 +376,9 @@ describe("Jira migration workflow contracts", () => {
             Effect.gen(function* () {
               yield* Deferred.succeed(entered, undefined)
               yield* DurableDeferred.await(retryDeferred(9))
+              return readyPublication
             }),
+          publish: () => Effect.void,
           finalize: ({ exit }) =>
             Deferred.succeed(finalized, Exit.isFailure(exit)).pipe(
               Effect.asVoid
@@ -383,7 +401,8 @@ describe("Jira migration workflow contracts", () => {
   it.effect("uses the initial scan revision and execution id for create", () =>
     Effect.gen(function* () {
       const layer = makeJiraMigrationWorkflow({
-        materialize: () => Effect.void,
+        materialize: () => Effect.succeed(readyPublication),
+        publish: () => Effect.void,
         scan: () => Effect.void,
         start: () => Effect.void,
         finalize: () => Effect.void
@@ -408,7 +427,8 @@ describe("Jira migration workflow contracts", () => {
     () =>
       Effect.gen(function* () {
         const layer = makeJiraMigrationWorkflow({
-          materialize: () => Effect.void,
+          materialize: () => Effect.succeed(readyPublication),
+          publish: () => Effect.void,
           scan: () => Effect.void,
           start: () => Effect.die("start defect"),
           finalize: () => Effect.void
@@ -458,7 +478,8 @@ describe("durable snapshot workflow", () => {
         return Effect.succeed(scanFixtureResponse(request))
       })
       const layer = makeJiraMigrationWorkflow({
-        materialize: () => Effect.void,
+        materialize: () => Effect.succeed(readyPublication),
+        publish: () => Effect.void,
         start: () => Effect.void,
         scan: () =>
           Effect.gen(function* () {
@@ -551,7 +572,8 @@ const snapshotHarness = (
   }
   const receipts = new Map<string, number>()
   const layer = makeJiraMigrationWorkflow({
-    materialize: () => Effect.void,
+    materialize: () => Effect.succeed(readyPublication),
+    publish: () => Effect.void,
     start: () => Effect.void,
     finalize: () => Effect.void,
     scan: () =>

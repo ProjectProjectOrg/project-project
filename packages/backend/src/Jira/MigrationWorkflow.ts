@@ -142,7 +142,8 @@ export const makeJiraMigrationWorkflow = <R>(
       yield* activities.scan({ payload, executionId })
       const identity = migrationIdentity(payload, executionId)
       yield* DurableDeferred.await(startImportDeferred(identity.scanRevision))
-      yield* activities.materialize({ payload, executionId })
+      const ready = yield* activities.materialize({ payload, executionId })
+      yield* activities.publish({ payload, executionId }, ready)
       return { migrationId: identity.migrationId }
     })
   )
@@ -187,9 +188,19 @@ export const makeProjectionMigrationActivities = (
   projection: JiraMigrationProjectionShape,
   finalize: MigrationActivities<WorkflowEngine.WorkflowEngine>["finalize"],
   scan: MigrationActivities<WorkflowEngine.WorkflowEngine>["scan"],
-  materialize: MigrationActivities<WorkflowEngine.WorkflowEngine>["materialize"]
+  materialize: MigrationActivities<WorkflowEngine.WorkflowEngine>["materialize"],
+  publish: MigrationActivities<WorkflowEngine.WorkflowEngine>["publish"]
 ): MigrationActivities<WorkflowEngine.WorkflowEngine> => {
-  const fenced = (input: Parameters<typeof scan>[0], run: typeof scan) =>
+  const fenced = <A>(
+    input: Parameters<typeof scan>[0],
+    run: (
+      input: Parameters<typeof scan>[0]
+    ) => Effect.Effect<
+      A,
+      JiraMigrationWorkflowFailureValue,
+      WorkflowEngine.WorkflowEngine | WorkflowEngine.WorkflowInstance
+    >
+  ) =>
     withJiraRemoteWriteIntent(
       projection,
       {
@@ -226,7 +237,8 @@ export const makeProjectionMigrationActivities = (
       ),
     finalize,
     scan: (input) => fenced(input, scan),
-    materialize: (input) => fenced(input, materialize)
+    materialize: (input) => fenced(input, materialize),
+    publish
   }
 }
 

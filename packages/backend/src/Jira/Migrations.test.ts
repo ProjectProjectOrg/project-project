@@ -56,6 +56,21 @@ const unreachableStorage = Layer.mergeAll(
 )
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const readyPublication = {
+  projectId: "project-1",
+  planRef: {
+    key: "migrations/jira/test/publication/plan.json",
+    contentType: "application/json",
+    byteSize: 1,
+    sha256: "a".repeat(64)
+  },
+  verified: {
+    planSha256: "a".repeat(64),
+    documentCount: 0,
+    attachmentCount: 0,
+    unresolvedReferenceCount: 0 as const
+  }
+}
 
 describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
   let pool: Pool
@@ -141,6 +156,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           projection,
           () => Effect.void,
           () => Effect.void,
+          () => Effect.succeed(readyPublication),
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -222,6 +238,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           projection,
           () => Effect.void,
           () => Effect.void,
+          () => Effect.succeed(readyPublication),
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -320,6 +337,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           projection,
           () => Effect.void,
           () => Effect.void,
+          () => Effect.succeed(readyPublication),
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -410,6 +428,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           projection,
           () => Effect.void,
           () => Effect.void,
+          () => Effect.succeed(readyPublication),
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
@@ -498,6 +517,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           projection,
           () => Effect.void,
           () => Effect.void,
+          () => Effect.succeed(readyPublication),
           () => Effect.void
         )
         const workflow = makeJiraMigrationWorkflow({
