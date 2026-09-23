@@ -22,7 +22,8 @@ import {
   loadJiraPreparedPublication,
   makeJiraMaterializationDependencies,
   persistJiraPublicationPlan,
-  persistJiraPreparedPublication
+  persistJiraPreparedPublication,
+  resolveJiraPublicationSource
 } from "./Import"
 import type {
   JiraArtifactRef,
@@ -673,6 +674,90 @@ describe("immutable v2 publication", () => {
         loadJiraPreparedPublication(prepared.orgSlug, ref, artifacts)
       )
     ).toEqual(prepared)
+  })
+
+  it("resolves frozen source artifacts and the Jira project description", async () => {
+    const input = preparationInput()
+    const projectRef = {
+      key: "migrations/jira/migration-1/scan-1/raw/project/page.json",
+      contentType: "application/json",
+      byteSize: 1,
+      sha256: "c".repeat(64)
+    }
+    const textRef = {
+      key: "migrations/jira/migration-1/scan-1/normalized/description/issue-1.json",
+      contentType: "application/json",
+      byteSize: 1,
+      sha256: "d".repeat(64)
+    }
+    const manifest = {
+      ...input.manifest,
+      rawArtifacts: [projectRef],
+      issues: input.manifest.issues.map((issue) =>
+        issue.id === "issue-1"
+          ? { ...issue, descriptionArtifact: textRef }
+          : issue
+      )
+    }
+    const values = new Map<string, unknown>([
+      [
+        projectRef.key,
+        {
+          id: "project-1",
+          key: "APP",
+          name: "Application",
+          description: "Project description",
+          projectTypeKey: null,
+          simplified: null,
+          style: null
+        }
+      ],
+      [
+        textRef.key,
+        {
+          markdown: "Issue body",
+          references: [],
+          warnings: [],
+          adf: {}
+        }
+      ]
+    ])
+    const reads: Array<string> = []
+    const artifacts: Pick<JiraMigrationArtifactsShape, "readJson"> = {
+      readJson: <A>(
+        _orgSlug: string,
+        ref: JiraArtifactRef,
+        schema: Schema.Decoder<A>
+      ) =>
+        Effect.sync(() => void reads.push(ref.key)).pipe(
+          Effect.andThen(
+            Schema.decodeUnknownEffect(schema)(values.get(ref.key))
+          ),
+          Effect.orDie
+        )
+    }
+    const source = await Effect.runPromise(
+      resolveJiraPublicationSource("acme", manifest, artifacts)
+    )
+    expect(source.projectDescription?.markdown).toBe("Project description")
+    expect(source.artifacts).toHaveLength(2)
+    expect(reads).toEqual([projectRef.key, textRef.key])
+    const prepared = await Effect.runPromise(
+      prepareJiraPublication({ ...input, manifest, source })
+    )
+    expect(prepared.source.projectDescription?.markdown).toBe(
+      "Project description"
+    )
+    values.set(projectRef.key, { description: "No identity" })
+    expect(
+      (
+        await Effect.runPromise(
+          Effect.result(
+            resolveJiraPublicationSource("acme", manifest, artifacts)
+          )
+        )
+      )._tag
+    ).toBe("Failure")
   })
   it("stores the finalized plan under its content revision with a bounded batch count", async () => {
     const prepared = await Effect.runPromise(

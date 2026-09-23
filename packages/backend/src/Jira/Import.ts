@@ -4,6 +4,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Path from "effect/Path"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 import { ulid } from "ulid"
 import * as Stream from "effect/Stream"
@@ -52,9 +53,12 @@ import type { JiraClientShape } from "./Client"
 import { jiraConfigurationToMappings } from "./Mappings"
 import {
   canonicalJiraJson,
+  JiraMigrationManifestV2,
   type JiraManifestAttachment,
   type JiraMigrationManifest
 } from "./Manifest"
+import { JiraProject } from "./ClientSchemas"
+import { convertAdfToMarkdown } from "./Adf"
 import {
   preflightJiraMigration,
   JiraPublicationInvalid,
@@ -72,6 +76,7 @@ import {
   finalizeJiraPublication,
   JiraPreparedPublicationV1,
   JiraPublicationPlanV1,
+  JiraResolvedSource,
   type JiraAttachmentOutcome,
   type JiraPublicationPlan
 } from "./PublicationPlan"
@@ -148,6 +153,76 @@ export const buildJiraImportPlan = (
     environment,
     attachmentUrlsBySourceId
   ).result
+
+export const resolveJiraPublicationSource = Effect.fn(
+  "JiraImport.resolvePublicationSource"
+)(function* (
+  orgSlug: string,
+  manifest: JiraMigrationManifestV2,
+  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
+) {
+  const refs = [
+    ...manifest.rawArtifacts,
+    ...manifest.issues.flatMap((issue) =>
+      issue.descriptionArtifact === null ? [] : [issue.descriptionArtifact]
+    ),
+    ...manifest.comments.map((comment) => comment.bodyArtifact),
+    ...manifest.worklogs.flatMap((worklog) =>
+      worklog.bodyArtifact === null ? [] : [worklog.bodyArtifact]
+    ),
+    ...manifest.attachments.map((attachment) => attachment.metadataArtifact),
+    ...manifest.customFields.map((field) => field.valuesArtifact)
+  ]
+  const unique = [...new Map(refs.map((ref) => [ref.key, ref])).values()]
+  const resolved = yield* Effect.forEach(unique, (ref) =>
+    artifacts
+      .readJson(orgSlug, ref, Schema.Json)
+      .pipe(Effect.map((value) => ({ ref, value })))
+  )
+  const projectRefs = manifest.rawArtifacts.filter((ref) =>
+    ref.key.includes("/raw/project/")
+  )
+  if (projectRefs.length > 1)
+    return yield* new JiraPublicationInvalid({
+      reasons: ["multiple-project-source-artifacts"]
+    })
+  const projectRaw = projectRefs[0]
+  const project = projectRaw
+    ? yield* Schema.decodeUnknownEffect(JiraProject)(
+        resolved.find(({ ref }) => ref.key === projectRaw.key)?.value
+      ).pipe(
+        Effect.mapError(
+          () =>
+            new JiraPublicationInvalid({
+              reasons: ["invalid-project-source-artifact"]
+            })
+        )
+      )
+    : null
+  const description = project?.description
+  const projectDescription =
+    description === null || description === undefined
+      ? null
+      : Predicate.isString(description)
+        ? {
+            markdown: description,
+            warnings: [],
+            references: [],
+            adf: description
+          }
+        : { ...convertAdfToMarkdown(description), adf: description }
+  return yield* Schema.decodeUnknownEffect(JiraResolvedSource)({
+    projectDescription,
+    artifacts: resolved
+  }).pipe(
+    Effect.mapError(
+      () =>
+        new JiraPublicationInvalid({
+          reasons: ["invalid-resolved-source-artifact"]
+        })
+    )
+  )
+})
 
 export const persistJiraPreparedPublication = Effect.fn(
   "JiraImport.persistPreparedPublication"
