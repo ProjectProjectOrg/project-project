@@ -14,8 +14,10 @@ import { JiraMigrationManifestV2 } from "./Manifest"
 import {
   prepareJiraPublication,
   finalizeJiraPublication,
+  JiraPublicationPlanV1,
   jiraAttachmentId
 } from "./PublicationPlan"
+import { persistJiraPublicationPlan } from "./Import"
 const convertedText = (
   markdown: string,
   references: JiraConvertedText["references"]
@@ -568,6 +570,46 @@ const preparationInput = () => ({
 })
 
 describe("immutable v2 publication", () => {
+  it("stores the finalized plan under its content revision with a bounded batch count", async () => {
+    const prepared = await Effect.runPromise(
+      prepareJiraPublication(preparationInput())
+    )
+    const writes: Array<
+      Readonly<{
+        coordinates: Readonly<{ area: string; kind: string; identity: string }>
+        value: unknown
+      }>
+    > = []
+    const ref = {
+      key: "migrations/jira/migration-1/scan-1/publication/plan-v1/test.json",
+      contentType: "application/json",
+      byteSize: 100,
+      sha256: "b".repeat(64)
+    }
+    const result = await Effect.runPromise(
+      persistJiraPublicationPlan(prepared, [], {
+        writeJson: (_orgSlug, coordinates, value) =>
+          Effect.sync(() => {
+            writes.push({ coordinates, value })
+            return ref
+          })
+      })
+    )
+    expect(result.planRef).toEqual(ref)
+    expect(result.documentBatchCount).toBe(1)
+    expect(writes).toHaveLength(1)
+    const [write] = writes
+    if (!write) throw new Error("expected a stored plan")
+    expect(write.coordinates).toMatchObject({
+      area: "publication",
+      kind: "plan-v1",
+      identity: result.publicationRevision
+    })
+    expect(
+      Schema.decodeUnknownSync(JiraPublicationPlanV1)(write.value).documents
+        .length
+    ).toBeGreaterThan(0)
+  })
   it("derives schema-valid attachment IDs from source identity and creation time", () => {
     const id = jiraAttachmentId("migration-1", "jira-attachment-88", createdAt)
     expect(Schema.is(AttachmentId)(id)).toBe(true)

@@ -55,8 +55,11 @@ import {
   type JiraPreflightEnvironment
 } from "./Preflight"
 import { decodeCheckpoint, type AttemptFence } from "./MigrationProjection"
+import { jiraDocumentBatches } from "./MigrationActivities"
+import type { JiraMigrationArtifactsShape } from "./MigrationArtifacts"
 import {
   createJiraPublicationPlan,
+  finalizeJiraPublication,
   type JiraAttachmentOutcome,
   type JiraPreparedPublicationV1,
   type JiraPublicationPlan,
@@ -135,6 +138,32 @@ export const buildJiraImportPlan = (
     environment,
     attachmentUrlsBySourceId
   ).result
+
+export const persistJiraPublicationPlan = Effect.fn(
+  "JiraImport.persistPublicationPlan"
+)(function* (
+  prepared: JiraPreparedPublicationV1,
+  outcomes: ReadonlyArray<JiraAttachmentOutcome>,
+  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
+) {
+  const finalized = yield* finalizeJiraPublication(prepared, outcomes)
+  const planRef = yield* artifacts.writeJson(
+    prepared.orgSlug,
+    {
+      migrationId: prepared.manifest.migrationId,
+      scanRevision: prepared.manifest.scanRevision,
+      area: "publication",
+      kind: "plan-v1",
+      identity: finalized.publicationRevision
+    },
+    finalized.plan
+  )
+  return {
+    planRef,
+    publicationRevision: finalized.publicationRevision,
+    documentBatchCount: jiraDocumentBatches(finalized.plan.documents).length
+  }
+})
 
 export type HiddenJiraProjectInput = Readonly<{
   fence: AttemptFence
