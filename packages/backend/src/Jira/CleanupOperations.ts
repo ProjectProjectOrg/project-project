@@ -247,6 +247,15 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     executionId: string
   ) =>
     Effect.gen(function* () {
+      if (payload.mode === "discard" || payload.mode === "expire") {
+        const [existing] = yield* db
+          .select({ id: jiraMigration.id })
+          .from(jiraMigration)
+          .where(eq(jiraMigration.id, payload.migrationId))
+          .limit(1)
+          .pipe(Effect.mapError(() => cleanupFailure("cleanup-read-failed")))
+        if (!existing) return
+      }
       const { row } = yield* readState(payload, executionId)
       const fence = fenceFor(row)
       if (!fence)

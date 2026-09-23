@@ -44,7 +44,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
     await pool.end()
   })
 
-  it("resets a hidden import without deleting its scan artifacts", async () => {
+  it("resets a hidden import and replays discard after projection deletion", async () => {
     const owner = { organizationId: randomUUID(), userId: randomUUID() }
     owners.push(owner)
     await pool.query(
@@ -198,10 +198,25 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         yield* activities.deleteHiddenDocuments(payload, "cleanup-execution")
         yield* activities.deleteHiddenProject(payload, "cleanup-execution")
         yield* activities.complete(payload, "cleanup-execution")
+        const reset = yield* projection.owned(owner, created.id)
+        yield* projection.recordFailure(fence, {
+          reason: "discard-after-reset",
+          retryable: false
+        })
+        const failed = yield* projection.owned(owner, created.id)
+        const discard = {
+          migrationId: created.id,
+          mode: "discard" as const,
+          cleanupGeneration: failed.revision + 1
+        }
+        expect(yield* activities.claim(discard, "discard-execution")).toBe(true)
+        yield* activities.deletePrivateStaging(discard, "discard-execution")
+        yield* activities.complete(discard, "discard-execution")
+        yield* activities.complete(discard, "discard-execution")
         return {
           migrationId: created.id,
           slug,
-          row: yield* projection.owned(owner, created.id),
+          row: reset,
           remainingProject: yield* db.select().from(projectIndex)
         }
       }).pipe(Effect.provide(layer))
@@ -213,6 +228,6 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
     ).toBe(false)
     expect(removedObjects).toEqual(["copied-object"])
     expect(removedDirectories).toEqual([result.slug])
-    expect(removedPrefixes).toEqual([])
+    expect(removedPrefixes).toEqual([`migrations/jira/${result.migrationId}/`])
   })
 })
