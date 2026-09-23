@@ -1,4 +1,5 @@
-import type { TicketCountQuery } from "@pp/shared"
+import { TicketCountQuery } from "@pp/shared"
+import * as Schema from "effect/Schema"
 import * as Atom from "effect/unstable/reactivity/Atom"
 
 import { Api } from "@/api/Api"
@@ -9,13 +10,15 @@ export type CountsRequest = Readonly<{
   query: TicketCountQuery
 }>
 
+const countFilters = Schema.decodeSync(Schema.toType(TicketCountQuery))
+
 export const countsRequest = (
   orgSlug: string,
   slug: string,
   query: TicketCountQuery
 ): CountsRequest => ({
   params: { orgSlug, slug },
-  query
+  query: countFilters(query)
 })
 
 const countsQuery = (req: CountsRequest) => {
