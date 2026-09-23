@@ -1,14 +1,137 @@
-import { describe, expect, it } from "vite-plus/test"
+import { randomUUID } from "node:crypto"
+import { PgClient } from "@effect/sql-pg"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
+import { Effect, Layer, Redacted } from "effect"
+import { Pool } from "pg"
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import type { JiraConvertedText, JiraMigrationManifest } from "./Manifest"
 import {
   aliasJiraMediaReferences,
   buildJiraImportPlan,
+  ensureHiddenJiraProject,
   groupColors,
   nextTicketNumberFor
 } from "./Import"
 import type { JiraPreflightEnvironment } from "./Preflight"
 import { TAG_DEFAULT_PALETTE } from "@projectproject/shared"
 import type { JiraPublicationPlan } from "./PublicationPlan"
+import { DbLive } from "../Layers/Db"
+
+const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+
+describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
+  let pool: Pool
+  const owners: Array<Readonly<{ organizationId: string; userId: string }>> = []
+
+  beforeAll(async () => {
+    const url = new URL(databaseUrl!)
+    if (
+      !["127.0.0.1", "localhost"].includes(url.hostname) ||
+      !url.pathname.startsWith("/projectproject_effect_v4_")
+    )
+      throw new Error("Isolated database required")
+    pool = new Pool({ connectionString: databaseUrl })
+    await migrate(drizzle({ client: pool }), {
+      migrationsFolder: `${import.meta.dirname}/../db/migrations`
+    })
+  })
+
+  afterAll(async () => {
+    for (const owner of owners) {
+      await pool.query('delete from "organization" where id = $1', [
+        owner.organizationId
+      ])
+      await pool.query('delete from "user" where id = $1', [owner.userId])
+    }
+    await pool.end()
+  })
+
+  it("creates one hidden row for the current attempt and rejects a stale retry", async () => {
+    const organizationId = randomUUID()
+    const userId = randomUUID()
+    const migrationId = randomUUID()
+    const projectId = randomUUID()
+    const slug = `jira-${randomUUID()}`
+    owners.push({ organizationId, userId })
+    await pool.query(
+      'insert into "user" (id,name,email,email_verified,created_at,updated_at) values ($1,$1,$2,false,now(),now())',
+      [userId, `${userId}@example.test`]
+    )
+    await pool.query(
+      'insert into "organization" (id,name,slug,created_at) values ($1,$1,$1,now())',
+      [organizationId]
+    )
+    await pool.query(
+      `insert into jira_migration (id,request_id,organization_id,initiated_by,source_cloud_id,source_site_name,source_site_url,source_project_id,source_project_key,source_project_name,staging_prefix,workflow_execution_id,workflow_attempt,status,phase) values ($1,$2,$3,$4,'cloud','Site','https://example.test','10000','APP','Application',$5,$1,1,'migrating','migrate')`,
+      [
+        migrationId,
+        randomUUID(),
+        organizationId,
+        userId,
+        `migrations/jira/${migrationId}`
+      ]
+    )
+    const input = {
+      fence: {
+        migrationId,
+        workflowExecutionId: migrationId,
+        workflowAttempt: 1
+      },
+      project: {
+        id: projectId,
+        organizationId,
+        slug,
+        key: "APP",
+        name: "Application",
+        icon: "📦",
+        color: "#123456",
+        nextTicketNumber: 2,
+        createdBy: userId,
+        createdAt: "2026-09-22T10:00:00.000Z"
+      }
+    }
+    const layer = DbLive.pipe(
+      Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+    )
+    await Effect.runPromise(
+      ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
+    )
+    await Effect.runPromise(
+      ensureHiddenJiraProject(input).pipe(Effect.provide(layer))
+    )
+    const rows = await pool.query(
+      "select id,published_at from project_index where slug = $1",
+      [slug]
+    )
+    expect(rows.rows).toEqual([{ id: projectId, published_at: null }])
+    const conflicting = await Effect.runPromise(
+      Effect.result(
+        ensureHiddenJiraProject({
+          ...input,
+          project: { ...input.project, name: "Different" }
+        })
+      ).pipe(Effect.provide(layer))
+    )
+    expect(conflicting._tag).toBe("Failure")
+    await pool.query(
+      "update jira_migration set workflow_attempt = 2 where id = $1",
+      [migrationId]
+    )
+    const stale = await Effect.runPromise(
+      Effect.result(ensureHiddenJiraProject(input)).pipe(Effect.provide(layer))
+    )
+    expect(stale._tag).toBe("Failure")
+    expect(
+      (
+        await pool.query(
+          "select count(*)::int as count from project_index where slug = $1",
+          [slug]
+        )
+      ).rows[0]?.count
+    ).toBe(1)
+  })
+})
 
 const convertedText = (markdown: string): JiraConvertedText => ({
   markdown,

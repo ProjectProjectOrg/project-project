@@ -30,7 +30,7 @@ import {
 } from "../db/schema"
 import { serializeCommentsRegion, type CommentBlock } from "../comments-region"
 import { JiraMigrationBlocked } from "./Blocked"
-import type { Db } from "../Services/Db"
+import { Db } from "../Services/Db"
 import {
   attachmentObjectKey,
   type S3Connection,
@@ -46,8 +46,10 @@ import { jiraConfigurationToMappings } from "./Mappings"
 import type { JiraManifestAttachment, JiraMigrationManifest } from "./Manifest"
 import {
   preflightJiraMigration,
+  JiraPublicationInvalid,
   type JiraPreflightEnvironment
 } from "./Preflight"
+import type { AttemptFence } from "./MigrationProjection"
 import {
   createJiraPublicationPlan,
   type JiraPublicationPlan
@@ -125,6 +127,89 @@ export const buildJiraImportPlan = (
     environment,
     attachmentUrlsBySourceId
   ).result
+
+export type HiddenJiraProjectInput = Readonly<{
+  fence: AttemptFence
+  project: Readonly<{
+    id: string
+    organizationId: string
+    slug: string
+    key: string
+    name: string
+    icon: string
+    color: string
+    nextTicketNumber: number
+    createdBy: string
+    createdAt: string
+  }>
+}>
+
+export const ensureHiddenJiraProject = Effect.fn(
+  "JiraImport.ensureHiddenProject"
+)(function* (input: HiddenJiraProjectInput) {
+  const db = yield* Db
+  const { fence, project } = input
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [migration] = yield* tx
+        .select({
+          workflowExecutionId: jiraMigration.workflowExecutionId,
+          workflowAttempt: jiraMigration.workflowAttempt,
+          status: jiraMigration.status,
+          cleanupExecutionId: jiraMigration.cleanupExecutionId,
+          organizationId: jiraMigration.organizationId
+        })
+        .from(jiraMigration)
+        .where(eq(jiraMigration.id, fence.migrationId))
+        .for("update")
+      if (
+        !migration ||
+        migration.workflowExecutionId !== fence.workflowExecutionId ||
+        migration.workflowAttempt !== fence.workflowAttempt ||
+        migration.status !== "migrating" ||
+        migration.cleanupExecutionId !== null ||
+        migration.organizationId !== project.organizationId
+      )
+        return yield* new JiraPublicationInvalid({
+          reasons: ["stale-materialization-attempt"]
+        })
+      yield* tx
+        .insert(projectIndex)
+        .values({
+          ...project,
+          createdAt: DateTime.toDate(DateTime.makeUnsafe(project.createdAt)),
+          banner: null,
+          iconImage: null,
+          publishedAt: null
+        })
+        .onConflictDoNothing()
+      const [existing] = yield* tx
+        .select()
+        .from(projectIndex)
+        .where(eq(projectIndex.slug, project.slug))
+        .limit(1)
+      if (
+        !existing ||
+        existing.id !== project.id ||
+        existing.organizationId !== project.organizationId ||
+        existing.key !== project.key ||
+        existing.name !== project.name ||
+        existing.icon !== project.icon ||
+        existing.color !== project.color ||
+        existing.nextTicketNumber !== project.nextTicketNumber ||
+        existing.createdBy !== project.createdBy ||
+        existing.createdAt.toISOString() !== project.createdAt ||
+        existing.banner !== null ||
+        existing.iconImage !== null ||
+        existing.publishedAt !== null
+      )
+        return yield* new JiraPublicationInvalid({
+          reasons: ["hidden-project-identity-conflict"]
+        })
+      return existing.id
+    })
+  )
+})
 
 const commentBlocksFor = (
   plan: JiraPublicationPlan,
